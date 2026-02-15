@@ -2,6 +2,22 @@
 
 > 核心规约 - 全组成员及AI工具必须严格遵守
 
+## 架构理念
+
+详见 [架构理念 (architecture/PHILOSOPHY.md)](./architecture/PHILOSOPHY.md)
+
+核心原则：
+- **Contract-First**: 契约优先开发
+- **SSOT**: 单一真实来源
+- **Separation of Concerns**: 关注点分离
+- **DRY**: 不重复自己
+
+## AI 协作
+
+详见 [AI 协作规范 (standards/AI_COLLABORATION.md)](./standards/AI_COLLABORATION.md)
+
+**自主学习机制**: AI 应从反馈中学习，主动更新规范，形成自我进化循环。
+
 ## 三大核心规约
 
 ### 1. 仓库与分支安全

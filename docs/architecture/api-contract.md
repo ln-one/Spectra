@@ -1,34 +1,30 @@
 # API 契约
 
-> 契约优先开发
+## 理念
 
-## 契约文件
+### Contract-First Development (契约优先开发)
+API 契约是开发的起点，前后端基于契约并行开发，避免接口不一致。
 
-**`docs/openapi.yaml`** - 所有 API 定义的单一来源
+### Single Source of Truth (SSOT)
+`docs/openapi.yaml` 是所有 API 定义的唯一权威来源。
 
-## 工作流程
-
-1. TL 定义 `openapi.yaml`
-2. 前端生成 TypeScript 类型
-3. 后端生成 Pydantic Schema
-4. 前后端并行开发
-
-## 生成命令
+## 工作流
 
 ```bash
-# 前端
+# 1. 架构师定义契约
+vim docs/openapi.yaml
+
+# 2. 前端生成类型 (TypeScript)
 npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
 
-# 后端
-datamodel-codegen --input ../docs/openapi.yaml --output app/schemas/generated.py
+# 3. 后端生成 Schema (Pydantic)
+datamodel-codegen --input ../docs/openapi.yaml --output schemas/generated.py
 
-# Mock Server
-prism mock docs/openapi.yaml
+# 4. 前后端并行开发，基于生成的类型
 ```
 
-## 通用规范
+## 响应格式 (统一)
 
-### 响应格式
 ```json
 {
   "success": true,
@@ -37,10 +33,16 @@ prism mock docs/openapi.yaml
 }
 ```
 
-### 状态码
+## HTTP 状态码
+
 - 200: 成功
 - 400: 请求错误
 - 401: 未认证
 - 404: 未找到
 - 500: 服务器错误
 
+## 原则
+
+1. **契约先行**: 先更新 `openapi.yaml`，再写代码
+2. **类型安全**: 前后端使用生成的类型，避免手写
+3. **保持同步**: 实现必须与契约一致

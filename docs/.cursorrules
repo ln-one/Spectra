@@ -1,256 +1,47 @@
-# Spectra Docs - AI 文档编写规则
+# Docs
 
-你正在 Spectra 文档目录中工作 (Monorepo 的 docs/ 目录)。
+## 重要
 
-## 上下文
+本目录包含项目权威规范：
+- `openapi.yaml` - API 契约
+- `standards/` - 代码规范
+- `architecture/` - 架构设计
+- `decisions/` - 技术决策
 
-- 项目根目录: `../` (Spectra Monorepo)
-- 前端代码: `../frontend/`
-- 后端代码: `../backend/`
-
-## 必读文档
-
-开始前必须阅读：
-1. `CONTRIBUTING.md` - 核心规约
-2. `standards/documentation.md` - 文档规范
-3. `standards/git.md` - Git 规范
-
-## 文档规范
+## 规则
 
 ### 格式
-- 使用 Markdown (.md)
+- Markdown (.md)
 - 单文档 <6000 字符
-- 超过则拆分为多个文件
+- Mermaid 绘图
+- 精简，少废话
 
-### 图表
-- 使用 Mermaid.js
-- 禁止截图
+### 目录
+```
+project/         # 项目基础
+standards/       # 规范 (权威)
+architecture/    # 架构 (权威)
+decisions/       # 决策 (ADR)
+requirements/    # 需求
+guides/          # 指南
+```
 
-示例：
+## Mermaid
+
 ```mermaid
 graph LR
     A[用户] --> B[前端]
     B --> C[后端]
-    C --> D[数据库]
 ```
 
-### 目录结构
-```
-docs/
-├── project/         # 项目基础文档
-│   ├── requirements.md
-│   └── tech-stack.md
-├── standards/       # 规范标准
-│   ├── frontend.md
-│   ├── backend.md
-│   ├── git.md
-│   └── documentation.md
-├── architecture/    # 架构设计
-│   ├── README.md
-│   └── api-contract.md
-├── decisions/       # 技术决策 (ADR)
-│   ├── 001-frontend-framework.md
-│   └── 002-backend-framework.md
-├── requirements/    # 需求分析
-│   ├── ux/
-│   ├── functional/
-│   └── ai/
-└── guides/          # 开发指南
-    └── README.md
-```
+## 维护
 
-## 文档类型
+- 代码变更时更新文档
+- 废弃决策标记 "已废弃"
+- `openapi.yaml` 与实现一致
 
-### 1. 规范文档 (standards/)
-
-**特点**:
-- 简洁明了
-- 有示例代码
-- 可执行
-
-**模板**:
-```markdown
-# [规范名称]
-
-## 概述
-简短描述规范目的
-
-## 规则
-1. 规则一
-2. 规则二
-
-## 示例
-\`\`\`[language]
-// 示例代码
-\`\`\`
-
-## 禁止
-- 禁止项一
-- 禁止项二
-```
-
-### 2. 技术决策 (decisions/)
-
-**格式**: ADR (Architecture Decision Record)
-
-**模板**:
-```markdown
-# [编号]-[决策标题]
-
-## 状态
-已接受 / 已废弃 / 提议中
-
-## 背景
-为什么需要做这个决策
-
-## 方案对比
-### 方案 A
-优点：
-缺点：
-
-### 方案 B
-优点：
-缺点：
-
-## 决策
-选择方案 X
-
-## 理由
-为什么选择这个方案
-
-## 影响
-这个决策的影响范围
-```
-
-### 3. 架构文档 (architecture/)
-
-**特点**:
-- 使用 Mermaid 图表
-- 描述系统结构
-- 说明组件关系
-
-**示例**:
-```markdown
-# 系统架构
-
-## 整体架构
-
-\`\`\`mermaid
-graph TB
-    A[前端] --> B[API Gateway]
-    B --> C[后端服务]
-    C --> D[数据库]
-\`\`\`
-
-## 组件说明
-...
-```
-
-### 4. 指南文档 (guides/)
-
-**特点**:
-- 步骤清晰
-- 有代码示例
-- 可复现
-
-**模板**:
-```markdown
-# [指南标题]
-
-## 前置条件
-- 条件一
-- 条件二
-
-## 步骤
-
-### 1. 第一步
-\`\`\`bash
-# 命令示例
-\`\`\`
-
-### 2. 第二步
-...
-
-## 验证
-如何验证操作成功
-```
-
-## 文档长度控制
-
-### 单文档 <6000 字符
-
-超过时拆分：
-```
-api-design.md (7000 字符) → api-design/
-                             ├── README.md (概述)
-                             ├── rest-api.md
-                             └── websocket.md
-```
-
-## Commit 格式
+## Commit
 
 ```
 docs(<scope>): <subject>
-
-scope: project | standards | architecture | decisions | guides
 ```
-
-示例：
-```bash
-docs(standards): 更新前端代码规范
-docs(architecture): 添加系统架构图
-docs(decisions): 记录数据库选型决策
-docs(guides): 添加部署指南
-```
-
-## 禁止
-
-- 使用二进制文档 (.docx, .pdf)
-- 粘贴截图 (使用 Mermaid 代替)
-- 单文档 >6000 字符
-- 提交敏感信息
-- 过时的文档 (及时更新或删除)
-
-## 生成文档要求
-
-1. 使用 Markdown
-2. 使用 Mermaid 绘图
-3. 控制文档长度
-4. 添加目录链接
-5. 语言简洁清晰
-6. 代码示例可运行
-
-## 文档维护
-
-### 保持同步
-- 代码变更时更新相关文档
-- 废弃的决策标记为 "已废弃"
-- 定期检查文档准确性
-
-### 交叉引用
-```markdown
-详见 [前端规范](./standards/frontend.md)
-参考 [API 契约](./architecture/api-contract.md)
-```
-
-## 与代码协作
-
-### 引用代码示例
-```markdown
-前端组件示例：
-\`\`\`typescript
-// 参考 ../frontend/components/CourseList.tsx
-\`\`\`
-
-后端 API 示例：
-\`\`\`python
-# 参考 ../backend/routers/courses.py
-\`\`\`
-```
-
-### API 文档
-- 与 `../backend/` 的 API 实现保持一致
-- 使用 OpenAPI/Swagger 规范
-- 参考 `openapi.yaml`
-
-详见: `standards/documentation.md`
