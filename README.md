@@ -1,5 +1,8 @@
 # Spectra - Multimodal AI Teaching Assistant
 
+[![CI](https://github.com/ln-one/Spectra/actions/workflows/ci.yml/badge.svg)](https://github.com/ln-one/Spectra/actions/workflows/ci.yml)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+
 An AI-powered intelligent courseware generation system that helps educators quickly create high-quality multimodal teaching materials through natural conversation.
 
 ## Project Structure
@@ -165,4 +168,8 @@ cd ../backend && pip install -r requirements.txt && prisma generate
 
 ## License
 
-MIT
+This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/).
+
+- ✅ 可以自由使用、复制、修改
+- ✅ 需要注明原作者
+- ❌ **禁止商业用途**
