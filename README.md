@@ -39,19 +39,27 @@ Spectra/                 # Monorepo root
 
 ## Quick Start
 
-### Frontend Development
+### Using Docker (Recommended)
 
 ```bash
+docker-compose up
+```
+
+- Frontend: http://localhost:3000
+- Backend: http://localhost:8000
+- API Docs: http://localhost:8000/docs
+
+See [Docker Setup Guide](./docs/guides/docker-setup.md) for details.
+
+### Local Development
+
+```bash
+# Frontend
 cd frontend
 npm install
 npm run dev
-```
 
-Visit http://localhost:3000
-
-### Backend Development
-
-```bash
+# Backend
 cd backend
 pip install -r requirements.txt
 cp .env.example .env
@@ -59,10 +67,6 @@ prisma generate
 prisma db push
 uvicorn main:app --reload
 ```
-
-Visit http://localhost:8000
-
-API Docs: http://localhost:8000/docs
 
 ## AI Collaboration Optimization
 
@@ -101,13 +105,23 @@ This project is optimized for AI-assisted development with dedicated `.cursorrul
 - [Git Standards](./docs/standards/git.md)
 - [Documentation Standards](./docs/standards/documentation.md)
 
+## CI/CD
+
+Automated continuous integration with GitHub Actions:
+- Code quality checks (ESLint, Black, Flake8)
+- Build verification
+- Documentation changes don't trigger CI
+
+See [CI/CD Guide](./docs/guides/ci-cd.md) for details.
+
 ## Documentation
 
 - [Project Requirements](./docs/project/requirements.md)
 - [Tech Stack](./docs/project/tech-stack.md)
 - [Architecture Design](./docs/architecture/)
 - [Technical Decisions](./docs/decisions/)
-- [Development Guides](./docs/guides/)
+- [Docker Setup Guide](./docs/guides/docker-setup.md)
+- [CI/CD Guide](./docs/guides/ci-cd.md)
 
 ## Monorepo Advantages
 
@@ -137,25 +151,16 @@ git commit -m "feat(frontend): add new feature"
 git push origin feat/your-feature
 ```
 
-## Verify Monorepo Setup
+## Verify Setup
 
 ```bash
-# Check directory structure
-ls -la
-# Should see: frontend/ backend/ docs/ .cursorrules .gitignore
+# Using Docker
+docker-compose up
 
-# Check Git status
-git status
-# Should be a clean Git repository
-
-# Verify frontend
+# Or verify manually
+ls -la  # Check directory structure
 cd frontend && npm install && npm run build
-
-# Verify backend
 cd ../backend && pip install -r requirements.txt && prisma generate
-
-# Verify docs
-cd ../docs && ls -la
 ```
 
 ## License
