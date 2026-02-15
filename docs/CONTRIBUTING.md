@@ -29,7 +29,7 @@ See [AI Collaboration Standards (standards/AI_COLLABORATION.md)](./standards/AI_
 
 **PR Requirements**:
 - At least 1 reviewer approval
-- Pass CI checks (Lint/Build)
+- Pass CI checks (Lint/Build/Test)
 - No conflicts
 
 ### 2. AI-Friendly Documentation Standards
@@ -99,10 +99,15 @@ docs(readme): update installation guide
 # 1. Create branch
 git checkout -b feat/feature-name
 
-# 2. Develop and commit
+# 2. Develop and test
+# Run tests before committing
+cd frontend && npm test
+cd ../backend && pytest
+
+# 3. Commit following conventions
 git commit -m "feat(scope): description"
 
-# 3. Push and create PR
+# 4. Push and create PR
 git push origin feat/feature-name
 ```
 
@@ -118,6 +123,7 @@ git push origin feat/feature-name
 - [Code Standards](./standards/code.md) - Frontend/backend code standards, API conventions
 - [Git Standards](./standards/git.md) - Branch strategy, commit, PR conventions
 - [Documentation Standards](./standards/documentation.md) - Markdown, Mermaid, document structure
+- [Testing Guide](./guides/testing.md) - Unit tests, integration tests, CI/CD testing
 
 ## Related Documentation
 

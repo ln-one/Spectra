@@ -120,10 +120,11 @@ This project is optimized for AI-assisted development with dedicated `.cursorrul
 
 Automated continuous integration with GitHub Actions:
 - Code quality checks (ESLint, Black, Flake8)
+- Unit tests (Jest, pytest)
 - Build verification
 - Documentation changes don't trigger CI
 
-See [CI/CD Guide](./docs/guides/ci-cd.md) for details.
+See [CI/CD Guide](./docs/guides/ci-cd.md) and [Testing Guide](./docs/guides/testing.md) for details.
 
 ## Documentation
 
@@ -132,6 +133,7 @@ See [CI/CD Guide](./docs/guides/ci-cd.md) for details.
 - [Architecture Design](./docs/architecture/)
 - [Technical Decisions](./docs/decisions/)
 - [Docker Setup Guide](./docs/guides/docker-setup.md)
+- [Testing Guide](./docs/guides/testing.md)
 - [CI/CD Guide](./docs/guides/ci-cd.md)
 
 ## Monorepo Advantages

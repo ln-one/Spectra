@@ -18,12 +18,14 @@
 - 依赖安装
 - ESLint 代码检查
 - TypeScript 类型检查
+- Jest 单元测试
 - 构建验证
 
 #### 后端 (backend)
 - 依赖安装
 - Black 代码格式检查
 - Flake8 代码质量检查
+- pytest 单元测试
 - Prisma 生成验证
 
 ## 本地验证
@@ -32,15 +34,19 @@
 ```bash
 cd frontend
 npm run lint
+npm run format:check
+npm test
 npm run build
 ```
 
 ### 后端检查
 ```bash
 cd backend
-pip install black flake8
+pip install -r requirements-dev.txt
 black --check .
+isort --check .
 flake8 . --max-line-length=88
+pytest
 ```
 
 ## 分支保护规则

@@ -33,7 +33,7 @@ cp frontend/.env.example frontend/.env.local
 docker-compose up
 ```
 
-完成！🎉
+完成！
 
 - **前端**: http://localhost:3000
 - **后端 API**: http://localhost:8000
