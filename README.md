@@ -170,6 +170,6 @@ cd ../backend && pip install -r requirements.txt && prisma generate
 
 This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/).
 
-- ✅ 可以自由使用、复制、修改
-- ✅ 需要注明原作者
-- ❌ **禁止商业用途**
+- ✅ Free to use, copy, and modify
+- ✅ Attribution required
+- ❌ **Commercial use prohibited**
