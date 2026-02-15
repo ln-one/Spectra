@@ -1,0 +1,460 @@
+openapi: 3.0.0
+info:
+  title: Spectra API
+  version: 1.0.0
+  description: 多模态AI教学智能体 API
+
+servers:
+  - url: http://localhost:8000
+    description: 开发环境
+  - url: https://api.spectra.com
+    description: 生产环境
+
+paths:
+  /api/v1/chat/messages:
+    post:
+      summary: 发送消息
+      tags: [Chat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendMessageResponse'
+        '400':
+          description: 请求错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: 获取对话历史
+      tags: [Chat]
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetMessagesResponse'
+
+  /api/v1/upload:
+    post:
+      summary: 上传参考文件
+      tags: [Upload]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, project_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+
+  /api/v1/upload/{project_id}:
+    get:
+      summary: 获取项目的上传文件列表
+      tags: [Upload]
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetFilesResponse'
+
+  /api/v1/generate/courseware:
+    post:
+      summary: 生成课件
+      tags: [Generate]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+      responses:
+        '200':
+          description: 生成任务已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+
+  /api/v1/generate/status/{task_id}:
+    get:
+      summary: 查询生成状态
+      tags: [Generate]
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateStatusResponse'
+
+  /api/v1/projects:
+    post:
+      summary: 创建项目
+      tags: [Project]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '200':
+          description: 项目创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateProjectResponse'
+
+    get:
+      summary: 获取项目列表
+      tags: [Project]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetProjectsResponse'
+
+  /api/v1/projects/{project_id}:
+    get:
+      summary: 获取项目详情
+      tags: [Project]
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetProjectResponse'
+
+components:
+  schemas:
+    Message:
+      type: object
+      required: [id, role, content, timestamp]
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    SendMessageRequest:
+      type: object
+      required: [project_id, content]
+      properties:
+        project_id:
+          type: string
+        content:
+          type: string
+          minLength: 1
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+
+    SendMessageResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            message:
+              $ref: '#/components/schemas/Message'
+            suggestions:
+              type: array
+              items:
+                type: string
+        message:
+          type: string
+
+    GetMessagesResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/Message'
+            total:
+              type: integer
+        message:
+          type: string
+
+    UploadedFile:
+      type: object
+      required: [id, filename, file_type, file_size, status, created_at]
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        file_type:
+          type: string
+          enum: [pdf, word, video, image]
+        file_size:
+          type: integer
+        status:
+          type: string
+          enum: [uploading, parsing, ready, failed]
+        created_at:
+          type: string
+          format: date-time
+
+    UploadResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            file:
+              $ref: '#/components/schemas/UploadedFile'
+        message:
+          type: string
+
+    GetFilesResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            files:
+              type: array
+              items:
+                $ref: '#/components/schemas/UploadedFile'
+            total:
+              type: integer
+        message:
+          type: string
+
+    GenerateRequest:
+      type: object
+      required: [project_id, type]
+      properties:
+        project_id:
+          type: string
+        type:
+          type: string
+          enum: [ppt, word, both]
+        options:
+          type: object
+          properties:
+            style:
+              type: string
+            pages:
+              type: integer
+
+    GenerateResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+            status:
+              type: string
+              enum: [pending, processing, completed, failed]
+        message:
+          type: string
+
+    GenerateStatusResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+            status:
+              type: string
+              enum: [pending, processing, completed, failed]
+            progress:
+              type: integer
+              minimum: 0
+              maximum: 100
+            result:
+              type: object
+              properties:
+                ppt_url:
+                  type: string
+                word_url:
+                  type: string
+            error:
+              type: string
+        message:
+          type: string
+
+    Project:
+      type: object
+      required: [id, title, subject, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        subject:
+          type: string
+        grade_level:
+          type: string
+        status:
+          type: string
+          enum: [draft, in_progress, completed]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateProjectRequest:
+      type: object
+      required: [title, subject]
+      properties:
+        title:
+          type: string
+        subject:
+          type: string
+        grade_level:
+          type: string
+
+    CreateProjectResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            project:
+              $ref: '#/components/schemas/Project'
+        message:
+          type: string
+
+    GetProjectsResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            projects:
+              type: array
+              items:
+                $ref: '#/components/schemas/Project'
+            total:
+              type: integer
+        message:
+          type: string
+
+    GetProjectResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            project:
+              $ref: '#/components/schemas/Project'
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        data:
+          type: 'null'
+        message:
+          type: string
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            details:
+              type: object

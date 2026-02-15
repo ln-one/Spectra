@@ -1,0 +1,159 @@
+# Spectra Monorepo - AI 开发规则
+
+你正在 Spectra Monorepo 项目中工作。这是一个多模态AI教学智能体系统。
+
+## 项目结构
+
+```
+Spectra/
+├── frontend/     # Next.js 前端应用
+├── backend/      # FastAPI 后端服务
+└── docs/         # 项目文档
+```
+
+## 必读文档
+
+开始工作前必须阅读：
+1. `docs/CONTRIBUTING.md` - 核心规约
+2. 根据工作目录选择对应规范：
+   - 前端: `docs/standards/frontend.md`
+   - 后端: `docs/standards/backend.md`
+   - 文档: `docs/standards/documentation.md`
+3. `docs/standards/git.md` - Git 规范
+
+## 工作目录识别
+
+根据当前工作目录自动应用对应规范：
+
+### 在 `frontend/` 目录工作时
+
+**技术栈**: Next.js 15 + TypeScript + Tailwind CSS + Shadcn/ui
+
+**命名规范**:
+- 组件: `PascalCase.tsx`
+- 工具: `camelCase.ts`
+- 常量: `UPPER_SNAKE_CASE.ts`
+
+**代码风格**:
+- 2 空格缩进
+- 单引号
+- 单文件 <300 行
+
+**目录结构**:
+```
+app/          # 页面路由
+components/   # React 组件
+lib/          # 工具函数
+```
+
+**复杂度控制**: 文件 >300 行时拆分为子目录
+
+**禁止**:
+- 内联样式
+- 单文件 >300 行
+- 不使用 TypeScript
+
+### 在 `backend/` 目录工作时
+
+**技术栈**: FastAPI + Python 3.11 + Prisma ORM + SQLite
+
+**命名规范**:
+- 文件: `snake_case.py`
+- 类: `PascalCase`
+- 函数: `snake_case`
+
+**代码风格**:
+- Black + PEP 8
+- 4 空格缩进
+- Type hints 必须
+- 单文件 <300 行
+
+**目录结构**:
+```
+routers/      # API 路由
+services/     # 业务逻辑
+schemas/      # 数据模型
+```
+
+**API 规范**:
+- URL: `/api/v1/资源名`
+- 响应: `{"success": true, "data": {}, "message": ""}`
+
+**禁止**:
+- 不用 type hints
+- 不用 async/await
+- 单文件 >300 行
+
+### 在 `docs/` 目录工作时
+
+**格式**: Markdown (.md)
+
+**文档规范**:
+- 单文档 <1500 字符
+- 使用 Mermaid.js 绘图
+- 禁止截图
+
+**目录结构**:
+```
+project/      # 项目基础
+standards/    # 规范标准
+architecture/ # 架构设计
+decisions/    # 技术决策
+```
+
+**禁止**:
+- 二进制文档
+- 粘贴截图
+- 单文档 >1500 字符
+
+## Commit 规范
+
+```
+<type>(<scope>): <subject>
+
+type: feat | fix | refactor | docs | style | test | chore
+scope: frontend | backend | docs | monorepo
+```
+
+示例：
+```bash
+feat(frontend): 添加课程列表组件
+fix(backend): 修复文件上传路径问题
+docs(standards): 更新代码规范
+chore(monorepo): 更新依赖版本
+```
+
+## 跨项目协作
+
+### 前后端协作
+- API 契约优先，参考 `docs/architecture/api-contract.md`
+- 前端调用后端 API: `http://localhost:8000/api/v1/...`
+- 使用 TypeScript 类型定义与 Pydantic 模型保持一致
+
+### 架构师视角
+- 关注 `docs/architecture/` 下的架构文档
+- 技术决策记录在 `docs/decisions/` (ADR 格式)
+- 跨模块变更需更新相关文档
+
+## 通用禁止项
+
+- 直接 Push 到 main
+- 提交敏感信息 (.env, 密钥等)
+- 提交 node_modules/ 或 venv/
+- 提交构建产物 (.next/, dist/)
+
+## 生成代码要求
+
+1. 遵循当前目录的命名规范
+2. 添加适当的类型定义/注解
+3. 复杂逻辑添加注释
+4. 保持文件简洁 (<300 行)
+5. 使用项目已有的工具和组件
+
+## 快速参考
+
+- 前端开发: `cd frontend && npm run dev`
+- 后端开发: `cd backend && uvicorn main:app --reload`
+- 查看文档: 浏览 `docs/` 目录
+
+详细规范请查阅 `docs/standards/` 目录。

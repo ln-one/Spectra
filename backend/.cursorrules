@@ -1,0 +1,250 @@
+# Spectra Backend - AI 开发规则
+
+你正在 Spectra 后端项目中工作 (Monorepo 的 backend/ 目录)。
+
+## 上下文
+
+- 项目根目录: `../` (Spectra Monorepo)
+- 前端地址: `http://localhost:3000`
+- 文档位置: `../docs/`
+
+## 必读文档
+
+开始前必须阅读：
+1. `../docs/CONTRIBUTING.md` - 核心规约
+2. `../docs/standards/backend.md` - 后端代码规范
+3. `../docs/standards/git.md` - Git 规范
+4. `../docs/architecture/api-contract.md` - API 契约
+
+## 技术栈
+
+FastAPI + Python 3.11 + Prisma ORM + SQLite + LiteLLM
+
+## 代码规范
+
+### 命名
+- 文件: `snake_case.py` (如 `chat_service.py`)
+- 类: `PascalCase` (如 `CourseService`)
+- 函数: `snake_case` (如 `get_course_by_id`)
+- 常量: `UPPER_SNAKE_CASE` (如 `MAX_FILE_SIZE`)
+
+### 风格
+- Black + PEP 8
+- 4 空格缩进
+- Type hints 必须
+- 单文件 <300 行
+- Docstring (Google 风格)
+
+### 目录结构
+```
+routers/      # API 路由处理
+  ├── upload.py
+  ├── generate.py
+  └── courses.py
+services/     # 业务逻辑层
+  ├── database.py
+  ├── ai.py
+  └── file.py
+schemas/      # Pydantic 数据模型
+  └── courses.py
+prisma/       # Prisma ORM
+  └── schema.prisma
+main.py       # 应用入口
+```
+
+## 复杂度控制
+
+文件 >300 行时拆分为包：
+```
+chat_service.py → chat_service/
+                  ├── __init__.py
+                  ├── processor.py
+                  └── generator.py
+```
+
+## API 规范
+
+### URL 设计
+
+```python
+# ✅ 正确
+@router.get("/api/v1/courses")
+@router.post("/api/v1/courses")
+@router.get("/api/v1/courses/{course_id}")
+
+# ❌ 错误
+@router.get("/getCourses")
+@router.post("/course/create")
+```
+
+### 响应格式
+
+```python
+# 成功响应
+{
+    "success": true,
+    "data": {...},
+    "message": "操作成功"
+}
+
+# 错误响应
+{
+    "success": false,
+    "error": "错误信息",
+    "message": "用户友好的错误描述"
+}
+```
+
+### 使用 Type Hints 和 Pydantic
+
+```python
+from pydantic import BaseModel
+from typing import List, Optional
+
+class CourseCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+
+class CourseResponse(BaseModel):
+    id: str
+    title: str
+    chapters: List[Chapter]
+
+@router.post("/api/v1/courses", response_model=CourseResponse)
+async def create_course(course: CourseCreate) -> CourseResponse:
+    """创建新课程
+    
+    Args:
+        course: 课程创建数据
+        
+    Returns:
+        CourseResponse: 创建的课程信息
+    """
+    # 实现逻辑
+    pass
+```
+
+## 异步编程
+
+### 必须使用 async/await
+
+```python
+# ✅ 正确
+@router.get("/api/v1/courses")
+async def get_courses():
+    courses = await db_service.get_all_courses()
+    return courses
+
+# ❌ 错误
+@router.get("/api/v1/courses")
+def get_courses():
+    courses = db_service.get_all_courses()
+    return courses
+```
+
+## 数据库操作
+
+### 使用 Prisma Client
+
+```python
+from services.database import db_service
+
+async def get_course(course_id: str):
+    course = await db_service.prisma.course.find_unique(
+        where={"id": course_id},
+        include={"chapters": True}
+    )
+    return course
+```
+
+## 错误处理
+
+```python
+from fastapi import HTTPException
+
+@router.get("/api/v1/courses/{course_id}")
+async def get_course(course_id: str):
+    course = await db_service.get_course(course_id)
+    if not course:
+        raise HTTPException(
+            status_code=404,
+            detail="课程不存在"
+        )
+    return {"success": True, "data": course}
+```
+
+## Commit 格式
+
+```
+<type>(backend): <subject>
+
+type: feat | fix | refactor | docs | test
+```
+
+示例：
+```bash
+feat(backend): 添加课程生成 API
+fix(backend): 修复文件上传路径问题
+refactor(backend): 重构数据库服务层
+test(backend): 添加课程 API 单元测试
+```
+
+## 禁止
+
+- 直接 Push 到 main
+- 单文件 >300 行
+- 不用 type hints
+- 不用 async/await
+- 同步阻塞操作
+- 提交敏感信息 (.env)
+- 提交 venv/ 或 __pycache__/
+- 提交数据库文件 (*.db)
+
+## 生成代码要求
+
+1. 遵循命名规范
+2. 使用 Type hints
+3. 使用 async/await
+4. 添加 Docstring (Google 风格)
+5. 复杂逻辑加注释
+6. 使用 Pydantic 模型验证
+
+## 开发命令
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 配置环境
+cp .env.example .env
+
+# Prisma 操作
+prisma generate      # 生成 Prisma Client
+prisma db push       # 同步数据库 schema
+prisma studio        # 打开数据库管理界面
+
+# 启动服务
+uvicorn main:app --reload  # http://localhost:8000
+
+# API 文档
+# http://localhost:8000/docs (Swagger UI)
+# http://localhost:8000/redoc (ReDoc)
+```
+
+## 与前端协作
+
+- 前端地址: `http://localhost:3000`
+- CORS 已配置允许前端访问
+- API 契约: `../docs/architecture/api-contract.md`
+- Pydantic 模型对应前端 TypeScript 类型
+
+## 环境变量
+
+```bash
+# .env
+DATABASE_URL="file:./dev.db"
+OPENAI_API_KEY="your-api-key"
+CORS_ORIGINS="http://localhost:3000"
+```
+
+详见: `../docs/standards/backend.md`

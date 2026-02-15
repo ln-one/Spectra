@@ -1,0 +1,172 @@
+# Spectra Frontend - AI 开发规则
+
+你正在 Spectra 前端项目中工作 (Monorepo 的 frontend/ 目录)。
+
+## 上下文
+
+- 项目根目录: `../` (Spectra Monorepo)
+- 后端 API: `http://localhost:8000/api/v1/`
+- 文档位置: `../docs/`
+
+## 必读文档
+
+开始前必须阅读：
+1. `../docs/CONTRIBUTING.md` - 核心规约
+2. `../docs/standards/frontend.md` - 前端代码规范
+3. `../docs/standards/git.md` - Git 规范
+4. `../docs/architecture/api-contract.md` - API 契约
+
+## 技术栈
+
+Next.js 15 + TypeScript + Tailwind CSS + Shadcn/ui
+
+## 代码规范
+
+### 命名
+- 组件文件: `PascalCase.tsx` (如 `ChatInterface.tsx`)
+- 工具文件: `camelCase.ts` (如 `formatDate.ts`)
+- 常量文件: `UPPER_SNAKE_CASE.ts` (如 `API_ENDPOINTS.ts`)
+- 类型文件: `camelCase.types.ts` (如 `course.types.ts`)
+
+### 风格
+- Prettier + ESLint
+- 2 空格缩进
+- 单引号
+- 单文件 <300 行
+- 使用 Tailwind CSS (禁止内联样式)
+
+### 目录结构
+```
+app/          # Next.js 页面路由
+  ├── page.tsx
+  ├── layout.tsx
+  └── [dynamic]/
+components/   # React 组件
+  ├── ui/     # Shadcn/ui 基础组件
+  └── features/ # 业务组件
+lib/          # 工具函数
+  ├── utils.ts
+  ├── api.ts
+  └── constants.ts
+types/        # TypeScript 类型定义
+public/       # 静态资源
+```
+
+## 复杂度控制
+
+文件 >300 行时拆分：
+```
+ChatInterface.tsx → ChatInterface/
+                    ├── index.tsx
+                    ├── MessageList.tsx
+                    ├── MessageInput.tsx
+                    └── types.ts
+```
+
+## API 调用规范
+
+### 使用统一的 API 客户端
+
+```typescript
+// lib/api.ts
+const API_BASE = 'http://localhost:8000/api/v1';
+
+export async function fetchCourses() {
+  const res = await fetch(`${API_BASE}/courses`);
+  return res.json();
+}
+```
+
+### 类型定义与后端保持一致
+
+```typescript
+// types/course.types.ts
+export interface Course {
+  id: string;
+  title: string;
+  chapters: Chapter[];
+}
+```
+
+## 组件规范
+
+### 使用 TypeScript
+
+```typescript
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+}
+
+export function Button({ label, onClick, variant = 'primary' }: ButtonProps) {
+  return (
+    <button onClick={onClick} className={cn(/* ... */)}>
+      {label}
+    </button>
+  );
+}
+```
+
+### 使用 Tailwind CSS
+
+```typescript
+// ✅ 正确
+<div className="flex items-center gap-4 p-4 rounded-lg">
+
+// ❌ 错误
+<div style={{ display: 'flex', padding: '16px' }}>
+```
+
+## Commit 格式
+
+```
+<type>(frontend): <subject>
+
+type: feat | fix | refactor | style | test
+```
+
+示例：
+```bash
+feat(frontend): 添加课程列表组件
+fix(frontend): 修复文件上传预览问题
+refactor(frontend): 重构 API 调用逻辑
+style(frontend): 优化响应式布局
+```
+
+## 禁止
+
+- 直接 Push 到 main
+- 单文件 >300 行
+- 内联样式 (style 属性)
+- 不使用 TypeScript
+- 提交敏感信息
+- 提交 node_modules/
+- 提交 .next/ 构建产物
+
+## 生成代码要求
+
+1. 遵循命名规范
+2. 使用 TypeScript 类型定义
+3. 使用 Tailwind CSS
+4. 添加 ARIA 标签 (可访问性)
+5. 复杂逻辑加注释
+6. 保持组件简洁
+
+## 开发命令
+
+```bash
+npm install          # 安装依赖
+npm run dev          # 启动开发服务器 (http://localhost:3000)
+npm run build        # 构建生产版本
+npm run lint         # 运行 ESLint
+```
+
+## 与后端协作
+
+- 后端 API 地址: `http://localhost:8000`
+- API 文档: `http://localhost:8000/docs`
+- API 契约: `../docs/architecture/api-contract.md`
+- 类型定义参考后端 Pydantic 模型
+
+详见: `../docs/standards/frontend.md`
