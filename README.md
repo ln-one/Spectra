@@ -3,9 +3,15 @@
 [![CI](https://github.com/ln-one/Spectra/actions/workflows/ci.yml/badge.svg)](https://github.com/ln-one/Spectra/actions/workflows/ci.yml)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
-[快速开始](./docs/guides/getting-started.md)
-
 An AI-powered intelligent courseware generation system that helps educators quickly create high-quality multimodal teaching materials through natural conversation.
+
+## 📚 快速导航
+
+| 入门指南 | 开发规范 | 其他 |
+|---------|---------|------|
+| [🚀 快速开始](./docs/guides/getting-started.md) | [🎨 前端规范](./docs/standards/frontend.md) | [📖 贡献指南](./docs/CONTRIBUTING.md) |
+| [🐳 Docker 配置](./docs/guides/docker-setup.md) | [⚙️ 后端规范](./docs/standards/backend.md) | [🔄 CI/CD](./docs/guides/ci-cd.md) |
+| [🧪 测试指南](./docs/guides/testing.md) | [📝 Git 规范](./docs/standards/git.md) | [📋 技术决策](./docs/decisions/) |
 
 ## Project Structure
 

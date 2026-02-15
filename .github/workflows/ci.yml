@@ -43,6 +43,10 @@ jobs:
       - name: Check formatting
         working-directory: frontend
         run: npm run format:check
+
+      - name: Test
+        working-directory: frontend
+        run: npm test
       
       - name: Build
         working-directory: frontend
@@ -79,3 +83,7 @@ jobs:
       - name: Lint
         working-directory: backend
         run: flake8 . --max-line-length=88 --extend-ignore=E203
+
+      - name: Test
+        working-directory: backend
+        run: pytest
