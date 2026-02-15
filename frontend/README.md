@@ -2,7 +2,7 @@
 
 A minimalist dashboard built with Next.js 14 App Router, featuring a split-view interface for course management and slide previews.
 
-##  Features
+## Features
 
 - **Minimalist Sidebar Navigation** - Fixed sidebar with Lucide icons for clean navigation
 - **Split-View Interface** - Interactive course outline tree with slide preview panel
@@ -11,7 +11,7 @@ A minimalist dashboard built with Next.js 14 App Router, featuring a split-view 
 - **Accessibility First** - ARIA labels and keyboard navigation support
 - **Smooth Animations** - Framer Motion for polished interactions
 
-##  Tech Stack
+## Tech Stack
 
 - **Framework:** Next.js 14 (App Router)
 - **Language:** TypeScript
@@ -20,7 +20,7 @@ A minimalist dashboard built with Next.js 14 App Router, featuring a split-view 
 - **Animations:** Framer Motion
 - **Icons:** Lucide React
 
-##  Getting Started
+## Getting Started
 
 First, install the dependencies:
 
@@ -38,7 +38,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-##  Project Structure
+## Project Structure
 
 ```
 ├── app/
@@ -55,21 +55,21 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
     └── utils.ts         # Utility functions (cn helper)
 ```
 
-##  Design System
+## Design System
 
 - **Border Radius:** 12px consistently applied (rounded-lg)
 - **Color Scheme:** HSL-based design tokens for easy theming
 - **Spacing:** High whitespace for minimalist aesthetic
 - **Typography:** Clean hierarchy with proper font sizes
 
-##  Quality Assurance
+## Quality Assurance
 
--  **Build:** Production-ready with optimized bundle
--  **Linting:** Zero ESLint errors
--  **Security:** No CodeQL vulnerabilities detected
--  **Accessibility:** ARIA labels and semantic HTML throughout
+- **Build:** Production-ready with optimized bundle
+- **Linting:** Zero ESLint errors
+- **Security:** No CodeQL vulnerabilities detected
+- **Accessibility:** ARIA labels and semantic HTML throughout
 
-##  Scripts
+## Scripts
 
 ```bash
 npm run dev      # Start development server

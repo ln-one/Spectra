@@ -1,6 +1,7 @@
-import os
 import logging
+import os
 from typing import Optional
+
 from litellm import acompletion
 
 logger = logging.getLogger(__name__)
@@ -20,12 +21,12 @@ class AIService:
     ) -> dict:
         """
         Generate AI content using LiteLLM
-        
+
         Args:
             prompt: The input prompt
             model: The model to use (defaults to gpt-3.5-turbo)
             max_tokens: Maximum tokens to generate
-            
+
         Returns:
             dict with 'content', 'model', and 'tokens_used'
         """
@@ -37,7 +38,9 @@ class AIService:
             )
 
             content = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            tokens_used = (
+                response.usage.total_tokens if hasattr(response, "usage") else None
+            )
 
             return {
                 "content": content,

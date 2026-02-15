@@ -1,4 +1,5 @@
 import json
+
 from prisma import Prisma
 from schemas.courses import CourseCreate, ProjectCreate
 
@@ -19,7 +20,9 @@ class DatabaseService:
 
     async def create_course(self, course_data: CourseCreate):
         """Create a new course"""
-        chapters_json = json.dumps([chapter.model_dump() for chapter in course_data.chapters])
+        chapters_json = json.dumps(
+            [chapter.model_dump() for chapter in course_data.chapters]
+        )
         course = await self.db.course.create(
             data={
                 "title": course_data.title,

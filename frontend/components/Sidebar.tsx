@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { Home, BookOpen, Upload, Settings, FileText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Home, BookOpen, Upload, Settings, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 
 const navigationItems = [
-  { icon: Home, label: 'Dashboard', href: '/' },
-  { icon: BookOpen, label: 'Courses', href: '/courses' },
-  { icon: Upload, label: 'Upload', href: '/upload' },
-  { icon: FileText, label: 'Documents', href: '/documents' },
-  { icon: Settings, label: 'Settings', href: '/settings' },
+  { icon: Home, label: "Dashboard", href: "/" },
+  { icon: BookOpen, label: "Courses", href: "/courses" },
+  { icon: Upload, label: "Upload", href: "/upload" },
+  { icon: FileText, label: "Documents", href: "/documents" },
+  { icon: Settings, label: "Settings", href: "/settings" },
 ];
 
 export function Sidebar() {

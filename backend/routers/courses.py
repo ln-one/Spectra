@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException
+import json
 import logging
 from typing import List
-import json
+
+from fastapi import APIRouter, HTTPException
+
+from schemas import ChapterSchema, CourseCreate, CourseResponse
 from services import db_service
-from schemas import CourseCreate, CourseResponse, ChapterSchema
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
 logger = logging.getLogger(__name__)
@@ -11,7 +13,11 @@ logger = logging.getLogger(__name__)
 
 def transform_course(course):
     """Transform database course to response model"""
-    chapters_data = json.loads(course.chapters) if isinstance(course.chapters, str) else course.chapters
+    chapters_data = (
+        json.loads(course.chapters)
+        if isinstance(course.chapters, str)
+        else course.chapters
+    )
     return CourseResponse(
         id=course.id,
         title=course.title,
@@ -25,10 +31,10 @@ def transform_course(course):
 async def create_course(course: CourseCreate):
     """
     Create a new course
-    
+
     Args:
         course: Course data with title and chapters
-        
+
     Returns:
         Created course
     """
@@ -44,7 +50,7 @@ async def create_course(course: CourseCreate):
 async def get_courses():
     """
     Get all courses
-    
+
     Returns:
         List of all courses
     """
@@ -60,10 +66,10 @@ async def get_courses():
 async def get_course(course_id: str):
     """
     Get a specific course by ID
-    
+
     Args:
         course_id: Course ID
-        
+
     Returns:
         Course details
     """

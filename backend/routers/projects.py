@@ -1,8 +1,10 @@
-from fastapi import APIRouter, HTTPException
 import logging
 from typing import List
+
+from fastapi import APIRouter, HTTPException
+
+from schemas import ProjectCreate, ProjectResponse
 from services import db_service
-from schemas import ProjectResponse, ProjectCreate
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 logger = logging.getLogger(__name__)
@@ -12,7 +14,7 @@ logger = logging.getLogger(__name__)
 async def get_projects():
     """
     Get all projects
-    
+
     Returns:
         List of all projects
     """
@@ -28,10 +30,10 @@ async def get_projects():
 async def create_project(project: ProjectCreate):
     """
     Create a new project
-    
+
     Args:
         project: Project data
-        
+
     Returns:
         Created project
     """

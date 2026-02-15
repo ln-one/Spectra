@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useCallback, useState } from 'react';
-import { Upload, File, X } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { useCallback, useState } from "react";
+import { Upload, File, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export function FileUploadDropzone() {
   const [isDragging, setIsDragging] = useState(false);
@@ -37,12 +37,15 @@ export function FileUploadDropzone() {
     setFiles((prev) => [...prev, ...droppedFiles]);
   }, []);
 
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files);
-      setFiles((prev) => [...prev, ...selectedFiles]);
-    }
-  }, []);
+  const handleFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) {
+        const selectedFiles = Array.from(e.target.files);
+        setFiles((prev) => [...prev, ...selectedFiles]);
+      }
+    },
+    []
+  );
 
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
@@ -88,7 +91,9 @@ export function FileUploadDropzone() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-2"
         >
-          <h4 className="text-sm font-semibold">Uploaded Files ({files.length})</h4>
+          <h4 className="text-sm font-semibold">
+            Uploaded Files ({files.length})
+          </h4>
           <div className="space-y-2">
             {files.map((file, index) => (
               <Card

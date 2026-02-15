@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException
 import logging
-from services import ai_service
+
+from fastapi import APIRouter, HTTPException
+
 from schemas import GenerateRequest, GenerateResponse
+from services import ai_service
 
 router = APIRouter(prefix="/generate", tags=["AI"])
 logger = logging.getLogger(__name__)
@@ -11,10 +13,10 @@ logger = logging.getLogger(__name__)
 async def generate_content(request: GenerateRequest):
     """
     Generate AI content using LiteLLM
-    
+
     Args:
         request: Generation request with prompt and optional parameters
-        
+
     Returns:
         GenerateResponse with generated content
     """
@@ -24,7 +26,7 @@ async def generate_content(request: GenerateRequest):
             model=request.model,
             max_tokens=request.max_tokens,
         )
-        
+
         return GenerateResponse(
             content=result["content"],
             model=result["model"],

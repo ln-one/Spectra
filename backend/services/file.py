@@ -1,7 +1,8 @@
 import uuid
-import aiofiles
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import aiofiles
 
 
 class FileService:
@@ -14,11 +15,11 @@ class FileService:
     async def save_file(self, filename: str, content: bytes) -> tuple[str, int]:
         """
         Save a file to the upload directory
-        
+
         Args:
             filename: Name of the file
             content: File content as bytes
-            
+
         Returns:
             tuple of (filepath, file_size)
         """

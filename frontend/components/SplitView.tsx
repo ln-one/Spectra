@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { CourseOutline } from './CourseOutline';
-import { SlidePreview } from './SlidePreview';
-import { Card } from '@/components/ui/card';
+import { useState } from "react";
+import { CourseOutline } from "./CourseOutline";
+import { SlidePreview } from "./SlidePreview";
+import { Card } from "@/components/ui/card";
 
 export function SplitView() {
-  const [selectedSlide, setSelectedSlide] = useState<string>('1-1-1');
+  const [selectedSlide, setSelectedSlide] = useState<string>("1-1-1");
 
   return (
     <div className="grid grid-cols-2 gap-6 h-full">

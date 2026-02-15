@@ -1,6 +1,6 @@
-from .database import db_service, DatabaseService
-from .ai import ai_service, AIService
-from .file import file_service, FileService
+from .ai import AIService, ai_service
+from .database import DatabaseService, db_service
+from .file import FileService, file_service
 
 __all__ = [
     "db_service",

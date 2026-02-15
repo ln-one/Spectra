@@ -1,7 +1,9 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
 import logging
-from services import file_service, db_service
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
 from schemas import UploadResponse
+from services import db_service, file_service
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 logger = logging.getLogger(__name__)
@@ -11,27 +13,27 @@ logger = logging.getLogger(__name__)
 async def upload_file(file: UploadFile = File(...)):
     """
     Upload a file to the server
-    
+
     Args:
         file: The file to upload
-        
+
     Returns:
         UploadResponse with file details
     """
     try:
         # Read file content
         content = await file.read()
-        
+
         # Save file
         filepath, file_size = await file_service.save_file(file.filename, content)
-        
+
         # Record upload in database
         upload = await db_service.create_upload(
             filename=file.filename,
             filepath=filepath,
             size=file_size,
         )
-        
+
         return upload
     except Exception as e:
         logger.error(f"Failed to upload file: {str(e)}", exc_info=True)

@@ -40,6 +40,10 @@ jobs:
         working-directory: frontend
         run: npm run lint
       
+      - name: Check formatting
+        working-directory: frontend
+        run: npm run format:check
+      
       - name: Build
         working-directory: frontend
         run: npm run build
@@ -61,11 +65,17 @@ jobs:
         working-directory: backend
         run: |
           pip install -r requirements.txt
+          pip install -r requirements-dev.txt
           prisma generate
       
       - name: Check code format
         working-directory: backend
-        run: |
-          pip install black flake8
-          black --check .
-          flake8 . --max-line-length=88 --extend-ignore=E203
+        run: black --check .
+      
+      - name: Check import sorting
+        working-directory: backend
+        run: isort --check .
+      
+      - name: Lint
+        working-directory: backend
+        run: flake8 . --max-line-length=88 --extend-ignore=E203

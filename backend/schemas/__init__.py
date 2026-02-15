@@ -3,12 +3,12 @@ from .courses import (
     CourseBase,
     CourseCreate,
     CourseResponse,
+    GenerateRequest,
+    GenerateResponse,
     ProjectBase,
     ProjectCreate,
     ProjectResponse,
     UploadResponse,
-    GenerateRequest,
-    GenerateResponse,
 )
 
 __all__ = [
