@@ -1,0 +1,63 @@
+# Spectra Monorepo
+
+## AI 自主学习机制
+
+**重要**: 当用户提出改进意见时，AI 必须：
+1. 执行用户要求的修改
+2. **主动分析**：用户纠正了什么问题？
+3. **主动总结**：提炼出可复用的经验/规则
+4. **主动更新**：将经验写入 `docs/standards/` 相关文档
+5. 下次遇到类似情况时，参照更新后的规范执行
+
+**示例**:
+```
+用户说: "文档太啰嗦，AI 不需要知道理念"
+AI 应该:
+1. 精简文档 ✅
+2. 分析: 用户在纠正"文档分类不清"的问题
+3. 总结: .cursorrules 给规则，docs/ 给理念
+4. 更新: 将此原则写入 docs/standards/documentation.md
+5. 下次写文档时，自动应用此原则
+```
+
+**禁止**: 等用户重复说同样的问题
+
+## 权威规范
+
+- `docs/openapi.yaml` - API 契约
+- `docs/standards/frontend.md` - 前端规范
+- `docs/standards/backend.md` - 后端规范
+- `docs/standards/git.md` - Git 规范
+
+## 核心规则
+
+### Commit
+```
+<type>(<scope>): <subject>
+```
+Type: feat | fix | refactor | docs | style | test | chore
+
+### 禁止
+- 直接 Push 到 main
+- 单文件 >300 行
+- 单文档 >6000 字符
+- 提交敏感信息
+
+## API 开发
+
+```bash
+# 前端生成类型
+npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
+
+# 后端生成 Schema
+datamodel-codegen --input ../docs/openapi.yaml --output schemas/generated.py
+```
+
+## 规则优先级
+
+```
+1. docs/openapi.yaml
+2. docs/standards/
+3. .cursorrules (根目录)
+4. 子目录 .cursorrules
+```

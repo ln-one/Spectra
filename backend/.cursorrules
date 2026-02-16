@@ -1,0 +1,62 @@
+# Backend
+
+## 权威规范
+
+- `../docs/openapi.yaml` - API 契约
+- `../docs/standards/backend.md` - 后端规范
+
+## 技术栈
+
+FastAPI + Python 3.11 + Prisma ORM
+
+## 规则
+
+### 命名
+- 文件: `snake_case.py`
+- 类: `PascalCase`
+- 函数: `snake_case`
+
+### 代码
+- Black + PEP 8
+- 4 空格
+- Type hints 必须
+- 单文件 <300 行
+
+### 目录
+```
+routers/      # API 路由
+services/     # 业务逻辑
+schemas/      # Pydantic 模型
+```
+
+## 命令
+
+```bash
+pip install -r requirements.txt
+prisma generate && prisma db push
+uvicorn main:app --reload  # http://localhost:8000
+
+# 生成 Schema
+datamodel-codegen --input ../docs/openapi.yaml --output schemas/generated.py
+```
+
+## API 规范
+
+```python
+# URL
+@router.get("/api/v1/courses")
+
+# 响应
+{"success": true, "data": {...}, "message": "操作成功"}
+
+# 必须 async/await
+async def create_course(course: CourseCreate):
+    result = await db_service.create_course(course)
+    return {"success": True, "data": result}
+```
+
+---
+
+## 团队自定义
+
+<!-- 添加团队约定 -->

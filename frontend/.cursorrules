@@ -1,0 +1,51 @@
+# Frontend
+
+## 权威规范
+
+- `../docs/openapi.yaml` - API 契约
+- `../docs/standards/frontend.md` - 前端规范
+
+## 技术栈
+
+Next.js 15 + TypeScript + Tailwind CSS
+
+## 规则
+
+### 命名
+- 组件: `PascalCase.tsx`
+- 工具: `camelCase.ts`
+- 常量: `UPPER_SNAKE_CASE.ts`
+
+### 代码
+- 2 空格，单引号
+- 必须 TypeScript
+- 使用 Tailwind
+- 单文件 <300 行
+
+### 目录
+```
+app/          # 页面
+components/   # 组件
+lib/          # 工具
+types/        # 类型
+```
+
+## 命令
+
+```bash
+npm install && npm run dev  # http://localhost:3000
+
+# 生成 API 类型
+npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
+```
+
+## API
+
+- 后端: `http://localhost:8000`
+- 文档: `http://localhost:8000/docs`
+
+---
+
+## 团队自定义
+
+<!-- 添加团队约定 -->

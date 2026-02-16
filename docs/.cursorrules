@@ -1,0 +1,47 @@
+# Docs
+
+## 重要
+
+本目录包含项目权威规范：
+- `openapi.yaml` - API 契约
+- `standards/` - 代码规范
+- `architecture/` - 架构设计
+- `decisions/` - 技术决策
+
+## 规则
+
+### 格式
+- Markdown (.md)
+- 单文档 <6000 字符
+- Mermaid 绘图
+- 精简，少废话
+
+### 目录
+```
+project/         # 项目基础
+standards/       # 规范 (权威)
+architecture/    # 架构 (权威)
+decisions/       # 决策 (ADR)
+requirements/    # 需求
+guides/          # 指南
+```
+
+## Mermaid
+
+```mermaid
+graph LR
+    A[用户] --> B[前端]
+    B --> C[后端]
+```
+
+## 维护
+
+- 代码变更时更新文档
+- 废弃决策标记 "已废弃"
+- `openapi.yaml` 与实现一致
+
+## Commit
+
+```
+docs(<scope>): <subject>
+```

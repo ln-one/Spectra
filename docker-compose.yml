@@ -1,0 +1,31 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    command: npm run dev
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /app/venv
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=file:./dev.db
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload

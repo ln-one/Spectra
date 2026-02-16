@@ -1,0 +1,53 @@
+# Spectra Frontend - AI 开发规则
+
+你正在 Spectra 前端项目中工作。
+
+## 必读文档
+
+开始前必须阅读：
+1. `docs/CONTRIBUTING.md` - 核心规约
+2. `docs/standards/frontend.md` - 前端代码规范
+3. `docs/architecture/api-contract.md` - API 契约（重要）
+4. `docs/openapi.yaml` - API 规范（详细定义）
+
+## 技术栈
+
+Next.js 15 + TypeScript + Tailwind CSS + Shadcn/ui
+
+## API 调用
+
+所有 API 类型从 `lib/types/api.ts` 导入（自动生成）：
+
+```typescript
+import type { components } from '@/lib/types/api'
+type SendMessageRequest = components['schemas']['SendMessageRequest']
+```
+
+调用 API 前必须：
+1. 查看 `docs/openapi.yaml` 了解接口定义
+2. 使用生成的类型，确保类型安全
+3. 处理所有可能的错误响应
+
+## 代码规范
+
+- 组件: `PascalCase.tsx`
+- 工具: `camelCase.ts`
+- 单文件 <300 行
+- 使用 Tailwind CSS
+
+## Commit 格式
+
+```
+<type>(<scope>): <subject>
+```
+
+Type: feat | fix | refactor | docs | style
+
+## 禁止
+
+- 直接 Push 到 main
+- 单文件 >300 行
+- 内联样式
+- 硬编码 API 路径（使用类型）
+
+详见: `docs/standards/frontend.md`

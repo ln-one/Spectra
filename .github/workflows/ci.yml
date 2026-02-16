@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.cursorrules'
+      - '.gitignore'
+      - 'LICENSE'
+  pull_request:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.cursorrules'
+      - '.gitignore'
+      - 'LICENSE'
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      
+      - name: Check formatting
+        working-directory: frontend
+        run: npm run format:check
+
+      - name: Test
+        working-directory: frontend
+        run: npm test
+      
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+      
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          prisma generate
+      
+      - name: Check code format
+        working-directory: backend
+        run: black --check .
+      
+      - name: Check import sorting
+        working-directory: backend
+        run: isort --check .
+      
+      - name: Lint
+        working-directory: backend
+        run: flake8 . --max-line-length=88 --extend-ignore=E203
+
+      - name: Test
+        working-directory: backend
+        run: pytest
