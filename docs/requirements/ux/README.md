@@ -8,9 +8,9 @@
 
 ## 输出清单
 
-- [ ] [用户场景分析](./user-scenarios.md)
-- [ ] [交互设计](./interaction-design.md)
-- [ ] [界面原型](./wireframes/)
+- [x] [用户场景分析](./user-scenarios.md)
+- [x] [交互设计](./interaction-design.md)
+- [x] [界面原型](./wireframes/)
 
 ## 关注点
 
