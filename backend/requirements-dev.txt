@@ -1,7 +1,7 @@
-black==24.3.0
-flake8==7.0.0
-isort==5.13.2
-mypy==1.8.0
+black==26.1.0
+flake8==7.3.0
+isort==8.0.0
+mypy==1.19.1
 pytest
 pytest-asyncio
-httpx<0.28
+httpx<0.29

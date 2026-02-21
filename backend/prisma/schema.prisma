@@ -9,26 +9,163 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================
+// 用户与认证
+// ============================================
+
+/// 用户模型 - 存储用户账号信息
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // bcrypt 哈希
+  username  String   @unique
+  fullName  String?
+  
+  // 关联关系
+  projects  Project[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([email])
+  @@index([username])
+}
+
+/// 幂等性键 - 防止重复请求
+model IdempotencyKey {
+  key       String   @id
+  response  String   // JSON 格式的响应
+  createdAt DateTime @default(now())
+  
+  @@index([createdAt])
+}
+
+// ============================================
+// 核心业务模型
+// ============================================
+
+/// 项目模型 - 存储课件项目的基础信息和教学配置
+model Project {
+  id          String   @id @default(uuid())
+  
+  // 用户关联
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String   // 项目名称，如"五年级数学-分数加减法"
+  description String?  // 项目描述
+  
+  // 教学信息
+  subject             String?  // 学科：语文/数学/英语/物理/化学等
+  gradeLevel          String?  // 学段：小学/初中/高中
+  duration            Int?     // 课时（分钟），如 40、45、90
+  teachingObjectives  String?  // 教学目标（JSON 格式）
+  
+  // 状态管理
+  status      String   @default("draft")  // draft/in_progress/completed
+  
+  // 关联关系
+  conversations   Conversation[]
+  uploads         Upload[]
+  generationTasks GenerationTask[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId, status])
+  @@index([userId, createdAt])
+}
+
+/// 对话模型 - 存储多轮对话历史
+model Conversation {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  role        String   // user/assistant/system
+  content     String   // 消息内容
+  metadata    String?  // JSON：意图标签、追问类型、关键词等
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([projectId, createdAt])
+}
+
+/// 上传文件模型 - 存储文件元信息和解析状态
+model Upload {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  filename    String   // 原始文件名
+  filepath    String   // 存储路径
+  fileType    String   // pdf/word/ppt/image/video
+  mimeType    String?  // MIME 类型
+  size        Int      // 文件大小（字节）
+  
+  // 解析状态
+  status       String   @default("uploading")  // uploading/parsing/ready/failed
+  parseResult  String?  // JSON：解析后的结构化数据
+  errorMessage String?  // 解析失败时的错误信息
+  
+  // 用途标注（UX 需求）
+  usageIntent  String?  // 用户标注的文件用途，如"参考第2页的练习题设计"
+  
+  // 关联关系
+  chunks      ParsedChunk[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([projectId, status])
+}
+
+/// 解析片段模型 - 存储文件解析后的可检索片段（用于 RAG）
+model ParsedChunk {
+  id          String   @id @default(uuid())
+  uploadId    String
+  upload      Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  
+  content     String   // 片段内容
+  chunkIndex  Int      // 片段索引（在文件中的顺序）
+  metadata    String?  // JSON：页码、时间戳、标题、场景描述等
+  sourceType  String   // pdf/video/image/word/ppt
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([uploadId, chunkIndex])
+}
+
+/// 生成任务模型 - 存储课件生成任务的状态和结果
+model GenerationTask {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  taskType    String   // ppt/word/both
+  status      String   @default("pending")  // pending/processing/completed/failed
+  progress    Int      @default(0)          // 0-100
+  
+  // 输入输出
+  inputData    String?  // JSON：生成指令集（意图+RAG结果+配置）
+  outputUrls   String?  // JSON：{ppt_url, word_url}
+  errorMessage String?  // 生成失败时的错误信息
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([projectId, status])
+}
+
+// ============================================
+// 保留的旧模型（兼容性）
+// ============================================
+
+/// 课程模型 - 旧模型，保留以兼容现有代码
 model Course {
   id        String   @id @default(uuid())
   title     String
-  chapters  String   // JSON stored as text for SQLite compatibility
+  chapters  String   // JSON stored as text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-model Project {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Upload {
-  id        String   @id @default(uuid())
-  filename  String
-  filepath  String
-  size      Int
-  createdAt DateTime @default(now())
 }

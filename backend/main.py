@@ -1,20 +1,36 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from routers import courses_router, generate_router, projects_router, upload_router
+from routers import (
+    auth_router,
+    chat_router,
+    courses_router,
+    files_router,
+    generate_router,
+    preview_router,
+    projects_router,
+    rag_router,
+)
 from services import db_service
+from utils.exceptions import APIException
+from utils.logger import setup_logging
+from utils.responses import error_response
 
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# Configure logging from environment
+log_level = os.getenv("LOG_LEVEL", "INFO")
+log_format = os.getenv("LOG_FORMAT", "text")
+setup_logging(log_level=log_level, log_format=log_format)
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,11 +61,64 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(upload_router)
-app.include_router(generate_router)
-app.include_router(projects_router)
-app.include_router(courses_router)
+# Create API v1 router
+api_v1_router = APIRouter(prefix="/api/v1")
+
+# Include routers under /api/v1
+api_v1_router.include_router(auth_router, tags=["Auth"])
+api_v1_router.include_router(chat_router, tags=["Chat"])
+api_v1_router.include_router(files_router, tags=["Files"])
+api_v1_router.include_router(generate_router, tags=["Generate"])
+api_v1_router.include_router(preview_router, tags=["Preview"])
+api_v1_router.include_router(projects_router, tags=["Projects"])
+api_v1_router.include_router(rag_router, tags=["RAG"])
+api_v1_router.include_router(courses_router, tags=["Courses"])
+
+# Include the versioned API router
+app.include_router(api_v1_router)
+
+
+# ============================================
+# Global Exception Handlers
+# ============================================
+
+
+@app.exception_handler(APIException)
+async def api_exception_handler(request: Request, exc: APIException):
+    """Handle custom API exceptions"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response(
+            code=exc.error_code.value, message=exc.message, details=exc.details
+        ),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle Pydantic validation errors"""
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=error_response(
+            code="VALIDATION_ERROR",
+            message="请求参数验证失败",
+            details={"errors": exc.errors()},
+        ),
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle unexpected exceptions"""
+    logger.error(f"Unexpected error: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=error_response(
+            code="INTERNAL_ERROR",
+            message="服务器内部错误",
+            details={"error": str(exc)} if app.debug else None,
+        ),
+    )
 
 
 @app.get("/", tags=["Root"])
@@ -58,12 +127,8 @@ async def root():
     return {
         "message": "Welcome to Spectra Backend API",
         "version": "1.0.0",
-        "endpoints": {
-            "upload": "/upload",
-            "generate": "/generate",
-            "projects": "/projects",
-            "courses": "/courses",
-        },
+        "docs": "/docs",
+        "api_v1": "/api/v1",
     }
 
 

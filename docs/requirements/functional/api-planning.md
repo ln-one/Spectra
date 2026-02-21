@@ -18,8 +18,8 @@
 | A03 | GET | `/api/v1/projects/{project_id}` | 获取项目详情 | F01 | 已在契约 |
 | A04 | POST | `/api/v1/chat/messages` | 提交用户输入并获取 AI 回复 | F02/F03 | 已在契约 |
 | A05 | GET | `/api/v1/chat/messages` | 查询项目对话历史 | F02 | 已在契约 |
-| A06 | POST | `/api/v1/upload` | 上传参考资料 | F04 | 已在契约 |
-| A07 | GET | `/api/v1/upload/{project_id}` | 获取资料列表与解析状态 | F04/F05/F06 | 已在契约 |
+| A06 | POST | `/api/v1/files` | 上传参考资料 | F04 | 已在契约 |
+| A07 | GET | `/api/v1/projects/{project_id}/files` | 获取资料列表与解析状态 | F04/F05/F06 | 已在契约 |
 | A08 | POST | `/api/v1/generate/courseware` | 创建课件/教案生成任务 | F08/F09/F10 | 已在契约 |
 | A09 | GET | `/api/v1/generate/status/{task_id}` | 查询生成进度与结果地址 | F11/F12 | 已在契约 |
 
@@ -28,7 +28,7 @@
 
 | 编号 | 方法 | 路径（建议） | 作用 | 对应功能 | 状态 |
 |---|---|---|---|---|---|
-| B01 | GET | `/api/v1/upload/{project_id}/{file_id}/segments` | 获取解析片段（页段/时间段/关键帧） | F05/F06 | 待补充契约 |
+| B01 | GET | `/api/v1/files/{file_id}/segments` | 获取解析片段（页段/时间段/关键帧） | F05/F06 | 待补充契约 |
 | B02 | POST | `/api/v1/rag/query` | 按学段/学科/章节检索知识库片段 | F07 | 待补充契约 |
 | B03 | POST | `/api/v1/rag/feedback` | 记录片段采纳/忽略/置顶反馈 | F13 | 待补充契约 |
 | B04 | POST | `/api/v1/generate/revise` | 基于修改指令触发再生成 | F11 | 待补充契约 |
@@ -62,7 +62,7 @@ sequenceDiagram
     FE->>BE: POST /api/v1/projects
     U->>FE: 对话输入+上传资料
     FE->>BE: POST /api/v1/chat/messages
-    FE->>BE: POST /api/v1/upload
+    FE->>BE: POST /api/v1/files
     U->>FE: 发起生成
     FE->>BE: POST /api/v1/generate/courseware
     loop 轮询进度

@@ -16,21 +16,33 @@ FastAPI backend project with Python 3.11, Pydantic v2, and Prisma ORM. Optimized
 ```
 Spectra-Backend/
 ├── routers/          # API route handlers
-│   ├── upload.py     # File upload endpoints
+│   ├── auth.py       # Authentication endpoints
+│   ├── files.py      # File upload endpoints
 │   ├── generate.py   # AI generation endpoints
 │   ├── projects.py   # Project management endpoints
-│   └── courses.py    # Course management endpoints
+│   ├── chat.py       # Chat endpoints
+│   ├── preview.py    # Preview endpoints
+│   ├── rag.py        # RAG search endpoints
+│   └── courses.py    # Course management endpoints (legacy)
 ├── services/         # Business logic layer
-│   ├── database.py   # Database operations
-│   ├── ai.py         # AI service integration
-│   └── file.py       # File handling
+│   ├── db_service.py # Database operations
+│   ├── ai_service.py # AI service integration
+│   ├── file_service.py # File handling
+│   └── auth_service.py # Authentication service
 ├── schemas/          # Pydantic models
-│   └── courses.py    # Data validation schemas
+│   └── __init__.py   # Data validation schemas
+├── utils/            # Utility modules
+│   ├── dependencies.py # FastAPI dependencies
+│   ├── exceptions.py   # Custom exceptions
+│   ├── logger.py       # Logging configuration
+│   └── responses.py    # Response formatters
 ├── prisma/           # Prisma ORM
-│   └── schema.prisma # Database schema
+│   ├── schema.prisma # Database schema
+│   └── migrations/   # Database migrations
 ├── uploads/          # Uploaded files directory
 ├── main.py           # Application entry point
-└── requirements.txt  # Python dependencies
+├── requirements.txt  # Python dependencies
+└── .env.example      # Environment variables template
 ```
 
 ## Setup
@@ -65,35 +77,58 @@ The API will be available at `http://localhost:8000`
 
 ## API Endpoints
 
+All API endpoints are prefixed with `/api/v1`.
+
 ### Root
-- `GET /` - Welcome message and endpoint list
+- `GET /` - Welcome message
 - `GET /health` - Health check
 
-### Upload
-- `POST /upload` - Upload a file
+### Authentication
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - User login
+- `GET /api/v1/auth/me` - Get current user
+
+### Files
+- `POST /api/v1/files` - Upload a file
+- `PATCH /api/v1/files/{file_id}/intent` - Update file intent
+- `GET /api/v1/projects/{project_id}/files` - List project files
 
 ### AI Generation
-- `POST /generate` - Generate AI content using LiteLLM
-  - Body: `{"prompt": "Your prompt", "model": "gpt-3.5-turbo", "max_tokens": 500}`
+- `POST /api/v1/generate/courseware` - Generate courseware
+- `GET /api/v1/generate/status/{task_id}` - Check generation status
 
 ### Projects
-- `GET /projects` - Get all projects
-- `POST /projects` - Create a new project
+- `GET /api/v1/projects` - Get all projects
+- `POST /api/v1/projects` - Create a new project
+- `GET /api/v1/projects/{project_id}` - Get project details
 
-### Courses
-- `GET /courses` - Get all courses
-- `POST /courses` - Create a new course
-- `GET /courses/{course_id}` - Get a specific course
+### Chat
+- `POST /api/v1/chat/messages` - Send chat message
+- `GET /api/v1/chat/messages` - Get chat history
+
+### Preview
+- `GET /api/v1/preview/{task_id}` - Get preview
+- `POST /api/v1/preview/{task_id}/modify` - Modify preview
+
+### RAG
+- `POST /api/v1/rag/search` - Search knowledge base
+- `GET /api/v1/rag/sources/{chunk_id}` - Get source chunk
 
 ## Models
 
-### Course Model
-```python
-class Course:
-    title: str
-    chapters: List[Chapter]
-    # Each chapter has: title, content, order
-```
+### Data Models
+
+The project uses Prisma ORM with the following main models:
+
+- **User**: User accounts with authentication
+- **Project**: User projects containing files and conversations
+- **Upload**: Uploaded files with parsing status
+- **ParsedChunk**: Parsed document chunks for RAG
+- **Conversation**: Chat conversations
+- **GenerationTask**: Async courseware generation tasks
+- **IdempotencyKey**: Request idempotency tracking
+
+See `prisma/schema.prisma` for complete schema definitions.
 
 ## API Documentation
 
@@ -109,8 +144,54 @@ The project uses:
 - Pydantic v2 for data validation
 - Prisma for database ORM
 - LiteLLM for AI integrations
-- SQLite for development database
+- SQLite for development database (PostgreSQL for production)
+- JWT for authentication
+- ChromaDB for vector storage
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+# Database
+DATABASE_URL="file:./prisma/dev.db"
+
+# Security
+JWT_SECRET_KEY="your-secret-key"
+JWT_ALGORITHM="HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# AI/LLM
+DASHSCOPE_API_KEY="your-dashscope-key"
+LLAMAPARSE_API_KEY="your-llamaparse-key"
+OPENAI_API_KEY="your-openai-key"
+DEFAULT_MODEL="qwen-plus"
+
+# Vector Database
+CHROMA_HOST="localhost"
+CHROMA_PORT="8001"
+
+# File Storage
+STORAGE_TYPE="local"
+MAX_FILE_SIZE=104857600  # 100MB
+```
+
+### Code Quality
+
+Run quality checks:
+
+```bash
+# Format code
+black .
+isort .
+
+# Lint
+flake8 . --max-line-length=88 --extend-ignore=E203
+
+# Test
+pytest
+```
 
 ## License
 
-MIT
+This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/).

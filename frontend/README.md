@@ -1,58 +1,104 @@
 # Spectra Frontend
 
-A minimalist dashboard built with Next.js 14 App Router, featuring a split-view interface for course management and slide previews.
+A modern, minimalist dashboard built with Next.js 15 App Router, featuring authentication, file management, and AI-powered courseware generation.
 
 ## Features
 
-- **Minimalist Sidebar Navigation** - Fixed sidebar with Lucide icons for clean navigation
-- **Split-View Interface** - Interactive course outline tree with slide preview panel
-- **File Upload Dropzone** - Drag-and-drop file upload with visual feedback
-- **Responsive Design** - Clean, modern UI optimized for AI-native development
+- **Authentication** - User registration and login with JWT
+- **File Management** - Drag-and-drop file upload with project organization
+- **AI Generation** - Interactive courseware generation interface
+- **Split-View Interface** - Course outline tree with slide preview panel
+- **Responsive Design** - Clean, modern UI optimized for all devices
 - **Accessibility First** - ARIA labels and keyboard navigation support
 - **Smooth Animations** - Framer Motion for polished interactions
 
 ## Tech Stack
 
-- **Framework:** Next.js 14 (App Router)
+- **Framework:** Next.js 15 (App Router)
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS
-- **Components:** Shadcn/ui design patterns
+- **Components:** Shadcn/ui + Radix UI
+- **State Management:** Zustand
+- **Form Handling:** React Hook Form + Zod
 - **Animations:** Framer Motion
 - **Icons:** Lucide React
+- **HTTP Client:** Fetch API with custom wrapper
 
 ## Getting Started
 
-First, install the dependencies:
+### Prerequisites
 
-```bash
-npm install
-```
+- Node.js 20+
+- npm or yarn
 
-Then, run the development server:
+### Installation
 
-```bash
-npm run dev
-```
+1. **Install dependencies**:
+
+   ```bash
+   npm install
+   ```
+
+2. **Configure environment**:
+
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your configuration
+   ```
+
+3. **Run development server**:
+   ```bash
+   npm run dev
+   ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment Variables
+
+```bash
+# API Configuration
+NEXT_PUBLIC_API_URL="http://localhost:8000"
+
+# App Configuration
+NEXT_PUBLIC_APP_NAME="Spectra"
+NEXT_PUBLIC_APP_VERSION="0.1.0"
+NEXT_PUBLIC_ENVIRONMENT="development"
+
+# Feature Flags
+NEXT_PUBLIC_ENABLE_AI_GENERATION="true"
+NEXT_PUBLIC_ENABLE_FILE_UPLOAD="true"
+
+# Upload Configuration
+NEXT_PUBLIC_MAX_FILE_SIZE=104857600  # 100MB
+
+# Debug
+NEXT_PUBLIC_DEBUG="true"
+```
 
 ## Project Structure
 
 ```
 ├── app/
-│   ├── layout.tsx       # Root layout with global styles
-│   ├── page.tsx         # Main dashboard page
-│   └── globals.css      # Global styles and CSS variables
+│   ├── auth/
+│   │   ├── login/          # Login page
+│   │   └── register/       # Registration page
+│   ├── layout.tsx          # Root layout with global styles
+│   ├── page.tsx            # Main dashboard page
+│   └── globals.css         # Global styles and CSS variables
 ├── components/
-│   ├── Sidebar.tsx              # Navigation sidebar with icons
-│   ├── SplitView.tsx            # Split-view container component
-│   ├── CourseOutline.tsx        # Interactive course tree
-│   ├── SlidePreview.tsx         # Slide preview panel
-│   └── FileUploadDropzone.tsx   # File upload with drag-and-drop
-└── lib/
-    └── utils.ts         # Utility functions (cn helper)
+│   ├── ui/                 # Shadcn/ui components
+│   ├── Sidebar.tsx         # Navigation sidebar
+│   ├── SplitView.tsx       # Split-view container
+│   ├── CourseOutline.tsx   # Interactive course tree
+│   ├── SlidePreview.tsx    # Slide preview panel
+│   └── FileUploadDropzone.tsx # File upload component
+├── lib/
+│   ├── api.ts              # API client wrapper
+│   ├── auth.ts             # Authentication utilities
+│   └── utils.ts            # Utility functions
+├── stores/
+│   └── authStore.ts        # Authentication state management
+└── __tests__/              # Test files
 ```
 
 ## Design System
@@ -62,23 +108,42 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 - **Spacing:** High whitespace for minimalist aesthetic
 - **Typography:** Clean hierarchy with proper font sizes
 
-## Quality Assurance
-
-- **Build:** Production-ready with optimized bundle
-- **Linting:** Zero ESLint errors
-- **Security:** No CodeQL vulnerabilities detected
-- **Accessibility:** ARIA labels and semantic HTML throughout
-
 ## Scripts
 
 ```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm start        # Start production server
-npm run lint     # Run ESLint
+npm run dev          # Start development server
+npm run build        # Build for production
+npm start            # Start production server
+npm run lint         # Run ESLint
+npm run format       # Format code with Prettier
+npm run format:check # Check code formatting
+npm test             # Run tests
+npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with coverage
 ```
 
+## Quality Assurance
+
+- **Build:** Production-ready with optimized bundle
+- **Linting:** ESLint with Next.js config
+- **Formatting:** Prettier for consistent code style
+- **Testing:** Jest + React Testing Library
+- **Type Safety:** TypeScript strict mode
+- **Accessibility:** ARIA labels and semantic HTML throughout
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## API Integration
+
+The frontend communicates with the backend API at `/api/v1`:
+
+- Authentication: `/api/v1/auth/*`
+- Projects: `/api/v1/projects`
+- Files: `/api/v1/files`
+- Generation: `/api/v1/generate/*`
+- Chat: `/api/v1/chat/*`
+
+See `lib/api.ts` for the complete API client implementation.
 
 ## Learn More
 
