@@ -19,65 +19,196 @@ An AI-powered intelligent courseware generation system that helps educators quic
 Spectra/                 # Monorepo root
 ├── frontend/            # Next.js frontend app
 │   ├── app/            # Page routes
+│   │   ├── auth/       # Authentication pages
+│   │   ├── layout.tsx  # Root layout
+│   │   └── page.tsx    # Dashboard page
 │   ├── components/     # React components
+│   │   └── ui/         # Shadcn/ui components
 │   ├── lib/            # Utility functions
+│   │   ├── api.ts      # API client
+│   │   ├── auth.ts     # Auth utilities
+│   │   └── utils.ts    # Helper functions
+│   ├── stores/         # State management
+│   ├── __tests__/      # Test files
 │   └── .cursorrules    # Frontend AI rules
 ├── backend/             # FastAPI backend service
 │   ├── routers/        # API routes
+│   │   ├── auth.py     # Authentication
+│   │   ├── files.py    # File management
+│   │   ├── projects.py # Project management
+│   │   ├── chat.py     # Chat interface
+│   │   ├── preview.py  # Preview generation
+│   │   ├── rag.py      # RAG search
+│   │   └── generate.py # AI generation
 │   ├── services/       # Business logic
-│   ├── schemas/        # Data models
+│   │   ├── db_service.py    # Database operations
+│   │   ├── file_service.py  # File handling
+│   │   ├── ai_service.py    # AI integration
+│   │   └── auth_service.py  # Authentication
+│   ├── utils/          # Utility modules
+│   │   ├── dependencies.py  # FastAPI dependencies
+│   │   ├── exceptions.py    # Custom exceptions
+│   │   ├── logger.py        # Logging config
+│   │   └── responses.py     # Response formatters
+│   ├── schemas/        # Pydantic models
 │   ├── prisma/         # Database ORM
+│   │   ├── schema.prisma    # Database schema
+│   │   └── migrations/      # Migration files
+│   ├── tests/          # Test files
 │   └── .cursorrules    # Backend AI rules
 ├── docs/                # Project documentation
-│   ├── project/        # Project basics
-│   ├── standards/      # Standards & specs
 │   ├── architecture/   # Architecture design
-│   ├── decisions/      # Technical decisions
+│   │   ├── backend/    # Backend architecture
+│   │   ├── frontend/   # Frontend architecture
+│   │   ├── system/     # System architecture
+│   │   └── deployment/ # Deployment guides
+│   ├── decisions/      # Technical decisions (ADR)
 │   ├── requirements/   # Requirements analysis
+│   │   ├── functional/ # Functional requirements
+│   │   ├── ai/         # AI capabilities
+│   │   └── ux/         # UX requirements
 │   ├── guides/         # Development guides
+│   ├── standards/      # Coding standards
 │   └── .cursorrules    # Docs AI rules
+├── .github/             # GitHub configuration
+│   └── workflows/      # CI/CD workflows
 ├── .cursorrules         # Root AI rules
 ├── .gitignore          # Git ignore config
+├── docker-compose.yml  # Docker setup
 └── README.md           # This file
 ```
 
 ## Tech Stack
 
-- **Frontend**: Next.js 15 + TypeScript + Tailwind CSS + Shadcn/ui
-- **Backend**: FastAPI + Python 3.11 + Prisma ORM
-- **Database**: SQLite
-- **AI**: LiteLLM (multi-model support)
+### Frontend
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Shadcn/ui + Radix UI
+- **State Management**: Zustand
+- **Form Handling**: React Hook Form + Zod
+- **Animations**: Framer Motion
+- **Icons**: Lucide React
+
+### Backend
+- **Framework**: FastAPI
+- **Language**: Python 3.11
+- **ORM**: Prisma Client Python
+- **Database**: SQLite (dev) / PostgreSQL (prod)
+- **Authentication**: JWT
+- **AI Integration**: LiteLLM (multi-model support)
+- **Vector Database**: ChromaDB
+- **Document Parsing**: LlamaParse
+
+### DevOps
+- **CI/CD**: GitHub Actions
+- **Testing**: Jest (frontend), pytest (backend)
+- **Code Quality**: ESLint, Prettier, Black, Flake8, isort
+- **Containerization**: Docker + Docker Compose
 
 ## Quick Start
+
+### Prerequisites
+
+- Node.js 20+
+- Python 3.11+
+- Docker (optional, recommended)
 
 ### Using Docker (Recommended)
 
 ```bash
+# Clone repository
+git clone <repository-url>
+cd Spectra
+
+# Start all services
 docker-compose up
 ```
 
 - Frontend: http://localhost:3000
-- Backend: http://localhost:8000
+- Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
 See [Docker Setup Guide](./docs/guides/docker-setup.md) for details.
 
 ### Local Development
 
-```bash
-# Frontend
-cd frontend
-npm install
-npm run dev
+#### Backend Setup
 
-# Backend
+```bash
 cd backend
+
+# Install dependencies
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Configure environment
 cp .env.example .env
+# Edit .env and add your API keys
+
+# Generate Prisma client
 prisma generate
-prisma db push
-uvicorn main:app --reload
+
+# Run migrations
+prisma migrate dev
+
+# Start server
+python main.py
 ```
+
+Backend will be available at http://localhost:8000
+
+#### Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Configure environment
+cp .env.example .env.local
+
+# Start development server
+npm run dev
+```
+
+Frontend will be available at http://localhost:3000
+
+## Features
+
+### Current Implementation (Phase 3 - Scaffolding)
+
+- ✅ **Authentication System** - User registration and login (skeleton)
+- ✅ **Project Management** - Create and manage courseware projects
+- ✅ **File Upload** - Drag-and-drop file upload with validation
+- ✅ **API Architecture** - RESTful API with `/api/v1` prefix
+- ✅ **Database Schema** - Complete data models with Prisma ORM
+- ✅ **Error Handling** - Unified error responses and logging
+- ✅ **CI/CD Pipeline** - Automated testing and code quality checks
+
+### Planned Features (Phase 4+)
+
+- 🔄 **AI Chat Interface** - Natural conversation for courseware design
+- 🔄 **Document Parsing** - Extract content from PDFs, DOCX, videos
+- 🔄 **RAG Search** - Knowledge base retrieval for content generation
+- 🔄 **Courseware Generation** - AI-powered slide and lesson plan creation
+- 🔄 **Preview & Editing** - Real-time preview with modification support
+- 🔄 **Multi-format Export** - Export to PPT, PDF, Word formats
+
+## API Endpoints
+
+All API endpoints are prefixed with `/api/v1`:
+
+- **Authentication**: `/api/v1/auth/*` - User registration, login, profile
+- **Projects**: `/api/v1/projects` - Project CRUD operations
+- **Files**: `/api/v1/files` - File upload and management
+- **Chat**: `/api/v1/chat/*` - Conversational interface
+- **Generation**: `/api/v1/generate/*` - AI courseware generation
+- **Preview**: `/api/v1/preview/*` - Preview and modification
+- **RAG**: `/api/v1/rag/*` - Knowledge base search
+
+See [OpenAPI Specification](./docs/openapi.yaml) for complete API documentation.
 
 ## AI Collaboration Optimization
 
