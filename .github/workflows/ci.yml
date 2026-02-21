@@ -70,7 +70,14 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-          prisma generate
+      
+      - name: Setup environment
+        working-directory: backend
+        run: cp .env.example .env
+      
+      - name: Generate Prisma client
+        working-directory: backend
+        run: prisma generate
       
       - name: Check code format
         working-directory: backend
