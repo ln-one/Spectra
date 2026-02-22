@@ -30,6 +30,11 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+// 补充说明：在生产环境下使用二进制引擎以提高 Linux 环境兼容性
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "linux-musl"]
+}
 ```
 
 **3. 更新环境变量**：
@@ -64,6 +69,29 @@ class OSSStorage(StorageService):
     def upload(self, file_path: str, object_name: str) -> str:
         self.bucket.put_object_from_file(object_name, file_path)
         return f"https://{self.bucket.bucket_name}.oss-cn-hangzhou.aliyuncs.com/{object_name}"
+```
+## 网关配置 (Nginx)
+
+生产环境建议使用 Nginx 作为反向代理，处理 SSL 和长连接：
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name spectra.yourdomain.com;
+
+    # 前端静态资源
+    location / {
+        proxy_pass http://frontend:3000;
+    }
+
+    # 后端 API
+    location /api/ {
+        proxy_pass http://backend:8000/;
+        proxy_read_timeout 300s; # 重要：调高超时以支持长时间的 AI 生成任务
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
 ```
 
 ## 缓存层
