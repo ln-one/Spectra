@@ -93,6 +93,21 @@ echo $JWT_SECRET_KEY
 # 检查 Token 格式
 # Header: Authorization: Bearer {token}
 ```
+### 7. API 504 Gateway Timeout
+
+**问题**: 点击生成课件后，经过 60 秒返回 504 错误。
+**原因**: Nginx 或 Uvicorn 默认超时时间过短，无法满足长耗时的 AI 生成任务。
+**解决方案**: 
+- Nginx 增加 `proxy_read_timeout 300s;`
+- Uvicorn 启动参数增加 `--timeout-keep-alive 300`
+
+### 8. ChromaDB Dimension Mismatch
+
+**问题**: 检索时报错 `Vector dimension mismatch`。
+**原因**: 更改了 Embedding 模型（如从本地换成 DashScope）但未清理旧数据。
+**解决方案**: 
+- 删除 `backend/chroma_data` 目录并重启服务，触发数据重读与索引。
+
 
 ## 性能问题
 
