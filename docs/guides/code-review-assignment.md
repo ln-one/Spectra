@@ -153,7 +153,7 @@
 - [x] `docs/architecture/README.md` - 架构文档索引
 
 #### 6. CI/CD 配置 (优先级: P1)
-- [x] `.github/workflows/ci.yml` - CI 配置
+- [ ] `.github/workflows/ci.yml` - CI 配置
 - [x] `docker-compose.yml` - Docker 配置
 
 #### 7. 验证报告 (优先级: P2)
