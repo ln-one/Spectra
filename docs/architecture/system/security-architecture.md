@@ -56,6 +56,15 @@ async def get_current_user(
     user_id = payload.get("sub")
     return await db_service.get_user_by_id(user_id)
 ```
+**双 Token 刷新机制 (Refresh Token)**
+- Access Token：有效期 30 分钟，用于常规 API 请求。
+- Refresh Token：有效期 7 天，存储在 HTTP-only Cookie 中。
+
+前端 Axios/Fetch 拦截器捕获 401 错误。
+自动调用 /auth/refresh 接口。
+后端验证有效后颁发新 Access Token，实现用户无感知续期。
+
+避免老师在长达 1 小时的备课/预览修改过程中突然被强制退出。
 
 ## 授权架构
 
