@@ -82,7 +82,10 @@ sequenceDiagram
     U->>F: 拖拽文件上传
     F->>B: POST /files<br/>multipart/form-data
     B->>B: 验证用户权限
-    B->>B: 保存文件到本地
+    B->>B: 计算文件 Hash 并检查是否存在重复（秒传逻辑）
+    B->>B: 保存文件到指定 user/project 路径
+    B->>DB: 记录文件元数据与存储路径
+    B->>V: 解析完成后，将 Chunk 关联 DB 中的 upload_id 和 project_id，确保 RAG 检索不跨项目越权。
     B->>DB: 创建 Upload 记录<br/>(status=uploading)
     B-->>F: 返回文件信息
     
