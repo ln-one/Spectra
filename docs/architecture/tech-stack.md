@@ -214,7 +214,20 @@
 
 ### Document Parsing
 
-**LlamaParse**
+**MinerU（更推荐）**
+- **选型理由**：
+  - 可云端解析服务，无需本地部署，也可本地部署
+  - 支持 pdf、doc、ppt、图片文件、html文件
+  - 结构化提取能力强
+- **使用方式**：
+  - 上传文件到 MinerU API 或集成到程序中
+  - 获取解析结果（Markdown/JSON）
+  - 将标题、段落、公式、图表
+- **配置**：
+  - API Key: 环境变量 MinerU_CLOUD_API_KEY
+- **文档**：https://mineru.net/apiManage/docs
+
+**LlamaParse（备选）**
 - **选型理由**：
   - 云端解析服务，无需本地部署
   - 支持 PDF/Word/PPT
@@ -227,7 +240,7 @@
 - **配置**：
   - API Key: 环境变量 LLAMA_CLOUD_API_KEY
 - **文档**：https://docs.llamaindex.ai/en/stable/llama_cloud/llama_parse/
-- **备选方案**：MinerU（本地部署，P1 阶段）
+
 
 ### Video Understanding
 
@@ -476,11 +489,13 @@ LLAMA_CLOUD_API_KEY=your_api_key
 - 与 TypeScript 风格一致
 - 现有脚手架已使用
 
-### 为什么选择 LlamaParse 而不是 MinerU？
+### 为什么选择 MinerU 而不是 LlamaParse？
 
-- 云端服务，无需本地部署
-- 快速跑通 MVP
-- 后续可切换到 MinerU（P1）
+- 同样都可调用API，MinerU有每日10000份文件的免费限额，2000页可优先解析，响应迅速
+- 相比LlamaParse，目标是处理教材、试卷等复杂 PDF，MinerU 的能力更强大，更契合项目
+- LlamaParse唯一优势是配合 LlamaIndex 生态，但项目中并未有其它LlamaIndex技术栈
+- 快速跑通 MVP，完整流程已经经过验证，有效性可保证
+- 后续可选添加集成的本地部署MinerU，提高项目技术力（P1）
 
 ### 为什么选择 ChromaDB 而不是 Milvus？
 

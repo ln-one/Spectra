@@ -31,12 +31,12 @@
 
 ## 技术栈
 
-| 层级 | 技术选型 | 用途 |
-|------|---------|------|
+| 层级 | 技术选型                    | 用途 |
+|------|-------------------------|------|
 | 前端 | Next.js 15 + TypeScript | Web 应用 |
-| 后端 | FastAPI + Python 3.11 | REST API |
-| 数据库 | SQLite → PostgreSQL | 元数据存储 |
-| 向量库 | ChromaDB | RAG 检索 |
-| LLM | DashScope (Qwen 3.5) | AI 能力 |
-| 文档解析 | LlamaParse | 文档处理 |
-| 视频理解 | Qwen-VL API | 视频处理 |
+| 后端 | FastAPI + Python 3.11   | REST API |
+| 数据库 | SQLite → PostgreSQL     | 元数据存储 |
+| 向量库 | ChromaDB                | RAG 检索 |
+| LLM | DashScope (Qwen 3.5)    | AI 能力 |
+| 文档解析 | MinerU                  | 文档处理 |
+| 视频理解 | Qwen-VL API             | 视频处理 |
