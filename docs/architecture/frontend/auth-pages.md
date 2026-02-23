@@ -2,6 +2,9 @@
 
 ## 登录页面
 
+> REVIEW-P1(important) 问题：示例中使用 `toast(...)`，但未展示导入来源，示例缺失必要上下文。
+> REVIEW-P1(important) 建议：补充完整的导入语句（包括 toast 来源）和必要依赖上下文。
+
 ```typescript
 // app/auth/login/page.tsx
 'use client';
@@ -13,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+// TODO: 导入 toast 实现（e.g., react-hot-toast, sonner 等）
 
 export default function LoginPage() {
   const router = useRouter();
@@ -75,6 +79,9 @@ export default function LoginPage() {
 ```
 
 ## 注册页面
+
+> REVIEW-P0(blocking) 问题：示例调用 `register(email, password, name)`，与 `frontend/stores/authStore.ts` 当前签名（`username/fullName`）不一致。  
+> REVIEW-P0(blocking) 建议：统一注册参数命名，并在本页与 `authentication.md` 同步更新。
 
 ```typescript
 // app/auth/register/page.tsx

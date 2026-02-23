@@ -7,10 +7,22 @@
  * - 错误处理
  * - 幂等性支持
  *
- * TODO: 实现完整的拦截器逻辑
- * - Token 自动刷新
- * - 请求重试机制
- * - 请求取消
+ * > REVIEW-P0(blocking) 问题：此处使用 Fetch API，但文档示例为 Axios，策略不一致。
+ * > REVIEW-P0(blocking) 建议：统一为 Fetch Wrapper 方案（改动最小）
+ * >   理由：当前已有完整实现、package.json 无 axios 依赖、仅需更新文档、目标是文档与代码一致
+ *
+ * > REVIEW-P0(blocking) 问题：当前文件已 389 行，超过单文件推荐行数（< 300 行）。
+ * > REVIEW-P0(blocking) 建议：按 Index Pattern 拆分为 `lib/api/{types.ts, request.ts, response.ts, methods.ts}` + 入口编排。
+ *
+ * > REVIEW-P1(important) 问题：高级功能未实现，包括 Token 自动刷新、请求重试、请求取消等。
+ * > REVIEW-P1(important) 建议：作为设计/骨架阶段的后续完善项，不阻塞本轮架构审核
+ * >   MVP 阶段：当前实现可接受，需在文档明确标注
+ * >   产品阶段：后续需实现完整的 QoS 功能
+ *
+ * TODO: 实现高级功能（后续迭代）
+ * - Token 自动刷新（响应 401 时）
+ * - 请求重试机制（指数退避）
+ * - 请求取消（AbortController）
  */
 
 import { TokenStorage } from "./auth";

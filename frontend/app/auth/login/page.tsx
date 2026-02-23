@@ -3,6 +3,12 @@
  *
  * 用户登录页面
  *
+ * > REVIEW-P1(important) 问题：此页面缺失表单验证，仅使用基础 state。
+ * > REVIEW-P1(important) 建议：集成 React Hook Form + Zod 进行邮箱格式、密码强度等验证，提升用户体验。
+ *
+ * > REVIEW-P2(nice-to-have) 问题：错误处理不完整，缺少全局 Error Boundary 组件捕获异常。
+ * > REVIEW-P2(nice-to-have) 建议：添加 Error Boundary 组件处理未预期的错误，提升可靠性。
+ *
  * TODO: 实现完整的登录表单
  * - 表单验证（React Hook Form + Zod）
  * - 错误提示

@@ -2,6 +2,19 @@
 
 ## API 客户端封装
 
+> REVIEW-P0(blocking) 问题：此处文档定义为 `Axios`，当前实现 `frontend/lib/api.ts` 使用 Fetch Wrapper。  
+> REVIEW-P0(blocking) 建议：**统一为 Fetch Wrapper 方案**（改动最小）
+> 理由：
+> - `frontend/lib/api.ts` 已有完整的 Fetch 封装实现
+> - `package.json` 当前无 axios 依赖，无需新增外部库
+> - 改动最小—仅需更新文档示例，明确不混用
+> - 核心目标：**文档与代码一致**
+>
+
+
+> REVIEW-P0(blocking) 问题：当前 `frontend/lib/api.ts` 已超过 300 行，需要拆分。  
+> REVIEW-P0(blocking) 建议：按 Index Pattern 拆分为 `lib/api/{types.ts, request.ts, response.ts, methods.ts}` + `index.ts` 入口
+
 ```typescript
 // lib/api.ts
 import axios from 'axios';
@@ -39,7 +52,13 @@ apiClient.interceptors.response.use(
 export default apiClient;
 ```
 
+> REVIEW-P0(blocking) 问题：文档示例直接读取 `localStorage.getItem('token')`，与实现中 `access_token` 约定不一致。  
+> REVIEW-P0(blocking) 建议：文档示例改为 `TokenStorage.getAccessToken()`，并统一约定键名为 `access_token`，避免后续扩展时出现隐性认证故障。
+
 ## API 服务层
+
+> REVIEW-P1(important) 问题：文档中示例路径为 `lib/services/projectService.ts`，但当前仓库中 `lib/services/` 目录不存在。
+> REVIEW-P1(important) 建议：确认是否需要创建 `lib/services/` 目录，并将服务层拆分；或调整文档路径到实际结构。
 
 ### Project Service
 

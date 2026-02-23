@@ -3,6 +3,12 @@
  *
  * 用户注册页面
  *
+ * > REVIEW-P0(blocking) 问题：此页面与文档、Store 中的参数命名不一致。
+ * > REVIEW-P0(blocking) 建议：本页面中 `username` 需与 `authStore.register(username, fullName)` 签名和文档示例对齐。
+ *
+ * > REVIEW-P2(nice-to-have) 问题：错误处理不完整，缺少全局 Error Boundary 组件捕获异常。
+ * > REVIEW-P2(nice-to-have) 建议：添加 Error Boundary 组件处理未预期的错误，提升可靠性。
+ *
  * TODO: 实现完整的注册表单
  * - 表单验证（React Hook Form + Zod）
  * - 密码强度检查

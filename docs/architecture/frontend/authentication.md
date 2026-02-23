@@ -6,6 +6,9 @@
 
 ## Token 存储方案
 
+> REVIEW-P1(important) 问题：示例路径为 `lib/auth/storage.ts`，当前仓库实际为 `frontend/lib/auth.ts`。  
+> REVIEW-P1(important) 建议：统一文档路径到实际文件，避免实现阶段误导。
+
 ```typescript
 // lib/auth/storage.ts
 export const TokenStorage = {
@@ -35,6 +38,9 @@ export const TokenStorage = {
 - **Token 过期**: 实现自动刷新机制
 
 ## 认证状态管理
+
+> REVIEW-P0(blocking) 问题：此处 `register` 签名为 `(email, password, name)`，与当前 `frontend/stores/authStore.ts` 的 `username/fullName` 语义不一致。  
+> REVIEW-P0(blocking) 建议：统一注册字段命名（`username` 与 `fullName`），并在文档示例、页面示例、store 签名保持一致。
 
 ```typescript
 // stores/authStore.ts
@@ -76,6 +82,9 @@ export const useAuthStore = create<AuthState>()((set) => ({
 ```
 
 ## API 拦截器设计
+
+> REVIEW-P0(blocking) 问题：此处继续使用 Axios 拦截器，与当前 `frontend/lib/api.ts` 的 Fetch 封装方案不一致。  
+> REVIEW-P0(blocking) 建议：统一为单一 API 客户端架构，避免出现“双规范并存”。
 
 ```typescript
 // lib/api.ts

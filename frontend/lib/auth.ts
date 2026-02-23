@@ -9,11 +9,18 @@
  * - 生产环境使用 httpOnly cookie
  */
 
+/**
+ * > REVIEW-P1(important) 问题：User 类型缺少 OpenAPI 契约规定的必需字段 createdAt。
+ * > REVIEW-P1(important) 建议：同步 OpenAPI 契约，添加缺失字段（createdAt 为必需）。
+ * > REVIEW-P1(important) 位置：docs/openapi.yaml 第 606 行要求 UserInfo.createdAt 为必需
+ */
 export interface User {
   id: string;
   email: string;
   username: string;
+  createdAt: Date;        // REQUIRED by OpenAPI contract (openapi.yaml:606)
   fullName?: string;
+  updatedAt?: Date;       // Optional for now, verify with OpenAPI
 }
 
 export interface LoginResponse {
@@ -33,6 +40,9 @@ export interface RegisterRequest {
  * Token 存储管理
  *
  * 当前使用 localStorage，生产环境建议使用 httpOnly cookie
+ *
+ * > REVIEW-P0(blocking) 问题：文档示例中存在 `token` 键名写法，与此处 `access_token` 约定不一致。
+ * > REVIEW-P0(blocking) 建议：统一通过 `TokenStorage.getAccessToken()` 访问令牌，避免业务代码直接硬编码 localStorage 键名。
  */
 export const TokenStorage = {
   /**
@@ -74,6 +84,9 @@ export const TokenStorage = {
 
 /**
  * 认证服务 API 调用
+ *
+ * > REVIEW-P1(important) 问题：`authService.login()` 和 `register()` 方法抛出 `Not implemented` 错误。
+ * > REVIEW-P1(important) 建议：根据后端 API 契约实现这两个方法（调用 `/api/v1/auth/login` 和 `/api/v1/auth/register`）。
  *
  * TODO: 取消注释以启用 API 调用
  */
