@@ -84,69 +84,46 @@ export const TokenStorage = {
 
 /**
  * 认证服务 API 调用
- *
- * > REVIEW-P1(important) 问题：`authService.login()` 和 `register()` 方法抛出 `Not implemented` 错误。
- * > REVIEW-P1(important) 建议：根据后端 API 契约实现这两个方法（调用 `/api/v1/auth/login` 和 `/api/v1/auth/register`）。
- *
- * TODO: 取消注释以启用 API 调用
  */
 export const authService = {
   /**
    * 用户登录
    */
   async login(email: string, password: string): Promise<LoginResponse> {
-    // TODO: 取消注释以启用
-    // const { api } = await import('./api');
-    // const response = await api.post<{ token: string; user: User }>(
-    //   '/auth/login',
-    //   { email, password },
-    //   { requireAuth: false }
-    // );
-    // return {
-    //   access_token: response.token,
-    //   token_type: 'Bearer',
-    //   user: response.user,
-    // };
-    throw new Error("Not implemented");
+    const { authApi } = await import("./api");
+    const response = await authApi.login({ email, password });
+    return {
+      access_token: response.access_token,
+      token_type: "Bearer",
+      user: response.user,
+    };
   },
 
   /**
    * 用户注册
    */
   async register(data: RegisterRequest): Promise<LoginResponse> {
-    // TODO: 取消注释以启用
-    // const { api } = await import('./api');
-    // const response = await api.post<{ token: string; user: User }>(
-    //   '/auth/register',
-    //   data,
-    //   { requireAuth: false }
-    // );
-    // return {
-    //   access_token: response.token,
-    //   token_type: 'Bearer',
-    //   user: response.user,
-    // };
-    throw new Error("Not implemented");
+    const { authApi } = await import("./api");
+    const response = await authApi.register(data);
+    return {
+      access_token: response.access_token,
+      token_type: "Bearer",
+      user: response.user,
+    };
   },
 
   /**
    * 获取当前用户信息
    */
   async getCurrentUser(): Promise<User> {
-    // TODO: 取消注释以启用
-    // const { api } = await import('./api');
-    // const response = await api.get<{ user: User }>('/auth/me');
-    // return response.user;
-    throw new Error("Not implemented");
+    const { authApi } = await import("./api");
+    return authApi.getCurrentUser();
   },
 
   /**
    * 用户登出
    */
   async logout(): Promise<void> {
-    // TODO: 如果后端需要登出接口，取消注释
-    // const { api } = await import('./api');
-    // await api.post('/auth/logout');
     TokenStorage.clearTokens();
   },
 };

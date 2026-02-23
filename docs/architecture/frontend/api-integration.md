@@ -2,58 +2,47 @@
 
 ## API 客户端封装
 
-> REVIEW-P0(blocking) 问题：此处文档定义为 `Axios`，当前实现 `frontend/lib/api.ts` 使用 Fetch Wrapper。  
-> REVIEW-P0(blocking) 建议：**统一为 Fetch Wrapper 方案**（改动最小）
-> 理由：
-> - `frontend/lib/api.ts` 已有完整的 Fetch 封装实现
-> - `package.json` 当前无 axios 依赖，无需新增外部库
-> - 改动最小—仅需更新文档示例，明确不混用
-> - 核心目标：**文档与代码一致**
->
+### 技术方案
 
+本项目使用 **Fetch API** 进行 HTTP 请求，而不是 Axios。
 
-> REVIEW-P0(blocking) 问题：当前 `frontend/lib/api.ts` 已超过 300 行，需要拆分。  
-> REVIEW-P0(blocking) 建议：按 Index Pattern 拆分为 `lib/api/{types.ts, request.ts, response.ts, methods.ts}` + `index.ts` 入口
+选择理由：
+- 原生浏览器 API，无需额外依赖
+- 现代浏览器全面支持
+- 与 Next.js 生态更好集成
+- 代码体积更小
+
+### 基础客户端实现
 
 ```typescript
-// lib/api.ts
-import axios from 'axios';
+// lib/api/client.ts
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+export async function request<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = TokenStorage.getAccessToken();
+  
+  const config: RequestInit = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
+    },
+  };
 
-// 请求拦截器
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// 响应拦截器
-apiClient.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
-    const message = error.response?.data?.message || '请求失败';
-    toast.error(message);
-    return Promise.reject(error);
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || '请求失败');
   }
-);
-
-export default apiClient;
+  
+  return response.json();
+}
 ```
-
-> REVIEW-P0(blocking) 问题：文档示例直接读取 `localStorage.getItem('token')`，与实现中 `access_token` 约定不一致。  
-> REVIEW-P0(blocking) 建议：文档示例改为 `TokenStorage.getAccessToken()`，并统一约定键名为 `access_token`，避免后续扩展时出现隐性认证故障。
 
 ## API 服务层
 

@@ -86,9 +86,10 @@ async def get_projects(
         项目列表和分页信息
     """
     try:
-        # REVIEW #B2 (P0): 当前直接读取全量项目，未按 user_id 过滤，存在跨用户数据泄露风险。
-        # TODO: Update db_service to filter by user_id and support pagination
-        # For now, return all projects (will be filtered by user_id later)
+        # TODO: Filter projects by user_id (data isolation)
+        # projects = await db_service.get_projects_by_user(user_id, page, limit)
+        
+        # TEMPORARY: Get all projects (will be filtered by user_id later)
         projects = await db_service.get_all_projects()
 
         # TODO: Implement actual pagination

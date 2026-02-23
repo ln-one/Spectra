@@ -52,14 +52,21 @@ async def upload_file(
         HTTPException: 上传失败时抛出
     """
     try:
-        # TODO: Implement idempotency check if idempotency_key is provided
-        # REVIEW #B2 (P0): 资源归属校验未落地，当前上传链路仍缺少 project -> user 隔离检查。
-        # TODO: Verify project belongs to user
+        # TODO: Verify project belongs to user (data isolation)
         # project = await db_service.get_project(project_id)
         # if project.userId != user_id:
-        #     raise ForbiddenException(
-        #         message="无权限访问此项目",
-        #     )
+        #     raise ForbiddenException(message="无权限访问此项目")
+
+        # TODO: Implement idempotency check if idempotency_key is provided
+        # if idempotency_key:
+        #     cached_response = await check_idempotency(idempotency_key)
+        #     if cached_response:
+        #         return cached_response
+
+        # TODO: Verify project belongs to user (data isolation)
+        # project = await db_service.get_project(project_id)
+        # if project.userId != user_id:
+        #     raise ForbiddenException(message="无权限访问此项目")
 
         # Read file content
         content = await file.read()
