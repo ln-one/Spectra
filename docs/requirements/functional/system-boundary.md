@@ -61,7 +61,7 @@
 
 - 项目域：`/api/v1/projects`、`/api/v1/projects/{project_id}`
 - 对话域：`/api/v1/chat/messages`
-- 上传域：`/api/v1/upload`、`/api/v1/upload/{project_id}`
+- 上传域：`/api/v1/files`、`/api/v1/projects/{project_id}/files`
 - 生成域：`/api/v1/generate/courseware`、`/api/v1/generate/status/{task_id}`
 
 ## 上下文边界图

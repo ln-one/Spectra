@@ -136,3 +136,9 @@ class ServiceException(Exception):
 - API 响应 <500ms
 - 实现分页
 
+## 审核补充规则（2026-02-23）
+
+- 认证依赖禁止返回固定用户ID；受保护路由必须基于 JWT 完整校验。
+- `Idempotency-Key` 统一走 HTTP Header，不得以 Query 参数替代。
+- Project 与 Auth 的请求/响应字段命名必须与 `docs/openapi.yaml` 单一口径一致。
+
