@@ -10,10 +10,6 @@
 - [Data Models](./backend/data-models.md) - Prisma 数据模型详解
 - [Router Layer](./backend/router-layer.md) - API 路由设计
 - [Service Layer](./backend/service-layer.md) - 业务逻辑设计
-- [Schema Layer](./backend/schema-layer.md) - 数据模型设计
-
-### AI 能力
-- [AI Integration](./backend/ai-integration.md) - AI 能力集成
 
 ### 安全与认证
 - [Authentication](./backend/authentication.md) - 认证服务（JWT）
@@ -22,10 +18,6 @@
 ### 运维与监控
 - [Error Handling](./backend/error-handling.md) - 错误处理
 - [Logging](./backend/logging.md) - 日志设计
-
-### 测试与部署
-- [Testing](./backend/testing.md) - 测试策略
-- [Deployment](./backend/deployment.md) - 部署指南
 
 ## 架构原则
 

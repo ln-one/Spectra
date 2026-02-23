@@ -75,7 +75,9 @@ async def upload_file(
         filepath, file_size = await file_service.save_file(file.filename, content)
 
         # Determine file type from extension
-        file_extension = file.filename.split(".")[-1].lower() if "." in file.filename else ""
+        file_extension = (
+            file.filename.split(".")[-1].lower() if "." in file.filename else ""
+        )
         file_type_map = {
             "pdf": "pdf",
             "docx": "docx",

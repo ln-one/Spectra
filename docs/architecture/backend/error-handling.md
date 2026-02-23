@@ -77,7 +77,11 @@ async def service_exception_handler(
         status_code=exc.status_code,
         content={
             "success": False,
-            "data": None,
+            "error": {
+                "code": exc.code or "UNKNOWN_ERROR",
+                "message": exc.message,
+                "details": {}
+            },
             "message": exc.message
         }
     )
@@ -98,8 +102,12 @@ async def general_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={
             "success": False,
-            "data": None,
-            "message": "Internal server error"
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "Internal server error",
+                "details": {}
+            },
+            "message": "服务器内部错误"
         }
     )
 ```
@@ -125,14 +133,16 @@ async def get_project(self, project_id: str):
 ```
 
 ## 错误响应格式
-<!-- REVIEW #B7 (P1): 本文示例包含 data + error_code，而当前后端实现/契约使用 error 对象（code/message/details）。建议统一单一错误响应结构。 -->
 
 ```json
 {
     "success": false,
-    "data": null,
-    "message": "错误描述",
-    "error_code": "OPTIONAL_ERROR_CODE"
+    "error": {
+        "code": "ERROR_CODE",
+        "message": "详细错误描述",
+        "details": {}
+    },
+    "message": "用户友好的错误消息"
 }
 ```
 

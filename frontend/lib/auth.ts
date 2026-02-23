@@ -18,9 +18,9 @@ export interface User {
   id: string;
   email: string;
   username: string;
-  createdAt: Date;        // REQUIRED by OpenAPI contract (openapi.yaml:606)
+  createdAt: Date; // REQUIRED by OpenAPI contract (openapi.yaml:606)
   fullName?: string;
-  updatedAt?: Date;       // Optional for now, verify with OpenAPI
+  updatedAt?: Date; // Optional for now, verify with OpenAPI
 }
 
 export interface LoginResponse {
@@ -90,12 +90,18 @@ export const authService = {
    * 用户登录
    */
   async login(email: string, password: string): Promise<LoginResponse> {
-    const { authApi } = await import("./api");
+    const { authApi } = await import("./api/auth");
     const response = await authApi.login({ email, password });
     return {
       access_token: response.access_token,
       token_type: "Bearer",
-      user: response.user,
+      user: {
+        ...response.user,
+        createdAt: new Date(response.user.createdAt),
+        updatedAt: response.user.updatedAt
+          ? new Date(response.user.updatedAt)
+          : undefined,
+      },
     };
   },
 
@@ -103,12 +109,18 @@ export const authService = {
    * 用户注册
    */
   async register(data: RegisterRequest): Promise<LoginResponse> {
-    const { authApi } = await import("./api");
+    const { authApi } = await import("./api/auth");
     const response = await authApi.register(data);
     return {
       access_token: response.access_token,
       token_type: "Bearer",
-      user: response.user,
+      user: {
+        ...response.user,
+        createdAt: new Date(response.user.createdAt),
+        updatedAt: response.user.updatedAt
+          ? new Date(response.user.updatedAt)
+          : undefined,
+      },
     };
   },
 
@@ -116,8 +128,13 @@ export const authService = {
    * 获取当前用户信息
    */
   async getCurrentUser(): Promise<User> {
-    const { authApi } = await import("./api");
-    return authApi.getCurrentUser();
+    const { authApi } = await import("./api/auth");
+    const response = await authApi.getCurrentUser();
+    return {
+      ...response,
+      createdAt: new Date(response.createdAt),
+      updatedAt: response.updatedAt ? new Date(response.updatedAt) : undefined,
+    };
   },
 
   /**

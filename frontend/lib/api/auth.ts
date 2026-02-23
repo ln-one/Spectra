@@ -13,6 +13,7 @@ export interface RegisterRequest {
   email: string;
   username: string;
   password: string;
+  fullName?: string;
 }
 
 export interface AuthResponse {
@@ -21,6 +22,9 @@ export interface AuthResponse {
     id: string;
     email: string;
     username: string;
+    createdAt: string;
+    fullName?: string;
+    updatedAt?: string;
   };
 }
 
@@ -41,7 +45,14 @@ export const authApi = {
     });
   },
 
-  async getCurrentUser(): Promise<any> {
+  async getCurrentUser(): Promise<{
+    id: string;
+    email: string;
+    username: string;
+    createdAt: string;
+    fullName?: string;
+    updatedAt?: string;
+  }> {
     return request("/auth/me", {
       method: "GET",
     });

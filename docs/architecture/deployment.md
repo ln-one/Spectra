@@ -11,8 +11,6 @@
 
 ### 运维与维护
 - [Troubleshooting](./deployment/troubleshooting.md) - 故障排查指南
-- [Security Configuration](./deployment/security-configuration.md) - 安全配置
-- [Backup Strategy](./deployment/backup-strategy.md) - 备份策略
 
 ## 部署目标
 

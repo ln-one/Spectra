@@ -9,8 +9,17 @@ export interface UploadFileRequest {
   project_id: string;
 }
 
+export interface FileUploadResponse {
+  id: string;
+  filename: string;
+  fileType: string;
+  fileSize: number;
+  uploadedAt: string;
+  projectId: string;
+}
+
 export const filesApi = {
-  async uploadFile(data: UploadFileRequest): Promise<any> {
+  async uploadFile(data: UploadFileRequest): Promise<FileUploadResponse> {
     const formData = new FormData();
     formData.append("file", data.file);
     formData.append("project_id", data.project_id);

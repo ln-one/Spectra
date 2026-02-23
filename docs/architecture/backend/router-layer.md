@@ -96,7 +96,11 @@ async def send_message(request: SendMessageRequest):
 # 错误响应
 {
     "success": false,
-    "data": null,
-    "message": "错误描述"
+    "error": {
+        "code": "ERROR_CODE",
+        "message": "详细错误描述",
+        "details": {}
+    },
+    "message": "用户友好的错误消息"
 }
 ```

@@ -88,7 +88,7 @@ async def get_projects(
     try:
         # TODO: Filter projects by user_id (data isolation)
         # projects = await db_service.get_projects_by_user(user_id, page, limit)
-        
+
         # TEMPORARY: Get all projects (will be filtered by user_id later)
         projects = await db_service.get_all_projects()
 
