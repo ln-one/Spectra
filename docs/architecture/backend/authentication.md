@@ -5,6 +5,7 @@
 Spectra 采用 **JWT (JSON Web Token)** 认证方案，支持用户注册、登录、Token 刷新。
 
 ## 认证流程
+<!-- REVIEW #B6 (P1): 时序图中的 /auth/*、/projects 未体现 /api/v1 前缀，和项目统一路由前缀要求不一致。 -->
 
 ```mermaid
 sequenceDiagram
@@ -95,6 +96,8 @@ auth_service = AuthService()
 ```
 
 ### 3. Auth Router
+<!-- REVIEW #B1 (P0): 文档示例展示了可用的鉴权链路，但当前代码中的 backend/routers/auth.py 与 backend/services/auth_service.py 仍为 skeleton。 -->
+<!-- REVIEW #B4 (P0): 这里返回 access_token，而 openapi.yaml 的 AuthResponse 目前定义为 data.token，契约字段未统一。 -->
 
 ```python
 # routers/auth.py

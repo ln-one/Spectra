@@ -53,6 +53,7 @@ app = FastAPI(
 )
 
 # Configure CORS
+# REVIEW #B8 (P1): 这里仍为硬编码 allow_origins=["*"]，未消费 CORS_ORIGINS 环境变量，和环境文档口径不一致。
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Configure with specific origins in production via env vars

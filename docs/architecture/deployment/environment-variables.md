@@ -1,4 +1,5 @@
 # Environment Variables Configuration
+<!-- REVIEW #B8 (P1): 文档定义了 CORS_ORIGINS，但当前 backend/main.py 尚未消费该变量（仍硬编码 allow_origins=["*"]）。 -->
 
 ## 后端环境变量
 
@@ -199,3 +200,4 @@ openssl rand -base64 32
 
 - [Security Configuration](./security-configuration.md) - 安全配置
 - [Deployment Guide](./deployment-guide.md) - 部署指南
+<!-- REVIEW #B9 (P1): 上述两个链接文件当前不存在，需修复断链。 -->

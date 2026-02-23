@@ -1,4 +1,6 @@
 # Router Layer Design
+<!-- REVIEW #B6 (P1): 本文内路径前缀口径不统一（既有 /api/v1/*，也有 /projects、/upload），与“统一 /api/v1”审核要求不一致。 -->
+<!-- REVIEW #B7 (P1): 本文“错误响应”示例为 {success,data,message}，与当前后端实际/契约中的 {success,error,message} 口径冲突。 -->
 
 ## 设计原则
 
@@ -18,6 +20,8 @@
 | preview.py | /api/v1/preview | 预览修改 | 🆕 待实现 |
 | rag.py | /api/v1/rag | RAG 检索 | 🆕 待实现 |
 | courses.py | /courses | 课程管理 | ✅ 已实现 |
+
+<!-- REVIEW #B6 (P1): 这里的 upload.py 路径与实际代码 backend/routers/files.py 不一致；projects/generate 的“已实现”状态也与当前存在 TODO/mock 的实现程度不匹配。 -->
 
 ## Router 实现模板
 

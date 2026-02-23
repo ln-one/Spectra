@@ -483,6 +483,7 @@ components:
 
   # --- 通用参数定义 ---
   parameters:
+    # REVIEW #B5 (P1): 契约定义为 Header `Idempotency-Key`，但当前后端实现在多个路由中仍按 Query 参数读取，需统一。
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -583,6 +584,7 @@ components:
           example: SecurePass123!
 
     AuthResponse:
+      # REVIEW #B4 (P0): 此处字段为 data.token，当前后端文档示例使用 access_token，前后端需统一命名。
       type: object
       required: [success, data, message]
       properties:
@@ -1090,6 +1092,7 @@ components:
 
     # Project Schemas
     Project:
+      # REVIEW #B4 (P0): 此处使用 title/subject，与当前后端 ProjectCreate(name/description) 实现不一致。
       type: object
       required: [id, title, subject, status, created_at, updated_at]
       properties:

@@ -33,6 +33,7 @@ async def upload_file(
     file: UploadFile = File(...),
     project_id: str = Form(...),
     user_id: str = Depends(get_current_user),
+    # REVIEW #B5 (P1): OpenAPI 将 Idempotency-Key 定义为 Header，此处按 Query 读取，契约不一致。
     idempotency_key: Optional[str] = Query(None, alias="Idempotency-Key"),
 ):
     """
@@ -52,6 +53,7 @@ async def upload_file(
     """
     try:
         # TODO: Implement idempotency check if idempotency_key is provided
+        # REVIEW #B2 (P0): 资源归属校验未落地，当前上传链路仍缺少 project -> user 隔离检查。
         # TODO: Verify project belongs to user
         # project = await db_service.get_project(project_id)
         # if project.userId != user_id:
@@ -65,6 +67,7 @@ async def upload_file(
         # Save file
         filepath, file_size = await file_service.save_file(file.filename, content)
 
+        # REVIEW #B3 (P0): 这里未传 projectId/fileType 等 Prisma 必填字段，和 schema.prisma 不一致，会导致写入失败。
         # TODO: Record upload in database with project_id and user_id
         upload = await db_service.create_upload(
             filename=file.filename,

@@ -241,6 +241,7 @@ model Course {
 ### API Layer (OpenAPI)
 - 使用 **snake_case**：`user_id`, `created_at`, `full_name`
 - 遵循 REST API 命名规范
+<!-- REVIEW #B4 (P0): 当前 openapi.yaml 中 UserInfo 使用 createdAt/fullName，Project 使用 title/subject；而后端 Schema/DB 使用 name/description。API 契约与数据模型命名尚未统一。 -->
 
 ### 转换处理
 在 Pydantic Schema 层进行字段名转换：

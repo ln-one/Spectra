@@ -1,4 +1,5 @@
 # Backend Architecture Overview
+<!-- REVIEW #B9 (P1): “相关文档”区块中的 schema-layer.md / ai-integration.md / testing.md / deployment.md 当前不存在，建议修复链接或补齐文档。 -->
 
 ## 概述
 

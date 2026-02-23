@@ -1,4 +1,5 @@
 # Security Design
+<!-- REVIEW #B2 (P0): 文档中展示了 verify_project_access 的权限校验，但当前 projects/files/generate 路由仍有 TODO，资源归属校验未真正落地。 -->
 
 ## 权限检查
 
@@ -50,6 +51,7 @@ async def delete_project(
     await db_service.delete_project(project.id)
     return {"success": True, "message": "Project deleted"}
 ```
+<!-- REVIEW #B6 (P1): 示例路径使用 /projects/*，建议统一写成 /api/v1/projects/* 以保持文档口径一致。 -->
 
 ## 幂等性设计
 
@@ -62,6 +64,7 @@ async def delete_project(
 ### 解决方案
 
 使用 **Idempotency Key** 实现幂等性。
+<!-- REVIEW #B5 (P1): OpenAPI 已将 Idempotency-Key 定义为 Header，但当前代码中多个路由仍以 Query 参数读取，协议层不一致。 -->
 
 ```python
 # schemas/common.py
@@ -251,6 +254,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 ```
+<!-- REVIEW #B8 (P1): 当前实现 backend/main.py 仍为 allow_origins=[\"*\"]，未读取 CORS_ORIGINS 环境变量，和此处配置建议未对齐。 -->
 
 ## 敏感信息保护
 

@@ -23,6 +23,7 @@
 ## 异步任务处理
 
 使用 **FastAPI BackgroundTasks** 处理异步任务（文件解析、课件生成）。
+<!-- REVIEW #B10 (P2): 文档示例强调后台任务编排，但当前 backend/routers/generate.py 仍为 mock 返回，尚未接入 BackgroundTasks/任务队列实现。 -->
 
 ```python
 # routers/generate.py

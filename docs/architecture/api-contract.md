@@ -24,6 +24,7 @@ datamodel-codegen --input ../docs/openapi.yaml --output schemas/generated.py
 ```
 
 ## 响应格式 (统一)
+<!-- REVIEW #B7 (P1): 此处仅定义 success/data/message；但 openapi.yaml 与后端代码的错误响应为 success/error/message，建议在契约文档中补齐并统一错误结构。 -->
 
 ```json
 {

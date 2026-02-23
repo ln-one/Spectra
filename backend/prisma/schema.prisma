@@ -32,6 +32,7 @@ model User {
 }
 
 /// 幂等性键 - 防止重复请求
+/// REVIEW #B3 (P0): 该模型缺少 userId/expiresAt 维度，难以支撑按用户隔离与过期治理的幂等设计（见 security.md 示例）。
 model IdempotencyKey {
   key       String   @id
   response  String   // JSON 格式的响应

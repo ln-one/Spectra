@@ -1,4 +1,5 @@
 # Logging Design
+<!-- REVIEW #B10 (P2): 文档示例以 utils/logging_config.py + 文件轮转 + 中间件为主，但当前代码使用 backend/utils/logger.py 的简化实现（仅配置 console handler）。 -->
 
 ## 日志配置
 

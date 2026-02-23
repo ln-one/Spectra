@@ -24,6 +24,7 @@ class GenerateRequest(BaseModel):
 async def generate_courseware(
     request: GenerateRequest,
     user_id: str = Depends(get_current_user),
+    # REVIEW #B5 (P1): OpenAPI 契约为 Header `Idempotency-Key`，此处按 Query 读取。
     idempotency_key: Optional[str] = Query(None, alias="Idempotency-Key"),
 ):
     """
@@ -42,6 +43,7 @@ async def generate_courseware(
     """
     try:
         # TODO: Implement idempotency check if idempotency_key is provided
+        # REVIEW #B2 (P0): 生成任务缺少 project -> user 归属校验，未满足数据隔离要求。
         # TODO: Verify project belongs to user
         # project = await db_service.get_project(request.project_id)
         # if project.userId != user_id:

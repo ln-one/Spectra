@@ -10,6 +10,7 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
+-- REVIEW #B3 (P0): IdempotencyKey 仅有 key/response/createdAt，未包含 user 维度与过期字段，和安全文档中的幂等设计存在偏差。
 CREATE TABLE "IdempotencyKey" (
     "key" TEXT NOT NULL PRIMARY KEY,
     "response" TEXT NOT NULL,

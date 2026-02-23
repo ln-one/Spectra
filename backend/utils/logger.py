@@ -4,6 +4,7 @@ Logging Configuration
 Configures structured logging for the application.
 Supports both JSON and text formats based on environment configuration.
 """
+# REVIEW #B10 (P2): 当前实现仅配置 console handler；与架构文档中的文件轮转与请求日志中间件方案尚未对齐。
 
 import logging
 import sys

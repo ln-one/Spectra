@@ -37,6 +37,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
     - Return user_id from token payload
     - Raise 401 if token is invalid
     """
+    # REVIEW #B1 (P0): 当前返回固定 user_id，未校验 JWT，任何请求都可绕过认证进入受保护接口。
     # TEMPORARY: Return fixed user_id for testing
     # Remove this when implementing actual authentication
     logger.warning(

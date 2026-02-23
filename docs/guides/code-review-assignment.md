@@ -10,48 +10,82 @@
 
 ## 审核人员 #1 - 后端架构审核
 
+**审核状态**: ✅ **第一轮审核完成** (2026-02-23)  
+**审核结果**: 🔴 **Request changes**（存在 P0 阻塞问题）  
+**发现问题**: 4 个 P0 (blocking) / 5 个 P1 (important) / 1 个 P2 (nice-to-have)  
+
 ### 职责范围
 负责审核后端架构设计、API 设计和数据模型
 
 ### 审核清单
 
 #### 1. 后端架构文档 (优先级: P0)
-- [ ] `docs/architecture/backend-architecture.md` - 后端架构总览
-- [ ] `docs/architecture/backend/overview.md` - 架构概述
-- [ ] `docs/architecture/backend/router-layer.md` - 路由层设计
-- [ ] `docs/architecture/backend/service-layer.md` - 服务层设计
-- [ ] `docs/architecture/backend/data-models.md` - 数据模型设计
-- [ ] `docs/architecture/backend/authentication.md` - 认证机制
-- [ ] `docs/architecture/backend/security.md` - 安全设计
-- [ ] `docs/architecture/backend/error-handling.md` - 错误处理
-- [ ] `docs/architecture/backend/logging.md` - 日志设计
+- [x] `docs/architecture/backend-architecture.md` - 🔴 问题 #B9
+- [x] `docs/architecture/backend/overview.md` - 🔴 问题 #B9
+- [x] `docs/architecture/backend/router-layer.md` - 🔴 问题 #B6, #B7
+- [x] `docs/architecture/backend/service-layer.md` - 🟡 问题 #B10
+- [x] `docs/architecture/backend/data-models.md` - 🔴 问题 #B4
+- [x] `docs/architecture/backend/authentication.md` - 🔴 问题 #B1, #B4, #B6
+- [x] `docs/architecture/backend/security.md` - 🔴 问题 #B2, #B5, #B8
+- [x] `docs/architecture/backend/error-handling.md` - 🔴 问题 #B7
+- [x] `docs/architecture/backend/logging.md` - 🟡 问题 #B10
 
 #### 2. 后端代码实现 (优先级: P0)
-- [ ] `backend/main.py` - 应用入口和路由注册
-- [ ] `backend/routers/auth.py` - 认证路由（骨架）
-- [ ] `backend/routers/files.py` - 文件管理路由
-- [ ] `backend/routers/projects.py` - 项目管理路由
-- [ ] `backend/routers/chat.py` - 聊天路由（骨架）
-- [ ] `backend/routers/preview.py` - 预览路由（骨架）
-- [ ] `backend/routers/rag.py` - RAG 路由（骨架）
-- [ ] `backend/routers/generate.py` - 生成路由
-- [ ] `backend/services/auth_service.py` - 认证服务（骨架）
-- [ ] `backend/utils/dependencies.py` - 依赖注入
-- [ ] `backend/utils/exceptions.py` - 异常定义
-- [ ] `backend/utils/responses.py` - 响应格式化
-- [ ] `backend/utils/logger.py` - 日志配置
+- [x] `backend/main.py` - 🔴 问题 #B8
+- [x] `backend/routers/auth.py` - 🔴 问题 #B1
+- [x] `backend/routers/files.py` - 🔴 问题 #B2, #B3, #B5
+- [x] `backend/routers/projects.py` - 🔴 问题 #B2, #B3, #B4, #B5
+- [x] `backend/routers/chat.py` - 🟡 骨架代码（与契约联调待后续实现）
+- [x] `backend/routers/preview.py` - 🟡 骨架代码（与契约联调待后续实现）
+- [x] `backend/routers/rag.py` - 🟡 骨架代码（与契约联调待后续实现）
+- [x] `backend/routers/generate.py` - 🔴 问题 #B2, #B5
+- [x] `backend/services/auth_service.py` - 🔴 问题 #B1
+- [x] `backend/utils/dependencies.py` - 🔴 问题 #B1
+- [x] `backend/utils/exceptions.py` - ✅ 通过
+- [x] `backend/utils/responses.py` - ✅ 通过
+- [x] `backend/utils/logger.py` - 🟡 问题 #B10
 
 #### 3. 数据库设计 (优先级: P0)
-- [ ] `backend/prisma/schema.prisma` - 数据库 Schema
-- [ ] `backend/prisma/migrations/` - 迁移文件
+- [x] `backend/prisma/schema.prisma` - 🔴 问题 #B3
+- [x] `backend/prisma/migrations/` - 🔴 问题 #B3
 
 #### 4. API 规范 (优先级: P1)
-- [ ] `docs/openapi.yaml` - OpenAPI 规范
-- [ ] `docs/architecture/api-contract.md` - API 契约说明
+- [x] `docs/openapi.yaml` - 🔴 问题 #B4, #B5
+- [x] `docs/architecture/api-contract.md` - 🔴 问题 #B7
 
 #### 5. 环境配置 (优先级: P1)
-- [ ] `backend/.env.example` - 环境变量模板
-- [ ] `docs/architecture/deployment/environment-variables.md` - 环境变量文档
+- [x] `backend/.env.example` - 🟡 问题 #B8
+- [x] `docs/architecture/deployment/environment-variables.md` - 🔴 问题 #B8, #B9
+
+### 核心问题汇总
+
+| 问题 | 类型 | 描述 | 文件 |
+|------|------|------|------|
+| #B1 | P0 | 认证链路未闭环：`get_current_user` 返回固定用户，`auth_service`/`auth` 路由未实现，JWT 校验可被绕过 | `backend/utils/dependencies.py`, `backend/services/auth_service.py`, `backend/routers/auth.py`, `docs/architecture/backend/authentication.md` |
+| #B2 | P0 | 数据隔离缺失：项目/文件/生成路由未落实资源归属校验，存在跨用户访问风险 | `backend/routers/projects.py`, `backend/routers/files.py`, `backend/routers/generate.py`, `docs/architecture/backend/security.md` |
+| #B3 | P0 | 数据库写入与 Schema 不一致：核心写操作缺失必填字段（如 `userId/projectId/fileType`），会触发运行时失败 | `backend/routers/projects.py`, `backend/routers/files.py`, `backend/prisma/schema.prisma`, `backend/prisma/migrations/20260221114842_init/migration.sql` |
+| #B4 | P0 | 契约冲突：Project 字段（`title` vs `name`）与认证 token 字段（`token` vs `access_token`）口径不一致 | `docs/openapi.yaml`, `backend/routers/projects.py`, `docs/architecture/backend/data-models.md`, `docs/architecture/backend/authentication.md` |
+| #B5 | P1 | 幂等键协议不一致：契约定义为 Header `Idempotency-Key`，代码按 Query 参数处理且未实现幂等逻辑 | `docs/openapi.yaml`, `backend/routers/projects.py`, `backend/routers/files.py`, `backend/routers/generate.py`, `docs/architecture/backend/security.md` |
+| #B6 | P1 | API 路径文档不一致：多个后端文档示例未统一使用 `/api/v1` 前缀 | `docs/architecture/backend/router-layer.md`, `docs/architecture/backend/authentication.md`, `docs/architecture/backend/security.md` |
+| #B7 | P1 | 错误响应规范冲突：`router-layer` / `error-handling` / `api-contract` 三处口径不一致 | `docs/architecture/backend/router-layer.md`, `docs/architecture/backend/error-handling.md`, `docs/architecture/api-contract.md` |
+| #B8 | P1 | CORS 与环境变量脱节：`main.py` 未读取 `CORS_ORIGINS`，实现与环境文档口径不一致 | `backend/main.py`, `backend/.env.example`, `docs/architecture/deployment/environment-variables.md`, `docs/architecture/backend/security.md` |
+| #B9 | P1 | 文档断链：后端架构和环境变量文档引用了不存在的子文档 | `docs/architecture/backend-architecture.md`, `docs/architecture/backend/overview.md`, `docs/architecture/deployment/environment-variables.md` |
+| #B10 | P2 | 日志方案文档与实现偏差：文档示例为独立 logging_config + middleware + 文件轮转，代码当前仅基础 logger 配置 | `docs/architecture/backend/logging.md`, `backend/utils/logger.py`, `docs/architecture/backend/service-layer.md` |
+
+### 审核重点验证结果
+
+1. **API 一致性**: 🔴 失败 - 契约字段与幂等协议不一致，文档路径前缀不统一（问题 #B4, #B5, #B6）
+2. **数据模型完整性**: 🔴 失败 - 路由写入参数与 Prisma 必填字段不匹配（问题 #B3）
+3. **安全性**: 🔴 失败 - 认证链路未闭环、数据隔离未落地、CORS 口径与实现不一致（问题 #B1, #B2, #B8）
+4. **错误处理**: 🟡 部分通过 - 代码中统一错误包装存在，但文档口径冲突（问题 #B7）
+5. **代码质量**: 🟡 部分通过 - 骨架注释清晰，但日志与任务流程文档偏离实现（问题 #B10）
+
+### 审核建议
+
+修复顺序建议：
+1. **第一阶段（P0）**: 修复认证依赖与 JWT 校验、补齐资源归属检查、对齐 Project/Auth 契约字段、修复 Prisma 写入参数 - 4-6 小时
+2. **第二阶段（P1）**: 统一幂等键 Header 协议与实现、统一 `/api/v1` 文档口径、修复 CORS 配置链路、清理断链 - 3-5 小时
+3. **第三阶段（P2）**: 对齐日志文档与当前实现或补齐实现能力 - 1-2 小时
 
 ### 审核重点
 1. **API 一致性**: 确认所有路由使用 `/api/v1` 前缀
@@ -61,7 +95,8 @@
 5. **代码质量**: 检查骨架代码的结构和注释
 
 ### 预计审核时间
-**2-3 小时**
+**计划**: 2-3 小时  
+**实际**: ~2.5 小时（第一轮已完成）
 
 ---
 
@@ -128,9 +163,6 @@
 3. **状态管理**: 🟡 部分通过 - Store 结构合理，类型复用待优化（问题 #14）
 4. **类型安全**: 🟡 部分通过 - User 类型与契约未完全对齐（问题 #13）
 5. **用户体验**: 🟡 部分通过 - 表单校验体系与错误边界待完善（问题 #12, #15）
-
-### 审核建议
-详见详细报告：**[docs/guides/REVIEW_ROUND1_FRONTEND.md](./REVIEW_ROUND1_FRONTEND.md)**
 
 修复顺序建议：
 1. **第一阶段（P0）**: 统一 API 方案、拆分 api 模块、统一 token/注册参数命名 - 2-3 小时

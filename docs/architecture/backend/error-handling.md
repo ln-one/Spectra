@@ -125,6 +125,7 @@ async def get_project(self, project_id: str):
 ```
 
 ## 错误响应格式
+<!-- REVIEW #B7 (P1): 本文示例包含 data + error_code，而当前后端实现/契约使用 error 对象（code/message/details）。建议统一单一错误响应结构。 -->
 
 ```json
 {

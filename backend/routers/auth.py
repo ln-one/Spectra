@@ -3,6 +3,7 @@ Authentication Router (Skeleton)
 
 This is a skeleton implementation. Returns 501 Not Implemented for all endpoints.
 """
+# REVIEW #B1 (P0): 认证路由仍为 501 skeleton，而系统其他路由已依赖认证上下文；当前鉴权链路无法闭环。
 
 import logging
 

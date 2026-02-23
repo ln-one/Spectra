@@ -1,6 +1,7 @@
 # Backend Architecture
 
 > 本文档为后端架构索引，详细内容已拆分到各子文档。
+<!-- REVIEW #B9 (P1): 当前索引中引用的 schema-layer.md / ai-integration.md / testing.md / deployment.md 在 docs/architecture/backend/ 下不存在，存在断链。 -->
 
 ## 快速导航
 

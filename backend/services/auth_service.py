@@ -3,6 +3,7 @@ Authentication Service (Skeleton)
 
 This is a skeleton implementation. Actual logic will be implemented later.
 """
+# REVIEW #B1 (P0): 认证服务核心能力（密码哈希/JWT 签发与校验）尚未落地，导致鉴权链路不可用。
 
 import logging
 from typing import Optional

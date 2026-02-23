@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 async def create_project(
     project: ProjectCreate,
     user_id: str = Depends(get_current_user),
+    # REVIEW #B5 (P1): OpenAPI 中 Idempotency-Key 为 Header，此处按 Query 读取，协议不一致。
     idempotency_key: Optional[str] = Query(None, alias="Idempotency-Key"),
 ):
     """
@@ -40,6 +41,9 @@ async def create_project(
         #     if cached_response:
         #         return cached_response
 
+        # REVIEW #B2 (P0): user_id 未进入创建流程，数据隔离语义未落实。
+        # REVIEW #B3 (P0): create_project 当前调用未传 userId（Prisma 必填），存在运行时失败风险。
+        # REVIEW #B4 (P0): ProjectCreate 使用 name/description，与 OpenAPI CreateProjectRequest(title/subject) 契约冲突。
         # TODO: Pass user_id to create_project when database service is updated
         new_project = await db_service.create_project(project)
 
@@ -85,6 +89,7 @@ async def get_projects(
         项目列表和分页信息
     """
     try:
+        # REVIEW #B2 (P0): 当前直接读取全量项目，未按 user_id 过滤，存在跨用户数据泄露风险。
         # TODO: Update db_service to filter by user_id and support pagination
         # For now, return all projects (will be filtered by user_id later)
         projects = await db_service.get_all_projects()
