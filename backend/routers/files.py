@@ -67,12 +67,26 @@ async def upload_file(
         # Save file
         filepath, file_size = await file_service.save_file(file.filename, content)
 
-        # REVIEW #B3 (P0): 这里未传 projectId/fileType 等 Prisma 必填字段，和 schema.prisma 不一致，会导致写入失败。
-        # TODO: Record upload in database with project_id and user_id
+        # Determine file type from extension
+        file_extension = file.filename.split(".")[-1].lower() if "." in file.filename else ""
+        file_type_map = {
+            "pdf": "pdf",
+            "docx": "docx",
+            "doc": "docx",
+            "pptx": "pptx",
+            "ppt": "pptx",
+            "mp4": "video",
+            "mov": "video",
+        }
+        file_type = file_type_map.get(file_extension, "other")
+
+        # Record upload in database with all required fields
         upload = await db_service.create_upload(
             filename=file.filename,
             filepath=filepath,
             size=file_size,
+            project_id=project_id,
+            file_type=file_type,
         )
 
         logger.info(

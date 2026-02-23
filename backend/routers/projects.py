@@ -41,11 +41,8 @@ async def create_project(
         #     if cached_response:
         #         return cached_response
 
-        # REVIEW #B2 (P0): user_id 未进入创建流程，数据隔离语义未落实。
-        # REVIEW #B3 (P0): create_project 当前调用未传 userId（Prisma 必填），存在运行时失败风险。
-        # REVIEW #B4 (P0): ProjectCreate 使用 name/description，与 OpenAPI CreateProjectRequest(title/subject) 契约冲突。
-        # TODO: Pass user_id to create_project when database service is updated
-        new_project = await db_service.create_project(project)
+        # Create project with user_id
+        new_project = await db_service.create_project(project, user_id=user_id)
 
         logger.info(
             "project_created",
