@@ -25,10 +25,15 @@ Spectra/                 # Monorepo root
 │   ├── components/     # React components
 │   │   └── ui/         # Shadcn/ui components
 │   ├── lib/            # Utility functions
-│   │   ├── api.ts      # API client
+│   │   ├── api/        # API client modules
+│   │   │   ├── client.ts   # Base HTTP client
+│   │   │   ├── auth.ts     # Auth API
+│   │   │   ├── projects.ts # Projects API
+│   │   │   ├── files.ts    # Files API
+│   │   │   └── index.ts    # Unified exports
 │   │   ├── auth.ts     # Auth utilities
 │   │   └── utils.ts    # Helper functions
-│   ├── stores/         # State management
+│   ├── stores/         # State management (Zustand)
 │   ├── __tests__/      # Test files
 │   └── .cursorrules    # Frontend AI rules
 ├── backend/             # FastAPI backend service
@@ -72,6 +77,8 @@ Spectra/                 # Monorepo root
 │   └── .cursorrules    # Docs AI rules
 ├── .github/             # GitHub configuration
 │   └── workflows/      # CI/CD workflows
+├── .kiro/              # Kiro IDE configuration
+│   └── steering/       # AI steering rules
 ├── .cursorrules         # Root AI rules
 ├── .gitignore          # Git ignore config
 ├── docker-compose.yml  # Docker setup
@@ -260,12 +267,10 @@ See [CI/CD Guide](./docs/guides/ci-cd.md) and [Testing Guide](./docs/guides/test
 ## Documentation
 
 - [Project Requirements](./docs/project/requirements.md)
-- [Tech Stack](./docs/project/tech-stack.md)
 - [Architecture Design](./docs/architecture/)
 - [Technical Decisions](./docs/decisions/)
-- [Docker Setup Guide](./docs/guides/docker-setup.md)
-- [Testing Guide](./docs/guides/testing.md)
-- [CI/CD Guide](./docs/guides/ci-cd.md)
+- [Development Guides](./docs/guides/)
+- [Coding Standards](./docs/standards/)
 
 ## Monorepo Advantages
 
