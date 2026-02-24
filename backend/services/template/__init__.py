@@ -15,21 +15,22 @@ from pathlib import Path
 from typing import Optional
 
 try:
-    from .types import TemplateStyle, TemplateConfig
-    from .marp_template import (
-        generate_marp_frontmatter,
-        wrap_markdown_with_template as _wrap_markdown
-    )
+    from .marp_template import generate_marp_frontmatter
+    from .marp_template import wrap_markdown_with_template as _wrap_markdown
     from .pandoc_template import get_pandoc_template_path as _get_pandoc_path
+    from .types import TemplateConfig, TemplateStyle
 except ImportError:
     import sys
+
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from services.template.types import TemplateStyle, TemplateConfig
+    from services.template.marp_template import generate_marp_frontmatter
     from services.template.marp_template import (
-        generate_marp_frontmatter,
-        wrap_markdown_with_template as _wrap_markdown
+        wrap_markdown_with_template as _wrap_markdown,
     )
-    from services.template.pandoc_template import get_pandoc_template_path as _get_pandoc_path
+    from services.template.pandoc_template import (
+        get_pandoc_template_path as _get_pandoc_path,
+    )
+    from services.template.types import TemplateConfig, TemplateStyle
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,9 @@ class TemplateService:
     def __init__(self, templates_dir: str = "templates"):
         self.templates_dir = Path(templates_dir)
         self.templates_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"TemplateService initialized with templates_dir: {self.templates_dir}")
+        logger.info(
+            f"TemplateService initialized with templates_dir: {self.templates_dir}"
+        )
 
     def get_marp_frontmatter(self, config: TemplateConfig, title: str) -> str:
         """
@@ -68,10 +71,7 @@ class TemplateService:
         return _get_pandoc_path(config, self.templates_dir)
 
     def wrap_markdown_with_template(
-        self,
-        markdown_content: str,
-        config: TemplateConfig,
-        title: str
+        self, markdown_content: str, config: TemplateConfig, title: str
     ) -> str:
         """
         将 Markdown 内容包装为完整的 Marp 文档
@@ -91,9 +91,4 @@ class TemplateService:
 template_service = TemplateService()
 
 # 导出
-__all__ = [
-    'TemplateService',
-    'TemplateStyle',
-    'TemplateConfig',
-    'template_service'
-]
+__all__ = ["TemplateService", "TemplateStyle", "TemplateConfig", "template_service"]

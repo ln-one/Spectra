@@ -22,8 +22,6 @@ class CourseBase(BaseModel):
 class CourseCreate(CourseBase):
     """Schema for creating a Course"""
 
-    pass
-
 
 class CourseResponse(CourseBase):
     """Schema for Course response"""
@@ -45,8 +43,6 @@ class ProjectBase(BaseModel):
 
 class ProjectCreate(ProjectBase):
     """Schema for creating a Project"""
-
-    pass
 
 
 class ProjectResponse(ProjectBase):

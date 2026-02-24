@@ -5,7 +5,6 @@
 """
 
 import pytest
-from pathlib import Path
 
 from services.generation import CoursewareContent
 
@@ -224,7 +223,7 @@ for i in range(10):
 2. 多举实例，加深理解
 3. 及时解答学生疑问
 4. 鼓励学生动手实践
-"""
+""",
     )
 
 
@@ -253,5 +252,5 @@ def simple_courseware_content():
 ## 环节1
 
 内容...
-"""
+""",
     )

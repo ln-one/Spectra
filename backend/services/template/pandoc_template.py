@@ -10,6 +10,7 @@ try:
     from .types import TemplateConfig
 except ImportError:
     import sys
+
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from services.template.types import TemplateConfig
 
@@ -17,8 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_pandoc_template_path(
-    config: TemplateConfig,
-    templates_dir: Path
+    config: TemplateConfig, templates_dir: Path
 ) -> Optional[str]:
     """
     获取 Pandoc 模板路径

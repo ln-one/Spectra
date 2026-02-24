@@ -46,7 +46,7 @@ interface AuthState {
  * const { user, login, logout } = useAuthStore();
  * ```
  */
-export const useAuthStore = create<AuthState>()((set, get) => ({
+export const useAuthStore = create<AuthState>()((set, _get) => ({
   // 初始状态
   user: null,
   isAuthenticated: false,
@@ -142,7 +142,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch (error) {
+    } catch {
       // Token 无效，清除
       TokenStorage.clearTokens();
       set({

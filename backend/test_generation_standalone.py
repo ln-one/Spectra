@@ -22,11 +22,11 @@ from services.template_service import TemplateConfig, TemplateStyle, template_se
 
 async def test_generation():
     """测试课件生成服务"""
-    
+
     print("=" * 60)
     print("测试课件生成服务（独立模块）")
     print("=" * 60)
-    
+
     # 1. 准备模板配置
     print("\n[1] 准备模板配置...")
     config = TemplateConfig(
@@ -37,10 +37,10 @@ async def test_generation():
     )
     print(f"✓ 模板风格: {config.style}")
     print(f"✓ 主题色: {config.primary_color}")
-    
+
     # 2. 准备 Mock Markdown 内容
     print("\n[2] 准备 Mock Markdown 内容...")
-    
+
     # PPT 内容（Marp 格式）
     ppt_markdown = """# 牛顿第二定律
 
@@ -65,7 +65,7 @@ $F = ma$
 1. 一个质量为 2kg 的物体，受到 10N 的力，加速度是多少？
 2. 如何用这个公式解释汽车启动？
 """
-    
+
     # 教案内容（Pandoc 格式）
     lesson_plan_markdown = """# 牛顿第二定律 - 教案
 
@@ -99,15 +99,15 @@ $F = ma$
 
 注意学生对公式的理解，避免死记硬背。
 """
-    
+
     # 使用模板服务包装 Markdown
     full_ppt_markdown = template_service.wrap_markdown_with_template(
         ppt_markdown, config, "牛顿第二定律"
     )
-    
+
     print(f"✓ PPT Markdown 长度: {len(full_ppt_markdown)} 字符")
     print(f"✓ 教案 Markdown 长度: {len(lesson_plan_markdown)} 字符")
-    
+
     # 3. 创建课件内容对象
     print("\n[3] 创建课件内容对象...")
     content = CoursewareContent(
@@ -116,26 +116,26 @@ $F = ma$
         lesson_plan_markdown=lesson_plan_markdown,
     )
     print(f"✓ 课件标题: {content.title}")
-    
+
     # 4. 生成 PPTX
     print("\n[4] 生成 PPTX 文件...")
     task_id = "test-task-001"
     try:
         pptx_path = await generation_service.generate_pptx(content, task_id)
         print(f"✓ PPTX 路径: {pptx_path}")
-        print(f"  （Phase 1 返回 stub 路径，Phase 2 将调用 Marp CLI）")
+        print("  （Phase 1 返回 stub 路径，Phase 2 将调用 Marp CLI）")
     except Exception as e:
         print(f"✗ 生成失败: {e}")
-    
+
     # 5. 生成 DOCX
     print("\n[5] 生成 DOCX 文件...")
     try:
         docx_path = await generation_service.generate_docx(content, task_id)
         print(f"✓ DOCX 路径: {docx_path}")
-        print(f"  （Phase 1 返回 stub 路径，Phase 2 将调用 Pandoc）")
+        print("  （Phase 1 返回 stub 路径，Phase 2 将调用 Pandoc）")
     except Exception as e:
         print(f"✗ 生成失败: {e}")
-    
+
     # 6. 验证生成的 Markdown 文件
     print("\n[6] 验证生成的 Markdown 文件...")
     generated_dir = Path("generated")
@@ -144,13 +144,13 @@ $F = ma$
         print(f"✓ 找到 {len(md_files)} 个 Markdown 文件:")
         for md_file in md_files:
             print(f"  - {md_file.name} ({md_file.stat().st_size} bytes)")
-            
+
             # 显示前几行内容
             content_preview = md_file.read_text(encoding="utf-8")[:200]
             print(f"    预览: {content_preview}...")
     else:
         print("  generated/ 目录不存在")
-    
+
     print("\n" + "=" * 60)
     print("测试完成！")
     print("=" * 60)

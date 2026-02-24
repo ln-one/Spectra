@@ -11,8 +11,8 @@ from pathlib import Path
 # 添加 backend 到 Python 路径
 sys.path.insert(0, str(Path(__file__).parent))
 
-from services.generation import GenerationService, CoursewareContent
-from services.template import TemplateService, TemplateConfig, TemplateStyle
+from services.generation import CoursewareContent, GenerationService
+from services.template import TemplateConfig, TemplateStyle
 
 
 async def test_pptx_generation():
@@ -20,7 +20,7 @@ async def test_pptx_generation():
     print("=" * 60)
     print("测试 PPTX 生成")
     print("=" * 60)
-    
+
     # 创建测试内容
     content = CoursewareContent(
         title="Python 编程基础",
@@ -101,12 +101,12 @@ else:
 ## 总结环节（5分钟）
 
 回顾本节课的重点内容
-"""
+""",
     )
-    
+
     # 创建服务实例
     service = GenerationService(output_dir="backend/generated")
-    
+
     # 测试默认模板
     print("\n1. 测试默认模板...")
     try:
@@ -115,33 +115,27 @@ else:
     except Exception as e:
         print(f"✗ 生成失败: {e}")
         return False
-    
+
     # 测试 GAIA 模板
     print("\n2. 测试 GAIA 模板...")
     try:
-        config = TemplateConfig(
-            style=TemplateStyle.GAIA,
-            primary_color="#FF6B6B"
-        )
+        config = TemplateConfig(style=TemplateStyle.GAIA, primary_color="#FF6B6B")
         pptx_path = await service.generate_pptx(content, "test-gaia", config)
         print(f"✓ 生成成功: {pptx_path}")
     except Exception as e:
         print(f"✗ 生成失败: {e}")
         return False
-    
+
     # 测试 UNCOVER 模板
     print("\n3. 测试 UNCOVER 模板...")
     try:
-        config = TemplateConfig(
-            style=TemplateStyle.UNCOVER,
-            primary_color="#4ECDC4"
-        )
+        config = TemplateConfig(style=TemplateStyle.UNCOVER, primary_color="#4ECDC4")
         pptx_path = await service.generate_pptx(content, "test-uncover", config)
         print(f"✓ 生成成功: {pptx_path}")
     except Exception as e:
         print(f"✗ 生成失败: {e}")
         return False
-    
+
     return True
 
 
@@ -150,7 +144,7 @@ async def test_docx_generation():
     print("\n" + "=" * 60)
     print("测试 DOCX 生成")
     print("=" * 60)
-    
+
     content = CoursewareContent(
         title="Python 编程基础",
         markdown_content="# Test",
@@ -187,11 +181,11 @@ async def test_docx_generation():
 ## 总结环节（5分钟）
 
 回顾本节课的重点内容
-"""
+""",
     )
-    
+
     service = GenerationService(output_dir="backend/generated")
-    
+
     print("\n测试教案生成...")
     try:
         docx_path = await service.generate_docx(content, "test-lesson-plan")
@@ -199,7 +193,7 @@ async def test_docx_generation():
     except Exception as e:
         print(f"✗ 生成失败: {e}")
         return False
-    
+
     return True
 
 
@@ -208,20 +202,20 @@ async def main():
     print("\n" + "=" * 60)
     print("Phase 2A 课件生成功能测试")
     print("=" * 60)
-    
+
     # 测试 PPTX 生成
     pptx_ok = await test_pptx_generation()
-    
+
     # 测试 DOCX 生成
     docx_ok = await test_docx_generation()
-    
+
     # 输出测试结果
     print("\n" + "=" * 60)
     print("测试结果")
     print("=" * 60)
     print(f"PPTX 生成: {'✓ 通过' if pptx_ok else '✗ 失败'}")
     print(f"DOCX 生成: {'✓ 通过' if docx_ok else '✗ 失败'}")
-    
+
     if pptx_ok and docx_ok:
         print("\n✓ 所有测试通过！")
         print("\n生成的文件位于: backend/generated/")

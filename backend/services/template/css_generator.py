@@ -9,6 +9,7 @@ try:
 except ImportError:
     import sys
     from pathlib import Path
+
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from services.template.types import TemplateConfig
 
@@ -28,7 +29,8 @@ def generate_custom_css(config: TemplateConfig) -> str:
     css = f"""
 section {{
   background-color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   font-size: 28px;
   line-height: 1.6;
   padding: 60px;
@@ -159,11 +161,11 @@ a:hover {{
     font-size: 24px;
     padding: 40px;
   }}
-  
+
   h1 {{
     font-size: 40px;
   }}
-  
+
   h2 {{
     font-size: 32px;
   }}

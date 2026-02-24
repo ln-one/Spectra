@@ -20,7 +20,13 @@ describe("cn", () => {
   });
 
   it("filters falsy values", () => {
-    const result = cn("base-class", false && "hidden-class", undefined, null);
+    const condition = false;
+    const result = cn(
+      "base-class",
+      condition && "hidden-class",
+      undefined,
+      null
+    );
     expect(result).toBe("base-class");
   });
 });

@@ -5,14 +5,15 @@
 import logging
 
 try:
-    from .types import TemplateConfig, TemplateStyle
     from .css_generator import generate_custom_css
+    from .types import TemplateConfig, TemplateStyle
 except ImportError:
     import sys
     from pathlib import Path
+
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from services.template.types import TemplateConfig, TemplateStyle
     from services.template.css_generator import generate_custom_css
+    from services.template.types import TemplateConfig, TemplateStyle
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +58,7 @@ paginate: {str(config.enable_pagination).lower()}
 
 
 def wrap_markdown_with_template(
-    markdown_content: str,
-    config: TemplateConfig,
-    title: str
+    markdown_content: str, config: TemplateConfig, title: str
 ) -> str:
     """
     将 Markdown 内容包装为完整的 Marp 文档

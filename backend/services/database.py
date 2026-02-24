@@ -81,19 +81,19 @@ class DatabaseService:
     ):
         """
         Create a new generation task
-        
+
         Args:
             project_id: Project ID
             task_type: Task type (pptx/docx/both)
             template_config: Template configuration (optional)
-        
+
         Returns:
             Created GenerationTask
         """
         input_data = None
         if template_config:
             input_data = json.dumps({"template_config": template_config})
-        
+
         task = await self.db.generationtask.create(
             data={
                 "projectId": project_id,
@@ -108,10 +108,10 @@ class DatabaseService:
     async def get_generation_task(self, task_id: str):
         """
         Get a generation task by ID
-        
+
         Args:
             task_id: Task ID
-        
+
         Returns:
             GenerationTask or None if not found
         """
@@ -127,28 +127,28 @@ class DatabaseService:
     ):
         """
         Update generation task status
-        
+
         Args:
             task_id: Task ID
             status: New status (pending/processing/completed/failed)
             progress: Progress percentage (0-100)
             output_urls: JSON string of output URLs
             error_message: Error message if failed
-        
+
         Returns:
             Updated GenerationTask
         """
         update_data = {"status": status}
-        
+
         if progress is not None:
             update_data["progress"] = progress
-        
+
         if output_urls is not None:
             update_data["outputUrls"] = output_urls
-        
+
         if error_message is not None:
             update_data["errorMessage"] = error_message
-        
+
         task = await self.db.generationtask.update(
             where={"id": task_id},
             data=update_data,
