@@ -16,6 +16,13 @@ try:
         FileSystemError,
         TimeoutError as GenerationTimeoutError
     )
+    from ...utils.file_utils import (
+        get_generation_output_path,
+        get_temp_file_path,
+        ensure_directory_exists,
+        validate_file_exists,
+        cleanup_file
+    )
 except ImportError:
     import sys
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -26,6 +33,13 @@ except ImportError:
         ToolExecutionError,
         FileSystemError,
         TimeoutError as GenerationTimeoutError
+    )
+    from utils.file_utils import (
+        get_generation_output_path,
+        get_temp_file_path,
+        ensure_directory_exists,
+        validate_file_exists,
+        cleanup_file
     )
 
 logger = logging.getLogger(__name__)
@@ -127,7 +141,11 @@ async def generate_docx(
     """
     logger.info(f"[Task: {task_id}] Starting DOCX generation")
     
-    markdown_file = output_dir / f"{task_id}_lesson_plan.md"
+    # 确保输出目录存在
+    ensure_directory_exists(output_dir)
+    
+    # 使用安全的路径管理 - 为教案文件添加特殊后缀
+    markdown_file = output_dir / f"{task_id}_lesson_plan_temp.md"
     output_file = output_dir / f"{task_id}_lesson_plan.docx"
     
     try:
@@ -145,22 +163,18 @@ async def generate_docx(
         logger.info(f"[Task: {task_id}] Calling Pandoc")
         await call_pandoc(markdown_file, output_file, reference_doc)
         
-        # 3. 验证输出文件
-        if not output_file.exists():
-            raise FileSystemError("verify", str(output_file), "Output file not created")
+        # 3. 验证输出文件（使用安全的验证函数）
+        if not validate_file_exists(output_file, min_size=1):
+            raise FileSystemError("verify", str(output_file), "Output file not created or is empty")
         
         file_size = output_file.stat().st_size
-        if file_size == 0:
-            raise FileSystemError("verify", str(output_file), "Output file is empty")
-        
         logger.info(f"[Task: {task_id}] DOCX generated successfully: {output_file} ({file_size} bytes)")
         
-        # 4. 清理临时文件
-        try:
-            markdown_file.unlink()
+        # 4. 清理临时文件（使用安全的清理函数）
+        if cleanup_file(markdown_file):
             logger.debug(f"[Task: {task_id}] Cleaned up temporary file: {markdown_file}")
-        except Exception as e:
-            logger.warning(f"[Task: {task_id}] Failed to cleanup temp file {markdown_file}: {e}")
+        else:
+            logger.warning(f"[Task: {task_id}] Failed to cleanup temp file {markdown_file}")
         
         return str(output_file)
         
@@ -169,20 +183,12 @@ async def generate_docx(
                     exc_info=True,
                     extra={"task_id": task_id, "error_details": e.details})
         # 清理临时文件
-        if markdown_file.exists():
-            try:
-                markdown_file.unlink()
-            except:
-                pass
+        cleanup_file(markdown_file)
         raise
     except Exception as e:
         logger.error(f"[Task: {task_id}] Unexpected error during DOCX generation: {str(e)}",
                     exc_info=True,
                     extra={"task_id": task_id})
         # 清理临时文件
-        if markdown_file.exists():
-            try:
-                markdown_file.unlink()
-            except:
-                pass
+        cleanup_file(markdown_file)
         raise FileSystemError("generate_docx", str(output_file), str(e))
