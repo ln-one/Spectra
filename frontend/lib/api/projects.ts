@@ -1,41 +1,174 @@
 /**
  * Projects API
+ *
+ * 基于 OpenAPI 契约的项目 API 封装
+ * 支持 Mock 模式用于前端独立开发
  */
 
 import { request } from "./client";
+import type { components } from "../types/api";
 
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
+export type Project = components["schemas"]["Project"];
+export type CreateProjectRequest = components["schemas"]["CreateProjectRequest"];
+export type GetProjectsResponse = components["schemas"]["GetProjectsResponse"];
+export type GetProjectResponse = components["schemas"]["GetProjectResponse"];
+export type CreateProjectResponse = components["schemas"]["CreateProjectResponse"];
 
-export interface CreateProjectRequest {
-  name: string;
-  description: string;
-  grade_level?: string;
-}
+const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
+
+const mockProjects: Project[] = [
+  {
+    id: "proj-1",
+    name: "初中数学 - 二次函数",
+    description: "二次函数的图像与性质教学课件",
+    grade_level: "初中",
+    status: "in_progress",
+    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "proj-2",
+    name: "高中物理 - 力学基础",
+    description: "牛顿运动定律与力学应用",
+    grade_level: "高中",
+    status: "draft",
+    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "proj-3",
+    name: "小学英语 - 动物主题",
+    description: "动物单词与对话练习",
+    grade_level: "小学",
+    status: "completed",
+    created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
 
 export const projectsApi = {
-  async getProjects(): Promise<Project[]> {
-    return request("/projects", {
+  async getProjects(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<GetProjectsResponse> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const page = params?.page || 1;
+      const limit = params?.limit || 20;
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      const projects = mockProjects.slice(start, end);
+      return {
+        success: true,
+        data: {
+          projects,
+          total: mockProjects.length,
+          page,
+          limit,
+        },
+        message: "获取成功",
+      };
+    }
+
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.set("page", String(params.page));
+    if (params?.limit) queryParams.set("limit", String(params.limit));
+    const query = queryParams.toString();
+
+    return request<GetProjectsResponse>(`/projects${query ? `?${query}` : ""}`, {
       method: "GET",
     });
   },
 
-  async getProject(id: string): Promise<Project> {
-    return request(`/projects/${id}`, {
+  async getProject(projectId: string): Promise<GetProjectResponse> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const project = mockProjects.find((p) => p.id === projectId);
+      if (!project) {
+        throw new Error("项目不存在");
+      }
+      return {
+        success: true,
+        data: { project },
+        message: "获取成功",
+      };
+    }
+
+    return request<GetProjectResponse>(`/projects/${projectId}`, {
       method: "GET",
     });
   },
 
-  async createProject(data: CreateProjectRequest): Promise<Project> {
-    return request("/projects", {
+  async createProject(data: CreateProjectRequest): Promise<CreateProjectResponse> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const newProject: Project = {
+        id: `proj-${Date.now()}`,
+        name: data.name,
+        description: data.description,
+        grade_level: data.grade_level,
+        status: "draft",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      mockProjects.unshift(newProject);
+      return {
+        success: true,
+        data: { project: newProject },
+        message: "创建成功",
+      };
+    }
+
+    return request<CreateProjectResponse>("/projects", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  },
+
+  async updateProject(
+    projectId: string,
+    data: Partial<CreateProjectRequest>
+  ): Promise<GetProjectResponse> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const index = mockProjects.findIndex((p) => p.id === projectId);
+      if (index === -1) {
+        throw new Error("项目不存在");
+      }
+      mockProjects[index] = {
+        ...mockProjects[index],
+        ...data,
+        updated_at: new Date().toISOString(),
+      };
+      return {
+        success: true,
+        data: { project: mockProjects[index] },
+        message: "更新成功",
+      };
+    }
+
+    return request<GetProjectResponse>(`/projects/${projectId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteProject(projectId: string): Promise<{ success: boolean; message: string }> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const index = mockProjects.findIndex((p) => p.id === projectId);
+      if (index === -1) {
+        throw new Error("项目不存在");
+      }
+      mockProjects.splice(index, 1);
+      return {
+        success: true,
+        message: "删除成功",
+      };
+    }
+
+    return request(`/projects/${projectId}`, {
+      method: "DELETE",
     });
   },
 };
