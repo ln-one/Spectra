@@ -22,7 +22,7 @@ graph TB
             AuthRouter[auth]
             ProjectsRouter[projects]
             ChatRouter[chat]
-            UploadRouter[upload]
+            FilesRouter[files]
             GenerateRouter[generate]
         end
         

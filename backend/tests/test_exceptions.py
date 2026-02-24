@@ -7,7 +7,7 @@
 from utils.generation_exceptions import (
     FileSystemError,
     GenerationError,
-    TimeoutError,
+    GenerationTimeoutError,
     ToolExecutionError,
     ToolNotFoundError,
     ValidationError,
@@ -153,26 +153,26 @@ class TestValidationError:
         assert error_dict["details"]["field"] == "email"
 
 
-class TestTimeoutError:
+class TestGenerationTimeoutError:
     """测试超时错误"""
 
     def test_timeout_error_basic(self):
         """测试基础超时错误"""
-        error = TimeoutError("PPTX generation", 300)
+        error = GenerationTimeoutError("PPTX generation", 300)
 
         assert "timeout" in str(error).lower()
         assert error.error_code == "TIMEOUT_ERROR"
 
     def test_timeout_error_details(self):
         """测试超时错误详情"""
-        error = TimeoutError("Pandoc conversion", 120)
+        error = GenerationTimeoutError("Pandoc conversion", 120)
 
         assert error.details["operation"] == "Pandoc conversion"
         assert error.details["timeout_seconds"] == 120
 
     def test_timeout_error_to_dict(self):
         """测试错误序列化"""
-        error = TimeoutError("File generation", 60)
+        error = GenerationTimeoutError("File generation", 60)
         error_dict = error.to_dict()
 
         assert error_dict["error"] == "TIMEOUT_ERROR"
@@ -189,7 +189,7 @@ class TestErrorInheritance:
             ToolExecutionError("test", "error", 1),
             FileSystemError("op", "path", "reason"),
             ValidationError("field", "reason"),
-            TimeoutError("op", 60),
+            GenerationTimeoutError("op", 60),
         ]
 
         for error in errors:
@@ -203,7 +203,7 @@ class TestErrorInheritance:
             ToolExecutionError("test", "error", 1),
             FileSystemError("op", "path", "reason"),
             ValidationError("field", "reason"),
-            TimeoutError("op", 60),
+            GenerationTimeoutError("op", 60),
         ]
 
         for error in errors:
@@ -223,7 +223,7 @@ class TestErrorMessages:
             (ToolExecutionError("pandoc", "stderr", 1), ["pandoc", "failed"]),
             (FileSystemError("write", "/path", "denied"), ["write", "error"]),
             (ValidationError("title", "too long"), ["title", "validation"]),
-            (TimeoutError("generation", 300), ["timeout", "generation"]),
+            (GenerationTimeoutError("generation", 300), ["timeout", "generation"]),
         ]
 
         for error, keywords in errors:

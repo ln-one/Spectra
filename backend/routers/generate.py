@@ -76,7 +76,11 @@ async def generate_courseware(
             task_id=task.id,
             project_id=request.project_id,
             task_type=request.type.value,
-            template_config=request.template_config,
+            template_config=(
+                request.template_config.model_dump()
+                if request.template_config
+                else None
+            ),
         )
 
         logger.info(
@@ -154,8 +158,8 @@ async def process_generation_task(
         )
 
         # 调用 AI Service 获取课件内容
-        from schemas.generation import TemplateConfig
         from services.ai import ai_service
+        from services.template import TemplateConfig
 
         logger.info(
             f"Calling AI service to generate courseware content for task {task_id}"

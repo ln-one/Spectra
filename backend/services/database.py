@@ -40,12 +40,19 @@ class DatabaseService:
         """Get all courses"""
         return await self.db.course.find_many()
 
-    async def create_project(self, project_data: ProjectCreate):
-        """Create a new project"""
+    async def create_project(self, project_data: ProjectCreate, user_id: str):
+        """
+        Create a new project
+
+        Args:
+            project_data: Project creation data
+            user_id: User ID who owns the project
+        """
         project = await self.db.project.create(
             data={
                 "name": project_data.name,
                 "description": project_data.description,
+                "userId": user_id,
             }
         )
         return project
@@ -58,13 +65,31 @@ class DatabaseService:
         """Get all projects"""
         return await self.db.project.find_many()
 
-    async def create_upload(self, filename: str, filepath: str, size: int):
-        """Record a file upload"""
+    async def create_upload(
+        self,
+        filename: str,
+        filepath: str,
+        size: int,
+        project_id: str,
+        file_type: str,
+    ):
+        """
+        Record a file upload
+
+        Args:
+            filename: Original filename
+            filepath: Stored file path
+            size: File size in bytes
+            project_id: Project ID this upload belongs to
+            file_type: Type of file (pdf/docx/pptx/video/other)
+        """
         upload = await self.db.upload.create(
             data={
                 "filename": filename,
                 "filepath": filepath,
                 "size": size,
+                "projectId": project_id,
+                "fileType": file_type,
             }
         )
         return upload

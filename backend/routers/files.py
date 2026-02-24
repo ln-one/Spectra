@@ -7,6 +7,7 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Header,
     HTTPException,
     Query,
     UploadFile,
@@ -36,8 +37,7 @@ async def upload_file(
     file: UploadFile = File(...),
     project_id: str = Form(...),
     user_id: str = Depends(get_current_user),
-    # REVIEW #B5 (P1): OpenAPI 将 Idempotency-Key 定义为 Header，此处按 Query 读取，契约不一致。
-    idempotency_key: Optional[str] = Query(None, alias="Idempotency-Key"),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
     """
     上传参考文件

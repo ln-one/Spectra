@@ -32,12 +32,21 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
 
     TODO: Complete JWT verification when auth_service.verify_token() is implemented
     """
-    # TEMPORARY: For testing, allow requests without auth header
+    import os
+
+    # 只在开发环境允许无认证访问
     if not authorization:
-        logger.warning(
-            "No authorization header provided, using test user_id for development"
-        )
-        return "test-user-id-12345"
+        if os.getenv("ALLOW_ANONYMOUS_ACCESS", "false").lower() == "true":
+            logger.warning(
+                "No authorization header provided, using test user_id (DEVELOPMENT ONLY)"
+            )
+            return "test-user-id-12345"
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="Missing authorization header",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     # Extract token from Bearer scheme
     try:

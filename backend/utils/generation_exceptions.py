@@ -61,7 +61,7 @@ class ValidationError(GenerationError):
         super().__init__(message, "VALIDATION_ERROR", details)
 
 
-class TimeoutError(GenerationError):
+class GenerationTimeoutError(GenerationError):
     """超时错误"""
 
     def __init__(self, operation: str, timeout_seconds: int):

@@ -104,11 +104,19 @@ class CoursewareContent(BaseModel):
     def validate_markdown(cls, v):
         if len(v) > 1_000_000:  # 1MB 限制
             raise ValueError("Markdown content too large (max 1MB)")
-        # 检查潜在的注入攻击
-        dangerous_patterns = ["<script>", "<?php", "<%"]
+        # 检查潜在的注入攻击（不区分大小写）
+        v_lower = v.lower()
+        dangerous_patterns = [
+            "<script",
+            "<?php",
+            "<%",
+            "javascript:",
+            "onerror=",
+            "onload=",
+        ]
         for pattern in dangerous_patterns:
-            if pattern in v.lower():
-                raise ValueError("Potentially dangerous content detected")
+            if pattern in v_lower:
+                raise ValueError(f"Potentially dangerous content detected: {pattern}")
         return v
 
 

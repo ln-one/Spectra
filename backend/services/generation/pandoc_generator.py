@@ -13,9 +13,12 @@ try:
         ensure_directory_exists,
         validate_file_exists,
     )
-    from ...utils.generation_exceptions import FileSystemError
-    from ...utils.generation_exceptions import TimeoutError as GenerationTimeoutError
-    from ...utils.generation_exceptions import ToolExecutionError, ToolNotFoundError
+    from ...utils.generation_exceptions import (
+        FileSystemError,
+        GenerationTimeoutError,
+        ToolExecutionError,
+        ToolNotFoundError,
+    )
     from .tool_checker import check_pandoc_installed
     from .types import CoursewareContent
 except ImportError:
@@ -29,9 +32,12 @@ except ImportError:
         ensure_directory_exists,
         validate_file_exists,
     )
-    from utils.generation_exceptions import FileSystemError
-    from utils.generation_exceptions import TimeoutError as GenerationTimeoutError
-    from utils.generation_exceptions import ToolExecutionError, ToolNotFoundError
+    from utils.generation_exceptions import (
+        FileSystemError,
+        GenerationTimeoutError,
+        ToolExecutionError,
+        ToolNotFoundError,
+    )
 
 logger = logging.getLogger(__name__)
 

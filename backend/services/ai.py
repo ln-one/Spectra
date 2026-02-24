@@ -122,6 +122,16 @@ class AIService:
                 exc_info=True,
             )
 
+            # 记录告警，便于监控 AI 服务状态
+            logger.warning(
+                f"AI generation failed for project {project_id}, using fallback content",
+                extra={
+                    "project_id": project_id,
+                    "error": str(e),
+                    "template_style": template_style,
+                },
+            )
+
             # 返回 fallback 内容，确保系统不会完全失败
             return self._get_fallback_courseware(user_requirements)
 
@@ -129,9 +139,23 @@ class AIService:
         self, user_requirements: str, template_style: str
     ) -> str:
         """构建课件生成的 prompt"""
+
+        # 根据模板风格添加特定要求
+        style_requirements = {
+            "default": "使用简洁清晰的排版，适合通用教学场景",
+            "gaia": "使用现代简约风格，注重视觉美感和留白",
+            "uncover": "使用动态展示风格，内容层层递进，适合演讲场景",
+            "academic": "使用学术风格，注重逻辑严谨和内容深度，适合学术报告",
+        }
+
+        style_instruction = style_requirements.get(
+            template_style, style_requirements["default"]
+        )
+
         return f"""请为以下教学主题生成完整的课件内容。
 
 教学主题：{user_requirements}
+模板风格：{template_style} - {style_instruction}
 
 请按照以下格式生成内容：
 
@@ -144,6 +168,7 @@ class AIService:
 3. 内容简洁，每页 3-5 个要点
 4. 可以包含代码示例（使用 ```python 代码块）
 5. 第一页是标题页，最后一页是总结
+6. 风格要求：{style_instruction}
 
 示例格式：
 # 课件标题

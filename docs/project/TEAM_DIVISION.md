@@ -43,7 +43,7 @@ flowchart TB
 | **项目管理**   | ✅ 可用  | projects/files router 已实现基础 CRUD                        |
 | **对话系统**   | 🔧 骨架 | chat router 返回 501                                      |
 | **RAG 检索** | 🔧 骨架 | rag router 返回 501                                       |
-| **课件生成**   | ✅ 可用  | generate/preview router 返回 501                          |
+| **课件生成**   | ✅ 可用  | generate router 已实现完整生成流程，支持 PPTX/DOCX 生成                        |
 | **AI 服务**  | 🔧 骨架 | LiteLLM 集成，有 stub 响应                                    |
 | **前端组件**   | 🔧 部分 | Sidebar/SplitView/CourseOutline 等演示组件                   |
 | **前端页面**   | 🔧 部分 | 登录/注册页面有 UI，未完整验证                                       |

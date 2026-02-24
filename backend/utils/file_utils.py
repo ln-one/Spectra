@@ -29,23 +29,29 @@ def safe_path_join(base_dir: Path, filename: str) -> Path:
 
         >>> safe_path_join(base, "../etc/passwd")  # 抛出 ValueError
     """
-    # 先检查是否包含路径遍历尝试
-    if ".." in filename or "/" in filename or "\\" in filename:
-        raise ValueError(f"Invalid file path: {filename} (path traversal detected)")
-
-    # 移除其他潜在危险字符
-    safe_filename = re.sub(r'[<>:"|?*]', "", filename)
+    # 只取文件名部分，忽略任何路径分隔符
+    safe_filename = Path(filename).name
 
     # 确保文件名不为空
     if not safe_filename or safe_filename.isspace():
         raise ValueError("Invalid filename: empty or whitespace only")
 
-    # 构建完整路径
-    full_path = (base_dir / safe_filename).resolve()
+    # 移除其他潜在危险字符
+    safe_filename = re.sub(r'[<>:"|?*]', "", safe_filename)
 
-    # 双重检查：确保路径在 base_dir 内
-    if not str(full_path).startswith(str(base_dir.resolve())):
-        raise ValueError(f"Invalid file path: {filename} (path traversal detected)")
+    # 构建完整路径并解析为绝对路径
+    full_path = (base_dir / safe_filename).resolve()
+    base_resolved = base_dir.resolve()
+
+    # 使用 is_relative_to (Python 3.9+) 或 startswith 严格检查
+    try:
+        # Python 3.9+ 推荐方式
+        if not full_path.is_relative_to(base_resolved):
+            raise ValueError(f"Invalid file path: {filename} (path traversal detected)")
+    except AttributeError:
+        # Python 3.8 fallback
+        if not str(full_path).startswith(str(base_resolved) + "/"):
+            raise ValueError(f"Invalid file path: {filename} (path traversal detected)")
 
     return full_path
 

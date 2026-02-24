@@ -11,9 +11,11 @@ import pytest
 
 from services.generation import CoursewareContent, GenerationService
 from services.template import TemplateConfig, TemplateStyle
-from utils.generation_exceptions import FileSystemError
-from utils.generation_exceptions import TimeoutError as GenerationTimeoutError
-from utils.generation_exceptions import ToolExecutionError
+from utils.generation_exceptions import (
+    FileSystemError,
+    GenerationTimeoutError,
+    ToolExecutionError,
+)
 
 
 @pytest.fixture
