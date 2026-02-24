@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from typing import Optional
 
@@ -8,12 +9,26 @@ from schemas.generation import CoursewareContent
 
 logger = logging.getLogger(__name__)
 
+# 默认模型从环境变量读取，支持 DashScope Qwen
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen-plus")
+
+
+def _resolve_model_name(model: str) -> str:
+    """
+    解析模型名称，为 Qwen 模型自动添加 dashscope/ 前缀
+
+    LiteLLM 要求 DashScope 模型使用 'dashscope/' 前缀。
+    """
+    if model.startswith(("qwen-", "qwen2")) and not model.startswith("dashscope/"):
+        return f"dashscope/{model}"
+    return model
+
 
 class AIService:
     """Service for AI operations using LiteLLM"""
 
     def __init__(self):
-        self.default_model = "gpt-3.5-turbo"
+        self.default_model = DEFAULT_MODEL
 
     async def generate(
         self,
@@ -33,8 +48,9 @@ class AIService:
             dict with 'content', 'model', and 'tokens_used'
         """
         try:
+            resolved_model = _resolve_model_name(model or self.default_model)
             response = await acompletion(
-                model=model or self.default_model,
+                model=resolved_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
             )
