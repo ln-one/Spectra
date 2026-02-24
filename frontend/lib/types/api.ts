@@ -4,1129 +4,1146 @@
  */
 
 export interface paths {
-    "/api/v1/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 用户注册 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["RegisterRequest"];
-                };
-            };
-            responses: {
-                /** @description 注册成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AuthResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                409: components["responses"]["Conflict"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  "/api/v1/auth/register": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    get?: never;
+    put?: never;
+    /** 用户注册 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["RegisterRequest"];
         };
-        get?: never;
-        put?: never;
-        /** 用户登录 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["LoginRequest"];
-                };
-            };
-            responses: {
-                /** @description 登录成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AuthResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
+      };
+      responses: {
+        /** @description 注册成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AuthResponse"];
+          };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+        400: components["responses"]["BadRequest"];
+        409: components["responses"]["Conflict"];
+      };
     };
-    "/api/v1/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取当前用户信息 */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["UserInfoResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/chat/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    get?: never;
+    put?: never;
+    /** 用户登录 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["LoginRequest"];
         };
-        /** 获取对话历史 (带分页) */
-        get: {
-            parameters: {
-                query: {
-                    project_id: string;
-                    /** @description 页码（从1开始） */
-                    page?: components["parameters"]["PageParam"];
-                    /** @description 每页数量 */
-                    limit?: components["parameters"]["LimitParam"];
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GetMessagesResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-            };
+      };
+      responses: {
+        /** @description 登录成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AuthResponse"];
+          };
         };
-        put?: never;
-        /** 发送消息 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description 幂等性密钥，用于防止重复请求。 */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["SendMessageRequest"];
-                };
-            };
-            responses: {
-                /** @description 成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SendMessageResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+      };
     };
-    "/api/v1/files": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 上传参考文件 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description 幂等性密钥，用于防止重复请求。 */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "multipart/form-data": {
-                        /** Format: binary */
-                        file: string;
-                        project_id: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description 上传成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["UploadResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/auth/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/files/{file_id}/intent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    /** 获取当前用户信息 */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["UserInfoResponse"];
+          };
         };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** 标注文件用途 */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    file_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UpdateFileIntentRequest"];
-                };
-            };
-            responses: {
-                /** @description 标注成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["UpdateFileIntentResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-            };
-        };
-        trace?: never;
+        401: components["responses"]["Unauthorized"];
+      };
     };
-    "/api/v1/generate/courseware": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 生成课件 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description 幂等性密钥，用于防止重复请求。 */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["GenerateRequest"];
-                };
-            };
-            responses: {
-                /** @description 生成任务已创建 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GenerateResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/chat/messages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/generate/status/{task_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    /** 获取对话历史 (带分页) */
+    get: {
+      parameters: {
+        query: {
+          project_id: string;
+          /** @description 页码（从1开始） */
+          page?: components["parameters"]["PageParam"];
+          /** @description 每页数量 */
+          limit?: components["parameters"]["LimitParam"];
         };
-        /** 查询生成状态 */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    task_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GenerateStatusResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-            };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GetMessagesResponse"];
+          };
         };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
     };
-    "/api/v1/preview/{task_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    put?: never;
+    /** 发送消息 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
         };
-        /** 获取课件预览 */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    task_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PreviewResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-            };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["SendMessageRequest"];
         };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+      };
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["SendMessageResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
     };
-    "/api/v1/preview/{task_id}/modify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 提交修改指令 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description 幂等性密钥，用于防止重复请求。 */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path: {
-                    task_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ModifyRequest"];
-                };
-            };
-            responses: {
-                /** @description 修改任务已创建 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ModifyResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/rag/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    get?: never;
+    put?: never;
+    /** 上传参考文件 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
         };
-        get?: never;
-        put?: never;
-        /** 检索知识库 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["RAGSearchRequest"];
-                };
-            };
-            responses: {
-                /** @description 检索成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["RAGSearchResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-            };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "multipart/form-data": {
+            /** Format: binary */
+            file: string;
+            project_id: string;
+          };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+      };
+      responses: {
+        /** @description 上传成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["UploadResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
     };
-    "/api/v1/rag/sources/{chunk_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查看来源详情 */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    chunk_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SourceDetailResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/files/{file_id}/intent": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** 标注文件用途 */
+    patch: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          file_id: string;
         };
-        /** 获取项目列表 (带分页) */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 页码（从1开始） */
-                    page?: components["parameters"]["PageParam"];
-                    /** @description 每页数量 */
-                    limit?: components["parameters"]["LimitParam"];
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GetProjectsResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["UpdateFileIntentRequest"];
         };
-        put?: never;
-        /** 创建项目 */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description 幂等性密钥，用于防止重复请求。 */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateProjectRequest"];
-                };
-            };
-            responses: {
-                /** @description 项目创建成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CreateProjectResponse"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
+      };
+      responses: {
+        /** @description 标注成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["UpdateFileIntentResponse"];
+          };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
     };
-    "/api/v1/projects/{project_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 获取项目详情 */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    project_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GetProjectResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/courseware": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/v1/projects/{project_id}/files": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    get?: never;
+    put?: never;
+    /** 生成课件 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
         };
-        /** 获取项目的上传文件列表 (带分页) */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description 页码（从1开始） */
-                    page?: components["parameters"]["PageParam"];
-                    /** @description 每页数量 */
-                    limit?: components["parameters"]["LimitParam"];
-                };
-                header?: never;
-                path: {
-                    project_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description 成功 */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["GetFilesResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                403: components["responses"]["Forbidden"];
-                404: components["responses"]["NotFound"];
-            };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["GenerateRequest"];
         };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+      };
+      responses: {
+        /** @description 生成任务已创建 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GenerateResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
     };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/status/{task_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 查询生成状态 */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          task_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GenerateStatusResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/preview/{task_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取课件预览 */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          task_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["PreviewResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/preview/{task_id}/modify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 提交修改指令 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+        };
+        path: {
+          task_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["ModifyRequest"];
+        };
+      };
+      responses: {
+        /** @description 修改任务已创建 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["ModifyResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 检索知识库 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["RAGSearchRequest"];
+        };
+      };
+      responses: {
+        /** @description 检索成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["RAGSearchResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/sources/{chunk_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 查看来源详情 */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          chunk_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["SourceDetailResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取项目列表 (带分页) */
+    get: {
+      parameters: {
+        query?: {
+          /** @description 页码（从1开始） */
+          page?: components["parameters"]["PageParam"];
+          /** @description 每页数量 */
+          limit?: components["parameters"]["LimitParam"];
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GetProjectsResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+      };
+    };
+    put?: never;
+    /** 创建项目 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+        };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["CreateProjectRequest"];
+        };
+      };
+      responses: {
+        /** @description 项目创建成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["CreateProjectResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取项目详情 */
+    get: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          project_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GetProjectResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/projects/{project_id}/files": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取项目的上传文件列表 (带分页) */
+    get: {
+      parameters: {
+        query?: {
+          /** @description 页码（从1开始） */
+          page?: components["parameters"]["PageParam"];
+          /** @description 每页数量 */
+          limit?: components["parameters"]["LimitParam"];
+        };
+        header?: never;
+        path: {
+          project_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GetFilesResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        RegisterRequest: {
-            /**
-             * Format: email
-             * @example user@example.com
-             */
-            email: string;
-            /**
-             * Format: password
-             * @example SecurePass123!
-             */
-            password: string;
-            /** @example john_doe */
-            username: string;
-            /** @example John Doe */
-            fullName?: string;
-        };
-        LoginRequest: {
-            /**
-             * Format: email
-             * @example user@example.com
-             */
-            email: string;
-            /**
-             * Format: password
-             * @example SecurePass123!
-             */
-            password: string;
-        };
-        AuthResponse: {
-            success: boolean;
-            data: {
-                /**
-                 * @description JWT 访问令牌
-                 * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                 */
-                access_token?: string;
-                user?: components["schemas"]["UserInfo"];
-            };
-            /** @example 登录成功 */
-            message: string;
-        };
-        UserInfo: {
-            /** @example user-123 */
-            id: string;
-            /**
-             * Format: email
-             * @example user@example.com
-             */
-            email: string;
-            /** @example john_doe */
-            username: string;
-            /** @example John Doe */
-            fullName?: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        UserInfoResponse: {
-            success: boolean;
-            data: {
-                user?: components["schemas"]["UserInfo"];
-            };
-            message: string;
-        };
-        Message: {
-            id: string;
-            /** @enum {string} */
-            role: "user" | "assistant" | "system";
-            content: string;
-            /** Format: date-time */
-            timestamp: string;
-        };
-        SendMessageRequest: {
-            project_id: string;
-            content: string;
-            history?: components["schemas"]["Message"][];
-        };
-        SendMessageResponse: {
-            success: boolean;
-            data: {
-                message?: components["schemas"]["Message"];
-                suggestions?: string[];
-            };
-            message: string;
-        };
-        GetMessagesResponse: {
-            success: boolean;
-            data: {
-                messages?: components["schemas"]["Message"][];
-                total?: number;
-                page?: number;
-                limit?: number;
-            };
-            message: string;
-        };
-        UploadedFile: {
-            id: string;
-            filename: string;
-            /** @enum {string} */
-            file_type: "pdf" | "word" | "video" | "image" | "ppt";
-            mime_type?: string;
-            file_size: number;
-            /** @enum {string} */
-            status: "uploading" | "parsing" | "ready" | "failed";
-            /** @description 文件用途标注 */
-            usage_intent?: string;
-            /** @description 解析结果元数据 */
-            parse_result?: Record<string, never>;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at?: string;
-        };
-        UploadResponse: {
-            success: boolean;
-            data: {
-                file?: components["schemas"]["UploadedFile"];
-            };
-            message: string;
-        };
-        GetFilesResponse: {
-            success: boolean;
-            data: {
-                files?: components["schemas"]["UploadedFile"][];
-                total?: number;
-                page?: number;
-                limit?: number;
-            };
-            message: string;
-        };
-        UpdateFileIntentRequest: {
-            /**
-             * @description 文件用途说明
-             * @example 用于第三章节的案例分析，包含关键概念图表
-             */
-            usage_intent: string;
-        };
-        UpdateFileIntentResponse: {
-            success: boolean;
-            data: {
-                file?: components["schemas"]["UploadedFile"];
-            };
-            message: string;
-        };
-        GenerateRequest: {
-            project_id: string;
-            /** @enum {string} */
-            type: "ppt" | "word" | "both";
-            options?: {
-                style?: string;
-                pages?: number;
-            };
-        };
-        GenerateResponse: {
-            success: boolean;
-            data: {
-                task_id?: string;
-                /** @enum {string} */
-                status?: "pending" | "processing" | "completed" | "failed";
-            };
-            message: string;
-        };
-        GenerateStatusResponse: {
-            success: boolean;
-            data: {
-                task_id?: string;
-                /** @enum {string} */
-                status?: "pending" | "processing" | "completed" | "failed";
-                progress?: number;
-                result?: {
-                    ppt_url?: string;
-                    word_url?: string;
-                };
-                error?: string;
-            };
-            message: string;
-        };
-        PreviewResponse: {
-            success: boolean;
-            data: {
-                task_id?: string;
-                slides?: components["schemas"]["Slide"][];
-                lesson_plan?: components["schemas"]["LessonPlan"];
-            };
-            message: string;
-        };
-        Slide: {
-            id: string;
-            index: number;
-            title: string;
-            /** @description Markdown 格式的幻灯片内容 */
-            content: string;
-            sources?: components["schemas"]["SourceReference"][];
-            thumbnail_url?: string;
-        };
-        SourceReference: {
-            chunk_id: string;
-            /** @enum {string} */
-            source_type: "video" | "document" | "ai_generated";
-            filename: string;
-            /** @description 文档页码（文档类型） */
-            page_number?: number;
-            /** @description 视频时间戳（视频类型） */
-            timestamp?: string;
-            /** @description 来源片段预览文本 */
-            preview_text?: string;
-        };
-        LessonPlan: {
-            teaching_objectives?: string[];
-            slides_plan?: components["schemas"]["SlidePlan"][];
-        };
-        SlidePlan: {
-            slide_id: string;
-            teaching_goal: string;
-            teacher_script: string;
-            teaching_suggestions?: string[];
-            /** @description 建议时长（分钟） */
-            suggested_duration?: number;
-            material_sources?: components["schemas"]["SourceReference"][];
-        };
-        ModifyRequest: {
-            /**
-             * @description 修改指令
-             * @example 将第3页的标题改为'核心概念解析'，并增加一个案例
-             */
-            instruction: string;
-            /** @description 目标幻灯片ID列表（可选，为空则全局修改） */
-            target_slides?: string[];
-            /** @description 修改上下文信息 */
-            context?: Record<string, never>;
-        };
-        ModifyResponse: {
-            success: boolean;
-            data: {
-                modify_task_id?: string;
-                /** @enum {string} */
-                status?: "pending" | "processing" | "completed" | "failed";
-            };
-            message: string;
-        };
-        RAGSearchRequest: {
-            project_id: string;
-            /** @description 检索查询 */
-            query: string;
-            /** @default 5 */
-            top_k: number;
-            filters?: {
-                file_types?: ("pdf" | "word" | "video" | "image" | "ppt")[];
-                file_ids?: string[];
-            };
-        };
-        RAGSearchResponse: {
-            success: boolean;
-            data: {
-                results?: components["schemas"]["RAGResult"][];
-                total?: number;
-            };
-            message: string;
-        };
-        RAGResult: {
-            chunk_id: string;
-            /** @description 检索到的文本片段 */
-            content: string;
-            /**
-             * Format: float
-             * @description 相似度分数
-             */
-            score: number;
-            source: components["schemas"]["SourceReference"];
-            /** @description 额外元数据 */
-            metadata?: Record<string, never>;
-        };
-        SourceDetailResponse: {
-            success: boolean;
-            data: {
-                chunk_id?: string;
-                content?: string;
-                source?: components["schemas"]["SourceReference"];
-                context?: {
-                    previous_chunk?: string;
-                    next_chunk?: string;
-                };
-                file_info?: components["schemas"]["UploadedFile"];
-            };
-            message: string;
-        };
-        Project: {
-            id: string;
-            name: string;
-            description: string;
-            grade_level?: string;
-            /** @enum {string} */
-            status: "draft" | "in_progress" | "completed";
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        CreateProjectRequest: {
-            name: string;
-            description: string;
-            grade_level?: string;
-        };
-        CreateProjectResponse: {
-            success: boolean;
-            data: {
-                project?: components["schemas"]["Project"];
-            };
-            message: string;
-        };
-        GetProjectsResponse: {
-            success: boolean;
-            data: {
-                projects?: components["schemas"]["Project"][];
-                total?: number;
-                page?: number;
-                limit?: number;
-            };
-            message: string;
-        };
-        GetProjectResponse: {
-            success: boolean;
-            data: {
-                project?: components["schemas"]["Project"];
-            };
-            message: string;
-        };
-        ErrorResponse: {
-            /** @enum {boolean} */
-            success: false;
-            error: {
-                /**
-                 * @description 详细错误代码
-                 * @example UNAUTHORIZED
-                 * @enum {string}
-                 */
-                code: "UNAUTHORIZED" | "INVALID_TOKEN" | "TOKEN_EXPIRED" | "INVALID_CREDENTIALS" | "FORBIDDEN" | "INSUFFICIENT_PERMISSIONS" | "NOT_FOUND" | "ALREADY_EXISTS" | "RESOURCE_CONFLICT" | "INVALID_INPUT" | "VALIDATION_ERROR" | "QUOTA_EXCEEDED" | "RATE_LIMIT_EXCEEDED" | "IDEMPOTENCY_CONFLICT" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "EXTERNAL_SERVICE_ERROR";
-                /**
-                 * @description 错误描述信息
-                 * @example 未登录或登录已过期
-                 */
-                message: string;
-                /** @description 额外的错误详情 */
-                details?: Record<string, never>;
-            };
-            /**
-             * @description 用户友好的错误消息
-             * @example 请求失败
-             */
-            message?: string;
-        };
+  schemas: {
+    RegisterRequest: {
+      /**
+       * Format: email
+       * @example user@example.com
+       */
+      email: string;
+      /**
+       * Format: password
+       * @example SecurePass123!
+       */
+      password: string;
+      /** @example john_doe */
+      username: string;
+      /** @example John Doe */
+      fullName?: string;
     };
-    responses: {
-        /** @description 请求参数错误或验证失败 */
-        BadRequest: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 未认证或 Token 无效/过期 */
-        Unauthorized: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 无权限访问此资源 */
-        Forbidden: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 请求的资源不存在 */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description 资源冲突（如已存在） */
-        Conflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
+    LoginRequest: {
+      /**
+       * Format: email
+       * @example user@example.com
+       */
+      email: string;
+      /**
+       * Format: password
+       * @example SecurePass123!
+       */
+      password: string;
     };
-    parameters: {
-        /** @description 幂等性密钥，用于防止重复请求。 */
-        IdempotencyKey: string;
-        /** @description 页码（从1开始） */
-        PageParam: number;
-        /** @description 每页数量 */
-        LimitParam: number;
+    AuthResponse: {
+      success: boolean;
+      data: {
+        /**
+         * @description JWT 访问令牌
+         * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+         */
+        access_token?: string;
+        user?: components["schemas"]["UserInfo"];
+      };
+      /** @example 登录成功 */
+      message: string;
     };
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    UserInfo: {
+      /** @example user-123 */
+      id: string;
+      /**
+       * Format: email
+       * @example user@example.com
+       */
+      email: string;
+      /** @example john_doe */
+      username: string;
+      /** @example John Doe */
+      fullName?: string;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    UserInfoResponse: {
+      success: boolean;
+      data: {
+        user?: components["schemas"]["UserInfo"];
+      };
+      message: string;
+    };
+    Message: {
+      id: string;
+      /** @enum {string} */
+      role: "user" | "assistant" | "system";
+      content: string;
+      /** Format: date-time */
+      timestamp: string;
+    };
+    SendMessageRequest: {
+      project_id: string;
+      content: string;
+      history?: components["schemas"]["Message"][];
+    };
+    SendMessageResponse: {
+      success: boolean;
+      data: {
+        message?: components["schemas"]["Message"];
+        suggestions?: string[];
+      };
+      message: string;
+    };
+    GetMessagesResponse: {
+      success: boolean;
+      data: {
+        messages?: components["schemas"]["Message"][];
+        total?: number;
+        page?: number;
+        limit?: number;
+      };
+      message: string;
+    };
+    UploadedFile: {
+      id: string;
+      filename: string;
+      /** @enum {string} */
+      file_type: "pdf" | "word" | "video" | "image" | "ppt";
+      mime_type?: string;
+      file_size: number;
+      /** @enum {string} */
+      status: "uploading" | "parsing" | "ready" | "failed";
+      /** @description 文件用途标注 */
+      usage_intent?: string;
+      /** @description 解析结果元数据 */
+      parse_result?: Record<string, never>;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    UploadResponse: {
+      success: boolean;
+      data: {
+        file?: components["schemas"]["UploadedFile"];
+      };
+      message: string;
+    };
+    GetFilesResponse: {
+      success: boolean;
+      data: {
+        files?: components["schemas"]["UploadedFile"][];
+        total?: number;
+        page?: number;
+        limit?: number;
+      };
+      message: string;
+    };
+    UpdateFileIntentRequest: {
+      /**
+       * @description 文件用途说明
+       * @example 用于第三章节的案例分析，包含关键概念图表
+       */
+      usage_intent: string;
+    };
+    UpdateFileIntentResponse: {
+      success: boolean;
+      data: {
+        file?: components["schemas"]["UploadedFile"];
+      };
+      message: string;
+    };
+    GenerateRequest: {
+      project_id: string;
+      /** @enum {string} */
+      type: "ppt" | "word" | "both";
+      options?: {
+        style?: string;
+        pages?: number;
+      };
+    };
+    GenerateResponse: {
+      success: boolean;
+      data: {
+        task_id?: string;
+        /** @enum {string} */
+        status?: "pending" | "processing" | "completed" | "failed";
+      };
+      message: string;
+    };
+    GenerateStatusResponse: {
+      success: boolean;
+      data: {
+        task_id?: string;
+        /** @enum {string} */
+        status?: "pending" | "processing" | "completed" | "failed";
+        progress?: number;
+        result?: {
+          ppt_url?: string;
+          word_url?: string;
+        };
+        error?: string;
+      };
+      message: string;
+    };
+    PreviewResponse: {
+      success: boolean;
+      data: {
+        task_id?: string;
+        slides?: components["schemas"]["Slide"][];
+        lesson_plan?: components["schemas"]["LessonPlan"];
+      };
+      message: string;
+    };
+    Slide: {
+      id: string;
+      index: number;
+      title: string;
+      /** @description Markdown 格式的幻灯片内容 */
+      content: string;
+      sources?: components["schemas"]["SourceReference"][];
+      thumbnail_url?: string;
+    };
+    SourceReference: {
+      chunk_id: string;
+      /** @enum {string} */
+      source_type: "video" | "document" | "ai_generated";
+      filename: string;
+      /** @description 文档页码（文档类型） */
+      page_number?: number;
+      /** @description 视频时间戳（视频类型） */
+      timestamp?: string;
+      /** @description 来源片段预览文本 */
+      preview_text?: string;
+    };
+    LessonPlan: {
+      teaching_objectives?: string[];
+      slides_plan?: components["schemas"]["SlidePlan"][];
+    };
+    SlidePlan: {
+      slide_id: string;
+      teaching_goal: string;
+      teacher_script: string;
+      teaching_suggestions?: string[];
+      /** @description 建议时长（分钟） */
+      suggested_duration?: number;
+      material_sources?: components["schemas"]["SourceReference"][];
+    };
+    ModifyRequest: {
+      /**
+       * @description 修改指令
+       * @example 将第3页的标题改为'核心概念解析'，并增加一个案例
+       */
+      instruction: string;
+      /** @description 目标幻灯片ID列表（可选，为空则全局修改） */
+      target_slides?: string[];
+      /** @description 修改上下文信息 */
+      context?: Record<string, never>;
+    };
+    ModifyResponse: {
+      success: boolean;
+      data: {
+        modify_task_id?: string;
+        /** @enum {string} */
+        status?: "pending" | "processing" | "completed" | "failed";
+      };
+      message: string;
+    };
+    RAGSearchRequest: {
+      project_id: string;
+      /** @description 检索查询 */
+      query: string;
+      /** @default 5 */
+      top_k: number;
+      filters?: {
+        file_types?: ("pdf" | "word" | "video" | "image" | "ppt")[];
+        file_ids?: string[];
+      };
+    };
+    RAGSearchResponse: {
+      success: boolean;
+      data: {
+        results?: components["schemas"]["RAGResult"][];
+        total?: number;
+      };
+      message: string;
+    };
+    RAGResult: {
+      chunk_id: string;
+      /** @description 检索到的文本片段 */
+      content: string;
+      /**
+       * Format: float
+       * @description 相似度分数
+       */
+      score: number;
+      source: components["schemas"]["SourceReference"];
+      /** @description 额外元数据 */
+      metadata?: Record<string, never>;
+    };
+    SourceDetailResponse: {
+      success: boolean;
+      data: {
+        chunk_id?: string;
+        content?: string;
+        source?: components["schemas"]["SourceReference"];
+        context?: {
+          previous_chunk?: string;
+          next_chunk?: string;
+        };
+        file_info?: components["schemas"]["UploadedFile"];
+      };
+      message: string;
+    };
+    Project: {
+      id: string;
+      name: string;
+      description: string;
+      grade_level?: string;
+      /** @enum {string} */
+      status: "draft" | "in_progress" | "completed";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    CreateProjectRequest: {
+      name: string;
+      description: string;
+      grade_level?: string;
+    };
+    CreateProjectResponse: {
+      success: boolean;
+      data: {
+        project?: components["schemas"]["Project"];
+      };
+      message: string;
+    };
+    GetProjectsResponse: {
+      success: boolean;
+      data: {
+        projects?: components["schemas"]["Project"][];
+        total?: number;
+        page?: number;
+        limit?: number;
+      };
+      message: string;
+    };
+    GetProjectResponse: {
+      success: boolean;
+      data: {
+        project?: components["schemas"]["Project"];
+      };
+      message: string;
+    };
+    ErrorResponse: {
+      /** @enum {boolean} */
+      success: false;
+      error: {
+        /**
+         * @description 详细错误代码
+         * @example UNAUTHORIZED
+         * @enum {string}
+         */
+        code:
+          | "UNAUTHORIZED"
+          | "INVALID_TOKEN"
+          | "TOKEN_EXPIRED"
+          | "INVALID_CREDENTIALS"
+          | "FORBIDDEN"
+          | "INSUFFICIENT_PERMISSIONS"
+          | "NOT_FOUND"
+          | "ALREADY_EXISTS"
+          | "RESOURCE_CONFLICT"
+          | "INVALID_INPUT"
+          | "VALIDATION_ERROR"
+          | "QUOTA_EXCEEDED"
+          | "RATE_LIMIT_EXCEEDED"
+          | "IDEMPOTENCY_CONFLICT"
+          | "INTERNAL_ERROR"
+          | "SERVICE_UNAVAILABLE"
+          | "EXTERNAL_SERVICE_ERROR";
+        /**
+         * @description 错误描述信息
+         * @example 未登录或登录已过期
+         */
+        message: string;
+        /** @description 额外的错误详情 */
+        details?: Record<string, never>;
+      };
+      /**
+       * @description 用户友好的错误消息
+       * @example 请求失败
+       */
+      message?: string;
+    };
+  };
+  responses: {
+    /** @description 请求参数错误或验证失败 */
+    BadRequest: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 未认证或 Token 无效/过期 */
+    Unauthorized: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 无权限访问此资源 */
+    Forbidden: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 请求的资源不存在 */
+    NotFound: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+    /** @description 资源冲突（如已存在） */
+    Conflict: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["ErrorResponse"];
+      };
+    };
+  };
+  parameters: {
+    /** @description 幂等性密钥，用于防止重复请求。 */
+    IdempotencyKey: string;
+    /** @description 页码（从1开始） */
+    PageParam: number;
+    /** @description 每页数量 */
+    LimitParam: number;
+  };
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export type operations = Record<string, never>;

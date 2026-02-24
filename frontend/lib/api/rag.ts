@@ -10,7 +10,8 @@ import type { components } from "../types/api";
 
 export type RAGSearchRequest = components["schemas"]["RAGSearchRequest"];
 export type RAGSearchResponse = components["schemas"]["RAGSearchResponse"];
-export type SourceDetailResponse = components["schemas"]["SourceDetailResponse"];
+export type SourceDetailResponse =
+  components["schemas"]["SourceDetailResponse"];
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
@@ -43,8 +44,7 @@ const mockRAGResults = [
   },
   {
     chunk_id: "chunk-3",
-    content:
-      "顶点坐标为 (-b/2a, (4ac-b²)/4a)，对称轴为直线 x = -b/2a。",
+    content: "顶点坐标为 (-b/2a, (4ac-b²)/4a)，对称轴为直线 x = -b/2a。",
     score: 0.82,
     source: {
       chunk_id: "chunk-3",
@@ -56,8 +56,7 @@ const mockRAGResults = [
   },
   {
     chunk_id: "chunk-4",
-    content:
-      "例题：已知二次函数 y = x² - 4x + 3，求其顶点坐标和对称轴。",
+    content: "例题：已知二次函数 y = x² - 4x + 3，求其顶点坐标和对称轴。",
     score: 0.75,
     source: {
       chunk_id: "chunk-4",

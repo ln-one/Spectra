@@ -10,7 +10,8 @@ import type { components } from "../types/api";
 
 export type GenerateRequest = components["schemas"]["GenerateRequest"];
 export type GenerateResponse = components["schemas"]["GenerateResponse"];
-export type GenerateStatusResponse = components["schemas"]["GenerateStatusResponse"];
+export type GenerateStatusResponse =
+  components["schemas"]["GenerateStatusResponse"];
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 

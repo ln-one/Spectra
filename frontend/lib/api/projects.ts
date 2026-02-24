@@ -9,10 +9,12 @@ import { request } from "./client";
 import type { components } from "../types/api";
 
 export type Project = components["schemas"]["Project"];
-export type CreateProjectRequest = components["schemas"]["CreateProjectRequest"];
+export type CreateProjectRequest =
+  components["schemas"]["CreateProjectRequest"];
 export type GetProjectsResponse = components["schemas"]["GetProjectsResponse"];
 export type GetProjectResponse = components["schemas"]["GetProjectResponse"];
-export type CreateProjectResponse = components["schemas"]["CreateProjectResponse"];
+export type CreateProjectResponse =
+  components["schemas"]["CreateProjectResponse"];
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
@@ -75,9 +77,12 @@ export const projectsApi = {
     if (params?.limit) queryParams.set("limit", String(params.limit));
     const query = queryParams.toString();
 
-    return request<GetProjectsResponse>(`/projects${query ? `?${query}` : ""}`, {
-      method: "GET",
-    });
+    return request<GetProjectsResponse>(
+      `/projects${query ? `?${query}` : ""}`,
+      {
+        method: "GET",
+      }
+    );
   },
 
   async getProject(projectId: string): Promise<GetProjectResponse> {
@@ -99,7 +104,9 @@ export const projectsApi = {
     });
   },
 
-  async createProject(data: CreateProjectRequest): Promise<CreateProjectResponse> {
+  async createProject(
+    data: CreateProjectRequest
+  ): Promise<CreateProjectResponse> {
     if (MOCK_MODE) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const newProject: Project = {
@@ -153,7 +160,9 @@ export const projectsApi = {
     });
   },
 
-  async deleteProject(projectId: string): Promise<{ success: boolean; message: string }> {
+  async deleteProject(
+    projectId: string
+  ): Promise<{ success: boolean; message: string }> {
     if (MOCK_MODE) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const index = mockProjects.findIndex((p) => p.id === projectId);

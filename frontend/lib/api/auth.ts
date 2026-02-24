@@ -50,7 +50,8 @@ export const authApi = {
     if (MOCK_MODE) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const token = mockTokens[data.email] || `mock-jwt-token-${Date.now()}`;
-      const refreshToken = mockRefreshTokens[data.email] || `mock-refresh-token-${Date.now()}`;
+      const refreshToken =
+        mockRefreshTokens[data.email] || `mock-refresh-token-${Date.now()}`;
       const user = mockUsers.find((u) => u.email === data.email) || {
         id: `user-${Date.now()}`,
         email: data.email,
@@ -145,9 +146,7 @@ export const authApi = {
     });
   },
 
-  async refreshToken(
-    data: { refreshToken: string }
-  ): Promise<AuthResponse> {
+  async refreshToken(data: { refreshToken: string }): Promise<AuthResponse> {
     if (MOCK_MODE) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const token = `mock-jwt-token-${Date.now()}`;

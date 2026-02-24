@@ -11,8 +11,10 @@ import type { components } from "../types/api";
 export type UploadedFile = components["schemas"]["UploadedFile"];
 export type UploadResponse = components["schemas"]["UploadResponse"];
 export type GetFilesResponse = components["schemas"]["GetFilesResponse"];
-export type UpdateFileIntentRequest = components["schemas"]["UpdateFileIntentRequest"];
-export type UpdateFileIntentResponse = components["schemas"]["UpdateFileIntentResponse"];
+export type UpdateFileIntentRequest =
+  components["schemas"]["UpdateFileIntentRequest"];
+export type UpdateFileIntentResponse =
+  components["schemas"]["UpdateFileIntentResponse"];
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
@@ -32,7 +34,8 @@ const mockFiles: UploadedFile[] = [
     id: "file-2",
     filename: "教学案例集.docx",
     file_type: "word",
-    mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    mime_type:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     file_size: 512000,
     status: "ready",
     usage_intent: "案例分析素材",
@@ -179,7 +182,9 @@ export const filesApi = {
     });
   },
 
-  async deleteFile(fileId: string): Promise<{ success: boolean; message: string }> {
+  async deleteFile(
+    fileId: string
+  ): Promise<{ success: boolean; message: string }> {
     if (MOCK_MODE) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const index = mockFiles.findIndex((f) => f.id === fileId);

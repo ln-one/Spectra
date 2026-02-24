@@ -154,7 +154,9 @@ export const authService = {
     }
 
     if (validationErrors.length > 0) {
-      const error = new Error(validationErrors[0].message) as Error & { validationErrors: ValidationError[] };
+      const error = new Error(validationErrors[0].message) as Error & {
+        validationErrors: ValidationError[];
+      };
       error.validationErrors = validationErrors;
       throw error;
     }
@@ -184,10 +186,14 @@ export const authService = {
         user,
       };
     } catch (error) {
-      if ((error as Error & { validationErrors?: ValidationError[] }).validationErrors) {
+      if (
+        (error as Error & { validationErrors?: ValidationError[] })
+          .validationErrors
+      ) {
         throw error;
       }
-      const authError = new Error("登录失败，请检查邮箱和密码") as Error & AuthError;
+      const authError = new Error("登录失败，请检查邮箱和密码") as Error &
+        AuthError;
       authError.code = "LOGIN_FAILED";
       throw authError;
     }
@@ -211,11 +217,16 @@ export const authService = {
     if (!data.username) {
       validationErrors.push({ field: "username", message: "用户名不能为空" });
     } else if (data.username.length < 2) {
-      validationErrors.push({ field: "username", message: "用户名至少2个字符" });
+      validationErrors.push({
+        field: "username",
+        message: "用户名至少2个字符",
+      });
     }
 
     if (validationErrors.length > 0) {
-      const error = new Error(validationErrors[0].message) as Error & { validationErrors: ValidationError[] };
+      const error = new Error(validationErrors[0].message) as Error & {
+        validationErrors: ValidationError[];
+      };
       error.validationErrors = validationErrors;
       throw error;
     }
@@ -245,10 +256,14 @@ export const authService = {
         user,
       };
     } catch (error) {
-      if ((error as Error & { validationErrors?: ValidationError[] }).validationErrors) {
+      if (
+        (error as Error & { validationErrors?: ValidationError[] })
+          .validationErrors
+      ) {
         throw error;
       }
-      const authError = new Error("注册失败，该邮箱可能已被注册") as Error & AuthError;
+      const authError = new Error("注册失败，该邮箱可能已被注册") as Error &
+        AuthError;
       authError.code = "REGISTER_FAILED";
       throw authError;
     }
@@ -264,7 +279,8 @@ export const authService = {
       return toUser(userData);
     } catch {
       TokenStorage.clearTokens();
-      const authError = new Error("获取用户信息失败，请重新登录") as Error & AuthError;
+      const authError = new Error("获取用户信息失败，请重新登录") as Error &
+        AuthError;
       authError.code = "GET_USER_FAILED";
       throw authError;
     }

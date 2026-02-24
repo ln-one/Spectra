@@ -57,11 +57,7 @@ export type {
   GenerateStatusResponse,
 } from "./generate";
 
-export type {
-  PreviewResponse,
-  ModifyRequest,
-  ModifyResponse,
-} from "./preview";
+export type { PreviewResponse, ModifyRequest, ModifyResponse } from "./preview";
 
 export type {
   RAGSearchRequest,

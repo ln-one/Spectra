@@ -19,7 +19,8 @@ const mockSlides = [
     id: "slide-1",
     index: 1,
     title: "二次函数",
-    content: "# 二次函数\n\n## 学习目标\n- 理解二次函数的定义\n- 掌握二次函数的图像特征",
+    content:
+      "# 二次函数\n\n## 学习目标\n- 理解二次函数的定义\n- 掌握二次函数的图像特征",
     sources: [],
   },
   {
