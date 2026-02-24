@@ -124,7 +124,8 @@ class AIService:
 
             # 记录告警，便于监控 AI 服务状态
             logger.warning(
-                f"AI generation failed for project {project_id}, using fallback content",
+                f"AI generation failed for project {project_id}, "
+                "using fallback content",
                 extra={
                     "project_id": project_id,
                     "error": str(e),

@@ -38,7 +38,8 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
     if not authorization:
         if os.getenv("ALLOW_ANONYMOUS_ACCESS", "false").lower() == "true":
             logger.warning(
-                "No authorization header provided, using test user_id (DEVELOPMENT ONLY)"
+                "No authorization header provided, "
+                "using test user_id (DEVELOPMENT ONLY)"
             )
             return "test-user-id-12345"
         else:
