@@ -100,7 +100,10 @@ class AuthService:
         # For now, extract user_id from mock token
         if token.startswith("mock-jwt-token-"):
             return token.replace("mock-jwt-token-", "")
-        return "test-user-id-12345"  # Temporary for testing
+
+        # 对于非 mock token，返回 None 表示验证失败
+        logger.warning(f"Invalid token format: {token[:20]}...")
+        return None
 
 
 # Singleton instance

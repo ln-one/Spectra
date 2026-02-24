@@ -48,7 +48,10 @@ def success_response(data: Any, message: str = "操作成功") -> Dict[str, Any]
 
 
 def error_response(
-    code: str, message: str, details: Optional[Dict[str, Any]] = None
+    code: str,
+    message: str,
+    details: Optional[Dict[str, Any]] = None,
+    root_message: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create an error response
@@ -57,6 +60,7 @@ def error_response(
         code: Error code
         message: Error message
         details: Optional error details
+        root_message: Optional root-level message (defaults to "请求失败")
 
     Returns:
         Standardized error response dict
@@ -71,12 +75,26 @@ def error_response(
             },
             "message": "请求失败"
         }
+
+        >>> error_response("NOT_FOUND", "资源不存在", root_message="查询失败")
+        {
+            "success": False,
+            "error": {
+                "code": "NOT_FOUND",
+                "message": "资源不存在"
+            },
+            "message": "查询失败"
+        }
     """
     error_dict = {"code": code, "message": message}
     if details:
         error_dict["details"] = details
 
-    return {"success": False, "error": error_dict, "message": "请求失败"}
+    return {
+        "success": False,
+        "error": error_dict,
+        "message": root_message or "请求失败",
+    }
 
 
 # TODO: Create response wrapper decorator

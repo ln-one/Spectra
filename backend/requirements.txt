@@ -9,9 +9,12 @@ aiofiles==25.1.0
 python-dotenv==1.2.1
 
 # Authentication & Security
-python-jose[cryptography]==3.3.0  # JWT token handling
-passlib[bcrypt]==1.7.4            # Password hashing
-slowapi==0.1.9                    # Rate limiting
+
+# python-jose[cryptography]==3.3.0  # 已弃用，存在安全漏洞
+PyJWT[crypto]==2.10.1              # JWT token handling - 推荐替代方案
+passlib[bcrypt]==1.7.4             # Password hashing
+slowapi==0.1.9                     # Rate limiting
+
 
 # AI & LLM (不使用 LangChain，仅用 LiteLLM 做路由)
 litellm==1.81.13           # LLM 统一接口（支持 Qwen/GPT/Claude）

@@ -1,80 +1,108 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 
+from schemas.generation import GenerateRequest, GenerateResponse
+from services.database import db_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException
+from utils.exceptions import APIException, ForbiddenException, NotFoundException
 from utils.responses import success_response
 
 router = APIRouter(prefix="/generate", tags=["Generate"])
 logger = logging.getLogger(__name__)
 
 
-class GenerateRequest(BaseModel):
-    """生成课件请求"""
-
-    project_id: str
-    type: str  # ppt, word, both
-    options: Optional[dict] = None
-
-
-@router.post("/courseware")
+@router.post("/courseware", response_model=GenerateResponse)
 async def generate_courseware(
     request: GenerateRequest,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
-    # REVIEW #B5 (P1): OpenAPI 契约为 Header `Idempotency-Key`，此处按 Query 读取。
-    idempotency_key: Optional[str] = Query(None, alias="Idempotency-Key"),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
     """
     生成课件
 
+    创建一个后台生成任务，立即返回任务 ID。
+    任务将在后台异步处理，用户可通过 /generate/status/{task_id} 查询状态。
+
     Args:
         request: 生成请求（包含项目ID和生成类型）
+        background_tasks: FastAPI 后台任务
         user_id: 当前用户ID（从认证依赖获取）
         idempotency_key: 幂等性密钥（可选）
 
     Returns:
-        生成任务信息
+        GenerateResponse: 包含任务 ID 和初始状态
 
     Raises:
-        HTTPException: 生成失败时抛出
+        HTTPException: 项目不存在或无权限访问时抛出
     """
     try:
-        # TODO: Implement idempotency check if idempotency_key is provided
-        # REVIEW #B2 (P0): 生成任务缺少 project -> user 归属校验，未满足数据隔离要求。
-        # TODO: Verify project belongs to user
-        # project = await db_service.get_project(request.project_id)
-        # if project.userId != user_id:
-        #     raise ForbiddenException(
-        #         message="无权限访问此项目",
+        # 验证项目归属
+        project = await db_service.get_project(request.project_id)
+        if not project:
+            raise NotFoundException(
+                message=f"项目不存在: {request.project_id}",
+            )
+
+        if project.userId != user_id:
+            raise ForbiddenException(
+                message="无权限访问此项目",
+            )
+
+        # TODO: 实现幂等性检查
+        # if idempotency_key:
+        #     existing_response = await db_service.get_idempotency_response(
+        #         idempotency_key
         #     )
+        #     if existing_response:
+        #         return existing_response
 
-        # TODO: Create generation task in database
-        # task = await db_service.create_generation_task(
-        #     project_id=request.project_id,
-        #     type=request.type,
-        #     options=request.options,
-        # )
+        # 创建生成任务
+        task = await db_service.create_generation_task(
+            project_id=request.project_id,
+            task_type=request.type.value,
+            template_config=(
+                request.template_config.model_dump()
+                if request.template_config
+                else None
+            ),
+        )
 
-        # TODO: Queue generation task for background processing
-        # await generation_service.queue_task(task.id)
+        # 添加后台任务
+        background_tasks.add_task(
+            process_generation_task,
+            task_id=task.id,
+            project_id=request.project_id,
+            task_type=request.type.value,
+            template_config=(
+                request.template_config.model_dump()
+                if request.template_config
+                else None
+            ),
+        )
 
         logger.info(
             "courseware_generation_started",
             extra={
                 "user_id": user_id,
                 "project_id": request.project_id,
-                "type": request.type,
+                "task_id": task.id,
+                "type": request.type.value,
             },
         )
 
-        # TEMPORARY: Return mock response
-        return success_response(
-            data={"task_id": "mock-task-id-123", "status": "pending"},
+        # TODO: 保存幂等性响应
+        # if idempotency_key:
+        #     await db_service.save_idempotency_response(idempotency_key, response)
+
+        return GenerateResponse(
+            task_id=task.id,
+            status="pending",
             message="课件生成任务已创建",
         )
+
     except APIException as e:
         logger.error(
             f"Failed to generate courseware: {e.message}",
@@ -97,6 +125,130 @@ async def generate_courseware(
         )
 
 
+async def process_generation_task(
+    task_id: str,
+    project_id: str,
+    task_type: str,
+    template_config: Optional[dict] = None,
+):
+    """
+    后台任务：处理课件生成
+
+    Args:
+        task_id: 任务 ID
+        project_id: 项目 ID
+        task_type: 任务类型（pptx/docx/both）
+        template_config: 模板配置
+    """
+    try:
+        logger.info(
+            "generation_task_processing_started",
+            extra={
+                "task_id": task_id,
+                "project_id": project_id,
+                "task_type": task_type,
+            },
+        )
+
+        # 更新任务状态为 processing
+        await db_service.update_generation_task_status(
+            task_id=task_id,
+            status="processing",
+            progress=10,
+        )
+
+        # 调用 AI Service 获取课件内容
+        from services.ai import ai_service
+        from services.template import TemplateConfig
+
+        logger.info(
+            f"Calling AI service to generate courseware content for task {task_id}"
+        )
+
+        # 获取项目信息作为用户需求
+        project = await db_service.get_project(project_id)
+        user_requirements = (
+            project.description
+            if project and project.description
+            else project.name if project else "通用课件"
+        )
+
+        # 生成课件内容
+        courseware_content = await ai_service.generate_courseware_content(
+            project_id=project_id,
+            user_requirements=user_requirements,
+            template_style=(
+                template_config.get("style", "default")
+                if template_config
+                else "default"
+            ),
+        )
+
+        await db_service.update_generation_task_status(task_id, "processing", 30)
+
+        # 调用 GenerationService 生成文件
+        from services.generation import generation_service
+
+        # 构建模板配置
+        if template_config:
+            tpl_config = TemplateConfig(**template_config)
+        else:
+            tpl_config = TemplateConfig()
+
+        output_urls = {}
+
+        if task_type in ["pptx", "both"]:
+            logger.info(f"Generating PPTX for task {task_id}")
+            pptx_path = await generation_service.generate_pptx(
+                courseware_content, task_id, tpl_config
+            )
+            output_urls["pptx"] = f"/api/v1/files/download/{task_id}/pptx"
+            logger.info(f"PPTX generated: {pptx_path}")
+            await db_service.update_generation_task_status(task_id, "processing", 60)
+
+        if task_type in ["docx", "both"]:
+            logger.info(f"Generating DOCX for task {task_id}")
+            docx_path = await generation_service.generate_docx(
+                courseware_content, task_id, tpl_config
+            )
+            output_urls["docx"] = f"/api/v1/files/download/{task_id}/docx"
+            logger.info(f"DOCX generated: {docx_path}")
+            await db_service.update_generation_task_status(task_id, "processing", 90)
+
+        # 更新任务状态为 completed
+        import json
+
+        await db_service.update_generation_task_status(
+            task_id=task_id,
+            status="completed",
+            progress=100,
+            output_urls=json.dumps(output_urls),
+        )
+
+        logger.info(
+            "generation_task_completed",
+            extra={
+                "task_id": task_id,
+                "project_id": project_id,
+                "output_urls": output_urls,
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Generation task failed: {str(e)}",
+            extra={"task_id": task_id, "project_id": project_id},
+            exc_info=True,
+        )
+
+        # 更新任务状态为 failed
+        await db_service.update_generation_task_status(
+            task_id=task_id,
+            status="failed",
+            error_message=str(e),
+        )
+
+
 @router.get("/status/{task_id}")
 async def get_generation_status(
     task_id: str,
@@ -104,6 +256,8 @@ async def get_generation_status(
 ):
     """
     查询生成状态
+
+    查询指定任务的生成状态、进度和结果。
 
     Args:
         task_id: 任务ID
@@ -116,32 +270,48 @@ async def get_generation_status(
         HTTPException: 任务不存在或无权限访问时抛出
     """
     try:
-        # TODO: Get task from database
-        # task = await db_service.get_generation_task(task_id)
+        # 获取任务
+        task = await db_service.get_generation_task(task_id)
+        if not task:
+            raise NotFoundException(
+                message=f"任务不存在: {task_id}",
+            )
 
-        # TODO: Check if task belongs to user's project
-        # project = await db_service.get_project(task.projectId)
-        # if project.userId != user_id:
-        #     raise ForbiddenException(
-        #         message="无权限访问此任务",
-        #     )
+        # 验证权限：检查任务所属项目是否属于当前用户
+        project = await db_service.get_project(task.projectId)
+        if not project or project.userId != user_id:
+            raise ForbiddenException(
+                message="无权限访问此任务",
+            )
 
         logger.info(
             "generation_status_checked",
-            extra={"user_id": user_id, "task_id": task_id},
+            extra={"user_id": user_id, "task_id": task_id, "status": task.status},
         )
 
-        # TEMPORARY: Return mock response
+        # 解析输出 URLs
+        import json
+
+        result = None
+        if task.outputUrls:
+            try:
+                result = json.loads(task.outputUrls)
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse outputUrls for task {task_id}")
+
         return success_response(
             data={
-                "task_id": task_id,
-                "status": "processing",
-                "progress": 50,
-                "result": None,
-                "error": None,
+                "task_id": task.id,
+                "status": task.status,
+                "progress": task.progress,
+                "result": result,
+                "error": task.errorMessage,
+                "created_at": task.createdAt.isoformat(),
+                "updated_at": task.updatedAt.isoformat(),
             },
             message="获取生成状态成功",
         )
+
     except APIException as e:
         logger.error(
             f"Failed to get generation status: {e.message}",

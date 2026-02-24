@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Optional
 
 from fastapi import (
@@ -6,16 +7,18 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Header,
     HTTPException,
-    Query,
     UploadFile,
     status,
 )
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from services import db_service, file_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException
+from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.file_utils import validate_file_exists
 from utils.responses import success_response
 
 router = APIRouter(prefix="/files", tags=["Files"])
@@ -33,8 +36,7 @@ async def upload_file(
     file: UploadFile = File(...),
     project_id: str = Form(...),
     user_id: str = Depends(get_current_user),
-    # REVIEW #B5 (P1): OpenAPI 将 Idempotency-Key 定义为 Header，此处按 Query 读取，契约不一致。
-    idempotency_key: Optional[str] = Query(None, alias="Idempotency-Key"),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
     """
     上传参考文件
@@ -203,4 +205,117 @@ async def update_file_intent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update file intent",
+        )
+
+
+@router.get("/download/{task_id}/{file_type}")
+async def download_generated_file(
+    task_id: str,
+    file_type: str,
+    user_id: str = Depends(get_current_user),
+):
+    """
+    下载生成的课件文件
+
+    Args:
+        task_id: 任务 ID
+        file_type: 文件类型（pptx/docx）
+        user_id: 当前用户ID（从认证依赖获取）
+
+    Returns:
+        FileResponse: 文件下载响应
+
+    Raises:
+        HTTPException: 文件不存在或无权限访问时抛出
+    """
+    try:
+        # 验证文件类型
+        if file_type not in ["pptx", "docx"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type: {file_type}. Must be 'pptx' or 'docx'",
+            )
+
+        # 获取任务
+        task = await db_service.get_generation_task(task_id)
+        if not task:
+            raise NotFoundException(
+                message=f"任务不存在: {task_id}",
+            )
+
+        # 验证权限：检查任务所属项目是否属于当前用户
+        project = await db_service.get_project(task.projectId)
+        if not project or project.userId != user_id:
+            raise ForbiddenException(
+                message="无权限下载此文件",
+            )
+
+        # 检查任务是否完成
+        if task.status != "completed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"任务尚未完成，当前状态: {task.status}",
+            )
+
+        # 构建文件路径
+        output_dir = Path("generated")
+        if file_type == "pptx":
+            file_path = output_dir / f"{task_id}.pptx"
+            media_type = (
+                "application/vnd.openxmlformats-officedocument"
+                ".presentationml.presentation"
+            )
+            filename = f"{task_id}.pptx"
+        else:  # docx
+            file_path = output_dir / f"{task_id}_lesson_plan.docx"
+            media_type = (
+                "application/vnd.openxmlformats-officedocument"
+                ".wordprocessingml.document"
+            )
+            filename = f"{task_id}_lesson_plan.docx"
+
+        # 验证文件存在
+        if not validate_file_exists(file_path, min_size=1):
+            raise NotFoundException(
+                message=f"文件不存在或已被删除: {filename}",
+            )
+
+        logger.info(
+            "file_downloaded",
+            extra={
+                "user_id": user_id,
+                "task_id": task_id,
+                "file_type": file_type,
+                "file_path": str(file_path),
+            },
+        )
+
+        # 返回文件
+        return FileResponse(
+            path=str(file_path),
+            media_type=media_type,
+            filename=filename,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    except APIException as e:
+        logger.error(
+            f"Failed to download file: {e.message}",
+            extra={
+                "user_id": user_id,
+                "task_id": task_id,
+                "file_type": file_type,
+                "error_code": e.error_code,
+            },
+        )
+        raise
+    except Exception as e:
+        logger.error(
+            f"Failed to download file: {str(e)}",
+            extra={"user_id": user_id, "task_id": task_id, "file_type": file_type},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to download file",
         )

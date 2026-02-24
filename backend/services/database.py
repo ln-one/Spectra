@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 
 from prisma import Prisma
 from schemas.courses import CourseCreate, ProjectCreate
@@ -39,30 +40,145 @@ class DatabaseService:
         """Get all courses"""
         return await self.db.course.find_many()
 
-    async def create_project(self, project_data: ProjectCreate):
-        """Create a new project"""
+    async def create_project(self, project_data: ProjectCreate, user_id: str):
+        """
+        Create a new project
+
+        Args:
+            project_data: Project creation data
+            user_id: User ID who owns the project
+        """
         project = await self.db.project.create(
             data={
                 "name": project_data.name,
                 "description": project_data.description,
+                "userId": user_id,
             }
         )
         return project
+
+    async def get_project(self, project_id: str):
+        """Get a project by ID"""
+        return await self.db.project.find_unique(where={"id": project_id})
 
     async def get_all_projects(self):
         """Get all projects"""
         return await self.db.project.find_many()
 
-    async def create_upload(self, filename: str, filepath: str, size: int):
-        """Record a file upload"""
+    async def create_upload(
+        self,
+        filename: str,
+        filepath: str,
+        size: int,
+        project_id: str,
+        file_type: str,
+    ):
+        """
+        Record a file upload
+
+        Args:
+            filename: Original filename
+            filepath: Stored file path
+            size: File size in bytes
+            project_id: Project ID this upload belongs to
+            file_type: Type of file (pdf/docx/pptx/video/other)
+        """
         upload = await self.db.upload.create(
             data={
                 "filename": filename,
                 "filepath": filepath,
                 "size": size,
+                "projectId": project_id,
+                "fileType": file_type,
             }
         )
         return upload
+
+    # ============================================
+    # Generation Task Methods
+    # ============================================
+
+    async def create_generation_task(
+        self,
+        project_id: str,
+        task_type: str,
+        template_config: Optional[dict] = None,
+    ):
+        """
+        Create a new generation task
+
+        Args:
+            project_id: Project ID
+            task_type: Task type (pptx/docx/both)
+            template_config: Template configuration (optional)
+
+        Returns:
+            Created GenerationTask
+        """
+        input_data = None
+        if template_config:
+            input_data = json.dumps({"template_config": template_config})
+
+        task = await self.db.generationtask.create(
+            data={
+                "projectId": project_id,
+                "taskType": task_type,
+                "status": "pending",
+                "progress": 0,
+                "inputData": input_data,
+            }
+        )
+        return task
+
+    async def get_generation_task(self, task_id: str):
+        """
+        Get a generation task by ID
+
+        Args:
+            task_id: Task ID
+
+        Returns:
+            GenerationTask or None if not found
+        """
+        return await self.db.generationtask.find_unique(where={"id": task_id})
+
+    async def update_generation_task_status(
+        self,
+        task_id: str,
+        status: str,
+        progress: Optional[int] = None,
+        output_urls: Optional[str] = None,
+        error_message: Optional[str] = None,
+    ):
+        """
+        Update generation task status
+
+        Args:
+            task_id: Task ID
+            status: New status (pending/processing/completed/failed)
+            progress: Progress percentage (0-100)
+            output_urls: JSON string of output URLs
+            error_message: Error message if failed
+
+        Returns:
+            Updated GenerationTask
+        """
+        update_data = {"status": status}
+
+        if progress is not None:
+            update_data["progress"] = progress
+
+        if output_urls is not None:
+            update_data["outputUrls"] = output_urls
+
+        if error_message is not None:
+            update_data["errorMessage"] = error_message
+
+        task = await self.db.generationtask.update(
+            where={"id": task_id},
+            data=update_data,
+        )
+        return task
 
 
 # Global database service instance

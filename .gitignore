@@ -60,3 +60,12 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Kiro IDE
+.kiro/specs/
+
+# Generated files
+backend/generated/
+generated/
+backend/temp/
+temp/
