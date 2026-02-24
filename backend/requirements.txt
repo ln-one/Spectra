@@ -9,7 +9,7 @@ aiofiles==25.1.0
 python-dotenv==1.2.1
 
 # Authentication & Security
-python-jose[cryptography]==3.3.0  # JWT token handling
+python-jose[cryptography]==3.4.0  # JWT token handling (fixed CVE)
 passlib[bcrypt]==1.7.4            # Password hashing
 slowapi==0.1.9                    # Rate limiting
 

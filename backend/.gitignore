@@ -211,3 +211,9 @@ uploads/
 *.db
 *.db-journal
 .env
+
+# Generated files (课件生成系统)
+generated/
+temp/
+*.pptx
+*.docx

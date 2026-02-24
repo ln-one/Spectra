@@ -11,6 +11,7 @@ inclusion: always
 2. 主动总结经验并提炼可复用规则
 3. 主动更新 `docs/standards/` 相关文档
 4. 禁止等用户重复说同样的问题
+5. 根据实际需求参照`docs/architecture/`相关文档
 
 ## 规则优先级
 

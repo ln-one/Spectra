@@ -32,21 +32,21 @@ flowchart TB
 
 ### 已完成的脚手架
 
-| 模块 | 状态 | 说明 |
-|------|------|------|
-| **前端基础** | ✅ 完成 | Next.js 15 + TypeScript + Tailwind + Shadcn/ui 配置完成 |
-| **UI 组件库** | ✅ 完成 | 28 个 Shadcn/ui 基础组件已安装 |
-| **后端基础** | ✅ 完成 | FastAPI + Prisma ORM + 分层架构搭建完成 |
-| **数据库模型** | ✅ 完成 | User/Project/Conversation/Upload/GenerationTask 等模型定义完成 |
-| **API 契约** | ✅ 完成 | OpenAPI 1221 行完整定义（docs/openapi.yaml） |
-| **认证框架** | 🔧 骨架 | auth router/service 有骨架，未实现逻辑 |
-| **项目管理** | ✅ 可用 | projects/files router 已实现基础 CRUD |
-| **对话系统** | 🔧 骨架 | chat router 返回 501 |
-| **RAG 检索** | 🔧 骨架 | rag router 返回 501 |
-| **课件生成** | 🔧 骨架 | generate/preview router 返回 501 |
-| **AI 服务** | 🔧 骨架 | LiteLLM 集成，有 stub 响应 |
-| **前端组件** | 🔧 部分 | Sidebar/SplitView/CourseOutline 等演示组件 |
-| **前端页面** | 🔧 部分 | 登录/注册页面有 UI，未完整验证 |
+| 模块         | 状态    | 说明                                                      |
+| ---------- | ----- | ------------------------------------------------------- |
+| **前端基础**   | ✅ 完成  | Next.js 15 + TypeScript + Tailwind + Shadcn/ui 配置完成     |
+| **UI 组件库** | ✅ 完成  | 28 个 Shadcn/ui 基础组件已安装                                  |
+| **后端基础**   | ✅ 完成  | FastAPI + Prisma ORM + 分层架构搭建完成                         |
+| **数据库模型**  | ✅ 完成  | User/Project/Conversation/Upload/GenerationTask 等模型定义完成 |
+| **API 契约** | ✅ 完成  | OpenAPI 1221 行完整定义（docs/openapi.yaml）                   |
+| **认证框架**   | 🔧 骨架 | auth router/service 有骨架，未实现逻辑                           |
+| **项目管理**   | ✅ 可用  | projects/files router 已实现基础 CRUD                        |
+| **对话系统**   | 🔧 骨架 | chat router 返回 501                                      |
+| **RAG 检索** | 🔧 骨架 | rag router 返回 501                                       |
+| **课件生成**   | 🔧 骨架 | generate/preview router 返回 501                          |
+| **AI 服务**  | 🔧 骨架 | LiteLLM 集成，有 stub 响应                                    |
+| **前端组件**   | 🔧 部分 | Sidebar/SplitView/CourseOutline 等演示组件                   |
+| **前端页面**   | 🔧 部分 | 登录/注册页面有 UI，未完整验证                                       |
 
 ### 待开发核心功能
 
