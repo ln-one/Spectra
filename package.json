@@ -1,0 +1,16 @@
+{
+  "name": "spectra-api-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Spectra API 文档工具",
+  "scripts": {
+    "bundle:openapi": "redocly bundle docs/openapi-source.yaml -o docs/openapi.yaml",
+    "watch:openapi": "nodemon --watch docs/openapi --ext yaml --exec npm run bundle:openapi",
+    "validate:openapi": "redocly lint docs/openapi.yaml",
+    "sync:openapi": "./scripts/sync-openapi.sh"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^1.0.0",
+    "nodemon": "^3.0.2"
+  }
+}
