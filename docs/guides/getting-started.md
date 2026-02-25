@@ -37,7 +37,8 @@ docker-compose up
 
 - **前端**: http://localhost:3000
 - **后端 API**: http://localhost:8000
-- **API 文档**: http://localhost:8000/docs
+- **API 文档 (Swagger UI)**: http://localhost:8000/docs - 交互式测试
+- **API 文档 (ReDoc)**: http://localhost:8000/redoc - 美观阅读
 
 ### 4. 停止服务
 
@@ -85,7 +86,8 @@ uvicorn main:app --reload
 ```
 
 后端运行地址: **http://localhost:8000**
-API 文档地址: **http://localhost:8000/docs**
+- Swagger UI: **http://localhost:8000/docs** (交互式测试)
+- ReDoc: **http://localhost:8000/redoc** (文档阅读)
 
 ### 前端配置
 
@@ -109,8 +111,9 @@ npm run dev
 ## 验证安装
 
 1. 打开 http://localhost:3000 - 你应该能看到 Spectra 仪表板
-2. 打开 http://localhost:8000/docs - 你应该能看到 API 文档
-3. 尝试在仪表板中上传文件
+2. 打开 http://localhost:8000/docs - 你应该能看到 Swagger UI 交互式文档
+3. 打开 http://localhost:8000/redoc - 你应该能看到 ReDoc 美观文档
+4. 尝试在仪表板中上传文件
 
 ## 常见问题
 
