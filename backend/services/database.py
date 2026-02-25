@@ -95,6 +95,39 @@ class DatabaseService:
         return upload
 
     # ============================================
+    # User Methods
+    # ============================================
+
+    async def create_user(
+        self,
+        email: str,
+        password_hash: str,
+        username: str,
+        full_name: Optional[str] = None,
+    ):
+        """Create a new user"""
+        return await self.db.user.create(
+            data={
+                "email": email,
+                "password": password_hash,
+                "username": username,
+                "fullName": full_name,
+            }
+        )
+
+    async def get_user_by_email(self, email: str):
+        """Get a user by email"""
+        return await self.db.user.find_unique(where={"email": email})
+
+    async def get_user_by_username(self, username: str):
+        """Get a user by username"""
+        return await self.db.user.find_unique(where={"username": username})
+
+    async def get_user_by_id(self, user_id: str):
+        """Get a user by ID"""
+        return await self.db.user.find_unique(where={"id": user_id})
+
+    # ============================================
     # Generation Task Methods
     # ============================================
 

@@ -1,67 +1,120 @@
-"""
-Authentication Router (Skeleton)
+"""Authentication router."""
 
-This is a skeleton implementation. Returns 501 Not Implemented for all endpoints.
-"""
+from fastapi import APIRouter, Depends
 
-# REVIEW #B1 (P0): 认证路由仍为 501 skeleton，而系统其他路由已依赖认证上下文；当前鉴权链路无法闭环。
-
-import logging
-
-from fastapi import APIRouter, HTTPException, status
+from schemas.auth import (
+    AuthData,
+    AuthResponse,
+    LoginRequest,
+    RefreshTokenRequest,
+    RegisterRequest,
+    UserInfo,
+    UserInfoData,
+    UserInfoResponse,
+)
+from services.auth_service import auth_service
+from utils.dependencies import get_current_user
+from utils.exceptions import ConflictException, ErrorCode, UnauthorizedException
+from utils.responses import success_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
-logger = logging.getLogger(__name__)
 
 
-@router.post("/register", status_code=status.HTTP_501_NOT_IMPLEMENTED)
-async def register():
-    """
-    Register a new user
-
-    TODO: Implement user registration
-    - Validate request body (email, password, username)
-    - Call auth_service.create_user()
-    - Return user data and token
-    """
-    logger.warning("POST /auth/register is not implemented yet")
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User registration not implemented yet",
+def _build_auth_data(user) -> AuthData:
+    tokens = auth_service.create_auth_tokens(user.id)
+    return AuthData(
+        access_token=tokens["access_token"],
+        refresh_token=tokens["refresh_token"],
+        expires_in=tokens["expires_in"],
+        user=UserInfo.model_validate(user),
     )
 
 
-@router.post("/login", status_code=status.HTTP_501_NOT_IMPLEMENTED)
-async def login():
-    """
-    Login with email and password
+@router.post("/register", response_model=AuthResponse)
+async def register(request: RegisterRequest):
+    """Register a new user and return token pair."""
+    exists_by_email = await auth_service.get_user_by_email(request.email)
+    if exists_by_email:
+        raise ConflictException(
+            message="邮箱已注册",
+            error_code=ErrorCode.ALREADY_EXISTS,
+        )
 
-    TODO: Implement user login
-    - Validate request body (email, password)
-    - Verify credentials
-    - Call auth_service.create_token()
-    - Return user data and token
-    """
-    logger.warning("POST /auth/login is not implemented yet")
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User login not implemented yet",
+    exists_by_username = await auth_service.get_user_by_username(request.username)
+    if exists_by_username:
+        raise ConflictException(
+            message="用户名已存在",
+            error_code=ErrorCode.ALREADY_EXISTS,
+        )
+
+    user = await auth_service.create_user(
+        email=request.email,
+        password=request.password,
+        username=request.username,
+        full_name=request.fullName,
+    )
+    return success_response(
+        data=_build_auth_data(user).model_dump(mode="json"),
+        message="注册成功",
     )
 
 
-@router.get("/me", status_code=status.HTTP_501_NOT_IMPLEMENTED)
-async def get_current_user():
-    """
-    Get current user information
+@router.post("/login", response_model=AuthResponse)
+async def login(request: LoginRequest):
+    """Login with email and password and return token pair."""
+    user = await auth_service.authenticate_user(request.email, request.password)
+    if not user:
+        raise UnauthorizedException(
+            message="邮箱或密码错误",
+            error_code=ErrorCode.INVALID_CREDENTIALS,
+        )
 
-    TODO: Implement get current user
-    - Extract token from Authorization header
-    - Verify token
-    - Get user from database
-    - Return user data
-    """
-    logger.warning("GET /auth/me is not implemented yet")
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Get current user not implemented yet",
+    return success_response(
+        data=_build_auth_data(user).model_dump(mode="json"),
+        message="登录成功",
+    )
+
+
+@router.post("/refresh", response_model=AuthResponse)
+async def refresh_token(request: RefreshTokenRequest):
+    """Refresh access token using refresh token."""
+    user_id = auth_service.verify_refresh_token(request.refresh_token)
+    if not user_id:
+        raise UnauthorizedException(
+            message="刷新令牌无效或已过期",
+            error_code=ErrorCode.INVALID_TOKEN,
+        )
+
+    user = await auth_service.get_user_by_id(user_id)
+    if not user:
+        raise UnauthorizedException(
+            message="令牌无效或已过期",
+            error_code=ErrorCode.INVALID_TOKEN,
+        )
+
+    return success_response(
+        data=_build_auth_data(user).model_dump(mode="json"),
+        message="刷新成功",
+    )
+
+
+@router.post("/logout")
+async def logout(_: str = Depends(get_current_user)):
+    """Logout current user (stateless MVP behavior)."""
+    return success_response(data={}, message="退出登录成功")
+
+
+@router.get("/me", response_model=UserInfoResponse)
+async def me(current_user: str = Depends(get_current_user)):
+    """Get current user profile."""
+    user = await auth_service.get_user_by_id(current_user)
+    if not user:
+        raise UnauthorizedException(
+            message="令牌无效或已过期",
+            error_code=ErrorCode.INVALID_TOKEN,
+        )
+
+    return success_response(
+        data=UserInfoData(user=UserInfo.model_validate(user)).model_dump(mode="json"),
+        message="获取用户信息成功",
     )

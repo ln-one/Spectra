@@ -2,6 +2,7 @@
   post:
     summary: 用户注册
     tags: [Auth]
+    security: []
     requestBody:
       required: true
       content:
@@ -24,6 +25,7 @@
   post:
     summary: 用户登录
     tags: [Auth]
+    security: []
     requestBody:
       required: true
       content:
@@ -46,6 +48,7 @@
   post:
     summary: 刷新 Access Token
     tags: [Auth]
+    security: []
     requestBody:
       required: true
       content:
