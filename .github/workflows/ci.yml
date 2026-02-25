@@ -90,6 +90,8 @@ jobs:
       
       - name: Generate Prisma client
         working-directory: backend
+        env:
+          npm_config_registry: https://registry.npmmirror.com
         run: prisma generate
       
       - name: Check code format
