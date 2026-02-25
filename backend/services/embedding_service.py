@@ -87,9 +87,7 @@ class EmbeddingService:
             return await self._embed_dashscope(texts)
         return self._embed_local(texts)
 
-    async def _embed_dashscope(
-        self, texts: list[str]
-    ) -> list[list[float]]:
+    async def _embed_dashscope(self, texts: list[str]) -> list[list[float]]:
         """使用 DashScope API 进行向量化"""
         try:
             import dashscope
@@ -116,9 +114,7 @@ class EmbeddingService:
             return all_embeddings
 
         except Exception as e:
-            logger.warning(
-                f"DashScope embedding failed, falling back to local: {e}"
-            )
+            logger.warning(f"DashScope embedding failed, falling back to local: {e}")
             return self._embed_local(texts)
 
     def _embed_local(self, texts: list[str]) -> list[list[float]]:

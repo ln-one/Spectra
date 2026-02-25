@@ -44,9 +44,7 @@ class VectorService:
             )
         return self._client
 
-    def get_or_create_collection(
-        self, project_id: str
-    ) -> Collection:
+    def get_or_create_collection(self, project_id: str) -> Collection:
         """
         获取或创建项目级 collection
 

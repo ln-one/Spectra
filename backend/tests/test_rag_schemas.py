@@ -91,9 +91,7 @@ class TestSourceDetail:
             source=SourceReference(
                 chunk_id="c1", source_type="document", filename="doc.pdf"
             ),
-            context=ChunkContext(
-                previous_chunk="前一段", next_chunk="后一段"
-            ),
+            context=ChunkContext(previous_chunk="前一段", next_chunk="后一段"),
         )
         assert detail.context.previous_chunk == "前一段"
 

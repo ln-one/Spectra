@@ -30,11 +30,7 @@ class TestEmbeddingServiceDashScope:
         """构造 mock DashScope 响应"""
         resp = MagicMock()
         resp.status_code = 200
-        resp.output = {
-            "embeddings": [
-                {"embedding": emb} for emb in embeddings_data
-            ]
-        }
+        resp.output = {"embeddings": [{"embedding": emb} for emb in embeddings_data]}
         return resp
 
     @pytest.mark.asyncio

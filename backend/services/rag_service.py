@@ -36,9 +36,7 @@ class RAGService:
         self._vector = vec_service or vector_service
         self._embedding = emb_service or embedding_service
 
-    async def index_chunks(
-        self, project_id: str, chunks: list[ParsedChunkData]
-    ) -> int:
+    async def index_chunks(self, project_id: str, chunks: list[ParsedChunkData]) -> int:
         """
         将分块数据向量化并存入 ChromaDB
 

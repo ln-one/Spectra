@@ -48,7 +48,10 @@ class TestVectorService:
         col = svc.get_or_create_collection("proj-query")
         col.add(
             ids=["chunk-1", "chunk-2"],
-            documents=["光合作用是植物利用光能合成有机物的过程", "勾股定理描述直角三角形三边关系"],
+            documents=[
+                "光合作用是植物利用光能合成有机物的过程",
+                "勾股定理描述直角三角形三边关系",
+            ],
             metadatas=[{"source": "bio"}, {"source": "math"}],
         )
         results = col.query(query_texts=["植物如何制造养分"], n_results=2)

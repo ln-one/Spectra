@@ -20,7 +20,9 @@ class TestModelNameResolve:
         assert _resolve_model_name("qwen-turbo") == "dashscope/qwen-turbo"
 
     def test_qwen2_adds_prefix(self):
-        assert _resolve_model_name("qwen2-72b-instruct") == "dashscope/qwen2-72b-instruct"
+        assert (
+            _resolve_model_name("qwen2-72b-instruct") == "dashscope/qwen2-72b-instruct"
+        )
 
     def test_already_prefixed_no_change(self):
         assert _resolve_model_name("dashscope/qwen-plus") == "dashscope/qwen-plus"
@@ -29,7 +31,10 @@ class TestModelNameResolve:
         assert _resolve_model_name("gpt-3.5-turbo") == "gpt-3.5-turbo"
 
     def test_claude_no_prefix(self):
-        assert _resolve_model_name("claude-3-sonnet-20240229") == "claude-3-sonnet-20240229"
+        assert (
+            _resolve_model_name("claude-3-sonnet-20240229")
+            == "claude-3-sonnet-20240229"
+        )
 
 
 @pytest.mark.integration
