@@ -9,6 +9,7 @@
  */
 
 import { request, getApiUrl } from "./client";
+import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
 export type UploadedFile = components["schemas"]["UploadedFile"];
@@ -145,7 +146,7 @@ export const filesApi = {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", getApiUrl("/files"));
 
-      const token = localStorage.getItem("access_token");
+      const token = TokenStorage.getAccessToken();
       if (token) {
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       }
@@ -252,6 +253,124 @@ export const filesApi = {
 
     return request(`/files/${fileId}`, {
       method: "DELETE",
+    });
+  },
+
+  async batchDeleteFiles(
+    fileIds: string[]
+  ): Promise<components["schemas"]["BatchDeleteResponse"]> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const deleted: number[] = [];
+      const failed: { file_id: string; error: string }[] = [];
+
+      for (const fileId of fileIds) {
+        const index = mockFiles.findIndex((f) => f.id === fileId);
+        if (index !== -1) {
+          mockFiles.splice(index, 1);
+          deleted.push(1);
+        } else {
+          failed.push({
+            file_id: fileId,
+            error: "文件不存在",
+          });
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          deleted: deleted.length,
+          failed: failed.length > 0 ? failed : undefined,
+        },
+        message: "批量删除完成",
+      };
+    }
+
+    return request<components["schemas"]["BatchDeleteResponse"]>("/files/batch", {
+      method: "DELETE",
+      body: JSON.stringify({ file_ids: fileIds }),
+    });
+  },
+
+  async batchUploadFiles(
+    files: File[],
+    projectId: string,
+    onProgress?: (progress: number) => void
+  ): Promise<components["schemas"]["BatchUploadResponse"]> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (onProgress) {
+        onProgress(100);
+      }
+
+      const uploadedFiles: UploadedFile[] = [];
+      const failed: { filename: string; error: string }[] = [];
+
+      for (const file of files) {
+        const fileType = getFileTypeFromExtension(file.name.split(".").pop() || "");
+        uploadedFiles.push({
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          filename: file.name,
+          file_type: fileType,
+          mime_type: file.type,
+          file_size: file.size,
+          status: "ready",
+          parse_progress: 100,
+          parse_details: {
+            pages_extracted: Math.floor(Math.random() * 20) + 1,
+            images_extracted: Math.floor(Math.random() * 10),
+            text_length: Math.floor(Math.random() * 10000) + 1000,
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        mockFiles.unshift(uploadedFiles[uploadedFiles.length - 1]);
+      }
+
+      return {
+        success: true,
+        data: {
+          files: uploadedFiles,
+          total: uploadedFiles.length,
+          failed: failed.length > 0 ? failed : undefined,
+        },
+        message: "批量上传成功",
+      };
+    }
+
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+    formData.append("project_id", projectId);
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", getApiUrl("/files/batch"));
+
+      const token = TokenStorage.getAccessToken();
+      if (token) {
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      }
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          onProgress(progress);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText));
+        } else {
+          reject(new Error("批量上传失败"));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error("批量上传失败"));
+      xhr.send(formData);
     });
   },
 };

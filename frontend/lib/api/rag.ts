@@ -125,4 +125,32 @@ export const ragApi = {
       method: "GET",
     });
   },
+
+  async findSimilar(data: {
+    text: string;
+    top_k?: number;
+    threshold?: number;
+  }): Promise<RAGSearchResponse> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      const topK = data.top_k || 5;
+      const threshold = data.threshold || 0.7;
+      const results = mockRAGResults
+        .slice(0, topK)
+        .filter((r) => r.score >= threshold);
+      return {
+        success: true,
+        data: {
+          results,
+          total: results.length,
+        },
+        message: "相似内容查找成功",
+      };
+    }
+
+    return request<RAGSearchResponse>("/rag/similar", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
 };
