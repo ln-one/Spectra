@@ -2,8 +2,13 @@
 
 ## 权威规范
 
-- `../docs/openapi.yaml` - API 契约
+- `../docs/openapi/` - API 契约（模块化文件，按需读取）
+  - `paths/{模块}.yaml` - API 路径定义
+  - `schemas/{模块}.yaml` - 数据模型定义
+- `../docs/openapi.yaml` - 打包后的完整规范（自动生成，不要直接编辑）
 - `../docs/standards/backend.md` - 后端规范
+
+**重要**: 查看 API 定义时，读取 `../docs/openapi/` 下的模块文件，而不是打包后的大文件。
 
 ## 技术栈
 
@@ -36,8 +41,11 @@ pip install -r requirements.txt
 prisma generate && prisma db push
 uvicorn main:app --reload  # http://localhost:8000
 
-# 生成 Schema
+# 生成 Schema（从打包后的文件）
 datamodel-codegen --input ../docs/openapi.yaml --output schemas/generated.py
+
+# 修改 API 后重新打包
+cd .. && npm run bundle:openapi
 ```
 
 ## API 规范

@@ -1,0 +1,112 @@
+Project:
+  type: object
+  required: [id, name, description, status, created_at, updated_at]
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+      minLength: 1
+      maxLength: 200
+    description:
+      type: string
+      minLength: 1
+      maxLength: 2000
+    grade_level:
+      type: string
+    status:
+      type: string
+      enum: [draft, in_progress, completed]
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+ProjectRequest:
+  type: object
+  required: [name, description]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 200
+    description:
+      type: string
+      minLength: 1
+      maxLength: 2000
+    grade_level:
+      type: string
+
+ProjectResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        project:
+          $ref: '#/Project'
+    message:
+      type: string
+
+GetProjectsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/Project'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+    message:
+      type: string
+
+ProjectStatisticsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        project_id:
+          type: string
+        files_count:
+          type: integer
+          description: 上传的文件数
+        messages_count:
+          type: integer
+          description: 对话消息数
+        generation_tasks_count:
+          type: integer
+          description: 生成任务数
+        completed_tasks_count:
+          type: integer
+          description: 已完成的任务数
+        total_file_size:
+          type: integer
+          description: 文件总大小（字节）
+        last_activity:
+          type: string
+          format: date-time
+          description: 最后活动时间
+        created_at:
+          type: string
+          format: date-time
+    message:
+      type: string

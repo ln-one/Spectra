@@ -1,24 +1,19 @@
 openapi: 3.0.0
 info:
   title: Spectra API
-  version: 1.0.0
-  description: 多模态AI教学智能体 API
-
+  version: 1.1.0
+  description: 多模态AI教学智能体 API - 完整生产对齐版（涵盖双Token、CRUD与业务闭环）
 servers:
   - url: http://localhost:8000
     description: 开发环境
   - url: https://api.spectra.com
     description: 生产环境
-
-# ==========================================
-# Paths (API 路由定义)
-# ==========================================
 paths:
-  # --- Auth 模块 ---
   /api/v1/auth/register:
     post:
       summary: 用户注册
-      tags: [Auth]
+      tags:
+        - Auth
       requestBody:
         required: true
         content:
@@ -36,11 +31,11 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '409':
           $ref: '#/components/responses/Conflict'
-
   /api/v1/auth/login:
     post:
       summary: 用户登录
-      tags: [Auth]
+      tags:
+        - Auth
       requestBody:
         required: true
         content:
@@ -58,11 +53,55 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
+  /api/v1/auth/refresh:
+    post:
+      summary: 刷新 Access Token
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  description: 长期有效的刷新令牌
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/auth/logout:
+    post:
+      summary: 退出登录
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 退出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleSuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/auth/me:
     get:
       summary: 获取当前用户信息
-      tags: [Auth]
+      tags:
+        - Auth
       security:
         - BearerAuth: []
       responses:
@@ -74,12 +113,11 @@ paths:
                 $ref: '#/components/schemas/UserInfoResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
-  # --- Chat 模块 ---
   /api/v1/chat/messages:
     post:
       summary: 发送消息
-      tags: [Chat]
+      tags:
+        - Chat
       security:
         - BearerAuth: []
       parameters:
@@ -103,10 +141,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
     get:
-      summary: 获取对话历史 (带分页)
-      tags: [Chat]
+      summary: 获取对话历史
+      tags:
+        - Chat
       security:
         - BearerAuth: []
       parameters:
@@ -128,12 +166,12 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
-  # --- Files 模块 (原 Upload) ---
-  /api/v1/files:
+  /api/v1/chat/voice:
     post:
-      summary: 上传参考文件
-      tags: [Files]
+      summary: 语音消息输入
+      description: 上传语音文件，系统将自动识别并转换为文本消息
+      tags:
+        - Chat
       security:
         - BearerAuth: []
       parameters:
@@ -144,7 +182,48 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file, project_id]
+              required:
+                - audio
+                - project_id
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: 音频文件（支持 wav, mp3, m4a, ogg）
+                project_id:
+                  type: string
+                  description: 项目 ID
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoiceMessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/files:
+    post:
+      summary: 上传参考文件
+      tags:
+        - Files
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - project_id
               properties:
                 file:
                   type: string
@@ -164,11 +243,37 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
+  /api/v1/files/{file_id}:
+    delete:
+      summary: 删除上传的文件
+      tags:
+        - Files
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleSuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/files/{file_id}/intent:
     patch:
       summary: 标注文件用途
-      tags: [Files]
+      tags:
+        - Files
       security:
         - BearerAuth: []
       parameters:
@@ -198,12 +303,85 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
-  # --- Generate 模块 ---
+  /api/v1/files/batch:
+    post:
+      summary: 批量上传文件
+      description: 一次上传多个参考文件
+      tags:
+        - Files
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+                - project_id
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: 多个文件
+                project_id:
+                  type: string
+      responses:
+        '200':
+          description: 批量上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchUploadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      summary: 批量删除文件
+      tags:
+        - Files
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - file_ids
+              properties:
+                file_ids:
+                  type: array
+                  items:
+                    type: string
+                  description: 要删除的文件 ID 列表
+      responses:
+        '200':
+          description: 批量删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchDeleteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/generate/courseware:
     post:
       summary: 生成课件
-      tags: [Generate]
+      tags:
+        - Generate
       security:
         - BearerAuth: []
       parameters:
@@ -227,11 +405,11 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
-  /api/v1/generate/status/{task_id}:
+  /api/v1/generate/tasks/{task_id}/status:
     get:
       summary: 查询生成状态
-      tags: [Generate]
+      tags:
+        - Generate
       security:
         - BearerAuth: []
       parameters:
@@ -253,12 +431,77 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
-  # --- Preview 模块 ---
+  /api/v1/generate/tasks/{task_id}/download:
+    get:
+      summary: 下载生成的课件文件
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: file_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - ppt
+              - word
+          description: 要下载的文件类型
+      responses:
+        '200':
+          description: 文件下载成功
+          content:
+            application/vnd.openxmlformats-officedocument.presentationml.presentation:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/generate/tasks/{task_id}/versions:
+    get:
+      summary: 获取任务的所有版本
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/preview/{task_id}:
     get:
       summary: 获取课件预览
-      tags: [Preview]
+      tags:
+        - Preview
       security:
         - BearerAuth: []
       parameters:
@@ -280,11 +523,11 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/v1/preview/{task_id}/modify:
     post:
       summary: 提交修改指令
-      tags: [Preview]
+      tags:
+        - Preview
       security:
         - BearerAuth: []
       parameters:
@@ -315,12 +558,101 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
-  # --- RAG 模块 ---
+  /api/v1/preview/{task_id}/slides/{slide_id}:
+    get:
+      summary: 获取单个幻灯片详情
+      description: 查看特定幻灯片的详细内容和来源
+      tags:
+        - Preview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slide_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlideDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/preview/{task_id}/export:
+    post:
+      summary: 导出预览内容
+      description: 将预览内容导出为指定格式
+      tags:
+        - Preview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - format
+              properties:
+                format:
+                  type: string
+                  enum:
+                    - json
+                    - markdown
+                    - html
+                  description: 导出格式
+                include_sources:
+                  type: boolean
+                  default: true
+                  description: 是否包含来源信息
+      responses:
+        '200':
+          description: 导出成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      content:
+                        type: string
+                        description: 导出的内容
+                      format:
+                        type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/rag/search:
     post:
       summary: 检索知识库
-      tags: [RAG]
+      tags:
+        - RAG
       security:
         - BearerAuth: []
       requestBody:
@@ -342,11 +674,11 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/v1/rag/sources/{chunk_id}:
     get:
       summary: 查看来源详情
-      tags: [RAG]
+      tags:
+        - RAG
       security:
         - BearerAuth: []
       parameters:
@@ -368,12 +700,110 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
-  # --- Project 模块 ---
+  /api/v1/rag/index:
+    post:
+      summary: 索引新文件到知识库
+      description: 将上传的文件添加到 RAG 知识库索引
+      tags:
+        - RAG
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - file_id
+              properties:
+                file_id:
+                  type: string
+                  description: 要索引的文件 ID
+                chunk_size:
+                  type: integer
+                  default: 512
+                  description: 分块大小
+                chunk_overlap:
+                  type: integer
+                  default: 50
+                  description: 分块重叠大小
+      responses:
+        '200':
+          description: 索引任务已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      index_task_id:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - pending
+                          - processing
+                          - completed
+                          - failed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/rag/similar:
+    post:
+      summary: 查找相似内容
+      description: 基于给定文本查找知识库中的相似内容
+      tags:
+        - RAG
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: 要查找相似内容的文本
+                top_k:
+                  type: integer
+                  default: 5
+                  minimum: 1
+                  maximum: 20
+                threshold:
+                  type: number
+                  format: float
+                  default: 0.7
+                  minimum: 0
+                  maximum: 1
+                  description: 相似度阈值
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RAGSearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/projects:
     post:
       summary: 创建项目
-      tags: [Project]
+      tags:
+        - Project
       security:
         - BearerAuth: []
       parameters:
@@ -383,22 +813,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateProjectRequest'
+              $ref: '#/components/schemas/ProjectRequest'
       responses:
         '200':
           description: 项目创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateProjectResponse'
+                $ref: '#/components/schemas/ProjectResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
     get:
-      summary: 获取项目列表 (带分页)
-      tags: [Project]
+      summary: 获取项目列表
+      tags:
+        - Project
       security:
         - BearerAuth: []
       parameters:
@@ -413,11 +843,11 @@ paths:
                 $ref: '#/components/schemas/GetProjectsResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
   /api/v1/projects/{project_id}:
     get:
       summary: 获取项目详情
-      tags: [Project]
+      tags:
+        - Project
       security:
         - BearerAuth: []
       parameters:
@@ -432,19 +862,78 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetProjectResponse'
+                $ref: '#/components/schemas/ProjectResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
-  # [新增路径] 将文件列表作为项目的子资源
+    put:
+      summary: 修改项目信息
+      tags:
+        - Project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: 删除项目
+      tags:
+        - Project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleSuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/projects/{project_id}/files:
     get:
-      summary: 获取项目的上传文件列表 (带分页)
-      tags: [Project, Files]
+      summary: 获取项目的上传文件列表
+      tags:
+        - Project
+        - Files
       security:
         - BearerAuth: []
       parameters:
@@ -468,11 +957,68 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
-
-# ==========================================
-# Components (可复用组件)
-# ==========================================
+  /api/v1/projects/{project_id}/statistics:
+    get:
+      summary: 获取项目统计信息
+      description: 获取项目的文件数、对话数、生成任务数等统计信息
+      tags:
+        - Project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStatisticsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/projects/search:
+    get:
+      summary: 搜索项目
+      description: 根据关键词搜索项目
+      tags:
+        - Project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 搜索关键词
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - draft
+              - in_progress
+              - completed
+          description: 按状态筛选
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetProjectsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 components:
   securitySchemes:
     BearerAuth:
@@ -480,75 +1026,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: JWT 认证令牌
-
-  # --- 通用参数定义 ---
-  parameters:
-    # REVIEW #B5 (P1): 契约定义为 Header `Idempotency-Key`，但当前后端实现在多个路由中仍按 Query 参数读取，需统一。
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: false
-      schema:
-        type: string
-        format: uuid
-      description: 幂等性密钥，用于防止重复请求。
-    PageParam:
-      name: page
-      in: query
-      description: 页码（从1开始）
-      schema:
-        type: integer
-        default: 1
-        minimum: 1
-    LimitParam:
-      name: limit
-      in: query
-      description: 每页数量
-      schema:
-        type: integer
-        default: 20
-        minimum: 1
-        maximum: 100
-
-  # --- 通用错误响应定义 (新增部分) ---
-  responses:
-    BadRequest:
-      description: 请求参数错误或验证失败
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: 未认证或 Token 无效/过期
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: 无权限访问此资源
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: 请求的资源不存在
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Conflict:
-      description: 资源冲突（如已存在）
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-
-  # --- 数据模型定义 ---
   schemas:
-    # Authentication Schemas
     RegisterRequest:
       type: object
-      required: [email, password, username]
+      required:
+        - email
+        - password
+        - username
       properties:
         email:
           type: string
@@ -558,34 +1042,42 @@ components:
           type: string
           format: password
           minLength: 8
-          example: SecurePass123!
+          example: SecurePass123
         username:
           type: string
           minLength: 3
           maxLength: 50
-          pattern: '^[a-zA-Z0-9_-]+$'
+          pattern: ^[a-zA-Z0-9_]+$
           example: john_doe
         fullName:
           type: string
-          maxLength: 100
           example: John Doe
-
-    LoginRequest:
+    UserInfo:
       type: object
-      required: [email, password]
+      required:
+        - id
+        - email
+        - username
+        - createdAt
       properties:
+        id:
+          type: string
         email:
           type: string
           format: email
-          example: user@example.com
-        password:
+        username:
           type: string
-          format: password
-          example: SecurePass123!
-
+        fullName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
     AuthResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -594,38 +1086,63 @@ components:
           properties:
             access_token:
               type: string
-              description: JWT 访问令牌
-              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            refresh_token:
+              type: string
+            expires_in:
+              type: integer
             user:
               $ref: '#/components/schemas/UserInfo'
         message:
           type: string
-          example: 登录成功
-
-    UserInfo:
+    ErrorResponse:
       type: object
-      required: [id, email, username, createdAt]
+      required:
+        - success
+        - error
       properties:
-        id:
-          type: string
-          example: user-123
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
         email:
           type: string
           format: email
-          example: user@example.com
-        username:
+        password:
           type: string
-          example: john_doe
-        fullName:
+          format: password
+    SimpleSuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
           type: string
-          example: John Doe
-        createdAt:
-          type: string
-          format: date-time
-
+          example: 操作成功
     UserInfoResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -636,58 +1153,33 @@ components:
               $ref: '#/components/schemas/UserInfo'
         message:
           type: string
-
-    # Chat Schemas
     Message:
       type: object
-      required: [id, role, content, timestamp]
+      required:
+        - id
+        - role
+        - content
+        - timestamp
       properties:
         id:
           type: string
         role:
           type: string
-          enum: [user, assistant, system]
+          enum:
+            - user
+            - assistant
+            - system
         content:
           type: string
         timestamp:
           type: string
           format: date-time
-
-    SendMessageRequest:
-      type: object
-      required: [project_id, content]
-      properties:
-        project_id:
-          type: string
-        content:
-          type: string
-          minLength: 1
-        history:
-          type: array
-          items:
-            $ref: '#/components/schemas/Message'
-
-    SendMessageResponse:
-      type: object
-      required: [success, data, message]
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            message:
-              $ref: '#/components/schemas/Message'
-            suggestions:
-              type: array
-              items:
-                type: string
-        message:
-          type: string
-
     GetMessagesResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -706,11 +1198,86 @@ components:
               type: integer
         message:
           type: string
-
-    # Files/Upload Schemas
+    SendMessageRequest:
+      type: object
+      required:
+        - project_id
+        - content
+      properties:
+        project_id:
+          type: string
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+    SendMessageResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            message:
+              $ref: '#/components/schemas/Message'
+            suggestions:
+              type: array
+              items:
+                type: string
+        message:
+          type: string
+    VoiceMessageResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            text:
+              type: string
+              description: 识别的文本内容
+            confidence:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+              description: 识别置信度
+            duration:
+              type: number
+              format: float
+              description: 音频时长（秒）
+            message:
+              $ref: '#/components/schemas/Message'
+              description: 自动创建的消息对象
+            suggestions:
+              type: array
+              items:
+                type: string
+              description: AI 建议
+        message:
+          type: string
     UploadedFile:
       type: object
-      required: [id, filename, file_type, file_size, status, created_at]
+      required:
+        - id
+        - filename
+        - file_type
+        - file_size
+        - status
+        - created_at
       properties:
         id:
           type: string
@@ -718,30 +1285,67 @@ components:
           type: string
         file_type:
           type: string
-          enum: [pdf, word, video, image, ppt]
+          enum:
+            - pdf
+            - word
+            - video
+            - image
+            - ppt
         mime_type:
           type: string
         file_size:
           type: integer
+          description: File size in bytes. Maximum allowed size is 100MB (104857600 bytes).
+          maximum: 104857600
         status:
           type: string
-          enum: [uploading, parsing, ready, failed]
+          enum:
+            - uploading
+            - parsing
+            - ready
+            - failed
+        parse_progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 解析进度百分比
+        parse_details:
+          type: object
+          description: 解析详情
+          properties:
+            pages_extracted:
+              type: integer
+              description: 提取的页数
+            images_extracted:
+              type: integer
+              description: 提取的图片数
+            text_length:
+              type: integer
+              description: 提取的文本长度
+            duration:
+              type: number
+              description: 视频时长（秒）
+        parse_error:
+          type: string
+          description: 解析错误信息
         usage_intent:
           type: string
-          description: 文件用途标注
+          description: 文件用途说明
         parse_result:
           type: object
-          description: 解析结果元数据
+          description: 解析结果摘要
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
-
     UploadResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -752,10 +1356,37 @@ components:
               $ref: '#/components/schemas/UploadedFile'
         message:
           type: string
-
-    GetFilesResponse:
+    UpdateFileIntentRequest:
       type: object
-      required: [success, data, message]
+      required:
+        - usage_intent
+      properties:
+        usage_intent:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    UpdateFileIntentResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            file:
+              $ref: '#/components/schemas/UploadedFile'
+        message:
+          type: string
+    BatchUploadResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -768,59 +1399,113 @@ components:
                 $ref: '#/components/schemas/UploadedFile'
             total:
               type: integer
-            page:
-              type: integer
-            limit:
-              type: integer
+              description: 成功上传的文件数
+            failed:
+              type: array
+              items:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                  error:
+                    type: string
+              description: 上传失败的文件列表
         message:
           type: string
-
-    UpdateFileIntentRequest:
+    BatchDeleteResponse:
       type: object
-      required: [usage_intent]
-      properties:
-        usage_intent:
-          type: string
-          description: 文件用途说明
-          minLength: 1
-          maxLength: 500
-          example: "用于第三章节的案例分析，包含关键概念图表"
-
-    UpdateFileIntentResponse:
-      type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
         data:
           type: object
           properties:
-            file:
-              $ref: '#/components/schemas/UploadedFile'
+            deleted:
+              type: integer
+              description: 成功删除的文件数
+            failed:
+              type: array
+              items:
+                type: object
+                properties:
+                  file_id:
+                    type: string
+                  error:
+                    type: string
+              description: 删除失败的文件列表
         message:
           type: string
-
-    # Generate Schemas
     GenerateRequest:
       type: object
-      required: [project_id, type]
+      required:
+        - project_id
+        - type
       properties:
         project_id:
           type: string
         type:
           type: string
-          enum: [ppt, word, both]
+          enum:
+            - ppt
+            - word
+            - both
         options:
           type: object
           properties:
-            style:
+            template:
               type: string
+              enum:
+                - default
+                - gaia
+                - uncover
+                - academic
+              default: default
+              description: PPT 模板风格
+            theme_color:
+              type: string
+              pattern: ^#[0-9A-Fa-f]{6}$
+              description: 主题色（十六进制颜色代码）
+              example: '#4A90E2'
+            show_page_number:
+              type: boolean
+              default: true
+              description: 是否显示页码
+            header:
+              type: string
+              description: 页眉文本
+            footer:
+              type: string
+              description: 页脚文本
             pages:
               type: integer
-
+              minimum: 1
+              maximum: 100
+              description: 期望的页数
+            include_animations:
+              type: boolean
+              default: false
+              description: 是否生成动画创意
+            include_games:
+              type: boolean
+              default: false
+              description: 是否生成互动游戏
+            animation_format:
+              type: string
+              enum:
+                - gif
+                - mp4
+                - html5
+              description: 动画输出格式（当 include_animations 为 true 时）
     GenerateResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -831,13 +1516,19 @@ components:
               type: string
             status:
               type: string
-              enum: [pending, processing, completed, failed]
+              enum:
+                - pending
+                - processing
+                - completed
+                - failed
         message:
           type: string
-
     GenerateStatusResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -848,11 +1539,16 @@ components:
               type: string
             status:
               type: string
-              enum: [pending, processing, completed, failed]
+              enum:
+                - pending
+                - processing
+                - completed
+                - failed
             progress:
               type: integer
               minimum: 0
               maximum: 100
+              description: 生成进度百分比
             result:
               type: object
               properties:
@@ -860,15 +1556,142 @@ components:
                   type: string
                 word_url:
                   type: string
+                version:
+                  type: integer
+                  description: 当前版本号
             error:
               type: string
         message:
           type: string
-
-    # Preview Schemas
+    VersionsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+            versions:
+              type: array
+              items:
+                type: object
+                properties:
+                  version:
+                    type: integer
+                  created_at:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                    enum:
+                      - completed
+                      - failed
+                  file_urls:
+                    type: object
+                    properties:
+                      ppt_url:
+                        type: string
+                      word_url:
+                        type: string
+                  modification_note:
+                    type: string
+                    description: 修改说明
+        message:
+          type: string
+    SourceReference:
+      type: object
+      required:
+        - chunk_id
+        - source_type
+        - filename
+      properties:
+        chunk_id:
+          type: string
+        source_type:
+          type: string
+          enum:
+            - video
+            - document
+            - ai_generated
+        filename:
+          type: string
+        page_number:
+          type: integer
+        timestamp:
+          type: string
+        preview_text:
+          type: string
+    Slide:
+      type: object
+      required:
+        - id
+        - index
+        - title
+        - content
+      properties:
+        id:
+          type: string
+        index:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+        content:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceReference'
+        thumbnail_url:
+          type: string
+    SlidePlan:
+      type: object
+      required:
+        - slide_id
+        - teaching_goal
+        - teacher_script
+      properties:
+        slide_id:
+          type: string
+        teaching_goal:
+          type: string
+        teacher_script:
+          type: string
+        teaching_suggestions:
+          type: array
+          items:
+            type: string
+        suggested_duration:
+          type: integer
+          minimum: 1
+          maximum: 180
+        material_sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceReference'
+    LessonPlan:
+      type: object
+      properties:
+        teaching_objectives:
+          type: array
+          items:
+            type: string
+        slides_plan:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlidePlan'
     PreviewResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -885,103 +1708,27 @@ components:
               $ref: '#/components/schemas/LessonPlan'
         message:
           type: string
-
-    Slide:
-      type: object
-      required: [id, index, title, content]
-      properties:
-        id:
-          type: string
-        index:
-          type: integer
-        title:
-          type: string
-        content:
-          type: string
-          description: Markdown 格式的幻灯片内容
-        sources:
-          type: array
-          items:
-            $ref: '#/components/schemas/SourceReference'
-        thumbnail_url:
-          type: string
-
-    SourceReference:
-      type: object
-      required: [chunk_id, source_type, filename]
-      properties:
-        chunk_id:
-          type: string
-        source_type:
-          type: string
-          enum: [video, document, ai_generated]
-        filename:
-          type: string
-        page_number:
-          type: integer
-          description: 文档页码（文档类型）
-        timestamp:
-          type: string
-          description: 视频时间戳（视频类型）
-        preview_text:
-          type: string
-          description: 来源片段预览文本
-
-    LessonPlan:
-      type: object
-      properties:
-        teaching_objectives:
-          type: array
-          items:
-            type: string
-        slides_plan:
-          type: array
-          items:
-            $ref: '#/components/schemas/SlidePlan'
-
-    SlidePlan:
-      type: object
-      required: [slide_id, teaching_goal, teacher_script]
-      properties:
-        slide_id:
-          type: string
-        teaching_goal:
-          type: string
-        teacher_script:
-          type: string
-        teaching_suggestions:
-          type: array
-          items:
-            type: string
-        suggested_duration:
-          type: integer
-          description: 建议时长（分钟）
-        material_sources:
-          type: array
-          items:
-            $ref: '#/components/schemas/SourceReference'
-
     ModifyRequest:
       type: object
-      required: [instruction]
+      required:
+        - instruction
       properties:
         instruction:
           type: string
-          description: 修改指令
           minLength: 1
-          example: "将第3页的标题改为'核心概念解析'，并增加一个案例"
+          maxLength: 2000
         target_slides:
           type: array
           items:
             type: string
-          description: 目标幻灯片ID列表（可选，为空则全局修改）
         context:
           type: object
-          description: 修改上下文信息
-
     ModifyResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -992,21 +1739,60 @@ components:
               type: string
             status:
               type: string
-              enum: [pending, processing, completed, failed]
+              enum:
+                - pending
+                - processing
+                - completed
+                - failed
         message:
           type: string
-
-    # RAG Schemas
+    SlideDetailResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            slide:
+              $ref: '#/components/schemas/Slide'
+            teaching_plan:
+              $ref: '#/components/schemas/SlidePlan'
+              description: 该幻灯片对应的教学计划
+            related_slides:
+              type: array
+              items:
+                type: object
+                properties:
+                  slide_id:
+                    type: string
+                  title:
+                    type: string
+                  relation:
+                    type: string
+                    enum:
+                      - previous
+                      - next
+                      - related
+              description: 相关幻灯片
+        message:
+          type: string
     RAGSearchRequest:
       type: object
-      required: [project_id, query]
+      required:
+        - project_id
+        - query
       properties:
         project_id:
           type: string
         query:
           type: string
-          description: 检索查询
           minLength: 1
+          maxLength: 1000
         top_k:
           type: integer
           default: 5
@@ -1019,15 +1805,41 @@ components:
               type: array
               items:
                 type: string
-                enum: [pdf, word, video, image, ppt]
+                enum:
+                  - pdf
+                  - word
+                  - video
+                  - image
+                  - ppt
             file_ids:
               type: array
               items:
                 type: string
-
+    RAGResult:
+      type: object
+      required:
+        - chunk_id
+        - content
+        - score
+        - source
+      properties:
+        chunk_id:
+          type: string
+        content:
+          type: string
+        score:
+          type: number
+          format: float
+        source:
+          $ref: '#/components/schemas/SourceReference'
+        metadata:
+          type: object
     RAGSearchResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -1042,29 +1854,12 @@ components:
               type: integer
         message:
           type: string
-
-    RAGResult:
-      type: object
-      required: [chunk_id, content, score, source]
-      properties:
-        chunk_id:
-          type: string
-        content:
-          type: string
-          description: 检索到的文本片段
-        score:
-          type: number
-          format: float
-          description: 相似度分数
-        source:
-          $ref: '#/components/schemas/SourceReference'
-        metadata:
-          type: object
-          description: 额外元数据
-
     SourceDetailResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -1088,58 +1883,46 @@ components:
               $ref: '#/components/schemas/UploadedFile'
         message:
           type: string
-
-    # Project Schemas
     Project:
       type: object
-      required: [id, name, description, status, created_at, updated_at]
+      required:
+        - id
+        - name
+        - description
+        - status
+        - created_at
+        - updated_at
       properties:
         id:
           type: string
         name:
           type: string
+          minLength: 1
+          maxLength: 200
         description:
           type: string
+          minLength: 1
+          maxLength: 2000
         grade_level:
           type: string
         status:
           type: string
-          enum: [draft, in_progress, completed]
+          enum:
+            - draft
+            - in_progress
+            - completed
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
-
-    CreateProjectRequest:
-      type: object
-      required: [name, description]
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-        grade_level:
-          type: string
-
-    CreateProjectResponse:
-      type: object
-      required: [success, data, message]
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            project:
-              $ref: '#/components/schemas/Project'
-        message:
-          type: string
-
     GetProjectsResponse:
       type: object
-      required: [success, data, message]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -1158,10 +1941,28 @@ components:
               type: integer
         message:
           type: string
-
-    GetProjectResponse:
+    ProjectRequest:
       type: object
-      required: [success, data, message]
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        grade_level:
+          type: string
+    ProjectResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
@@ -1172,49 +1973,122 @@ components:
               $ref: '#/components/schemas/Project'
         message:
           type: string
-
-    # Error Schema
-    ErrorResponse:
+    GetFilesResponse:
       type: object
-      required: [success, error]
+      required:
+        - success
+        - data
+        - message
       properties:
         success:
           type: boolean
-          enum: [false]
-        error:
+        data:
           type: object
-          required: [code, message]
           properties:
-            code:
-              type: string
-              description: 详细错误代码
-              example: UNAUTHORIZED
-              enum:
-                - UNAUTHORIZED
-                - INVALID_TOKEN
-                - TOKEN_EXPIRED
-                - INVALID_CREDENTIALS
-                - FORBIDDEN
-                - INSUFFICIENT_PERMISSIONS
-                - NOT_FOUND
-                - ALREADY_EXISTS
-                - RESOURCE_CONFLICT
-                - INVALID_INPUT
-                - VALIDATION_ERROR
-                - QUOTA_EXCEEDED
-                - RATE_LIMIT_EXCEEDED
-                - IDEMPOTENCY_CONFLICT
-                - INTERNAL_ERROR
-                - SERVICE_UNAVAILABLE
-                - EXTERNAL_SERVICE_ERROR
-            message:
-              type: string
-              description: 错误描述信息
-              example: 未登录或登录已过期
-            details:
-              type: object
-              description: 额外的错误详情
+            files:
+              type: array
+              items:
+                $ref: '#/components/schemas/UploadedFile'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
         message:
           type: string
-          description: 用户友好的错误消息
-          example: 请求失败
+    ProjectStatisticsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            project_id:
+              type: string
+            files_count:
+              type: integer
+              description: 上传的文件数
+            messages_count:
+              type: integer
+              description: 对话消息数
+            generation_tasks_count:
+              type: integer
+              description: 生成任务数
+            completed_tasks_count:
+              type: integer
+              description: 已完成的任务数
+            total_file_size:
+              type: integer
+              description: 文件总大小（字节）
+            last_activity:
+              type: string
+              format: date-time
+              description: 最后活动时间
+            created_at:
+              type: string
+              format: date-time
+        message:
+          type: string
+  responses:
+    BadRequest:
+      description: 请求参数错误或验证失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 资源冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证或 Token 无效/过期
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 无权限访问此资源
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: 请求的资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: 页码（从1开始）
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    LimitParam:
+      name: limit
+      in: query
+      description: 每页数量
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: 幂等性密钥，用于防止重复请求。

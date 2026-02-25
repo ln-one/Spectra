@@ -1,0 +1,165 @@
+/api/v1/files:
+  post:
+    summary: 上传参考文件
+    tags: [Files]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file, project_id]
+            properties:
+              file:
+                type: string
+                format: binary
+              project_id:
+                type: string
+    responses:
+      '200':
+        description: 上传成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/files.yaml#/UploadResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/files/{file_id}:
+  delete:
+    summary: 删除上传的文件
+    tags: [Files]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: 删除成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/SimpleSuccessResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/files/{file_id}/intent:
+  patch:
+    summary: 标注文件用途
+    tags: [Files]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/files.yaml#/UpdateFileIntentRequest'
+    responses:
+      '200':
+        description: 标注成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/files.yaml#/UpdateFileIntentResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/files/batch:
+  post:
+    summary: 批量上传文件
+    description: 一次上传多个参考文件
+    tags: [Files]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [files, project_id]
+            properties:
+              files:
+                type: array
+                items:
+                  type: string
+                  format: binary
+                description: 多个文件
+              project_id:
+                type: string
+    responses:
+      '200':
+        description: 批量上传成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/files.yaml#/BatchUploadResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+  delete:
+    summary: 批量删除文件
+    tags: [Files]
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [file_ids]
+            properties:
+              file_ids:
+                type: array
+                items:
+                  type: string
+                description: 要删除的文件 ID 列表
+    responses:
+      '200':
+        description: 批量删除成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/files.yaml#/BatchDeleteResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'

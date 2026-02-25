@@ -1,0 +1,63 @@
+# OpenAPI 规范编辑指南
+
+## 文件结构
+
+```
+openapi/
+├── paths/          # API 路径定义（按模块拆分）
+├── schemas/        # 数据模型定义
+└── components/     # 可复用组件
+```
+
+## AI 工作流程
+
+### 查看 API 定义
+```bash
+# ✅ 正确：读取模块文件
+cat docs/openapi/paths/auth.yaml
+cat docs/openapi/schemas/auth.yaml
+
+# ❌ 错误：读取打包后的大文件
+cat docs/openapi.yaml  # 1266行，难以阅读
+```
+
+### 修改 API
+1. 编辑对应的模块文件（50-150行）
+2. 运行打包命令：`npm run bundle:openapi`
+3. 验证：`npm run validate:openapi`
+
+### 添加新接口
+1. 在 `paths/{模块}.yaml` 添加路径定义
+2. 在 `schemas/{模块}.yaml` 添加数据模型
+3. 在 `../openapi-source.yaml` 添加路径引用
+4. 打包：`npm run bundle:openapi`
+
+## 规则
+
+- 每个文件 <300 行
+- 使用 `$ref` 引用其他文件
+- 不要直接编辑 `../openapi.yaml`（自动生成）
+- 修改后必须重新打包
+
+## 引用语法
+
+```yaml
+# 同目录引用
+$ref: '#/SchemaName'
+
+# 跨目录引用
+$ref: '../schemas/auth.yaml#/UserInfo'
+$ref: '../components/parameters.yaml#/PageParam'
+```
+
+## 模块对应关系
+
+| 模块 | 路径文件 | Schema 文件 |
+|------|----------|-------------|
+| 认证 | paths/auth.yaml | schemas/auth.yaml |
+| 对话 | paths/chat.yaml | schemas/chat.yaml |
+| 文件 | paths/files.yaml | schemas/files.yaml |
+| 生成 | paths/generate.yaml | schemas/generate.yaml |
+| 预览 | paths/preview.yaml | schemas/preview.yaml |
+| 检索 | paths/rag.yaml | schemas/rag.yaml |
+| 项目 | paths/project.yaml | schemas/project.yaml |

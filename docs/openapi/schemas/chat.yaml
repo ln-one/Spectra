@@ -1,0 +1,102 @@
+Message:
+  type: object
+  required: [id, role, content, timestamp]
+  properties:
+    id:
+      type: string
+    role:
+      type: string
+      enum: [user, assistant, system]
+    content:
+      type: string
+    timestamp:
+      type: string
+      format: date-time
+
+SendMessageRequest:
+  type: object
+  required: [project_id, content]
+  properties:
+    project_id:
+      type: string
+    content:
+      type: string
+      minLength: 1
+      maxLength: 10000
+    history:
+      type: array
+      items:
+        $ref: '#/Message'
+
+SendMessageResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        message:
+          $ref: '#/Message'
+        suggestions:
+          type: array
+          items:
+            type: string
+    message:
+      type: string
+
+GetMessagesResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/Message'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+    message:
+      type: string
+
+VoiceMessageResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        text:
+          type: string
+          description: 识别的文本内容
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: 识别置信度
+        duration:
+          type: number
+          format: float
+          description: 音频时长（秒）
+        message:
+          $ref: '#/Message'
+          description: 自动创建的消息对象
+        suggestions:
+          type: array
+          items:
+            type: string
+          description: AI 建议
+    message:
+      type: string
