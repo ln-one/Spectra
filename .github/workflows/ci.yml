@@ -64,7 +64,7 @@ jobs:
           node-version: '20'
       
       - name: Install Marp CLI
-        run: npm install -g @marp-team/marp-cli
+        run: npm install -g @marp-team/marp-cli --registry https://registry.npmmirror.com
       
       - name: Install Pandoc
         run: |
