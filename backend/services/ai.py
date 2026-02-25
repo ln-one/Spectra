@@ -43,7 +43,7 @@ class AIService:
 
         Args:
             prompt: The input prompt
-            model: The model to use (defaults to DEFAULT_MODEL, which defaults to qwen-plus)
+            model: The model to use (defaults to DEFAULT_MODEL)
             max_tokens: Maximum tokens to generate
 
         Returns:
@@ -133,7 +133,16 @@ class AIService:
                 method="keyword_fallback",
             )
 
-        question_keywords = ["吗", "什么", "怎么", "如何", "为什么", "能不能", "？", "?"]
+        question_keywords = [
+            "吗",
+            "什么",
+            "怎么",
+            "如何",
+            "为什么",
+            "能不能",
+            "？",
+            "?",
+        ]
         if any(kw in msg for kw in question_keywords):
             return IntentClassification(
                 intent=IntentType.ASK_QUESTION,

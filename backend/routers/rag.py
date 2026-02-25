@@ -56,7 +56,6 @@ async def search_knowledge_base(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="检索失败",
         )
-# PLACEHOLDER_MORE_ENDPOINTS
 
 
 @router.get("/sources/{chunk_id}")
@@ -73,9 +72,7 @@ async def get_source_detail(
         if not detail:
             raise NotFoundException(message=f"分块不存在: {chunk_id}")
 
-        return success_response(
-            data=detail.model_dump(), message="获取来源详情成功"
-        )
+        return success_response(data=detail.model_dump(), message="获取来源详情成功")
     except APIException:
         raise
     except Exception as e:

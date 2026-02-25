@@ -1,11 +1,11 @@
 """
 RAG Service - 检索增强生成服务
 
-提供文本分块、向量化入库、语义检索等核心 RAG 能力。
+提供向量化入库、语义检索等核心 RAG 能力。
+文本分块逻辑见 services/chunking.py。
 """
 
 import logging
-import re
 from typing import Optional
 
 from pydantic import BaseModel
@@ -15,80 +15,6 @@ from services.embedding_service import EmbeddingService, embedding_service
 from services.vector_service import VectorService, vector_service
 
 logger = logging.getLogger(__name__)
-
-# 分块参数
-DEFAULT_CHUNK_SIZE = 500  # tokens
-DEFAULT_CHUNK_OVERLAP = 50  # tokens
-# 中文 1 字 ≈ 1.5 token，用字符数估算
-CHARS_PER_TOKEN = 0.67  # 1 token ≈ 0.67 个中文字符（反过来 1 字 ≈ 1.5 token）
-
-# 分割符优先级
-SEPARATORS = ["\n\n", "\n", "。", "！", "？", ".", "!", "?"]
-
-
-def _estimate_tokens(text: str) -> int:
-    """估算文本 token 数（中英文混合）"""
-    chinese_chars = len(re.findall(r"[\u4e00-\u9fff]", text))
-    other_chars = len(text) - chinese_chars
-    return int(chinese_chars * 1.5 + other_chars * 0.25)
-
-
-def split_text(
-    text: str,
-    chunk_size: int = DEFAULT_CHUNK_SIZE,
-    chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
-) -> list[str]:
-    """
-    递归字符分割
-
-    分割符优先级：\\n\\n > \\n > 。！？.!?
-    尽量在标点处断开，保持语义完整性。
-
-    Args:
-        text: 待分割文本
-        chunk_size: 目标分块大小（token 数）
-        chunk_overlap: 相邻块重叠大小（token 数）
-
-    Returns:
-        分块文本列表
-    """
-    if not text or not text.strip():
-        return []
-
-    max_chars = int(chunk_size * CHARS_PER_TOKEN)
-    overlap_chars = int(chunk_overlap * CHARS_PER_TOKEN)
-
-    # 如果文本足够短，直接返回
-    if _estimate_tokens(text) <= chunk_size:
-        return [text.strip()]
-
-    chunks: list[str] = []
-    start = 0
-
-    while start < len(text):
-        end = min(start + max_chars, len(text))
-
-        # 如果不是最后一段，尝试在分割符处断开
-        if end < len(text):
-            best_split = -1
-            for sep in SEPARATORS:
-                # 在 [start + max_chars//2, end] 范围内找最后一个分割符
-                search_start = start + max_chars // 2
-                pos = text.rfind(sep, search_start, end)
-                if pos > best_split:
-                    best_split = pos + len(sep)
-
-            if best_split > start:
-                end = best_split
-
-        chunk = text[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
-
-        # 下一段起始位置（减去重叠）
-        start = end - overlap_chars if end < len(text) else end
-
-    return chunks
 
 
 class ParsedChunkData(BaseModel):
@@ -110,9 +36,7 @@ class RAGService:
         self._vector = vec_service or vector_service
         self._embedding = emb_service or embedding_service
 
-    async def index_chunks(
-        self, project_id: str, chunks: list[ParsedChunkData]
-    ) -> int:
+    async def index_chunks(self, project_id: str, chunks: list[ParsedChunkData]) -> int:
         """
         将分块数据向量化并存入 ChromaDB（幂等 upsert）
 
@@ -142,9 +66,7 @@ class RAGService:
             metadatas=metadatas,
         )
 
-        logger.info(
-            f"Indexed {len(chunks)} chunks for project {project_id}"
-        )
+        logger.info(f"Indexed {len(chunks)} chunks for project {project_id}")
         return len(chunks)
 
     async def search(
@@ -177,13 +99,9 @@ class RAGService:
         if filters:
             conditions = []
             if filters.get("file_types"):
-                conditions.append(
-                    {"source_type": {"$in": filters["file_types"]}}
-                )
+                conditions.append({"source_type": {"$in": filters["file_types"]}})
             if filters.get("file_ids"):
-                conditions.append(
-                    {"upload_id": {"$in": filters["file_ids"]}}
-                )
+                conditions.append({"upload_id": {"$in": filters["file_ids"]}})
             if len(conditions) == 1:
                 where = conditions[0]
             elif len(conditions) > 1:
@@ -223,7 +141,6 @@ class RAGService:
                 )
 
         return rag_results
-    # PLACEHOLDER_MORE_METHODS
 
     async def get_chunk_detail(
         self, chunk_id: str, project_id: Optional[str] = None
@@ -242,9 +159,7 @@ class RAGService:
         """
         # 如果指定了 project_id，直接查对应 collection
         if project_id:
-            return await self._get_chunk_from_collection(
-                chunk_id, project_id
-            )
+            return await self._get_chunk_from_collection(chunk_id, project_id)
         return None
 
     async def _get_chunk_from_collection(
@@ -253,9 +168,7 @@ class RAGService:
         """从指定 collection 获取 chunk 详情"""
         collection = self._vector.get_or_create_collection(project_id)
         try:
-            result = collection.get(
-                ids=[chunk_id], include=["documents", "metadatas"]
-            )
+            result = collection.get(ids=[chunk_id], include=["documents", "metadatas"])
         except Exception:
             return None
 
@@ -270,9 +183,7 @@ class RAGService:
         upload_id = meta.get("upload_id")
         context = None
         if chunk_index is not None and upload_id:
-            context = await self._get_chunk_context(
-                collection, upload_id, chunk_index
-            )
+            context = await self._get_chunk_context(collection, upload_id, chunk_index)
 
         return SourceDetail(
             chunk_id=chunk_id,
@@ -316,9 +227,7 @@ class RAGService:
                 pass
 
         if prev_chunk or next_chunk:
-            return ChunkContext(
-                previous_chunk=prev_chunk, next_chunk=next_chunk
-            )
+            return ChunkContext(previous_chunk=prev_chunk, next_chunk=next_chunk)
         return None
 
     async def delete_project_index(self, project_id: str) -> bool:

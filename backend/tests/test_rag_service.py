@@ -70,7 +70,8 @@ class TestIndexChunks:
 
         col = vec_svc.get_or_create_collection("proj-idx")
         assert col.count() == 2
-# PLACEHOLDER_MORE_TESTS
+
+    # PLACEHOLDER_MORE_TESTS
 
     @pytest.mark.asyncio
     async def test_upsert_idempotent(self, rag_svc, vec_svc):
@@ -161,9 +162,7 @@ class TestGetChunkDetail:
 
     @pytest.mark.asyncio
     async def test_get_nonexistent_chunk(self, rag_svc):
-        detail = await rag_svc.get_chunk_detail(
-            "nonexistent", project_id="proj-none"
-        )
+        detail = await rag_svc.get_chunk_detail("nonexistent", project_id="proj-none")
         assert detail is None
 
     @pytest.mark.asyncio
@@ -183,9 +182,7 @@ class TestGetChunkDetail:
             for i in range(3)
         ]
         await rag_svc.index_chunks("proj-ctx", chunks)
-        detail = await rag_svc.get_chunk_detail(
-            "ctx-1", project_id="proj-ctx"
-        )
+        detail = await rag_svc.get_chunk_detail("ctx-1", project_id="proj-ctx")
         assert detail is not None
         if detail.context:
             assert detail.context.previous_chunk is not None

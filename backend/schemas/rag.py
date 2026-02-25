@@ -79,6 +79,4 @@ class RAGSimilarRequest(BaseModel):
     project_id: str = Field(..., description="项目 ID")
     text: str = Field(..., min_length=1, description="要查找相似内容的文本")
     top_k: int = Field(default=5, ge=1, le=20, description="返回结果数量")
-    threshold: float = Field(
-        default=0.7, ge=0, le=1, description="相似度阈值"
-    )
+    threshold: float = Field(default=0.7, ge=0, le=1, description="相似度阈值")

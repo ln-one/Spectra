@@ -2,7 +2,7 @@
 文本分块策略测试
 """
 
-from services.rag_service import _estimate_tokens, split_text
+from services.chunking import _estimate_tokens, split_text
 
 
 class TestEstimateTokens:
