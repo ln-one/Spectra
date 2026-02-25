@@ -83,4 +83,5 @@ paths:
 
 components:
   securitySchemes:
-    $ref: './openapi/components/security.yaml'
+    BearerAuth:
+      $ref: './openapi/components/security.yaml#/BearerAuth'

@@ -107,5 +107,5 @@ npm run watch:openapi
 
 ## 参考资料
 - [OpenAPI 最佳实践](https://swagger.io/docs/specification/using-ref/)
-- [swagger-cli 文档](https://github.com/APIDevTools/swagger-cli)
+- [Redocly CLI 文档](https://redocly.com/docs/cli/)
 - [docs/OPENAPI_GUIDE.md](../OPENAPI_GUIDE.md)
