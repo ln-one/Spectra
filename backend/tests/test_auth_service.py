@@ -189,3 +189,11 @@ async def test_database_get_user_helpers():
     assert {"email": "u@test.com"} in calls
     assert {"username": "u1"} in calls
     assert {"id": "id-001"} in calls
+
+
+def test_verify_token_rejects_type_mismatch(auth_service: AuthService):
+    access = auth_service.create_access_token("user-001")
+    refresh = auth_service.create_refresh_token("user-001")
+
+    assert auth_service.verify_token(refresh, expected_type="access") is None
+    assert auth_service.verify_token(access, expected_type="refresh") is None

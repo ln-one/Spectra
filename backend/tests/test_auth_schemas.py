@@ -123,3 +123,38 @@ def test_userinfo_response_schema_shape():
 
     assert response.success is True
     assert response.data.user.id == "u-001"
+
+
+def test_register_request_allows_hyphen_in_username():
+    req = RegisterRequest(
+        email="teacher@example.com",
+        password="StrongPwd123",
+        username="teacher-01",
+    )
+    assert req.username == "teacher-01"
+
+
+def test_register_request_without_fullname():
+    req = RegisterRequest(
+        email="teacher@example.com",
+        password="StrongPwd123",
+        username="teacher_01",
+    )
+    assert req.fullName is None
+
+
+def test_auth_data_rejects_zero_expires_in():
+    now = datetime.now(timezone.utc)
+    user = UserInfo(
+        id="u-001",
+        email="teacher@example.com",
+        username="teacher_01",
+        createdAt=now,
+    )
+    with pytest.raises(ValidationError):
+        AuthData(
+            access_token="token",
+            refresh_token="refresh",
+            expires_in=0,
+            user=user,
+        )
