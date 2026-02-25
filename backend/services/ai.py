@@ -47,8 +47,10 @@ class AIService:
         Returns:
             dict with 'content', 'model', and 'tokens_used'
         """
+        requested_model = model or self.default_model
+        resolved_model = requested_model
         try:
-            resolved_model = _resolve_model_name(model or self.default_model)
+            resolved_model = _resolve_model_name(requested_model)
             response = await acompletion(
                 model=resolved_model,
                 messages=[{"role": "user", "content": prompt}],
@@ -62,7 +64,7 @@ class AIService:
 
             return {
                 "content": content,
-                "model": model or self.default_model,
+                "model": resolved_model,
                 "tokens_used": tokens_used,
             }
         except Exception as e:
@@ -71,7 +73,7 @@ class AIService:
             # Return a stub response if API call fails
             return {
                 "content": f"AI stub response for prompt: {prompt[:50]}...",
-                "model": model or self.default_model,
+                "model": resolved_model,
                 "tokens_used": 0,
             }
 
