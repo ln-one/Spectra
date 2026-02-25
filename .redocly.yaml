@@ -1,0 +1,27 @@
+# Redocly 配置文件
+# 用于配置 OpenAPI 验证规则
+
+apis:
+  main@v1:
+    root: docs/openapi.yaml
+
+rules:
+  # 关闭不必要的规则
+  operation-operationId: off  # operationId 是可选的
+  info-license: off  # license 信息对内部项目不是必需的
+  no-server-example.com: off  # 允许使用 localhost 作为开发服务器
+  security-defined: off  # 允许公开接口（注册、登录）不需要认证
+  
+  # 保持开启的重要规则
+  no-ambiguous-paths: error  # 路径不能有歧义
+  operation-summary: warn  # 建议添加 summary
+  operation-description: off  # description 可选
+
+# 主题配置（用于生成文档）
+theme:
+  openapi:
+    generateCodeSamples:
+      languages:
+        - lang: curl
+        - lang: JavaScript
+        - lang: Python
