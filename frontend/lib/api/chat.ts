@@ -3,7 +3,7 @@
  *
  * 基于 OpenAPI 契约的对话 API 封装
  * 支持 Mock 模式用于前端独立开发
- * 
+ *
  * 更新日期: 2026-02-25
  * 更新内容: 添加语音输入接口支持
  */
@@ -15,7 +15,8 @@ export type Message = components["schemas"]["Message"];
 export type SendMessageRequest = components["schemas"]["SendMessageRequest"];
 export type SendMessageResponse = components["schemas"]["SendMessageResponse"];
 export type GetMessagesResponse = components["schemas"]["GetMessagesResponse"];
-export type VoiceMessageResponse = components["schemas"]["VoiceMessageResponse"];
+export type VoiceMessageResponse =
+  components["schemas"]["VoiceMessageResponse"];
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
@@ -131,7 +132,7 @@ export const chatApi = {
   ): Promise<VoiceMessageResponse> {
     if (MOCK_MODE) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      
+
       const userMessage: Message = {
         id: `msg-${Date.now()}`,
         role: "user",

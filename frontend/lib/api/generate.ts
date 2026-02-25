@@ -3,9 +3,9 @@
  *
  * 基于 OpenAPI 契约的生成 API 封装
  * 支持 Mock 模式用于前端独立开发
- * 
+ *
  * 更新日期: 2026-02-25
- * 更新内容: 
+ * 更新内容:
  * - 添加文件下载接口
  * - 更新 API 路径 (status -> tasks/{id}/status)
  * - 增强生成选项（模板、主题色等）
@@ -157,7 +157,8 @@ export const generateApi = {
     const a = document.createElement("a");
     a.href = url;
     a.download =
-      filename || `courseware-${taskId}.${fileType === "ppt" ? "pptx" : "docx"}`;
+      filename ||
+      `courseware-${taskId}.${fileType === "ppt" ? "pptx" : "docx"}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

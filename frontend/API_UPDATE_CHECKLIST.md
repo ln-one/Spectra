@@ -18,9 +18,10 @@
 **新增功能**：
 
 1. **文件下载接口** (P0 - 必须)
+
 ```typescript
 async downloadCourseware(
-  taskId: string, 
+  taskId: string,
   fileType: 'ppt' | 'word'
 ): Promise<Blob> {
   // GET /api/v1/generate/tasks/{task_id}/download?file_type={type}
@@ -28,6 +29,7 @@ async downloadCourseware(
 ```
 
 2. **版本管理接口** (P1 - 可选)
+
 ```typescript
 async getTaskVersions(taskId: string): Promise<VersionsResponse> {
   // GET /api/v1/generate/tasks/{task_id}/versions
@@ -35,31 +37,36 @@ async getTaskVersions(taskId: string): Promise<VersionsResponse> {
 ```
 
 3. **增强的生成选项**
+
 ```typescript
 interface GenerateRequest {
   project_id: string;
-  type: 'ppt' | 'word' | 'both';
+  type: "ppt" | "word" | "both";
   options?: {
-    template?: 'default' | 'gaia' | 'uncover' | 'academic';
-    theme_color?: string;  // 新增
-    show_page_number?: boolean;  // 新增
-    header?: string;  // 新增
-    footer?: string;  // 新增
+    template?: "default" | "gaia" | "uncover" | "academic";
+    theme_color?: string; // 新增
+    show_page_number?: boolean; // 新增
+    header?: string; // 新增
+    footer?: string; // 新增
     pages?: number;
-    include_animations?: boolean;  // 新增
-    include_games?: boolean;  // 新增
-    animation_format?: 'gif' | 'mp4' | 'html5';  // 新增
+    include_animations?: boolean; // 新增
+    include_games?: boolean; // 新增
+    animation_format?: "gif" | "mp4" | "html5"; // 新增
   };
 }
 ```
 
 4. **路径变更**
+
 ```typescript
 // 旧路径
-/generate/status/{task_id}
-
-// 新路径
-/generate/tasks/{task_id}/status
+/generate/assttu /
+  { task_id } /
+  // 新路径
+  generate /
+  tasks /
+  { task_id } /
+  status;
 ```
 
 #### B. `chat.ts` - 对话 API
@@ -67,6 +74,7 @@ interface GenerateRequest {
 **新增功能**：
 
 1. **语音输入接口** (P1 - 可选)
+
 ```typescript
 async sendVoiceMessage(
   audio: File,
@@ -94,33 +102,38 @@ interface VoiceMessageResponse {
 **增强功能**：
 
 1. **文件解析状态增强**
+
 ```typescript
 interface UploadedFile {
   // ... 现有字段
-  parse_progress?: number;  // 新增：解析进度 0-100
-  parse_details?: {  // 新增：解析详情
+  parse_progress?: number; // 新增：解析进度 0-100
+  parse_details?: {
+    // 新增：解析详情
     pages_extracted?: number;
     images_extracted?: number;
     text_length?: number;
-    duration?: number;  // 视频时长
+    duration?: number; // 视频时长
   };
-  parse_error?: string;  // 新增：解析错误信息
+  parse_error?: string; // 新增：解析错误信息
 }
 ```
 
 ### 3. 📝 实现优先级
 
 #### P0 - 立即实现（本周）
+
 - ✅ 文件下载接口 (`generate.ts`)
 - ✅ 路径更新 (`generate.ts`)
 - ✅ 基础模板选项 (`generate.ts`)
 
 #### P1 - 重要功能（下周）
+
 - ⚠️ 语音输入接口 (`chat.ts`)
 - ⚠️ 版本管理接口 (`generate.ts`)
 - ⚠️ 文件解析状态增强 (`files.ts`)
 
 #### P2 - 可选功能（后续迭代）
+
 - 🔄 动画和游戏生成选项
 - 🔄 高级模板配置
 
@@ -137,8 +150,8 @@ async downloadCourseware(
   if (MOCK_MODE) {
     // Mock 实现
     await new Promise(resolve => setTimeout(resolve, 500));
-    return new Blob(['mock file content'], { 
-      type: fileType === 'ppt' 
+    return new Blob(['mock file content'], {
+      type: fileType === 'ppt'
         ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
         : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     });
@@ -153,7 +166,7 @@ async downloadCourseware(
       }
     }
   );
-  
+
   if (!response.ok) throw new Error('下载失败');
   return response.blob();
 }
