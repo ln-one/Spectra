@@ -1,3 +1,12 @@
+from .auth import (
+    AuthData,
+    AuthResponse,
+    LoginRequest,
+    RegisterRequest,
+    UserInfo,
+    UserInfoData,
+    UserInfoResponse,
+)
 from .courses import (
     ChapterSchema,
     CourseBase,
@@ -12,6 +21,15 @@ from .courses import (
 )
 
 __all__ = [
+    # Auth
+    "RegisterRequest",
+    "LoginRequest",
+    "UserInfo",
+    "AuthData",
+    "AuthResponse",
+    "UserInfoData",
+    "UserInfoResponse",
+    # Courses
     "ChapterSchema",
     "CourseBase",
     "CourseCreate",
