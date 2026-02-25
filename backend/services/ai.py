@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -6,6 +7,7 @@ from typing import Optional
 from litellm import acompletion
 
 from schemas.generation import CoursewareContent
+from schemas.intent import IntentClassification, IntentType
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +78,92 @@ class AIService:
                 "model": resolved_model,
                 "tokens_used": 0,
             }
+
+    async def classify_intent(self, user_message: str) -> IntentClassification:
+        """
+        对用户消息进行意图分类
+
+        使用 LLM 分类，失败时回退到关键词规则。
+
+        Args:
+            user_message: 用户消息文本
+
+        Returns:
+            IntentClassification: 意图分类结果
+        """
+        from services.prompt_service import prompt_service
+
+        try:
+            prompt = prompt_service.build_intent_prompt(user_message)
+            response = await self.generate(prompt=prompt, max_tokens=200)
+            content = response["content"].strip()
+
+            # 尝试解析 JSON
+            parsed = json.loads(content)
+            intent_str = parsed.get("intent", "general_chat")
+            confidence = float(parsed.get("confidence", 0.8))
+
+            return IntentClassification(
+                intent=IntentType(intent_str),
+                confidence=confidence,
+                method="llm",
+            )
+        except Exception as e:
+            logger.warning(f"LLM intent classification failed: {e}, using fallback")
+            return self._classify_intent_by_keywords(user_message)
+
+    @staticmethod
+    def _classify_intent_by_keywords(message: str) -> IntentClassification:
+        """基于关键词的意图分类回退"""
+        msg = message.lower()
+
+        modify_keywords = ["修改", "改一下", "换成", "调整", "删除", "添加", "替换"]
+        if any(kw in msg for kw in modify_keywords):
+            return IntentClassification(
+                intent=IntentType.MODIFY_COURSEWARE,
+                confidence=0.6,
+                method="keyword_fallback",
+            )
+
+        confirm_keywords = ["生成", "开始", "确认", "好的", "可以", "就这样"]
+        if any(kw in msg for kw in confirm_keywords):
+            return IntentClassification(
+                intent=IntentType.CONFIRM_GENERATION,
+                confidence=0.6,
+                method="keyword_fallback",
+            )
+
+        question_keywords = ["吗", "什么", "怎么", "如何", "为什么", "能不能", "？", "?"]
+        if any(kw in msg for kw in question_keywords):
+            return IntentClassification(
+                intent=IntentType.ASK_QUESTION,
+                confidence=0.5,
+                method="keyword_fallback",
+            )
+
+        requirement_keywords = [
+            "课件",
+            "主题",
+            "关于",
+            "内容",
+            "PPT",
+            "ppt",
+            "教学",
+            "讲解",
+            "介绍",
+        ]
+        if any(kw in msg for kw in requirement_keywords):
+            return IntentClassification(
+                intent=IntentType.DESCRIBE_REQUIREMENT,
+                confidence=0.5,
+                method="keyword_fallback",
+            )
+
+        return IntentClassification(
+            intent=IntentType.GENERAL_CHAT,
+            confidence=0.4,
+            method="keyword_fallback",
+        )
 
     async def generate_courseware_content(
         self,
