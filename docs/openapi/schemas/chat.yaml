@@ -1,0 +1,67 @@
+Message:
+  type: object
+  required: [id, role, content, timestamp]
+  properties:
+    id:
+      type: string
+    role:
+      type: string
+      enum: [user, assistant, system]
+    content:
+      type: string
+    timestamp:
+      type: string
+      format: date-time
+
+SendMessageRequest:
+  type: object
+  required: [project_id, content]
+  properties:
+    project_id:
+      type: string
+    content:
+      type: string
+    history:
+      type: array
+      items:
+        $ref: '#/Message'
+
+SendMessageResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        message:
+          $ref: '#/Message'
+        suggestions:
+          type: array
+          items:
+            type: string
+    message:
+      type: string
+
+GetMessagesResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/Message'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+    message:
+      type: string

@@ -1,0 +1,119 @@
+PreviewResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        task_id:
+          type: string
+        slides:
+          type: array
+          items:
+            $ref: '#/Slide'
+        lesson_plan:
+          $ref: '#/LessonPlan'
+    message:
+      type: string
+
+Slide:
+  type: object
+  required: [id, index, title, content]
+  properties:
+    id:
+      type: string
+    index:
+      type: integer
+    title:
+      type: string
+    content:
+      type: string
+    sources:
+      type: array
+      items:
+        $ref: '#/SourceReference'
+    thumbnail_url:
+      type: string
+
+SourceReference:
+  type: object
+  required: [chunk_id, source_type, filename]
+  properties:
+    chunk_id:
+      type: string
+    source_type:
+      type: string
+      enum: [video, document, ai_generated]
+    filename:
+      type: string
+    page_number:
+      type: integer
+    timestamp:
+      type: string
+    preview_text:
+      type: string
+
+LessonPlan:
+  type: object
+  properties:
+    teaching_objectives:
+      type: array
+      items:
+        type: string
+    slides_plan:
+      type: array
+      items:
+        $ref: '#/SlidePlan'
+
+SlidePlan:
+  type: object
+  required: [slide_id, teaching_goal, teacher_script]
+  properties:
+    slide_id:
+      type: string
+    teaching_goal:
+      type: string
+    teacher_script:
+      type: string
+    teaching_suggestions:
+      type: array
+      items:
+        type: string
+    suggested_duration:
+      type: integer
+    material_sources:
+      type: array
+      items:
+        $ref: '#/SourceReference'
+
+ModifyRequest:
+  type: object
+  required: [instruction]
+  properties:
+    instruction:
+      type: string
+    target_slides:
+      type: array
+      items:
+        type: string
+    context:
+      type: object
+
+ModifyResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        modify_task_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+    message:
+      type: string

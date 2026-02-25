@@ -165,6 +165,8 @@ python main.py
 
 Backend will be available at http://localhost:8000
 
+For OpenAPI development workflow, see [backend/OPENAPI_WORKFLOW.md](./backend/OPENAPI_WORKFLOW.md)
+
 #### Frontend Setup
 
 ```bash
@@ -215,7 +217,7 @@ All API endpoints are prefixed with `/api/v1`:
 - **Preview**: `/api/v1/preview/*` - Preview and modification
 - **RAG**: `/api/v1/rag/*` - Knowledge base search
 
-See [OpenAPI Specification](./docs/openapi.yaml) for complete API documentation.
+See [OpenAPI Specification](./docs/openapi.yaml) for complete API documentation (auto-generated from modular files in `docs/openapi/`).
 
 ## AI Collaboration Optimization
 

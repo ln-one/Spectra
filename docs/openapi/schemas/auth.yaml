@@ -1,0 +1,78 @@
+RegisterRequest:
+  type: object
+  required: [email, password, username]
+  properties:
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      format: password
+      minLength: 8
+    username:
+      type: string
+      minLength: 3
+    fullName:
+      type: string
+
+LoginRequest:
+  type: object
+  required: [email, password]
+  properties:
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      format: password
+
+AuthResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        user:
+          $ref: '#/UserInfo'
+    message:
+      type: string
+
+UserInfo:
+  type: object
+  required: [id, email, username, createdAt]
+  properties:
+    id:
+      type: string
+    email:
+      type: string
+      format: email
+    username:
+      type: string
+    fullName:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+
+UserInfoResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        user:
+          $ref: '#/UserInfo'
+    message:
+      type: string

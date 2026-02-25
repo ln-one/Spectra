@@ -1,0 +1,52 @@
+/api/v1/chat/messages:
+  post:
+    summary: 发送消息
+    tags: [Chat]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/chat.yaml#/SendMessageRequest'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/chat.yaml#/SendMessageResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+  get:
+    summary: 获取对话历史
+    tags: [Chat]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: project_id
+        in: query
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/PageParam'
+      - $ref: '../components/parameters.yaml#/LimitParam'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/chat.yaml#/GetMessagesResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'

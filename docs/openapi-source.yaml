@@ -1,0 +1,70 @@
+openapi: 3.0.0
+info:
+  title: Spectra API
+  version: 1.1.0
+  description: 多模态AI教学智能体 API - 完整生产对齐版（涵盖双Token、CRUD与业务闭环）
+
+servers:
+  - url: http://localhost:8000
+    description: 开发环境
+  - url: https://api.spectra.com
+    description: 生产环境
+
+paths:
+  # Auth
+  /api/v1/auth/register:
+    $ref: './openapi/paths/auth.yaml#/~1api~1v1~1auth~1register'
+  /api/v1/auth/login:
+    $ref: './openapi/paths/auth.yaml#/~1api~1v1~1auth~1login'
+  /api/v1/auth/refresh:
+    $ref: './openapi/paths/auth.yaml#/~1api~1v1~1auth~1refresh'
+  /api/v1/auth/logout:
+    $ref: './openapi/paths/auth.yaml#/~1api~1v1~1auth~1logout'
+  /api/v1/auth/me:
+    $ref: './openapi/paths/auth.yaml#/~1api~1v1~1auth~1me'
+
+  # Chat
+  /api/v1/chat/messages:
+    $ref: './openapi/paths/chat.yaml#/~1api~1v1~1chat~1messages'
+
+  # Files
+  /api/v1/files:
+    $ref: './openapi/paths/files.yaml#/~1api~1v1~1files'
+  /api/v1/files/{file_id}:
+    $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}'
+  /api/v1/files/{file_id}/intent:
+    $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}~1intent'
+
+  # Generate
+  /api/v1/generate/courseware:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1courseware'
+  /api/v1/generate/status/{task_id}:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1status~1{task_id}'
+
+  # Preview
+  /api/v1/preview/{task_id}:
+    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1preview~1{task_id}'
+  /api/v1/preview/{task_id}/modify:
+    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1preview~1{task_id}~1modify'
+
+  # RAG
+  /api/v1/rag/search:
+    $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1search'
+  /api/v1/rag/sources/{chunk_id}:
+    $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1sources~1{chunk_id}'
+
+  # Project
+  /api/v1/projects:
+    $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects'
+  /api/v1/projects/{project_id}:
+    $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1{project_id}'
+  /api/v1/projects/{project_id}/files:
+    $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1{project_id}~1files'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT 认证令牌
