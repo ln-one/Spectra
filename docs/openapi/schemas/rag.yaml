@@ -6,9 +6,12 @@ RAGSearchRequest:
       type: string
     query:
       type: string
+      minLength: 1
     top_k:
       type: integer
       default: 5
+      minimum: 1
+      maximum: 20
     filters:
       type: object
       properties:
