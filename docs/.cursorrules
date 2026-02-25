@@ -3,7 +3,8 @@
 ## 重要
 
 本目录包含项目权威规范：
-- `openapi.yaml` - API 契约
+- `openapi/` - API 契约（模块化文件）
+- `openapi.yaml` - API 契约（打包后的完整文件，自动生成）
 - `standards/` - 代码规范
 - `architecture/` - 架构设计
 - `decisions/` - 技术决策
@@ -18,6 +19,7 @@
 
 ### 目录
 ```
+openapi/         # API 契约（模块化）
 project/         # 项目基础
 standards/       # 规范 (权威)
 architecture/    # 架构 (权威)
@@ -38,7 +40,8 @@ graph LR
 
 - 代码变更时更新文档
 - 废弃决策标记 "已废弃"
-- `openapi.yaml` 与实现一致
+- 修改 `openapi/` 后运行 `npm run bundle:openapi` 打包
+- `openapi.yaml` 与实现一致（自动生成，不要手动编辑）
 
 ## Commit
 

@@ -1,0 +1,86 @@
+UploadedFile:
+  type: object
+  required: [id, filename, file_type, file_size, status, created_at]
+  properties:
+    id:
+      type: string
+    filename:
+      type: string
+    file_type:
+      type: string
+      enum: [pdf, word, video, image, ppt]
+    mime_type:
+      type: string
+    file_size:
+      type: integer
+    status:
+      type: string
+      enum: [uploading, parsing, ready, failed]
+    usage_intent:
+      type: string
+    parse_result:
+      type: object
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+UploadResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        file:
+          $ref: '#/UploadedFile'
+    message:
+      type: string
+
+GetFilesResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/UploadedFile'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+    message:
+      type: string
+
+UpdateFileIntentRequest:
+  type: object
+  required: [usage_intent]
+  properties:
+    usage_intent:
+      type: string
+      minLength: 1
+
+UpdateFileIntentResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        file:
+          $ref: '#/UploadedFile'
+    message:
+      type: string

@@ -1,0 +1,68 @@
+Project:
+  type: object
+  required: [id, name, description, status, created_at, updated_at]
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    description:
+      type: string
+    grade_level:
+      type: string
+    status:
+      type: string
+      enum: [draft, in_progress, completed]
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+ProjectRequest:
+  type: object
+  required: [name, description]
+  properties:
+    name:
+      type: string
+    description:
+      type: string
+    grade_level:
+      type: string
+
+ProjectResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        project:
+          $ref: '#/Project'
+    message:
+      type: string
+
+GetProjectsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/Project'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+    message:
+      type: string

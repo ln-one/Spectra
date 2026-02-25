@@ -1,0 +1,61 @@
+GenerateRequest:
+  type: object
+  required: [project_id, type]
+  properties:
+    project_id:
+      type: string
+    type:
+      type: string
+      enum: [ppt, word, both]
+    options:
+      type: object
+      properties:
+        style:
+          type: string
+        pages:
+          type: integer
+
+GenerateResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        task_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+    message:
+      type: string
+
+GenerateStatusResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        task_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        progress:
+          type: integer
+        result:
+          type: object
+          properties:
+            ppt_url:
+              type: string
+            word_url:
+              type: string
+        error:
+          type: string
+    message:
+      type: string

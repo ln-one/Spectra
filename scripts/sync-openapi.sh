@@ -1,0 +1,32 @@
+#!/bin/bash
+# OpenAPI 同步检查脚本
+# 用于检查 FastAPI 生成的 OpenAPI 和文档中的 OpenAPI 是否一致
+
+echo "🔄 检查 OpenAPI 同步状态..."
+
+# 检查后端服务是否运行
+if ! curl -s http://localhost:8000/health > /dev/null 2>&1; then
+    echo "⚠️  后端服务未运行，请先启动："
+    echo "   cd backend && uvicorn main:app --reload"
+    exit 1
+fi
+
+# 获取 FastAPI 生成的 OpenAPI
+echo "📥 获取 FastAPI 生成的 OpenAPI..."
+curl -s http://localhost:8000/openapi.json > /tmp/fastapi-openapi.json
+
+# 转换为 YAML（如果需要）
+if command -v yq &> /dev/null; then
+    yq eval -P /tmp/fastapi-openapi.json > /tmp/fastapi-openapi.yaml
+    echo "✅ FastAPI OpenAPI 已保存到: /tmp/fastapi-openapi.yaml"
+else
+    echo "✅ FastAPI OpenAPI 已保存到: /tmp/fastapi-openapi.json"
+    echo "💡 提示: 安装 yq 可以转换为 YAML 格式"
+fi
+
+echo ""
+echo "📊 对比建议："
+echo "1. 查看 FastAPI 生成的规范: /tmp/fastapi-openapi.json"
+echo "2. 对比文档中的规范: docs/openapi.yaml"
+echo "3. 如果有差异，更新 docs/openapi/ 下的模块文件"
+echo "4. 重新打包: npm run bundle:openapi"

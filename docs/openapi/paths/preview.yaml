@@ -1,0 +1,60 @@
+/api/v1/preview/{task_id}:
+  get:
+    summary: 获取课件预览
+    tags: [Preview]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/preview.yaml#/PreviewResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/preview/{task_id}/modify:
+  post:
+    summary: 提交修改指令
+    tags: [Preview]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/preview.yaml#/ModifyRequest'
+    responses:
+      '200':
+        description: 修改任务已创建
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/preview.yaml#/ModifyResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

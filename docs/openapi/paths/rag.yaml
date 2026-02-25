@@ -1,0 +1,51 @@
+/api/v1/rag/search:
+  post:
+    summary: 检索知识库
+    tags: [RAG]
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/rag.yaml#/RAGSearchRequest'
+    responses:
+      '200':
+        description: 检索成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rag.yaml#/RAGSearchResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/rag/sources/{chunk_id}:
+  get:
+    summary: 查看来源详情
+    tags: [RAG]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: chunk_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rag.yaml#/SourceDetailResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
