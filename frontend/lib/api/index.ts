@@ -30,10 +30,9 @@ export type {
 
 export type {
   Project,
-  CreateProjectRequest,
+  ProjectRequest,
   GetProjectsResponse,
-  GetProjectResponse,
-  CreateProjectResponse,
+  ProjectResponse,
 } from "./projects";
 
 export type {
@@ -49,6 +48,7 @@ export type {
   SendMessageRequest,
   SendMessageResponse,
   GetMessagesResponse,
+  VoiceMessageResponse,
 } from "./chat";
 
 export type {

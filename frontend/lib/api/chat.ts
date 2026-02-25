@@ -8,7 +8,7 @@
  * 更新内容: 添加语音输入接口支持
  */
 
-import { request, getApiUrl } from "./client";
+import { request } from "./client";
 import type { components } from "../types/api";
 
 export type Message = components["schemas"]["Message"];
