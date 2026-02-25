@@ -21,6 +21,8 @@ SendMessageRequest:
       type: string
     content:
       type: string
+      minLength: 1
+      maxLength: 10000
     history:
       type: array
       items:

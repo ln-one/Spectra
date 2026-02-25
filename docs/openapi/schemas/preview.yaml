@@ -26,6 +26,7 @@ Slide:
       type: string
     index:
       type: integer
+      minimum: 0
     title:
       type: string
     content:
@@ -83,6 +84,8 @@ SlidePlan:
         type: string
     suggested_duration:
       type: integer
+      minimum: 1
+      maximum: 180
     material_sources:
       type: array
       items:
@@ -94,6 +97,8 @@ ModifyRequest:
   properties:
     instruction:
       type: string
+      minLength: 1
+      maxLength: 2000
     target_slides:
       type: array
       items:

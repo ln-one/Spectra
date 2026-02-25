@@ -83,4 +83,4 @@ paths:
 
 components:
   securitySchemes:
-    $ref: './openapi/components/security.yaml#/securitySchemes'
+    $ref: './openapi/components/security.yaml'

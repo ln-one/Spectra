@@ -1208,6 +1208,8 @@ components:
           type: string
         content:
           type: string
+          minLength: 1
+          maxLength: 10000
         history:
           type: array
           items:
@@ -1293,6 +1295,8 @@ components:
           type: string
         file_size:
           type: integer
+          description: File size in bytes. Maximum allowed size is 100MB (104857600 bytes).
+          maximum: 104857600
         status:
           type: string
           enum:
@@ -1360,6 +1364,7 @@ components:
         usage_intent:
           type: string
           minLength: 1
+          maxLength: 1000
     UpdateFileIntentResponse:
       type: object
       required:
@@ -1634,6 +1639,7 @@ components:
           type: string
         index:
           type: integer
+          minimum: 0
         title:
           type: string
         content:
@@ -1663,6 +1669,8 @@ components:
             type: string
         suggested_duration:
           type: integer
+          minimum: 1
+          maximum: 180
         material_sources:
           type: array
           items:
@@ -1707,6 +1715,8 @@ components:
       properties:
         instruction:
           type: string
+          minLength: 1
+          maxLength: 2000
         target_slides:
           type: array
           items:
@@ -1782,6 +1792,7 @@ components:
         query:
           type: string
           minLength: 1
+          maxLength: 1000
         top_k:
           type: integer
           default: 5
@@ -1886,8 +1897,12 @@ components:
           type: string
         name:
           type: string
+          minLength: 1
+          maxLength: 200
         description:
           type: string
+          minLength: 1
+          maxLength: 2000
         grade_level:
           type: string
         status:
@@ -1934,8 +1949,12 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 200
         description:
           type: string
+          minLength: 1
+          maxLength: 2000
         grade_level:
           type: string
     ProjectResponse:
@@ -2072,4 +2091,4 @@ components:
       schema:
         type: string
         format: uuid
-      description: 幂等性密钥，防重发。
+      description: 幂等性密钥，用于防止重复请求。
