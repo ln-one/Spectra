@@ -51,4 +51,3 @@ class VoiceMessageResponse(BaseModel):
     duration: float = Field(..., description="音频时长（秒）")
     message: Message = Field(..., description="自动创建的消息对象")
     suggestions: Optional[list[str]] = Field(None, description="AI 建议")
-  
