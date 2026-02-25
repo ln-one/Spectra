@@ -10,6 +10,7 @@ from schemas.auth import (
     AuthData,
     AuthResponse,
     LoginRequest,
+    RefreshTokenRequest,
     RegisterRequest,
     UserInfo,
     UserInfoData,
@@ -62,6 +63,12 @@ def test_login_request_valid_payload():
     assert req.email == "teacher@example.com"
 
 
+def test_refresh_token_request_valid_payload():
+    req = RefreshTokenRequest(refresh_token="token-xyz")
+
+    assert req.refresh_token == "token-xyz"
+
+
 def test_userinfo_from_attributes():
     obj = SimpleNamespace(
         id="u-001",
@@ -87,10 +94,19 @@ def test_auth_response_schema_shape():
         createdAt=now,
     )
 
-    response = AuthResponse(data=AuthData(access_token="token", user=user))
+    response = AuthResponse(
+        data=AuthData(
+            access_token="access-token",
+            refresh_token="refresh-token",
+            expires_in=1800,
+            user=user,
+        )
+    )
 
     assert response.success is True
-    assert response.data.access_token == "token"
+    assert response.data.access_token == "access-token"
+    assert response.data.refresh_token == "refresh-token"
+    assert response.data.expires_in == 1800
 
 
 def test_userinfo_response_schema_shape():
