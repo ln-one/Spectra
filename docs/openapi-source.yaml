@@ -63,8 +63,4 @@ paths:
 
 components:
   securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT 认证令牌
+    $ref: './openapi/components/security.yaml#/securitySchemes'

@@ -8,7 +8,7 @@
 - `../docs/openapi.yaml` - 打包后的完整规范（用于生成类型）
 - `../docs/standards/frontend.md` - 前端规范
 
-**重要**: 查看 API 定义时，读取 `docs/openapi/` 下的模块文件，而不是打包后的大文件。
+**重要**: 查看 API 定义时，读取 `../docs/openapi/` 下的模块文件，而不是打包后的大文件。
 
 ## 技术栈
 

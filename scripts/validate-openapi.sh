@@ -4,7 +4,7 @@
 echo "🔍 验证 OpenAPI 规范..."
 
 # 验证语法
-./node_modules/.bin/swagger-cli validate docs/openapi.yaml
+./node_modules/.bin/redocly lint docs/openapi.yaml
 
 if [ $? -eq 0 ]; then
     echo "✅ OpenAPI 规范验证通过"

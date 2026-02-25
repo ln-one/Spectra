@@ -3,14 +3,14 @@
 
 echo "📦 开始打包 OpenAPI 规范..."
 
-# 检查 swagger-cli 是否安装
-if ! command -v swagger-cli &> /dev/null; then
-    echo "⚠️  swagger-cli 未安装，正在安装..."
-    npm install -g @apidevtools/swagger-cli
+# 确保依赖已安装
+if [ ! -f "./node_modules/.bin/redocly" ]; then
+    echo "⚠️  依赖未安装，请先运行: npm install"
+    exit 1
 fi
 
 # 打包
-swagger-cli bundle docs/openapi-source.yaml -o docs/openapi.yaml -t yaml
+./node_modules/.bin/redocly bundle docs/openapi-source.yaml -o docs/openapi.yaml
 
 if [ $? -eq 0 ]; then
     echo "✅ 打包成功: docs/openapi.yaml"

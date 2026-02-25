@@ -1,6 +1,7 @@
 #!/bin/bash
 # OpenAPI 同步检查脚本
 # 用于检查 FastAPI 生成的 OpenAPI 和文档中的 OpenAPI 是否一致
+# 依赖: curl, yq (mikefarah/yq v4+, https://github.com/mikefarah/yq)
 
 echo "🔄 检查 OpenAPI 同步状态..."
 
@@ -13,7 +14,11 @@ fi
 
 # 获取 FastAPI 生成的 OpenAPI
 echo "📥 获取 FastAPI 生成的 OpenAPI..."
-curl -s http://localhost:8000/openapi.json > /tmp/fastapi-openapi.json
+HTTP_STATUS=$(curl -s -o /tmp/fastapi-openapi.json -w "%{http_code}" http://localhost:8000/openapi.json)
+if [ "$HTTP_STATUS" != "200" ]; then
+    echo "❌ 获取 OpenAPI 失败，HTTP 状态码: $HTTP_STATUS"
+    exit 1
+fi
 
 # 转换为 YAML（如果需要）
 if command -v yq &> /dev/null; then
@@ -21,7 +26,8 @@ if command -v yq &> /dev/null; then
     echo "✅ FastAPI OpenAPI 已保存到: /tmp/fastapi-openapi.yaml"
 else
     echo "✅ FastAPI OpenAPI 已保存到: /tmp/fastapi-openapi.json"
-    echo "💡 提示: 安装 yq 可以转换为 YAML 格式"
+    echo "💡 提示: 安装 yq (mikefarah/yq v4+) 可以转换为 YAML 格式"
+    echo "   参考: https://github.com/mikefarah/yq#install"
 fi
 
 echo ""

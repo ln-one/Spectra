@@ -5,15 +5,21 @@ RegisterRequest:
     email:
       type: string
       format: email
+      example: user@example.com
     password:
       type: string
       format: password
       minLength: 8
+      example: "SecurePass123"
     username:
       type: string
       minLength: 3
+      maxLength: 50
+      pattern: '^[a-zA-Z0-9_]+$'
+      example: john_doe
     fullName:
       type: string
+      example: John Doe
 
 LoginRequest:
   type: object

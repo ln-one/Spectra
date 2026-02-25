@@ -4,9 +4,9 @@ info:
   version: 1.1.0
   description: 多模态AI教学智能体 API - 完整生产对齐版（涵盖双Token、CRUD与业务闭环）
 servers:
-  - url: 'http://localhost:8000'
+  - url: http://localhost:8000
     description: 开发环境
-  - url: 'https://api.spectra.com'
+  - url: https://api.spectra.com
     description: 生产环境
 paths:
   /api/v1/auth/register:
@@ -19,39 +19,18 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - email
-                - password
-                - username
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                  format: password
-                  minLength: 8
-                username:
-                  type: string
-                  minLength: 3
-                fullName:
-                  type: string
+              $ref: '#/components/schemas/RegisterRequest'
       responses:
         '200':
           description: 注册成功
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1api~1v1~1auth~1login/post/responses/200/content/application~1json/schema'
+                $ref: '#/components/schemas/AuthResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '409':
-          description: 资源冲突
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1api~1v1~1files/post/responses/400/content/application~1json/schema'
+          $ref: '#/components/responses/Conflict'
   /api/v1/auth/login:
     post:
       summary: 用户登录
@@ -62,48 +41,18 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - email
-                - password
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                  format: password
+              $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
           description: 登录成功
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      access_token:
-                        type: string
-                      refresh_token:
-                        type: string
-                      expires_in:
-                        type: integer
-                      user:
-                        $ref: '#/paths/~1api~1v1~1auth~1me/get/responses/200/content/application~1json/schema/properties/data/properties/user'
-                  message:
-                    type: string
+                $ref: '#/components/schemas/AuthResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/auth/refresh:
     post:
       summary: 刷新 Access Token
@@ -127,11 +76,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1api~1v1~1auth~1login/post/responses/200/content/application~1json/schema'
+                $ref: '#/components/schemas/AuthResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/auth/logout:
     post:
       summary: 退出登录
@@ -145,19 +94,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: 操作成功
+                $ref: '#/components/schemas/SimpleSuccessResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/auth/me:
     get:
       summary: 获取当前用户信息
@@ -171,41 +110,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      user:
-                        type: object
-                        required:
-                          - id
-                          - email
-                          - username
-                          - createdAt
-                        properties:
-                          id:
-                            type: string
-                          email:
-                            type: string
-                            format: email
-                          username:
-                            type: string
-                          fullName:
-                            type: string
-                          createdAt:
-                            type: string
-                            format: date-time
-                  message:
-                    type: string
+                $ref: '#/components/schemas/UserInfoResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/chat/messages:
     post:
       summary: 发送消息
@@ -214,75 +121,26 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/paths/~1api~1v1~1files/post/parameters/0'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - project_id
-                - content
-              properties:
-                project_id:
-                  type: string
-                content:
-                  type: string
-                history:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                      - id
-                      - role
-                      - content
-                      - timestamp
-                    properties:
-                      id:
-                        type: string
-                      role:
-                        type: string
-                        enum:
-                          - user
-                          - assistant
-                          - system
-                      content:
-                        type: string
-                      timestamp:
-                        type: string
-                        format: date-time
+              $ref: '#/components/schemas/SendMessageRequest'
       responses:
         '200':
           description: 成功
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      message:
-                        $ref: '#/paths/~1api~1v1~1chat~1messages/post/requestBody/content/application~1json/schema/properties/history/items'
-                      suggestions:
-                        type: array
-                        items:
-                          type: string
-                  message:
-                    type: string
+                $ref: '#/components/schemas/SendMessageResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
     get:
       summary: 获取对话历史
       tags:
@@ -295,41 +153,19 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1api~1v1~1projects/get/parameters/0'
-        - $ref: '#/paths/~1api~1v1~1projects/get/parameters/1'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
           description: 成功
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      messages:
-                        type: array
-                        items:
-                          $ref: '#/paths/~1api~1v1~1chat~1messages/post/requestBody/content/application~1json/schema/properties/history/items'
-                      total:
-                        type: integer
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                  message:
-                    type: string
+                $ref: '#/components/schemas/GetMessagesResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
   /api/v1/files:
     post:
       summary: 上传参考文件
@@ -338,13 +174,7 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - name: Idempotency-Key
-          in: header
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: 幂等性密钥，防重发。
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -366,95 +196,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      file:
-                        type: object
-                        required:
-                          - id
-                          - filename
-                          - file_type
-                          - file_size
-                          - status
-                          - created_at
-                        properties:
-                          id:
-                            type: string
-                          filename:
-                            type: string
-                          file_type:
-                            type: string
-                            enum:
-                              - pdf
-                              - word
-                              - video
-                              - image
-                              - ppt
-                          mime_type:
-                            type: string
-                          file_size:
-                            type: integer
-                          status:
-                            type: string
-                            enum:
-                              - uploading
-                              - parsing
-                              - ready
-                              - failed
-                          usage_intent:
-                            type: string
-                          parse_result:
-                            type: object
-                          created_at:
-                            type: string
-                            format: date-time
-                          updated_at:
-                            type: string
-                            format: date-time
-                  message:
-                    type: string
+                $ref: '#/components/schemas/UploadResponse'
         '400':
-          description: 请求参数错误或验证失败
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - success
-                  - error
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: 未认证或 Token 无效/过期
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1api~1v1~1files/post/responses/400/content/application~1json/schema'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: 无权限访问此资源
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1api~1v1~1files/post/responses/400/content/application~1json/schema'
-  '/api/v1/files/{file_id}':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/files/{file_id}:
     delete:
       summary: 删除上传的文件
       tags:
@@ -473,14 +222,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1api~1v1~1auth~1logout/post/responses/200/content/application~1json/schema'
+                $ref: '#/components/schemas/SimpleSuccessResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/paths/~1api~1v1~1preview~1%7Btask_id%7D/get/responses/404'
-  '/api/v1/files/{file_id}/intent':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/files/{file_id}/intent:
     patch:
       summary: 标注文件用途
       tags:
@@ -498,42 +247,22 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - usage_intent
-              properties:
-                usage_intent:
-                  type: string
-                  minLength: 1
+              $ref: '#/components/schemas/UpdateFileIntentRequest'
       responses:
         '200':
           description: 标注成功
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      file:
-                        $ref: '#/paths/~1api~1v1~1files/post/responses/200/content/application~1json/schema/properties/data/properties/file'
-                  message:
-                    type: string
+                $ref: '#/components/schemas/UpdateFileIntentResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/paths/~1api~1v1~1preview~1%7Btask_id%7D/get/responses/404'
+          $ref: '#/components/responses/NotFound'
   /api/v1/generate/courseware:
     post:
       summary: 生成课件
@@ -542,67 +271,27 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/paths/~1api~1v1~1files/post/parameters/0'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - project_id
-                - type
-              properties:
-                project_id:
-                  type: string
-                type:
-                  type: string
-                  enum:
-                    - ppt
-                    - word
-                    - both
-                options:
-                  type: object
-                  properties:
-                    style:
-                      type: string
-                    pages:
-                      type: integer
+              $ref: '#/components/schemas/GenerateRequest'
       responses:
         '200':
           description: 生成任务已创建
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      task_id:
-                        type: string
-                      status:
-                        type: string
-                        enum:
-                          - pending
-                          - processing
-                          - completed
-                          - failed
-                  message:
-                    type: string
+                $ref: '#/components/schemas/GenerateResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
-  '/api/v1/generate/status/{task_id}':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/generate/status/{task_id}:
     get:
       summary: 查询生成状态
       tags:
@@ -621,46 +310,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      task_id:
-                        type: string
-                      status:
-                        type: string
-                        enum:
-                          - pending
-                          - processing
-                          - completed
-                          - failed
-                      progress:
-                        type: integer
-                      result:
-                        type: object
-                        properties:
-                          ppt_url:
-                            type: string
-                          word_url:
-                            type: string
-                      error:
-                        type: string
-                  message:
-                    type: string
+                $ref: '#/components/schemas/GenerateStatusResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/paths/~1api~1v1~1preview~1%7Btask_id%7D/get/responses/404'
-  '/api/v1/preview/{task_id}':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/preview/{task_id}:
     get:
       summary: 获取课件预览
       tags:
@@ -679,88 +336,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      task_id:
-                        type: string
-                      slides:
-                        type: array
-                        items:
-                          type: object
-                          required:
-                            - id
-                            - index
-                            - title
-                            - content
-                          properties:
-                            id:
-                              type: string
-                            index:
-                              type: integer
-                            title:
-                              type: string
-                            content:
-                              type: string
-                            sources:
-                              type: array
-                              items:
-                                $ref: '#/paths/~1api~1v1~1rag~1sources~1%7Bchunk_id%7D/get/responses/200/content/application~1json/schema/properties/data/properties/source'
-                            thumbnail_url:
-                              type: string
-                      lesson_plan:
-                        type: object
-                        properties:
-                          teaching_objectives:
-                            type: array
-                            items:
-                              type: string
-                          slides_plan:
-                            type: array
-                            items:
-                              type: object
-                              required:
-                                - slide_id
-                                - teaching_goal
-                                - teacher_script
-                              properties:
-                                slide_id:
-                                  type: string
-                                teaching_goal:
-                                  type: string
-                                teacher_script:
-                                  type: string
-                                teaching_suggestions:
-                                  type: array
-                                  items:
-                                    type: string
-                                suggested_duration:
-                                  type: integer
-                                material_sources:
-                                  type: array
-                                  items:
-                                    $ref: '#/paths/~1api~1v1~1rag~1sources~1%7Bchunk_id%7D/get/responses/200/content/application~1json/schema/properties/data/properties/source'
-                  message:
-                    type: string
+                $ref: '#/components/schemas/PreviewResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: 请求的资源不存在
-          content:
-            application/json:
-              schema:
-                $ref: '#/paths/~1api~1v1~1files/post/responses/400/content/application~1json/schema'
-  '/api/v1/preview/{task_id}/modify':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/preview/{task_id}/modify:
     post:
       summary: 提交修改指令
       tags:
@@ -773,60 +356,28 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1api~1v1~1files/post/parameters/0'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - instruction
-              properties:
-                instruction:
-                  type: string
-                target_slides:
-                  type: array
-                  items:
-                    type: string
-                context:
-                  type: object
+              $ref: '#/components/schemas/ModifyRequest'
       responses:
         '200':
           description: 修改任务已创建
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      modify_task_id:
-                        type: string
-                      status:
-                        type: string
-                        enum:
-                          - pending
-                          - processing
-                          - completed
-                          - failed
-                  message:
-                    type: string
+                $ref: '#/components/schemas/ModifyResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/paths/~1api~1v1~1preview~1%7Btask_id%7D/get/responses/404'
+          $ref: '#/components/responses/NotFound'
   /api/v1/rag/search:
     post:
       summary: 检索知识库
@@ -839,84 +390,21 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - project_id
-                - query
-              properties:
-                project_id:
-                  type: string
-                query:
-                  type: string
-                top_k:
-                  type: integer
-                  default: 5
-                filters:
-                  type: object
-                  properties:
-                    file_types:
-                      type: array
-                      items:
-                        type: string
-                        enum:
-                          - pdf
-                          - word
-                          - video
-                          - image
-                          - ppt
-                    file_ids:
-                      type: array
-                      items:
-                        type: string
+              $ref: '#/components/schemas/RAGSearchRequest'
       responses:
         '200':
           description: 检索成功
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      results:
-                        type: array
-                        items:
-                          type: object
-                          required:
-                            - chunk_id
-                            - content
-                            - score
-                            - source
-                          properties:
-                            chunk_id:
-                              type: string
-                            content:
-                              type: string
-                            score:
-                              type: number
-                              format: float
-                            source:
-                              $ref: '#/paths/~1api~1v1~1rag~1sources~1%7Bchunk_id%7D/get/responses/200/content/application~1json/schema/properties/data/properties/source'
-                            metadata:
-                              type: object
-                      total:
-                        type: integer
-                  message:
-                    type: string
+                $ref: '#/components/schemas/RAGSearchResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
-  '/api/v1/rag/sources/{chunk_id}':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/rag/sources/{chunk_id}:
     get:
       summary: 查看来源详情
       tags:
@@ -935,61 +423,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      chunk_id:
-                        type: string
-                      content:
-                        type: string
-                      source:
-                        type: object
-                        required:
-                          - chunk_id
-                          - source_type
-                          - filename
-                        properties:
-                          chunk_id:
-                            type: string
-                          source_type:
-                            type: string
-                            enum:
-                              - video
-                              - document
-                              - ai_generated
-                          filename:
-                            type: string
-                          page_number:
-                            type: integer
-                          timestamp:
-                            type: string
-                          preview_text:
-                            type: string
-                      context:
-                        type: object
-                        properties:
-                          previous_chunk:
-                            type: string
-                          next_chunk:
-                            type: string
-                      file_info:
-                        $ref: '#/paths/~1api~1v1~1files/post/responses/200/content/application~1json/schema/properties/data/properties/file'
-                  message:
-                    type: string
+                $ref: '#/components/schemas/SourceDetailResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/paths/~1api~1v1~1preview~1%7Btask_id%7D/get/responses/404'
+          $ref: '#/components/responses/NotFound'
   /api/v1/projects:
     post:
       summary: 创建项目
@@ -998,76 +438,24 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/paths/~1api~1v1~1files/post/parameters/0'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - name
-                - description
-              properties:
-                name:
-                  type: string
-                description:
-                  type: string
-                grade_level:
-                  type: string
+              $ref: '#/components/schemas/ProjectRequest'
       responses:
         '200':
           description: 项目创建成功
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      project:
-                        type: object
-                        required:
-                          - id
-                          - name
-                          - description
-                          - status
-                          - created_at
-                          - updated_at
-                        properties:
-                          id:
-                            type: string
-                          name:
-                            type: string
-                          description:
-                            type: string
-                          grade_level:
-                            type: string
-                          status:
-                            type: string
-                            enum:
-                              - draft
-                              - in_progress
-                              - completed
-                          created_at:
-                            type: string
-                            format: date-time
-                          updated_at:
-                            type: string
-                            format: date-time
-                  message:
-                    type: string
+                $ref: '#/components/schemas/ProjectResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
     get:
       summary: 获取项目列表
       tags:
@@ -1075,53 +463,18 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - name: page
-          in: query
-          description: 页码（从1开始）
-          schema:
-            type: integer
-            default: 1
-            minimum: 1
-        - name: limit
-          in: query
-          description: 每页数量
-          schema:
-            type: integer
-            default: 20
-            minimum: 1
-            maximum: 100
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
           description: 成功
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      projects:
-                        type: array
-                        items:
-                          $ref: '#/paths/~1api~1v1~1projects/post/responses/200/content/application~1json/schema/properties/data/properties/project'
-                      total:
-                        type: integer
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                  message:
-                    type: string
+                $ref: '#/components/schemas/GetProjectsResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
-  '/api/v1/projects/{project_id}':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/projects/{project_id}:
     get:
       summary: 获取项目详情
       tags:
@@ -1140,13 +493,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1api~1v1~1projects/post/responses/200/content/application~1json/schema'
+                $ref: '#/components/schemas/ProjectResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/paths/~1api~1v1~1preview~1%7Btask_id%7D/get/responses/404'
+          $ref: '#/components/responses/NotFound'
     put:
       summary: 修改项目信息
       tags:
@@ -1159,28 +512,28 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1api~1v1~1files/post/parameters/0'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/paths/~1api~1v1~1projects/post/requestBody/content/application~1json/schema'
+              $ref: '#/components/schemas/ProjectRequest'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1api~1v1~1projects/post/responses/200/content/application~1json/schema'
+                $ref: '#/components/schemas/ProjectResponse'
         '400':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/400'
+          $ref: '#/components/responses/BadRequest'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/paths/~1api~1v1~1preview~1%7Btask_id%7D/get/responses/404'
+          $ref: '#/components/responses/NotFound'
     delete:
       summary: 删除项目
       tags:
@@ -1199,14 +552,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/paths/~1api~1v1~1auth~1logout/post/responses/200/content/application~1json/schema'
+                $ref: '#/components/schemas/SimpleSuccessResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/paths/~1api~1v1~1preview~1%7Btask_id%7D/get/responses/404'
-  '/api/v1/projects/{project_id}/files':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/projects/{project_id}/files:
     get:
       summary: 获取项目的上传文件列表
       tags:
@@ -1220,43 +573,21 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/paths/~1api~1v1~1projects/get/parameters/0'
-        - $ref: '#/paths/~1api~1v1~1projects/get/parameters/1'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
           description: 成功
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - success
-                  - data
-                  - message
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      files:
-                        type: array
-                        items:
-                          $ref: '#/paths/~1api~1v1~1files/post/responses/200/content/application~1json/schema/properties/data/properties/file'
-                      total:
-                        type: integer
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                  message:
-                    type: string
+                $ref: '#/components/schemas/GetFilesResponse'
         '401':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/401'
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/paths/~1api~1v1~1files/post/responses/403'
+          $ref: '#/components/responses/Forbidden'
         '404':
-          $ref: '#/paths/~1api~1v1~1preview~1%7Btask_id%7D/get/responses/404'
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     BearerAuth:
@@ -1264,3 +595,771 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: JWT 认证令牌
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - username
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecurePass123
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: ^[a-zA-Z0-9_]+$
+          example: john_doe
+        fullName:
+          type: string
+          example: John Doe
+    UserInfo:
+      type: object
+      required:
+        - id
+        - email
+        - username
+        - createdAt
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        fullName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    AuthResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+            expires_in:
+              type: integer
+            user:
+              $ref: '#/components/schemas/UserInfo'
+        message:
+          type: string
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    SimpleSuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 操作成功
+    UserInfoResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/UserInfo'
+        message:
+          type: string
+    Message:
+      type: object
+      required:
+        - id
+        - role
+        - content
+        - timestamp
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+            - system
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    GetMessagesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/Message'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+        message:
+          type: string
+    SendMessageRequest:
+      type: object
+      required:
+        - project_id
+        - content
+      properties:
+        project_id:
+          type: string
+        content:
+          type: string
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+    SendMessageResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            message:
+              $ref: '#/components/schemas/Message'
+            suggestions:
+              type: array
+              items:
+                type: string
+        message:
+          type: string
+    UploadedFile:
+      type: object
+      required:
+        - id
+        - filename
+        - file_type
+        - file_size
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        file_type:
+          type: string
+          enum:
+            - pdf
+            - word
+            - video
+            - image
+            - ppt
+        mime_type:
+          type: string
+        file_size:
+          type: integer
+        status:
+          type: string
+          enum:
+            - uploading
+            - parsing
+            - ready
+            - failed
+        usage_intent:
+          type: string
+        parse_result:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    UploadResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            file:
+              $ref: '#/components/schemas/UploadedFile'
+        message:
+          type: string
+    UpdateFileIntentRequest:
+      type: object
+      required:
+        - usage_intent
+      properties:
+        usage_intent:
+          type: string
+          minLength: 1
+    UpdateFileIntentResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            file:
+              $ref: '#/components/schemas/UploadedFile'
+        message:
+          type: string
+    GenerateRequest:
+      type: object
+      required:
+        - project_id
+        - type
+      properties:
+        project_id:
+          type: string
+        type:
+          type: string
+          enum:
+            - ppt
+            - word
+            - both
+        options:
+          type: object
+          properties:
+            style:
+              type: string
+            pages:
+              type: integer
+    GenerateResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+            status:
+              type: string
+              enum:
+                - pending
+                - processing
+                - completed
+                - failed
+        message:
+          type: string
+    GenerateStatusResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+            status:
+              type: string
+              enum:
+                - pending
+                - processing
+                - completed
+                - failed
+            progress:
+              type: integer
+            result:
+              type: object
+              properties:
+                ppt_url:
+                  type: string
+                word_url:
+                  type: string
+            error:
+              type: string
+        message:
+          type: string
+    SourceReference:
+      type: object
+      required:
+        - chunk_id
+        - source_type
+        - filename
+      properties:
+        chunk_id:
+          type: string
+        source_type:
+          type: string
+          enum:
+            - video
+            - document
+            - ai_generated
+        filename:
+          type: string
+        page_number:
+          type: integer
+        timestamp:
+          type: string
+        preview_text:
+          type: string
+    Slide:
+      type: object
+      required:
+        - id
+        - index
+        - title
+        - content
+      properties:
+        id:
+          type: string
+        index:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceReference'
+        thumbnail_url:
+          type: string
+    SlidePlan:
+      type: object
+      required:
+        - slide_id
+        - teaching_goal
+        - teacher_script
+      properties:
+        slide_id:
+          type: string
+        teaching_goal:
+          type: string
+        teacher_script:
+          type: string
+        teaching_suggestions:
+          type: array
+          items:
+            type: string
+        suggested_duration:
+          type: integer
+        material_sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceReference'
+    LessonPlan:
+      type: object
+      properties:
+        teaching_objectives:
+          type: array
+          items:
+            type: string
+        slides_plan:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlidePlan'
+    PreviewResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+            slides:
+              type: array
+              items:
+                $ref: '#/components/schemas/Slide'
+            lesson_plan:
+              $ref: '#/components/schemas/LessonPlan'
+        message:
+          type: string
+    ModifyRequest:
+      type: object
+      required:
+        - instruction
+      properties:
+        instruction:
+          type: string
+        target_slides:
+          type: array
+          items:
+            type: string
+        context:
+          type: object
+    ModifyResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            modify_task_id:
+              type: string
+            status:
+              type: string
+              enum:
+                - pending
+                - processing
+                - completed
+                - failed
+        message:
+          type: string
+    RAGSearchRequest:
+      type: object
+      required:
+        - project_id
+        - query
+      properties:
+        project_id:
+          type: string
+        query:
+          type: string
+          minLength: 1
+        top_k:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 20
+        filters:
+          type: object
+          properties:
+            file_types:
+              type: array
+              items:
+                type: string
+                enum:
+                  - pdf
+                  - word
+                  - video
+                  - image
+                  - ppt
+            file_ids:
+              type: array
+              items:
+                type: string
+    RAGResult:
+      type: object
+      required:
+        - chunk_id
+        - content
+        - score
+        - source
+      properties:
+        chunk_id:
+          type: string
+        content:
+          type: string
+        score:
+          type: number
+          format: float
+        source:
+          $ref: '#/components/schemas/SourceReference'
+        metadata:
+          type: object
+    RAGSearchResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/RAGResult'
+            total:
+              type: integer
+        message:
+          type: string
+    SourceDetailResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            chunk_id:
+              type: string
+            content:
+              type: string
+            source:
+              $ref: '#/components/schemas/SourceReference'
+            context:
+              type: object
+              properties:
+                previous_chunk:
+                  type: string
+                next_chunk:
+                  type: string
+            file_info:
+              $ref: '#/components/schemas/UploadedFile'
+        message:
+          type: string
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        grade_level:
+          type: string
+        status:
+          type: string
+          enum:
+            - draft
+            - in_progress
+            - completed
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    GetProjectsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            projects:
+              type: array
+              items:
+                $ref: '#/components/schemas/Project'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+        message:
+          type: string
+    ProjectRequest:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        grade_level:
+          type: string
+    ProjectResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            project:
+              $ref: '#/components/schemas/Project'
+        message:
+          type: string
+    GetFilesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            files:
+              type: array
+              items:
+                $ref: '#/components/schemas/UploadedFile'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+        message:
+          type: string
+  responses:
+    BadRequest:
+      description: 请求参数错误或验证失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 资源冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未认证或 Token 无效/过期
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 无权限访问此资源
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: 请求的资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: 页码（从1开始）
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    LimitParam:
+      name: limit
+      in: query
+      description: 每页数量
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: 幂等性密钥，防重发。
