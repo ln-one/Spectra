@@ -2,22 +2,27 @@
 
 from typing import Optional
 
-from fastapi import Header
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from services.auth_service import auth_service
 from utils.exceptions import ErrorCode, UnauthorizedException
 
+_security = HTTPBearer(auto_error=False, scheme_name="BearerAuth")
 
-async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
+
+async def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_security),
+) -> str:
     """Extract and verify bearer token from Authorization header."""
-    if not authorization:
+    if not credentials:
         raise UnauthorizedException(
             message="缺少认证头",
             error_code=ErrorCode.UNAUTHORIZED,
         )
 
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not token:
+    token = credentials.credentials
+    if not token:
         raise UnauthorizedException(
             message="认证头格式错误",
             error_code=ErrorCode.INVALID_TOKEN,
@@ -29,16 +34,17 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
             message="令牌无效或已过期",
             error_code=ErrorCode.INVALID_TOKEN,
         )
+
     return user_id
 
 
 async def get_current_user_optional(
-    authorization: Optional[str] = Header(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_security),
 ) -> Optional[str]:
     """Return current user id for valid token, otherwise None."""
-    if not authorization:
+    if not credentials:
         return None
     try:
-        return await get_current_user(authorization)
+        return await get_current_user(credentials)
     except UnauthorizedException:
         return None
