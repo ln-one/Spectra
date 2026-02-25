@@ -7,6 +7,7 @@ RAGSearchRequest:
     query:
       type: string
       minLength: 1
+      maxLength: 1000
     top_k:
       type: integer
       default: 5

@@ -1,6 +1,5 @@
-securitySchemes:
-  BearerAuth:
-    type: http
-    scheme: bearer
-    bearerFormat: JWT
-    description: JWT 认证令牌
+BearerAuth:
+  type: http
+  scheme: bearer
+  bearerFormat: JWT
+  description: JWT 认证令牌

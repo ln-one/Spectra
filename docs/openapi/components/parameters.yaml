@@ -5,7 +5,7 @@ IdempotencyKey:
   schema:
     type: string
     format: uuid
-  description: 幂等性密钥，防重发。
+  description: 幂等性密钥，用于防止重复请求。
 
 PageParam:
   name: page

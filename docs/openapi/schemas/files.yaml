@@ -13,6 +13,8 @@ UploadedFile:
       type: string
     file_size:
       type: integer
+      description: File size in bytes. Maximum allowed size is 100MB (104857600 bytes).
+      maximum: 104857600
     status:
       type: string
       enum: [uploading, parsing, ready, failed]
@@ -96,6 +98,7 @@ UpdateFileIntentRequest:
     usage_intent:
       type: string
       minLength: 1
+      maxLength: 1000
 
 UpdateFileIntentResponse:
   type: object

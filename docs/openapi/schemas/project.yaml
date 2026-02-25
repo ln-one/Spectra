@@ -6,8 +6,12 @@ Project:
       type: string
     name:
       type: string
+      minLength: 1
+      maxLength: 200
     description:
       type: string
+      minLength: 1
+      maxLength: 2000
     grade_level:
       type: string
     status:
@@ -26,8 +30,12 @@ ProjectRequest:
   properties:
     name:
       type: string
+      minLength: 1
+      maxLength: 200
     description:
       type: string
+      minLength: 1
+      maxLength: 2000
     grade_level:
       type: string
 
