@@ -1,20 +1,94 @@
 """
-RAG Service - 检索增强生成服务骨架
+RAG Service - 检索增强生成服务
 
 提供文本分块、向量化入库、语义检索等核心 RAG 能力。
-Phase 1 仅定义接口，Phase 2 填充实现。
 """
 
 import logging
+import re
 from typing import Optional
 
 from pydantic import BaseModel
 
-from schemas.rag import RAGResult, SourceDetail
+from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
 from services.embedding_service import EmbeddingService, embedding_service
 from services.vector_service import VectorService, vector_service
 
 logger = logging.getLogger(__name__)
+
+# 分块参数
+DEFAULT_CHUNK_SIZE = 500  # tokens
+DEFAULT_CHUNK_OVERLAP = 50  # tokens
+# 中文 1 字 ≈ 1.5 token，用字符数估算
+CHARS_PER_TOKEN = 0.67  # 1 token ≈ 0.67 个中文字符（反过来 1 字 ≈ 1.5 token）
+
+# 分割符优先级
+SEPARATORS = ["\n\n", "\n", "。", "！", "？", ".", "!", "?"]
+
+
+def _estimate_tokens(text: str) -> int:
+    """估算文本 token 数（中英文混合）"""
+    chinese_chars = len(re.findall(r"[\u4e00-\u9fff]", text))
+    other_chars = len(text) - chinese_chars
+    return int(chinese_chars * 1.5 + other_chars * 0.25)
+
+
+def split_text(
+    text: str,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
+) -> list[str]:
+    """
+    递归字符分割
+
+    分割符优先级：\\n\\n > \\n > 。！？.!?
+    尽量在标点处断开，保持语义完整性。
+
+    Args:
+        text: 待分割文本
+        chunk_size: 目标分块大小（token 数）
+        chunk_overlap: 相邻块重叠大小（token 数）
+
+    Returns:
+        分块文本列表
+    """
+    if not text or not text.strip():
+        return []
+
+    max_chars = int(chunk_size * CHARS_PER_TOKEN)
+    overlap_chars = int(chunk_overlap * CHARS_PER_TOKEN)
+
+    # 如果文本足够短，直接返回
+    if _estimate_tokens(text) <= chunk_size:
+        return [text.strip()]
+
+    chunks: list[str] = []
+    start = 0
+
+    while start < len(text):
+        end = min(start + max_chars, len(text))
+
+        # 如果不是最后一段，尝试在分割符处断开
+        if end < len(text):
+            best_split = -1
+            for sep in SEPARATORS:
+                # 在 [start + max_chars//2, end] 范围内找最后一个分割符
+                search_start = start + max_chars // 2
+                pos = text.rfind(sep, search_start, end)
+                if pos > best_split:
+                    best_split = pos + len(sep)
+
+            if best_split > start:
+                end = best_split
+
+        chunk = text[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+
+        # 下一段起始位置（减去重叠）
+        start = end - overlap_chars if end < len(text) else end
+
+    return chunks
 
 
 class ParsedChunkData(BaseModel):
@@ -35,65 +109,4 @@ class RAGService:
     ):
         self._vector = vec_service or vector_service
         self._embedding = emb_service or embedding_service
-
-    async def index_chunks(self, project_id: str, chunks: list[ParsedChunkData]) -> int:
-        """
-        将分块数据向量化并存入 ChromaDB
-
-        Args:
-            project_id: 项目 ID
-            chunks: 待入库的分块列表
-
-        Returns:
-            成功入库的分块数量
-        """
-        raise NotImplementedError("Phase 2 实现")
-
-    async def search(
-        self,
-        project_id: str,
-        query: str,
-        top_k: int = 5,
-        filters: Optional[dict] = None,
-    ) -> list[RAGResult]:
-        """
-        语义检索
-
-        Args:
-            project_id: 项目 ID
-            query: 查询文本
-            top_k: 返回结果数量
-            filters: 过滤条件
-
-        Returns:
-            检索结果列表
-        """
-        raise NotImplementedError("Phase 2 实现")
-
-    async def get_chunk_detail(self, chunk_id: str) -> SourceDetail:
-        """
-        获取分块详情（含上下文）
-
-        Args:
-            chunk_id: 分块 ID
-
-        Returns:
-            分块详情
-        """
-        raise NotImplementedError("Phase 2 实现")
-
-    async def delete_project_index(self, project_id: str) -> bool:
-        """
-        删除项目的向量索引
-
-        Args:
-            project_id: 项目 ID
-
-        Returns:
-            是否删除成功
-        """
-        return self._vector.delete_collection(project_id)
-
-
-# 全局实例
-rag_service = RAGService()
+    # PLACEHOLDER_RAG_METHODS
