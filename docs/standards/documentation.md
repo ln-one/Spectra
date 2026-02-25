@@ -107,8 +107,12 @@ feature/
 - 安装步骤
 
 ### API 文档
-- 使用 Swagger/OpenAPI 自动生成
+- 使用 OpenAPI 3.0 规范定义 API
+- 模块化组织在 `docs/openapi/` 目录
+- 使用 Redocly CLI 打包和验证
+- FastAPI 自动生成交互式文档（Swagger UI 和 ReDoc）
 - 每个接口必须有描述和示例
+- 所有数据模型必须在 schemas 中定义
 
 ### 代码注释
 - 复杂逻辑必须注释
