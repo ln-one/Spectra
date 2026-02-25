@@ -1,110 +1,125 @@
-"""
-Authentication Service (Skeleton)
+"""Authentication service with password hashing and JWT token management."""
 
-This is a skeleton implementation with basic structure.
-Actual JWT and password hashing will be implemented when needed.
-"""
+import os
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
 
-import logging
-from typing import Optional
+import bcrypt
+import jwt
 
-logger = logging.getLogger(__name__)
+from services.database import db_service
+
+JWT_SECRET_KEY = os.getenv(
+    "JWT_SECRET_KEY", "your-super-secret-key-change-in-production"
+)
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 
 class AuthService:
-    """Authentication service for user management and JWT tokens"""
+    """Authentication service for user CRUD, password hashing, and JWT operations."""
 
-    async def create_user(
-        self, email: str, password: str, username: str, full_name: Optional[str] = None
-    ) -> dict:
-        """
-        Create a new user account
+    def hash_password(self, password: str) -> str:
+        """Hash a plaintext password using bcrypt."""
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-        Args:
-            email: User email
-            password: Plain text password (will be hashed)
-            username: Username
-            full_name: Optional full name
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        """Verify plaintext password against a bcrypt hash."""
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+        )
 
-        Returns:
-            User data dict
+    def _create_jwt(
+        self, user_id: str, expires_delta: timedelta, token_type: str
+    ) -> str:
+        """Create JWT with standard claims and token type."""
+        expire = datetime.now(timezone.utc) + expires_delta
+        payload = {"sub": user_id, "exp": expire, "type": token_type}
+        return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
-        TODO: Implement actual user creation logic
-        - Hash password with bcrypt
-        - Validate email format
-        - Check for duplicate email/username
-        - Store in database
-        """
-        logger.warning("create_user() is not fully implemented yet")
-        # TODO: Implement with bcrypt and database
+    def create_token(self, user_id: str) -> str:
+        """Backward-compatible access token creator."""
+        return self.create_access_token(user_id)
+
+    def create_access_token(self, user_id: str) -> str:
+        """Create short-lived access token."""
+        return self._create_jwt(
+            user_id=user_id,
+            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+            token_type="access",
+        )
+
+    def create_refresh_token(self, user_id: str) -> str:
+        """Create long-lived refresh token."""
+        return self._create_jwt(
+            user_id=user_id,
+            expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+            token_type="refresh",
+        )
+
+    def create_auth_tokens(self, user_id: str) -> Dict[str, Any]:
+        """Create token pair for auth response contract."""
         return {
-            "id": "user-123",
-            "email": email,
-            "username": username,
-            "full_name": full_name,
+            "access_token": self.create_access_token(user_id),
+            "refresh_token": self.create_refresh_token(user_id),
+            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         }
 
-    async def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """
-        Verify a password against its hash
+    def verify_token(self, token: str, expected_type: str = "access") -> Optional[str]:
+        """Verify JWT and return user ID, or None if invalid/expired/type mismatch."""
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+            user_id = payload.get("sub")
+            token_type = payload.get("type", "access")
+            if not user_id:
+                return None
+            if expected_type and token_type != expected_type:
+                return None
+            return user_id
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return None
 
-        Args:
-            plain_password: Plain text password
-            hashed_password: Bcrypt hashed password
+    def verify_refresh_token(self, token: str) -> Optional[str]:
+        """Verify refresh token and return user ID."""
+        return self.verify_token(token, expected_type="refresh")
 
-        Returns:
-            True if password matches
+    async def create_user(
+        self,
+        email: str,
+        password: str,
+        username: str,
+        full_name: Optional[str] = None,
+    ):
+        """Create user with hashed password."""
+        password_hash = self.hash_password(password)
+        return await db_service.create_user(
+            email=email,
+            password_hash=password_hash,
+            username=username,
+            full_name=full_name,
+        )
 
-        TODO: Implement password verification with bcrypt
-        """
-        logger.warning("verify_password() is not fully implemented yet")
-        # TODO: Use bcrypt.checkpw()
-        return True  # Temporary for testing
+    async def get_user_by_email(self, email: str):
+        """Get user by email."""
+        return await db_service.get_user_by_email(email)
 
-    async def create_token(self, user_id: str) -> str:
-        """
-        Create a JWT access token
+    async def get_user_by_username(self, username: str):
+        """Get user by username."""
+        return await db_service.get_user_by_username(username)
 
-        Args:
-            user_id: User ID to encode in token
+    async def authenticate_user(self, email: str, password: str):
+        """Authenticate with email and password."""
+        user = await self.get_user_by_email(email)
+        if not user:
+            return None
+        if not self.verify_password(password, user.password):
+            return None
+        return user
 
-        Returns:
-            JWT token string
-
-        TODO: Implement JWT token creation with python-jose
-        - Include user_id in payload
-        - Set expiration time from env
-        - Sign with JWT_SECRET_KEY
-        """
-        logger.warning("create_token() is not fully implemented yet")
-        # TODO: Use jose.jwt.encode()
-        return f"mock-jwt-token-{user_id}"  # Temporary for testing
-
-    async def verify_token(self, token: str) -> Optional[str]:
-        """
-        Verify and decode a JWT token
-
-        Args:
-            token: JWT token string
-
-        Returns:
-            User ID if token is valid, None otherwise
-
-        TODO: Implement JWT token verification with python-jose
-        - Verify signature
-        - Check expiration
-        - Extract user_id from payload
-        """
-        logger.warning("verify_token() is not fully implemented yet")
-        # TODO: Use jose.jwt.decode()
-        # For now, extract user_id from mock token
-        if token.startswith("mock-jwt-token-"):
-            return token.replace("mock-jwt-token-", "")
-
-        # 对于非 mock token，返回 None 表示验证失败
-        logger.warning(f"Invalid token format: {token[:20]}...")
-        return None
+    async def get_user_by_id(self, user_id: str):
+        """Get user by ID."""
+        return await db_service.get_user_by_id(user_id)
 
 
-# Singleton instance
 auth_service = AuthService()
