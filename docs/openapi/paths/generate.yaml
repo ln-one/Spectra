@@ -26,7 +26,7 @@
       '403':
         $ref: '../components/responses.yaml#/Forbidden'
 
-/api/v1/generate/status/{task_id}:
+/api/v1/generate/tasks/{task_id}/status:
   get:
     summary: 查询生成状态
     tags: [Generate]
@@ -45,6 +45,70 @@
           application/json:
             schema:
               $ref: '../schemas/generate.yaml#/GenerateStatusResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/tasks/{task_id}/download:
+  get:
+    summary: 下载生成的课件文件
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: file_type
+        in: query
+        required: true
+        schema:
+          type: string
+          enum: [ppt, word]
+        description: 要下载的文件类型
+    responses:
+      '200':
+        description: 文件下载成功
+        content:
+          application/vnd.openxmlformats-officedocument.presentationml.presentation:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+            schema:
+              type: string
+              format: binary
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/tasks/{task_id}/versions:
+  get:
+    summary: 获取任务的所有版本
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/VersionsResponse'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
       '403':

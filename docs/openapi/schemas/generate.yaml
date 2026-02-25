@@ -10,10 +10,43 @@ GenerateRequest:
     options:
       type: object
       properties:
-        style:
+        template:
           type: string
+          enum: [default, gaia, uncover, academic]
+          default: default
+          description: PPT 模板风格
+        theme_color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: 主题色（十六进制颜色代码）
+          example: '#4A90E2'
+        show_page_number:
+          type: boolean
+          default: true
+          description: 是否显示页码
+        header:
+          type: string
+          description: 页眉文本
+        footer:
+          type: string
+          description: 页脚文本
         pages:
           type: integer
+          minimum: 1
+          maximum: 100
+          description: 期望的页数
+        include_animations:
+          type: boolean
+          default: false
+          description: 是否生成动画创意
+        include_games:
+          type: boolean
+          default: false
+          description: 是否生成互动游戏
+        animation_format:
+          type: string
+          enum: [gif, mp4, html5]
+          description: 动画输出格式（当 include_animations 为 true 时）
 
 GenerateResponse:
   type: object
@@ -48,6 +81,9 @@ GenerateStatusResponse:
           enum: [pending, processing, completed, failed]
         progress:
           type: integer
+          minimum: 0
+          maximum: 100
+          description: 生成进度百分比
         result:
           type: object
           properties:
@@ -55,7 +91,47 @@ GenerateStatusResponse:
               type: string
             word_url:
               type: string
+            version:
+              type: integer
+              description: 当前版本号
         error:
           type: string
+    message:
+      type: string
+
+VersionsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        task_id:
+          type: string
+        versions:
+          type: array
+          items:
+            type: object
+            properties:
+              version:
+                type: integer
+              created_at:
+                type: string
+                format: date-time
+              status:
+                type: string
+                enum: [completed, failed]
+              file_urls:
+                type: object
+                properties:
+                  ppt_url:
+                    type: string
+                  word_url:
+                    type: string
+              modification_note:
+                type: string
+                description: 修改说明
     message:
       type: string

@@ -117,3 +117,33 @@ ModifyResponse:
           enum: [pending, processing, completed, failed]
     message:
       type: string
+
+SlideDetailResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        slide:
+          $ref: '#/Slide'
+        teaching_plan:
+          $ref: '#/SlidePlan'
+          description: 该幻灯片对应的教学计划
+        related_slides:
+          type: array
+          items:
+            type: object
+            properties:
+              slide_id:
+                type: string
+              title:
+                type: string
+              relation:
+                type: string
+                enum: [previous, next, related]
+          description: 相关幻灯片
+    message:
+      type: string

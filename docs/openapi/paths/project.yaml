@@ -154,3 +154,62 @@
         $ref: '../components/responses.yaml#/Forbidden'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/projects/{project_id}/statistics:
+  get:
+    summary: 获取项目统计信息
+    description: 获取项目的文件数、对话数、生成任务数等统计信息
+    tags: [Project]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/project.yaml#/ProjectStatisticsResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/projects/search:
+  get:
+    summary: 搜索项目
+    description: 根据关键词搜索项目
+    tags: [Project]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+        description: 搜索关键词
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [draft, in_progress, completed]
+        description: 按状态筛选
+      - $ref: '../components/parameters.yaml#/PageParam'
+      - $ref: '../components/parameters.yaml#/LimitParam'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/project.yaml#/GetProjectsResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'

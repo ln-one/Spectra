@@ -92,3 +92,74 @@
         $ref: '../components/responses.yaml#/Forbidden'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/files/batch:
+  post:
+    summary: 批量上传文件
+    description: 一次上传多个参考文件
+    tags: [Files]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [files, project_id]
+            properties:
+              files:
+                type: array
+                items:
+                  type: string
+                  format: binary
+                description: 多个文件
+              project_id:
+                type: string
+    responses:
+      '200':
+        description: 批量上传成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/files.yaml#/BatchUploadResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+  delete:
+    summary: 批量删除文件
+    tags: [Files]
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [file_ids]
+            properties:
+              file_ids:
+                type: array
+                items:
+                  type: string
+                description: 要删除的文件 ID 列表
+    responses:
+      '200':
+        description: 批量删除成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/files.yaml#/BatchDeleteResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'

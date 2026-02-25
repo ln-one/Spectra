@@ -16,10 +16,36 @@ UploadedFile:
     status:
       type: string
       enum: [uploading, parsing, ready, failed]
+    parse_progress:
+      type: integer
+      minimum: 0
+      maximum: 100
+      description: 解析进度百分比
+    parse_details:
+      type: object
+      description: 解析详情
+      properties:
+        pages_extracted:
+          type: integer
+          description: 提取的页数
+        images_extracted:
+          type: integer
+          description: 提取的图片数
+        text_length:
+          type: integer
+          description: 提取的文本长度
+        duration:
+          type: number
+          description: 视频时长（秒）
+    parse_error:
+      type: string
+      description: 解析错误信息
     usage_intent:
       type: string
+      description: 文件用途说明
     parse_result:
       type: object
+      description: 解析结果摘要
     created_at:
       type: string
       format: date-time
@@ -82,5 +108,59 @@ UpdateFileIntentResponse:
       properties:
         file:
           $ref: '#/UploadedFile'
+    message:
+      type: string
+
+BatchUploadResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/UploadedFile'
+        total:
+          type: integer
+          description: 成功上传的文件数
+        failed:
+          type: array
+          items:
+            type: object
+            properties:
+              filename:
+                type: string
+              error:
+                type: string
+          description: 上传失败的文件列表
+    message:
+      type: string
+
+BatchDeleteResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        deleted:
+          type: integer
+          description: 成功删除的文件数
+        failed:
+          type: array
+          items:
+            type: object
+            properties:
+              file_id:
+                type: string
+              error:
+                type: string
+          description: 删除失败的文件列表
     message:
       type: string

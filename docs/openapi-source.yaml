@@ -26,6 +26,8 @@ paths:
   # Chat
   /api/v1/chat/messages:
     $ref: './openapi/paths/chat.yaml#/~1api~1v1~1chat~1messages'
+  /api/v1/chat/voice:
+    $ref: './openapi/paths/chat.yaml#/~1api~1v1~1chat~1voice'
 
   # Files
   /api/v1/files:
@@ -34,24 +36,38 @@ paths:
     $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}'
   /api/v1/files/{file_id}/intent:
     $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}~1intent'
+  /api/v1/files/batch:
+    $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1batch'
 
   # Generate
   /api/v1/generate/courseware:
     $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1courseware'
-  /api/v1/generate/status/{task_id}:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1status~1{task_id}'
+  /api/v1/generate/tasks/{task_id}/status:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1status'
+  /api/v1/generate/tasks/{task_id}/download:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1download'
+  /api/v1/generate/tasks/{task_id}/versions:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1versions'
 
   # Preview
   /api/v1/preview/{task_id}:
     $ref: './openapi/paths/preview.yaml#/~1api~1v1~1preview~1{task_id}'
   /api/v1/preview/{task_id}/modify:
     $ref: './openapi/paths/preview.yaml#/~1api~1v1~1preview~1{task_id}~1modify'
+  /api/v1/preview/{task_id}/slides/{slide_id}:
+    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1preview~1{task_id}~1slides~1{slide_id}'
+  /api/v1/preview/{task_id}/export:
+    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1preview~1{task_id}~1export'
 
   # RAG
   /api/v1/rag/search:
     $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1search'
   /api/v1/rag/sources/{chunk_id}:
     $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1sources~1{chunk_id}'
+  /api/v1/rag/index:
+    $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1index'
+  /api/v1/rag/similar:
+    $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1similar'
 
   # Project
   /api/v1/projects:
@@ -60,6 +76,10 @@ paths:
     $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1{project_id}'
   /api/v1/projects/{project_id}/files:
     $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1{project_id}~1files'
+  /api/v1/projects/{project_id}/statistics:
+    $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1{project_id}~1statistics'
+  /api/v1/projects/search:
+    $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1search'
 
 components:
   securitySchemes:

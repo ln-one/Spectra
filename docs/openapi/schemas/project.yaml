@@ -66,3 +66,39 @@ GetProjectsResponse:
           type: integer
     message:
       type: string
+
+ProjectStatisticsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        project_id:
+          type: string
+        files_count:
+          type: integer
+          description: 上传的文件数
+        messages_count:
+          type: integer
+          description: 对话消息数
+        generation_tasks_count:
+          type: integer
+          description: 生成任务数
+        completed_tasks_count:
+          type: integer
+          description: 已完成的任务数
+        total_file_size:
+          type: integer
+          description: 文件总大小（字节）
+        last_activity:
+          type: string
+          format: date-time
+          description: 最后活动时间
+        created_at:
+          type: string
+          format: date-time
+    message:
+      type: string

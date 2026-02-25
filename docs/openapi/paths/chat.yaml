@@ -50,3 +50,41 @@
         $ref: '../components/responses.yaml#/Unauthorized'
       '403':
         $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/chat/voice:
+  post:
+    summary: 语音消息输入
+    description: 上传语音文件，系统将自动识别并转换为文本消息
+    tags: [Chat]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [audio, project_id]
+            properties:
+              audio:
+                type: string
+                format: binary
+                description: 音频文件（支持 wav, mp3, m4a, ogg）
+              project_id:
+                type: string
+                description: 项目 ID
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/chat.yaml#/VoiceMessageResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'

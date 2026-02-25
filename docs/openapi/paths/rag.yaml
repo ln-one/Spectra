@@ -49,3 +49,96 @@
         $ref: '../components/responses.yaml#/Forbidden'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/rag/index:
+  post:
+    summary: 索引新文件到知识库
+    description: 将上传的文件添加到 RAG 知识库索引
+    tags: [RAG]
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [file_id]
+            properties:
+              file_id:
+                type: string
+                description: 要索引的文件 ID
+              chunk_size:
+                type: integer
+                default: 512
+                description: 分块大小
+              chunk_overlap:
+                type: integer
+                default: 50
+                description: 分块重叠大小
+    responses:
+      '200':
+        description: 索引任务已创建
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    index_task_id:
+                      type: string
+                    status:
+                      type: string
+                      enum: [pending, processing, completed, failed]
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/rag/similar:
+  post:
+    summary: 查找相似内容
+    description: 基于给定文本查找知识库中的相似内容
+    tags: [RAG]
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [text]
+            properties:
+              text:
+                type: string
+                description: 要查找相似内容的文本
+              top_k:
+                type: integer
+                default: 5
+                minimum: 1
+                maximum: 20
+              threshold:
+                type: number
+                format: float
+                default: 0.7
+                minimum: 0
+                maximum: 1
+                description: 相似度阈值
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rag.yaml#/RAGSearchResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'

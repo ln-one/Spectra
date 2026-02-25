@@ -58,3 +58,89 @@
         $ref: '../components/responses.yaml#/Forbidden'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/preview/{task_id}/slides/{slide_id}:
+  get:
+    summary: 获取单个幻灯片详情
+    description: 查看特定幻灯片的详细内容和来源
+    tags: [Preview]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: slide_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/preview.yaml#/SlideDetailResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/preview/{task_id}/export:
+  post:
+    summary: 导出预览内容
+    description: 将预览内容导出为指定格式
+    tags: [Preview]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [format]
+            properties:
+              format:
+                type: string
+                enum: [json, markdown, html]
+                description: 导出格式
+              include_sources:
+                type: boolean
+                default: true
+                description: 是否包含来源信息
+    responses:
+      '200':
+        description: 导出成功
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    content:
+                      type: string
+                      description: 导出的内容
+                    format:
+                      type: string
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
