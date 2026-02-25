@@ -54,9 +54,6 @@ class TestVectorService:
             svc.delete_collection("proj-error")
 
     def test_add_and_query(self, svc):
-        """基本的文档添加和查询"""
-        col = svc.get_or_create_collection("proj-query")
-        col.add(
         """基本的向量添加和查询（使用显式 embedding，避免依赖默认模型）"""
         col = svc.get_or_create_collection("proj-query")
         # 使用固定的嵌入向量，保证测试稳定且不触发默认 embedding 模型下载
