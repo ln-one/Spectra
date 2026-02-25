@@ -136,6 +136,14 @@ Once the server is running, visit:
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
+### OpenAPI 规范
+
+- **设计文档**: `../docs/openapi/` - 模块化的 API 设计（给开发者和 AI 看）
+- **自动生成**: FastAPI 自动生成 OpenAPI 规范（访问 `/openapi.json`）
+- **工作流程**: 参见 [OPENAPI_WORKFLOW.md](./OPENAPI_WORKFLOW.md)
+
+开发时应参照 `../docs/openapi/` 中的模块文件来实现接口，确保设计和实现保持一致。
+
 ## Development
 
 The project uses:

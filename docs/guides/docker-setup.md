@@ -22,7 +22,8 @@ docker-compose up
 
 前端: http://localhost:3000
 后端: http://localhost:8000
-API 文档: http://localhost:8000/docs
+Swagger UI: http://localhost:8000/docs
+ReDoc: http://localhost:8000/redoc
 
 ### 2. 后台运行
 ```bash

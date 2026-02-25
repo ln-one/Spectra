@@ -45,9 +45,12 @@ export async function request<T>(
   } = options;
 
   const requestHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
     ...headers,
   };
+
+  if (!options.body || !(options.body instanceof FormData)) {
+    requestHeaders["Content-Type"] = "application/json";
+  }
 
   if (requireAuth) {
     const token = TokenStorage.getAccessToken();
@@ -76,5 +79,5 @@ export async function request<T>(
     );
   }
 
-  return data.data || data;
+  return data;
 }

@@ -1,0 +1,88 @@
+RAGSearchRequest:
+  type: object
+  required: [project_id, query]
+  properties:
+    project_id:
+      type: string
+    query:
+      type: string
+      minLength: 1
+      maxLength: 1000
+    top_k:
+      type: integer
+      default: 5
+      minimum: 1
+      maximum: 20
+    filters:
+      type: object
+      properties:
+        file_types:
+          type: array
+          items:
+            type: string
+            enum: [pdf, word, video, image, ppt]
+        file_ids:
+          type: array
+          items:
+            type: string
+
+RAGSearchResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/RAGResult'
+        total:
+          type: integer
+    message:
+      type: string
+
+RAGResult:
+  type: object
+  required: [chunk_id, content, score, source]
+  properties:
+    chunk_id:
+      type: string
+    content:
+      type: string
+    score:
+      type: number
+      format: float
+    source:
+      $ref: './preview.yaml#/SourceReference'
+    metadata:
+      type: object
+
+SourceDetailResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        chunk_id:
+          type: string
+        content:
+          type: string
+        source:
+          $ref: './preview.yaml#/SourceReference'
+        context:
+          type: object
+          properties:
+            previous_chunk:
+              type: string
+            next_chunk:
+              type: string
+        file_info:
+          $ref: './files.yaml#/UploadedFile'
+    message:
+      type: string

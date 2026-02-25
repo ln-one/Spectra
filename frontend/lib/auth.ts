@@ -2,25 +2,18 @@
  * Authentication Utilities
  *
  * 认证工具模块 - 提供 Token 存储和认证状态检查
- *
- * TODO: 实现完整的认证逻辑
- * - Token 刷新机制
- * - Token 过期检查
- * - 生产环境使用 httpOnly cookie
+ * 包含 TokenStorage 和 authService 两部分
  */
 
-/**
- * > REVIEW-P1(important) 问题：User 类型缺少 OpenAPI 契约规定的必需字段 createdAt。
- * > REVIEW-P1(important) 建议：同步 OpenAPI 契约，添加缺失字段（createdAt 为必需）。
- * > REVIEW-P1(important) 位置：docs/openapi.yaml 第 606 行要求 UserInfo.createdAt 为必需
- */
+import { authApi, type UserInfo } from "./api/auth";
+
 export interface User {
   id: string;
   email: string;
   username: string;
-  createdAt: Date; // REQUIRED by OpenAPI contract (openapi.yaml:606)
   fullName?: string;
-  updatedAt?: Date; // Optional for now, verify with OpenAPI
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface LoginResponse {
@@ -36,111 +29,311 @@ export interface RegisterRequest {
   fullName?: string;
 }
 
-/**
- * Token 存储管理
- *
- * 当前使用 localStorage，生产环境建议使用 httpOnly cookie
- *
- * > REVIEW-P0(blocking) 问题：文档示例中存在 `token` 键名写法，与此处 `access_token` 约定不一致。
- * > REVIEW-P0(blocking) 建议：统一通过 `TokenStorage.getAccessToken()` 访问令牌，避免业务代码直接硬编码 localStorage 键名。
- */
+const ACCESS_TOKEN_KEY = "access_token";
+const REFRESH_TOKEN_KEY = "refresh_token";
+const TOKEN_EXPIRY_KEY = "token_expiry";
+
 export const TokenStorage = {
-  /**
-   * 存储访问令牌
-   */
-  setAccessToken(token: string): void {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("access_token", token);
+  setAccessToken(token: string, expiresIn?: number): void {
+    if (typeof window === "undefined") return;
+
+    try {
+      localStorage.setItem(ACCESS_TOKEN_KEY, token);
+
+      if (expiresIn) {
+        const expiryTime = Date.now() + expiresIn * 1000;
+        localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiryTime));
+      } else {
+        localStorage.removeItem(TOKEN_EXPIRY_KEY);
+      }
+    } catch (error) {
+      console.error("Failed to set access token:", error);
     }
   },
 
-  /**
-   * 获取访问令牌
-   */
   getAccessToken(): string | null {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("access_token");
+    if (typeof window === "undefined") return null;
+
+    try {
+      const expiryStr = localStorage.getItem(TOKEN_EXPIRY_KEY);
+      if (expiryStr) {
+        const expiryTime = parseInt(expiryStr, 10);
+        if (Date.now() > expiryTime) {
+          this.clearTokens();
+          return null;
+        }
+      }
+      return localStorage.getItem(ACCESS_TOKEN_KEY);
+    } catch {
+      return null;
     }
-    return null;
   },
 
-  /**
-   * 清除所有令牌
-   */
+  setRefreshToken(token: string): void {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(REFRESH_TOKEN_KEY, token);
+    } catch (error) {
+      console.error("Failed to set refresh token:", error);
+    }
+  },
+
+  getRefreshToken(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+      return localStorage.getItem(REFRESH_TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  },
+
+  updateToken(token: string): void {
+    this.setAccessToken(token);
+  },
+
   clearTokens(): void {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      localStorage.removeItem(TOKEN_EXPIRY_KEY);
+    } catch (error) {
+      console.error("Failed to clear tokens:", error);
     }
   },
 
-  /**
-   * 检查是否已认证
-   */
   isAuthenticated(): boolean {
     return !!this.getAccessToken();
   },
+
+  getTokenExpiry(): number | null {
+    if (typeof window === "undefined") return null;
+    const expiryStr = localStorage.getItem(TOKEN_EXPIRY_KEY);
+    return expiryStr ? parseInt(expiryStr, 10) : null;
+  },
+
+  isTokenExpiringSoon(thresholdMs: number = 5 * 60 * 1000): boolean {
+    const expiry = this.getTokenExpiry();
+    if (!expiry) return true;
+    return Date.now() + thresholdMs > expiry;
+  },
 };
 
-/**
- * 认证服务 API 调用
- */
+function toUser(userInfo: UserInfo): User {
+  return {
+    id: userInfo.id,
+    email: userInfo.email,
+    username: userInfo.username,
+    fullName: userInfo.fullName,
+    createdAt: userInfo.createdAt,
+  };
+}
+
+export interface ValidationError {
+  field: string;
+  message: string;
+}
+
+export interface AuthError {
+  code: string;
+  message: string;
+}
+
 export const authService = {
-  /**
-   * 用户登录
-   */
   async login(email: string, password: string): Promise<LoginResponse> {
-    const { authApi } = await import("./api/auth");
-    const response = await authApi.login({ email, password });
-    return {
-      access_token: response.access_token,
-      token_type: "Bearer",
-      user: {
-        ...response.user,
-        createdAt: new Date(response.user.createdAt),
-        updatedAt: response.user.updatedAt
-          ? new Date(response.user.updatedAt)
-          : undefined,
-      },
-    };
+    const validationErrors: ValidationError[] = [];
+
+    if (!email) {
+      validationErrors.push({ field: "email", message: "邮箱不能为空" });
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      validationErrors.push({ field: "email", message: "邮箱格式不正确" });
+    }
+
+    if (!password) {
+      validationErrors.push({ field: "password", message: "密码不能为空" });
+    } else if (password.length < 6) {
+      validationErrors.push({ field: "password", message: "密码长度至少6位" });
+    }
+
+    if (validationErrors.length > 0) {
+      const error = new Error(validationErrors[0].message) as Error & {
+        validationErrors: ValidationError[];
+      };
+      error.validationErrors = validationErrors;
+      throw error;
+    }
+
+    try {
+      const response = await authApi.login({ email, password });
+      const userData = response.data.user;
+      if (!userData) {
+        throw new Error("登录失败：用户信息不存在");
+      }
+
+      const user = toUser(userData);
+      const token = response.data.access_token;
+      const refreshToken = response.data.refresh_token;
+      const expiresIn = response.data.expires_in;
+
+      if (token) {
+        TokenStorage.setAccessToken(token, expiresIn);
+      }
+      if (refreshToken) {
+        TokenStorage.setRefreshToken(refreshToken);
+      }
+
+      return {
+        access_token: token || "",
+        token_type: "Bearer",
+        user,
+      };
+    } catch (error) {
+      if (
+        (error as Error & { validationErrors?: ValidationError[] })
+          .validationErrors
+      ) {
+        throw error;
+      }
+      const authError = new Error("登录失败，请检查邮箱和密码") as Error &
+        AuthError;
+      authError.code = "LOGIN_FAILED";
+      throw authError;
+    }
   },
 
-  /**
-   * 用户注册
-   */
   async register(data: RegisterRequest): Promise<LoginResponse> {
-    const { authApi } = await import("./api/auth");
-    const response = await authApi.register(data);
-    return {
-      access_token: response.access_token,
-      token_type: "Bearer",
-      user: {
-        ...response.user,
-        createdAt: new Date(response.user.createdAt),
-        updatedAt: response.user.updatedAt
-          ? new Date(response.user.updatedAt)
-          : undefined,
-      },
-    };
+    const validationErrors: ValidationError[] = [];
+
+    if (!data.email) {
+      validationErrors.push({ field: "email", message: "邮箱不能为空" });
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      validationErrors.push({ field: "email", message: "邮箱格式不正确" });
+    }
+
+    if (!data.password) {
+      validationErrors.push({ field: "password", message: "密码不能为空" });
+    } else if (data.password.length < 8) {
+      validationErrors.push({ field: "password", message: "密码长度至少8位" });
+    }
+
+    if (!data.username) {
+      validationErrors.push({ field: "username", message: "用户名不能为空" });
+    } else if (data.username.length < 3) {
+      validationErrors.push({
+        field: "username",
+        message: "用户名至少3个字符",
+      });
+    } else if (data.username.length > 50) {
+      validationErrors.push({
+        field: "username",
+        message: "用户名不能超过50个字符",
+      });
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(data.username)) {
+      validationErrors.push({
+        field: "username",
+        message: "用户名只能包含字母、数字、下划线和连字符",
+      });
+    }
+
+    if (validationErrors.length > 0) {
+      const error = new Error(validationErrors[0].message) as Error & {
+        validationErrors: ValidationError[];
+      };
+      error.validationErrors = validationErrors;
+      throw error;
+    }
+
+    try {
+      const response = await authApi.register(data);
+      const userData = response.data.user;
+      if (!userData) {
+        throw new Error("注册失败：用户信息不存在");
+      }
+
+      const user = toUser(userData);
+      const token = response.data.access_token;
+      const refreshToken = response.data.refresh_token;
+      const expiresIn = response.data.expires_in;
+
+      if (token) {
+        TokenStorage.setAccessToken(token, expiresIn);
+      }
+      if (refreshToken) {
+        TokenStorage.setRefreshToken(refreshToken);
+      }
+
+      return {
+        access_token: token || "",
+        token_type: "Bearer",
+        user,
+      };
+    } catch (error) {
+      if (
+        (error as Error & { validationErrors?: ValidationError[] })
+          .validationErrors
+      ) {
+        throw error;
+      }
+      const authError = new Error("注册失败，该邮箱可能已被注册") as Error &
+        AuthError;
+      authError.code = "REGISTER_FAILED";
+      throw authError;
+    }
   },
 
-  /**
-   * 获取当前用户信息
-   */
   async getCurrentUser(): Promise<User> {
-    const { authApi } = await import("./api/auth");
-    const response = await authApi.getCurrentUser();
-    return {
-      ...response,
-      createdAt: new Date(response.createdAt),
-      updatedAt: response.updatedAt ? new Date(response.updatedAt) : undefined,
-    };
+    try {
+      const response = await authApi.getCurrentUser();
+      const userData = response.data.user;
+      if (!userData) {
+        throw new Error("获取用户信息失败");
+      }
+      return toUser(userData);
+    } catch {
+      TokenStorage.clearTokens();
+      const authError = new Error("获取用户信息失败，请重新登录") as Error &
+        AuthError;
+      authError.code = "GET_USER_FAILED";
+      throw authError;
+    }
   },
 
-  /**
-   * 用户登出
-   */
   async logout(): Promise<void> {
-    TokenStorage.clearTokens();
+    try {
+      await authApi.logout();
+    } catch {
+      // 忽略退出登录错误
+    } finally {
+      TokenStorage.clearTokens();
+    }
+  },
+
+  async refreshToken(): Promise<boolean> {
+    const refreshToken = TokenStorage.getRefreshToken();
+    if (!refreshToken) {
+      return false;
+    }
+
+    try {
+      const response = await authApi.refreshToken({ refreshToken });
+      if (response?.data?.access_token) {
+        TokenStorage.setAccessToken(
+          response.data.access_token,
+          response.data.expires_in
+        );
+        if (response.data.refresh_token) {
+          TokenStorage.setRefreshToken(response.data.refresh_token);
+        }
+        return true;
+      }
+      return false;
+    } catch {
+      TokenStorage.clearTokens();
+      return false;
+    }
+  },
+
+  isAuthenticated(): boolean {
+    return TokenStorage.isAuthenticated();
   },
 };
