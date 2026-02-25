@@ -31,9 +31,7 @@ class SourceReference(BaseModel):
     """来源引用"""
 
     chunk_id: str = Field(..., description="分块 ID")
-    source_type: str = Field(
-        ..., description="来源类型 (video/document/ai_generated)"
-    )
+    source_type: str = Field(..., description="来源类型 (video/document/ai_generated)")
     filename: str = Field(..., description="文件名")
     page_number: Optional[int] = Field(None, description="文档页码")
     timestamp: Optional[str] = Field(None, description="视频时间戳")
