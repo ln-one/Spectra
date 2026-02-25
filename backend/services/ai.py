@@ -41,7 +41,7 @@ class AIService:
 
         Args:
             prompt: The input prompt
-            model: The model to use (defaults to gpt-3.5-turbo)
+            model: The model to use (defaults to DEFAULT_MODEL, which defaults to qwen-plus)
             max_tokens: Maximum tokens to generate
 
         Returns:
