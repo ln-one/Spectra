@@ -47,15 +47,20 @@ class TestVectorService:
         """基本的文档添加和查询"""
         col = svc.get_or_create_collection("proj-query")
         col.add(
+        """基本的向量添加和查询（使用显式 embedding，避免依赖默认模型）"""
+        col = svc.get_or_create_collection("proj-query")
+        # 使用固定的嵌入向量，保证测试稳定且不触发默认 embedding 模型下载
+        embeddings = [
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]
+        col.add(
             ids=["chunk-1", "chunk-2"],
-            documents=[
-                "光合作用是植物利用光能合成有机物的过程",
-                "勾股定理描述直角三角形三边关系",
-            ],
+            embeddings=embeddings,
             metadatas=[{"source": "bio"}, {"source": "math"}],
         )
-        results = col.query(query_texts=["植物如何制造养分"], n_results=2)
-        # 验证返回了结果，不强制断言排序（取决于默认 embedding 函数）
+        results = col.query(query_embeddings=[[1.0, 0.0, 0.0]], n_results=2)
+        # 验证返回了结果，不强制断言排序（由向量相似度决定）
         assert len(results["ids"][0]) == 2
         returned_ids = set(results["ids"][0])
         assert "chunk-1" in returned_ids
