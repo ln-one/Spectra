@@ -22,7 +22,7 @@ class RAGSearchRequest(BaseModel):
     """RAG 检索请求"""
 
     project_id: str = Field(..., description="项目 ID")
-    query: str = Field(..., min_length=1, description="检索查询")
+    query: str = Field(..., min_length=1, max_length=1000, description="检索查询")
     top_k: int = Field(default=5, ge=1, le=20, description="返回结果数量")
     filters: Optional[RAGFilters] = Field(None, description="过滤条件")
 

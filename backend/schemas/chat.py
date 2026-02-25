@@ -23,7 +23,7 @@ class SendMessageRequest(BaseModel):
     """发送消息请求"""
 
     project_id: str = Field(..., description="项目 ID")
-    content: str = Field(..., min_length=1, description="消息内容")
+    content: str = Field(..., min_length=1, max_length=10000, description="消息内容")
     history: Optional[list[Message]] = Field(None, description="对话历史")
 
 
