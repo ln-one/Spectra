@@ -15,16 +15,17 @@ fi
 # 获取 FastAPI 生成的 OpenAPI
 echo "📥 获取 FastAPI 生成的 OpenAPI..."
 TEMP_JSON=$(mktemp)
+TEMP_YAML=""
+trap 'rm -f "${TEMP_JSON}" "${TEMP_YAML}"' EXIT
 HTTP_STATUS=$(curl -s --max-time 10 -o "${TEMP_JSON}" -w "%{http_code}" http://localhost:8000/openapi.json)
 if [ "$HTTP_STATUS" != "200" ]; then
     echo "❌ 获取 OpenAPI 失败，HTTP 状态码: $HTTP_STATUS"
-    rm -f "${TEMP_JSON}"
     exit 1
 fi
 
 # 转换为 YAML（如果需要）
 if command -v yq &> /dev/null; then
-    TEMP_YAML=$(mktemp --suffix=.yaml)
+    TEMP_YAML="$(mktemp).yaml"
     yq eval -P "${TEMP_JSON}" > "${TEMP_YAML}"
     echo "✅ FastAPI OpenAPI 已保存到: ${TEMP_YAML}"
 else

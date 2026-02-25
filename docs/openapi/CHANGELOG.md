@@ -10,7 +10,7 @@
 - ✅ 按功能模块组织：paths、schemas、components
 
 #### 2. 工具配置
-- ✅ 配置 `swagger-cli` 打包工具
+- ✅ 配置 `@redocly/cli` 打包工具
 - ✅ 创建打包脚本 `scripts/bundle-openapi.sh`
 - ✅ 创建验证脚本 `scripts/validate-openapi.sh`
 - ✅ 创建同步检查脚本 `scripts/sync-openapi.sh`
@@ -39,7 +39,7 @@
 | 单文件行数 | 1296 | 50-150 |
 | 文件数量 | 1 | 18 |
 | 主入口行数 | - | 70 |
-| 打包后行数 | - | 1266 |
+| 打包后行数 | - | 2094 |
 
 ### 🎯 影响范围
 
