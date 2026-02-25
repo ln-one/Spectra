@@ -14,12 +14,7 @@ from schemas.auth import (
 )
 from services.auth_service import auth_service
 from utils.dependencies import get_current_user
-from utils.exceptions import (
-    ConflictException,
-    ErrorCode,
-    NotFoundException,
-    UnauthorizedException,
-)
+from utils.exceptions import ConflictException, ErrorCode, UnauthorizedException
 from utils.responses import success_response
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -93,7 +88,7 @@ async def refresh_token(request: RefreshTokenRequest):
     user = await auth_service.get_user_by_id(user_id)
     if not user:
         raise UnauthorizedException(
-            message="用户不存在",
+            message="令牌无效或已过期",
             error_code=ErrorCode.INVALID_TOKEN,
         )
 
@@ -105,11 +100,7 @@ async def refresh_token(request: RefreshTokenRequest):
 
 @router.post("/logout")
 async def logout(_: str = Depends(get_current_user)):
-    """
-    Logout current user.
-
-    MVP behavior: stateless logout, token revocation is not persisted.
-    """
+    """Logout current user (stateless MVP behavior)."""
     return success_response(data={}, message="退出登录成功")
 
 
@@ -118,9 +109,9 @@ async def me(current_user: str = Depends(get_current_user)):
     """Get current user profile."""
     user = await auth_service.get_user_by_id(current_user)
     if not user:
-        raise NotFoundException(
-            message="用户不存在",
-            error_code=ErrorCode.NOT_FOUND,
+        raise UnauthorizedException(
+            message="令牌无效或已过期",
+            error_code=ErrorCode.INVALID_TOKEN,
         )
 
     return success_response(
