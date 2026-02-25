@@ -141,7 +141,7 @@ class PromptService:
             for msg in conversation_history[-5:]:
                 role = "用户" if msg.get("role") == "user" else "助手"
                 lines.append(f"{role}：{msg['content']}")
-            history_section = f"\n对话历史：\n" + "\n".join(lines) + "\n"
+            history_section = "\n对话历史：\n" + "\n".join(lines) + "\n"
 
         return f"""你是 Spectra 智能课件生成系统的 AI 助手。
 {history_section}{rag_section}
@@ -153,4 +153,3 @@ class PromptService:
 
 # 全局实例
 prompt_service = PromptService()
-
