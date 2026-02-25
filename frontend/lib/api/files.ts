@@ -287,10 +287,13 @@ export const filesApi = {
       };
     }
 
-    return request<components["schemas"]["BatchDeleteResponse"]>("/files/batch", {
-      method: "DELETE",
-      body: JSON.stringify({ file_ids: fileIds }),
-    });
+    return request<components["schemas"]["BatchDeleteResponse"]>(
+      "/files/batch",
+      {
+        method: "DELETE",
+        body: JSON.stringify({ file_ids: fileIds }),
+      }
+    );
   },
 
   async batchUploadFiles(
@@ -308,7 +311,9 @@ export const filesApi = {
       const failed: { filename: string; error: string }[] = [];
 
       for (const file of files) {
-        const fileType = getFileTypeFromExtension(file.name.split(".").pop() || "");
+        const fileType = getFileTypeFromExtension(
+          file.name.split(".").pop() || ""
+        );
         uploadedFiles.push({
           id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           filename: file.name,
