@@ -109,4 +109,118 @@ class RAGService:
     ):
         self._vector = vec_service or vector_service
         self._embedding = emb_service or embedding_service
-    # PLACEHOLDER_RAG_METHODS
+
+    async def index_chunks(
+        self, project_id: str, chunks: list[ParsedChunkData]
+    ) -> int:
+        """
+        将分块数据向量化并存入 ChromaDB（幂等 upsert）
+
+        Args:
+            project_id: 项目 ID
+            chunks: 待入库的分块列表
+
+        Returns:
+            成功入库的分块数量
+        """
+        if not chunks:
+            return 0
+
+        collection = self._vector.get_or_create_collection(project_id)
+        texts = [c.content for c in chunks]
+        ids = [c.chunk_id for c in chunks]
+        metadatas = [c.metadata for c in chunks]
+
+        # 批量 embedding
+        embeddings = await self._embedding.embed_texts(texts)
+
+        # upsert 到 ChromaDB
+        collection.upsert(
+            ids=ids,
+            embeddings=embeddings,
+            documents=texts,
+            metadatas=metadatas,
+        )
+
+        logger.info(
+            f"Indexed {len(chunks)} chunks for project {project_id}"
+        )
+        return len(chunks)
+
+    async def search(
+        self,
+        project_id: str,
+        query: str,
+        top_k: int = 5,
+        filters: Optional[dict] = None,
+    ) -> list[RAGResult]:
+        """
+        语义检索
+
+        Args:
+            project_id: 项目 ID
+            query: 查询文本
+            top_k: 返回结果数量
+            filters: 过滤条件 {"file_types": [...], "file_ids": [...]}
+
+        Returns:
+            检索结果列表
+        """
+        collection = self._vector.get_or_create_collection(project_id)
+
+        # 检查 collection 是否有数据
+        if collection.count() == 0:
+            return []
+
+        # 构建 ChromaDB where 过滤
+        where = None
+        if filters:
+            conditions = []
+            if filters.get("file_types"):
+                conditions.append(
+                    {"source_type": {"$in": filters["file_types"]}}
+                )
+            if filters.get("file_ids"):
+                conditions.append(
+                    {"upload_id": {"$in": filters["file_ids"]}}
+                )
+            if len(conditions) == 1:
+                where = conditions[0]
+            elif len(conditions) > 1:
+                where = {"$and": conditions}
+
+        # query 向量化
+        query_embedding = await self._embedding.embed_text(query)
+
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=min(top_k, collection.count()),
+            where=where,
+            include=["documents", "metadatas", "distances"],
+        )
+
+        # 转换为 RAGResult
+        rag_results = []
+        if results["ids"] and results["ids"][0]:
+            for i, chunk_id in enumerate(results["ids"][0]):
+                meta = results["metadatas"][0][i] if results["metadatas"] else {}
+                distance = results["distances"][0][i] if results["distances"] else 0
+                score = 1.0 - distance  # cosine distance → similarity
+
+                rag_results.append(
+                    RAGResult(
+                        chunk_id=chunk_id,
+                        content=results["documents"][0][i],
+                        score=round(score, 4),
+                        source=SourceReference(
+                            chunk_id=chunk_id,
+                            source_type=meta.get("source_type", "document"),
+                            filename=meta.get("filename", ""),
+                            page_number=meta.get("page_number"),
+                        ),
+                        metadata=meta,
+                    )
+                )
+
+        return rag_results
+    # PLACEHOLDER_MORE_METHODS
