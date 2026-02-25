@@ -3,9 +3,15 @@
  *
  * 基于 OpenAPI 契约的生成 API 封装
  * 支持 Mock 模式用于前端独立开发
+ * 
+ * 更新日期: 2026-02-25
+ * 更新内容: 
+ * - 添加文件下载接口
+ * - 更新 API 路径 (status -> tasks/{id}/status)
+ * - 增强生成选项（模板、主题色等）
  */
 
-import { request } from "./client";
+import { request, getApiUrl } from "./client";
 import type { components } from "../types/api";
 
 export type GenerateRequest = components["schemas"]["GenerateRequest"];
@@ -22,6 +28,7 @@ interface MockTask {
   result?: {
     ppt_url?: string;
     word_url?: string;
+    version?: number;
   };
   error?: string;
 }
@@ -89,9 +96,72 @@ export const generateApi = {
       };
     }
 
-    return request<GenerateStatusResponse>(`/generate/status/${taskId}`, {
+    // 更新：新的 API 路径
+    return request<GenerateStatusResponse>(`/generate/tasks/${taskId}/status`, {
       method: "GET",
     });
+  },
+
+  /**
+   * 下载生成的课件文件
+   * @param taskId 任务 ID
+   * @param fileType 文件类型 (ppt 或 word)
+   * @returns Blob 对象
+   */
+  async downloadCourseware(
+    taskId: string,
+    fileType: "ppt" | "word"
+  ): Promise<Blob> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const content = `Mock ${fileType.toUpperCase()} file content for task ${taskId}`;
+      return new Blob([content], {
+        type:
+          fileType === "ppt"
+            ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+    }
+
+    const token = localStorage.getItem("access_token");
+    const response = await fetch(
+      getApiUrl(`/generate/tasks/${taskId}/download?file_type=${fileType}`),
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("下载失败");
+    }
+
+    return response.blob();
+  },
+
+  /**
+   * 触发浏览器下载文件
+   * @param taskId 任务 ID
+   * @param fileType 文件类型
+   * @param filename 文件名（可选）
+   */
+  async triggerDownload(
+    taskId: string,
+    fileType: "ppt" | "word",
+    filename?: string
+  ): Promise<void> {
+    const blob = await this.downloadCourseware(taskId, fileType);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download =
+      filename || `courseware-${taskId}.${fileType === "ppt" ? "pptx" : "docx"}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   },
 };
 
@@ -112,6 +182,7 @@ function startMockProgress(taskId: string): void {
       task.result = {
         ppt_url: "/mock/sample.pptx",
         word_url: "/mock/sample.docx",
+        version: 1,
       };
       mockTasks.set(taskId, task);
       clearInterval(interval);

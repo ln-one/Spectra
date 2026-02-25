@@ -3,15 +3,19 @@
  *
  * 基于 OpenAPI 契约的对话 API 封装
  * 支持 Mock 模式用于前端独立开发
+ * 
+ * 更新日期: 2026-02-25
+ * 更新内容: 添加语音输入接口支持
  */
 
-import { request } from "./client";
+import { request, getApiUrl } from "./client";
 import type { components } from "../types/api";
 
 export type Message = components["schemas"]["Message"];
 export type SendMessageRequest = components["schemas"]["SendMessageRequest"];
 export type SendMessageResponse = components["schemas"]["SendMessageResponse"];
 export type GetMessagesResponse = components["schemas"]["GetMessagesResponse"];
+export type VoiceMessageResponse = components["schemas"]["VoiceMessageResponse"];
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
@@ -112,6 +116,53 @@ export const chatApi = {
 
     return request<GetMessagesResponse>(`/chat/messages?${queryParams}`, {
       method: "GET",
+    });
+  },
+
+  /**
+   * 发送语音消息
+   * @param audio 音频文件
+   * @param projectId 项目 ID
+   * @returns 语音识别结果和消息
+   */
+  async sendVoiceMessage(
+    audio: File,
+    projectId: string
+  ): Promise<VoiceMessageResponse> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      
+      const userMessage: Message = {
+        id: `msg-${Date.now()}`,
+        role: "user",
+        content: "这是模拟的语音识别结果：我想创建一个关于函数的课件",
+        timestamp: new Date().toISOString(),
+      };
+      mockMessages.push(userMessage);
+
+      return {
+        success: true,
+        data: {
+          text: "这是模拟的语音识别结果：我想创建一个关于函数的课件",
+          confidence: 0.95,
+          duration: audio.size / 16000, // 模拟时长
+          message: userMessage,
+          suggestions: ["继续完善需求", "开始生成课件", "上传参考资料"],
+        },
+        message: "语音识别成功",
+      };
+    }
+
+    const formData = new FormData();
+    formData.append("audio", audio);
+    formData.append("project_id", projectId);
+
+    return request<VoiceMessageResponse>("/chat/voice", {
+      method: "POST",
+      body: formData,
+      headers: {
+        "Idempotency-Key": `idem-${Date.now()}`,
+      },
     });
   },
 };

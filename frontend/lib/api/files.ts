@@ -3,6 +3,9 @@
  *
  * 基于 OpenAPI 契约的文件 API 封装
  * 支持 Mock 模式用于前端独立开发
+ * 
+ * 更新日期: 2026-02-25
+ * 更新内容: 增强文件解析状态字段
  */
 
 import { request, getApiUrl } from "./client";
@@ -26,6 +29,12 @@ const mockFiles: UploadedFile[] = [
     mime_type: "application/pdf",
     file_size: 1024000,
     status: "ready",
+    parse_progress: 100,
+    parse_details: {
+      pages_extracted: 15,
+      images_extracted: 8,
+      text_length: 5420,
+    },
     usage_intent: "用于第一章概念讲解",
     created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
@@ -38,6 +47,12 @@ const mockFiles: UploadedFile[] = [
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     file_size: 512000,
     status: "ready",
+    parse_progress: 100,
+    parse_details: {
+      pages_extracted: 10,
+      images_extracted: 3,
+      text_length: 3200,
+    },
     usage_intent: "案例分析素材",
     created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
@@ -49,6 +64,10 @@ const mockFiles: UploadedFile[] = [
     mime_type: "video/mp4",
     file_size: 52428800,
     status: "ready",
+    parse_progress: 100,
+    parse_details: {
+      duration: 1800, // 30分钟
+    },
     usage_intent: "示例视频",
     created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
@@ -74,6 +93,12 @@ export const filesApi = {
         mime_type: file.type,
         file_size: file.size,
         status: "ready",
+        parse_progress: 100,
+        parse_details: {
+          pages_extracted: Math.floor(Math.random() * 20) + 1,
+          images_extracted: Math.floor(Math.random() * 10),
+          text_length: Math.floor(Math.random() * 10000) + 1000,
+        },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
