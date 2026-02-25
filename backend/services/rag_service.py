@@ -10,7 +10,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
+from schemas.rag import RAGResult, SourceDetail
 from services.embedding_service import EmbeddingService, embedding_service
 from services.vector_service import VectorService, vector_service
 

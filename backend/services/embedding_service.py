@@ -90,7 +90,6 @@ class EmbeddingService:
     async def _embed_dashscope(self, texts: list[str]) -> list[list[float]]:
         """使用 DashScope API 进行向量化"""
         try:
-            import dashscope
             from dashscope import TextEmbedding
 
             all_embeddings: list[list[float]] = []
