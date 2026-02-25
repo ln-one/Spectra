@@ -31,7 +31,8 @@ docker-compose up -d
 # 4. 访问应用
 # Frontend: http://localhost:3000
 # Backend API: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+# Swagger UI: http://localhost:8000/docs
+# ReDoc: http://localhost:8000/redoc
 
 # 5. 查看日志
 docker-compose logs -f
