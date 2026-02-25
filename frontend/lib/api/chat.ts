@@ -82,7 +82,7 @@ export const chatApi = {
       method: "POST",
       body: JSON.stringify(data),
       headers: {
-        "Idempotency-Key": `idem-${Date.now()}`,
+        "Idempotency-Key": crypto.randomUUID(),
       },
     });
   },
@@ -162,7 +162,7 @@ export const chatApi = {
       method: "POST",
       body: formData,
       headers: {
-        "Idempotency-Key": `idem-${Date.now()}`,
+        "Idempotency-Key": crypto.randomUUID(),
       },
     });
   },

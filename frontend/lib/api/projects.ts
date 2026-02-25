@@ -129,7 +129,7 @@ export const projectsApi = {
 
   async updateProject(
     projectId: string,
-    data: Partial<ProjectRequest>
+    data: ProjectRequest
   ): Promise<ProjectResponse> {
     if (MOCK_MODE) {
       await new Promise((resolve) => setTimeout(resolve, 500));

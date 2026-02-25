@@ -43,6 +43,8 @@ export const TokenStorage = {
       if (expiresIn) {
         const expiryTime = Date.now() + expiresIn * 1000;
         localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiryTime));
+      } else {
+        localStorage.removeItem(TOKEN_EXPIRY_KEY);
       }
     } catch (error) {
       console.error("Failed to set access token:", error);
@@ -210,16 +212,26 @@ export const authService = {
 
     if (!data.password) {
       validationErrors.push({ field: "password", message: "密码不能为空" });
-    } else if (data.password.length < 6) {
-      validationErrors.push({ field: "password", message: "密码长度至少6位" });
+    } else if (data.password.length < 8) {
+      validationErrors.push({ field: "password", message: "密码长度至少8位" });
     }
 
     if (!data.username) {
       validationErrors.push({ field: "username", message: "用户名不能为空" });
-    } else if (data.username.length < 2) {
+    } else if (data.username.length < 3) {
       validationErrors.push({
         field: "username",
-        message: "用户名至少2个字符",
+        message: "用户名至少3个字符",
+      });
+    } else if (data.username.length > 50) {
+      validationErrors.push({
+        field: "username",
+        message: "用户名不能超过50个字符",
+      });
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(data.username)) {
+      validationErrors.push({
+        field: "username",
+        message: "用户名只能包含字母、数字、下划线和连字符",
       });
     }
 

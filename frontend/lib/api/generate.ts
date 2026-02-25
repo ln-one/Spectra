@@ -12,6 +12,7 @@
  */
 
 import { request, getApiUrl } from "./client";
+import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
 export type GenerateRequest = components["schemas"]["GenerateRequest"];
@@ -63,7 +64,7 @@ export const generateApi = {
       method: "POST",
       body: JSON.stringify(data),
       headers: {
-        "Idempotency-Key": `idem-${Date.now()}`,
+        "Idempotency-Key": crypto.randomUUID(),
       },
     });
   },
@@ -123,14 +124,17 @@ export const generateApi = {
       });
     }
 
-    const token = localStorage.getItem("access_token");
+    const token = TokenStorage.getAccessToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(
       getApiUrl(`/generate/tasks/${taskId}/download?file_type=${fileType}`),
       {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
       }
     );
 

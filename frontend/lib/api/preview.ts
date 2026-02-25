@@ -120,7 +120,7 @@ export const previewApi = {
       method: "POST",
       body: JSON.stringify(data),
       headers: {
-        "Idempotency-Key": `idem-${Date.now()}`,
+        "Idempotency-Key": crypto.randomUUID(),
       },
     });
   },

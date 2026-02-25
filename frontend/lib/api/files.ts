@@ -21,6 +21,31 @@ export type UpdateFileIntentResponse =
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
+const FILE_TYPE_MAP: Record<string, UploadedFile["file_type"]> = {
+  pdf: "pdf",
+  doc: "word",
+  docx: "word",
+  ppt: "ppt",
+  pptx: "ppt",
+  mp4: "video",
+  webm: "video",
+  avi: "video",
+  mov: "video",
+  jpg: "image",
+  jpeg: "image",
+  png: "image",
+  gif: "image",
+  webp: "image",
+  svg: "image",
+};
+
+function getFileTypeFromExtension(
+  extension: string
+): UploadedFile["file_type"] {
+  const ext = extension.toLowerCase();
+  return FILE_TYPE_MAP[ext] || "pdf";
+}
+
 const mockFiles: UploadedFile[] = [
   {
     id: "file-1",
@@ -85,11 +110,13 @@ export const filesApi = {
       if (onProgress) {
         onProgress(100);
       }
-      const fileType = file.name.split(".").pop() || "unknown";
+      const fileType = getFileTypeFromExtension(
+        file.name.split(".").pop() || ""
+      );
       const newFile: UploadedFile = {
         id: `file-${Date.now()}`,
         filename: file.name,
-        file_type: fileType as UploadedFile["file_type"],
+        file_type: fileType,
         mime_type: file.type,
         file_size: file.size,
         status: "ready",

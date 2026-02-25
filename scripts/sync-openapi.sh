@@ -25,7 +25,8 @@ fi
 
 # 转换为 YAML（如果需要）
 if command -v yq &> /dev/null; then
-    TEMP_YAML="$(mktemp).yaml"
+    TEMP_YAML=$(mktemp)
+    TEMP_YAML="${TEMP_YAML}.yaml"
     yq eval -P "${TEMP_JSON}" > "${TEMP_YAML}"
     echo "✅ FastAPI OpenAPI 已保存到: ${TEMP_YAML}"
 else
