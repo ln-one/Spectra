@@ -10,6 +10,7 @@ from typing import Optional
 
 import chromadb
 from chromadb.api.models.Collection import Collection
+from chromadb.errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +78,12 @@ class VectorService:
             self.client.delete_collection(name=name)
             logger.info(f"Collection deleted: {name}")
             return True
-        except Exception:
+        except NotFoundError:
             logger.warning(f"Collection not found: {name}")
             return False
+        except Exception:
+            logger.error("Failed to delete collection: %s", name, exc_info=True)
+            raise
 
     def health_check(self) -> bool:
         """

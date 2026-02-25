@@ -5,6 +5,7 @@ VectorService 单元测试
 """
 
 import pytest
+from chromadb.errors import InternalError
 
 from services.vector_service import VectorService
 
@@ -42,6 +43,15 @@ class TestVectorService:
 
     def test_delete_nonexistent_collection(self, svc):
         assert svc.delete_collection("nonexistent") is False
+
+    def test_delete_collection_unexpected_error_raises(self, svc, monkeypatch):
+        def _raise_internal_error(name):
+            raise InternalError("boom")
+
+        monkeypatch.setattr(svc.client, "delete_collection", _raise_internal_error)
+
+        with pytest.raises(InternalError):
+            svc.delete_collection("proj-error")
 
     def test_add_and_query(self, svc):
         """基本的文档添加和查询"""
