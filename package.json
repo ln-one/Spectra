@@ -11,7 +11,7 @@
     "pre-commit:full": "node scripts/pre-commit.js",
     "pre-commit:quick": "node scripts/pre-commit-quick.js",
     "pre-push": "node scripts/pre-push.js",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "devDependencies": {
     "@redocly/cli": "^1.0.0",
