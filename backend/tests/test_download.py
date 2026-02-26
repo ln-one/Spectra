@@ -33,9 +33,7 @@ def _as_user():
 
 
 def _mock_db(monkeypatch, task=None, project=None):
-    monkeypatch.setattr(
-        db_service, "get_generation_task", AsyncMock(return_value=task)
-    )
+    monkeypatch.setattr(db_service, "get_generation_task", AsyncMock(return_value=task))
     monkeypatch.setattr(db_service, "get_project", AsyncMock(return_value=project))
 
 
@@ -78,9 +76,7 @@ def test_download_forbidden_403(client, monkeypatch):
 
 
 def test_download_task_not_completed_400(client, monkeypatch):
-    _mock_db(
-        monkeypatch, task=_fake_task(status="pending"), project=_fake_project()
-    )
+    _mock_db(monkeypatch, task=_fake_task(status="pending"), project=_fake_project())
 
     resp = client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=ppt")
     assert resp.status_code == 400
@@ -96,7 +92,5 @@ def test_download_file_missing_404(client, tmp_path, monkeypatch):
 
 
 def test_download_invalid_file_type_400(client):
-    resp = client.get(
-        f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=invalid"
-    )
+    resp = client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=invalid")
     assert resp.status_code == 400

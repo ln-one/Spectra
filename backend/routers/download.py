@@ -15,6 +15,9 @@ from fastapi.responses import FileResponse
 from services.database import db_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.filename_utils import safe_filename_for_header
+from utils.dependencies import get_current_user
+from utils.exceptions import APIException, ForbiddenException, NotFoundException
 from utils.file_utils import safe_path_join, validate_file_exists
 
 router = APIRouter(prefix="/generate/tasks", tags=["Generate"])
@@ -64,7 +67,10 @@ async def download_courseware(
                 "application/vnd.openxmlformats-officedocument"
                 ".presentationml.presentation"
             )
-            filename = f"{project.name or 'courseware'}_{task_id}.pptx"
+            # 生成安全的文件名
+            base_name = project.name or 'courseware'
+            safe_name = safe_filename_for_header(f"{base_name}_{task_id}")
+            filename = f"{safe_name}.pptx"
         else:
             file_path = safe_path_join(
                 generated_dir, f"{safe_task_id}_lesson_plan.docx"
@@ -73,7 +79,10 @@ async def download_courseware(
                 "application/vnd.openxmlformats-officedocument"
                 ".wordprocessingml.document"
             )
-            filename = f"{project.name or 'courseware'}_lesson_plan_{task_id}.docx"
+            # 生成安全的文件名
+            base_name = project.name or 'courseware'
+            safe_name = safe_filename_for_header(f"{base_name}_lesson_plan_{task_id}")
+            filename = f"{safe_name}.docx"
 
         # 检查文件存在且有效
         if not validate_file_exists(file_path, min_size=1):
