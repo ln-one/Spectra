@@ -115,18 +115,6 @@ jobs:
 
           echo "id=$(echo "$RESULT" | jq -r '.data.createProjectV2Field.projectV2Field.id')" \
             >> "$GITHUB_OUTPUT"
-          echo "backlog_id=$(echo "$RESULT" | jq -r \
-            '.data.createProjectV2Field.projectV2Field.options[] | select(.name=="Backlog") | .id')" \
-            >> "$GITHUB_OUTPUT"
-          echo "ready_id=$(echo "$RESULT" | jq -r \
-            '.data.createProjectV2Field.projectV2Field.options[] | select(.name=="Ready") | .id')" \
-            >> "$GITHUB_OUTPUT"
-          echo "in_review_id=$(echo "$RESULT" | jq -r \
-            '.data.createProjectV2Field.projectV2Field.options[] | select(.name=="In review") | .id')" \
-            >> "$GITHUB_OUTPUT"
-          echo "done_id=$(echo "$RESULT" | jq -r \
-            '.data.createProjectV2Field.projectV2Field.options[] | select(.name=="Done") | .id')" \
-            >> "$GITHUB_OUTPUT"
 
       - name: Add Priority field
         run: |
