@@ -17,6 +17,7 @@ const runCommand = (command, cwd) => {
 
 const frontendDir = path.join(__dirname, '..', 'frontend');
 const backendDir = path.join(__dirname, '..', 'backend');
+const rootDir = path.join(__dirname, '..');
 
 console.log('🔍 Running pre-commit checks...\n');
 
@@ -27,7 +28,7 @@ if (!runCommand('npm run format', frontendDir)) process.exit(1);
 
 // Add formatted files back to staging area
 console.log('  ├─ Adding formatted files to staging...');
-if (!runCommand('git add frontend/', '.')) process.exit(1);
+if (!runCommand('git add frontend/', rootDir)) process.exit(1);
 
 console.log('  ├─ Linting...');
 if (!runCommand('npm run lint', frontendDir)) process.exit(1);
@@ -45,7 +46,7 @@ if (!runCommand('isort .', backendDir)) process.exit(1);
 
 // Add formatted files back to staging area
 console.log('  ├─ Adding formatted files to staging...');
-if (!runCommand('git add backend/', '.')) process.exit(1);
+if (!runCommand('git add backend/', rootDir)) process.exit(1);
 
 console.log('  ├─ Linting (flake8)...');
 if (!runCommand('flake8 .', backendDir)) process.exit(1);
