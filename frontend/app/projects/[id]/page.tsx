@@ -61,7 +61,10 @@ export default function ProjectDetailPage() {
           projectsApi.getProject(projectId),
           filesApi.getProjectFiles(projectId),
         ]);
-        setProject(projectRes.data);
+        const projectData = projectRes.data.project;
+        if (projectData) {
+          setProject(projectData);
+        }
         setFiles(filesRes.data.files || []);
       } catch (error) {
         console.error("Failed to fetch project:", error);
@@ -191,7 +194,9 @@ export default function ProjectDetailPage() {
                         <p>开始与 AI 助手指引您的教学需求</p>
                         <Button
                           className="mt-4"
-                          onClick={() => router.push(`/projects/${projectId}/chat`)}
+                          onClick={() =>
+                            router.push(`/projects/${projectId}/chat`)
+                          }
                         >
                           开始对话
                         </Button>
@@ -235,9 +240,12 @@ export default function ProjectDetailPage() {
                               <div className="flex items-center gap-3">
                                 <FileText className="h-5 w-5 text-muted-foreground" />
                                 <div>
-                                  <p className="text-sm font-medium">{file.filename}</p>
+                                  <p className="text-sm font-medium">
+                                    {file.filename}
+                                  </p>
                                   <p className="text-xs text-muted-foreground">
-                                    {formatFileSize(file.file_size)} · {file.file_type}
+                                    {formatFileSize(file.file_size)} ·{" "}
+                                    {file.file_type}
                                   </p>
                                 </div>
                               </div>

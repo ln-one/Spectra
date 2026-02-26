@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { projectApi } from "@/lib/api";
+import { projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +33,7 @@ export default function ProjectsPage() {
 
     const fetchProjects = async () => {
       try {
-        const response = await projectApi.getProjects();
+        const response = await projectsApi.getProjects();
         setProjects(response.data.projects || []);
       } catch (error) {
         console.error("Failed to fetch projects:", error);
@@ -79,7 +79,9 @@ export default function ProjectsPage() {
           <CardContent className="flex flex-col items-center justify-center py-16">
             <FileText className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">暂无项目</h3>
-            <p className="text-muted-foreground mb-6">创建您的第一个课件项目开始使用</p>
+            <p className="text-muted-foreground mb-6">
+              创建您的第一个课件项目开始使用
+            </p>
             <Button onClick={() => router.push("/projects/new")}>
               <Plus className="mr-2 h-4 w-4" />
               创建项目

@@ -2,13 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { projectApi } from "@/lib/api";
+import { projectsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
 
 export default function NewProjectPage() {
@@ -26,13 +38,12 @@ export default function NewProjectPage() {
     setIsLoading(true);
 
     try {
-      const response = await projectApi.createProject({
+      const response = await projectsApi.createProject({
         name: formData.name,
         description: formData.description,
-        subject: formData.subject,
         grade_level: formData.grade_level,
       });
-      router.push(`/projects/${response.data.id}`);
+      router.push(`/projects/${response.data.project?.id}`);
     } catch (error) {
       console.error("Failed to create project:", error);
       setIsLoading(false);
@@ -63,7 +74,9 @@ export default function NewProjectPage() {
                 id="name"
                 placeholder="例如：初中数学二次函数"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 required
               />
             </div>
@@ -73,7 +86,9 @@ export default function NewProjectPage() {
                 <Label htmlFor="grade_level">学段 *</Label>
                 <Select
                   value={formData.grade_level}
-                  onValueChange={(value) => setFormData({ ...formData, grade_level: value })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, grade_level: value })
+                  }
                   required
                 >
                   <SelectTrigger>
@@ -92,7 +107,9 @@ export default function NewProjectPage() {
                 <Label htmlFor="subject">学科 *</Label>
                 <Select
                   value={formData.subject}
-                  onValueChange={(value) => setFormData({ ...formData, subject: value })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, subject: value })
+                  }
                   required
                 >
                   <SelectTrigger>
@@ -120,7 +137,9 @@ export default function NewProjectPage() {
                 id="description"
                 placeholder="描述您的教学目标和内容需求..."
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 rows={4}
               />
             </div>

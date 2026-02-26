@@ -2,13 +2,20 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { chatApi, projectApi } from "@/lib/api";
+import { chatApi, projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Mic, MicOff, ChevronLeft, FileText, Loader2 } from "lucide-react";
+import {
+  Send,
+  Mic,
+  MicOff,
+  ChevronLeft,
+  FileText,
+  Loader2,
+} from "lucide-react";
 
 interface Message {
   id: string;
@@ -50,8 +57,11 @@ export default function ProjectChatPage() {
 
     const fetchProject = async () => {
       try {
-        const res = await projectApi.getProject(projectId);
-        setProject(res.data);
+        const res = await projectsApi.getProject(projectId);
+        const projectData = res.data.project;
+        if (projectData) {
+          setProject(projectData);
+        }
       } catch (error) {
         console.error("Failed to fetch project:", error);
       }
@@ -81,14 +91,13 @@ export default function ProjectChatPage() {
     try {
       const response = await chatApi.sendMessage({
         project_id: projectId,
-        message: userMessage.content,
+        content: userMessage.content,
       });
 
       const assistantMessage: Message = {
         id: `msg-${Date.now()}-assistant`,
         role: "assistant",
-        content: response.data.message,
-        sources: response.data.sources,
+        content: response.data.message?.content || "",
         created_at: new Date().toISOString(),
       };
 
@@ -148,7 +157,9 @@ export default function ProjectChatPage() {
       <main className="flex-1 flex flex-col">
         <div className="border-b p-4">
           <h1 className="text-lg font-semibold">对话</h1>
-          <p className="text-sm text-muted-foreground">与 AI 助手描述您的教学需求</p>
+          <p className="text-sm text-muted-foreground">
+            与 AI 助手描述您的教学需求
+          </p>
         </div>
 
         <ScrollArea className="flex-1 p-4">
@@ -173,21 +184,25 @@ export default function ProjectChatPage() {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <Card
-                  className={`max-w-[80%] ${message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
-                    }`}
+                  className={`max-w-[80%] ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  }`}
                 >
                   <div className="p-4">
                     <p className="whitespace-pre-wrap">{message.content}</p>
                     {message.sources && message.sources.length > 0 && (
                       <div className="mt-3 pt-3 border-t border">
-                        <p className="text-opacity-20-xs opacity-70 mb-2">参考来源：</p>
+                        <p className="text-opacity-20-xs opacity-70 mb-2">
+                          参考来源：
+                        </p>
                         <div className="space-y-1">
                           {message.sources.map((source, idx) => (
                             <p key={idx} className="text-xs opacity-70">
                               • {source.filename}
-                              {source.page_number && ` (第${source.page_number}页)`}
+                              {source.page_number &&
+                                ` (第${source.page_number}页)`}
                             </p>
                           ))}
                         </div>
@@ -206,7 +221,9 @@ export default function ProjectChatPage() {
                 <Card className="bg-muted">
                   <div className="p-4 flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">AI 正在思考...</span>
+                    <span className="text-sm text-muted-foreground">
+                      AI 正在思考...
+                    </span>
                   </div>
                 </Card>
               </div>
@@ -224,7 +241,11 @@ export default function ProjectChatPage() {
               onClick={toggleRecording}
               className={isRecording ? "bg-red-100 text-red-600" : ""}
             >
-              {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              {isRecording ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
             </Button>
             <Input
               ref={inputRef}

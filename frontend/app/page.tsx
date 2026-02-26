@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { projectApi } from "@/lib/api";
+import { projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,7 +55,7 @@ export default function DashboardPage() {
 
     const fetchData = async () => {
       try {
-        const response = await projectApi.getProjects();
+        const response = await projectsApi.getProjects();
         const projects = response.data.projects || [];
 
         setStats({
@@ -74,7 +74,9 @@ export default function DashboardPage() {
   }, [router]);
 
   const handleFileUpload = async (_files: File[]) => {
-    console.warn("File upload handler not implemented - requires project selection");
+    console.warn(
+      "File upload handler not implemented - requires project selection"
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -226,7 +228,9 @@ export default function DashboardPage() {
                           onClick={() => router.push(`/projects/${project.id}`)}
                         >
                           <div className="flex items-start justify-between mb-2">
-                            <h3 className="font-medium truncate">{project.name}</h3>
+                            <h3 className="font-medium truncate">
+                              {project.name}
+                            </h3>
                             <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           </div>
                           {project.subject && (

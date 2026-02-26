@@ -8,21 +8,34 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, ChevronRight, Download, Loader2, MessageSquare } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Loader2,
+  MessageSquare,
+} from "lucide-react";
 
 interface Slide {
   id: string;
-  page_number: number;
+  index: number;
   title: string;
   content: string;
-  image_url?: string;
+  sources?: Array<{
+    chunk_id: string;
+    source_type: "video" | "document" | "ai_generated";
+    filename: string;
+    page_number?: number;
+    timestamp?: string;
+    preview_text?: string;
+  }>;
 }
 
 interface PreviewData {
-  task_id: string;
-  status: string;
-  slides: Slide[];
-  current_slide: number;
+  task_id?: string;
+  status?: string;
+  slides?: Slide[];
+  current_slide?: number;
   word_url?: string;
 }
 
@@ -46,8 +59,13 @@ export default function ProjectPreviewPage() {
     const fetchPreview = async () => {
       try {
         const res = await previewApi.getPreview(projectId);
-        setPreview(res.data);
-        setCurrentSlide(res.data.current_slide || 0);
+        const previewData: PreviewData = {
+          task_id: res.data.task_id,
+          slides: res.data.slides || [],
+          current_slide: 0,
+        };
+        setPreview(previewData);
+        setCurrentSlide(0);
       } catch (error) {
         console.error("Failed to fetch preview:", error);
       } finally {
@@ -66,11 +84,22 @@ export default function ProjectPreviewPage() {
         type: "ppt",
       });
 
+      const taskId = res.data.task_id;
+      if (!taskId) {
+        setIsGenerating(false);
+        return;
+      }
+
       const pollStatus = async () => {
-        const statusRes = await generateApi.getStatus(res.data.task_id);
+        const statusRes = await generateApi.getGenerateStatus(taskId);
         if (statusRes.data.status === "completed") {
           const previewRes = await previewApi.getPreview(projectId);
-          setPreview(previewRes.data);
+          const previewData: PreviewData = {
+            task_id: previewRes.data.task_id,
+            slides: previewRes.data.slides || [],
+            current_slide: 0,
+          };
+          setPreview(previewData);
           setIsGenerating(false);
         } else if (statusRes.data.status === "failed") {
           setIsGenerating(false);
@@ -93,7 +122,7 @@ export default function ProjectPreviewPage() {
   };
 
   const handleNextSlide = () => {
-    if (preview && currentSlide < preview.slides.length - 1) {
+    if (preview && preview.slides && currentSlide < preview.slides.length - 1) {
       setCurrentSlide(currentSlide + 1);
     }
   };
@@ -102,7 +131,9 @@ export default function ProjectPreviewPage() {
     if (!preview) return;
 
     try {
-      const response = await generateApi.downloadCourseware(preview.task_id, fileType);
+      const taskId = preview.task_id;
+      if (!taskId) return;
+      const response = await generateApi.downloadCourseware(taskId, fileType);
       const url = window.URL.createObjectURL(response);
       const link = document.createElement("a");
       link.href = url;
@@ -139,7 +170,10 @@ export default function ProjectPreviewPage() {
           <h2 className="font-semibold">预览</h2>
         </div>
         <div className="p-4">
-          <Button className="w-full mb-2" onClick={() => router.push(`/projects/${projectId}/chat`)}>
+          <Button
+            className="w-full mb-2"
+            onClick={() => router.push(`/projects/${projectId}/chat`)}
+          >
             <MessageSquare className="mr-2 h-4 w-4" />
             修改
           </Button>
@@ -154,7 +188,7 @@ export default function ProjectPreviewPage() {
       </aside>
 
       <main className="flex-1 flex flex-col">
-        {!preview || preview.slides.length === 0 ? (
+        {!preview || !preview.slides || preview.slides.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <Card className="w-full max-w-md m-8">
               <CardHeader>
@@ -184,11 +218,11 @@ export default function ProjectPreviewPage() {
                 <Card className="w-full max-w-4xl aspect-video flex items-center justify-center">
                   <CardContent className="text-center p-8">
                     <h2 className="text-2xl font-bold mb-4">
-                      {preview.slides[currentSlide]?.title}
+                      {preview.slides?.[currentSlide]?.title}
                     </h2>
-                    <p className="text-muted-foreground whitespace-pre-wrap">
-                      {preview.slides[currentSlide]?.content}
-                    </p>
+                    <div className="prose prose-sm max-w-none">
+                      {preview.slides?.[currentSlide]?.content}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -196,22 +230,33 @@ export default function ProjectPreviewPage() {
               <div className="w-80 border-l bg-card p-4">
                 <Tabs defaultValue="slides">
                   <TabsList className="w-full">
-                    <TabsTrigger value="slides" className="flex-1">幻灯片</TabsTrigger>
-                    <TabsTrigger value="sources" className="flex-1">来源</TabsTrigger>
+                    <TabsTrigger value="slides" className="flex-1">
+                      幻灯片
+                    </TabsTrigger>
+                    <TabsTrigger value="sources" className="flex-1">
+                      来源
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="slides" className="mt-4">
                     <ScrollArea className="h-[calc(100vh-200px)]">
                       <div className="space-y-2">
-                        {preview.slides.map((slide, idx) => (
+                        {preview.slides?.map((slide, idx) => (
                           <div
                             key={slide.id}
-                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${idx === currentSlide ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                              }`}
+                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                              idx === currentSlide
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-muted"
+                            }`}
                             onClick={() => setCurrentSlide(idx)}
                           >
-                            <p className="font-medium text-sm">第 {slide.page_number} 页</p>
-                            <p className="text-xs opacity-70 truncate">{slide.title}</p>
+                            <p className="font-medium text-sm">
+                              第 {slide.index} 页
+                            </p>
+                            <p className="text-xs opacity-70 truncate">
+                              {slide.title}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -219,30 +264,42 @@ export default function ProjectPreviewPage() {
                   </TabsContent>
 
                   <TabsContent value="sources" className="mt-4">
-                    <p className="text-sm text-muted-foreground">内容来源信息</p>
+                    <p className="text-sm text-muted-foreground">
+                      内容来源信息
+                    </p>
                   </TabsContent>
                 </Tabs>
               </div>
             </div>
 
             <div className="border-t p-4 flex items-center justify-between">
-              <Button variant="outline" onClick={handlePrevSlide} disabled={currentSlide === 0}>
+              <Button
+                variant="outline"
+                onClick={handlePrevSlide}
+                disabled={currentSlide === 0}
+              >
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 上一页
               </Button>
               <span className="text-sm text-muted-foreground">
-                {currentSlide + 1} / {preview.slides.length}
+                {currentSlide + 1} / {preview.slides?.length || 0}
               </span>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => handleDownload("ppt")}>
                   <Download className="h-4 w-4 mr-1" />
                   PPT
                 </Button>
-                <Button variant="outline" onClick={() => handleDownload("word")}>
+                <Button
+                  variant="outline"
+                  onClick={() => handleDownload("word")}
+                >
                   <Download className="h-4 w-4 mr-1" />
                   Word
                 </Button>
-                <Button onClick={handleNextSlide} disabled={currentSlide >= preview.slides.length - 1}>
+                <Button
+                  onClick={handleNextSlide}
+                  disabled={currentSlide >= (preview.slides?.length || 0) - 1}
+                >
                   下一页
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>

@@ -21,10 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const registerSchema = z
   .object({
-    email: z
-      .string()
-      .min(1, "请输入邮箱")
-      .email("请输入有效的邮箱地址"),
+    email: z.string().min(1, "请输入邮箱").email("请输入有效的邮箱地址"),
     username: z
       .string()
       .min(3, "用户名至少3个字符")
@@ -34,10 +31,7 @@ const registerSchema = z
     password: z
       .string()
       .min(8, "密码至少8个字符")
-      .regex(
-        /^(?=.*[a-zA-Z])(?=.*\d)/,
-        "密码必须包含字母和数字"
-      ),
+      .regex(/^(?=.*[a-zA-Z])(?=.*\d)/, "密码必须包含字母和数字"),
     confirmPassword: z.string().min(1, "请确认密码"),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -119,7 +113,9 @@ export default function RegisterPage() {
                 disabled={isLoading}
               />
               {errors.username && (
-                <p className="text-sm text-red-500">{errors.username.message}</p>
+                <p className="text-sm text-red-500">
+                  {errors.username.message}
+                </p>
               )}
             </div>
 
@@ -133,7 +129,9 @@ export default function RegisterPage() {
                 disabled={isLoading}
               />
               {errors.fullName && (
-                <p className="text-sm text-red-500">{errors.fullName.message}</p>
+                <p className="text-sm text-red-500">
+                  {errors.fullName.message}
+                </p>
               )}
             </div>
 
@@ -147,7 +145,9 @@ export default function RegisterPage() {
                 disabled={isLoading}
               />
               {errors.password && (
-                <p className="text-sm text-red-500">{errors.password.message}</p>
+                <p className="text-sm text-red-500">
+                  {errors.password.message}
+                </p>
               )}
             </div>
 

@@ -2,14 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { projectApi } from "@/lib/api";
+import { projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ChevronLeft, Trash2, Loader2 } from "lucide-react";
 
 interface Project {
@@ -48,13 +60,18 @@ export default function ProjectSettingsPage() {
 
     const fetchProject = async () => {
       try {
-        const res = await projectApi.getProject(projectId);
-        const projectData = res.data;
+        const res = await projectsApi.getProject(projectId);
+        const projectData = res.data.project;
+        if (!projectData) {
+          console.error("Project not found");
+          setIsLoading(false);
+          return;
+        }
         setProject(projectData);
         setFormData({
           name: projectData.name,
           description: projectData.description || "",
-          subject: projectData.subject || "",
+          subject: "",
           grade_level: projectData.grade_level || "",
         });
       } catch (error) {
@@ -70,10 +87,9 @@ export default function ProjectSettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await projectApi.updateProject(projectId, {
+      await projectsApi.updateProject(projectId, {
         name: formData.name,
         description: formData.description,
-        subject: formData.subject,
         grade_level: formData.grade_level,
       });
       alert("保存成功");
@@ -92,7 +108,7 @@ export default function ProjectSettingsPage() {
 
     setIsDeleting(true);
     try {
-      await projectApi.deleteProject(projectId);
+      await projectsApi.deleteProject(projectId);
       router.push("/projects");
     } catch (error) {
       console.error("Failed to delete project:", error);
@@ -148,7 +164,9 @@ export default function ProjectSettingsPage() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -158,7 +176,9 @@ export default function ProjectSettingsPage() {
                   <Label htmlFor="grade_level">学段 *</Label>
                   <Select
                     value={formData.grade_level}
-                    onValueChange={(value) => setFormData({ ...formData, grade_level: value })}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, grade_level: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="选择学段" />
@@ -176,7 +196,9 @@ export default function ProjectSettingsPage() {
                   <Label htmlFor="subject">学科 *</Label>
                   <Select
                     value={formData.subject}
-                    onValueChange={(value) => setFormData({ ...formData, subject: value })}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, subject: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="选择学科" />
@@ -202,7 +224,9 @@ export default function ProjectSettingsPage() {
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   rows={4}
                 />
               </div>
@@ -221,7 +245,11 @@ export default function ProjectSettingsPage() {
               <CardDescription>删除项目是一项不可恢复的操作</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 {isDeleting ? "删除中..." : "删除项目"}
               </Button>

@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { projectApi, generateApi } from "@/lib/api";
+import { projectsApi, generateApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -24,7 +30,9 @@ export default function ProjectGeneratePage() {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationType, setGenerationType] = useState<"ppt" | "word" | "both">("ppt");
+  const [generationType, setGenerationType] = useState<"ppt" | "word" | "both">(
+    "ppt"
+  );
   const [progress, setProgress] = useState(0);
   const [taskId, setTaskId] = useState<string | null>(null);
 
@@ -37,8 +45,11 @@ export default function ProjectGeneratePage() {
 
     const fetchProject = async () => {
       try {
-        const res = await projectApi.getProject(projectId);
-        setProject(res.data);
+        const res = await projectsApi.getProject(projectId);
+        const projectData = res.data.project;
+        if (projectData) {
+          setProject(projectData);
+        }
       } catch (error) {
         console.error("Failed to fetch project:", error);
       } finally {
@@ -59,17 +70,19 @@ export default function ProjectGeneratePage() {
         type: generationType,
       });
 
-      setTaskId(res.data.task_id);
+      if (res.data.task_id) {
+        setTaskId(res.data.task_id);
+      }
       setProgress(30);
 
       const pollStatus = async () => {
         if (!taskId) return;
 
         try {
-          const statusRes = await generateApi.getStatus(taskId);
-          const status = statusRes.data.status;
+          const statusRes = await generateApi.getGenerateStatus(taskId);
+          const status = statusRes.data.status || "pending";
           const progressMap: Record<string, number> = {
-            pending: 30,
+            pending: 10,
             processing: 50,
             analyzing: 70,
             generating: 85,
@@ -130,9 +143,7 @@ export default function ProjectGeneratePage() {
               <Sparkles className="h-5 w-5" />
               生成课件
             </CardTitle>
-            <CardDescription>
-              选择要生成的课件类型和格式
-            </CardDescription>
+            <CardDescription>选择要生成的课件类型和格式</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {!isGenerating ? (
@@ -141,20 +152,28 @@ export default function ProjectGeneratePage() {
                   <Label>课件类型</Label>
                   <RadioGroup
                     value={generationType}
-                    onValueChange={(value) => setGenerationType(value as "ppt" | "word" | "both")}
+                    onValueChange={(value: string) =>
+                      setGenerationType(value as "ppt" | "word" | "both")
+                    }
                     className="flex flex-col space-y-1"
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="ppt" id="ppt" />
-                      <Label htmlFor="ppt" className="font-normal">PPT 演示文稿</Label>
+                      <Label htmlFor="ppt" className="font-normal">
+                        PPT 演示文稿
+                      </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="word" id="word" />
-                      <Label htmlFor="word" className="font-normal">Word 教案</Label>
+                      <Label htmlFor="word" className="font-normal">
+                        Word 教案
+                      </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="both" id="both" />
-                      <Label htmlFor="both" className="font-normal">PPT + Word (全套)</Label>
+                      <Label htmlFor="both" className="font-normal">
+                        PPT + Word (全套)
+                      </Label>
                     </div>
                   </RadioGroup>
                 </div>
