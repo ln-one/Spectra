@@ -4,27 +4,88 @@ on:
   push:
     branches: [ main, develop ]
     paths-ignore:
+      # Documentation
       - '**.md'
       - 'docs/**'
+      - 'LICENSE'
+      - 'SECURITY.md'
+      - '*.md'
+      
+      # AI/IDE configuration
       - '.cursorrules'
       - '**/.cursorrules'
       - '.kiro/**'
       - '.ai/**'
-      - 'scripts/check-ai-docs.sh'
+      - '.vscode/**'
+      
+      # Git configuration
       - '.gitignore'
-      - 'LICENSE'
+      - '.gitattributes'
+      - '.editorconfig'
+      
+      # CI/CD scripts (not the workflows themselves)
+      - 'scripts/check-ai-docs.sh'
+      
+      # Editor/IDE files
+      - '.DS_Store'
+      - '**/.DS_Store'
+      
+      # Generated/temporary files
+      - 'generated/**'
+      - 'uploads/**'
+      - 'templates/**'
+      - 'backend/temp/**'
+      - 'backend/uploads/**'
+      - 'backend/generated/**'
+      
+      # Config files that don't affect code
+      - '.nvmrc'
+      - '.npmrc'
+      - '.dockerignore'
+      - '.redocly.yaml'
+      
   pull_request:
     branches: [ main, develop ]
     paths-ignore:
+      # Documentation
       - '**.md'
       - 'docs/**'
+      - 'LICENSE'
+      - 'SECURITY.md'
+      - '*.md'
+      
+      # AI/IDE configuration
       - '.cursorrules'
       - '**/.cursorrules'
       - '.kiro/**'
       - '.ai/**'
-      - 'scripts/check-ai-docs.sh'
+      - '.vscode/**'
+      
+      # Git configuration
       - '.gitignore'
-      - 'LICENSE'
+      - '.gitattributes'
+      - '.editorconfig'
+      
+      # CI/CD scripts (not the workflows themselves)
+      - 'scripts/check-ai-docs.sh'
+      
+      # Editor/IDE files
+      - '.DS_Store'
+      - '**/.DS_Store'
+      
+      # Generated/temporary files
+      - 'generated/**'
+      - 'uploads/**'
+      - 'templates/**'
+      - 'backend/temp/**'
+      - 'backend/uploads/**'
+      - 'backend/generated/**'
+      
+      # Config files that don't affect code
+      - '.nvmrc'
+      - '.npmrc'
+      - '.dockerignore'
+      - '.redocly.yaml'
 
 jobs:
   frontend:
