@@ -46,7 +46,7 @@ class CoursewareAIMixin:
             template_style, STYLE_REQUIREMENTS["default"]
         )
 
-        prompt = f"""你是一位高级学科教学设计师。请根据以下教学需求生成课件大纲。
+        prompt = f"""你是一位资深学科教学设计师。请根据以下教学需求生成课件大纲。
 {rag_hint}
 教学需求：{user_requirements}
 模板风格：{template_style} - {style_desc}
@@ -76,6 +76,9 @@ class CoursewareAIMixin:
 
             parsed = json.loads(json_match.group())
             sections = [OutlineSection(**s) for s in parsed.get("sections", [])]
+            if not sections:
+                raise ValueError("LLM returned empty sections list")
+            # +2 accounts for the title slide and summary/closing slide
             total = sum(s.slide_count for s in sections) + 2
 
             return CoursewareOutline(
@@ -119,7 +122,6 @@ class CoursewareAIMixin:
             summary="基础教学大纲",
         )
 
-    # APPEND_MARKER
 
     async def extract_structured_content(
         self,
@@ -225,7 +227,6 @@ class CoursewareAIMixin:
             )
             return self._get_fallback_courseware(user_requirements)
 
-    # APPEND_MARKER_2
 
     def _parse_courseware_response(
         self, content: str, user_requirements: str
