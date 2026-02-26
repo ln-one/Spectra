@@ -7,6 +7,10 @@ on:
       - '**.md'
       - 'docs/**'
       - '.cursorrules'
+      - '**/.cursorrules'
+      - '.kiro/**'
+      - '.ai/**'
+      - 'scripts/check-ai-docs.sh'
       - '.gitignore'
       - 'LICENSE'
   pull_request:
@@ -15,6 +19,10 @@ on:
       - '**.md'
       - 'docs/**'
       - '.cursorrules'
+      - '**/.cursorrules'
+      - '.kiro/**'
+      - '.ai/**'
+      - 'scripts/check-ai-docs.sh'
       - '.gitignore'
       - 'LICENSE'
 
