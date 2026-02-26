@@ -151,8 +151,8 @@ export const authService = {
 
     if (!password) {
       validationErrors.push({ field: "password", message: "密码不能为空" });
-    } else if (password.length < 6) {
-      validationErrors.push({ field: "password", message: "密码长度至少6位" });
+    } else if (password.length < 8) {
+      validationErrors.push({ field: "password", message: "密码长度至少8位" });
     }
 
     if (validationErrors.length > 0) {
