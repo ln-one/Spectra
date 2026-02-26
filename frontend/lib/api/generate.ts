@@ -111,14 +111,14 @@ export const generateApi = {
    */
   async downloadCourseware(
     taskId: string,
-    fileType: "ppt" | "word"
+    fileType: "pptx" | "docx"
   ): Promise<Blob> {
     if (MOCK_MODE) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const content = `Mock ${fileType.toUpperCase()} file content for task ${taskId}`;
       return new Blob([content], {
         type:
-          fileType === "ppt"
+          fileType === "pptx"
             ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
             : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
@@ -131,7 +131,7 @@ export const generateApi = {
     }
 
     const response = await fetch(
-      getApiUrl(`/generate/tasks/${taskId}/download?file_type=${fileType}`),
+      getApiUrl(`/files/download/${taskId}/${fileType}`),
       {
         method: "GET",
         headers,
@@ -153,7 +153,7 @@ export const generateApi = {
    */
   async triggerDownload(
     taskId: string,
-    fileType: "ppt" | "word",
+    fileType: "pptx" | "docx",
     filename?: string
   ): Promise<void> {
     const blob = await this.downloadCourseware(taskId, fileType);
@@ -162,7 +162,7 @@ export const generateApi = {
     a.href = url;
     a.download =
       filename ||
-      `courseware-${taskId}.${fileType === "ppt" ? "pptx" : "docx"}`;
+      `courseware-${taskId}.${fileType}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
