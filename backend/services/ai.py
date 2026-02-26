@@ -174,6 +174,27 @@ class AIService:
             method="keyword_fallback",
         )
 
+    async def _retrieve_rag_context(
+        self, project_id: str, query: str, top_k: int = 5
+    ) -> Optional[list[dict]]:
+        """
+        检索 RAG 上下文（如果项目有已索引的文档）
+
+        Returns:
+            RAG 结果列表（dict 格式），无结果时返回 None
+        """
+        from services.rag_service import rag_service
+
+        try:
+            results = await rag_service.search(
+                project_id=project_id, query=query, top_k=top_k
+            )
+            if results:
+                return [r.model_dump() for r in results]
+        except Exception as e:
+            logger.warning(f"RAG retrieval failed for project {project_id}: {e}")
+        return None
+
     async def generate_courseware_content(
         self,
         project_id: str,
@@ -183,6 +204,9 @@ class AIService:
         """
         生成课件内容（PPT Markdown 和教案 Markdown）
 
+        生成前自动检索 RAG 知识库，将相关内容注入 prompt。
+        如果项目无已索引文档则跳过 RAG 步骤。
+
         Args:
             project_id: 项目 ID
             user_requirements: 用户需求描述（可选，如果为空则从项目中获取）
@@ -191,8 +215,9 @@ class AIService:
         Returns:
             CoursewareContent: 包含标题、PPT Markdown 和教案 Markdown
         """
+        from services.prompt_service import prompt_service
+
         try:
-            # 如果没有提供用户需求，使用默认主题
             if not user_requirements:
                 user_requirements = "通用教学课件"
 
@@ -205,16 +230,25 @@ class AIService:
                 },
             )
 
-            # 构建 prompt
-            prompt = self._build_courseware_prompt(user_requirements, template_style)
+            # RAG 检索：用用户需求作为 query 检索相关知识
+            rag_context = await self._retrieve_rag_context(
+                project_id, user_requirements
+            )
+            if rag_context:
+                logger.info(
+                    f"RAG retrieved {len(rag_context)} chunks for generation",
+                    extra={"project_id": project_id},
+                )
 
-            # 调用 LLM 生成内容（使用更大的 token 限制）
-            response = await self.generate(
-                prompt=prompt,
-                max_tokens=4000,
+            # 使用 PromptService 构建 prompt（含 RAG 上下文注入）
+            prompt = prompt_service.build_courseware_prompt(
+                user_requirements=user_requirements,
+                template_style=template_style,
+                rag_context=rag_context,
             )
 
-            # 解析 LLM 输出
+            response = await self.generate(prompt=prompt, max_tokens=4000)
+
             content = response["content"]
             courseware = self._parse_courseware_response(content, user_requirements)
 
@@ -236,8 +270,6 @@ class AIService:
                 extra={"project_id": project_id},
                 exc_info=True,
             )
-
-            # 记录告警，便于监控 AI 服务状态
             logger.warning(
                 f"AI generation failed for project {project_id}, "
                 "using fallback content",
@@ -247,90 +279,7 @@ class AIService:
                     "template_style": template_style,
                 },
             )
-
-            # 返回 fallback 内容，确保系统不会完全失败
             return self._get_fallback_courseware(user_requirements)
-
-    def _build_courseware_prompt(
-        self, user_requirements: str, template_style: str
-    ) -> str:
-        """构建课件生成的 prompt"""
-
-        # 根据模板风格添加特定要求
-        style_requirements = {
-            "default": "使用简洁清晰的排版，适合通用教学场景",
-            "gaia": "使用现代简约风格，注重视觉美感和留白",
-            "uncover": "使用动态展示风格，内容层层递进，适合演讲场景",
-            "academic": "使用学术风格，注重逻辑严谨和内容深度，适合学术报告",
-        }
-
-        style_instruction = style_requirements.get(
-            template_style, style_requirements["default"]
-        )
-
-        return f"""请为以下教学主题生成完整的课件内容。
-
-教学主题：{user_requirements}
-模板风格：{template_style} - {style_instruction}
-
-请按照以下格式生成内容：
-
-===PPT_CONTENT_START===
-（这里生成 Marp 格式的 PPT Markdown，10-15 页）
-
-要求：
-1. 使用 --- 分隔每一页幻灯片
-2. 每页包含清晰的标题（使用 # 一级标题）
-3. 内容简洁，每页 3-5 个要点
-4. 可以包含代码示例（使用 ```python 代码块）
-5. 第一页是标题页，最后一页是总结
-6. 风格要求：{style_instruction}
-
-示例格式：
-# 课件标题
-
-副标题
-
----
-
-# 第一章节
-
-- 要点 1
-- 要点 2
-- 要点 3
-
-===PPT_CONTENT_END===
-
-===LESSON_PLAN_START===
-（这里生成详细的教案 Markdown）
-
-要求：
-1. 包含教学目标（知识、技能、情感）
-2. 包含教学重点和难点
-3. 包含详细的教学过程（导入、讲授、练习、总结）
-4. 每个环节标注时间分配
-5. 包含板书设计和作业布置
-
-示例格式：
-# 教学目标
-
-- 知识目标：...
-- 技能目标：...
-
-# 教学重点
-
-- 重点 1
-- 重点 2
-
-# 教学过程
-
-## 导入环节（5分钟）
-
-内容...
-
-===LESSON_PLAN_END===
-
-请严格按照上述格式生成内容，确保包含所有标记。"""
 
     def _parse_courseware_response(
         self, content: str, user_requirements: str
