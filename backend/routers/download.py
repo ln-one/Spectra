@@ -15,10 +15,8 @@ from fastapi.responses import FileResponse
 from services.database import db_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ForbiddenException, NotFoundException
-from utils.filename_utils import safe_filename_for_header
-from utils.dependencies import get_current_user
-from utils.exceptions import APIException, ForbiddenException, NotFoundException
 from utils.file_utils import safe_path_join, validate_file_exists
+from utils.filename_utils import safe_filename_for_header
 
 router = APIRouter(prefix="/generate/tasks", tags=["Generate"])
 logger = logging.getLogger(__name__)
@@ -68,7 +66,7 @@ async def download_courseware(
                 ".presentationml.presentation"
             )
             # 生成安全的文件名
-            base_name = project.name or 'courseware'
+            base_name = project.name or "courseware"
             safe_name = safe_filename_for_header(f"{base_name}_{task_id}")
             filename = f"{safe_name}.pptx"
         else:
@@ -80,7 +78,7 @@ async def download_courseware(
                 ".wordprocessingml.document"
             )
             # 生成安全的文件名
-            base_name = project.name or 'courseware'
+            base_name = project.name or "courseware"
             safe_name = safe_filename_for_header(f"{base_name}_lesson_plan_{task_id}")
             filename = f"{safe_name}.docx"
 
