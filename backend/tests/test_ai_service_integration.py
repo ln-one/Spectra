@@ -173,10 +173,10 @@ class TestAIServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_build_courseware_prompt(self):
-        """测试 prompt 构建"""
-        ai_service = AIService()
+        """测试 prompt 构建（已迁移至 PromptService）"""
+        from services.prompt_service import prompt_service
 
-        prompt = ai_service._build_courseware_prompt("Python 编程基础", "default")
+        prompt = prompt_service.build_courseware_prompt("Python 编程基础", "default")
 
         # 验证 prompt 包含关键信息
         assert "Python 编程基础" in prompt
