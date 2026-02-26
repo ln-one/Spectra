@@ -32,3 +32,22 @@ class SendMessageResponse(BaseModel):
 
     message: Message = Field(..., description="AI 回复消息")
     suggestions: Optional[list[str]] = Field(None, description="建议后续问题")
+
+
+class GetMessagesResponse(BaseModel):
+    """获取对话历史响应（data 部分）"""
+
+    messages: list[Message] = Field(..., description="消息列表")
+    total: int = Field(..., description="总数")
+    page: int = Field(..., description="当前页码")
+    limit: int = Field(..., description="每页数量")
+
+
+class VoiceMessageResponse(BaseModel):
+    """语音消息响应（data 部分）"""
+
+    text: str = Field(..., description="识别的文本内容")
+    confidence: float = Field(..., ge=0, le=1, description="识别置信度")
+    duration: float = Field(..., description="音频时长（秒）")
+    message: Message = Field(..., description="自动创建的消息对象")
+    suggestions: Optional[list[str]] = Field(None, description="AI 建议")
