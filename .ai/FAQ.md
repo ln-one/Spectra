@@ -253,15 +253,15 @@ docs(api): 更新认证接口文档
 ## 工具特定
 
 ### Q: 我是 Cursor，有特殊配置吗？
-**A**: 查看 `.ai/tool-specific/cursor.md`
+**A**: 目前没有单独的 Cursor 配置，请按 `.ai/` 目录下的通用说明使用本项目。如需新增 Cursor 特定配置，请在 `.ai/` 中补充相应文档，并更新 `.ai/CHANGELOG.md`。
 
 ### Q: 我是 Kiro，有特殊配置吗？
-**A**: 查看 `.ai/tool-specific/kiro.md`
+**A**: 目前没有单独的 Kiro 配置，请按 `.ai/` 目录下的通用说明使用本项目。如需新增 Kiro 特定配置，请在 `.ai/` 中补充相应文档，并更新 `.ai/CHANGELOG.md`。
 
 ### Q: 我是其他 AI 工具，如何适配？
 **A**: 
 - 所有 `.ai/` 目录下的文档使用标准 Markdown，无工具特定语法
-- 如需工具特定配置，参考 `.ai/tool-specific/README.md`
+- 如需工具特定配置，可以新增相应文档（例如 `tool-<name>.md`），并在 `.ai/CHANGELOG.md` 中记录变更
 
 ---
 

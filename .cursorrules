@@ -80,7 +80,6 @@ datamodel-codegen --input ../docs/openapi.yaml --output schemas/generated.py
 
 ## 工具特定配置
 
-如果你是特定 AI 工具，可查看：
-- **Cursor**: `.ai/tool-specific/cursor.md`
-- **Kiro**: `.ai/tool-specific/kiro.md`
-- **其他**: 所有 `.ai/` 文档使用标准 Markdown，无工具绑定
+当前仓库不再维护单独的 tool-specific 配置文件，所有 AI 工具（包括 Cursor、Kiro 等）统一遵循 `.ai/` 目录下的文档。
+
+所有 `.ai/` 文档使用标准 Markdown 编写，无特定工具绑定，你可以在任意支持 Markdown 的环境中阅读和遵循这些规范。

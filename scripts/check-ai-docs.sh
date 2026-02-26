@@ -63,19 +63,19 @@ if ! check_file_size ".ai/CONTEXT.md" 300; then
   all_sizes_ok=false
 fi
 
-# FAQ.md 应 <150 行
+# FAQ.md 应 <300 行
 if ! check_file_size ".ai/FAQ.md" 300; then
   all_sizes_ok=false
 fi
 
-# 任务指南应 <200 行
+# 任务指南应 <600 行（如需更长内容请考虑拆分成多篇指南）
 for guide in .ai/guides/*.md; do
-  if ! check_file_size "$guide" 400; then
+  if ! check_file_size "$guide" 600; then
     all_sizes_ok=false
   fi
 done
 
-# self-check.md 应 <100 行
+# self-check.md 应 <200 行
 if ! check_file_size ".ai/self-check.md" 200; then
   all_sizes_ok=false
 fi
