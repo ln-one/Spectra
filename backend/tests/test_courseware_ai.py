@@ -33,10 +33,16 @@ class TestGenerateOutline:
                 "summary": "Python 基础教学大纲",
             }
         )
-        with patch.object(
-            ai, "generate", new_callable=AsyncMock, return_value={"content": mock_json}
-        ), patch.object(
-            ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_json},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
         ):
             outline = await ai.generate_outline("proj1", "Python 入门")
 
@@ -62,10 +68,19 @@ class TestGenerateOutline:
         )
         rag_results = [{"content": "光合作用是...", "source": {"filename": "bio.pdf"}}]
 
-        with patch.object(
-            ai, "generate", new_callable=AsyncMock, return_value={"content": mock_json}
-        ) as mock_gen, patch.object(
-            ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=rag_results
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_json},
+            ) as mock_gen,
+            patch.object(
+                ai,
+                "_retrieve_rag_context",
+                new_callable=AsyncMock,
+                return_value=rag_results,
+            ),
         ):
             outline = await ai.generate_outline("proj2", "光合作用")
 
@@ -80,10 +95,16 @@ class TestGenerateOutline:
         ai = AIService()
         mock_json = json.dumps({"title": "空大纲", "sections": [], "summary": "无"})
 
-        with patch.object(
-            ai, "generate", new_callable=AsyncMock, return_value={"content": mock_json}
-        ), patch.object(
-            ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_json},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
         ):
             outline = await ai.generate_outline("proj3", "测试空大纲")
 
@@ -97,13 +118,16 @@ class TestGenerateOutline:
         """LLM 返回非 JSON 时应 fallback"""
         ai = AIService()
 
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            return_value={"content": "这不是 JSON 内容"},
-        ), patch.object(
-            ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": "这不是 JSON 内容"},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
         ):
             outline = await ai.generate_outline("proj4", "测试非JSON")
 
@@ -115,10 +139,16 @@ class TestGenerateOutline:
         """LLM 调用异常时应 fallback"""
         ai = AIService()
 
-        with patch.object(
-            ai, "generate", new_callable=AsyncMock, side_effect=RuntimeError("API down")
-        ), patch.object(
-            ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("API down"),
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
         ):
             outline = await ai.generate_outline("proj5", "测试异常")
 
@@ -155,16 +185,20 @@ class TestExtractStructuredContent:
             "===LESSON_PLAN_START===\n# 教学目标\n目标\n===LESSON_PLAN_END==="
         )
 
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            return_value={"content": mock_response},
-        ), patch.object(
-            ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-        ), patch.object(
-            ai, "generate_outline", new_callable=AsyncMock
-        ) as mock_outline:
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_response},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                ai, "generate_outline", new_callable=AsyncMock
+            ) as mock_outline,
+        ):
             result = await ai.extract_structured_content(
                 "proj1", "测试", outline=outline
             )
@@ -182,19 +216,23 @@ class TestExtractStructuredContent:
             "===LESSON_PLAN_START===\n# 教学目标\n目标\n===LESSON_PLAN_END==="
         )
 
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            return_value={"content": mock_response},
-        ), patch.object(
-            ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-        ), patch.object(
-            ai,
-            "generate_outline",
-            new_callable=AsyncMock,
-            return_value=fallback_outline,
-        ) as mock_outline:
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_response},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+            patch.object(
+                ai,
+                "generate_outline",
+                new_callable=AsyncMock,
+                return_value=fallback_outline,
+            ) as mock_outline,
+        ):
             result = await ai.extract_structured_content("proj2", "自动大纲")
 
         mock_outline.assert_called_once()
@@ -217,17 +255,21 @@ class TestExtractStructuredContent:
             "===LESSON_PLAN_START===\n# 教学目标\n目标\n===LESSON_PLAN_END==="
         )
 
-        with patch.object(
-            ai,
-            "generate",
-            new_callable=AsyncMock,
-            return_value={"content": mock_response},
-        ) as mock_gen, patch.object(
-            ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=rag_results
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_response},
+            ) as mock_gen,
+            patch.object(
+                ai,
+                "_retrieve_rag_context",
+                new_callable=AsyncMock,
+                return_value=rag_results,
+            ),
         ):
-            await ai.extract_structured_content(
-                "proj3", "RAG测试", outline=outline
-            )
+            await ai.extract_structured_content("proj3", "RAG测试", outline=outline)
 
         prompt_arg = mock_gen.call_args[1]["prompt"]
         assert "参考资料" in prompt_arg

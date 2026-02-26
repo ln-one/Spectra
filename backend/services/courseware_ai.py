@@ -122,7 +122,6 @@ class CoursewareAIMixin:
             summary="基础教学大纲",
         )
 
-
     async def extract_structured_content(
         self,
         project_id: str,
@@ -226,7 +225,6 @@ class CoursewareAIMixin:
                 exc_info=True,
             )
             return self._get_fallback_courseware(user_requirements)
-
 
     def _parse_courseware_response(
         self, content: str, user_requirements: str
