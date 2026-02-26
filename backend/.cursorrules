@@ -1,5 +1,15 @@
 # Backend
 
+> **AI 快速开始**: 请先阅读 `../.ai/CONTEXT.md` 获取完整项目上下文
+
+## 后端任务指南
+
+**必读文档**：
+- `../.ai/CONTEXT.md` - 项目概览（必读）
+- `../.ai/guides/adding-api-endpoint.md` - API 端点添加指南
+- `../.ai/guides/api-workflow.md` - API 开发流程
+- `../docs/standards/backend.md` - 后端规范
+
 ## 权威规范
 
 - `../docs/openapi/` - API 契约（模块化文件，按需读取）

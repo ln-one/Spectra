@@ -1,5 +1,17 @@
 # Spectra Monorepo
 
+> **AI 快速开始**: 请先阅读 `.ai/CONTEXT.md` 获取完整项目上下文
+
+## AI 协作指南
+
+本文件保持向后兼容。完整的 AI 协作规则已迁移到 `.ai/` 目录。
+
+**推荐阅读顺序**：
+1. `.ai/CONTEXT.md` - 项目概览和任务索引（必读）
+2. `.ai/FAQ.md` - 常见问题快速解答
+3. `.ai/guides/` - 任务驱动的操作指南
+4. `.ai/self-check.md` - 验证你的理解
+
 ## AI 自主学习机制
 
 **重要**: 当用户提出改进意见时，AI 必须：
@@ -24,10 +36,11 @@ AI 应该:
 
 ## 权威规范
 
-- `docs/openapi.yaml` - API 契约
+- `docs/openapi/` - API 契约（模块化，优先读取）
 - `docs/standards/frontend.md` - 前端规范
 - `docs/standards/backend.md` - 后端规范
 - `docs/standards/git.md` - Git 规范
+- `.ai/guides/` - 任务操作指南
 
 ## 核心规则
 
@@ -55,9 +68,19 @@ datamodel-codegen --input ../docs/openapi.yaml --output schemas/generated.py
 
 ## 规则优先级
 
+当规则冲突时，按以下顺序应用：
+
 ```
-1. docs/openapi.yaml
-2. docs/standards/
-3. .cursorrules (根目录)
-4. 子目录 .cursorrules
+1. docs/openapi/ - API 契约（最高优先级）
+2. docs/standards/ - 代码规范
+3. .ai/guides/ - 任务指南
+4. .cursorrules (根目录) - 全局规约
+5. 子目录 .cursorrules - 领域特定规则
 ```
+
+## 工具特定配置
+
+如果你是特定 AI 工具，可查看：
+- **Cursor**: `.ai/tool-specific/cursor.md`
+- **Kiro**: `.ai/tool-specific/kiro.md`
+- **其他**: 所有 `.ai/` 文档使用标准 Markdown，无工具绑定

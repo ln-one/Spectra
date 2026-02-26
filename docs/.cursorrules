@@ -1,5 +1,14 @@
 # Docs
 
+> **AI 快速开始**: 请先阅读 `../.ai/CONTEXT.md` 获取完整项目上下文
+
+## 文档任务指南
+
+**必读文档**：
+- `../.ai/CONTEXT.md` - 项目概览（必读）
+- `../.ai/guides/best-practices.md` - 最佳实践
+- `standards/documentation.md` - 文档规范
+
 ## 重要
 
 本目录包含项目权威规范：

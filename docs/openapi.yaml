@@ -1,4 +1,24 @@
 openapi: 3.0.0
+
+# ⚠️ 警告：此文件为自动生成
+# 
+# 此文件由 docs/openapi/ 目录下的模块文件自动打包生成。
+# 
+# 如果你是 AI 工具：
+# - ❌ 不要读取此文件（1200+ 行，太大）
+# - ✅ 应该读取 docs/openapi/paths/{模块}.yaml 和 docs/openapi/schemas/{模块}.yaml
+# - 📖 参考 .ai/guides/api-workflow.md 了解完整流程
+# 
+# 如果你需要修改 API：
+# 1. 编辑 docs/openapi/ 目录下的模块文件
+# 2. 运行 npm run bundle:openapi 重新打包
+# 3. 运行 npm run validate:openapi 验证
+# 
+# 模块文件位置：
+# - API 路径：docs/openapi/paths/{模块}.yaml
+# - 数据模型：docs/openapi/schemas/{模块}.yaml
+# - 公共组件：docs/openapi/components/*.yaml
+
 info:
   title: Spectra API
   version: 1.1.0

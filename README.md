@@ -219,33 +219,37 @@ All API endpoints are prefixed with `/api/v1`:
 
 See [OpenAPI Specification](./docs/openapi.yaml) for complete API documentation (auto-generated from modular files in `docs/openapi/`).
 
-## AI Collaboration Optimization
+## AI Collaboration
 
-This project is optimized for AI-assisted development with dedicated `.cursorrules` in each directory:
+> **AI 快速开始**: 请先阅读 [`.ai/CONTEXT.md`](./.ai/CONTEXT.md) 获取完整项目上下文
 
-### Root Directory (Spectra/)
-- General specs and project structure
-- Cross-project collaboration guide
-- Suitable for architects and project managers
+This project is optimized for AI-assisted development with a dedicated `.ai/` directory:
 
-### Frontend Directory (frontend/)
-- Next.js + TypeScript specific rules
-- Component development best practices
-- Backend API integration guide
-- Optimized for frontend engineers
+### For AI Tools
 
-### Backend Directory (backend/)
-- FastAPI + Python specific rules
-- API design and database operations
-- Async programming standards
-- Optimized for backend engineers
+1. **Start here**: Read [`.ai/CONTEXT.md`](./.ai/CONTEXT.md) - Your single entry point
+2. **Find guides**: Check [`.ai/guides/`](./.ai/guides/) for task-specific instructions
+3. **Get help**: See [`.ai/FAQ.md`](./.ai/FAQ.md) for common questions
+4. **Verify understanding**: Use [`.ai/self-check.md`](./.ai/self-check.md) to validate your knowledge
 
-### Docs Directory (docs/)
-- Markdown documentation standards
-- Architecture diagrams and ADR templates
-- Optimized for technical writing and architecture design
+### Key Features
 
-**Usage**: When working in a specific directory, AI tools automatically apply that directory's rules for more precise code suggestions and standard checks.
+- **Single Entry Point**: `.ai/CONTEXT.md` provides complete project overview
+- **Task-Driven Guides**: Step-by-step instructions for common tasks
+- **Progressive Loading**: Start with overview, dive deeper as needed
+- **Tool-Agnostic**: Standard Markdown format works with any AI tool
+- **Token-Optimized**: Core context <1000 tokens, detailed guides on-demand
+
+### Directory-Specific Rules
+
+The project also maintains `.cursorrules` files for backward compatibility:
+
+- **Root** (`.cursorrules`) - Project-wide rules and priorities
+- **Frontend** (`frontend/.cursorrules`) - Next.js + TypeScript specifics
+- **Backend** (`backend/.cursorrules`) - FastAPI + Python specifics
+- **Docs** (`docs/.cursorrules`) - Documentation standards
+
+**Usage**: AI tools automatically apply directory-specific rules for precise code suggestions.
 
 ## Development Standards
 

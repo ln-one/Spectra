@@ -2,6 +2,41 @@
 
 本目录包含拆分后的 OpenAPI 规范文件，便于维护和阅读。
 
+## 🤖 AI 使用指南
+
+> **重要**：如果你是 AI 工具，请先阅读此部分
+
+### 应该读取哪些文件？
+
+✅ **推荐读取**（50-150 行，易于理解）：
+- `docs/openapi/paths/{模块}.yaml` - API 路径定义
+- `docs/openapi/schemas/{模块}.yaml` - 数据模型定义
+
+❌ **不要读取**（1200+ 行，太大）：
+- `docs/openapi.yaml` - 自动生成的打包文件
+
+### 快速索引
+
+| 功能模块 | 路径定义 | 数据模型 |
+|---------|---------|---------|
+| 认证 | `paths/auth.yaml` | `schemas/auth.yaml` |
+| 聊天 | `paths/chat.yaml` | `schemas/chat.yaml` |
+| 文件 | `paths/files.yaml` | `schemas/files.yaml` |
+| 生成 | `paths/generate.yaml` | `schemas/generate.yaml` |
+| 预览 | `paths/preview.yaml` | `schemas/preview.yaml` |
+| 项目 | `paths/project.yaml` | `schemas/project.yaml` |
+| RAG | `paths/rag.yaml` | `schemas/rag.yaml` |
+
+### 完整工作流程
+
+参考 [`.ai/guides/api-workflow.md`](../../.ai/guides/api-workflow.md) 了解：
+- 如何查看 API 定义
+- 如何修改 API
+- 如何打包和验证
+- 如何生成前端类型
+
+---
+
 ## 📁 目录结构
 
 ```
