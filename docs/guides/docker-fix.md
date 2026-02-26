@@ -29,7 +29,7 @@ docker-compose up --build backend
 docker ps
 
 # 进入后端容器
-docker exec -it spectra-backend-1 bash
+docker-compose exec backend bash
 
 # 安装缺失的依赖
 pip install email-validator
@@ -61,13 +61,13 @@ docker-compose up --build
 Failed to patch lockfile, please try uninstalling and reinstalling next
 ```
 
-这是 Next.js 14.2.35 的已知问题，不影响运行，可以忽略。
+这是 Next.js 的已知问题，不影响运行，可以忽略，参考：https://github.com/vercel/next.js/issues
 
 如果想修复：
 
 ```bash
 # 进入前端容器
-docker exec -it spectra-frontend-1 sh
+docker-compose exec frontend sh
 
 # 删除 node_modules 和 lockfile
 rm -rf node_modules package-lock.json
