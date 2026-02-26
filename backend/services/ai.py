@@ -8,6 +8,7 @@ from litellm import acompletion
 
 from schemas.generation import CoursewareContent
 from schemas.intent import IntentClassification, IntentType
+from schemas.outline import CoursewareOutline, OutlineSection
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +195,107 @@ class AIService:
         except Exception as e:
             logger.warning(f"RAG retrieval failed for project {project_id}: {e}")
         return None
+
+    async def generate_outline(
+        self,
+        project_id: str,
+        user_requirements: str,
+        template_style: str = "default",
+    ) -> CoursewareOutline:
+        """
+        生成课件结构化大纲，供用户确认/调整后再生成完整课件
+
+        Args:
+            project_id: 项目 ID
+            user_requirements: 用户需求描述
+            template_style: 模板风格
+
+        Returns:
+            CoursewareOutline: 结构化大纲
+        """
+        from services.prompt_service import STYLE_REQUIREMENTS, _format_rag_context
+
+        rag_context = await self._retrieve_rag_context(project_id, user_requirements)
+
+        rag_hint = ""
+        if rag_context:
+            rag_hint = (
+                "\n\n以下是从用户上传资料中检索到的参考内容，"
+                "请据此优化大纲：\n" + _format_rag_context(rag_context)
+            )
+
+        style_desc = STYLE_REQUIREMENTS.get(
+            template_style, STYLE_REQUIREMENTS["default"]
+        )
+
+        prompt = f"""你是一位高级学科教学设计师。请根据以下教学需求生成课件大纲。
+{rag_hint}
+教学需求：{user_requirements}
+模板风格：{template_style} - {style_desc}
+
+请严格返回以下 JSON 格式，不要包含其他内容：
+{{
+  "title": "课件总标题",
+  "sections": [
+    {{"title": "章节标题", "key_points": ["知识点1", "知识点2"], "slide_count": 2}},
+    ...
+  ],
+  "summary": "大纲概述（一句话）"
+}}
+
+要求：
+1. 章节数量 3-8 个，覆盖教学全流程（导入→讲授→练习→总结）
+2. 每个章节 2-5 个关键知识点
+3. slide_count 根据内容复杂度合理分配，总页数 10-20 页"""
+
+        try:
+            response = await self.generate(prompt=prompt, max_tokens=1500)
+            content = response["content"].strip()
+
+            # 提取 JSON（兼容 markdown 代码块包裹）
+            json_match = re.search(r"\{[\s\S]*\}", content)
+            if not json_match:
+                raise ValueError("No JSON found in response")
+
+            parsed = json.loads(json_match.group())
+            sections = [OutlineSection(**s) for s in parsed.get("sections", [])]
+            total = sum(s.slide_count for s in sections) + 2  # +标题页+总结页
+
+            return CoursewareOutline(
+                title=parsed.get("title", user_requirements[:50]),
+                sections=sections,
+                total_slides=total,
+                summary=parsed.get("summary"),
+            )
+        except Exception as e:
+            logger.warning(f"Outline generation failed: {e}, using fallback")
+            return CoursewareOutline(
+                title=user_requirements[:50],
+                sections=[
+                    OutlineSection(
+                        title="导入",
+                        key_points=["引入主题", "激发兴趣"],
+                        slide_count=2,
+                    ),
+                    OutlineSection(
+                        title="核心内容",
+                        key_points=["重点概念", "案例分析"],
+                        slide_count=5,
+                    ),
+                    OutlineSection(
+                        title="练习与讨论",
+                        key_points=["课堂练习", "小组讨论"],
+                        slide_count=3,
+                    ),
+                    OutlineSection(
+                        title="总结",
+                        key_points=["回顾要点", "作业布置"],
+                        slide_count=2,
+                    ),
+                ],
+                total_slides=14,
+                summary="基础教学大纲",
+            )
 
     async def generate_courseware_content(
         self,
