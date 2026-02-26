@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,8 +49,11 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register: registerUser, isLoading } = useAuthStore();
   const { toast } = useToast();
+
+  const redirect = searchParams.get("redirect") || "/projects";
 
   const {
     register,
@@ -72,7 +75,7 @@ export default function RegisterPage() {
         title: "注册成功",
         description: "正在跳转到项目页面...",
       });
-      router.push("/projects");
+      router.push(redirect);
     } catch (error) {
       toast({
         title: "注册失败",
