@@ -240,7 +240,7 @@ try:
     return {"success": True, "data": result}
 except Exception as e:
     logger.error(f"Error: {str(e)}")
-    raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=500, detail="Internal server error")
 ```
 
 ---

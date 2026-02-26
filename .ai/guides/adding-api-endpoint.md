@@ -192,7 +192,7 @@ async def create_course(
             message="课程创建成功"
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid request data")
 ```
 
 **注册路由**（`backend/main.py`）：

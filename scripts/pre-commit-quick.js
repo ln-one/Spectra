@@ -46,7 +46,7 @@ if (!runCommand('isort .', backendDir)) {
 }
 
 console.log('  ├─ Linting (flake8)...');
-if (!runCommand('flake8 . --max-line-length=88 --extend-ignore=E203', backendDir)) process.exit(1);
+if (!runCommand('flake8 .', backendDir)) process.exit(1);
 
 console.log('\n✅ Quick checks passed! (tests skipped)');
 console.log('💡 Run full checks before push: npm run pre-commit:full');
