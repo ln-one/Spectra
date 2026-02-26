@@ -33,7 +33,7 @@ jobs:
     if: vars.PROJECT_NUMBER != '' && vars.PROJECT_NUMBER != null
     env:
       GH_TOKEN: ${{ secrets.PROJECTS_PAT }}
-      REPO_OWNER: ln-one
+      REPO_OWNER: ${{ github.repository_owner }}
 
     steps:
       - name: Resolve content node ID
