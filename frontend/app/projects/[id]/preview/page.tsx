@@ -133,9 +133,15 @@ export default function ProjectPreviewPage() {
     try {
       const taskId = preview.task_id;
       if (!taskId) return;
-      const fileTypeMap: Record<"ppt" | "word", "pptx" | "docx"> = { ppt: "pptx", word: "docx" };
+      const fileTypeMap: Record<"ppt" | "word", "pptx" | "docx"> = {
+        ppt: "pptx",
+        word: "docx",
+      };
       const apiFileType = fileTypeMap[fileType];
-      const response = await generateApi.downloadCourseware(taskId, apiFileType);
+      const response = await generateApi.downloadCourseware(
+        taskId,
+        apiFileType
+      );
       const url = window.URL.createObjectURL(response);
       const link = document.createElement("a");
       link.href = url;
@@ -246,10 +252,11 @@ export default function ProjectPreviewPage() {
                         {preview.slides?.map((slide, idx) => (
                           <div
                             key={slide.id}
-                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${idx === currentSlide
-                              ? "bg-primary text-primary-foreground"
-                              : "hover:bg-muted"
-                              }`}
+                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                              idx === currentSlide
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-muted"
+                            }`}
                             onClick={() => setCurrentSlide(idx)}
                           >
                             <p className="font-medium text-sm">

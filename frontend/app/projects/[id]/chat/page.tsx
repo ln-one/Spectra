@@ -9,12 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
-import {
-  Send,
-  ChevronLeft,
-  FileText,
-  Loader2,
-} from "lucide-react";
+import { Send, ChevronLeft, FileText, Loader2 } from "lucide-react";
 
 interface Message {
   id: string;
@@ -121,45 +116,50 @@ export default function ProjectChatPage() {
     }
   };
 
-  const handleVoiceRecordComplete = useCallback(async (audioBlob: Blob) => {
-    setIsLoading(true);
+  const handleVoiceRecordComplete = useCallback(
+    async (audioBlob: Blob) => {
+      setIsLoading(true);
 
-    try {
-      const file = new File([audioBlob], "voice message", { type: "audio/webm" });
-      const response = await chatApi.sendVoiceMessage(file, projectId);
+      try {
+        const file = new File([audioBlob], "voice message", {
+          type: "audio/webm",
+        });
+        const response = await chatApi.sendVoiceMessage(file, projectId);
 
-      if (response.success && response.data.text) {
-        const userMessage: Message = {
-          id: `msg-${Date.now()}`,
-          role: "user",
-          content: response.data.text,
-          created_at: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, userMessage]);
-
-        if (response.data.message) {
-          const assistantMessage: Message = {
-            id: `msg-${Date.now()}-assistant`,
-            role: "assistant",
-            content: response.data.message.content || "",
+        if (response.success && response.data.text) {
+          const userMessage: Message = {
+            id: `msg-${Date.now()}`,
+            role: "user",
+            content: response.data.text,
             created_at: new Date().toISOString(),
           };
-          setMessages((prev) => [...prev, assistantMessage]);
+          setMessages((prev) => [...prev, userMessage]);
+
+          if (response.data.message) {
+            const assistantMessage: Message = {
+              id: `msg-${Date.now()}-assistant`,
+              role: "assistant",
+              content: response.data.message.content || "",
+              created_at: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, assistantMessage]);
+          }
         }
+      } catch (error) {
+        console.error("Failed to process voice message:", error);
+        const errorMessage: Message = {
+          id: `msg-${Date.now()}-error`,
+          role: "assistant",
+          content: "语音识别失败，请重试或使用文字输入。",
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to process voice message:", error);
-      const errorMessage: Message = {
-        id: `msg-${Date.now()}-error`,
-        role: "assistant",
-        content: "语音识别失败，请重试或使用文字输入。",
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [projectId]);
+    },
+    [projectId]
+  );
 
   return (
     <div className="flex h-screen">
@@ -218,10 +218,11 @@ export default function ProjectChatPage() {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <Card
-                  className={`max-w-[80%] ${message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
-                    }`}
+                  className={`max-w-[80%] ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  }`}
                 >
                   <div className="p-4">
                     <p className="whitespace-pre-wrap">{message.content}</p>

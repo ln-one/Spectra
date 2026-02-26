@@ -78,7 +78,9 @@ export const TokenStorage = {
 
   getAccessTokenFromCookie(): string | null {
     if (typeof window === "undefined") return null;
-    const match = document.cookie.match(new RegExp("(^| )access_token=([^;]+)"));
+    const match = document.cookie.match(
+      new RegExp("(^| )access_token=([^;]+)")
+    );
     return match ? match[2] : null;
   },
 
@@ -111,8 +113,10 @@ export const TokenStorage = {
       localStorage.removeItem(REFRESH_TOKEN_KEY);
       localStorage.removeItem(TOKEN_EXPIRY_KEY);
 
-      document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie =
+        "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie =
+        "refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     } catch (error) {
       console.error("Failed to clear tokens:", error);
     }

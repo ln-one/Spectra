@@ -62,15 +62,13 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           <MessageList messages={messages} />
         )}
       </div>
-      
+
       {isTyping && <TypingIndicator />}
-      
+
       {error && (
-        <div className="px-4 py-2 bg-red-50 text-red-600 text-sm">
-          {error}
-        </div>
+        <div className="px-4 py-2 bg-red-50 text-red-600 text-sm">{error}</div>
       )}
-      
+
       <MessageInput
         onSend={handleSend}
         onVoiceRecord={handleVoiceRecord}

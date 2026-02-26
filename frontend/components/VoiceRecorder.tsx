@@ -10,7 +10,10 @@ interface VoiceRecorderProps {
   className?: string;
 }
 
-export function VoiceRecorder({ onRecordComplete, className }: VoiceRecorderProps) {
+export function VoiceRecorder({
+  onRecordComplete,
+  className,
+}: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);

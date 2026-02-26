@@ -74,7 +74,9 @@ export const useChatStore = create<ChatState>()((set, _get) => ({
     set({ isTyping: true, error: null });
 
     try {
-      const file = new File([audioBlob], "voice message", { type: "audio/webm" });
+      const file = new File([audioBlob], "voice message", {
+        type: "audio/webm",
+      });
       const response = await chatApi.sendVoiceMessage(file, projectId);
 
       if (response.success && response.data.text) {

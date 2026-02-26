@@ -39,8 +39,15 @@ export interface UploadState {
   currentProjectId: string | null;
 
   addUpload: (projectId: string, file: File) => Promise<void>;
-  addBatchUploads: (projectId: string, files: File[]) => Promise<{ success: number; failed: number }>;
-  updateUploadStatus: (id: string, status: UploadStatus, error?: string) => void;
+  addBatchUploads: (
+    projectId: string,
+    files: File[]
+  ) => Promise<{ success: number; failed: number }>;
+  updateUploadStatus: (
+    id: string,
+    status: UploadStatus,
+    error?: string
+  ) => void;
   annotateUpload: (id: string, usageIntent: string) => Promise<void>;
   deleteUpload: (id: string) => Promise<void>;
   fetchUploads: (projectId: string) => Promise<void>;
@@ -100,16 +107,18 @@ export const useUploadStore = create<UploadState>()((set, _get) => ({
         const upload = toUpload(response.data.file, projectId);
 
         set((state) => ({
-          uploads: state.uploads.map((u) =>
-            u.id === tempId ? upload : u
-          ),
+          uploads: state.uploads.map((u) => (u.id === tempId ? upload : u)),
         }));
       }
     } catch (error) {
       set((state) => ({
         uploads: state.uploads.map((u) =>
           u.id === tempId
-            ? { ...u, status: "failed", error: error instanceof Error ? error.message : "上传失败" }
+            ? {
+                ...u,
+                status: "failed",
+                error: error instanceof Error ? error.message : "上传失败",
+              }
             : u
         ),
         error: error instanceof Error ? error.message : "上传失败",
@@ -200,7 +209,9 @@ export const useUploadStore = create<UploadState>()((set, _get) => ({
       const response = await filesApi.getProjectFiles(projectId);
 
       if (response.success && response.data.files) {
-        const uploads = response.data.files.map((f: UploadedFile) => toUpload(f, projectId));
+        const uploads = response.data.files.map((f: UploadedFile) =>
+          toUpload(f, projectId)
+        );
 
         set({
           uploads,

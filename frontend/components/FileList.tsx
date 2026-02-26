@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback } from "react";
-import { FileText, Trash2, Loader2, CheckCircle, AlertCircle, MoreVertical, Edit3 } from "lucide-react";
+import {
+  FileText,
+  Trash2,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  MoreVertical,
+  Edit3,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,7 +20,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useUploadStore, type Upload as UploadFile, type UploadStatus } from "@/stores/uploadStore";
+import {
+  useUploadStore,
+  type Upload as UploadFile,
+  type UploadStatus,
+} from "@/stores/uploadStore";
 
 interface FileListProps {
   projectId: string;
@@ -73,38 +85,45 @@ export function FileList({
   onFileSelect,
   onFileDelete,
 }: FileListProps) {
-  const { uploads, fetchUploads, deleteUpload, annotateUpload, isLoading, error } = useUploadStore();
+  const {
+    uploads,
+    fetchUploads,
+    deleteUpload,
+    annotateUpload,
+    isLoading,
+    error,
+  } = useUploadStore();
 
   const handleRefresh = useCallback(() => {
     fetchUploads(projectId);
   }, [projectId, fetchUploads]);
 
-  const handleDelete = useCallback(async (fileId: string) => {
-    await deleteUpload(fileId);
-    onFileDelete?.(fileId);
-  }, [deleteUpload, onFileDelete]);
+  const handleDelete = useCallback(
+    async (fileId: string) => {
+      await deleteUpload(fileId);
+      onFileDelete?.(fileId);
+    },
+    [deleteUpload, onFileDelete]
+  );
 
-  const handleAnnotate = useCallback(async (fileId: string, intent: string) => {
-    await annotateUpload(fileId, intent);
-  }, [annotateUpload]);
+  const handleAnnotate = useCallback(
+    async (fileId: string, intent: string) => {
+      await annotateUpload(fileId, intent);
+    },
+    [annotateUpload]
+  );
 
   return (
     <div className={cn("space-y-4", className)}>
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">
-          项目文件 ({uploads.length})
-        </h3>
+        <h3 className="text-sm font-semibold">项目文件 ({uploads.length})</h3>
         <Button
           variant="ghost"
           size="sm"
           onClick={handleRefresh}
           disabled={isLoading}
         >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            "刷新"
-          )}
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "刷新"}
         </Button>
       </div>
 
@@ -133,7 +152,8 @@ export function FileList({
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <span className="text-2xl">
-                      {FILE_TYPE_ICONS[file.fileType] || FILE_TYPE_ICONS.default}
+                      {FILE_TYPE_ICONS[file.fileType] ||
+                        FILE_TYPE_ICONS.default}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -156,7 +176,9 @@ export function FileList({
                             <span>{file.parseDetails.pages_extracted} 页</span>
                           )}
                           {file.parseDetails.images_extracted !== undefined && (
-                            <span>{file.parseDetails.images_extracted} 图片</span>
+                            <span>
+                              {file.parseDetails.images_extracted} 图片
+                            </span>
                           )}
                           {file.parseDetails.text_length !== undefined && (
                             <span>{file.parseDetails.text_length} 字符</span>
@@ -173,7 +195,8 @@ export function FileList({
                   </div>
 
                   <div className="flex items-center gap-1 ml-2">
-                    {(file.status === "uploading" || file.status === "parsing") && (
+                    {(file.status === "uploading" ||
+                      file.status === "parsing") && (
                       <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
                         <div
                           className="h-full bg-blue-500 transition-all"
@@ -195,7 +218,10 @@ export function FileList({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
-                            const intent = prompt("请输入文件用途标注：", file.usageIntent || "");
+                            const intent = prompt(
+                              "请输入文件用途标注：",
+                              file.usageIntent || ""
+                            );
                             if (intent !== null) {
                               handleAnnotate(file.id, intent);
                             }

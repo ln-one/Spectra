@@ -1,13 +1,24 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Upload, File, X, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  Upload,
+  File,
+  X,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { useUploadStore, type Upload as UploadFile, type UploadStatus } from "@/stores/uploadStore";
+import {
+  useUploadStore,
+  type Upload as UploadFile,
+  type UploadStatus,
+} from "@/stores/uploadStore";
 
 interface FileUploadDropzoneProps {
   projectId?: string;
@@ -18,7 +29,22 @@ interface FileUploadDropzoneProps {
   multiple?: boolean;
 }
 
-const DEFAULT_ACCEPTED_TYPES = ["pdf", "doc", "docx", "ppt", "pptx", "mp4", "webm", "avi", "mov", "jpg", "jpeg", "png", "gif", "webp"];
+const DEFAULT_ACCEPTED_TYPES = [
+  "pdf",
+  "doc",
+  "docx",
+  "ppt",
+  "pptx",
+  "mp4",
+  "webm",
+  "avi",
+  "mov",
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+];
 
 export function FileUploadDropzone({
   projectId,
@@ -30,44 +56,67 @@ export function FileUploadDropzone({
 }: FileUploadDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
 
-  const { uploads, failedUploads, addUpload, addBatchUploads, isLoading, error, clearError, clearFailedUploads } = useUploadStore();
+  const {
+    uploads,
+    failedUploads,
+    addUpload,
+    addBatchUploads,
+    isLoading,
+    error,
+    clearError,
+    clearFailedUploads,
+  } = useUploadStore();
 
-  const validateFiles = useCallback((files: File[]): File[] => {
-    const exts = acceptedTypes.map((ext) => ext.toLowerCase());
+  const validateFiles = useCallback(
+    (files: File[]): File[] => {
+      const exts = acceptedTypes.map((ext) => ext.toLowerCase());
 
-    return files.filter((file) => {
-      const ext = file.name.split(".").pop()?.toLowerCase();
-      if (!ext || !exts.includes(ext)) {
-        return false;
+      return files.filter((file) => {
+        const ext = file.name.split(".").pop()?.toLowerCase();
+        if (!ext || !exts.includes(ext)) {
+          return false;
+        }
+        if (file.size > maxSize) {
+          return false;
+        }
+        return true;
+      });
+    },
+    [acceptedTypes, maxSize]
+  );
+
+  const handleFilesSelected = useCallback(
+    async (selectedFiles: File[]) => {
+      const validFiles = validateFiles(selectedFiles);
+
+      if (validFiles.length === 0) {
+        return;
       }
-      if (file.size > maxSize) {
-        return false;
+
+      if (!projectId) {
+        onUpload?.(validFiles);
+        return;
       }
-      return true;
-    });
-  }, [acceptedTypes, maxSize]);
 
-  const handleFilesSelected = useCallback(async (selectedFiles: File[]) => {
-    const validFiles = validateFiles(selectedFiles);
+      if (multiple) {
+        await addBatchUploads(projectId, validFiles);
+      } else if (validFiles.length > 0) {
+        await addUpload(projectId, validFiles[0]);
+      }
 
-    if (validFiles.length === 0) {
-      return;
-    }
-
-    if (!projectId) {
-      onUpload?.(validFiles);
-      return;
-    }
-
-    if (multiple) {
-      await addBatchUploads(projectId, validFiles);
-    } else if (validFiles.length > 0) {
-      await addUpload(projectId, validFiles[0]);
-    }
-
-    const uploadedFiles = useUploadStore.getState().uploads;
-    onUploadComplete?.(uploadedFiles);
-  }, [projectId, multiple, addUpload, addBatchUploads, onUpload, onUploadComplete, validateFiles]);
+      const uploadedFiles = useUploadStore.getState().uploads;
+      onUploadComplete?.(uploadedFiles);
+    },
+    [
+      projectId,
+      multiple,
+      addUpload,
+      addBatchUploads,
+      onUpload,
+      onUploadComplete,
+      validateFiles,
+    ]
+  );
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -86,14 +135,17 @@ export function FileUploadDropzone({
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
 
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    handleFilesSelected(droppedFiles);
-  }, [handleFilesSelected]);
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      handleFilesSelected(droppedFiles);
+    },
+    [handleFilesSelected]
+  );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,7 +240,12 @@ export function FileUploadDropzone({
         <div className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-lg">
           <AlertCircle className="w-4 h-4" />
           <span className="text-sm">{error}</span>
-          <Button variant="ghost" size="sm" onClick={clearError} className="ml-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearError}
+            className="ml-auto"
+          >
             <X className="w-4 h-4" />
           </Button>
         </div>
@@ -243,13 +300,17 @@ export function FileUploadDropzone({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {(upload.status === "uploading" || upload.status === "parsing") && upload.parseProgress !== undefined && (
-                    <Progress value={upload.parseProgress} className="w-20" />
-                  )}
+                  {(upload.status === "uploading" ||
+                    upload.status === "parsing") &&
+                    upload.parseProgress !== undefined && (
+                      <Progress value={upload.parseProgress} className="w-20" />
+                    )}
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => useUploadStore.getState().deleteUpload(upload.id)}
+                    onClick={() =>
+                      useUploadStore.getState().deleteUpload(upload.id)
+                    }
                     className="h-8 w-8"
                   >
                     <X className="w-4 h-4" />

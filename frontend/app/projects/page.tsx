@@ -64,6 +64,7 @@ export default function ProjectsPage() {
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-8">
+        feat(frontend):初步实现基础框架与认证、对话与文件功能，暂不{" "}
         <div>
           <h1 className="text-3xl font-bold">我的项目</h1>
           <p className="text-muted-foreground mt-1">管理您的教学项目</p>
