@@ -174,8 +174,8 @@ export default function ProjectChatPage() {
               >
                 <Card
                   className={`max-w-[80%] ${message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted"
                     }`}
                 >
                   <div className="p-4">
