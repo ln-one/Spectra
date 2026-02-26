@@ -5,7 +5,9 @@
 """
 
 import logging
+import re
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
@@ -13,6 +15,7 @@ from fastapi.responses import FileResponse
 from services.database import db_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.file_utils import safe_path_join, validate_file_exists
 
 router = APIRouter(prefix="/generate/tasks", tags=["Generate"])
 logger = logging.getLogger(__name__)
@@ -21,7 +24,7 @@ logger = logging.getLogger(__name__)
 @router.get("/{task_id}/download")
 async def download_courseware(
     task_id: str,
-    file_type: str = Query(..., regex="^(ppt|word)$"),
+    file_type: Literal["ppt", "word"] = Query(...),
     user_id: str = Depends(get_current_user),
 ):
     """
@@ -52,25 +55,28 @@ async def download_courseware(
                 detail=f"任务尚未完成，当前状态: {task.status}",
             )
 
-        # 确定文件路径
+        # 确定文件路径（使用安全路径工具防止路径遍历）
         generated_dir = Path("generated")
+        safe_task_id = re.sub(r"[^a-zA-Z0-9_-]", "", task_id)
         if file_type == "ppt":
-            file_path = generated_dir / f"{task_id}.pptx"
+            file_path = safe_path_join(generated_dir, f"{safe_task_id}.pptx")
             media_type = (
                 "application/vnd.openxmlformats-officedocument"
                 ".presentationml.presentation"
             )
             filename = f"{project.name or 'courseware'}_{task_id}.pptx"
         else:
-            file_path = generated_dir / f"{task_id}_lesson_plan.docx"
+            file_path = safe_path_join(
+                generated_dir, f"{safe_task_id}_lesson_plan.docx"
+            )
             media_type = (
                 "application/vnd.openxmlformats-officedocument"
                 ".wordprocessingml.document"
             )
             filename = f"{project.name or 'courseware'}_lesson_plan_{task_id}.docx"
 
-        # 检查文件存在
-        if not file_path.exists():
+        # 检查文件存在且有效
+        if not validate_file_exists(file_path, min_size=1):
             logger.error(
                 f"File not found: {file_path}",
                 extra={"task_id": task_id, "file_type": file_type},
@@ -87,6 +93,8 @@ async def download_courseware(
         )
 
     except APIException:
+        raise
+    except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Download failed: {str(e)}", exc_info=True)
