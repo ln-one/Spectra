@@ -71,8 +71,6 @@ class TestIndexChunks:
         col = vec_svc.get_or_create_collection("proj-idx")
         assert col.count() == 2
 
-    # PLACEHOLDER_MORE_TESTS
-
     @pytest.mark.asyncio
     async def test_upsert_idempotent(self, rag_svc, vec_svc):
         """重复入库同一 chunk 不应报错"""

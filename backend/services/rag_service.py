@@ -8,6 +8,7 @@ RAG Service - 检索增强生成服务
 import logging
 from typing import Optional
 
+from chromadb.api.models.Collection import Collection
 from pydantic import BaseModel
 
 from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
@@ -123,7 +124,8 @@ class RAGService:
             for i, chunk_id in enumerate(results["ids"][0]):
                 meta = results["metadatas"][0][i] if results["metadatas"] else {}
                 distance = results["distances"][0][i] if results["distances"] else 0
-                score = 1.0 - distance  # cosine distance → similarity
+                raw_score = 1.0 - distance  # cosine distance → similarity
+                score = max(0.0, min(1.0, raw_score))
 
                 rag_results.append(
                     RAGResult(
@@ -198,7 +200,7 @@ class RAGService:
         )
 
     async def _get_chunk_context(
-        self, collection, upload_id: str, chunk_index: int
+        self, collection: Collection, upload_id: str, chunk_index: int
     ) -> Optional[ChunkContext]:
         """获取前后 chunk 作为上下文"""
         prev_chunk = None

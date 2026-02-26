@@ -76,3 +76,10 @@ class TestSplitText:
         # 由于重叠，combined 会比原文长，但原文每个字符都应出现
         for char in set(text):
             assert char in combined
+
+    def test_overlap_ge_chunk_size_raises(self):
+        """chunk_overlap >= chunk_size 应抛出 ValueError"""
+        import pytest
+
+        with pytest.raises(ValueError, match="chunk_overlap must be less"):
+            split_text("一些文本内容。" * 50, chunk_size=50, chunk_overlap=50)

@@ -45,6 +45,9 @@ def split_text(
     if not text or not text.strip():
         return []
 
+    if chunk_overlap >= chunk_size:
+        raise ValueError("chunk_overlap must be less than chunk_size")
+
     max_chars = int(chunk_size * CHARS_PER_TOKEN)
     overlap_chars = int(chunk_overlap * CHARS_PER_TOKEN)
 

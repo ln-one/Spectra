@@ -52,7 +52,6 @@ class PromptService:
 {formatted}
 
 """
-        # PLACEHOLDER_REST_OF_PROMPT
         return f"""你是一位高级学科教学设计师。请为以下教学主题生成完整的课件内容。
 {rag_section}
 教学主题：{user_requirements}
