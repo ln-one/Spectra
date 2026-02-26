@@ -3,16 +3,16 @@ const { execSync } = require('child_process');
 const path = require('path');
 
 const runCommand = (command, cwd) => {
-  try {
-    execSync(command, { 
-      cwd, 
-      stdio: 'inherit',
-      shell: true 
-    });
-    return true;
-  } catch (error) {
-    return false;
-  }
+    try {
+        execSync(command, {
+            cwd,
+            stdio: 'inherit',
+            shell: true
+        });
+        return true;
+    } catch (error) {
+        return false;
+    }
 };
 
 const frontendDir = path.join(__dirname, '..', 'frontend');
@@ -53,5 +53,9 @@ if (!runCommand('flake8 .', backendDir)) process.exit(1);
 
 console.log('  ├─ Running tests...');
 if (!runCommand('pytest', backendDir)) process.exit(1);
+
+// Check if any files were formatted during the hook execution and add them
+console.log('  ├─ Adding any remaining formatted files...');
+if (!runCommand('git add .', rootDir)) process.exit(1);
 
 console.log('\n✅ All checks passed!');
