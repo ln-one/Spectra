@@ -63,11 +63,26 @@ jobs:
           ' -f ownerId="${{ steps.owner.outputs.node_id }}" \
             -f title="${{ inputs.project_title }}")
 
-          echo "id=$(echo "$RESULT" | jq -r '.data.createProjectV2.projectV2.id')" \
-            >> "$GITHUB_OUTPUT"
-          echo "number=$(echo "$RESULT" | jq -r '.data.createProjectV2.projectV2.number')" \
-            >> "$GITHUB_OUTPUT"
+          # Check for GraphQL errors in the response
+          ERRORS=$(echo "$RESULT" | jq -r '.errors // empty' 2>/dev/null || true)
+          if [ -n "$ERRORS" ] && [ "$ERRORS" != "null" ]; then
+            echo "Error: Failed to create project. GraphQL errors:"
+            echo "$RESULT" | jq -r '.errors[].message' 2>/dev/null || echo "$RESULT"
+            exit 1
+          fi
 
+          PROJECT_ID=$(echo "$RESULT" | jq -r '.data.createProjectV2.projectV2.id // empty')
+          PROJECT_NUMBER=$(echo "$RESULT" | jq -r '.data.createProjectV2.projectV2.number // empty')
+
+          if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ] || \
+             [ -z "$PROJECT_NUMBER" ] || [ "$PROJECT_NUMBER" = "null" ]; then
+            echo "Error: Project creation did not return a valid project ID/number. Full response:"
+            echo "$RESULT"
+            exit 1
+          fi
+
+          echo "id=$PROJECT_ID" >> "$GITHUB_OUTPUT"
+          echo "number=$PROJECT_NUMBER" >> "$GITHUB_OUTPUT"
       # ------------------------------------------------------------------
       # 3. Add custom fields
       # ------------------------------------------------------------------
