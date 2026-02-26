@@ -22,8 +22,8 @@ console.log('🔍 Running pre-commit checks...\n');
 
 // Frontend checks
 console.log('📦 Frontend checks...');
-console.log('  ├─ Checking format...');
-if (!runCommand('npm run format:check', frontendDir)) process.exit(1);
+console.log('  ├─ Auto-formatting...');
+if (!runCommand('npm run format', frontendDir)) process.exit(1);
 
 console.log('  ├─ Linting...');
 if (!runCommand('npm run lint', frontendDir)) process.exit(1);
@@ -33,11 +33,11 @@ if (!runCommand('npm test', frontendDir)) process.exit(1);
 
 // Backend checks
 console.log('\n🐍 Backend checks...');
-console.log('  ├─ Checking code format (black)...');
-if (!runCommand('black --check .', backendDir)) process.exit(1);
+console.log('  ├─ Auto-formatting code (black)...');
+if (!runCommand('black .', backendDir)) process.exit(1);
 
-console.log('  ├─ Checking import sorting (isort)...');
-if (!runCommand('isort --check .', backendDir)) process.exit(1);
+console.log('  ├─ Auto-sorting imports (isort)...');
+if (!runCommand('isort .', backendDir)) process.exit(1);
 
 console.log('  ├─ Linting (flake8)...');
 if (!runCommand('flake8 .', backendDir)) process.exit(1);
