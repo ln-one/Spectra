@@ -184,7 +184,7 @@ GitHub Actions automatically checks:
 - Frontend: ESLint + Prettier + Tests + Build
 - Backend: Black + isort + Flake8 + Tests + Prisma
 
-本地 Git hooks 与 CI 检查项完全一致，确保：
+本地 Git hooks 与 CI 检查项基本一致，并在本地包含额外检查（如 `prisma validate`），确保：
 - ✅ 本地通过 = CI 通过
 - ✅ 减少 CI 失败次数
 - ✅ 更快的开发反馈

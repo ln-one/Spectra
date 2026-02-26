@@ -120,14 +120,12 @@ npm install  # 安装 husky 和 Git hooks
 你会看到：
 ```
 > spectra-api-docs@1.0.0 prepare
-> husky install
+> husky
 
 husky - Git hooks installed
 ```
 
 这会在你 commit 和 push 时自动运行代码检查，避免 CI 失败。
-
-## 验证安装
 
 1. 打开 http://localhost:3000 - 你应该能看到 Spectra 仪表板
 2. 打开 http://localhost:8000/docs - 你应该能看到 Swagger UI 交互式文档
@@ -287,7 +285,7 @@ Spectra/
 
 ## 下一步
 
-- 阅读 [新人入职指南](../onboarding.md) - 了解完整的开发工作流和 Git hooks
+- 阅读 [新人入职指南](./onboarding.md) - 了解完整的开发工作流和 Git hooks
 - 阅读 [贡献指南](../CONTRIBUTING.md)
 - 查看 [后端规范](../standards/backend.md)
 - 查看 [前端规范](../standards/frontend.md)
