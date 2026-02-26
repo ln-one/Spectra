@@ -66,7 +66,7 @@ export default function ProjectsPage() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold">我的项目</h1>
-          <p className="text-muted-foreground mt-1">管理您的课件项目</p>
+          <p className="text-muted-foreground mt-1">管理您的教学项目</p>
         </div>
         <Button onClick={() => router.push("/projects/new")}>
           <Plus className="mr-2 h-4 w-4" />

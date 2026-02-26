@@ -134,11 +134,12 @@ export default function ProjectPreviewPage() {
       const taskId = preview.task_id;
       if (!taskId) return;
       const fileTypeMap: Record<"ppt" | "word", "pptx" | "docx"> = { ppt: "pptx", word: "docx" };
-      const response = await generateApi.downloadCourseware(taskId, fileTypeMap[fileType]);
+      const apiFileType = fileTypeMap[fileType];
+      const response = await generateApi.downloadCourseware(taskId, apiFileType);
       const url = window.URL.createObjectURL(response);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `courseware.${fileType}`);
+      link.setAttribute("download", `courseware.${apiFileType}`);
       document.body.appendChild(link);
       link.click();
       link.remove();

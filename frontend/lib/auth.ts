@@ -40,6 +40,8 @@ export const TokenStorage = {
     try {
       localStorage.setItem(ACCESS_TOKEN_KEY, token);
 
+      document.cookie = `access_token=${token}; path=/; max-age=${expiresIn || 86400}`;
+
       if (expiresIn) {
         const expiryTime = Date.now() + expiresIn * 1000;
         localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiryTime));
@@ -54,6 +56,11 @@ export const TokenStorage = {
   getAccessToken(): string | null {
     if (typeof window === "undefined") return null;
 
+    const tokenFromCookie = this.getAccessTokenFromCookie();
+    if (tokenFromCookie) {
+      return tokenFromCookie;
+    }
+
     try {
       const expiryStr = localStorage.getItem(TOKEN_EXPIRY_KEY);
       if (expiryStr) {
@@ -67,6 +74,12 @@ export const TokenStorage = {
     } catch {
       return null;
     }
+  },
+
+  getAccessTokenFromCookie(): string | null {
+    if (typeof window === "undefined") return null;
+    const match = document.cookie.match(new RegExp("(^| )access_token=([^;]+)"));
+    return match ? match[2] : null;
   },
 
   setRefreshToken(token: string): void {
@@ -97,6 +110,9 @@ export const TokenStorage = {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
       localStorage.removeItem(TOKEN_EXPIRY_KEY);
+
+      document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     } catch (error) {
       console.error("Failed to clear tokens:", error);
     }

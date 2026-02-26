@@ -47,6 +47,7 @@ export default function LoginPage() {
       await login(data.email, data.password);
       router.push(redirect);
     } catch (error) {
+      console.error("[Login] Error:", error);
       toast({
         title: "登录失败",
         description: error instanceof Error ? error.message : "请稍后重试",
