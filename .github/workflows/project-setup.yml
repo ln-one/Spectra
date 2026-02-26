@@ -1,0 +1,300 @@
+name: Setup GitHub Project (Run Once)
+
+# Run this workflow once to create and configure the GitHub Projects v2 board.
+# Prerequisites:
+#   1. Create a GitHub PAT with the "project" scope (classic token or fine-grained
+#      with read/write access to Projects).
+#   2. Add it as a repository secret named PROJECTS_PAT.
+#   3. Dispatch this workflow from the Actions tab.
+# After it completes, note the "Project number" printed in the summary and add it
+# as a repository variable named PROJECT_NUMBER (Settings → Variables → Actions).
+# That variable is consumed by the project-automation.yml workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_title:
+        description: 'Title for the new GitHub Project'
+        required: false
+        default: 'Spectra Team Board'
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PROJECTS_PAT }}
+      REPO_OWNER: ln-one
+      REPO_NAME: Spectra
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. Resolve the owner's node ID (works for both users and orgs)
+      # ------------------------------------------------------------------
+      - name: Get owner node ID
+        id: owner
+        run: |
+          NODE_ID=$(gh api graphql -f query='
+            query($login: String!) { user(login: $login) { id } }
+          ' -f login="$REPO_OWNER" --jq '.data.user.id // empty' 2>/dev/null || true)
+
+          if [ -z "$NODE_ID" ]; then
+            NODE_ID=$(gh api graphql -f query='
+              query($login: String!) { organization(login: $login) { id } }
+            ' -f login="$REPO_OWNER" --jq '.data.organization.id')
+          fi
+
+          echo "node_id=$NODE_ID" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------------
+      # 2. Create the project
+      # ------------------------------------------------------------------
+      - name: Create project
+        id: project
+        run: |
+          RESULT=$(gh api graphql -f query='
+            mutation($ownerId: ID!, $title: String!) {
+              createProjectV2(input: { ownerId: $ownerId, title: $title }) {
+                projectV2 { id number }
+              }
+            }
+          ' -f ownerId="${{ steps.owner.outputs.node_id }}" \
+            -f title="${{ inputs.project_title }}")
+
+          echo "id=$(echo "$RESULT" | jq -r '.data.createProjectV2.projectV2.id')" \
+            >> "$GITHUB_OUTPUT"
+          echo "number=$(echo "$RESULT" | jq -r '.data.createProjectV2.projectV2.number')" \
+            >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------------
+      # 3. Add custom fields
+      # ------------------------------------------------------------------
+      - name: Add Status field
+        id: status_field
+        run: |
+          RESULT=$(gh api graphql -f query='
+            mutation($projectId: ID!) {
+              createProjectV2Field(input: {
+                projectId: $projectId
+                dataType: SINGLE_SELECT
+                name: "Status"
+                singleSelectOptions: [
+                  { name: "Backlog",     color: GRAY,   description: "Not yet started" }
+                  { name: "Ready",       color: BLUE,   description: "Ready to be picked up" }
+                  { name: "In progress", color: YELLOW, description: "Actively being worked on" }
+                  { name: "In review",   color: ORANGE, description: "Pending review" }
+                  { name: "Blocked",     color: RED,    description: "Cannot proceed" }
+                  { name: "Done",        color: GREEN,  description: "Completed" }
+                ]
+              }) {
+                projectV2Field {
+                  ... on ProjectV2SingleSelectField {
+                    id name options { id name }
+                  }
+                }
+              }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}")
+
+          echo "id=$(echo "$RESULT" | jq -r '.data.createProjectV2Field.projectV2Field.id')" \
+            >> "$GITHUB_OUTPUT"
+          echo "backlog_id=$(echo "$RESULT" | jq -r \
+            '.data.createProjectV2Field.projectV2Field.options[] | select(.name=="Backlog") | .id')" \
+            >> "$GITHUB_OUTPUT"
+          echo "ready_id=$(echo "$RESULT" | jq -r \
+            '.data.createProjectV2Field.projectV2Field.options[] | select(.name=="Ready") | .id')" \
+            >> "$GITHUB_OUTPUT"
+          echo "in_review_id=$(echo "$RESULT" | jq -r \
+            '.data.createProjectV2Field.projectV2Field.options[] | select(.name=="In review") | .id')" \
+            >> "$GITHUB_OUTPUT"
+          echo "done_id=$(echo "$RESULT" | jq -r \
+            '.data.createProjectV2Field.projectV2Field.options[] | select(.name=="Done") | .id')" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Add Priority field
+        run: |
+          gh api graphql -f query='
+            mutation($projectId: ID!) {
+              createProjectV2Field(input: {
+                projectId: $projectId
+                dataType: SINGLE_SELECT
+                name: "Priority"
+                singleSelectOptions: [
+                  { name: "P0", color: RED,    description: "Critical / blocker" }
+                  { name: "P1", color: ORANGE, description: "High priority" }
+                  { name: "P2", color: YELLOW, description: "Medium priority" }
+                  { name: "P3", color: GRAY,   description: "Low / nice-to-have" }
+                ]
+              }) { projectV2Field { ... on ProjectV2SingleSelectField { id } } }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}"
+
+      - name: Add Area field
+        run: |
+          gh api graphql -f query='
+            mutation($projectId: ID!) {
+              createProjectV2Field(input: {
+                projectId: $projectId
+                dataType: SINGLE_SELECT
+                name: "Area"
+                singleSelectOptions: [
+                  { name: "Backend (Python)",    color: BLUE,   description: "" }
+                  { name: "Frontend (TypeScript)", color: GREEN, description: "" }
+                  { name: "Infra",               color: ORANGE, description: "" }
+                  { name: "Docs",                color: GRAY,   description: "" }
+                ]
+              }) { projectV2Field { ... on ProjectV2SingleSelectField { id } } }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}"
+
+      - name: Add Iteration field
+        run: |
+          gh api graphql -f query='
+            mutation($projectId: ID!) {
+              createProjectV2Field(input: {
+                projectId: $projectId
+                dataType: ITERATION
+                name: "Iteration"
+                # startDay: 1 = Monday (ISO weekday; 0 = Sunday), duration in days
+                iterationConfiguration: { duration: 14, startDay: 1 }
+              }) { projectV2Field { ... on ProjectV2IterationField { id } } }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}" || \
+          echo "Iteration field could not be created via API – add it manually in the project UI."
+
+      - name: Add Due date field
+        run: |
+          gh api graphql -f query='
+            mutation($projectId: ID!) {
+              createProjectV2Field(input: {
+                projectId: $projectId
+                dataType: DATE
+                name: "Due date"
+              }) { projectV2Field { ... on ProjectV2Field { id } } }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}"
+
+      # ------------------------------------------------------------------
+      # 4. Rename the default "Todo/In Progress/Done" view to "Board" and
+      #    create a Table view (the first view is always created by GitHub
+      #    as a Board; we just update its name and create the Table view).
+      # ------------------------------------------------------------------
+      - name: Get default view ID
+        id: views
+        run: |
+          VIEW_ID=$(gh api graphql -f query='
+            query($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  views(first: 1) { nodes { id } }
+                }
+              }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}" \
+            --jq '.data.node.views.nodes[0].id')
+          echo "board_id=$VIEW_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Rename default view to "Board (by Status)"
+        run: |
+          gh api graphql -f query='
+            mutation($projectId: ID!, $viewId: ID!, $name: String!) {
+              updateProjectV2View(input: {
+                projectId: $projectId
+                viewId: $viewId
+                name: $name
+              }) { projectV2View { id name } }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}" \
+            -f viewId="${{ steps.views.outputs.board_id }}" \
+            -f name="Board (by Status)"
+
+      - name: Create Table view
+        run: |
+          gh api graphql -f query='
+            mutation($projectId: ID!) {
+              createProjectV2View(input: {
+                projectId: $projectId
+                name: "Table"
+                layout: TABLE_LAYOUT
+              }) { projectV2View { id name } }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}"
+
+      - name: Create Roadmap view
+        run: |
+          gh api graphql -f query='
+            mutation($projectId: ID!) {
+              createProjectV2View(input: {
+                projectId: $projectId
+                name: "Roadmap"
+                layout: ROADMAP_LAYOUT
+              }) { projectV2View { id name } }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}" || \
+          echo "Roadmap layout not available for this account type – skipping."
+
+      # ------------------------------------------------------------------
+      # 5. Link the project to the repository
+      # ------------------------------------------------------------------
+      - name: Link project to repository
+        run: |
+          REPO_ID=$(gh api graphql -f query='
+            query($owner: String!, $name: String!) {
+              repository(owner: $owner, name: $name) { id }
+            }
+          ' -f owner="$REPO_OWNER" -f name="$REPO_NAME" \
+            --jq '.data.repository.id')
+
+          gh api graphql -f query='
+            mutation($projectId: ID!, $repositoryId: ID!) {
+              linkProjectV2ToRepository(input: {
+                projectId: $projectId
+                repositoryId: $repositoryId
+              }) { repository { name } }
+            }
+          ' -f projectId="${{ steps.project.outputs.id }}" \
+            -f repositoryId="$REPO_ID"
+
+      # ------------------------------------------------------------------
+      # 6. Print guidance on built-in GitHub Projects automations.
+      #    These must be configured in the project UI (the GraphQL API
+      #    does not yet expose a stable mutation for ProjectV2Workflow).
+      #    Navigate to: your project → ⋯ → Workflows
+      # ------------------------------------------------------------------
+      - name: Automation guidance
+        run: |
+          echo "### Built-in automation (configure in the project UI)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Open the project → click **⋯** → **Workflows** and enable:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Trigger | Action |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Item added to project | Set Status = **Backlog** |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Pull request merged | Set Status = **Done** |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Issue closed | Set Status = **Done** |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Auto-add: issues from ln-one/Spectra | *(enable the Auto-add workflow)* |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Auto-add: pull requests from ln-one/Spectra | *(enable the Auto-add workflow)* |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The **project-automation.yml** GitHub Actions workflow in this repo also" >> "$GITHUB_STEP_SUMMARY"
+          echo "provides event-driven Status updates (Backlog → In review → Done)." >> "$GITHUB_STEP_SUMMARY"
+
+      # ------------------------------------------------------------------
+      # 7. Print summary
+      # ------------------------------------------------------------------
+      - name: Summary
+        run: |
+          echo "## ✅ GitHub Project created successfully" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Setting | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Title** | ${{ inputs.project_title }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Project number** | ${{ steps.project.outputs.number }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Project URL** | https://github.com/orgs/$REPO_OWNER/projects/${{ steps.project.outputs.number }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Next steps" >> "$GITHUB_STEP_SUMMARY"
+          echo "1. Go to **Settings → Secrets and variables → Actions → Variables** and add:" >> "$GITHUB_STEP_SUMMARY"
+          echo "   \`PROJECT_NUMBER\` = \`${{ steps.project.outputs.number }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. In the project board, configure **Workflows → Auto-add to project** for this repository." >> "$GITHUB_STEP_SUMMARY"
+          echo "3. Optionally set the **Status** field to group the Board view." >> "$GITHUB_STEP_SUMMARY"
