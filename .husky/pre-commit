@@ -1,15 +1,3 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-# Frontend checks
-cd frontend
-npm run format
-npm run format:check
-npm run lint
-cd ..
-
-# Backend checks
-cd backend
-black --check .
-flake8 .
-cd ..
+set -e
+node scripts/pre-commit.js
