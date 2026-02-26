@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { chatApi, projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { VoiceRecorder } from "@/components/VoiceRecorder";
 import {
   Send,
-  Mic,
-  MicOff,
   ChevronLeft,
   FileText,
   Loader2,
@@ -44,7 +43,6 @@ export default function ProjectChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -123,9 +121,45 @@ export default function ProjectChatPage() {
     }
   };
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-  };
+  const handleVoiceRecordComplete = useCallback(async (audioBlob: Blob) => {
+    setIsLoading(true);
+
+    try {
+      const file = new File([audioBlob], "voice message", { type: "audio/webm" });
+      const response = await chatApi.sendVoiceMessage(file, projectId);
+
+      if (response.success && response.data.text) {
+        const userMessage: Message = {
+          id: `msg-${Date.now()}`,
+          role: "user",
+          content: response.data.text,
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+
+        if (response.data.message) {
+          const assistantMessage: Message = {
+            id: `msg-${Date.now()}-assistant`,
+            role: "assistant",
+            content: response.data.message.content || "",
+            created_at: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, assistantMessage]);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to process voice message:", error);
+      const errorMessage: Message = {
+        id: `msg-${Date.now()}-error`,
+        role: "assistant",
+        content: "语音识别失败，请重试或使用文字输入。",
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectId]);
 
   return (
     <div className="flex h-screen">
@@ -184,11 +218,10 @@ export default function ProjectChatPage() {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <Card
-                  className={`max-w-[80%] ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  }`}
+                  className={`max-w-[80%] ${message.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted"
+                    }`}
                 >
                   <div className="p-4">
                     <p className="whitespace-pre-wrap">{message.content}</p>
@@ -235,18 +268,7 @@ export default function ProjectChatPage() {
 
         <div className="border-t p-4">
           <div className="max-w-3xl mx-auto flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={toggleRecording}
-              className={isRecording ? "bg-red-100 text-red-600" : ""}
-            >
-              {isRecording ? (
-                <MicOff className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </Button>
+            <VoiceRecorder onRecordComplete={handleVoiceRecordComplete} />
             <Input
               ref={inputRef}
               placeholder="输入您的教学需求..."
