@@ -42,7 +42,7 @@ class TestPromptService:
     def test_courseware_prompt_basic(self):
         prompt = self.svc.build_courseware_prompt("Python 入门")
         assert "Python 入门" in prompt
-        assert "高级学科教学设计师" in prompt
+        assert "资深学科教学设计师" in prompt
         assert "PPT_CONTENT_START" in prompt
         assert "LESSON_PLAN_START" in prompt
 
