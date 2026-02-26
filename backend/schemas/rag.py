@@ -63,3 +63,20 @@ class SourceDetail(BaseModel):
     source: SourceReference
     context: Optional[ChunkContext] = None
     file_info: Optional[dict] = None
+
+
+class RAGIndexRequest(BaseModel):
+    """RAG 索引请求"""
+
+    file_id: str = Field(..., description="要索引的文件 ID")
+    chunk_size: int = Field(default=512, description="分块大小")
+    chunk_overlap: int = Field(default=50, description="分块重叠大小")
+
+
+class RAGSimilarRequest(BaseModel):
+    """RAG 相似内容查找请求"""
+
+    project_id: str = Field(..., description="项目 ID")
+    text: str = Field(..., min_length=1, description="要查找相似内容的文本")
+    top_k: int = Field(default=5, ge=1, le=20, description="返回结果数量")
+    threshold: float = Field(default=0.7, ge=0, le=1, description="相似度阈值")

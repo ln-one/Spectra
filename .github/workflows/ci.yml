@@ -133,7 +133,7 @@ jobs:
           node-version: '20'
       
       - name: Install Marp CLI
-        run: npm install -g @marp-team/marp-cli
+        run: npm install -g @marp-team/marp-cli --registry https://registry.npmmirror.com
       
       - name: Install Pandoc
         run: |
@@ -159,6 +159,8 @@ jobs:
       
       - name: Generate Prisma client
         working-directory: backend
+        env:
+          npm_config_registry: https://registry.npmmirror.com
         run: prisma generate
       
       - name: Check code format
