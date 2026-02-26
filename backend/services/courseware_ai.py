@@ -70,7 +70,7 @@ class CoursewareAIMixin:
             response = await self.generate(prompt=prompt, max_tokens=1500)
             content = response["content"].strip()
 
-            json_match = re.search(r"\{[\s\S]*\}", content)
+            json_match = re.search(r"\{[\s\S]*?\}", content)
             if not json_match:
                 raise ValueError("No JSON found in response")
 
