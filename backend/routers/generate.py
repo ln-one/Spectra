@@ -249,7 +249,7 @@ async def process_generation_task(
         )
 
 
-@router.get("/status/{task_id}")
+@router.get("/tasks/{task_id}/status")
 async def get_generation_status(
     task_id: str,
     user_id: str = Depends(get_current_user),
