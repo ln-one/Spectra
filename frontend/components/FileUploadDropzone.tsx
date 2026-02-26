@@ -7,7 +7,21 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-export function FileUploadDropzone() {
+interface FileUploadDropzoneProps {
+  onUpload?: (files: File[]) => void;
+  onUploadComplete?: (files: File[]) => void;
+  acceptedTypes?: string[];
+  maxSize?: number;
+  multiple?: boolean;
+}
+
+export function FileUploadDropzone({
+  onUpload,
+  onUploadComplete,
+  acceptedTypes,
+  maxSize = 104857600,
+  multiple = true,
+}: FileUploadDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
 
@@ -40,11 +54,27 @@ export function FileUploadDropzone() {
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files) {
-        const selectedFiles = Array.from(e.target.files);
-        setFiles((prev) => [...prev, ...selectedFiles]);
+        let selectedFiles = Array.from(e.target.files);
+
+        if (acceptedTypes && acceptedTypes.length > 0) {
+          selectedFiles = selectedFiles.filter((file) => {
+            const ext = file.name.split(".").pop()?.toLowerCase();
+            return ext && acceptedTypes.includes(ext);
+          });
+        }
+
+        if (maxSize) {
+          selectedFiles = selectedFiles.filter((file) => file.size <= maxSize);
+        }
+
+        if (selectedFiles.length > 0) {
+          setFiles((prev) => [...prev, ...selectedFiles]);
+          onUpload?.(selectedFiles);
+          onUploadComplete?.(selectedFiles);
+        }
       }
     },
-    []
+    [acceptedTypes, maxSize, onUpload, onUploadComplete]
   );
 
   const removeFile = useCallback((index: number) => {
@@ -72,11 +102,12 @@ export function FileUploadDropzone() {
         </p>
         <input
           type="file"
-          multiple
+          multiple={multiple}
           onChange={handleFileInput}
           className="hidden"
           id="file-upload"
           aria-label="Browse files"
+          accept={acceptedTypes?.map((ext) => `.${ext}`).join(",")}
         />
         <Button asChild>
           <label htmlFor="file-upload" className="cursor-pointer">

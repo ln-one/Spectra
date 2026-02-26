@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { projectApi, filesApi } from "@/lib/api";
+import { projectsApi, filesApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,7 +58,7 @@ export default function ProjectDetailPage() {
     const fetchData = async () => {
       try {
         const [projectRes, filesRes] = await Promise.all([
-          projectApi.getProject(projectId),
+          projectsApi.getProject(projectId),
           filesApi.getProjectFiles(projectId),
         ]);
         setProject(projectRes.data);
