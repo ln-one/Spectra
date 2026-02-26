@@ -285,13 +285,19 @@ jobs:
       # ------------------------------------------------------------------
       - name: Summary
         run: |
+          OWNER_TYPE=$(gh api -H "Accept: application/vnd.github+json" /users/"$REPO_OWNER" --jq '.type')
+          if [ "$OWNER_TYPE" = "Organization" ]; then
+            PROJECT_URL="https://github.com/orgs/$REPO_OWNER/projects/${{ steps.project.outputs.number }}"
+          else
+            PROJECT_URL="https://github.com/users/$REPO_OWNER/projects/${{ steps.project.outputs.number }}"
+          fi
           echo "## ✅ GitHub Project created successfully" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Setting | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Title** | ${{ inputs.project_title }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Project number** | ${{ steps.project.outputs.number }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Project URL** | https://github.com/orgs/$REPO_OWNER/projects/${{ steps.project.outputs.number }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Project URL** | $PROJECT_URL |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Next steps" >> "$GITHUB_STEP_SUMMARY"
           echo "1. Go to **Settings → Secrets and variables → Actions → Variables** and add:" >> "$GITHUB_STEP_SUMMARY"
