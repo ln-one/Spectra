@@ -7,8 +7,8 @@
 /projects                   # 项目列表
 /projects/new               # 创建新项目
 /projects/[id]              # 项目详情
-/projects/[id]/preview      # 预览与修改页面
 /projects/[id]/chat         # 对话页面
+/projects/[id]/preview      # 预览与修改页面
 /projects/[id]/generate     # 生成页面
 /projects/[id]/settings     # 项目设置
 /upload                     # 文件上传管理
