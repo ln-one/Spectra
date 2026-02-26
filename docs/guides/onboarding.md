@@ -16,7 +16,7 @@ npm install  # 这会自动安装 Git hooks
 你会看到：
 ```
 > spectra-api-docs@1.0.0 prepare
-> husky install
+> husky
 
 husky - Git hooks installed
 ```

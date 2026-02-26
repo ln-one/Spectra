@@ -7,7 +7,7 @@
 ## Git Hooks 流程
 
 ```
-git commit  →  pre-commit   (快速检查: 格式 + lint + 测试)
+git commit  →  pre-commit   (完整检查: 格式 + lint + 测试)
                 ↓
 git push    →  pre-push     (完整检查: 构建 + Prisma)
                 ↓
@@ -58,16 +58,16 @@ npm run pre-push
 
 ## 与 CI 保持一致
 
-本地检查项与 `.github/workflows/ci.yml` 完全一致，避免：
+本地检查项与 `.github/workflows/ci.yml` 基本保持一致，并在此基础上增加了一些本地检查（例如 Prisma schema 验证），以避免：
 - ❌ 本地 commit 通过，CI 失败
 - ❌ 团队成员环境不一致
 - ❌ 忘记运行 prisma generate
 
 ## 为什么分两步？
 
-**Pre-commit（快）**：1-5 秒
+**Pre-commit（每次 commit）**：1-5 秒
 - 频繁触发，必须快
-- 只检查代码质量
+- 主要检查代码质量 + 核心单元测试
 
 **Pre-push（慢）**：10-30 秒
 - 不频繁，可以慢一点
