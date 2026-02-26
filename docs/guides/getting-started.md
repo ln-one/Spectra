@@ -108,12 +108,62 @@ npm run dev
 
 前端运行地址: **http://localhost:3000**
 
+### 安装 Git Hooks（重要！）
+
+回到项目根目录安装 Git hooks，这会自动检查代码质量：
+
+```bash
+cd ..  # 回到项目根目录
+npm install  # 安装 husky 和 Git hooks
+```
+
+你会看到：
+```
+> spectra-api-docs@1.0.0 prepare
+> husky install
+
+husky - Git hooks installed
+```
+
+这会在你 commit 和 push 时自动运行代码检查，避免 CI 失败。
+
 ## 验证安装
 
 1. 打开 http://localhost:3000 - 你应该能看到 Spectra 仪表板
 2. 打开 http://localhost:8000/docs - 你应该能看到 Swagger UI 交互式文档
 3. 打开 http://localhost:8000/redoc - 你应该能看到 ReDoc 美观文档
 4. 尝试在仪表板中上传文件
+
+### 验证 Git Hooks
+
+测试 hooks 是否正常工作：
+
+```bash
+# 创建测试文件
+echo "test" > test.txt
+git add test.txt
+git commit -m "test: verify hooks"
+```
+
+你应该看到自动运行的检查：
+```
+🔍 Running pre-commit checks...
+
+📦 Frontend checks...
+  ├─ Checking format...
+  ├─ Linting...
+  ├─ Running tests...
+
+🐍 Backend checks...
+  ├─ Checking code format (black)...
+  ├─ Checking import sorting (isort)...
+  ├─ Linting (flake8)...
+  ├─ Running tests...
+
+✅ All checks passed!
+```
+
+如果没看到检查，说明 hooks 没安装，回到项目根目录运行 `npm install`。
 
 ## 常见问题
 
@@ -182,6 +232,18 @@ npm run dev
 
 ### 提交前检查
 
+Git hooks 会自动运行检查，但你也可以手动运行：
+
+```bash
+# 完整检查（包含测试）
+npm run pre-commit:full
+
+# 快速检查（自动修复格式，跳过测试）
+npm run pre-commit:quick
+```
+
+或者分别检查：
+
 ```bash
 # 后端: 格式化和检查
 cd backend
@@ -225,10 +287,12 @@ Spectra/
 
 ## 下一步
 
+- 阅读 [新人入职指南](../onboarding.md) - 了解完整的开发工作流和 Git hooks
 - 阅读 [贡献指南](../CONTRIBUTING.md)
 - 查看 [后端规范](../standards/backend.md)
 - 查看 [前端规范](../standards/frontend.md)
 - 了解 [Git 工作流](../standards/git.md)
+- 查看 [代码质量指南](./code-quality.md) - 了解 CI/CD 和自动化检查
 
 ## 需要帮助？
 
