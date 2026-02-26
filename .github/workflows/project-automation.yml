@@ -136,11 +136,20 @@ jobs:
           EVENT="${{ github.event_name }}"
           ACTION="${{ github.event.action }}"
           MERGED="${{ github.event.pull_request.merged }}"
+          STATE_REASON="${{ github.event.issue.state_reason }}"
 
           # Map event → Status name
           if   [ "$EVENT" = "issues" ]       && [ "$ACTION" = "opened" ];          then STATUS="Backlog"
           elif [ "$EVENT" = "issues" ]       && [ "$ACTION" = "assigned" ];        then STATUS="Ready"
-          elif [ "$EVENT" = "issues" ]       && [ "$ACTION" = "closed" ];          then STATUS="Done"
+          elif [ "$EVENT" = "issues" ]       && [ "$ACTION" = "closed" ]; then
+            # Only mark as Done when the issue was actually completed.
+            # If STATE_REASON is empty (older events), preserve existing behavior.
+            if [ -z "$STATE_REASON" ] || [ "$STATE_REASON" = "completed" ]; then
+              STATUS="Done"
+            else
+              echo "Issue closed with state_reason='$STATE_REASON' – not marking as Done."
+              exit 0
+            fi
           elif [ "$EVENT" = "pull_request" ] && [ "$ACTION" = "opened" ];          then STATUS="Backlog"
           elif [ "$EVENT" = "pull_request" ] && [ "$ACTION" = "ready_for_review" ]; then STATUS="In review"
           elif [ "$EVENT" = "pull_request" ] && [ "$ACTION" = "closed" ] && [ "$MERGED" = "true" ]; then STATUS="Done"
