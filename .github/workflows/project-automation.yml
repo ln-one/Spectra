@@ -30,7 +30,7 @@ jobs:
   update-project:
     runs-on: ubuntu-latest
     # Skip when PROJECT_NUMBER is not configured yet.
-    if: vars.PROJECT_NUMBER != ''
+    if: vars.PROJECT_NUMBER != '' && vars.PROJECT_NUMBER != null
     env:
       GH_TOKEN: ${{ secrets.PROJECTS_PAT }}
       REPO_OWNER: ln-one
