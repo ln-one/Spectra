@@ -30,7 +30,7 @@ export function FileUploadDropzone({
 }: FileUploadDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
 
-  const { uploads, addUpload, addBatchUploads, isLoading, error, clearError } = useUploadStore();
+  const { uploads, failedUploads, addUpload, addBatchUploads, isLoading, error, clearError, clearFailedUploads } = useUploadStore();
 
   const validateFiles = useCallback((files: File[]): File[] => {
     const exts = acceptedTypes.map((ext) => ext.toLowerCase());
@@ -191,6 +191,29 @@ export function FileUploadDropzone({
           <Button variant="ghost" size="sm" onClick={clearError} className="ml-auto">
             <X className="w-4 h-4" />
           </Button>
+        </div>
+      )}
+
+      {failedUploads.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-orange-600">
+              上传失败 ({failedUploads.length})
+            </h4>
+            <Button variant="ghost" size="sm" onClick={clearFailedUploads}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          {failedUploads.map((failed, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-2 p-2 text-sm text-orange-600 bg-orange-50 rounded"
+            >
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{failed.filename}</span>
+              <span className="text-xs opacity-75">- {failed.error}</span>
+            </div>
+          ))}
         </div>
       )}
 

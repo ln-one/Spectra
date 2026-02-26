@@ -33,17 +33,19 @@ export interface Upload {
 
 export interface UploadState {
   uploads: Upload[];
+  failedUploads: { filename: string; error: string }[];
   isLoading: boolean;
   error: string | null;
   currentProjectId: string | null;
 
   addUpload: (projectId: string, file: File) => Promise<void>;
-  addBatchUploads: (projectId: string, files: File[]) => Promise<void>;
+  addBatchUploads: (projectId: string, files: File[]) => Promise<{ success: number; failed: number }>;
   updateUploadStatus: (id: string, status: UploadStatus, error?: string) => void;
   annotateUpload: (id: string, usageIntent: string) => Promise<void>;
   deleteUpload: (id: string) => Promise<void>;
   fetchUploads: (projectId: string) => Promise<void>;
   clearUploads: () => void;
+  clearFailedUploads: () => void;
   clearError: () => void;
 }
 
@@ -66,6 +68,7 @@ function toUpload(apiFile: UploadedFile, projectId: string): Upload {
 
 export const useUploadStore = create<UploadState>()((set, _get) => ({
   uploads: [],
+  failedUploads: [],
   isLoading: false,
   error: null,
   currentProjectId: null,
@@ -115,7 +118,7 @@ export const useUploadStore = create<UploadState>()((set, _get) => ({
   },
 
   addBatchUploads: async (projectId: string, files: File[]) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, failedUploads: [] });
 
     try {
       const response = await filesApi.batchUploadFiles(files, projectId);
@@ -127,12 +130,28 @@ export const useUploadStore = create<UploadState>()((set, _get) => ({
           uploads: [...state.uploads, ...uploads],
           isLoading: false,
         }));
+
+        const failed = (response.data.failed || []).filter(
+          (f): f is { filename: string; error: string } =>
+            !!f.filename && !!f.error
+        );
+        if (failed.length > 0) {
+          set({ failedUploads: failed });
+        }
+
+        return {
+          success: uploads.length,
+          failed: failed.length,
+        };
       }
+
+      return { success: 0, failed: files.length };
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "批量上传失败",
         isLoading: false,
       });
+      return { success: 0, failed: files.length };
     }
   },
 
@@ -202,6 +221,10 @@ export const useUploadStore = create<UploadState>()((set, _get) => ({
       error: null,
       currentProjectId: null,
     });
+  },
+
+  clearFailedUploads: () => {
+    set({ failedUploads: [] });
   },
 
   clearError: () => {
