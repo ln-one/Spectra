@@ -8,6 +8,8 @@ import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { SlidePreview, type Slide } from "@/components/SlidePreview";
+import { ProgressTracker } from "@/components/ProgressTracker";
+import { ModifyChat } from "@/components/ModifyChat";
 import {
   ChevronLeft,
   Loader2,
@@ -143,6 +145,38 @@ export default function ProjectPreviewPage() {
     }
   };
 
+  const handleModifyComplete = () => {
+    previewApi.getPreview(projectId).then((res) => {
+      const previewData: PreviewData = {
+        task_id: res.data.task_id,
+        slides: res.data.slides || [],
+        current_slide: 0,
+      };
+      setPreview(previewData);
+      setCurrentSlide(0);
+      toast({
+        title: "修改完成",
+        description: "课件已更新",
+      });
+    });
+  };
+
+  const handleDownload = async (taskId: string, fileType: "pptx" | "docx") => {
+    try {
+      await generateApi.triggerDownload(taskId, fileType);
+      toast({
+        title: "下载成功",
+        description: `课件已下载为 ${fileType.toUpperCase()} 格式`,
+      });
+    } catch {
+      toast({
+        title: "下载失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -203,14 +237,41 @@ export default function ProjectPreviewPage() {
       </aside>
 
       <main className="flex-1 overflow-hidden">
-        <div className="h-full p-6">
-          <SlidePreview
-            slides={preview?.slides}
-            currentSlide={currentSlide}
-            onSlideChange={setCurrentSlide}
-            onGenerate={handleGenerate}
-            isGenerating={isGenerating}
-          />
+        <div className="h-full flex">
+          <div className="flex-1 p-6 flex flex-col overflow-hidden">
+            <div className="flex-1">
+              <SlidePreview
+                slides={preview?.slides}
+                currentSlide={currentSlide}
+                onSlideChange={setCurrentSlide}
+                onGenerate={handleGenerate}
+                isGenerating={isGenerating}
+              />
+            </div>
+
+            <div className="mt-4">
+              <ProgressTracker onDownload={handleDownload} />
+            </div>
+          </div>
+
+          <div className="w-96 border-l bg-card flex flex-col overflow-hidden">
+            {preview?.task_id ? (
+              <ModifyChat
+                taskId={preview.task_id}
+                slideIds={preview.slides?.[currentSlide] ? [preview.slides[currentSlide].id] : undefined}
+                onModifyComplete={handleModifyComplete}
+                className="h-full border-0 rounded-none"
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="text-center text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>暂无课件</p>
+                  <p className="text-sm mt-2">请先生成课件后再进行修改</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
