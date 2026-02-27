@@ -37,11 +37,13 @@ export const TokenStorage = {
   setAccessToken(token: string, expiresIn?: number): void {
     if (typeof window === "undefined") return;
 
+    const maxAge = expiresIn || 86400;
+    const cookieOptions = `path=/; max-age=${maxAge}; SameSite=Lax`;
+
     try {
       localStorage.setItem(ACCESS_TOKEN_KEY, token);
-
-      document.cookie = `access_token=${token}; path=/; max-age=${expiresIn || 86400}`;
-
+      document.cookie = `access_token=${token}; ${cookieOptions}`;
+      
       if (expiresIn) {
         const expiryTime = Date.now() + expiresIn * 1000;
         localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiryTime));
@@ -50,6 +52,11 @@ export const TokenStorage = {
       }
     } catch (error) {
       console.error("Failed to set access token:", error);
+      try {
+        document.cookie = `access_token=${token}; ${cookieOptions}`;
+      } catch {
+        localStorage.setItem(ACCESS_TOKEN_KEY, token);
+      }
     }
   },
 

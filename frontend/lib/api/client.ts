@@ -33,6 +33,16 @@ export function getApiUrl(path: string): string {
   return `${API_BASE_URL}${API_VERSION}${path}`;
 }
 
+function handleAuthError(): void {
+  if (typeof window === "undefined") return;
+
+  const currentPath = window.location.pathname;
+  if (currentPath.startsWith("/auth/")) return;
+
+  TokenStorage.clearTokens();
+  window.location.href = `/auth/login?redirect=${encodeURIComponent(currentPath)}`;
+}
+
 export async function request<T>(
   path: string,
   options: RequestOptions = {}
@@ -67,6 +77,15 @@ export async function request<T>(
     ...fetchOptions,
     headers: requestHeaders,
   });
+
+  if (response.status === 401) {
+    handleAuthError();
+    throw new ApiError(
+      "UNAUTHORIZED",
+      "Authentication required. Please login.",
+      401
+    );
+  }
 
   const data = await response.json();
 
