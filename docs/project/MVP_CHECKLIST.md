@@ -34,19 +34,19 @@
 ## ✅ 前端页面检查（成员 B 负责）
 
 ### 认证页面
-- [ ] `/auth/login` - 登录页面
-- [ ] `/auth/register` - 注册页面
-- [ ] 表单验证（React Hook Form + Zod）
-- [ ] 错误提示
+- [x] `/auth/login` - 登录页面
+- [x] `/auth/register` - 注册页面
+- [x] 表单验证（React Hook Form + Zod）
+- [x] 错误提示
 
 ### 项目页面
-- [ ] `/projects` - 项目列表
-- [ ] `/projects/new` - 新建项目
+- [x] `/projects` - 项目列表
+- [x] `/projects/new` - 新建项目
 - [ ] `/projects/[id]` - 项目详情
 
 ### 生成页面
-- [ ] 生成按钮
-- [ ] 进度显示
+- [x] 生成按钮
+- [x] 进度显示
 - [ ] 下载按钮
 
 ---
