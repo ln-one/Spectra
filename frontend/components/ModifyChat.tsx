@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Loader2, Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { previewApi } from "@/lib/api";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 interface ModifyMessage {
   id: string;
@@ -33,7 +34,23 @@ export function ModifyChat({
     {
       id: "welcome",
       role: "assistant",
-      content: "您好！我是课件修改助手。请告诉我您想要如何修改课件内容，例如：\n\n- 修改第3页的标题\n- 在第5页添加更多例子\n- 将所有页面的背景色改为蓝色\n\n请描述您的修改需求，我会为您生成修改后的课件。",
+      content: `您好！我是课件修改助手。请告诉我您想要如何修改课件内容。
+
+## 示例
+
+- **修改第3页的标题** → "将第3页的标题改为《光的折射》"
+- **在第5页添加例子** → "在第5页添加2个生活中的折射例子"
+- **调整页面样式** → "将所有页面的背景色改为淡蓝色"
+
+## 支持的格式
+
+| 功能 | 语法 |
+|------|------|
+| 重点 | \`**文字**\` |
+| 代码 | \`\`\`代码\`\`\` |
+| 列表 | \`- 项目\` |
+
+请描述您的修改需求，我会为您生成修改后的课件。`,
       timestamp: new Date(),
     },
   ]);
@@ -143,7 +160,11 @@ export function ModifyChat({
                     : "bg-muted"
                 )}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                {message.role === "assistant" ? (
+                  <MarkdownRenderer content={message.content} className="text-sm" />
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                )}
                 <p className="text-xs opacity-50 mt-1">
                   {message.timestamp.toLocaleTimeString()}
                 </p>
