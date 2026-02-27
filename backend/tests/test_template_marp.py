@@ -173,6 +173,25 @@ class TestWrapMarkdownWithTemplate:
         assert "footer:" in result
         assert "<style>" in result
 
+    def test_wrap_strips_existing_marp_frontmatter(self, template_service):
+        """AI 输出已包含 Marp frontmatter 时，不应重复注入导致空白首页"""
+        markdown = """---
+marp: true
+theme: default
+paginate: true
+---
+
+# 第一页
+
+内容
+"""
+        config = TemplateConfig()
+        result = template_service.wrap_markdown_with_template(markdown, config, "测试")
+
+        # 应只保留一份 marp frontmatter
+        assert result.count("marp: true") == 1
+        assert "# 第一页" in result
+
 
 class TestCSSGeneration:
     """测试 CSS 生成"""

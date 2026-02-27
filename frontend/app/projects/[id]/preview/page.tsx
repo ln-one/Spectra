@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { previewApi, generateApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/LogoutButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -81,7 +82,7 @@ export default function ProjectPreviewPage() {
     try {
       const res = await generateApi.generateCourseware({
         project_id: projectId,
-        type: "ppt",
+        type: "both",
       });
 
       const taskId = res.data.task_id;
@@ -93,7 +94,7 @@ export default function ProjectPreviewPage() {
       const pollStatus = async () => {
         const statusRes = await generateApi.getGenerateStatus(taskId);
         if (statusRes.data.status === "completed") {
-          const previewRes = await previewApi.getPreview(projectId);
+          const previewRes = await previewApi.getPreview(taskId);
           const previewData: PreviewData = {
             task_id: previewRes.data.task_id,
             slides: previewRes.data.slides || [],
@@ -179,6 +180,13 @@ export default function ProjectPreviewPage() {
         </div>
         <div className="p-4">
           <Button
+            variant="outline"
+            className="w-full mb-2"
+            onClick={() => router.push(`/projects/${projectId}`)}
+          >
+            项目主页
+          </Button>
+          <Button
             className="w-full mb-2"
             onClick={() => router.push(`/projects/${projectId}/chat`)}
           >
@@ -192,6 +200,9 @@ export default function ProjectPreviewPage() {
           >
             重新生成
           </Button>
+        </div>
+        <div className="p-4 border-t">
+          <LogoutButton className="w-full" />
         </div>
       </aside>
 

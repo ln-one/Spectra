@@ -5,10 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { chatApi, projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/LogoutButton";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
+import { useToast } from "@/hooks/use-toast";
 import { Send, ChevronLeft, FileText, Loader2 } from "lucide-react";
 
 interface Message {
@@ -32,12 +34,14 @@ interface Project {
 export default function ProjectChatPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const projectId = params.id as string;
 
   const [project, setProject] = useState<Project | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,13 +54,30 @@ export default function ProjectChatPage() {
 
     const fetchProject = async () => {
       try {
-        const res = await projectsApi.getProject(projectId);
-        const projectData = res.data.project;
-        if (projectData) {
-          setProject(projectData);
-        }
+        const [projectRes, messageRes] = await Promise.all([
+          projectsApi.getProject(projectId),
+          chatApi.getMessages(projectId),
+        ]);
+
+        const projectData = projectRes.data.project;
+        if (projectData) setProject(projectData);
+
+        const history = (messageRes.data.messages || []).map((m) => ({
+          id: m.id || `msg-${Date.now()}-${Math.random()}`,
+          role: (m.role as "user" | "assistant") || "assistant",
+          content: m.content || "",
+          created_at: m.timestamp || new Date().toISOString(),
+        }));
+        setMessages(history);
+        setLoadError(null);
       } catch (error) {
         console.error("Failed to fetch project:", error);
+        setLoadError("加载项目或历史对话失败，请刷新后重试。");
+        toast({
+          title: "加载失败",
+          description: "无法获取项目和历史消息",
+          variant: "destructive",
+        });
       }
     };
 
@@ -179,12 +200,22 @@ export default function ProjectChatPage() {
         <div className="p-4">
           <Button
             variant="outline"
+            className="w-full mb-2"
+            onClick={() => router.push(`/projects/${projectId}`)}
+          >
+            项目主页
+          </Button>
+          <Button
+            variant="outline"
             className="w-full"
             onClick={() => router.push(`/projects/${projectId}/preview`)}
           >
             <FileText className="mr-2 h-4 w-4" />
             查看预览
           </Button>
+        </div>
+        <div className="p-4 border-t">
+          <LogoutButton className="w-full" />
         </div>
       </aside>
 
@@ -194,6 +225,9 @@ export default function ProjectChatPage() {
           <p className="text-sm text-muted-foreground">
             与 AI 助手描述您的教学需求
           </p>
+          {loadError && (
+            <p className="mt-2 text-sm text-destructive">{loadError}</p>
+          )}
         </div>
 
         <ScrollArea className="flex-1 p-4">
@@ -205,8 +239,8 @@ export default function ProjectChatPage() {
                 </p>
                 <div className="text-sm text-muted-foreground space-y-1">
                   <p>例如：</p>
-                  <p>• "我想创建一二次函数课程"</p>
-                  节初中数学的 <p>• "需要包含图像、顶点公式讲解和例题"</p>
+                  <p>• "我想创建一节初中数学的二次函数课程"</p>
+                  <p>• "需要包含图像、顶点公式讲解和例题"</p>
                   <p>• "大约15分钟的教学时长"</p>
                 </div>
               </div>

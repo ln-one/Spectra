@@ -17,7 +17,7 @@ datasource db {
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
-  password  String   // bcrypt 哈希
+  password  String   // bcrypt 哈希 (60 字符)
   username  String   @unique
   fullName  String?
   

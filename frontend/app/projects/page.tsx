@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/LogoutButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, FileText, Clock, ChevronRight } from "lucide-react";
+import { Plus, FileText, Clock, ChevronRight, ArrowLeft } from "lucide-react";
 
 interface Project {
   id: string;
@@ -64,15 +65,21 @@ export default function ProjectsPage() {
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-8">
-        feat(frontend):初步实现基础框架与认证、对话与文件功能，暂不{" "}
         <div>
           <h1 className="text-3xl font-bold">我的项目</h1>
           <p className="text-muted-foreground mt-1">管理您的教学项目</p>
         </div>
-        <Button onClick={() => router.push("/projects/new")}>
-          <Plus className="mr-2 h-4 w-4" />
-          新建项目
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push("/")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            返回首页
+          </Button>
+          <Button onClick={() => router.push("/projects/new")}>
+            <Plus className="mr-2 h-4 w-4" />
+            新建项目
+          </Button>
+          <LogoutButton />
+        </div>
       </div>
 
       {projects.length === 0 ? (

@@ -7,6 +7,7 @@ AIService 通过 mixin 继承这些方法。
 
 import json
 import logging
+import os
 import re
 from typing import TYPE_CHECKING, Optional
 
@@ -17,6 +18,10 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+# 是否允许课件生成失败时使用模板化 fallback 内容（默认 false，生产建议保持 false）
+ALLOW_COURSEWARE_FALLBACK = (
+    os.getenv("ALLOW_COURSEWARE_FALLBACK", "false").lower() == "true"
+)
 
 
 class CoursewareAIMixin:
@@ -224,32 +229,29 @@ class CoursewareAIMixin:
                 extra={"project_id": project_id},
                 exc_info=True,
             )
-            return self._get_fallback_courseware(user_requirements)
+            if ALLOW_COURSEWARE_FALLBACK:
+                return self._get_fallback_courseware(user_requirements)
+            raise
 
     def _parse_courseware_response(
         self, content: str, user_requirements: str
     ) -> CoursewareContent:
         """解析 LLM 返回的课件内容"""
-        ppt_match = re.search(
-            r"===PPT_CONTENT_START===(.*?)===PPT_CONTENT_END===",
-            content,
-            re.DOTALL,
+        normalized_content = self._strip_outer_code_fence(content)
+        ppt_content = self._extract_block(
+            normalized_content, "PPT_CONTENT_START", "PPT_CONTENT_END"
         )
-        ppt_content = ppt_match.group(1).strip() if ppt_match else ""
-
-        lesson_match = re.search(
-            r"===LESSON_PLAN_START===(.*?)===LESSON_PLAN_END===",
-            content,
-            re.DOTALL,
+        lesson_plan = self._extract_block(
+            normalized_content, "LESSON_PLAN_START", "LESSON_PLAN_END"
         )
-        lesson_plan = lesson_match.group(1).strip() if lesson_match else ""
 
         if not ppt_content or not lesson_plan:
-            logger.warning("Failed to parse structured response, trying simple split")
-            parts = content.split("===")
-            if len(parts) >= 2:
-                ppt_content = parts[0].strip()
-                lesson_plan = parts[1].strip() if len(parts) > 1 else ""
+            logger.warning("Failed to parse strict markers, trying heuristic split")
+            heuristic_ppt, heuristic_lesson = self._heuristic_split_sections(
+                normalized_content
+            )
+            ppt_content = ppt_content or heuristic_ppt
+            lesson_plan = lesson_plan or heuristic_lesson
 
         title_match = re.search(r"^#\s+(.+)$", ppt_content, re.MULTILINE)
         title = title_match.group(1).strip() if title_match else user_requirements[:50]
@@ -270,6 +272,51 @@ class CoursewareAIMixin:
             markdown_content=ppt_content,
             lesson_plan_markdown=lesson_plan,
         )
+
+    @staticmethod
+    def _strip_outer_code_fence(content: str) -> str:
+        """去掉包裹整段响应的 markdown 代码围栏。"""
+        fence_match = re.match(
+            r"^\s*```(?:markdown|md)?\s*(.*?)\s*```\s*$",
+            content,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if fence_match:
+            return fence_match.group(1).strip()
+        return content.strip()
+
+    @staticmethod
+    def _extract_block(content: str, start_tag: str, end_tag: str) -> str:
+        """按宽松 marker 提取块内容（允许不同数量等号和空白）。"""
+        pattern = (
+            rf"=+\s*{re.escape(start_tag)}\s*=+"
+            rf"(.*?)"
+            rf"=+\s*{re.escape(end_tag)}\s*=+"
+        )
+        match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
+        return match.group(1).strip() if match else ""
+
+    @staticmethod
+    def _heuristic_split_sections(content: str) -> tuple[str, str]:
+        """
+        在 marker 缺失时按教案标题做启发式切分，尽量保留模型真实输出。
+        """
+        lesson_heading = re.search(
+            r"^\s*#\s*(教学目标|教案|Lesson Plan)\b.*$",
+            content,
+            re.MULTILINE | re.IGNORECASE,
+        )
+        if lesson_heading:
+            split_idx = lesson_heading.start()
+            ppt_part = content[:split_idx].strip()
+            lesson_part = content[split_idx:].strip()
+            return ppt_part, lesson_part
+
+        # 次级策略：如果包含 Marp frontmatter，就将整段视为 PPT
+        if re.search(r"^\s*---\s*\n[\s\S]*?marp:\s*true", content, re.IGNORECASE):
+            return content.strip(), ""
+
+        return "", content.strip()
 
     def _get_fallback_courseware(self, user_requirements: str) -> CoursewareContent:
         """获取 fallback 课件内容（当 AI 生成失败时使用）"""
