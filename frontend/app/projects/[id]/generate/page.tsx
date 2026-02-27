@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { projectsApi, generateApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
@@ -43,9 +43,7 @@ export default function GeneratePage() {
   const [project, setProject] = useState<Project | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentTask, setCurrentTask] = useState<GenerationTask | null>(null);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(
-    null
-  );
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
@@ -74,13 +72,19 @@ export default function GeneratePage() {
     fetchProject();
 
     return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
-  }, [projectId, router, toast, pollingInterval]);
+  }, [projectId, router, toast]);
 
   const startPolling = (taskId: string) => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
     const interval = setInterval(async () => {
       try {
         const response = await generateApi.getGenerateStatus(taskId);
@@ -109,6 +113,7 @@ export default function GeneratePage() {
 
         if (taskData.status === "completed") {
           clearInterval(interval);
+          pollingIntervalRef.current = null;
           setIsGenerating(false);
           toast({
             title: "生成完成",
@@ -116,6 +121,7 @@ export default function GeneratePage() {
           });
         } else if (taskData.status === "failed") {
           clearInterval(interval);
+          pollingIntervalRef.current = null;
           setIsGenerating(false);
           toast({
             title: "生成失败",
@@ -128,7 +134,7 @@ export default function GeneratePage() {
       }
     }, 2000);
 
-    setPollingInterval(interval);
+    pollingIntervalRef.current = interval;
   };
 
   const handleGenerate = async () => {

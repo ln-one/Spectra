@@ -6,9 +6,10 @@
 set -e
 
 API_URL="http://localhost:8000/api/v1"
-TEST_EMAIL="integration_test_$(date +%s)@example.com"
+TEST_SUFFIX="$(python3 -c 'import uuid; print(uuid.uuid4().hex[:12])')"
+TEST_EMAIL="integration_test_${TEST_SUFFIX}@example.com"
 TEST_PASSWORD="Test123456"
-TEST_USERNAME="testuser_$(date +%s)"
+TEST_USERNAME="testuser_${TEST_SUFFIX}"
 
 echo "========================================="
 echo "Spectra 集成测试"

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 # 默认模型从环境变量读取，支持 DashScope Qwen
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen-plus")
+# 是否允许在 LLM 调用失败时返回占位 stub 文本（默认 false，生产建议保持 false）
 ALLOW_AI_STUB = os.getenv("ALLOW_AI_STUB", "false").lower() == "true"
 
 

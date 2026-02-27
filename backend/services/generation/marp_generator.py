@@ -46,6 +46,28 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _resolve_browser_path() -> str | None:
+    """
+    解析可用的 Chrome/Chromium 路径。
+    优先使用 CHROME_PATH；未设置时尝试常见安装位置。
+    """
+    env_path = os.getenv("CHROME_PATH")
+    if env_path:
+        return env_path
+
+    candidates = [
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ]
+    for path in candidates:
+        if Path(path).exists():
+            return path
+    return None
+
+
 async def call_marp_cli(
     input_file: Path, output_file: Path, timeout: int = 300
 ) -> tuple[bytes, bytes]:
@@ -71,7 +93,7 @@ async def call_marp_cli(
     except ToolNotFoundError:
         raise
 
-    chrome_path = os.getenv("CHROME_PATH", "/usr/bin/chromium")
+    chrome_path = _resolve_browser_path()
     cmd = [
         "marp",
         str(input_file),

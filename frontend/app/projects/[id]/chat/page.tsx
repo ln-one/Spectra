@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
+import { useToast } from "@/hooks/use-toast";
 import { Send, ChevronLeft, FileText, Loader2 } from "lucide-react";
 
 interface Message {
@@ -33,12 +34,14 @@ interface Project {
 export default function ProjectChatPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const projectId = params.id as string;
 
   const [project, setProject] = useState<Project | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -66,8 +69,15 @@ export default function ProjectChatPage() {
           created_at: m.timestamp || new Date().toISOString(),
         }));
         setMessages(history);
+        setLoadError(null);
       } catch (error) {
         console.error("Failed to fetch project:", error);
+        setLoadError("加载项目或历史对话失败，请刷新后重试。");
+        toast({
+          title: "加载失败",
+          description: "无法获取项目和历史消息",
+          variant: "destructive",
+        });
       }
     };
 
@@ -215,6 +225,9 @@ export default function ProjectChatPage() {
           <p className="text-sm text-muted-foreground">
             与 AI 助手描述您的教学需求
           </p>
+          {loadError && (
+            <p className="mt-2 text-sm text-destructive">{loadError}</p>
+          )}
         </div>
 
         <ScrollArea className="flex-1 p-4">

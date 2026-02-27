@@ -1,9 +1,11 @@
 import logging
+import os
 import pathlib
 from typing import Optional
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -35,6 +37,20 @@ class UpdateFileIntentRequest(BaseModel):
 
 class BatchDeleteRequest(BaseModel):
     file_ids: list[str]
+
+
+MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(100 * 1024 * 1024)))
+ALLOWED_EXTENSIONS = {
+    ext.strip().lower().lstrip(".")
+    for ext in os.getenv(
+        "ALLOWED_EXTENSIONS",
+        (
+            ".pdf,.docx,.doc,.pptx,.ppt,.txt,.md,.csv,"
+            ".mp4,.mov,.avi,.webm,.jpg,.jpeg,.png,.gif,.webp"
+        ),
+    ).split(",")
+    if ext.strip()
+}
 
 
 def _resolve_file_type(filename: str, mime_type: Optional[str] = None) -> str:
@@ -166,7 +182,12 @@ async def _index_upload_for_rag(upload, project_id: str):
 
 
 async def _save_and_record_upload(file: UploadFile, project_id: str):
+    _validate_upload_file(file.filename)
     content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise ValueError(
+            f"文件大小超限（{len(content)} bytes），最大允许 {MAX_FILE_SIZE} bytes"
+        )
     filepath, file_size = await file_service.save_file(file.filename, content)
     file_type = _resolve_file_type(file.filename, file.content_type)
     return await db_service.create_upload(
@@ -179,8 +200,15 @@ async def _save_and_record_upload(file: UploadFile, project_id: str):
     )
 
 
+def _validate_upload_file(filename: str):
+    ext = filename.split(".")[-1].lower() if "." in filename else ""
+    if not ext or ext not in ALLOWED_EXTENSIONS:
+        raise ValueError(f"不支持的文件类型: {filename}")
+
+
 @router.post("")
 async def upload_file(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     project_id: str = Form(...),
     user_id: str = Depends(get_current_user),
@@ -189,7 +217,9 @@ async def upload_file(
     try:
         await _verify_project_access(project_id, user_id)
         upload = await _save_and_record_upload(file, project_id)
-        await _index_upload_for_rag(upload, project_id)
+        await db_service.update_upload_status(upload.id, status="parsing")
+        latest = await db_service.get_file(upload.id)
+        background_tasks.add_task(_index_upload_for_rag, latest, project_id)
 
         logger.info(
             "file_uploaded",
@@ -201,7 +231,6 @@ async def upload_file(
                 "idempotency_key": bool(idempotency_key),
             },
         )
-        latest = await db_service.get_file(upload.id)
         return success_response(data={"file": latest}, message="文件上传成功")
     except APIException:
         raise
@@ -219,6 +248,7 @@ async def upload_file(
 
 @router.post("/batch")
 async def batch_upload_files(
+    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     project_id: str = Form(...),
     user_id: str = Depends(get_current_user),
@@ -232,8 +262,9 @@ async def batch_upload_files(
         for file in files:
             try:
                 upload = await _save_and_record_upload(file, project_id)
-                await _index_upload_for_rag(upload, project_id)
+                await db_service.update_upload_status(upload.id, status="parsing")
                 latest = await db_service.get_file(upload.id)
+                background_tasks.add_task(_index_upload_for_rag, latest, project_id)
                 uploaded_files.append(latest)
             except Exception as e:
                 failed.append({"filename": file.filename, "error": str(e)})
@@ -317,6 +348,37 @@ async def update_file_intent(
         )
 
 
+@router.delete("/batch")
+async def batch_delete_files(
+    request: BatchDeleteRequest,
+    user_id: str = Depends(get_current_user),
+):
+    deleted = 0
+    failed = []
+    for file_id in request.file_ids:
+        try:
+            file = await db_service.get_file(file_id)
+            if not file:
+                failed.append({"file_id": file_id, "error": "文件不存在"})
+                continue
+
+            project = await db_service.get_project(file.projectId)
+            if not project or project.userId != user_id:
+                failed.append({"file_id": file_id, "error": "无权限删除此文件"})
+                continue
+
+            await db_service.delete_file(file_id)
+            cleanup_file(pathlib.Path(file.filepath))
+            deleted += 1
+        except Exception as e:
+            failed.append({"file_id": file_id, "error": str(e)})
+
+    return success_response(
+        data={"deleted": deleted, "failed": failed or None},
+        message="批量删除完成",
+    )
+
+
 @router.delete("/{file_id}")
 async def delete_file(
     file_id: str,
@@ -356,34 +418,3 @@ async def delete_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete file: {e}",
         )
-
-
-@router.delete("/batch")
-async def batch_delete_files(
-    request: BatchDeleteRequest,
-    user_id: str = Depends(get_current_user),
-):
-    deleted = 0
-    failed = []
-    for file_id in request.file_ids:
-        try:
-            file = await db_service.get_file(file_id)
-            if not file:
-                failed.append({"file_id": file_id, "error": "文件不存在"})
-                continue
-
-            project = await db_service.get_project(file.projectId)
-            if not project or project.userId != user_id:
-                failed.append({"file_id": file_id, "error": "无权限删除此文件"})
-                continue
-
-            await db_service.delete_file(file_id)
-            cleanup_file(pathlib.Path(file.filepath))
-            deleted += 1
-        except Exception as e:
-            failed.append({"file_id": file_id, "error": str(e)})
-
-    return success_response(
-        data={"deleted": deleted, "failed": failed or None},
-        message="批量删除完成",
-    )

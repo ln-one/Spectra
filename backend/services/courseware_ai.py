@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+# 是否允许课件生成失败时使用模板化 fallback 内容（默认 false，生产建议保持 false）
 ALLOW_COURSEWARE_FALLBACK = (
     os.getenv("ALLOW_COURSEWARE_FALLBACK", "false").lower() == "true"
 )

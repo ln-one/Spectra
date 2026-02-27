@@ -1,4 +1,4 @@
-from types import SimpleNamespace
+from dataclasses import dataclass
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -6,13 +6,25 @@ import pytest
 from routers.generate import _build_user_requirements
 
 
+@dataclass
+class MockProject:
+    name: str
+    description: str | None
+
+
+@dataclass
+class MockMessage:
+    role: str
+    content: str
+
+
 @pytest.mark.asyncio
 async def test_build_user_requirements_includes_project_and_recent_user_messages():
-    project = SimpleNamespace(name="项目名", description="基础描述")
+    project = MockProject(name="项目名", description="基础描述")
     messages = [
-        SimpleNamespace(role="assistant", content="你好，我来帮你"),
-        SimpleNamespace(role="user", content="课件面向高一学生"),
-        SimpleNamespace(role="user", content="教学中希望案例更多"),
+        MockMessage(role="assistant", content="你好，我来帮你"),
+        MockMessage(role="user", content="课件面向高一学生"),
+        MockMessage(role="user", content="教学中希望案例更多"),
     ]
 
     with (
@@ -35,11 +47,11 @@ async def test_build_user_requirements_includes_project_and_recent_user_messages
 
 @pytest.mark.asyncio
 async def test_build_user_requirements_filters_out_smalltalk():
-    project = SimpleNamespace(name="项目名", description="高一化学")
+    project = MockProject(name="项目名", description="高一化学")
     messages = [
-        SimpleNamespace(role="user", content="今天天气不错"),
-        SimpleNamespace(role="user", content="帮我做一份关于氧化还原反应的课件"),
-        SimpleNamespace(role="user", content="哈哈你真厉害"),
+        MockMessage(role="user", content="今天天气不错"),
+        MockMessage(role="user", content="帮我做一份关于氧化还原反应的课件"),
+        MockMessage(role="user", content="哈哈你真厉害"),
     ]
 
     with (
@@ -62,7 +74,7 @@ async def test_build_user_requirements_filters_out_smalltalk():
 
 @pytest.mark.asyncio
 async def test_build_user_requirements_falls_back_to_project_name():
-    project = SimpleNamespace(name="项目名", description=None)
+    project = MockProject(name="项目名", description=None)
 
     with (
         patch(
@@ -81,14 +93,14 @@ async def test_build_user_requirements_falls_back_to_project_name():
 
 @pytest.mark.asyncio
 async def test_build_user_requirements_uses_latest_requirement_segment_only():
-    project = SimpleNamespace(name="项目名", description="高中生物")
+    project = MockProject(name="项目名", description="高中生物")
     messages = [
-        SimpleNamespace(role="user", content="帮我做细胞分裂课件"),
-        SimpleNamespace(role="user", content="重点讲有丝分裂"),
-        SimpleNamespace(role="user", content="今天周末去哪玩"),
-        SimpleNamespace(role="user", content="最近电影推荐一下"),
-        SimpleNamespace(role="user", content="我想改成遗传定律课件"),
-        SimpleNamespace(role="user", content="加入孟德尔实验案例"),
+        MockMessage(role="user", content="帮我做细胞分裂课件"),
+        MockMessage(role="user", content="重点讲有丝分裂"),
+        MockMessage(role="user", content="今天周末去哪玩"),
+        MockMessage(role="user", content="最近电影推荐一下"),
+        MockMessage(role="user", content="我想改成遗传定律课件"),
+        MockMessage(role="user", content="加入孟德尔实验案例"),
     ]
 
     with (
