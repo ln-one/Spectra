@@ -65,6 +65,20 @@ class DatabaseService:
         """Get all projects"""
         return await self.db.project.find_many()
 
+    async def get_projects_by_user(self, user_id: str, page: int, limit: int):
+        """Get projects by user with pagination."""
+        skip = (page - 1) * limit
+        return await self.db.project.find_many(
+            where={"userId": user_id},
+            skip=skip,
+            take=limit,
+            order={"createdAt": "desc"},
+        )
+
+    async def count_projects_by_user(self, user_id: str) -> int:
+        """Count projects by user."""
+        return await self.db.project.count(where={"userId": user_id})
+
     async def create_upload(
         self,
         filename: str,
@@ -72,6 +86,7 @@ class DatabaseService:
         size: int,
         project_id: str,
         file_type: str,
+        mime_type: Optional[str] = None,
     ):
         """
         Record a file upload
@@ -90,9 +105,75 @@ class DatabaseService:
                 "size": size,
                 "projectId": project_id,
                 "fileType": file_type,
+                "mimeType": mime_type,
             }
         )
         return upload
+
+    async def get_project_files(self, project_id: str, page: int, limit: int):
+        """Get project files with pagination."""
+        skip = (page - 1) * limit
+        return await self.db.upload.find_many(
+            where={"projectId": project_id},
+            skip=skip,
+            take=limit,
+            order={"createdAt": "desc"},
+        )
+
+    async def count_project_files(self, project_id: str) -> int:
+        """Count files in a project."""
+        return await self.db.upload.count(where={"projectId": project_id})
+
+    async def get_file(self, file_id: str):
+        """Get file by ID."""
+        return await self.db.upload.find_unique(where={"id": file_id})
+
+    async def update_file_intent(self, file_id: str, usage_intent: str):
+        """Update file usage intent."""
+        return await self.db.upload.update(
+            where={"id": file_id},
+            data={"usageIntent": usage_intent},
+        )
+
+    async def delete_file(self, file_id: str):
+        """Delete file record by ID."""
+        return await self.db.upload.delete(where={"id": file_id})
+
+    async def update_upload_status(
+        self,
+        file_id: str,
+        status: str,
+        parse_result: Optional[dict] = None,
+        error_message: Optional[str] = None,
+    ):
+        """Update upload parsing status and result."""
+        data: dict = {"status": status}
+        if parse_result is not None:
+            data["parseResult"] = json.dumps(parse_result)
+        if error_message is not None:
+            data["errorMessage"] = error_message
+        return await self.db.upload.update(where={"id": file_id}, data=data)
+
+    async def create_parsed_chunks(
+        self,
+        upload_id: str,
+        source_type: str,
+        chunks: list[dict],
+    ):
+        """Persist parsed chunks for one upload."""
+        created = []
+        for idx, chunk in enumerate(chunks):
+            item = await self.db.parsedchunk.create(
+                data={
+                    "uploadId": upload_id,
+                    "content": chunk["content"],
+                    "chunkIndex": chunk.get("chunk_index", idx),
+                    "metadata": json.dumps(chunk.get("metadata", {})),
+                    "sourceType": source_type,
+                }
+            )
+            created.append(item)
+        return created
 
     # ============================================
     # User Methods
@@ -126,6 +207,41 @@ class DatabaseService:
     async def get_user_by_id(self, user_id: str):
         """Get a user by ID"""
         return await self.db.user.find_unique(where={"id": user_id})
+
+    # ============================================
+    # Conversation Methods
+    # ============================================
+
+    async def create_conversation_message(
+        self,
+        project_id: str,
+        role: str,
+        content: str,
+        metadata: Optional[dict] = None,
+    ):
+        """Create a conversation message."""
+        return await self.db.conversation.create(
+            data={
+                "projectId": project_id,
+                "role": role,
+                "content": content,
+                "metadata": json.dumps(metadata) if metadata else None,
+            }
+        )
+
+    async def get_conversation_messages(self, project_id: str, page: int, limit: int):
+        """Get conversation messages by project with pagination."""
+        skip = (page - 1) * limit
+        return await self.db.conversation.find_many(
+            where={"projectId": project_id},
+            skip=skip,
+            take=limit,
+            order={"createdAt": "asc"},
+        )
+
+    async def count_conversation_messages(self, project_id: str) -> int:
+        """Count conversation messages in a project."""
+        return await self.db.conversation.count(where={"projectId": project_id})
 
     # ============================================
     # Generation Task Methods
@@ -174,6 +290,21 @@ class DatabaseService:
             GenerationTask or None if not found
         """
         return await self.db.generationtask.find_unique(where={"id": task_id})
+
+    async def get_latest_generation_task_by_project(
+        self, project_id: str, completed_only: bool = False
+    ):
+        """Get latest generation task for project."""
+        where: dict = {"projectId": project_id}
+        if completed_only:
+            where["status"] = "completed"
+
+        tasks = await self.db.generationtask.find_many(
+            where=where,
+            take=1,
+            order={"updatedAt": "desc"},
+        )
+        return tasks[0] if tasks else None
 
     async def update_generation_task_status(
         self,

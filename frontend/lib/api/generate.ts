@@ -130,8 +130,10 @@ export const generateApi = {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
+    // 修复：使用正确的后端路径
+    const apiFileType = fileType === "pptx" ? "ppt" : "word";
     const response = await fetch(
-      getApiUrl(`/files/download/${taskId}/${fileType}`),
+      getApiUrl(`/generate/tasks/${taskId}/download?file_type=${apiFileType}`),
       {
         method: "GET",
         headers,

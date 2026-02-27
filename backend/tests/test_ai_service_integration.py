@@ -13,6 +13,7 @@ from services.ai import AIService
 class TestAIServiceIntegration:
     """测试 AI Service 集成"""
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_generate_courseware_content_basic(self):
         """测试基本的课件内容生成"""
@@ -39,6 +40,7 @@ class TestAIServiceIntegration:
         assert len(result.markdown_content) > 0
         assert len(result.lesson_plan_markdown) > 0
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_generate_courseware_content_with_empty_requirements(self):
         """测试空需求的处理"""
@@ -56,6 +58,7 @@ class TestAIServiceIntegration:
         assert result.markdown_content
         assert result.lesson_plan_markdown
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_generate_courseware_content_no_requirements(self):
         """测试没有提供需求的情况"""
@@ -71,6 +74,7 @@ class TestAIServiceIntegration:
         assert isinstance(result, CoursewareContent)
         assert result.title
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_courseware_content_validation(self):
         """测试生成的内容符合验证规则"""
@@ -185,6 +189,7 @@ class TestAIServiceIntegration:
         assert "Marp" in prompt
         assert "教学目标" in prompt
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_different_template_styles(self):
         """测试不同模板风格"""
@@ -204,6 +209,7 @@ class TestAIServiceIntegration:
             assert result.markdown_content
             assert result.lesson_plan_markdown
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_markdown_structure(self):
         """测试生成的 Markdown 结构"""
@@ -221,6 +227,7 @@ class TestAIServiceIntegration:
         # 教案应该包含标题
         assert "#" in result.lesson_plan_markdown
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_long_requirements(self):
         """测试长需求描述"""
