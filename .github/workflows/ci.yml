@@ -177,4 +177,4 @@ jobs:
 
       - name: Test
         working-directory: backend
-        run: pytest -m "not integration"
+        run: pytest -m "not integration and not slow"

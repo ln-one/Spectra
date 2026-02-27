@@ -156,7 +156,7 @@ async def send_voice_message(
         duration = max(1.0, len(raw) / 32000.0)
         recognized_text = "语音内容已识别，请继续描述课件需求。"
 
-        user_msg = await db_service.create_conversation_message(
+        await db_service.create_conversation_message(
             project_id=project_id,
             role="user",
             content=recognized_text,

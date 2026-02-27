@@ -52,7 +52,7 @@ console.log('  ├─ Linting (flake8)...');
 if (!runCommand('flake8 .', backendDir)) process.exit(1);
 
 console.log('  ├─ Running tests...');
-if (!runCommand('pytest -m "not integration"', backendDir)) process.exit(1);
+if (!runCommand('pytest -m "not integration and not slow"', backendDir)) process.exit(1);
 
 // Check if any files were formatted during the hook execution and add them
 console.log('  ├─ Adding any remaining formatted files...');

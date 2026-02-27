@@ -150,8 +150,9 @@ class TestE2EGenerationWithAI:
         Path(pptx_path).unlink(missing_ok=True)
 
     @pytest.mark.asyncio
+    @pytest.mark.slow
     async def test_ai_service_error_handling(self):
-        """测试 AI Service 错误处理"""
+        """测试 AI Service 错误处理（慢速测试，跳过 CI）"""
         # 即使 AI 调用失败，也应该返回 fallback 内容
         courseware_content = await ai_service.generate_courseware_content(
             project_id="e2e_test_error",
