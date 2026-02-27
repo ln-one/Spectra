@@ -202,7 +202,9 @@ async def process_generation_task(
             pptx_path = await generation_service.generate_pptx(
                 courseware_content, task_id, tpl_config
             )
-            output_urls["pptx"] = f"/api/v1/files/download/{task_id}/pptx"
+            output_urls["pptx"] = (
+                f"/api/v1/generate/tasks/{task_id}/download?file_type=ppt"
+            )
             logger.info(f"PPTX generated: {pptx_path}")
             await db_service.update_generation_task_status(task_id, "processing", 60)
 
@@ -211,7 +213,9 @@ async def process_generation_task(
             docx_path = await generation_service.generate_docx(
                 courseware_content, task_id, tpl_config
             )
-            output_urls["docx"] = f"/api/v1/files/download/{task_id}/docx"
+            output_urls["docx"] = (
+                f"/api/v1/generate/tasks/{task_id}/download?file_type=word"
+            )
             logger.info(f"DOCX generated: {docx_path}")
             await db_service.update_generation_task_status(task_id, "processing", 90)
 
@@ -249,7 +253,7 @@ async def process_generation_task(
         )
 
 
-@router.get("/status/{task_id}")
+@router.get("/tasks/{task_id}/status")
 async def get_generation_status(
     task_id: str,
     user_id: str = Depends(get_current_user),
