@@ -33,6 +33,12 @@ app/                        # 页面组件（Next.js App Router）
       page.tsx              # 项目详情页
       preview/
         page.tsx            # 预览页
+      chat/
+        page.tsx            # 对话页
+      generate/
+        page.tsx            # 生成页
+      settings/
+        page.tsx            # 项目设置页
 
 components/                 # 业务组件
   ChatInterface.tsx         # 对话界面

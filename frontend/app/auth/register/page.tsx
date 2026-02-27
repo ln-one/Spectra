@@ -1,27 +1,11 @@
-/**
- * Register Page
- *
- * 用户注册页面
- *
- * > REVIEW-P0(blocking) 问题：此页面与文档、Store 中的参数命名不一致。
- * > REVIEW-P0(blocking) 建议：本页面中 `username` 需与 `authStore.register(username, fullName)` 签名和文档示例对齐。
- *
- * > REVIEW-P2(nice-to-have) 问题：错误处理不完整，缺少全局 Error Boundary 组件捕获异常。
- * > REVIEW-P2(nice-to-have) 建议：添加 Error Boundary 组件处理未预期的错误，提升可靠性。
- *
- * TODO: 实现完整的注册表单
- * - 表单验证（React Hook Form + Zod）
- * - 密码强度检查
- * - 错误提示
- * - 加载状态
- * - 跳转逻辑
- */
-
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Suspense } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,46 +18,66 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
-export default function RegisterPage() {
-  const router = useRouter();
-  const { register, isLoading, error } = useAuthStore();
-
-  const [formData, setFormData] = useState({
-    email: "",
-    username: "",
-    password: "",
-    confirmPassword: "",
-    fullName: "",
+const registerSchema = z
+  .object({
+    email: z.string().min(1, "请输入邮箱").email("请输入有效的邮箱地址"),
+    username: z
+      .string()
+      .min(3, "用户名至少3个字符")
+      .max(50, "用户名最多50个字符")
+      .regex(/^[a-zA-Z0-9_-]+$/, "只能包含字母、数字、下划线和连字符"),
+    fullName: z.string().optional(),
+    password: z
+      .string()
+      .min(8, "密码至少8个字符")
+      .regex(/^(?=.*[a-zA-Z])(?=.*\d)/, "密码必须包含字母和数字"),
+    confirmPassword: z.string().min(1, "请确认密码"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "两次输入的密码不一致",
+    path: ["confirmPassword"],
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+type RegisterFormData = z.infer<typeof registerSchema>;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+function RegisterForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { register: registerUser, isLoading } = useAuthStore();
+  const { toast } = useToast();
 
-    // TODO: 添加表单验证
-    if (formData.password !== formData.confirmPassword) {
-      alert("两次输入的密码不一致");
-      return;
-    }
+  const redirect = searchParams.get("redirect") || "/projects";
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+  });
+
+  const onSubmit = async (data: RegisterFormData) => {
     try {
-      await register(
-        formData.email,
-        formData.password,
-        formData.username,
-        formData.fullName || undefined
+      await registerUser(
+        data.email,
+        data.password,
+        data.username,
+        data.fullName
       );
-      router.push("/projects");
+      toast({
+        title: "注册成功",
+        description: "正在跳转到项目页面...",
+      });
+      router.push(redirect);
     } catch (error) {
-      // 错误已在 store 中处理
-      console.error("Registration failed:", error);
+      toast({
+        title: "注册失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      });
     }
   };
 
@@ -85,81 +89,84 @@ export default function RegisterPage() {
           <CardDescription>创建您的账号以开始使用 Spectra</CardDescription>
         </CardHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">
-                {error}
-              </div>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="email">邮箱</Label>
               <Input
                 id="email"
-                name="email"
                 type="email"
                 placeholder="your@email.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
+                {...register("email")}
                 disabled={isLoading}
               />
+              {errors.email && (
+                <p className="text-sm text-red-500">{errors.email.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="username">用户名</Label>
               <Input
                 id="username"
-                name="username"
                 type="text"
                 placeholder="username"
-                value={formData.username}
-                onChange={handleChange}
-                required
+                {...register("username")}
                 disabled={isLoading}
               />
+              {errors.username && (
+                <p className="text-sm text-red-500">
+                  {errors.username.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="fullName">姓名（可选）</Label>
               <Input
                 id="fullName"
-                name="fullName"
                 type="text"
                 placeholder="张三"
-                value={formData.fullName}
-                onChange={handleChange}
+                {...register("fullName")}
                 disabled={isLoading}
               />
+              {errors.fullName && (
+                <p className="text-sm text-red-500">
+                  {errors.fullName.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">密码</Label>
               <Input
                 id="password"
-                name="password"
                 type="password"
                 placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-                required
+                {...register("password")}
                 disabled={isLoading}
               />
+              {errors.password && (
+                <p className="text-sm text-red-500">
+                  {errors.password.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">确认密码</Label>
               <Input
                 id="confirmPassword"
-                name="confirmPassword"
                 type="password"
                 placeholder="••••••••"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
+                {...register("confirmPassword")}
                 disabled={isLoading}
               />
+              {errors.confirmPassword && (
+                <p className="text-sm text-red-500">
+                  {errors.confirmPassword.message}
+                </p>
+              )}
             </div>
           </CardContent>
 
@@ -181,5 +188,29 @@ export default function RegisterPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+function RegisterLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold">注册</CardTitle>
+          <CardDescription>创建您的账号以开始使用 Spectra</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<RegisterLoading />}>
+      <RegisterForm />
+    </Suspense>
   );
 }

@@ -1,26 +1,11 @@
-/**
- * Login Page
- *
- * 用户登录页面
- *
- * > REVIEW-P1(important) 问题：此页面缺失表单验证，仅使用基础 state。
- * > REVIEW-P1(important) 建议：集成 React Hook Form + Zod 进行邮箱格式、密码强度等验证，提升用户体验。
- *
- * > REVIEW-P2(nice-to-have) 问题：错误处理不完整，缺少全局 Error Boundary 组件捕获异常。
- * > REVIEW-P2(nice-to-have) 建议：添加 Error Boundary 组件处理未预期的错误，提升可靠性。
- *
- * TODO: 实现完整的登录表单
- * - 表单验证（React Hook Form + Zod）
- * - 错误提示
- * - 加载状态
- * - 跳转逻辑
- */
-
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Suspense } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,24 +18,43 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
-export default function LoginPage() {
+const loginSchema = z.object({
+  email: z.string().min(1, "请输入邮箱").email("请输入有效的邮箱地址"),
+  password: z.string().min(1, "请输入密码"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+
+function LoginForm() {
   const router = useRouter();
-  const { login, isLoading, error } = useAuthStore();
+  const searchParams = useSearchParams();
+  const { login, isLoading } = useAuthStore();
+  const { toast } = useToast();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const redirect = searchParams.get("redirect") || "/projects";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
 
+  const onSubmit = async (data: LoginFormData) => {
     try {
-      // TODO: 添加表单验证
-      await login(email, password);
-      router.push("/projects");
+      await login(data.email, data.password);
+      router.push(redirect);
     } catch (error) {
-      // 错误已在 store 中处理
-      console.error("Login failed:", error);
+      console.error("[Login] Error:", error);
+      toast({
+        title: "登录失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      });
     }
   };
 
@@ -62,25 +66,20 @@ export default function LoginPage() {
           <CardDescription>输入您的邮箱和密码以登录系统</CardDescription>
         </CardHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">
-                {error}
-              </div>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="email">邮箱</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                {...register("email")}
                 disabled={isLoading}
               />
+              {errors.email && (
+                <p className="text-sm text-red-500">{errors.email.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -89,11 +88,14 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+                {...register("password")}
                 disabled={isLoading}
               />
+              {errors.password && (
+                <p className="text-sm text-red-500">
+                  {errors.password.message}
+                </p>
+              )}
             </div>
           </CardContent>
 
@@ -115,5 +117,29 @@ export default function LoginPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+function LoginLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold">登录</CardTitle>
+          <CardDescription>输入您的邮箱和密码以登录系统</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginForm />
+    </Suspense>
   );
 }

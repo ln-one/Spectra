@@ -12,7 +12,7 @@
 import { create } from "zustand";
 import { authService, TokenStorage, User } from "@/lib/auth";
 
-interface AuthState {
+export interface AuthState {
   // 状态
   user: User | null;
   isAuthenticated: boolean;
