@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from typing import Optional
 from uuid import UUID
 
@@ -13,6 +13,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import Message, SendMessageRequest
 from services import db_service
@@ -56,6 +57,13 @@ async def send_message(
     try:
         project = await _verify_project_ownership(body.project_id, user_id)
         key_str = str(idempotency_key) if idempotency_key else None
+        cache_key = (
+            f"chat:messages:{user_id}:{body.project_id}:{key_str}" if key_str else None
+        )
+        if cache_key:
+            cached_response = await db_service.get_idempotency_response(cache_key)
+            if cached_response:
+                return cached_response
 
         await db_service.create_conversation_message(
             project_id=body.project_id,
@@ -64,9 +72,8 @@ async def send_message(
             metadata={"idempotency_key": key_str} if key_str else None,
         )
 
-        recent_messages = await db_service.get_conversation_messages(
+        recent_messages = await db_service.get_recent_conversation_messages(
             project_id=body.project_id,
-            page=1,
             limit=10,
         )
         context = "\n".join([f"{m.role}: {m.content}" for m in recent_messages[-6:]])
@@ -86,13 +93,19 @@ async def send_message(
             content=assistant_content,
         )
 
-        return success_response(
+        response_payload = success_response(
             data={
                 "message": _to_message(assistant_msg),
                 "suggestions": ["继续细化教学目标", "补充重点难点", "开始生成课件"],
             },
             message="消息发送成功",
         )
+        if cache_key:
+            await db_service.save_idempotency_response(
+                cache_key,
+                jsonable_encoder(response_payload),
+            )
+        return response_payload
     except APIException:
         raise
     except Exception as exc:
@@ -149,7 +162,12 @@ async def voice_message(
     """Handle voice input and create paired user/assistant chat records."""
     try:
         await _verify_project_ownership(project_id, user_id)
-        _ = idempotency_key
+        key_str = str(idempotency_key) if idempotency_key else None
+        cache_key = f"chat:voice:{user_id}:{project_id}:{key_str}" if key_str else None
+        if cache_key:
+            cached_response = await db_service.get_idempotency_response(cache_key)
+            if cached_response:
+                return cached_response
 
         raw = await audio.read()
         duration = max(1.0, len(raw) / 32000.0)
@@ -159,15 +177,26 @@ async def voice_message(
             project_id=project_id,
             role="user",
             content=recognized_text,
-            metadata={"source": "voice", "filename": audio.filename},
+            metadata=(
+                {
+                    "source": "voice",
+                    "filename": audio.filename,
+                    "idempotency_key": key_str,
+                }
+                if key_str
+                else {"source": "voice", "filename": audio.filename}
+            ),
         )
         assistant_msg = await db_service.create_conversation_message(
             project_id=project_id,
             role="assistant",
-            content="收到语音需求。你可以继续补充年级、课时和重点难点，我会据此生成课件。",
+            content=(
+                "收到语音需求。你可以继续补充年级、课时和重点难点，"
+                "我会据此生成课件。"
+            ),
         )
 
-        return success_response(
+        response_payload = success_response(
             data={
                 "text": recognized_text,
                 "confidence": 0.85,
@@ -177,6 +206,12 @@ async def voice_message(
             },
             message="语音识别成功",
         )
+        if cache_key:
+            await db_service.save_idempotency_response(
+                cache_key,
+                jsonable_encoder(response_payload),
+            )
+        return response_payload
     except APIException:
         raise
     except Exception as exc:

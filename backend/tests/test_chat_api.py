@@ -58,7 +58,7 @@ def test_send_message_success(client, monkeypatch, _as_user):
     _mock(
         monkeypatch,
         db_service,
-        "get_conversation_messages",
+        "get_recent_conversation_messages",
         [_fake_conv(role="user", content="previous message")],
     )
     _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
@@ -70,6 +70,37 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert body["data"]["message"]["role"] == "assistant"
     assert body["data"]["message"]["content"] == "assistant reply"
     assert len(body["data"]["suggestions"]) == 3
+
+
+def test_send_message_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
+    cached = {
+        "success": True,
+        "data": {
+            "message": {
+                "id": "cached-msg",
+                "role": "assistant",
+                "content": "cached reply",
+                "timestamp": _NOW.isoformat(),
+            },
+            "suggestions": ["s1", "s2"],
+        },
+        "message": "cached",
+    }
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    _mock(monkeypatch, db_service, "get_idempotency_response", cached)
+
+    create_mock = AsyncMock()
+    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
+
+    resp = client.post(
+        "/api/v1/chat/messages",
+        json=_MSG,
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000001"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["message"]["id"] == "cached-msg"
+    create_mock.assert_not_awaited()
 
 
 def test_send_message_invalid_idempotency_key_400(client, _as_user):
@@ -167,6 +198,40 @@ def test_voice_message_success(client, monkeypatch, _as_user):
     assert body["data"]["message"]["role"] == "assistant"
     assert body["data"]["message"]["content"] == "voice assistant reply"
     assert body["data"]["duration"] >= 1
+
+
+def test_voice_message_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
+    cached = {
+        "success": True,
+        "data": {
+            "text": "cached text",
+            "confidence": 0.99,
+            "duration": 1.2,
+            "message": {
+                "id": "cached-voice-msg",
+                "role": "assistant",
+                "content": "cached voice reply",
+                "timestamp": _NOW.isoformat(),
+            },
+            "suggestions": ["a", "b"],
+        },
+        "message": "cached voice",
+    }
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    _mock(monkeypatch, db_service, "get_idempotency_response", cached)
+    create_mock = AsyncMock()
+    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
+
+    resp = client.post(
+        "/api/v1/chat/voice",
+        files={"audio": ("v.wav", b"abc", "audio/wav")},
+        data={"project_id": "p-001"},
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000002"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["message"]["id"] == "cached-voice-msg"
+    create_mock.assert_not_awaited()
 
 
 def test_voice_message_forbidden_403(client, monkeypatch, _as_user):

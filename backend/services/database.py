@@ -1,4 +1,4 @@
-﻿import json
+import json
 from typing import Optional
 
 from prisma import Prisma
@@ -296,6 +296,15 @@ class DatabaseService:
             take=limit,
             order={"createdAt": "asc"},
         )
+
+    async def get_recent_conversation_messages(self, project_id: str, limit: int = 10):
+        """Get latest messages by project in chronological order."""
+        messages = await self.db.conversation.find_many(
+            where={"projectId": project_id},
+            take=limit,
+            order={"createdAt": "desc"},
+        )
+        return list(reversed(messages))
 
     async def count_conversation_messages(self, project_id: str) -> int:
         """Count conversation messages in a project."""

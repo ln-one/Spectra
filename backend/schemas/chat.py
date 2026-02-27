@@ -1,8 +1,4 @@
-"""
-Chat Schemas - 对话相关 Pydantic 模型
-
-对齐 docs/openapi.yaml 中的 Chat 相关 Schema 定义。
-"""
+"""Chat schema models aligned with OpenAPI contract."""
 
 from datetime import datetime
 from typing import Optional
@@ -11,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class Message(BaseModel):
-    """对话消息"""
+    """Single conversation message."""
 
     id: str = Field(..., description="消息 ID")
     role: str = Field(..., description="角色 (user/assistant/system)")
@@ -20,7 +16,7 @@ class Message(BaseModel):
 
 
 class SendMessageRequest(BaseModel):
-    """发送消息请求"""
+    """Request payload for sending chat messages."""
 
     project_id: str = Field(..., description="项目 ID")
     content: str = Field(..., min_length=1, max_length=10000, description="消息内容")
@@ -28,14 +24,14 @@ class SendMessageRequest(BaseModel):
 
 
 class SendMessageResponse(BaseModel):
-    """发送消息响应（data 部分）"""
+    """Response data shape for send message endpoint."""
 
     message: Message = Field(..., description="AI 回复消息")
-    suggestions: Optional[list[str]] = Field(None, description="建议后续问题")
+    suggestions: Optional[list[str]] = Field(None, description="后续建议")
 
 
 class GetMessagesResponse(BaseModel):
-    """获取对话历史响应（data 部分）"""
+    """Response data shape for get messages endpoint."""
 
     messages: list[Message] = Field(..., description="消息列表")
     total: int = Field(..., description="总数")
@@ -44,10 +40,10 @@ class GetMessagesResponse(BaseModel):
 
 
 class VoiceMessageResponse(BaseModel):
-    """语音消息响应（data 部分）"""
+    """Response data shape for voice message endpoint."""
 
-    text: str = Field(..., description="识别的文本内容")
+    text: str = Field(..., description="识别文本")
     confidence: float = Field(..., ge=0, le=1, description="识别置信度")
     duration: float = Field(..., description="音频时长（秒）")
-    message: Message = Field(..., description="自动创建的消息对象")
-    suggestions: Optional[list[str]] = Field(None, description="AI 建议")
+    message: Message = Field(..., description="自动创建的消息")
+    suggestions: Optional[list[str]] = Field(None, description="后续建议")
