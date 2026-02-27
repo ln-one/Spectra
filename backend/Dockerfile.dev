@@ -10,6 +10,8 @@ RUN apt-get update -o Acquire::Retries=8 \
         npm \
         pandoc \
         chromium \
+        libreoffice-core \
+        libreoffice-impress \
         fonts-noto-cjk \
         fonts-wqy-zenhei \
       && break || (echo "apt install retry $i failed"; sleep 5); \

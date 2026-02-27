@@ -13,6 +13,71 @@ router = APIRouter(prefix="/generate", tags=["Generate"])
 logger = logging.getLogger(__name__)
 
 
+def _is_requirement_like_message(message: str) -> bool:
+    """
+    过滤与课件生成无关的闲聊消息，避免污染最终生成需求。
+    """
+    from schemas.intent import IntentType
+    from services.ai import AIService
+
+    text = (message or "").strip()
+    if len(text) < 4:
+        return False
+
+    # 常见闲聊关键词（MVP 规则过滤）
+    smalltalk_keywords = [
+        "天气",
+        "吃饭",
+        "电影",
+        "周末",
+        "哈哈",
+        "早上好",
+        "晚上好",
+        "在吗",
+        "hello",
+        "hi",
+    ]
+    if any(kw in text.lower() for kw in smalltalk_keywords):
+        return False
+
+    requirement_hint_keywords = [
+        "加入",
+        "增加",
+        "补充",
+        "案例",
+        "实验",
+        "例题",
+        "练习",
+        "重点",
+        "难点",
+        "目标",
+    ]
+    if any(kw in text for kw in requirement_hint_keywords):
+        return True
+
+    intent = AIService._classify_intent_by_keywords(text).intent
+    if intent in {IntentType.DESCRIBE_REQUIREMENT, IntentType.MODIFY_COURSEWARE}:
+        return True
+
+    # CONFIRM_GENERATION 关键词里包含“好的/可以”，单独加学科语义门槛
+    if intent == IntentType.CONFIRM_GENERATION:
+        topic_keywords = [
+            "课件",
+            "ppt",
+            "教学",
+            "学科",
+            "年级",
+            "章节",
+            "目标",
+            "重难点",
+            "教案",
+            "讲义",
+        ]
+        return any(kw in text.lower() for kw in topic_keywords)
+
+    return False
+
+
 async def _build_user_requirements(project_id: str) -> str:
     """
     组合项目描述与最近用户对话，作为最终生成需求输入。
@@ -37,11 +102,31 @@ async def _build_user_requirements(project_id: str) -> str:
         if m.role == "user" and m.content and m.content.strip()
     ]
 
-    if not user_messages:
+    recent_user_messages = user_messages[-30:]
+    filtered_messages: list[str] = []
+    started_collecting = False
+    non_requirement_streak = 0
+
+    # 从最近消息向前回溯，仅抽取最近一段“需求连续区间”
+    for message in reversed(recent_user_messages):
+        if _is_requirement_like_message(message):
+            filtered_messages.append(message)
+            started_collecting = True
+            non_requirement_streak = 0
+            if len(filtered_messages) >= 6:
+                break
+            continue
+
+        if started_collecting:
+            non_requirement_streak += 1
+            if non_requirement_streak >= 2:
+                break
+
+    if not filtered_messages:
         return base_requirement
 
-    # 仅拼接最近 6 条用户输入，控制提示词长度
-    recent_user_context = "\n".join(f"- {msg}" for msg in user_messages[-6:])
+    filtered_messages.reverse()
+    recent_user_context = "\n".join(f"- {msg}" for msg in filtered_messages)
     return (
         f"{base_requirement}\n\n"
         "以下是用户在对话中补充的具体要求，请严格纳入生成：\n"
