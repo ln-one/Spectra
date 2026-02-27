@@ -60,6 +60,7 @@ npm run test         # 运行测试
 
 ### ⚙️ 后端开发
 **必读**：
+- `.ai/guides/code-organization.md` - 代码组织规范（必读）
 - `.ai/guides/adding-api-endpoint.md` - API 端点添加指南
 - `docs/standards/backend.md` - 后端规范
 - `backend/README.md` - 后端项目说明
