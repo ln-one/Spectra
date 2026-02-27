@@ -128,6 +128,36 @@ class DatabaseService:
         return await self.db.user.find_unique(where={"id": user_id})
 
     # ============================================
+    # Conversation Methods
+    # ============================================
+
+    async def create_conversation(
+        self, project_id: str, role: str, content: str, metadata: Optional[str] = None
+    ):
+        """Create a conversation message."""
+        return await self.db.conversation.create(
+            data={
+                "projectId": project_id,
+                "role": role,
+                "content": content,
+                "metadata": metadata,
+            }
+        )
+
+    async def get_conversations_paginated(
+        self, project_id: str, page: int = 1, limit: int = 20
+    ):
+        """Return (messages, total) for a project with pagination."""
+        total = await self.db.conversation.count(where={"projectId": project_id})
+        messages = await self.db.conversation.find_many(
+            where={"projectId": project_id},
+            order={"createdAt": "asc"},
+            skip=(page - 1) * limit,
+            take=limit,
+        )
+        return messages, total
+
+    # ============================================
     # Generation Task Methods
     # ============================================
 
