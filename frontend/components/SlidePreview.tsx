@@ -33,6 +33,7 @@ interface SlidePreviewProps {
   slides?: Slide[];
   currentSlide?: number;
   onSlideChange?: (index: number) => void;
+  slideId?: string;
   onGenerate?: () => void;
   isGenerating?: boolean;
   className?: string;
@@ -42,6 +43,7 @@ export function SlidePreview({
   slides = [],
   currentSlide: externalCurrentSlide,
   onSlideChange,
+  slideId,
   onGenerate,
   isGenerating = false,
   className,
@@ -49,7 +51,8 @@ export function SlidePreview({
   const [internalCurrentSlide, setInternalCurrentSlide] = useState(0);
   const [viewMode, setViewMode] = useState<"preview" | "list">("preview");
 
-  const currentSlide = externalCurrentSlide ?? internalCurrentSlide;
+  // Use internal state if slideId is provided but no external currentSlide
+  const currentSlide = slideId !== undefined ? internalCurrentSlide : (externalCurrentSlide ?? internalCurrentSlide);
 
   const handleSlideChange = (index: number) => {
     if (onSlideChange) {
