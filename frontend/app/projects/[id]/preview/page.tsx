@@ -131,7 +131,8 @@ export default function ProjectPreviewPage() {
           } else {
             setTimeout(pollStatus, 3000);
           }
-        } catch {
+        } catch (error) {
+          console.error("Failed to poll status:", error);
           setIsGenerating(false);
         }
       };

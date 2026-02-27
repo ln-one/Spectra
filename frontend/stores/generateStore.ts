@@ -32,6 +32,7 @@ export interface GenerateState {
   tasks: GenerationTask[];
   isLoading: boolean;
   isPolling: boolean;
+  pollingTaskId: string | null;
   error: string | null;
 
   createTask: (projectId: string, taskType: TaskType, options?: GenerateRequest["options"]) => Promise<GenerationTask>;
@@ -44,13 +45,14 @@ export interface GenerateState {
   clearError: () => void;
 }
 
-let pollingInterval: NodeJS.Timeout | null = null;
+const pollingIntervals: Map<string, NodeJS.Timeout> = new Map();
 
 export const useGenerateStore = create<GenerateState>()((set, get) => ({
   currentTask: null,
   tasks: [],
   isLoading: false,
   isPolling: false,
+  pollingTaskId: null,
   error: null,
 
   createTask: async (projectId: string, taskType: TaskType, options?: GenerateRequest["options"]) => {
@@ -147,15 +149,19 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
   },
 
   pollTaskStatus: (taskId: string) => {
-    const { isPolling, fetchTaskStatus } = get();
+    const { isPolling, pollingTaskId, fetchTaskStatus } = get();
 
-    if (isPolling) {
+    if (isPolling && pollingTaskId === taskId) {
       return;
     }
 
-    set({ isPolling: true });
+    if (isPolling) {
+      get().stopPolling();
+    }
 
-    pollingInterval = setInterval(async () => {
+    set({ isPolling: true, pollingTaskId: taskId });
+
+    const interval = setInterval(async () => {
       const task = get().tasks.find((t) => t.id === taskId);
 
       if (!task || task.status === "completed" || task.status === "failed") {
@@ -163,21 +169,34 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
         return;
       }
 
-      await fetchTaskStatus(taskId);
+      try {
+        await fetchTaskStatus(taskId);
+      } catch {
+        get().stopPolling();
+        return;
+      }
 
       const updatedTask = get().tasks.find((t) => t.id === taskId);
       if (updatedTask && (updatedTask.status === "completed" || updatedTask.status === "failed")) {
         get().stopPolling();
       }
     }, 2000);
+
+    pollingIntervals.set(taskId, interval);
   },
 
   stopPolling: () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      pollingInterval = null;
+    const { pollingTaskId } = get();
+
+    if (pollingTaskId && pollingIntervals.has(pollingTaskId)) {
+      const interval = pollingIntervals.get(pollingTaskId);
+      if (interval) {
+        clearInterval(interval);
+      }
+      pollingIntervals.delete(pollingTaskId);
     }
-    set({ isPolling: false });
+
+    set({ isPolling: false, pollingTaskId: null });
   },
 
   setCurrentTask: (task: GenerationTask | null) => {
