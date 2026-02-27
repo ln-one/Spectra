@@ -124,23 +124,9 @@ class DatabaseService:
         """Count files in a project."""
         return await self.db.upload.count(where={"projectId": project_id})
 
-    async def get_project_uploads_paginated(
-        self, project_id: str, page: int = 1, limit: int = 20
-    ):
-        """Return (uploads, total) for a project with pagination."""
-        files = await self.get_project_files(
-            project_id=project_id, page=page, limit=limit
-        )
-        total = await self.count_project_files(project_id=project_id)
-        return files, total
-
     async def get_file(self, file_id: str):
         """Get file by ID."""
         return await self.db.upload.find_unique(where={"id": file_id})
-
-    async def get_upload(self, file_id: str):
-        """Alias for get_file to keep router compatibility."""
-        return await self.get_file(file_id)
 
     async def update_file_intent(self, file_id: str, usage_intent: str):
         """Update file usage intent."""
@@ -148,10 +134,6 @@ class DatabaseService:
             where={"id": file_id},
             data={"usageIntent": usage_intent},
         )
-
-    async def update_upload_intent(self, file_id: str, usage_intent: str):
-        """Alias for update_file_intent to keep router compatibility."""
-        return await self.update_file_intent(file_id, usage_intent)
 
     async def delete_file(self, file_id: str):
         """Delete file record by ID."""
@@ -265,26 +247,6 @@ class DatabaseService:
                 "content": content,
                 "metadata": json.dumps(metadata) if metadata else None,
             }
-        )
-
-    async def create_conversation(
-        self,
-        project_id: str,
-        role: str,
-        content: str,
-        metadata: Optional[object] = None,
-    ):
-        """Compatibility wrapper for chat APIs using string metadata."""
-        metadata_dict = None
-        if isinstance(metadata, dict):
-            metadata_dict = metadata
-        elif metadata is not None:
-            metadata_dict = {"raw": str(metadata)}
-        return await self.create_conversation_message(
-            project_id=project_id,
-            role=role,
-            content=content,
-            metadata=metadata_dict,
         )
 
     async def get_conversation_messages(self, project_id: str, page: int, limit: int):
