@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 # 默认模型从环境变量读取，支持 DashScope Qwen
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen-plus")
+ALLOW_AI_STUB = os.getenv("ALLOW_AI_STUB", "false").lower() == "true"
 
 
 def _resolve_model_name(model: str) -> str:
@@ -77,11 +78,13 @@ class AIService(CoursewareAIMixin):
             }
         except Exception as e:
             logger.warning(f"AI generation failed: {str(e)}", exc_info=True)
-            return {
-                "content": f"AI stub response for prompt: {prompt[:50]}...",
-                "model": resolved_model,
-                "tokens_used": 0,
-            }
+            if ALLOW_AI_STUB:
+                return {
+                    "content": f"AI stub response for prompt: {prompt[:50]}...",
+                    "model": resolved_model,
+                    "tokens_used": 0,
+                }
+            raise
 
     async def classify_intent(self, user_message: str) -> IntentClassification:
         """

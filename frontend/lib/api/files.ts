@@ -100,6 +100,32 @@ const mockFiles: UploadedFile[] = [
   },
 ];
 
+function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
+  return {
+    id: String(raw.id || ""),
+    filename: String(raw.filename || ""),
+    file_type: (raw.file_type ||
+      raw.fileType ||
+      "pdf") as UploadedFile["file_type"],
+    mime_type: String(raw.mime_type || raw.mimeType || ""),
+    file_size: Number(raw.file_size || raw.size || 0),
+    status: String(raw.status || "ready") as UploadedFile["status"],
+    parse_progress: Number(raw.parse_progress || raw.parseProgress || 100),
+    parse_details: (raw.parse_details ||
+      raw.parseResult ||
+      {}) as UploadedFile["parse_details"],
+    usage_intent: (raw.usage_intent || raw.usageIntent || undefined) as
+      | string
+      | undefined,
+    created_at: String(
+      raw.created_at || raw.createdAt || new Date().toISOString()
+    ),
+    updated_at: String(
+      raw.updated_at || raw.updatedAt || new Date().toISOString()
+    ),
+  };
+}
+
 export const filesApi = {
   async uploadFile(
     file: File,
@@ -160,7 +186,11 @@ export const filesApi = {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed?.data?.file) {
+            parsed.data.file = normalizeFileFromServer(parsed.data.file);
+          }
+          resolve(parsed);
         } else {
           reject(new Error("上传失败"));
         }
@@ -199,12 +229,18 @@ export const filesApi = {
     if (params?.limit) queryParams.set("limit", String(params.limit));
     const query = queryParams.toString();
 
-    return request<GetFilesResponse>(
+    const response = await request<GetFilesResponse>(
       `/projects/${projectId}/files${query ? `?${query}` : ""}`,
       {
         method: "GET",
       }
     );
+    if (response?.data?.files) {
+      response.data.files = response.data.files.map((f) =>
+        normalizeFileFromServer(f as unknown as Record<string, unknown>)
+      );
+    }
+    return response;
   },
 
   async updateFileIntent(
@@ -229,10 +265,19 @@ export const filesApi = {
       };
     }
 
-    return request<UpdateFileIntentResponse>(`/files/${fileId}/intent`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    });
+    const response = await request<UpdateFileIntentResponse>(
+      `/files/${fileId}/intent`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+    if (response?.data?.file) {
+      response.data.file = normalizeFileFromServer(
+        response.data.file as unknown as Record<string, unknown>
+      );
+    }
+    return response;
   },
 
   async deleteFile(

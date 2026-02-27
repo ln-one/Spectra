@@ -1,10 +1,24 @@
-FROM python:3.11-slim
+FROM python:3.11-bookworm
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    gcc \
+RUN apt-get update -o Acquire::Retries=8 \
+    && for i in 1 2 3; do \
+      apt-get install -y --no-install-recommends --fix-missing \
+        gcc \
+        nodejs \
+        npm \
+        pandoc \
+        chromium \
+        fonts-noto-cjk \
+        fonts-wqy-zenhei \
+      && break || (echo "apt install retry $i failed"; sleep 5); \
+    done \
     && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @marp-team/marp-cli
+
+ENV CHROME_PATH=/usr/bin/chromium
 
 COPY requirements.txt .
 

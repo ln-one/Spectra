@@ -5,13 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { projectsApi, generateApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/LogoutButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import {
   ChevronLeft,
   Sparkles,
-  Download,
   FileText,
   Presentation,
   Loader2,
@@ -85,15 +85,23 @@ export default function GeneratePage() {
       try {
         const response = await generateApi.getGenerateStatus(taskId);
         const taskData = response.data;
+        const resultData = taskData.result as
+          | {
+              pptx?: string;
+              docx?: string;
+              ppt_url?: string;
+              word_url?: string;
+            }
+          | undefined;
 
         setCurrentTask({
           task_id: taskData.task_id || taskId,
           status: taskData.status || "pending",
           progress: taskData.progress || 0,
-          result: taskData.result
+          result: resultData
             ? {
-                pptx: taskData.result.ppt_url,
-                docx: taskData.result.word_url,
+                pptx: resultData.pptx || resultData.ppt_url,
+                docx: resultData.docx || resultData.word_url,
               }
             : undefined,
           error: taskData.error,
@@ -204,15 +212,17 @@ export default function GeneratePage() {
 
   return (
     <div className="container mx-auto py-8 max-w-4xl">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => router.push(`/projects/${projectId}`)}
-        className="mb-6"
-      >
-        <ChevronLeft className="h-4 w-4 mr-1" />
-        返回项目
-      </Button>
+      <div className="mb-6 flex justify-between items-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push(`/projects/${projectId}`)}
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          返回项目
+        </Button>
+        <LogoutButton />
+      </div>
 
       <div className="space-y-6">
         <div>

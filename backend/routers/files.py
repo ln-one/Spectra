@@ -1,4 +1,5 @@
 import logging
+import pathlib
 from typing import Optional
 
 from fastapi import (
@@ -15,7 +16,8 @@ from pydantic import BaseModel
 
 from services import db_service, file_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException
+from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.file_utils import cleanup_file
 from utils.responses import success_response
 
 router = APIRouter(prefix="/files", tags=["Files"])
@@ -51,21 +53,17 @@ async def upload_file(
         HTTPException: 上传失败时抛出
     """
     try:
-        # TODO: Verify project belongs to user (data isolation)
-        # project = await db_service.get_project(project_id)
-        # if project.userId != user_id:
-        #     raise ForbiddenException(message="无权限访问此项目")
+        project = await db_service.get_project(project_id)
+        if not project:
+            raise NotFoundException(message=f"项目不存在: {project_id}")
+        if project.userId != user_id:
+            raise ForbiddenException(message="无权限访问此项目")
 
         # TODO: Implement idempotency check if idempotency_key is provided
         # if idempotency_key:
         #     cached_response = await check_idempotency(idempotency_key)
         #     if cached_response:
         #         return cached_response
-
-        # TODO: Verify project belongs to user (data isolation)
-        # project = await db_service.get_project(project_id)
-        # if project.userId != user_id:
-        #     raise ForbiddenException(message="无权限访问此项目")
 
         # Read file content
         content = await file.read()
@@ -152,20 +150,17 @@ async def update_file_intent(
         HTTPException: 文件不存在或无权限访问时抛出
     """
     try:
-        # TODO: Get file from database
-        # file = await db_service.get_file(file_id)
+        file = await db_service.get_file(file_id)
+        if not file:
+            raise NotFoundException(message=f"文件不存在: {file_id}")
 
-        # TODO: Check if file belongs to user's project
-        # project = await db_service.get_project(file.projectId)
-        # if project.userId != user_id:
-        #     raise ForbiddenException(
-        #         message="无权限访问此文件",
-        #     )
+        project = await db_service.get_project(file.projectId)
+        if not project or project.userId != user_id:
+            raise ForbiddenException(message="无权限访问此文件")
 
-        # TODO: Update file intent in database
-        # updated_file = await db_service.update_file_intent(
-        #     file_id, request.usage_intent
-        # )
+        updated_file = await db_service.update_file_intent(
+            file_id, request.usage_intent
+        )
 
         logger.info(
             "file_intent_updated",
@@ -176,15 +171,8 @@ async def update_file_intent(
             },
         )
 
-        # TEMPORARY: Return mock response
         return success_response(
-            data={
-                "file": {
-                    "id": file_id,
-                    "filename": "example.pdf",
-                    "usage_intent": request.usage_intent,
-                }
-            },
+            data={"file": updated_file},
             message="文件用途标注成功",
         )
     except APIException as e:
@@ -202,4 +190,46 @@ async def update_file_intent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update file intent",
+        )
+
+
+@router.delete("/{file_id}")
+async def delete_file(
+    file_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """Delete a file with ownership check."""
+    try:
+        file = await db_service.get_file(file_id)
+        if not file:
+            raise NotFoundException(message=f"文件不存在: {file_id}")
+
+        project = await db_service.get_project(file.projectId)
+        if not project or project.userId != user_id:
+            raise ForbiddenException(message="无权限删除此文件")
+
+        await db_service.delete_file(file_id)
+        cleanup_file(pathlib.Path(file.filepath))
+
+        logger.info(
+            "file_deleted",
+            extra={
+                "user_id": user_id,
+                "file_id": file_id,
+                "project_id": file.projectId,
+            },
+        )
+
+        return success_response(data={"file_id": file_id}, message="文件删除成功")
+    except APIException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Failed to delete file: {str(e)}",
+            extra={"user_id": user_id, "file_id": file_id},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete file",
         )

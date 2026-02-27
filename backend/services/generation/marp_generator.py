@@ -4,6 +4,7 @@
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 try:
@@ -70,12 +71,23 @@ async def call_marp_cli(
     except ToolNotFoundError:
         raise
 
-    cmd = ["marp", str(input_file), "-o", str(output_file), "--allow-local-files"]
+    chrome_path = os.getenv("CHROME_PATH", "/usr/bin/chromium")
+    cmd = [
+        "marp",
+        str(input_file),
+        "--pptx",
+        "--pptx-editable",
+        "-o",
+        str(output_file),
+        "--allow-local-files",
+    ]
+    if chrome_path:
+        cmd.extend(["--browser-path", chrome_path])
     logger.debug(f"Executing Marp CLI: {' '.join(cmd)}")
 
-    try:
+    async def _run(command: list[str]) -> tuple[bytes, bytes, int]:
         process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
 
         # 添加超时控制
@@ -86,13 +98,33 @@ async def call_marp_cli(
         except asyncio.TimeoutError:
             logger.error(f"Marp CLI execution timeout after {timeout}s")
             raise GenerationTimeoutError("Marp CLI execution", timeout)
+        return stdout, stderr, process.returncode
 
-        if process.returncode != 0:
+    try:
+        stdout, stderr, return_code = await _run(cmd)
+        if return_code != 0:
             error_msg = stderr.decode("utf-8", errors="replace")
-            logger.error(
-                f"Marp CLI failed with return code {process.returncode}: {error_msg}"
+
+            # Marp editable mode 依赖 LibreOffice；缺失时自动降级重试，保障 MVP 可用
+            normalized_error = " ".join(error_msg.lower().split())
+            missing_soffice = "soffice" in normalized_error and (
+                "could not be found" in normalized_error
+                or "not found" in normalized_error
             )
-            raise ToolExecutionError("Marp CLI", error_msg, process.returncode)
+            if "--pptx-editable" in cmd and missing_soffice:
+                fallback_cmd = [x for x in cmd if x != "--pptx-editable"]
+                logger.warning(
+                    "Marp editable mode unavailable (soffice missing), "
+                    "retrying without --pptx-editable"
+                )
+                stdout, stderr, return_code = await _run(fallback_cmd)
+                if return_code == 0:
+                    logger.debug("Marp CLI fallback without --pptx-editable succeeded")
+                    return stdout, stderr
+                error_msg = stderr.decode("utf-8", errors="replace")
+
+            logger.error(f"Marp CLI failed with return code {return_code}: {error_msg}")
+            raise ToolExecutionError("Marp CLI", error_msg, return_code)
 
         logger.debug("Marp CLI executed successfully")
         return stdout, stderr

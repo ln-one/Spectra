@@ -128,17 +128,27 @@ npm run dev
 |------|--------|------|---------|
 | 前端下载 API 路径不匹配 | 成员 A | ✅ 已解决 | 已修复为 `/generate/tasks/{id}/download?file_type={type}` |
 | 缺少前端生成页面 | 成员 A | ✅ 已解决 | 已创建完整生成页面，包含生成按钮、进度跟踪、下载功能 |
+| 后端生成响应格式不符合 OpenAPI | 成员 A | ✅ 已解决 | 修改为使用 `success_response()` 包装响应 |
+| 旧用户密码哈希被截断 | 成员 C | ⚠️  已识别 | 新用户正常，旧用户需重新注册 |
 
 ---
 
 ## 📝 下一步行动
 
 ### 立即执行（成员 A - TL）
-1. [ ] 启动后端服务：`cd backend && uvicorn main:app --reload`
+1. [ ] 重启后端服务（应用最新修复）：
+   ```bash
+   # 停止当前后端进程
+   pkill -f "uvicorn main:app"
+   
+   # 启动后端（带自动重载）
+   cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+   ```
 2. [ ] 启动前端服务：`cd frontend && npm run dev`
-3. [ ] 手动测试完整 MVP 流程
-4. [ ] 记录测试结果和问题
-5. [ ] 准备演示视频
+3. [ ] 运行集成测试：`./test_integration.sh`
+4. [ ] 手动测试完整 MVP 流程
+5. [ ] 记录测试结果和问题
+6. [ ] 准备演示视频
 
 ### 测试清单
 ```bash

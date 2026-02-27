@@ -1,12 +1,12 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from schemas import ProjectCreate
 from services import db_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException
+from utils.exceptions import APIException, ForbiddenException, NotFoundException
 from utils.responses import success_response
 
 router = APIRouter(prefix="/projects", tags=["Project"])
@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 async def create_project(
     project: ProjectCreate,
     user_id: str = Depends(get_current_user),
-    # REVIEW #B5 (P1): OpenAPI 中 Idempotency-Key 为 Header，此处按 Query 读取，协议不一致。
-    idempotency_key: Optional[str] = Query(None, alias="Idempotency-Key"),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
     """
     创建项目
@@ -86,14 +85,8 @@ async def get_projects(
         项目列表和分页信息
     """
     try:
-        # TODO: Filter projects by user_id (data isolation)
-        # projects = await db_service.get_projects_by_user(user_id, page, limit)
-
-        # TEMPORARY: Get all projects (will be filtered by user_id later)
-        projects = await db_service.get_all_projects()
-
-        # TODO: Implement actual pagination
-        total = len(projects)
+        projects = await db_service.get_projects_by_user(user_id, page, limit)
+        total = await db_service.count_projects_by_user(user_id)
 
         logger.info(
             "projects_fetched",
@@ -140,32 +133,14 @@ async def get_project(
         HTTPException: 项目不存在或无权限访问时抛出
     """
     try:
-        # TODO: Get project from database
-        # project = await db_service.get_project(project_id)
+        project = await db_service.get_project(project_id)
+        if not project:
+            raise NotFoundException(message=f"项目不存在: {project_id}")
 
-        # TODO: Check if project belongs to user
-        # if project.userId != user_id:
-        #     raise ForbiddenException(
-        #         message="无权限访问此项目",
-        #     )
+        if project.userId != user_id:
+            raise ForbiddenException(message="无权限访问此项目")
 
-        # TEMPORARY: Return mock response
-        logger.warning(
-            "get_project() is not fully implemented",
-            extra={"user_id": user_id, "project_id": project_id},
-        )
-
-        return success_response(
-            data={
-                "project": {
-                    "id": project_id,
-                    "title": "示例项目",
-                    "subject": "数学",
-                    "status": "draft",
-                }
-            },
-            message="获取项目详情成功",
-        )
+        return success_response(data={"project": project}, message="获取项目详情成功")
     except APIException as e:
         logger.error(
             f"Failed to get project: {e.message}",
@@ -211,21 +186,18 @@ async def get_project_files(
         HTTPException: 项目不存在或无权限访问时抛出
     """
     try:
-        # TODO: Get project from database
-        # project = await db_service.get_project(project_id)
+        project = await db_service.get_project(project_id)
+        if not project:
+            raise NotFoundException(message=f"项目不存在: {project_id}")
+        if project.userId != user_id:
+            raise ForbiddenException(message="无权限访问此项目")
 
-        # TODO: Check if project belongs to user
-        # if project.userId != user_id:
-        #     raise ForbiddenException(
-        #         message="无权限访问此项目",
-        #     )
-
-        # TODO: Get files for project with pagination
-        # files = await db_service.get_project_files(
-        #     project_id=project_id,
-        #     page=page,
-        #     limit=limit,
-        # )
+        files = await db_service.get_project_files(
+            project_id=project_id,
+            page=page,
+            limit=limit,
+        )
+        total = await db_service.count_project_files(project_id=project_id)
 
         logger.info(
             "project_files_fetched",
@@ -237,9 +209,8 @@ async def get_project_files(
             },
         )
 
-        # TEMPORARY: Return mock response
         return success_response(
-            data={"files": [], "total": 0, "page": page, "limit": limit},
+            data={"files": files, "total": total, "page": page, "limit": limit},
             message="获取项目文件列表成功",
         )
     except APIException as e:

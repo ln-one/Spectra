@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 
-from schemas.generation import GenerateRequest, GenerateResponse
+from schemas.generation import GenerateRequest
 from services.database import db_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ForbiddenException, NotFoundException
@@ -13,7 +13,43 @@ router = APIRouter(prefix="/generate", tags=["Generate"])
 logger = logging.getLogger(__name__)
 
 
-@router.post("/courseware", response_model=GenerateResponse)
+async def _build_user_requirements(project_id: str) -> str:
+    """
+    组合项目描述与最近用户对话，作为最终生成需求输入。
+    """
+    project = await db_service.get_project(project_id)
+    base_requirement = "通用课件"
+    if project:
+        if project.description:
+            base_requirement = project.description.strip()
+        elif project.name:
+            base_requirement = project.name.strip()
+
+    # 拉取最近对话并拼接用户侧补充需求，避免“固定模板化”输出
+    recent_messages = await db_service.get_conversation_messages(
+        project_id=project_id,
+        page=1,
+        limit=50,
+    )
+    user_messages = [
+        m.content.strip()
+        for m in recent_messages
+        if m.role == "user" and m.content and m.content.strip()
+    ]
+
+    if not user_messages:
+        return base_requirement
+
+    # 仅拼接最近 6 条用户输入，控制提示词长度
+    recent_user_context = "\n".join(f"- {msg}" for msg in user_messages[-6:])
+    return (
+        f"{base_requirement}\n\n"
+        "以下是用户在对话中补充的具体要求，请严格纳入生成：\n"
+        f"{recent_user_context}"
+    )
+
+
+@router.post("/courseware")
 async def generate_courseware(
     request: GenerateRequest,
     background_tasks: BackgroundTasks,
@@ -33,7 +69,7 @@ async def generate_courseware(
         idempotency_key: 幂等性密钥（可选）
 
     Returns:
-        GenerateResponse: 包含任务 ID 和初始状态
+        标准响应格式，data 中包含 task_id 和 status
 
     Raises:
         HTTPException: 项目不存在或无权限访问时抛出
@@ -97,9 +133,11 @@ async def generate_courseware(
         # if idempotency_key:
         #     await db_service.save_idempotency_response(idempotency_key, response)
 
-        return GenerateResponse(
-            task_id=task.id,
-            status="pending",
+        return success_response(
+            data={
+                "task_id": task.id,
+                "status": "pending",
+            },
             message="课件生成任务已创建",
         )
 
@@ -165,13 +203,7 @@ async def process_generation_task(
             f"Calling AI service to generate courseware content for task {task_id}"
         )
 
-        # 获取项目信息作为用户需求
-        project = await db_service.get_project(project_id)
-        user_requirements = (
-            project.description
-            if project and project.description
-            else project.name if project else "通用课件"
-        )
+        user_requirements = await _build_user_requirements(project_id)
 
         # 生成课件内容
         courseware_content = await ai_service.generate_courseware_content(
