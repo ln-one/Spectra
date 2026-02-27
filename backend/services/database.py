@@ -65,6 +65,22 @@ class DatabaseService:
         """Get all projects"""
         return await self.db.project.find_many()
 
+    async def get_projects_by_user(self, user_id: str, page: int, limit: int):
+        """Get paginated projects and total count for a user."""
+        skip = (page - 1) * limit
+        projects = await self.db.project.find_many(
+            where={"userId": user_id},
+            skip=skip,
+            take=limit,
+            order={"createdAt": "desc"},
+        )
+        total = await self.db.project.count(where={"userId": user_id})
+        return projects, total
+
+    async def count_projects_by_user(self, user_id: str) -> int:
+        """Count projects by user."""
+        return await self.db.project.count(where={"userId": user_id})
+
     async def create_upload(
         self,
         filename: str,
@@ -93,6 +109,73 @@ class DatabaseService:
             }
         )
         return upload
+
+    async def get_project_files(self, project_id: str, page: int, limit: int):
+        """Get project files with pagination."""
+        skip = (page - 1) * limit
+        return await self.db.upload.find_many(
+            where={"projectId": project_id},
+            skip=skip,
+            take=limit,
+            order={"createdAt": "desc"},
+        )
+
+    async def count_project_files(self, project_id: str) -> int:
+        """Count files in a project."""
+        return await self.db.upload.count(where={"projectId": project_id})
+
+    async def get_project_uploads_paginated(
+        self, project_id: str, page: int = 1, limit: int = 20
+    ):
+        """Return (uploads, total) for a project with pagination."""
+        files = await self.get_project_files(
+            project_id=project_id, page=page, limit=limit
+        )
+        total = await self.count_project_files(project_id=project_id)
+        return files, total
+
+    async def get_file(self, file_id: str):
+        """Get file by ID."""
+        return await self.db.upload.find_unique(where={"id": file_id})
+
+    async def get_upload(self, file_id: str):
+        """Alias for get_file to keep router compatibility."""
+        return await self.get_file(file_id)
+
+    async def update_file_intent(self, file_id: str, usage_intent: str):
+        """Update file usage intent."""
+        return await self.db.upload.update(
+            where={"id": file_id},
+            data={"usageIntent": usage_intent},
+        )
+
+    async def update_upload_intent(self, file_id: str, usage_intent: str):
+        """Alias for update_file_intent to keep router compatibility."""
+        return await self.update_file_intent(file_id, usage_intent)
+
+    async def delete_file(self, file_id: str):
+        """Delete file record by ID."""
+        return await self.db.upload.delete(where={"id": file_id})
+
+    async def get_idempotency_response(self, key: str):
+        """Get cached idempotency response if it exists."""
+        record = await self.db.idempotencykey.find_unique(where={"key": key})
+        if not record:
+            return None
+        try:
+            return json.loads(record.response)
+        except (TypeError, json.JSONDecodeError):
+            return None
+
+    async def save_idempotency_response(self, key: str, response: dict):
+        """Persist idempotency response payload."""
+        return await self.db.idempotencykey.upsert(
+            where={"key": key},
+            data={
+                "create": {"key": key, "response": json.dumps(response)},
+                "update": {"response": json.dumps(response)},
+            },
+        )
 
     # ============================================
     # User Methods
@@ -131,8 +214,12 @@ class DatabaseService:
     # Conversation Methods
     # ============================================
 
-    async def create_conversation(
-        self, project_id: str, role: str, content: str, metadata: Optional[str] = None
+    async def create_conversation_message(
+        self,
+        project_id: str,
+        role: str,
+        content: str,
+        metadata: Optional[dict] = None,
     ):
         """Create a conversation message."""
         return await self.db.conversation.create(
@@ -140,21 +227,52 @@ class DatabaseService:
                 "projectId": project_id,
                 "role": role,
                 "content": content,
-                "metadata": metadata,
+                "metadata": json.dumps(metadata) if metadata else None,
             }
         )
+
+    async def create_conversation(
+        self,
+        project_id: str,
+        role: str,
+        content: str,
+        metadata: Optional[object] = None,
+    ):
+        """Compatibility wrapper for chat APIs using string metadata."""
+        metadata_dict = None
+        if isinstance(metadata, dict):
+            metadata_dict = metadata
+        elif metadata is not None:
+            metadata_dict = {"raw": str(metadata)}
+        return await self.create_conversation_message(
+            project_id=project_id,
+            role=role,
+            content=content,
+            metadata=metadata_dict,
+        )
+
+    async def get_conversation_messages(self, project_id: str, page: int, limit: int):
+        """Get conversation messages by project with pagination."""
+        skip = (page - 1) * limit
+        return await self.db.conversation.find_many(
+            where={"projectId": project_id},
+            skip=skip,
+            take=limit,
+            order={"createdAt": "asc"},
+        )
+
+    async def count_conversation_messages(self, project_id: str) -> int:
+        """Count conversation messages in a project."""
+        return await self.db.conversation.count(where={"projectId": project_id})
 
     async def get_conversations_paginated(
         self, project_id: str, page: int = 1, limit: int = 20
     ):
         """Return (messages, total) for a project with pagination."""
-        total = await self.db.conversation.count(where={"projectId": project_id})
-        messages = await self.db.conversation.find_many(
-            where={"projectId": project_id},
-            order={"createdAt": "asc"},
-            skip=(page - 1) * limit,
-            take=limit,
+        messages = await self.get_conversation_messages(
+            project_id=project_id, page=page, limit=limit
         )
+        total = await self.count_conversation_messages(project_id=project_id)
         return messages, total
 
     # ============================================
@@ -204,6 +322,21 @@ class DatabaseService:
             GenerationTask or None if not found
         """
         return await self.db.generationtask.find_unique(where={"id": task_id})
+
+    async def get_latest_generation_task_by_project(
+        self, project_id: str, completed_only: bool = False
+    ):
+        """Get latest generation task for project."""
+        where: dict = {"projectId": project_id}
+        if completed_only:
+            where["status"] = "completed"
+
+        tasks = await self.db.generationtask.find_many(
+            where=where,
+            take=1,
+            order={"updatedAt": "desc"},
+        )
+        return tasks[0] if tasks else None
 
     async def update_generation_task_status(
         self,
