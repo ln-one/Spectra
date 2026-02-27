@@ -175,4 +175,49 @@ export const projectsApi = {
       method: "DELETE",
     });
   },
+
+  async searchProjects(params: {
+    q: string;
+    status?: "draft" | "in_progress" | "completed";
+    page?: number;
+    limit?: number;
+  }): Promise<GetProjectsResponse> {
+    if (MOCK_MODE) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const keyword = params.q.toLowerCase();
+      const filtered = mockProjects.filter(
+        (p) =>
+          p.name.toLowerCase().includes(keyword) ||
+          p.description?.toLowerCase().includes(keyword)
+      );
+      const page = params.page || 1;
+      const limit = params.limit || 20;
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      const projects = filtered.slice(start, end);
+      return {
+        success: true,
+        data: {
+          projects,
+          total: filtered.length,
+          page,
+          limit,
+        },
+        message: "搜索成功",
+      };
+    }
+
+    const queryParams = new URLSearchParams();
+    queryParams.set("q", params.q);
+    if (params.status) queryParams.set("status", params.status);
+    if (params.page) queryParams.set("page", String(params.page));
+    if (params.limit) queryParams.set("limit", String(params.limit));
+
+    return request<GetProjectsResponse>(
+      `/projects/search?${queryParams.toString()}`,
+      {
+        method: "GET",
+      }
+    );
+  },
 };
