@@ -19,9 +19,9 @@ export function middleware(request: NextRequest) {
   }
 
   const response = NextResponse.next();
-  
+
   response.headers.set("x-user-authenticated", "true");
-  
+
   return response;
 }
 

@@ -43,7 +43,7 @@ export const TokenStorage = {
     try {
       localStorage.setItem(ACCESS_TOKEN_KEY, token);
       document.cookie = `access_token=${token}; ${cookieOptions}`;
-      
+
       if (expiresIn) {
         const expiryTime = Date.now() + expiresIn * 1000;
         localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiryTime));

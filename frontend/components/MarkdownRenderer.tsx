@@ -10,7 +10,10 @@ interface MarkdownRendererProps {
   className?: string;
 }
 
-export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+export function MarkdownRenderer({
+  content,
+  className,
+}: MarkdownRendererProps) {
   return (
     <div className={className}>
       <ReactMarkdown

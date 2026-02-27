@@ -35,7 +35,11 @@ export interface GenerateState {
   pollingTaskId: string | null;
   error: string | null;
 
-  createTask: (projectId: string, taskType: TaskType, options?: GenerateRequest["options"]) => Promise<GenerationTask>;
+  createTask: (
+    projectId: string,
+    taskType: TaskType,
+    options?: GenerateRequest["options"]
+  ) => Promise<GenerationTask>;
   fetchTaskStatus: (taskId: string) => Promise<void>;
   cancelTask: (taskId: string) => Promise<void>;
   pollTaskStatus: (taskId: string) => void;
@@ -55,7 +59,11 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
   pollingTaskId: null,
   error: null,
 
-  createTask: async (projectId: string, taskType: TaskType, options?: GenerateRequest["options"]) => {
+  createTask: async (
+    projectId: string,
+    taskType: TaskType,
+    options?: GenerateRequest["options"]
+  ) => {
     set({ isLoading: true, error: null });
 
     try {
@@ -89,7 +97,8 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
 
       return newTask;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "创建任务失败";
+      const errorMessage =
+        error instanceof Error ? error.message : "创建任务失败";
       set({ isLoading: false, error: errorMessage });
       throw error;
     }
@@ -115,14 +124,15 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
           progress: taskData.progress || 0,
           outputUrls: taskData.result
             ? {
-              ppt: taskData.result.ppt_url,
-              word: taskData.result.word_url,
-            }
+                ppt: taskData.result.ppt_url,
+                word: taskData.result.word_url,
+              }
             : undefined,
           errorMessage: taskData.error,
-          completedAt: taskData.status === "completed" || taskData.status === "failed"
-            ? new Date().toISOString()
-            : undefined,
+          completedAt:
+            taskData.status === "completed" || taskData.status === "failed"
+              ? new Date().toISOString()
+              : undefined,
         };
 
         const updatedTasks = [...state.tasks];
@@ -130,11 +140,13 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
 
         return {
           tasks: updatedTasks,
-          currentTask: state.currentTask?.id === taskId ? updatedTask : state.currentTask,
+          currentTask:
+            state.currentTask?.id === taskId ? updatedTask : state.currentTask,
         };
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "获取任务状态失败";
+      const errorMessage =
+        error instanceof Error ? error.message : "获取任务状态失败";
       set({ error: errorMessage });
     }
   },
@@ -142,9 +154,10 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
   cancelTask: async (_taskId: string) => {
     get().stopPolling();
     set((state) => ({
-      currentTask: state.currentTask?.id === _taskId
-        ? { ...state.currentTask, status: "failed", errorMessage: "用户取消" }
-        : state.currentTask,
+      currentTask:
+        state.currentTask?.id === _taskId
+          ? { ...state.currentTask, status: "failed", errorMessage: "用户取消" }
+          : state.currentTask,
     }));
   },
 
@@ -177,7 +190,10 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
       }
 
       const updatedTask = get().tasks.find((t) => t.id === taskId);
-      if (updatedTask && (updatedTask.status === "completed" || updatedTask.status === "failed")) {
+      if (
+        updatedTask &&
+        (updatedTask.status === "completed" || updatedTask.status === "failed")
+      ) {
         get().stopPolling();
       }
     }, 2000);

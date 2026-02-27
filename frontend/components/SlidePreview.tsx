@@ -52,7 +52,10 @@ export function SlidePreview({
   const [viewMode, setViewMode] = useState<"preview" | "list">("preview");
 
   // Use internal state if slideId is provided but no external currentSlide
-  const currentSlide = slideId !== undefined ? internalCurrentSlide : (externalCurrentSlide ?? internalCurrentSlide);
+  const currentSlide =
+    slideId !== undefined
+      ? internalCurrentSlide
+      : (externalCurrentSlide ?? internalCurrentSlide);
 
   const handleSlideChange = (index: number) => {
     if (onSlideChange) {
@@ -111,9 +114,16 @@ export function SlidePreview({
   const currentSlideData = slides[currentSlide];
 
   return (
-    <Card className={cn("w-full flex flex-col", className)} onKeyDown={handleKeyDown} tabIndex={0}>
+    <Card
+      className={cn("w-full flex flex-col", className)}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
       <div className="flex items-center justify-between p-4 border-b">
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "preview" | "list")}>
+        <Tabs
+          value={viewMode}
+          onValueChange={(v) => setViewMode(v as "preview" | "list")}
+        >
           <TabsList>
             <TabsTrigger value="preview">
               <Presentation className="h-4 w-4 mr-2" />
@@ -173,7 +183,8 @@ export function SlidePreview({
             <ScrollArea className="w-72 border-l">
               <div className="p-4">
                 <h3 className="font-semibold mb-3">本页参考来源</h3>
-                {currentSlideData?.sources && currentSlideData.sources.length > 0 ? (
+                {currentSlideData?.sources &&
+                currentSlideData.sources.length > 0 ? (
                   <div className="space-y-2">
                     {currentSlideData.sources.map((source, idx) => (
                       <div

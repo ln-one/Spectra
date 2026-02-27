@@ -317,10 +317,11 @@ export default function ProjectPreviewPage() {
                       {preview.slides?.map((slide, idx) => (
                         <div
                           key={slide.id}
-                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${idx === currentSlide
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted"
-                            }`}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                            idx === currentSlide
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-muted"
+                          }`}
                           onClick={() => setCurrentSlide(idx)}
                         >
                           <p className="font-medium text-sm">
@@ -339,23 +340,32 @@ export default function ProjectPreviewPage() {
                   <div className="space-y-3">
                     <p className="text-sm font-medium">内容来源</p>
                     {preview.slides?.[currentSlide]?.sources &&
-                      preview.slides[currentSlide].sources!.length > 0 ? (
+                    preview.slides[currentSlide].sources!.length > 0 ? (
                       <div className="space-y-2">
-                        {preview.slides[currentSlide].sources!.map((source, idx) => (
-                          <div key={idx} className="text-xs p-2 bg-muted rounded">
-                            <p className="font-medium">{source.filename}</p>
-                            <p className="text-muted-foreground">
-                              {source.source_type === "video" && "视频"}
-                              {source.source_type === "document" && "文档"}
-                              {source.source_type === "ai_generated" && "AI 生成"}
-                              {source.page_number && ` - 第 ${source.page_number} 页`}
-                              {source.timestamp && ` - ${source.timestamp}`}
-                            </p>
-                            {source.preview_text && (
-                              <p className="mt-1 truncate">{source.preview_text}</p>
-                            )}
-                          </div>
-                        ))}
+                        {preview.slides[currentSlide].sources!.map(
+                          (source, idx) => (
+                            <div
+                              key={idx}
+                              className="text-xs p-2 bg-muted rounded"
+                            >
+                              <p className="font-medium">{source.filename}</p>
+                              <p className="text-muted-foreground">
+                                {source.source_type === "video" && "视频"}
+                                {source.source_type === "document" && "文档"}
+                                {source.source_type === "ai_generated" &&
+                                  "AI 生成"}
+                                {source.page_number &&
+                                  ` - 第 ${source.page_number} 页`}
+                                {source.timestamp && ` - ${source.timestamp}`}
+                              </p>
+                              {source.preview_text && (
+                                <p className="mt-1 truncate">
+                                  {source.preview_text}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">

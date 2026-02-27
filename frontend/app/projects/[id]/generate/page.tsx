@@ -97,11 +97,11 @@ export default function ProjectGeneratePage() {
         const taskData = response.data;
         const resultData = taskData.result as
           | {
-            pptx?: string;
-            docx?: string;
-            ppt_url?: string;
-            word_url?: string;
-          }
+              pptx?: string;
+              docx?: string;
+              ppt_url?: string;
+              word_url?: string;
+            }
           | undefined;
 
         setCurrentTask({
@@ -110,9 +110,9 @@ export default function ProjectGeneratePage() {
           progress: taskData.progress || 0,
           result: resultData
             ? {
-              pptx: resultData.pptx || resultData.ppt_url,
-              docx: resultData.docx || resultData.word_url,
-            }
+                pptx: resultData.pptx || resultData.ppt_url,
+                docx: resultData.docx || resultData.word_url,
+              }
             : undefined,
           error: taskData.error,
         });
@@ -334,8 +334,7 @@ export default function ProjectGeneratePage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      状态:{" "}
-                      {currentTask.status === "pending" && "等待中"}
+                      状态: {currentTask.status === "pending" && "等待中"}
                       {currentTask.status === "processing" && "处理中"}
                       {currentTask.status === "completed" && "已完成"}
                       {currentTask.status === "failed" && "失败"}

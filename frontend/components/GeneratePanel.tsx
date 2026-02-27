@@ -1,14 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { useGenerateStore, type TaskType, type GenerationTask } from "@/stores/generateStore";
+import {
+  useGenerateStore,
+  type TaskType,
+  type GenerationTask,
+} from "@/stores/generateStore";
 import { generateApi } from "@/lib/api/generate";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -128,7 +144,10 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
     if (!currentTask) return;
 
     try {
-      const blob = await generateApi.downloadCourseware(currentTask.id, fileType);
+      const blob = await generateApi.downloadCourseware(
+        currentTask.id,
+        fileType
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -157,7 +176,8 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
     }
   };
 
-  const isGenerating = currentTask?.status === "processing" || currentTask?.status === "pending";
+  const isGenerating =
+    currentTask?.status === "processing" || currentTask?.status === "pending";
   const isCompleted = currentTask?.status === "completed";
   const isFailed = currentTask?.status === "failed";
 
@@ -234,7 +254,10 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
               <Select
                 value={options.template}
                 onValueChange={(value) =>
-                  setOptions({ ...options, template: value as GenerateOptions["template"] })
+                  setOptions({
+                    ...options,
+                    template: value as GenerateOptions["template"],
+                  })
                 }
                 disabled={isGenerating}
               >
@@ -272,7 +295,9 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
                         : "border-transparent hover:scale-105"
                     )}
                     style={{ backgroundColor: color.value }}
-                    onClick={() => setOptions({ ...options, theme_color: color.value })}
+                    onClick={() =>
+                      setOptions({ ...options, theme_color: color.value })
+                    }
                     disabled={isGenerating}
                     title={color.label}
                   />
@@ -280,7 +305,9 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
                 <Input
                   type="color"
                   value={options.theme_color || "#4A90E2"}
-                  onChange={(e) => setOptions({ ...options, theme_color: e.target.value })}
+                  onChange={(e) =>
+                    setOptions({ ...options, theme_color: e.target.value })
+                  }
                   className="w-8 h-8 p-0.5"
                   disabled={isGenerating}
                 />
@@ -297,7 +324,12 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
                 min={1}
                 max={100}
                 value={options.pages || 10}
-                onChange={(e) => setOptions({ ...options, pages: parseInt(e.target.value) || 10 })}
+                onChange={(e) =>
+                  setOptions({
+                    ...options,
+                    pages: parseInt(e.target.value) || 10,
+                  })
+                }
                 disabled={isGenerating}
               />
             </div>
@@ -307,7 +339,10 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
                 id="showPageNumber"
                 checked={options.show_page_number}
                 onCheckedChange={(checked) =>
-                  setOptions({ ...options, show_page_number: checked as boolean })
+                  setOptions({
+                    ...options,
+                    show_page_number: checked as boolean,
+                  })
                 }
                 disabled={isGenerating}
               />
@@ -319,11 +354,17 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
                 id="includeAnimations"
                 checked={options.include_animations}
                 onCheckedChange={(checked) =>
-                  setOptions({ ...options, include_animations: checked as boolean })
+                  setOptions({
+                    ...options,
+                    include_animations: checked as boolean,
+                  })
                 }
                 disabled={isGenerating}
               />
-              <Label htmlFor="includeAnimations" className="flex items-center gap-2">
+              <Label
+                htmlFor="includeAnimations"
+                className="flex items-center gap-2"
+              >
                 <Film className="h-4 w-4" />
                 包含动画创意
               </Label>
@@ -355,7 +396,13 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
                 <Progress value={currentTask.progress} className="h-2" />
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  正在生成{currentTask.taskType === "ppt" ? "PPT" : currentTask.taskType === "word" ? "Word文档" : "课件"}...
+                  正在生成
+                  {currentTask.taskType === "ppt"
+                    ? "PPT"
+                    : currentTask.taskType === "word"
+                      ? "Word文档"
+                      : "课件"}
+                  ...
                 </div>
               </div>
             )}
@@ -363,7 +410,9 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
             {currentTask && isCompleted && (
               <div className="space-y-3 pt-4 border-t">
                 <Alert>
-                  <AlertDescription>生成完成！您可以下载课件文件。</AlertDescription>
+                  <AlertDescription>
+                    生成完成！您可以下载课件文件。
+                  </AlertDescription>
                 </Alert>
                 <div className="flex gap-2">
                   {(selectedType === "ppt" || selectedType === "both") && (
@@ -433,7 +482,9 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
                     variant="outline"
                     disabled={isPolling}
                   >
-                    <RefreshCw className={cn("h-4 w-4", isPolling && "animate-spin")} />
+                    <RefreshCw
+                      className={cn("h-4 w-4", isPolling && "animate-spin")}
+                    />
                   </Button>
                 </>
               )}
@@ -494,10 +545,16 @@ function TaskItem({ task, onDownload }: TaskItemProps) {
   return (
     <div className="flex items-center justify-between p-3 border rounded-lg">
       <div className="flex items-center gap-3">
-        <div className={cn("h-2 w-2 rounded-full", statusColors[task.status])} />
+        <div
+          className={cn("h-2 w-2 rounded-full", statusColors[task.status])}
+        />
         <div className="flex flex-col">
           <span className="text-sm font-medium">
-            {task.taskType === "ppt" ? "PPT" : task.taskType === "word" ? "Word" : "全部"}
+            {task.taskType === "ppt"
+              ? "PPT"
+              : task.taskType === "word"
+                ? "Word"
+                : "全部"}
           </span>
           <span className="text-xs text-muted-foreground">
             {new Date(task.createdAt).toLocaleString("zh-CN")}
@@ -506,7 +563,9 @@ function TaskItem({ task, onDownload }: TaskItemProps) {
       </div>
       <div className="flex items-center gap-2">
         {task.status === "processing" && (
-          <span className="text-xs text-muted-foreground">{task.progress}%</span>
+          <span className="text-xs text-muted-foreground">
+            {task.progress}%
+          </span>
         )}
         {task.status === "completed" && (
           <Button size="sm" onClick={() => onDownload("pptx")}>

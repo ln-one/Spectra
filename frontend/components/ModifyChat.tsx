@@ -87,7 +87,9 @@ export function ModifyChat({
       const assistantMessage: ModifyMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: response.message || "修改任务已提交成功！系统正在处理您的修改请求，请稍候。",
+        content:
+          response.message ||
+          "修改任务已提交成功！系统正在处理您的修改请求，请稍候。",
         timestamp: new Date(),
       };
 
@@ -123,9 +125,7 @@ export function ModifyChat({
           <Bot className="h-4 w-4" />
           修改指令
         </h3>
-        <p className="text-sm text-muted-foreground">
-          描述您想要修改的内容
-        </p>
+        <p className="text-sm text-muted-foreground">描述您想要修改的内容</p>
       </div>
 
       <ScrollArea className="flex-1">
@@ -161,9 +161,14 @@ export function ModifyChat({
                 )}
               >
                 {message.role === "assistant" ? (
-                  <MarkdownRenderer content={message.content} className="text-sm" />
+                  <MarkdownRenderer
+                    content={message.content}
+                    className="text-sm"
+                  />
                 ) : (
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">
+                    {message.content}
+                  </p>
                 )}
                 <p className="text-xs opacity-50 mt-1">
                   {message.timestamp.toLocaleTimeString()}

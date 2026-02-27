@@ -22,7 +22,10 @@ interface ProgressTrackerProps {
   onDownload?: (taskId: string, fileType: "pptx" | "docx") => void;
 }
 
-export function ProgressTracker({ className, onDownload }: ProgressTrackerProps) {
+export function ProgressTracker({
+  className,
+  onDownload,
+}: ProgressTrackerProps) {
   const {
     currentTask,
     isLoading,
@@ -32,7 +35,8 @@ export function ProgressTracker({ className, onDownload }: ProgressTrackerProps)
     fetchTaskStatus,
   } = useGenerateStore();
 
-  const isGenerating = currentTask?.status === "processing" || currentTask?.status === "pending";
+  const isGenerating =
+    currentTask?.status === "processing" || currentTask?.status === "pending";
   const isCompleted = currentTask?.status === "completed";
   const isFailed = currentTask?.status === "failed";
 
@@ -164,7 +168,9 @@ export function ProgressTracker({ className, onDownload }: ProgressTrackerProps)
               disabled={isLoading}
               className="flex-1"
             >
-              <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+              <RefreshCw
+                className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")}
+              />
               重试
             </Button>
           )}
