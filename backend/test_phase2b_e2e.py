@@ -85,8 +85,8 @@ async def test_generation_flow(project_id: str):
     import json
 
     output_urls = {
-        "pptx": f"/api/v1/files/download/{task.id}/pptx",
-        "docx": f"/api/v1/files/download/{task.id}/docx",
+        "pptx": f"/api/v1/generate/tasks/{task.id}/download?file_type=ppt",
+        "docx": f"/api/v1/generate/tasks/{task.id}/download?file_type=word",
     }
     task = await db_service.update_generation_task_status(
         task_id=task.id,
@@ -122,14 +122,16 @@ async def print_api_test_commands(project_id: str, task_id: str):
     print("   使用这个 project_id:")
     print(f"   \033[92m{project_id}\033[0m")
 
-    print(f"\n2️⃣  测试查询状态 (GET /api/v1/generate/status/{{task_id}})")
+    print(f"\n2️⃣  测试查询状态 (GET /api/v1/generate/tasks/{{task_id}}/status)")
     print("   使用这个 task_id:")
     print(f"   \033[92m{task_id}\033[0m")
 
-    print(f"\n3️⃣  测试文件下载 (GET /api/v1/files/download/{{task_id}}/{{file_type}})")
+    print(
+        f"\n3️⃣  测试文件下载 (GET /api/v1/generate/tasks/{{task_id}}/download?file_type=ppt|word)"
+    )
     print("   使用这个 task_id:")
     print(f"   \033[92m{task_id}\033[0m")
-    print("   file_type 选择: pptx 或 docx")
+    print("   file_type 选择: ppt 或 word")
 
     print("\n" + "=" * 60)
     print("📋 完整的 curl 命令：")
@@ -147,10 +149,12 @@ async def print_api_test_commands(project_id: str, task_id: str):
     )
 
     print("\n# 查询状态")
-    print(f'curl "http://localhost:8000/api/v1/generate/status/{task_id}"')
+    print(f'curl "http://localhost:8000/api/v1/generate/tasks/{task_id}/status"')
 
     print("\n# 下载文件")
-    print(f'curl -O "http://localhost:8000/api/v1/files/download/{task_id}/pptx"')
+    print(
+        f'curl -O "http://localhost:8000/api/v1/generate/tasks/{task_id}/download?file_type=ppt"'
+    )
 
 
 async def main():
