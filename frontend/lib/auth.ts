@@ -85,10 +85,14 @@ export const TokenStorage = {
 
   getAccessTokenFromCookie(): string | null {
     if (typeof window === "undefined") return null;
-    const match = document.cookie.match(
-      new RegExp("(^| )access_token=([^;]+)")
-    );
-    return match ? match[2] : null;
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split("=");
+      if (name === "access_token") {
+        return value || null;
+      }
+    }
+    return null;
   },
 
   setRefreshToken(token: string): void {
