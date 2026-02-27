@@ -25,6 +25,9 @@ sentence-transformers>=2.2.2  # Embedding 本地备选模型
 
 # Document Processing - 可插拔设计
 llama-parse>=0.4.0         # LlamaParse 云端解析（备选，快速原型）
+pypdf>=5.4.0               # PDF 文本提取（MVP 轻量方案）
+python-docx>=1.1.2         # DOCX 文本提取
+python-pptx>=1.0.2         # PPTX 文本提取
 # magic-pdf               # MinerU 本地解析（主选，需单独安装）
 # paddleocr               # 图片 OCR（需单独安装）
 

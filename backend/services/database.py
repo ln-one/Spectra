@@ -86,6 +86,7 @@ class DatabaseService:
         size: int,
         project_id: str,
         file_type: str,
+        mime_type: Optional[str] = None,
     ):
         """
         Record a file upload
@@ -104,6 +105,7 @@ class DatabaseService:
                 "size": size,
                 "projectId": project_id,
                 "fileType": file_type,
+                "mimeType": mime_type,
             }
         )
         return upload
@@ -136,6 +138,42 @@ class DatabaseService:
     async def delete_file(self, file_id: str):
         """Delete file record by ID."""
         return await self.db.upload.delete(where={"id": file_id})
+
+    async def update_upload_status(
+        self,
+        file_id: str,
+        status: str,
+        parse_result: Optional[dict] = None,
+        error_message: Optional[str] = None,
+    ):
+        """Update upload parsing status and result."""
+        data: dict = {"status": status}
+        if parse_result is not None:
+            data["parseResult"] = json.dumps(parse_result)
+        if error_message is not None:
+            data["errorMessage"] = error_message
+        return await self.db.upload.update(where={"id": file_id}, data=data)
+
+    async def create_parsed_chunks(
+        self,
+        upload_id: str,
+        source_type: str,
+        chunks: list[dict],
+    ):
+        """Persist parsed chunks for one upload."""
+        created = []
+        for idx, chunk in enumerate(chunks):
+            item = await self.db.parsedchunk.create(
+                data={
+                    "uploadId": upload_id,
+                    "content": chunk["content"],
+                    "chunkIndex": chunk.get("chunk_index", idx),
+                    "metadata": json.dumps(chunk.get("metadata", {})),
+                    "sourceType": source_type,
+                }
+            )
+            created.append(item)
+        return created
 
     # ============================================
     # User Methods

@@ -22,6 +22,24 @@ export type UpdateFileIntentResponse =
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
+function parseUploadErrorMessage(raw: string, fallback: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.detail) {
+      return String(parsed.detail);
+    }
+    if (parsed?.error?.message) {
+      return String(parsed.error.message);
+    }
+    if (parsed?.message) {
+      return String(parsed.message);
+    }
+  } catch {
+    // ignore json parse failure
+  }
+  return fallback;
+}
+
 const FILE_TYPE_MAP: Record<string, UploadedFile["file_type"]> = {
   pdf: "pdf",
   doc: "word",
@@ -192,11 +210,13 @@ export const filesApi = {
           }
           resolve(parsed);
         } else {
-          reject(new Error("上传失败"));
+          reject(
+            new Error(parseUploadErrorMessage(xhr.responseText, "上传失败"))
+          );
         }
       };
 
-      xhr.onerror = () => reject(new Error("上传失败"));
+      xhr.onerror = () => reject(new Error("上传失败：网络异常"));
       xhr.send(formData);
     });
   },
@@ -415,11 +435,13 @@ export const filesApi = {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(JSON.parse(xhr.responseText));
         } else {
-          reject(new Error("批量上传失败"));
+          reject(
+            new Error(parseUploadErrorMessage(xhr.responseText, "批量上传失败"))
+          );
         }
       };
 
-      xhr.onerror = () => reject(new Error("批量上传失败"));
+      xhr.onerror = () => reject(new Error("批量上传失败：网络异常"));
       xhr.send(formData);
     });
   },
