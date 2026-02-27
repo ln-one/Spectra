@@ -267,26 +267,6 @@ class DatabaseService:
             }
         )
 
-    async def create_conversation(
-        self,
-        project_id: str,
-        role: str,
-        content: str,
-        metadata: Optional[object] = None,
-    ):
-        """Compatibility wrapper for chat APIs using string metadata."""
-        metadata_dict = None
-        if isinstance(metadata, dict):
-            metadata_dict = metadata
-        elif metadata is not None:
-            metadata_dict = {"raw": str(metadata)}
-        return await self.create_conversation_message(
-            project_id=project_id,
-            role=role,
-            content=content,
-            metadata=metadata_dict,
-        )
-
     async def get_conversation_messages(self, project_id: str, page: int, limit: int):
         """Get conversation messages by project with pagination."""
         skip = (page - 1) * limit
