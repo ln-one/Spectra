@@ -6,12 +6,15 @@ import Link from "next/link";
 import { previewApi, generateApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { SlidePreview, type Slide } from "@/components/SlidePreview";
-import { ProgressTracker } from "@/components/ProgressTracker";
-import { ModifyChat } from "@/components/ModifyChat";
+import { type Slide } from "@/components/SlidePreview";
 import {
   ChevronLeft,
+  ChevronRight,
+  Download,
   Loader2,
   MessageSquare,
   FileText,
@@ -92,7 +95,7 @@ export default function ProjectPreviewPage() {
     try {
       const res = await generateApi.generateCourseware({
         project_id: projectId,
-        type: "ppt",
+        type: "both",
       });
 
       const taskId = res.data.task_id;
@@ -145,22 +148,6 @@ export default function ProjectPreviewPage() {
     }
   };
 
-  const handleModifyComplete = () => {
-    previewApi.getPreview(projectId).then((res) => {
-      const previewData: PreviewData = {
-        task_id: res.data.task_id,
-        slides: res.data.slides || [],
-        current_slide: 0,
-      };
-      setPreview(previewData);
-      setCurrentSlide(0);
-      toast({
-        title: "修改完成",
-        description: "课件已更新",
-      });
-    });
-  };
-
   const handleDownload = async (taskId: string, fileType: "pptx" | "docx") => {
     try {
       await generateApi.triggerDownload(taskId, fileType);
@@ -174,6 +161,18 @@ export default function ProjectPreviewPage() {
         description: "请稍后重试",
         variant: "destructive",
       });
+    }
+  };
+
+  const handlePrevSlide = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
+
+  const handleNextSlide = () => {
+    if (preview && preview.slides && currentSlide < preview.slides.length - 1) {
+      setCurrentSlide(currentSlide + 1);
     }
   };
 
@@ -237,42 +236,162 @@ export default function ProjectPreviewPage() {
       </aside>
 
       <main className="flex-1 overflow-hidden">
-        <div className="h-full flex">
-          <div className="flex-1 p-6 flex flex-col overflow-hidden">
-            <div className="flex-1">
-              <SlidePreview
-                slides={preview?.slides}
-                currentSlide={currentSlide}
-                onSlideChange={setCurrentSlide}
-                onGenerate={handleGenerate}
-                isGenerating={isGenerating}
-              />
-            </div>
-
-            <div className="mt-4">
-              <ProgressTracker onDownload={handleDownload} />
-            </div>
+        {!preview || !preview.slides || preview.slides.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Card className="w-full max-w-md m-8">
+              <CardHeader>
+                <CardTitle>暂无课件</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-muted-foreground">
+                  您还没有生成课件，请先在对话中描述您的需求，然后生成课件。
+                </p>
+                <Button onClick={handleGenerate} disabled={isGenerating}>
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      生成中...
+                    </>
+                  ) : (
+                    "生成课件"
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
           </div>
+        ) : (
+          <div className="h-full flex">
+            <div className="flex-1 p-6 flex flex-col overflow-hidden">
+              <div className="flex-1 flex items-center justify-center bg-gray-100 rounded-lg">
+                <Card className="w-full max-w-4xl aspect-video flex items-center justify-center">
+                  <CardContent className="text-center p-8">
+                    <h2 className="text-2xl font-bold mb-4">
+                      {preview.slides?.[currentSlide]?.title}
+                    </h2>
+                    <div className="prose prose-sm max-w-none">
+                      {preview.slides?.[currentSlide]?.content}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
-          <div className="w-96 border-l bg-card flex flex-col overflow-hidden">
-            {preview?.task_id ? (
-              <ModifyChat
-                taskId={preview.task_id}
-                slideIds={preview.slides?.[currentSlide] ? [preview.slides[currentSlide].id] : undefined}
-                onModifyComplete={handleModifyComplete}
-                className="h-full border-0 rounded-none"
-              />
-            ) : (
-              <div className="flex-1 flex items-center justify-center p-4">
-                <div className="text-center text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>暂无课件</p>
-                  <p className="text-sm mt-2">请先生成课件后再进行修改</p>
+              <div className="mt-4 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevSlide}
+                    disabled={currentSlide === 0}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    上一页
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {currentSlide + 1} / {preview.slides?.length || 0}
+                  </span>
+                  <Button
+                    onClick={handleNextSlide}
+                    disabled={currentSlide >= (preview.slides?.length || 0) - 1}
+                  >
+                    下一页
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
                 </div>
               </div>
-            )}
+            </div>
+
+            <div className="w-80 border-l bg-card flex flex-col overflow-hidden">
+              <Tabs defaultValue="slides" className="flex-1 flex flex-col">
+                <TabsList className="w-full mx-2 mt-2">
+                  <TabsTrigger value="slides" className="flex-1">
+                    幻灯片
+                  </TabsTrigger>
+                  <TabsTrigger value="sources" className="flex-1">
+                    来源
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="slides" className="flex-1 mt-0 p-2">
+                  <ScrollArea className="h-[calc(100vh-300px)]">
+                    <div className="space-y-2">
+                      {preview.slides?.map((slide, idx) => (
+                        <div
+                          key={slide.id}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${idx === currentSlide
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-muted"
+                            }`}
+                          onClick={() => setCurrentSlide(idx)}
+                        >
+                          <p className="font-medium text-sm">
+                            第 {slide.index} 页
+                          </p>
+                          <p className="text-xs opacity-70 truncate">
+                            {slide.title}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="sources" className="flex-1 mt-0 p-4">
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">内容来源</p>
+                    {preview.slides?.[currentSlide]?.sources &&
+                      preview.slides[currentSlide].sources!.length > 0 ? (
+                      <div className="space-y-2">
+                        {preview.slides[currentSlide].sources!.map((source, idx) => (
+                          <div key={idx} className="text-xs p-2 bg-muted rounded">
+                            <p className="font-medium">{source.filename}</p>
+                            <p className="text-muted-foreground">
+                              {source.source_type === "video" && "视频"}
+                              {source.source_type === "document" && "文档"}
+                              {source.source_type === "ai_generated" && "AI 生成"}
+                              {source.page_number && ` - 第 ${source.page_number} 页`}
+                              {source.timestamp && ` - ${source.timestamp}`}
+                            </p>
+                            {source.preview_text && (
+                              <p className="mt-1 truncate">{source.preview_text}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        当前幻灯片无来源信息
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              {preview?.task_id && (
+                <div className="p-2 border-t">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleDownload(preview.task_id!, "pptx")}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      PPT
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleDownload(preview.task_id!, "docx")}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Word
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );
