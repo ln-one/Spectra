@@ -3,6 +3,7 @@
 """
 
 import logging
+import re
 
 try:
     from .css_generator import generate_custom_css
@@ -73,6 +74,7 @@ def wrap_markdown_with_template(
     """
     frontmatter = generate_marp_frontmatter(config, title)
     custom_css = generate_custom_css(config)
+    normalized_markdown = _strip_existing_marp_frontmatter(markdown_content)
 
     full_markdown = f"""{frontmatter}
 
@@ -80,7 +82,23 @@ def wrap_markdown_with_template(
 {custom_css}
 </style>
 
-{markdown_content}
+{normalized_markdown}
 """
     logger.info(f"Wrapped markdown with template: {config.style}")
     return full_markdown
+
+
+def _strip_existing_marp_frontmatter(markdown_content: str) -> str:
+    """
+    去掉 AI 输出中可能重复的 Marp frontmatter，避免渲染出空白首页。
+    """
+    content = (markdown_content or "").strip()
+    # 仅在文档开头匹配 frontmatter
+    fm_match = re.match(r"^\s*---\s*\n([\s\S]*?)\n---\s*\n?", content)
+    if not fm_match:
+        return content
+
+    frontmatter_body = fm_match.group(1).lower()
+    if "marp:" in frontmatter_body:
+        return content[fm_match.end() :].lstrip()
+    return content

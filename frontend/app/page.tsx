@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/LogoutButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { FileUploadDropzone } from "@/components/FileUploadDropzone";
@@ -131,6 +132,9 @@ export default function DashboardPage() {
             所有项目
           </Button>
         </nav>
+        <div className="p-4 border-t">
+          <LogoutButton className="w-full" />
+        </div>
       </aside>
 
       <main className="flex-1 overflow-auto">
@@ -142,10 +146,15 @@ export default function DashboardPage() {
                 欢迎回来！您有 {stats.totalProjects} 个项目
               </p>
             </div>
-            <Button onClick={() => router.push("/projects/new")}>
-              <Plus className="mr-2 h-4 w-4" />
-              新建项目
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => router.push("/projects/new")}>
+                <Plus className="mr-2 h-4 w-4" />
+                新建项目
+              </Button>
+              <div className="md:hidden">
+                <LogoutButton />
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/LogoutButton";
 import {
   Card,
   CardContent,
@@ -148,6 +149,9 @@ export default function ProjectSettingsPage() {
             返回
           </Button>
           <h2 className="font-semibold">项目设置</h2>
+        </div>
+        <div className="p-4 border-t mt-auto">
+          <LogoutButton className="w-full" />
         </div>
       </aside>
 

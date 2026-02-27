@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { projectsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/LogoutButton";
 import {
   Card,
   CardContent,
@@ -52,14 +53,13 @@ export default function NewProjectPage() {
 
   return (
     <div className="container mx-auto py-8 max-w-2xl">
-      <Button
-        variant="ghost"
-        className="mb-6"
-        onClick={() => router.push("/projects")}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        返回项目列表
-      </Button>
+      <div className="mb-6 flex justify-between items-center">
+        <Button variant="ghost" onClick={() => router.push("/projects")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          返回项目列表
+        </Button>
+        <LogoutButton />
+      </div>
 
       <Card>
         <CardHeader>

@@ -273,3 +273,68 @@ class TestExtractStructuredContent:
 
         prompt_arg = mock_gen.call_args[1]["prompt"]
         assert "参考资料" in prompt_arg
+
+
+class TestParseCoursewareResponse:
+    """_parse_courseware_response() 解析健壮性测试"""
+
+    def test_parse_with_outer_markdown_code_fence(self):
+        ai = AIService()
+        raw = """```markdown
+===PPT_CONTENT_START===
+# 线性代数
+
+---
+
+# 向量空间
+- 基本定义
+===PPT_CONTENT_END===
+
+===LESSON_PLAN_START===
+# 教学目标
+- 理解向量空间定义
+===LESSON_PLAN_END===
+```"""
+        result = ai._parse_courseware_response(raw, "线性代数")
+        assert "向量空间" in result.markdown_content
+        assert "教学目标" in result.lesson_plan_markdown
+
+    def test_parse_with_relaxed_markers(self):
+        ai = AIService()
+        raw = """
+===== PPT_CONTENT_START =====
+# 计算机网络
+---
+# TCP/IP
+===== PPT_CONTENT_END =====
+
+===== LESSON_PLAN_START =====
+# 教学目标
+- 理解分层模型
+===== LESSON_PLAN_END =====
+"""
+        result = ai._parse_courseware_response(raw, "计算机网络")
+        assert "TCP/IP" in result.markdown_content
+        assert "分层模型" in result.lesson_plan_markdown
+
+    def test_parse_without_markers_uses_heading_split(self):
+        ai = AIService()
+        raw = """---
+marp: true
+theme: default
+---
+
+# 数据库系统
+
+---
+
+# 事务隔离级别
+- RU / RC / RR / Serializable
+
+# 教学目标
+- 认识事务 ACID
+- 理解隔离级别差异
+"""
+        result = ai._parse_courseware_response(raw, "数据库系统")
+        assert "事务隔离级别" in result.markdown_content
+        assert "ACID" in result.lesson_plan_markdown

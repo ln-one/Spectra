@@ -6,6 +6,7 @@ import Link from "next/link";
 import { projectsApi, filesApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/LogoutButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -169,6 +170,16 @@ export default function ProjectDetailPage() {
             设置
           </Link>
         </nav>
+        <div className="p-4 border-t space-y-2">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/projects")}
+          >
+            返回项目列表
+          </Button>
+          <LogoutButton className="w-full" />
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">

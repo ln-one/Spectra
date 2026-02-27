@@ -22,6 +22,24 @@ export type UpdateFileIntentResponse =
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
+function parseUploadErrorMessage(raw: string, fallback: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.detail) {
+      return String(parsed.detail);
+    }
+    if (parsed?.error?.message) {
+      return String(parsed.error.message);
+    }
+    if (parsed?.message) {
+      return String(parsed.message);
+    }
+  } catch {
+    // ignore json parse failure
+  }
+  return fallback;
+}
+
 const FILE_TYPE_MAP: Record<string, UploadedFile["file_type"]> = {
   pdf: "pdf",
   doc: "word",
@@ -100,6 +118,32 @@ const mockFiles: UploadedFile[] = [
   },
 ];
 
+function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
+  return {
+    id: String(raw.id || ""),
+    filename: String(raw.filename || ""),
+    file_type: (raw.file_type ||
+      raw.fileType ||
+      "pdf") as UploadedFile["file_type"],
+    mime_type: String(raw.mime_type || raw.mimeType || ""),
+    file_size: Number(raw.file_size || raw.size || 0),
+    status: String(raw.status || "ready") as UploadedFile["status"],
+    parse_progress: Number(raw.parse_progress || raw.parseProgress || 100),
+    parse_details: (raw.parse_details ||
+      raw.parseResult ||
+      {}) as UploadedFile["parse_details"],
+    usage_intent: (raw.usage_intent || raw.usageIntent || undefined) as
+      | string
+      | undefined,
+    created_at: String(
+      raw.created_at || raw.createdAt || new Date().toISOString()
+    ),
+    updated_at: String(
+      raw.updated_at || raw.updatedAt || new Date().toISOString()
+    ),
+  };
+}
+
 export const filesApi = {
   async uploadFile(
     file: File,
@@ -160,13 +204,19 @@ export const filesApi = {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed?.data?.file) {
+            parsed.data.file = normalizeFileFromServer(parsed.data.file);
+          }
+          resolve(parsed);
         } else {
-          reject(new Error("上传失败"));
+          reject(
+            new Error(parseUploadErrorMessage(xhr.responseText, "上传失败"))
+          );
         }
       };
 
-      xhr.onerror = () => reject(new Error("上传失败"));
+      xhr.onerror = () => reject(new Error("上传失败：网络异常"));
       xhr.send(formData);
     });
   },
@@ -199,12 +249,18 @@ export const filesApi = {
     if (params?.limit) queryParams.set("limit", String(params.limit));
     const query = queryParams.toString();
 
-    return request<GetFilesResponse>(
+    const response = await request<GetFilesResponse>(
       `/projects/${projectId}/files${query ? `?${query}` : ""}`,
       {
         method: "GET",
       }
     );
+    if (response?.data?.files) {
+      response.data.files = response.data.files.map((f) =>
+        normalizeFileFromServer(f as unknown as Record<string, unknown>)
+      );
+    }
+    return response;
   },
 
   async updateFileIntent(
@@ -229,10 +285,19 @@ export const filesApi = {
       };
     }
 
-    return request<UpdateFileIntentResponse>(`/files/${fileId}/intent`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    });
+    const response = await request<UpdateFileIntentResponse>(
+      `/files/${fileId}/intent`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+    if (response?.data?.file) {
+      response.data.file = normalizeFileFromServer(
+        response.data.file as unknown as Record<string, unknown>
+      );
+    }
+    return response;
   },
 
   async deleteFile(
@@ -370,11 +435,13 @@ export const filesApi = {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(JSON.parse(xhr.responseText));
         } else {
-          reject(new Error("批量上传失败"));
+          reject(
+            new Error(parseUploadErrorMessage(xhr.responseText, "批量上传失败"))
+          );
         }
       };
 
-      xhr.onerror = () => reject(new Error("批量上传失败"));
+      xhr.onerror = () => reject(new Error("批量上传失败：网络异常"));
       xhr.send(formData);
     });
   },
