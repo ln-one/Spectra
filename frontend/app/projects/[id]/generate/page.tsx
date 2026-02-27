@@ -57,7 +57,10 @@ export default function GeneratePage() {
     const fetchProject = async () => {
       try {
         const response = await projectsApi.getProject(projectId);
-        setProject(response.data.project);
+        const projectData = response.data.project;
+        if (projectData) {
+          setProject(projectData);
+        }
       } catch (error) {
         console.error("Failed to fetch project:", error);
         toast({
@@ -84,10 +87,15 @@ export default function GeneratePage() {
         const taskData = response.data;
 
         setCurrentTask({
-          task_id: taskData.task_id,
-          status: taskData.status,
+          task_id: taskData.task_id || taskId,
+          status: taskData.status || "pending",
           progress: taskData.progress || 0,
-          result: taskData.result,
+          result: taskData.result
+            ? {
+                pptx: taskData.result.ppt_url,
+                docx: taskData.result.word_url,
+              }
+            : undefined,
           error: taskData.error,
         });
 
@@ -127,7 +135,11 @@ export default function GeneratePage() {
         type: "both",
       });
 
-      const taskId = response.data.task_id;
+      const taskId = response.data.task_id || "";
+      if (!taskId) {
+        throw new Error("未返回任务 ID");
+      }
+
       setCurrentTask({
         task_id: taskId,
         status: "pending",
@@ -159,10 +171,14 @@ export default function GeneratePage() {
         description: `正在下载 ${fileType === "pptx" ? "PPT" : "Word"} 文件...`,
       });
 
+      const filename = project?.name
+        ? `${project.name}.${fileType}`
+        : `courseware.${fileType}`;
+
       await generateApi.triggerDownload(
         currentTask.task_id,
         fileType,
-        `${project?.name || "courseware"}.${fileType}`
+        filename
       );
 
       toast({

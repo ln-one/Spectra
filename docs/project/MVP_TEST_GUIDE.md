@@ -42,6 +42,25 @@ curl http://localhost:8000/health
 # {"status":"healthy"}
 ```
 
+### 4. AI 配置（可选）
+
+**重要**：MVP 可以在没有真实 AI API Key 的情况下运行！
+
+系统有完整的 fallback 机制：
+- ✅ 无需配置 API Key 即可生成课件
+- ✅ 使用预设模板内容（固定但可用）
+- ✅ 适合快速演示和测试
+
+**如果想使用真实 AI 生成**（可选）：
+```bash
+# 编辑 backend/.env
+DASHSCOPE_API_KEY="sk-your-real-api-key"
+
+# 重启后端服务
+```
+
+详细配置说明见：`docs/project/MVP_AI_CONFIG.md`
+
 ---
 
 ## 📋 完整流程测试
@@ -97,6 +116,11 @@ curl http://localhost:8000/health
 - ✅ 状态从"等待中" → "处理中" → "已完成"
 - ✅ 进度从 0% → 100%
 - ⏱️ 预计耗时：30-60 秒
+
+**关于生成内容**：
+- 如果使用 Fallback 模式（默认）：内容是预设模板
+- 如果配置了真实 API Key：内容根据项目描述智能生成
+- 两种模式都能正常生成和下载文件
 
 ### Step 5: 下载文件
 
@@ -220,7 +244,9 @@ npm install
 **可能原因**：
 1. Marp 未安装：`npm install -g @marp-team/marp-cli`
 2. Pandoc 未安装：`brew install pandoc`（macOS）
-3. AI 服务错误：检查后端日志
+3. 文件系统权限问题：检查 `backend/generated/` 目录权限
+
+**注意**：AI 服务失败不会导致生成失败，系统会自动使用 fallback
 
 ### 问题 4: 下载 404
 
