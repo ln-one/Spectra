@@ -1,7 +1,10 @@
+import json
 import logging
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
+from fastapi.encoders import jsonable_encoder
 
 from schemas.generation import GenerateRequest
 from services.database import db_service
@@ -139,7 +142,7 @@ async def generate_courseware(
     request: GenerateRequest,
     background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
     """
     生成课件
@@ -172,13 +175,25 @@ async def generate_courseware(
                 message="无权限访问此项目",
             )
 
-        # TODO: 实现幂等性检查
-        # if idempotency_key:
-        #     existing_response = await db_service.get_idempotency_response(
-        #         idempotency_key
-        #     )
-        #     if existing_response:
-        #         return existing_response
+        # 幂等性检查
+        key_str = str(idempotency_key) if idempotency_key else None
+        cache_key = (
+            f"generate:courseware:{user_id}:{request.project_id}:{key_str}"
+            if key_str
+            else None
+        )
+        if cache_key:
+            cached_response = await db_service.get_idempotency_response(cache_key)
+            if cached_response:
+                logger.info(
+                    "idempotency_cache_hit",
+                    extra={
+                        "user_id": user_id,
+                        "project_id": request.project_id,
+                        "idempotency_key": key_str,
+                    },
+                )
+                return cached_response
 
         # 创建生成任务
         task = await db_service.create_generation_task(
@@ -211,20 +226,25 @@ async def generate_courseware(
                 "project_id": request.project_id,
                 "task_id": task.id,
                 "type": request.type.value,
+                "idempotency_key": key_str,
             },
         )
 
-        # TODO: 保存幂等性响应
-        # if idempotency_key:
-        #     await db_service.save_idempotency_response(idempotency_key, response)
-
-        return success_response(
+        response_payload = success_response(
             data={
                 "task_id": task.id,
                 "status": "pending",
             },
             message="课件生成任务已创建",
         )
+
+        # 保存幂等性响应
+        if cache_key:
+            await db_service.save_idempotency_response(
+                cache_key, jsonable_encoder(response_payload)
+            )
+
+        return response_payload
 
     except APIException as e:
         logger.error(
@@ -337,8 +357,6 @@ async def process_generation_task(
             await db_service.update_generation_task_status(task_id, "processing", 90)
 
         # 更新任务状态为 completed
-        import json
-
         await db_service.update_generation_task_status(
             task_id=task_id,
             status="completed",
@@ -411,8 +429,6 @@ async def get_generation_status(
         )
 
         # 解析输出 URLs
-        import json
-
         result = None
         if task.outputUrls:
             try:
@@ -448,4 +464,87 @@ async def get_generation_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get generation status",
+        )
+
+
+@router.get("/tasks/{task_id}/versions")
+async def get_task_versions(
+    task_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """
+    获取任务的所有版本
+
+    当前 MVP 实现：将任务本身作为第 1 版本返回。
+
+    Args:
+        task_id: 任务ID
+        user_id: 当前用户ID（从认证依赖获取）
+
+    Returns:
+        包含版本列表的标准响应
+
+    Raises:
+        HTTPException: 任务不存在或无权限时抛出
+    """
+    try:
+        task = await db_service.get_generation_task(task_id)
+        if not task:
+            raise NotFoundException(
+                message=f"任务不存在: {task_id}",
+            )
+
+        project = await db_service.get_project(task.projectId)
+        if not project or project.userId != user_id:
+            raise ForbiddenException(
+                message="无权限访问此任务",
+            )
+
+        versions = []
+        if task.status in ("completed", "failed"):
+            file_urls = {}
+            if task.outputUrls:
+                try:
+                    parsed = json.loads(task.outputUrls)
+                    if "pptx" in parsed:
+                        file_urls["ppt_url"] = parsed["pptx"]
+                    if "docx" in parsed:
+                        file_urls["word_url"] = parsed["docx"]
+                except json.JSONDecodeError:
+                    pass
+            versions.append(
+                {
+                    "version": 1,
+                    "created_at": task.createdAt.isoformat(),
+                    "status": task.status,
+                    "file_urls": file_urls,
+                    "modification_note": None,
+                }
+            )
+
+        logger.info(
+            "task_versions_fetched",
+            extra={"user_id": user_id, "task_id": task_id, "count": len(versions)},
+        )
+
+        return success_response(
+            data={"task_id": task_id, "versions": versions},
+            message="获取版本列表成功",
+        )
+
+    except APIException as e:
+        logger.error(
+            f"Failed to get task versions: {e.message}",
+            extra={"user_id": user_id, "task_id": task_id, "error_code": e.error_code},
+        )
+        raise
+    except Exception as e:
+        logger.error(
+            f"Failed to get task versions: {str(e)}",
+            extra={"user_id": user_id, "task_id": task_id},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get task versions",
         )
