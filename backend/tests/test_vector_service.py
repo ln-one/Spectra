@@ -33,6 +33,13 @@ class TestVectorService:
         col2 = svc.get_or_create_collection("proj-002")
         assert col1.name == col2.name
 
+    def test_get_collection_if_exists(self, svc):
+        assert svc.get_collection_if_exists("proj-missing") is None
+        created = svc.get_or_create_collection("proj-exists")
+        fetched = svc.get_collection_if_exists("proj-exists")
+        assert fetched is not None
+        assert fetched.name == created.name
+
     def test_collection_uses_cosine(self, svc):
         col = svc.get_or_create_collection("proj-cos")
         assert col.metadata.get("hnsw:space") == "cosine"

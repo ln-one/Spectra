@@ -89,7 +89,9 @@ class RAGService:
         Returns:
             检索结果列表
         """
-        collection = self._vector.get_or_create_collection(project_id)
+        collection = self._vector.get_collection_if_exists(project_id)
+        if collection is None:
+            return []
 
         # 检查 collection 是否有数据
         if collection.count() == 0:
@@ -168,7 +170,9 @@ class RAGService:
         self, chunk_id: str, project_id: str
     ) -> Optional[SourceDetail]:
         """从指定 collection 获取 chunk 详情"""
-        collection = self._vector.get_or_create_collection(project_id)
+        collection = self._vector.get_collection_if_exists(project_id)
+        if collection is None:
+            return None
         try:
             result = collection.get(ids=[chunk_id], include=["documents", "metadatas"])
         except Exception:
@@ -235,6 +239,26 @@ class RAGService:
     async def delete_project_index(self, project_id: str) -> bool:
         """删除项目的向量索引"""
         return self._vector.delete_collection(project_id)
+
+    async def delete_upload_index(self, project_id: str, upload_id: str) -> int:
+        """删除某个上传文件对应的向量分块，返回删除前命中数。"""
+        collection = self._vector.get_collection_if_exists(project_id)
+        if collection is None:
+            return 0
+
+        try:
+            existing = collection.get(where={"upload_id": upload_id}, include=[])
+            count = len(existing.get("ids", []))
+            if count > 0:
+                collection.delete(where={"upload_id": upload_id})
+            return count
+        except Exception:
+            logger.warning(
+                "Failed to delete upload index",
+                extra={"project_id": project_id, "upload_id": upload_id},
+                exc_info=True,
+            )
+            return 0
 
 
 # 全局实例

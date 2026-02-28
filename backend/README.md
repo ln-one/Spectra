@@ -162,7 +162,7 @@ Copy `.env.example` to `.env` and configure:
 
 ```bash
 # Database
-DATABASE_URL="file:./prisma/dev.db"
+DATABASE_URL="file:./dev.db"
 
 # Security
 JWT_SECRET_KEY="your-secret-key"

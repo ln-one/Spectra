@@ -7,12 +7,14 @@ RAG Router - 检索增强生成相关端点
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
+from services import db_service
+from services.rag_indexing_service import index_upload_file_for_rag
 from services.rag_service import rag_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException, NotFoundException
+from utils.exceptions import APIException, ForbiddenException, NotFoundException
 from utils.responses import success_response
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
@@ -82,23 +84,39 @@ async def get_source_detail(
 @router.post("/index")
 async def index_file(
     request: RAGIndexRequest,
-    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
 ):
     """索引新文件到知识库（后台异步执行）"""
-    import uuid
+    upload = await db_service.get_file(request.file_id)
+    if not upload:
+        raise NotFoundException(message=f"文件不存在: {request.file_id}")
 
-    task_id = str(uuid.uuid4())
+    project = await db_service.get_project(upload.projectId)
+    if not project or project.userId != user_id:
+        raise ForbiddenException(message="无权限访问此文件")
 
-    logger.info(
-        f"Index request received for file {request.file_id}",
-        extra={"user_id": user_id, "file_id": request.file_id},
+    parse_result = await index_upload_file_for_rag(
+        upload=upload,
+        project_id=upload.projectId,
+        chunk_size=request.chunk_size,
+        chunk_overlap=request.chunk_overlap,
+        reindex=True,
+    )
+    await db_service.update_upload_status(
+        upload.id,
+        status="ready",
+        parse_result=parse_result,
+        error_message=None,
     )
 
-    # 后台执行索引任务（实际实现需要从 Prisma 查询文件内容）
     return success_response(
-        data={"index_task_id": task_id, "status": "pending"},
-        message="索引任务已创建",
+        data={
+            "file_id": upload.id,
+            "project_id": upload.projectId,
+            "status": "ready",
+            "parse_result": parse_result,
+        },
+        message="文件索引完成",
     )
 
 

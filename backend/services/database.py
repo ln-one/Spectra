@@ -175,6 +175,11 @@ class DatabaseService:
             created.append(item)
         return created
 
+    async def delete_parsed_chunks(self, upload_id: str) -> int:
+        """删除一个上传文件对应的全部 ParsedChunk。"""
+        result = await self.db.parsedchunk.delete_many(where={"uploadId": upload_id})
+        return int(result)
+
     async def get_idempotency_response(self, key: str):
         """Get cached idempotency response if it exists."""
         record = await self.db.idempotencykey.find_unique(where={"key": key})

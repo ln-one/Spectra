@@ -90,9 +90,10 @@ class TestSearch:
     """语义检索测试"""
 
     @pytest.mark.asyncio
-    async def test_search_empty_collection(self, rag_svc):
+    async def test_search_empty_collection(self, rag_svc, vec_svc):
         results = await rag_svc.search("proj-empty", "任意查询")
         assert results == []
+        assert vec_svc.get_collection_if_exists("proj-empty") is None
 
     @pytest.mark.asyncio
     async def test_search_returns_results(self, rag_svc):

@@ -17,9 +17,7 @@ from fastapi import (
 from pydantic import BaseModel
 
 from services import db_service, file_service
-from services.chunking import split_text
-from services.file_parser import extract_text_for_rag
-from services.rag_service import ParsedChunkData, rag_service
+from services.rag_indexing_service import index_upload_file_for_rag
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ForbiddenException, NotFoundException
 from utils.file_utils import cleanup_file
@@ -107,61 +105,13 @@ async def _index_upload_for_rag(upload, project_id: str):
     await db_service.update_upload_status(upload.id, status="parsing")
 
     try:
-        text, parse_details = extract_text_for_rag(
-            filepath=upload.filepath,
-            filename=upload.filename,
-            file_type=upload.fileType,
+        parse_result = await index_upload_file_for_rag(
+            upload=upload,
+            project_id=project_id,
+            chunk_size=500,
+            chunk_overlap=50,
+            reindex=False,
         )
-        if not text.strip():
-            text = (
-                f"资料名称：{upload.filename}\n"
-                f"资料类型：{upload.fileType}\n"
-                "该资料可作为课堂讲解与课件生成的参考来源。"
-            )
-            parse_details["text_length"] = len(text)
-
-        chunks = split_text(text, chunk_size=500, chunk_overlap=50)
-        if not chunks:
-            chunks = [text]
-
-        chunk_payloads = [
-            {
-                "chunk_index": idx,
-                "content": chunk,
-                "metadata": {
-                    "filename": upload.filename,
-                    "source_type": upload.fileType,
-                },
-            }
-            for idx, chunk in enumerate(chunks)
-        ]
-
-        db_chunks = await db_service.create_parsed_chunks(
-            upload_id=upload.id,
-            source_type=upload.fileType,
-            chunks=chunk_payloads,
-        )
-
-        rag_chunks = []
-        for db_chunk, payload in zip(db_chunks, chunk_payloads):
-            metadata = payload["metadata"] | {
-                "upload_id": upload.id,
-                "chunk_index": payload["chunk_index"],
-            }
-            rag_chunks.append(
-                ParsedChunkData(
-                    chunk_id=db_chunk.id,
-                    content=payload["content"],
-                    metadata=metadata,
-                )
-            )
-
-        indexed_count = await rag_service.index_chunks(project_id, rag_chunks)
-        parse_result = {
-            "chunk_count": len(chunks),
-            "indexed_count": indexed_count,
-            **parse_details,
-        }
         await db_service.update_upload_status(
             upload.id,
             status="ready",
