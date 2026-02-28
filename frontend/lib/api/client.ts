@@ -2,7 +2,7 @@
  * API Client - Base HTTP client with authentication
  */
 
-import { TokenStorage } from "../auth";
+import { TokenStorage, authService } from "../auth";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -12,6 +12,7 @@ export interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
   idempotencyKey?: string;
   headers?: Record<string, string>;
+  _retry?: boolean;
 }
 
 export class ApiError extends Error {
@@ -33,6 +34,53 @@ export function getApiUrl(path: string): string {
   return `${API_BASE_URL}${API_VERSION}${path}`;
 }
 
+let isRefreshing = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
+
+function subscribeTokenRefresh(callback: (token: string) => void): void {
+  refreshSubscribers.push(callback);
+}
+
+function onTokenRefreshed(token: string): void {
+  refreshSubscribers.forEach((callback) => callback(token));
+  refreshSubscribers = [];
+}
+
+async function tryRefreshToken(): Promise<boolean> {
+  if (isRefreshing) {
+    return new Promise((resolve) => {
+      subscribeTokenRefresh(() => resolve(true));
+    });
+  }
+
+  isRefreshing = true;
+
+  try {
+    const success = await authService.refreshToken();
+    if (success) {
+      const newToken = TokenStorage.getAccessToken();
+      if (newToken) {
+        onTokenRefreshed(newToken);
+      }
+    }
+    return success;
+  } catch {
+    return false;
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+function handleAuthError(): void {
+  if (typeof window === "undefined") return;
+
+  const currentPath = window.location.pathname;
+  if (currentPath.startsWith("/auth/")) return;
+
+  TokenStorage.clearTokens();
+  window.location.href = `/auth/login?redirect=${encodeURIComponent(currentPath)}`;
+}
+
 export async function request<T>(
   path: string,
   options: RequestOptions = {}
@@ -41,6 +89,7 @@ export async function request<T>(
     requireAuth = true,
     idempotencyKey,
     headers = {},
+    _retry = false,
     ...fetchOptions
   } = options;
 
@@ -67,6 +116,21 @@ export async function request<T>(
     ...fetchOptions,
     headers: requestHeaders,
   });
+
+  if (response.status === 401) {
+    if (!_retry && !path.startsWith("/auth/")) {
+      const refreshed = await tryRefreshToken();
+      if (refreshed) {
+        return request<T>(path, { ...options, _retry: true });
+      }
+    }
+    handleAuthError();
+    throw new ApiError(
+      "UNAUTHORIZED",
+      "Authentication required. Please login.",
+      401
+    );
+  }
 
   const data = await response.json();
 

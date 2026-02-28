@@ -37,10 +37,12 @@ export const TokenStorage = {
   setAccessToken(token: string, expiresIn?: number): void {
     if (typeof window === "undefined") return;
 
+    const maxAge = expiresIn || 86400;
+    const cookieOptions = `path=/; max-age=${maxAge}; SameSite=Lax`;
+
     try {
       localStorage.setItem(ACCESS_TOKEN_KEY, token);
-
-      document.cookie = `access_token=${token}; path=/; max-age=${expiresIn || 86400}`;
+      document.cookie = `access_token=${token}; ${cookieOptions}`;
 
       if (expiresIn) {
         const expiryTime = Date.now() + expiresIn * 1000;
@@ -50,6 +52,11 @@ export const TokenStorage = {
       }
     } catch (error) {
       console.error("Failed to set access token:", error);
+      try {
+        document.cookie = `access_token=${token}; ${cookieOptions}`;
+      } catch {
+        localStorage.setItem(ACCESS_TOKEN_KEY, token);
+      }
     }
   },
 
@@ -78,10 +85,14 @@ export const TokenStorage = {
 
   getAccessTokenFromCookie(): string | null {
     if (typeof window === "undefined") return null;
-    const match = document.cookie.match(
-      new RegExp("(^| )access_token=([^;]+)")
-    );
-    return match ? match[2] : null;
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split("=");
+      if (name === "access_token") {
+        return value || null;
+      }
+    }
+    return null;
   },
 
   setRefreshToken(token: string): void {

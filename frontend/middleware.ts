@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/auth/login", "/auth/register"];
+const publicPaths = ["/auth/login", "/auth/register", "/auth"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -18,7 +18,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  response.headers.set("x-user-authenticated", "true");
+
+  return response;
 }
 
 export const config = {

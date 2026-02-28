@@ -197,34 +197,24 @@ interface LessonPlanContent {
 
 ### 7. ProgressTracker
 
-**职责**: 任务进度跟踪
+**职责**: 任务进度跟踪与文件下载
 
 **Props**:
 ```typescript
 interface ProgressTrackerProps {
-  tasks: GenerateTask[];
-  onCancel?: (taskId: string) => void;
+  className?: string;
+  onDownload?: (taskId: string, fileType: "pptx" | "docx") => void;
 }
 ```
 
-**数据结构**:
-```typescript
-interface GenerateTask {
-  task_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number; // 0-100
-  result?: {
-    ppt_url?: string;
-    word_url?: string;
-    version?: number;
-  };
-  error?: string;
-}
-```
+**实现说明**:
+- 内部使用 `generateStore` 获取当前生成任务状态
+- 支持显示任务进度、状态、错误信息
+- 当任务完成时显示 PPT/Word 下载按钮
 
 **API 端点**: 
 - 状态查询: `/api/v1/generate/tasks/{task_id}/status`
-- 文件下载: `/api/v1/generate/tasks/{task_id}/download`
+- 文件下载: `/api/v1/files/download/{task_id}/{fileType}`
 
 
 ## 数据结构与 OpenAPI 对齐

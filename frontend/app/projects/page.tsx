@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { LogoutButton } from "@/components/LogoutButton";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, FileText, Clock, ChevronRight, ArrowLeft } from "lucide-react";
+import { Plus, FileText, Clock, ChevronRight, Search, X } from "lucide-react";
 
 interface Project {
   id: string;
@@ -24,6 +24,7 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
@@ -45,6 +46,28 @@ export default function ProjectsPage() {
 
     fetchProjects();
   }, [router]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) {
+      const response = await projectsApi.getProjects();
+      setProjects(response.data.projects || []);
+      return;
+    }
+
+    try {
+      const response = await projectsApi.searchProjects({ q: searchQuery });
+      setProjects(response.data.projects || []);
+    } catch (error) {
+      console.error("Failed to search projects:", error);
+    }
+  };
+
+  const clearSearch = async () => {
+    setSearchQuery("");
+    const response = await projectsApi.getProjects();
+    setProjects(response.data.projects || []);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("zh-CN", {
@@ -69,18 +92,33 @@ export default function ProjectsPage() {
           <h1 className="text-3xl font-bold">我的项目</h1>
           <p className="text-muted-foreground mt-1">管理您的教学项目</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.push("/")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            返回首页
-          </Button>
-          <Button onClick={() => router.push("/projects/new")}>
-            <Plus className="mr-2 h-4 w-4" />
-            新建项目
-          </Button>
-          <LogoutButton />
-        </div>
+        <Button onClick={() => router.push("/projects/new")}>
+          <Plus className="mr-2 h-4 w-4" />
+          新建项目
+        </Button>
       </div>
+
+      <form onSubmit={handleSearch} className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="搜索项目名称或描述..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2"
+            >
+              <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+            </button>
+          )}
+        </div>
+      </form>
 
       {projects.length === 0 ? (
         <Card className="border-dashed">
