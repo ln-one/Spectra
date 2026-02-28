@@ -4,12 +4,15 @@ RAG Indexing Service
 统一处理上传文件的解析、分块、入库和向量索引，避免多处逻辑漂移。
 """
 
+import logging
 from typing import Any
 
 from services.chunking import split_text
 from services.database import db_service
 from services.file_parser import extract_text_for_rag
 from services.rag_service import ParsedChunkData, rag_service
+
+logger = logging.getLogger(__name__)
 
 
 async def index_upload_file_for_rag(
@@ -29,24 +32,47 @@ async def index_upload_file_for_rag(
         chunk_overlap: 重叠大小
         reindex: 是否先删除该文件已有索引
     """
-    text, parse_details = extract_text_for_rag(
-        filepath=upload.filepath,
-        filename=upload.filename,
-        file_type=upload.fileType,
-    )
+    try:
+        text, parse_details = extract_text_for_rag(
+            filepath=upload.filepath,
+            filename=upload.filename,
+            file_type=upload.fileType,
+        )
+    except Exception as exc:
+        logger.warning(
+            "file_parse_failed: upload_id=%s filename=%s error=%s",
+            upload.id,
+            upload.filename,
+            exc,
+            exc_info=True,
+        )
+        text = ""
+        parse_details = {"error": str(exc)}
+
     if not text.strip():
+        logger.info(
+            "empty_text_fallback: upload_id=%s filename=%s",
+            upload.id,
+            upload.filename,
+        )
         text = (
             f"资料名称：{upload.filename}\n"
             f"资料类型：{upload.fileType}\n"
             "该资料可作为课堂讲解与课件生成的参考来源。"
         )
         parse_details["text_length"] = len(text)
+        parse_details["fallback"] = True
 
     chunks = split_text(text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     if not chunks:
         chunks = [text]
 
     if reindex:
+        logger.info(
+            "reindex_requested: upload_id=%s project_id=%s",
+            upload.id,
+            project_id,
+        )
         await rag_service.delete_upload_index(
             project_id=project_id, upload_id=upload.id
         )
@@ -85,8 +111,16 @@ async def index_upload_file_for_rag(
         )
 
     indexed_count = await rag_service.index_chunks(project_id, rag_chunks)
-    return {
+
+    result = {
         "chunk_count": len(chunks),
         "indexed_count": indexed_count,
         **parse_details,
     }
+    logger.info(
+        "index_complete: upload_id=%s chunks=%d indexed=%d",
+        upload.id,
+        len(chunks),
+        indexed_count,
+    )
+    return result
