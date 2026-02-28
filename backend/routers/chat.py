@@ -1,7 +1,6 @@
-"""Chat router with minimal MVP implementation."""
-
 import logging
 from typing import Optional
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -14,52 +13,67 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import Message, SendMessageRequest
+from services import db_service
 from services.ai import ai_service
-from services.database import db_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.exceptions import APIException, ErrorCode, ForbiddenException
 from utils.responses import success_response
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = logging.getLogger(__name__)
 
 
-def _to_message(item) -> dict:
-    """Convert conversation row to response payload."""
+async def _verify_project_ownership(project_id: str, user_id: str):
+    """Return project if owned by user, else raise 403."""
+    project = await db_service.get_project(project_id)
+    if not project or project.userId != user_id:
+        raise ForbiddenException(
+            message="无权访问该项目",
+            error_code=ErrorCode.FORBIDDEN,
+        )
+    return project
+
+
+def _to_message(conv) -> dict:
+    """Convert Prisma Conversation record to API message payload."""
     return Message(
-        id=item.id,
-        role=item.role,
-        content=item.content,
-        timestamp=item.createdAt,
+        id=conv.id,
+        role=conv.role,
+        content=conv.content,
+        timestamp=conv.createdAt,
     ).model_dump(mode="json")
 
 
 @router.post("/messages")
 async def send_message(
-    request: SendMessageRequest,
+    body: SendMessageRequest,
     user_id: str = Depends(get_current_user),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
-    """Send user message and return assistant reply."""
+    """Save user message, generate assistant response, return assistant message."""
     try:
-        project = await db_service.get_project(request.project_id)
-        if not project:
-            raise NotFoundException(message=f"项目不存在: {request.project_id}")
-        if project.userId != user_id:
-            raise ForbiddenException(message="无权限访问此项目")
+        project = await _verify_project_ownership(body.project_id, user_id)
+        key_str = str(idempotency_key) if idempotency_key else None
+        cache_key = (
+            f"chat:messages:{user_id}:{body.project_id}:{key_str}" if key_str else None
+        )
+        if cache_key:
+            cached_response = await db_service.get_idempotency_response(cache_key)
+            if cached_response:
+                return cached_response
 
         await db_service.create_conversation_message(
-            project_id=request.project_id,
+            project_id=body.project_id,
             role="user",
-            content=request.content,
-            metadata={"idempotency_key": idempotency_key} if idempotency_key else None,
+            content=body.content,
+            metadata={"idempotency_key": key_str} if key_str else None,
         )
 
-        recent_messages = await db_service.get_conversation_messages(
-            project_id=request.project_id,
-            page=1,
+        recent_messages = await db_service.get_recent_conversation_messages(
+            project_id=body.project_id,
             limit=10,
         )
         context = "\n".join([f"{m.role}: {m.content}" for m in recent_messages[-6:]])
@@ -67,30 +81,35 @@ async def send_message(
             "你是教学课件助手。请基于上下文给出简洁、有操作性的下一步建议。\n\n"
             f"项目: {project.name}\n"
             f"上下文:\n{context}\n\n"
-            f"用户新消息: {request.content}"
+            f"用户新消息: {body.content}"
         )
         ai_result = await ai_service.generate(prompt=prompt, max_tokens=500)
         assistant_content = (
             ai_result.get("content") or "我已收到你的需求，我们继续完善课件内容。"
         )
-
         assistant_msg = await db_service.create_conversation_message(
-            project_id=request.project_id,
+            project_id=body.project_id,
             role="assistant",
             content=assistant_content,
         )
 
-        return success_response(
+        response_payload = success_response(
             data={
                 "message": _to_message(assistant_msg),
                 "suggestions": ["继续细化教学目标", "补充重点难点", "开始生成课件"],
             },
-            message="发送成功",
+            message="消息发送成功",
         )
+        if cache_key:
+            await db_service.save_idempotency_response(
+                cache_key,
+                jsonable_encoder(response_payload),
+            )
+        return response_payload
     except APIException:
         raise
-    except Exception as e:
-        logger.error(f"Send message failed: {e}", exc_info=True)
+    except Exception as exc:
+        logger.error(f"Send message failed: {exc}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="发送消息失败",
@@ -104,20 +123,15 @@ async def get_messages(
     limit: int = Query(20, ge=1, le=100),
     user_id: str = Depends(get_current_user),
 ):
-    """Get conversation history."""
+    """Get paginated conversation history for a project."""
     try:
-        project = await db_service.get_project(project_id)
-        if not project:
-            raise NotFoundException(message=f"项目不存在: {project_id}")
-        if project.userId != user_id:
-            raise ForbiddenException(message="无权限访问此项目")
+        await _verify_project_ownership(project_id, user_id)
 
-        messages = await db_service.get_conversation_messages(
+        messages, total = await db_service.get_conversations_paginated(
             project_id=project_id,
             page=page,
             limit=limit,
         )
-        total = await db_service.count_conversation_messages(project_id=project_id)
 
         return success_response(
             data={
@@ -126,12 +140,12 @@ async def get_messages(
                 "page": page,
                 "limit": limit,
             },
-            message="获取成功",
+            message="获取对话历史成功",
         )
     except APIException:
         raise
-    except Exception as e:
-        logger.error(f"Get messages failed: {e}", exc_info=True)
+    except Exception as exc:
+        logger.error(f"Get messages failed: {exc}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="获取消息失败",
@@ -139,18 +153,21 @@ async def get_messages(
 
 
 @router.post("/voice")
-async def send_voice_message(
+async def voice_message(
     audio: UploadFile = File(...),
     project_id: str = Form(...),
     user_id: str = Depends(get_current_user),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
-    """Minimal voice endpoint: returns simple transcript and assistant reply."""
+    """Handle voice input and create paired user/assistant chat records."""
     try:
-        project = await db_service.get_project(project_id)
-        if not project:
-            raise NotFoundException(message=f"项目不存在: {project_id}")
-        if project.userId != user_id:
-            raise ForbiddenException(message="无权限访问此项目")
+        await _verify_project_ownership(project_id, user_id)
+        key_str = str(idempotency_key) if idempotency_key else None
+        cache_key = f"chat:voice:{user_id}:{project_id}:{key_str}" if key_str else None
+        if cache_key:
+            cached_response = await db_service.get_idempotency_response(cache_key)
+            if cached_response:
+                return cached_response
 
         raw = await audio.read()
         duration = max(1.0, len(raw) / 32000.0)
@@ -160,15 +177,26 @@ async def send_voice_message(
             project_id=project_id,
             role="user",
             content=recognized_text,
-            metadata={"source": "voice", "filename": audio.filename},
+            metadata=(
+                {
+                    "source": "voice",
+                    "filename": audio.filename,
+                    "idempotency_key": key_str,
+                }
+                if key_str
+                else {"source": "voice", "filename": audio.filename}
+            ),
         )
         assistant_msg = await db_service.create_conversation_message(
             project_id=project_id,
             role="assistant",
-            content="收到语音需求。你可以继续补充年级、课时和重点难点，我会据此生成课件。",
+            content=(
+                "收到语音需求。你可以继续补充年级、课时和重点难点，"
+                "我会据此生成课件。"
+            ),
         )
 
-        return success_response(
+        response_payload = success_response(
             data={
                 "text": recognized_text,
                 "confidence": 0.85,
@@ -178,10 +206,16 @@ async def send_voice_message(
             },
             message="语音识别成功",
         )
+        if cache_key:
+            await db_service.save_idempotency_response(
+                cache_key,
+                jsonable_encoder(response_payload),
+            )
+        return response_payload
     except APIException:
         raise
-    except Exception as e:
-        logger.error(f"Voice message failed: {e}", exc_info=True)
+    except Exception as exc:
+        logger.error(f"Voice message failed: {exc}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="语音处理失败",

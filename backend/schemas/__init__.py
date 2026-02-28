@@ -8,6 +8,13 @@ from .auth import (
     UserInfoData,
     UserInfoResponse,
 )
+from .chat import (
+    GetMessagesResponse,
+    Message,
+    SendMessageRequest,
+    SendMessageResponse,
+    VoiceMessageResponse,
+)
 from .courses import (
     ChapterSchema,
     CourseBase,
@@ -22,6 +29,12 @@ from .courses import (
 )
 
 __all__ = [
+    # Chat
+    "Message",
+    "SendMessageRequest",
+    "SendMessageResponse",
+    "GetMessagesResponse",
+    "VoiceMessageResponse",
     # Auth
     "RegisterRequest",
     "LoginRequest",

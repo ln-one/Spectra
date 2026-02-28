@@ -110,7 +110,7 @@ services:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
     environment:
-      - DATABASE_URL=file:./prisma/dev.db
+      - DATABASE_URL=file:./dev.db
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
