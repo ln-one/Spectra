@@ -63,6 +63,18 @@ class VectorService:
         logger.debug(f"Collection ready: {name}")
         return collection
 
+    def get_collection_if_exists(self, project_id: str) -> Optional[Collection]:
+        """
+        获取已存在的项目 collection，不存在时返回 None
+
+        用于检索场景，避免仅因为查询而创建空 collection。
+        """
+        name = f"{COLLECTION_PREFIX}{project_id}"
+        try:
+            return self.client.get_collection(name=name)
+        except NotFoundError:
+            return None
+
     def delete_collection(self, project_id: str) -> bool:
         """
         删除项目的 collection

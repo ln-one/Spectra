@@ -461,7 +461,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ### Backend (.env)
 
 ```bash
-DATABASE_URL="file:./prisma/dev.db"
+DATABASE_URL="file:./dev.db"
 DASHSCOPE_API_KEY=your_api_key
 LLAMA_CLOUD_API_KEY=your_api_key
 ```
