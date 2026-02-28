@@ -1,7 +1,8 @@
-import logging
+﻿import logging
 import os
 import pathlib
 from typing import Optional
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -162,7 +163,7 @@ async def upload_file(
     file: UploadFile = File(...),
     project_id: str = Form(...),
     user_id: str = Depends(get_current_user),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
     try:
         await _verify_project_access(project_id, user_id)
@@ -202,7 +203,7 @@ async def batch_upload_files(
     files: list[UploadFile] = File(...),
     project_id: str = Form(...),
     user_id: str = Depends(get_current_user),
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
     try:
         await _verify_project_access(project_id, user_id)
