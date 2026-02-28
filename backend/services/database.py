@@ -176,7 +176,7 @@ class DatabaseService:
         return created
 
     async def delete_parsed_chunks(self, upload_id: str) -> int:
-        """删除一个上传文件对应的全部 ParsedChunk。"""
+        """删除指定上传文件关联的所有 ParsedChunk 记录。"""
         result = await self.db.parsedchunk.delete_many(where={"uploadId": upload_id})
         return int(result)
 
@@ -199,6 +199,98 @@ class DatabaseService:
                 "update": {"response": json.dumps(response)},
             },
         )
+
+    async def update_project(
+        self,
+        project_id: str,
+        name: str,
+        description: str,
+        grade_level: Optional[str] = None,
+    ):
+        """Update project name/description/grade_level."""
+        data: dict = {"name": name, "description": description}
+        if grade_level is not None:
+            data["gradeLevel"] = grade_level
+        return await self.db.project.update(
+            where={"id": project_id},
+            data=data,
+        )
+
+    async def delete_project(self, project_id: str):
+        """Delete a project (cascades to uploads/tasks/conversations via Prisma)."""
+        return await self.db.project.delete(where={"id": project_id})
+
+    async def search_projects(
+        self,
+        user_id: str,
+        q: str,
+        status: Optional[str],
+        page: int,
+        limit: int,
+    ):
+        """Search projects by keyword in name or description."""
+        skip = (page - 1) * limit
+        where: dict = {
+            "userId": user_id,
+            "OR": [
+                {"name": {"contains": q}},
+                {"description": {"contains": q}},
+            ],
+        }
+        if status:
+            where["status"] = status
+        return await self.db.project.find_many(
+            where=where,
+            skip=skip,
+            take=limit,
+            order={"createdAt": "desc"},
+        )
+
+    async def count_search_projects(
+        self,
+        user_id: str,
+        q: str,
+        status: Optional[str],
+    ) -> int:
+        """Count search results."""
+        where: dict = {
+            "userId": user_id,
+            "OR": [
+                {"name": {"contains": q}},
+                {"description": {"contains": q}},
+            ],
+        }
+        if status:
+            where["status"] = status
+        return await self.db.project.count(where=where)
+
+    async def get_project_statistics(self, project_id: str) -> dict:
+        """Aggregate statistics for a project."""
+        project = await self.db.project.find_unique(where={"id": project_id})
+        files_count = await self.db.upload.count(where={"projectId": project_id})
+        messages_count = await self.db.conversation.count(
+            where={"projectId": project_id}
+        )
+        tasks_count = await self.db.generationtask.count(
+            where={"projectId": project_id}
+        )
+        completed_count = await self.db.generationtask.count(
+            where={"projectId": project_id, "status": "completed"}
+        )
+        uploads = await self.db.upload.find_many(
+            where={"projectId": project_id},
+        )
+        total_file_size = sum(u.size for u in uploads)
+        return {
+            "project_id": project_id,
+            "files_count": files_count,
+            "messages_count": messages_count,
+            "generation_tasks_count": tasks_count,
+            "completed_tasks_count": completed_count,
+            "total_file_size": total_file_size,
+            "last_activity": project.updatedAt if project else None,
+            "created_at": project.createdAt if project else None,
+        }
 
     # ============================================
     # User Methods

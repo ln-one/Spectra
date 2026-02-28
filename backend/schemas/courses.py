@@ -45,6 +45,14 @@ class ProjectCreate(ProjectBase):
     """Schema for creating a Project"""
 
 
+class ProjectUpdate(BaseModel):
+    """Schema for updating a Project (maps to OpenAPI ProjectRequest)"""
+
+    name: str
+    description: str
+    grade_level: Optional[str] = None
+
+
 class ProjectResponse(ProjectBase):
     """Schema for Project response"""
 
