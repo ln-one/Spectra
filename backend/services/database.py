@@ -175,6 +175,26 @@ class DatabaseService:
             created.append(item)
         return created
 
+    async def get_idempotency_response(self, key: str):
+        """Get cached idempotency response if it exists."""
+        record = await self.db.idempotencykey.find_unique(where={"key": key})
+        if not record:
+            return None
+        try:
+            return json.loads(record.response)
+        except (TypeError, json.JSONDecodeError):
+            return None
+
+    async def save_idempotency_response(self, key: str, response: dict):
+        """Persist idempotency response payload."""
+        return await self.db.idempotencykey.upsert(
+            where={"key": key},
+            data={
+                "create": {"key": key, "response": json.dumps(response)},
+                "update": {"response": json.dumps(response)},
+            },
+        )
+
     # ============================================
     # User Methods
     # ============================================
@@ -239,9 +259,28 @@ class DatabaseService:
             order={"createdAt": "asc"},
         )
 
+    async def get_recent_conversation_messages(self, project_id: str, limit: int = 10):
+        """Get latest messages by project in chronological order."""
+        messages = await self.db.conversation.find_many(
+            where={"projectId": project_id},
+            take=limit,
+            order={"createdAt": "desc"},
+        )
+        return list(reversed(messages))
+
     async def count_conversation_messages(self, project_id: str) -> int:
         """Count conversation messages in a project."""
         return await self.db.conversation.count(where={"projectId": project_id})
+
+    async def get_conversations_paginated(
+        self, project_id: str, page: int = 1, limit: int = 20
+    ):
+        """Return (messages, total) for a project with pagination."""
+        messages = await self.get_conversation_messages(
+            project_id=project_id, page=page, limit=limit
+        )
+        total = await self.count_conversation_messages(project_id=project_id)
+        return messages, total
 
     # ============================================
     # Generation Task Methods

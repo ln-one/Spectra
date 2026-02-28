@@ -9,11 +9,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
-from schemas.rag import (
-    RAGIndexRequest,
-    RAGSearchRequest,
-    RAGSimilarRequest,
-)
+from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
 from services.rag_service import rag_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, NotFoundException
