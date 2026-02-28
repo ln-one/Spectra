@@ -29,10 +29,12 @@ export function LoadingState({
 
   if (variant === "overlay") {
     return (
-      <div className={cn(
-        "absolute inset-0 bg-background/80 flex flex-col items-center justify-center z-50",
-        className
-      )}>
+      <div
+        className={cn(
+          "absolute inset-0 bg-background/80 flex flex-col items-center justify-center z-50",
+          className
+        )}
+      >
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         {text && <p className="text-sm text-muted-foreground mt-2">{text}</p>}
       </div>
@@ -40,7 +42,12 @@ export function LoadingState({
   }
 
   return (
-    <div className={cn("flex flex-col items-center justify-center py-12", className)}>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center py-12",
+        className
+      )}
+    >
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
       {text && <p className="text-sm text-muted-foreground mt-2">{text}</p>}
     </div>
@@ -63,14 +70,18 @@ export function ErrorState({
   className,
 }: ErrorStateProps) {
   const errorMessage = error
-    ? (typeof error === "string" ? error : error.message)
+    ? typeof error === "string"
+      ? error
+      : error.message
     : message;
 
   return (
-    <div className={cn(
-      "flex flex-col items-center justify-center py-12 text-center",
-      className
-    )}>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center py-12 text-center",
+        className
+      )}
+    >
       <div className="bg-destructive/10 p-4 rounded-full mb-4">
         <AlertCircle className="h-8 w-8 text-destructive" />
       </div>
@@ -106,10 +117,12 @@ export function EmptyState({
   className,
 }: EmptyStateProps) {
   return (
-    <div className={cn(
-      "flex flex-col items-center justify-center py-12 text-center",
-      className
-    )}>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center py-12 text-center",
+        className
+      )}
+    >
       {icon && <div className="mb-4 text-muted-foreground">{icon}</div>}
       <h3 className="text-lg font-semibold mb-2">{title}</h3>
       {description && (
@@ -162,13 +175,7 @@ export function AsyncBoundary({
   }
 
   if (isError) {
-    return (
-      <ErrorState
-        error={error}
-        onRetry={onRetry}
-        className={className}
-      />
-    );
+    return <ErrorState error={error} onRetry={onRetry} className={className} />;
   }
 
   if (isEmpty) {
@@ -190,7 +197,10 @@ interface DataCardSkeletonProps {
   className?: string;
 }
 
-export function DataCardSkeleton({ rows = 3, className }: DataCardSkeletonProps) {
+export function DataCardSkeleton({
+  rows = 3,
+  className,
+}: DataCardSkeletonProps) {
   return (
     <div className={cn("space-y-4", className)}>
       {Array.from({ length: rows }).map((_, i) => (

@@ -39,7 +39,11 @@ const fileTypeIcons = {
   ai_generated: FileQuestion,
 };
 
-export function RAGSearch({ projectId, className, onResultClick }: RAGSearchProps) {
+export function RAGSearch({
+  projectId,
+  className,
+  onResultClick,
+}: RAGSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RAGResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -111,9 +115,7 @@ export function RAGSearch({ projectId, className, onResultClick }: RAGSearchProp
           </Button>
         </form>
 
-        {error && (
-          <div className="text-sm text-red-500 mb-2">{error}</div>
-        )}
+        {error && <div className="text-sm text-red-500 mb-2">{error}</div>}
 
         <ScrollArea className="flex-1 -mx-4 px-4">
           {!hasSearched ? (

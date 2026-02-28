@@ -257,7 +257,9 @@ export function SourceTracker({
   onAdopt,
   onDismiss,
 }: SourceTrackerProps) {
-  const [selectedSource, setSelectedSource] = useState<SourceReference | null>(null);
+  const [selectedSource, setSelectedSource] = useState<SourceReference | null>(
+    null
+  );
   const [expanded, setExpanded] = useState(variant === "expanded");
 
   if (sources.length === 0) {
@@ -357,16 +359,25 @@ export function SourceTrackerPanel({
   onSourceClick,
 }: SourceTrackerPanelProps) {
   const [activeTab, setActiveTab] = useState<"list" | "detail">("list");
-  const [selectedSource, setSelectedSource] = useState<SourceReference | null>(null);
+  const [selectedSource, setSelectedSource] = useState<SourceReference | null>(
+    null
+  );
 
   return (
     <div className={className}>
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "list" | "detail")}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "list" | "detail")}
+      >
         <TabsList className="w-full">
           <TabsTrigger value="list" className="flex-1">
             来源列表
           </TabsTrigger>
-          <TabsTrigger value="detail" className="flex-1" disabled={!selectedSource}>
+          <TabsTrigger
+            value="detail"
+            className="flex-1"
+            disabled={!selectedSource}
+          >
             详情
           </TabsTrigger>
         </TabsList>
