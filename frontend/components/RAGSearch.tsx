@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Search, FileText, Video, Image, FileQuestion } from "lucide-react";
+import { Loader2, Search, FileText, Video, FileQuestion } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RAGSearchProps {
@@ -18,7 +18,7 @@ interface RAGSearchProps {
 
 interface SourceReference {
   chunk_id: string;
-  source_type: "document" | "video" | "image" | "ai_generated";
+  source_type: "document" | "video" | "ai_generated";
   filename: string;
   page_number?: number;
   timestamp?: string;
@@ -36,7 +36,6 @@ interface RAGResult {
 const fileTypeIcons = {
   document: FileText,
   video: Video,
-  image: Image,
   ai_generated: FileQuestion,
 };
 
