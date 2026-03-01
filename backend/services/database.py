@@ -176,7 +176,7 @@ class DatabaseService:
         return created
 
     async def delete_parsed_chunks(self, upload_id: str) -> int:
-        """删除指定上传文件关联的所有 ParsedChunk 记录。"""
+        """鍒犻櫎鎸囧畾涓婁紶鏂囦欢鍏宠仈鐨勬墍鏈� ParsedChunk 璁板綍銆�"""
         result = await self.db.parsedchunk.delete_many(where={"uploadId": upload_id})
         return int(result)
 
@@ -484,6 +484,28 @@ class DatabaseService:
             error_message: Error message if failed
 
         Returns:
+            Updated GenerationTask
+        """
+        update_data = {"status": status}
+
+        if progress is not None:
+            update_data["progress"] = progress
+
+        if output_urls is not None:
+            update_data["outputUrls"] = output_urls
+
+        if error_message is not None:
+            update_data["errorMessage"] = error_message
+
+        task = await self.db.generationtask.update(
+            where={"id": task_id},
+            data=update_data,
+        )
+        return task
+
+
+# Global database service instance
+db_service = DatabaseService()
             Updated GenerationTask
         """
         update_data = {"status": status}
