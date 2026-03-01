@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, Query, status
 from fastapi.encoders import jsonable_encoder
 
 from schemas import ProjectCreate
@@ -140,10 +140,7 @@ async def get_projects(
             extra={"user_id": user_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch projects",
-        )
+        raise
 
 
 @router.get("/{project_id}")
@@ -308,10 +305,7 @@ async def get_project_statistics(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取统计信息失败",
-        )
+        raise
 
 
 @router.get("/{project_id}/files")

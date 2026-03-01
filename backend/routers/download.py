@@ -9,12 +9,17 @@ import re
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import FileResponse
 
 from services.database import db_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.exceptions import (
+    APIException,
+    ForbiddenException,
+    NotFoundException,
+    ValidationException,
+)
 from utils.file_utils import safe_path_join, validate_file_exists
 from utils.filename_utils import safe_filename_for_header
 
@@ -51,9 +56,8 @@ async def download_courseware(
 
         # 检查任务状态
         if task.status != "completed":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"任务尚未完成，当前状态: {task.status}",
+            raise ValidationException(
+                message=f"任务尚未完成，当前状态: {task.status}",
             )
 
         # 确定文件路径（使用安全路径工具防止路径遍历）
@@ -101,11 +105,12 @@ async def download_courseware(
 
     except APIException:
         raise
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Download failed: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to download courseware",
+        logger.error(
+            "download_failed: task_id=%s file_type=%s error=%s",
+            task_id,
+            file_type,
+            e,
+            exc_info=True,
         )
+        raise
