@@ -127,15 +127,11 @@ class TestDownloadErrorPaths:
         app.dependency_overrides.pop(get_current_user, None)
 
     def _mock(self, mp, task=None, project=None):
-        mp.setattr(
-            db_service, "get_generation_task", AsyncMock(return_value=task)
-        )
+        mp.setattr(db_service, "get_generation_task", AsyncMock(return_value=task))
         mp.setattr(db_service, "get_project", AsyncMock(return_value=project))
 
     def test_task_not_completed_returns_400(self, client, monkeypatch):
-        task = SimpleNamespace(
-            id="t1", projectId="p1", status="processing"
-        )
+        task = SimpleNamespace(id="t1", projectId="p1", status="processing")
         project = SimpleNamespace(id="p1", userId=_USER_ID, name="P")
         self._mock(monkeypatch, task=task, project=project)
 

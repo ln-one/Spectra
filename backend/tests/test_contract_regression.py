@@ -40,24 +40,46 @@ def auth():
 
 
 def _proj(user_id=_USER_ID, **kw):
-    d = dict(id=_PROJECT_ID, userId=user_id, name="Regression", description="d",
-             createdAt=_NOW, updatedAt=_NOW)
+    d = dict(
+        id=_PROJECT_ID,
+        userId=user_id,
+        name="Regression",
+        description="d",
+        createdAt=_NOW,
+        updatedAt=_NOW,
+    )
     d.update(kw)
     return SimpleNamespace(**d)
 
 
 def _task(**kw):
-    d = dict(id=_TASK_ID, projectId=_PROJECT_ID, taskType="pptx", status="completed",
-             progress=100, outputUrls='{"pptx":"url"}', errorMessage=None,
-             createdAt=_NOW, updatedAt=_NOW)
+    d = dict(
+        id=_TASK_ID,
+        projectId=_PROJECT_ID,
+        taskType="pptx",
+        status="completed",
+        progress=100,
+        outputUrls='{"pptx":"url"}',
+        errorMessage=None,
+        createdAt=_NOW,
+        updatedAt=_NOW,
+    )
     d.update(kw)
     return SimpleNamespace(**d)
 
 
 def _upload(**kw):
-    d = dict(id=_FILE_ID, projectId=_PROJECT_ID, filename="a.pdf",
-             filepath="uploads/a.pdf", fileType="pdf", size=3,
-             status="ready", createdAt=_NOW, updatedAt=_NOW)
+    d = dict(
+        id=_FILE_ID,
+        projectId=_PROJECT_ID,
+        filename="a.pdf",
+        filepath="uploads/a.pdf",
+        fileType="pdf",
+        size=3,
+        status="ready",
+        createdAt=_NOW,
+        updatedAt=_NOW,
+    )
     d.update(kw)
     return SimpleNamespace(**d)
 
@@ -68,9 +90,9 @@ def _m(mp, obj, attr, rv=None):
 
 def _assert_envelope(resp, expected_status: int, success: bool):
     """Assert standard envelope shape."""
-    assert resp.status_code == expected_status, (
-        f"expected {expected_status} got {resp.status_code}: {resp.text[:300]}"
-    )
+    assert (
+        resp.status_code == expected_status
+    ), f"expected {expected_status} got {resp.status_code}: {resp.text[:300]}"
     body = resp.json()
     assert "success" in body
     assert body["success"] is success
@@ -91,9 +113,7 @@ class TestProjectsContract:
     def test_list_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_projects_by_user", [_proj()])
         _m(monkeypatch, db_service, "count_projects_by_user", 1)
-        body = _assert_envelope(
-            client.get("/api/v1/projects"), 200, True
-        )
+        body = _assert_envelope(client.get("/api/v1/projects"), 200, True)
         assert "projects" in body["data"]
 
     def test_list_401(self, client):
@@ -105,27 +125,22 @@ class TestProjectsContract:
         _m(monkeypatch, db_service, "save_idempotency_response", None)
         body = _assert_envelope(
             client.post("/api/v1/projects", json={"name": "X", "description": "d"}),
-            200, True,
+            200,
+            True,
         )
         assert "project" in body["data"]
 
     def test_get_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_project", _proj())
-        _assert_envelope(
-            client.get(f"/api/v1/projects/{_PROJECT_ID}"), 200, True
-        )
+        _assert_envelope(client.get(f"/api/v1/projects/{_PROJECT_ID}"), 200, True)
 
     def test_get_404(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_project", None)
-        _assert_envelope(
-            client.get(f"/api/v1/projects/{_PROJECT_ID}"), 404, False
-        )
+        _assert_envelope(client.get(f"/api/v1/projects/{_PROJECT_ID}"), 404, False)
 
     def test_get_403(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_project", _proj(user_id="other"))
-        _assert_envelope(
-            client.get(f"/api/v1/projects/{_PROJECT_ID}"), 403, False
-        )
+        _assert_envelope(client.get(f"/api/v1/projects/{_PROJECT_ID}"), 403, False)
 
     def test_update_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_project", _proj())
@@ -133,24 +148,23 @@ class TestProjectsContract:
         _m(monkeypatch, db_service, "update_project", _proj(name="UPD"))
         _m(monkeypatch, db_service, "save_idempotency_response", None)
         _assert_envelope(
-            client.put(f"/api/v1/projects/{_PROJECT_ID}",
-                       json={"name": "UPD", "description": "d2"}),
-            200, True,
+            client.put(
+                f"/api/v1/projects/{_PROJECT_ID}",
+                json={"name": "UPD", "description": "d2"},
+            ),
+            200,
+            True,
         )
 
     def test_delete_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_project", _proj())
         _m(monkeypatch, db_service, "delete_project", None)
-        _assert_envelope(
-            client.delete(f"/api/v1/projects/{_PROJECT_ID}"), 200, True
-        )
+        _assert_envelope(client.delete(f"/api/v1/projects/{_PROJECT_ID}"), 200, True)
 
     def test_search_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "search_projects", [_proj()])
         _m(monkeypatch, db_service, "count_search_projects", 1)
-        _assert_envelope(
-            client.get("/api/v1/projects/search?q=Reg"), 200, True
-        )
+        _assert_envelope(client.get("/api/v1/projects/search?q=Reg"), 200, True)
 
     def test_statistics_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_project", _proj())
@@ -191,52 +205,59 @@ class TestFilesContract:
         _m(monkeypatch, db_service, "update_upload_status", _upload())
         _m(monkeypatch, db_service, "get_file", _upload())
         body = _assert_envelope(
-            client.post("/api/v1/files",
-                        files={"file": ("a.pdf", b"%PDF", "application/pdf")},
-                        data={"project_id": _PROJECT_ID}),
-            200, True,
+            client.post(
+                "/api/v1/files",
+                files={"file": ("a.pdf", b"%PDF", "application/pdf")},
+                data={"project_id": _PROJECT_ID},
+            ),
+            200,
+            True,
         )
         assert "file" in body["data"]
 
     def test_upload_404_project(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_project", None)
         _assert_envelope(
-            client.post("/api/v1/files",
-                        files={"file": ("a.pdf", b"%PDF", "application/pdf")},
-                        data={"project_id": _PROJECT_ID}),
-            404, False,
+            client.post(
+                "/api/v1/files",
+                files={"file": ("a.pdf", b"%PDF", "application/pdf")},
+                data={"project_id": _PROJECT_ID},
+            ),
+            404,
+            False,
         )
 
     def test_delete_single_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_file", _upload())
         _m(monkeypatch, db_service, "get_project", _proj())
         _m(monkeypatch, db_service, "delete_file", True)
-        _assert_envelope(
-            client.delete(f"/api/v1/files/{_FILE_ID}"), 200, True
-        )
+        _assert_envelope(client.delete(f"/api/v1/files/{_FILE_ID}"), 200, True)
 
     def test_delete_single_404(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_file", None)
-        _assert_envelope(
-            client.delete(f"/api/v1/files/{_FILE_ID}"), 404, False
-        )
+        _assert_envelope(client.delete(f"/api/v1/files/{_FILE_ID}"), 404, False)
 
     def test_batch_delete_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_file", _upload())
         _m(monkeypatch, db_service, "get_project", _proj())
         _m(monkeypatch, db_service, "delete_file", True)
         _assert_envelope(
-            client.request("DELETE", "/api/v1/files/batch",
-                           json={"file_ids": [_FILE_ID]}),
-            200, True,
+            client.request(
+                "DELETE", "/api/v1/files/batch", json={"file_ids": [_FILE_ID]}
+            ),
+            200,
+            True,
         )
 
     def test_upload_401(self, client):
         _assert_envelope(
-            client.post("/api/v1/files",
-                        files={"file": ("a.pdf", b"%PDF", "application/pdf")},
-                        data={"project_id": _PROJECT_ID}),
-            401, False,
+            client.post(
+                "/api/v1/files",
+                files={"file": ("a.pdf", b"%PDF", "application/pdf")},
+                data={"project_id": _PROJECT_ID},
+            ),
+            401,
+            False,
         )
 
 
@@ -257,25 +278,34 @@ class TestGenerateContract:
             gen_router, "process_generation_task", AsyncMock(return_value=None)
         )
         body = _assert_envelope(
-            client.post("/api/v1/generate/courseware",
-                        json={"project_id": _PROJECT_ID, "type": "pptx"}),
-            200, True,
+            client.post(
+                "/api/v1/generate/courseware",
+                json={"project_id": _PROJECT_ID, "type": "pptx"},
+            ),
+            200,
+            True,
         )
         assert "task_id" in body["data"]
 
     def test_create_task_401(self, client):
         _assert_envelope(
-            client.post("/api/v1/generate/courseware",
-                        json={"project_id": _PROJECT_ID, "type": "pptx"}),
-            401, False,
+            client.post(
+                "/api/v1/generate/courseware",
+                json={"project_id": _PROJECT_ID, "type": "pptx"},
+            ),
+            401,
+            False,
         )
 
     def test_create_task_404(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_project", None)
         _assert_envelope(
-            client.post("/api/v1/generate/courseware",
-                        json={"project_id": _PROJECT_ID, "type": "pptx"}),
-            404, False,
+            client.post(
+                "/api/v1/generate/courseware",
+                json={"project_id": _PROJECT_ID, "type": "pptx"},
+            ),
+            404,
+            False,
         )
 
     def test_status_200(self, client, monkeypatch, auth):
@@ -303,7 +333,8 @@ class TestDownloadContract:
         _m(monkeypatch, db_service, "get_generation_task", None)
         _assert_envelope(
             client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=ppt"),
-            404, False,
+            404,
+            False,
         )
 
     def test_download_403(self, client, monkeypatch, auth):
@@ -311,7 +342,8 @@ class TestDownloadContract:
         _m(monkeypatch, db_service, "get_project", _proj(user_id="other"))
         _assert_envelope(
             client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=ppt"),
-            403, False,
+            403,
+            False,
         )
 
     def test_download_400_not_completed(self, client, monkeypatch, auth):
@@ -319,13 +351,15 @@ class TestDownloadContract:
         _m(monkeypatch, db_service, "get_project", _proj())
         _assert_envelope(
             client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=ppt"),
-            400, False,
+            400,
+            False,
         )
 
     def test_download_401(self, client):
         _assert_envelope(
             client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=ppt"),
-            401, False,
+            401,
+            False,
         )
 
 
@@ -338,46 +372,44 @@ class TestPreviewContract:
     def test_preview_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_generation_task", _task())
         _m(monkeypatch, db_service, "get_project", _proj())
-        body = _assert_envelope(
-            client.get(f"/api/v1/preview/{_TASK_ID}"), 200, True
-        )
+        body = _assert_envelope(client.get(f"/api/v1/preview/{_TASK_ID}"), 200, True)
         assert "slides" in body["data"]
 
     def test_preview_404(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_generation_task", None)
         _m(monkeypatch, db_service, "get_project", None)
-        _assert_envelope(
-            client.get("/api/v1/preview/nope"), 404, False
-        )
+        _assert_envelope(client.get("/api/v1/preview/nope"), 404, False)
 
     def test_preview_403(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_generation_task", _task())
         _m(monkeypatch, db_service, "get_project", _proj(user_id="other"))
-        _assert_envelope(
-            client.get(f"/api/v1/preview/{_TASK_ID}"), 403, False
-        )
+        _assert_envelope(client.get(f"/api/v1/preview/{_TASK_ID}"), 403, False)
 
     def test_preview_401(self, client):
-        _assert_envelope(
-            client.get(f"/api/v1/preview/{_TASK_ID}"), 401, False
-        )
+        _assert_envelope(client.get(f"/api/v1/preview/{_TASK_ID}"), 401, False)
 
     def test_modify_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_generation_task", _task())
         _m(monkeypatch, db_service, "get_project", _proj())
         _assert_envelope(
-            client.post(f"/api/v1/preview/{_TASK_ID}/modify",
-                        json={"instruction": "add summary"}),
-            200, True,
+            client.post(
+                f"/api/v1/preview/{_TASK_ID}/modify",
+                json={"instruction": "add summary"},
+            ),
+            200,
+            True,
         )
 
     def test_export_200(self, client, monkeypatch, auth):
         _m(monkeypatch, db_service, "get_generation_task", _task())
         _m(monkeypatch, db_service, "get_project", _proj())
         body = _assert_envelope(
-            client.post(f"/api/v1/preview/{_TASK_ID}/export",
-                        json={"format": "json", "include_sources": True}),
-            200, True,
+            client.post(
+                f"/api/v1/preview/{_TASK_ID}/export",
+                json={"format": "json", "include_sources": True},
+            ),
+            200,
+            True,
         )
         assert body["data"]["format"] == "json"
 
