@@ -1,11 +1,13 @@
 """Preview router with minimal MVP implementation."""
 
+import html
 import json
 import logging
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
 from schemas.generation import ModifyRequest
@@ -57,8 +59,8 @@ def _build_slides(task, project):
             "index": 0,
             "title": project.name,
             "content": (
-                f"项目「{project.name}」课件已生成。\n"
-                "你可以在页面中下载 PPT 与 Word 文件，或回到对话页继续修改需求。"
+                f"项目《{project.name}》课件已生成。\n"
+                "你可以在页面中下载 PPT 或 Word 文件，或回到对话页继续修改需求。"
             ),
         },
         {
@@ -122,6 +124,20 @@ async def modify_courseware(
     """Create a modify task based on user instruction."""
     try:
         task, _ = await _resolve_task(task_id, user_id)
+        key_str = str(idempotency_key) if idempotency_key else None
+        cache_key = f"preview:modify:{user_id}:{task.id}:{key_str}" if key_str else None
+        if cache_key:
+            cached_response = await db_service.get_idempotency_response(cache_key)
+            if cached_response:
+                logger.info(
+                    "idempotency_cache_hit",
+                    extra={
+                        "user_id": user_id,
+                        "task_id": task.id,
+                        "idempotency_key": key_str,
+                    },
+                )
+                return cached_response
 
         logger.info(
             "courseware_modify_requested",
@@ -129,16 +145,22 @@ async def modify_courseware(
                 "user_id": user_id,
                 "task_id": task.id,
                 "instruction_length": len(request.instruction),
+                "idempotency_key": key_str,
             },
         )
 
-        return success_response(
+        response_payload = success_response(
             data={
                 "modify_task_id": f"modify-{task.id}",
                 "status": "processing",
             },
             message="修改任务已创建",
         )
+        if cache_key:
+            await db_service.save_idempotency_response(
+                cache_key, jsonable_encoder(response_payload)
+            )
+        return response_payload
     except APIException:
         raise
     except Exception as e:
@@ -164,7 +186,6 @@ async def get_slide_detail(
         if not target_slide:
             raise NotFoundException(message=f"幻灯片不存在: {slide_id}")
 
-        # Build related slides (all except the current one)
         related = [
             {"slide_id": s["id"], "title": s["title"], "relation": "related"}
             for s in slides
@@ -220,8 +241,10 @@ async def export_preview(
         else:  # html
             parts = []
             for s in slides:
+                safe_title = html.escape(s["title"], quote=True)
+                safe_content = html.escape(s["content"], quote=True)
                 parts.append(
-                    f"<section><h2>{s['title']}</h2>" f"<p>{s['content']}</p></section>"
+                    f"<section><h2>{safe_title}</h2><p>{safe_content}</p></section>"
                 )
             content = "\n".join(parts)
 

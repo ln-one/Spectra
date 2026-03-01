@@ -277,10 +277,33 @@ class DatabaseService:
         completed_count = await self.db.generationtask.count(
             where={"projectId": project_id, "status": "completed"}
         )
-        uploads = await self.db.upload.find_many(
-            where={"projectId": project_id},
-        )
-        total_file_size = sum(u.size for u in uploads)
+        total_file_size = 0
+        if hasattr(self.db.upload, "aggregate"):
+            try:
+                size_agg = await self.db.upload.aggregate(
+                    where={"projectId": project_id},
+                    _sum={"size": True},
+                )
+                if isinstance(size_agg, dict):
+                    total_file_size = int((size_agg.get("_sum") or {}).get("size") or 0)
+                else:
+                    sum_payload = getattr(size_agg, "_sum", None)
+                    if isinstance(sum_payload, dict):
+                        total_file_size = int(sum_payload.get("size") or 0)
+                    else:
+                        total_file_size = int(getattr(sum_payload, "size", 0) or 0)
+            except TypeError:
+                pass
+
+        if total_file_size == 0:
+            uploads = await self.db.upload.find_many(
+                where={"projectId": project_id},
+                select={"size": True},
+            )
+            total_file_size = sum(
+                int((item.get("size") if isinstance(item, dict) else item.size) or 0)
+                for item in uploads
+            )
         return {
             "project_id": project_id,
             "files_count": files_count,

@@ -3,6 +3,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi.encoders import jsonable_encoder
 
 from schemas import ProjectCreate
 from schemas.courses import ProjectUpdate
@@ -21,22 +22,8 @@ async def create_project(
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
-    """
-    创建项目
-
-    Args:
-        project: 项目数据
-        user_id: 当前用户ID（从认证依赖获取）
-        idempotency_key: 幂等性密钥（可选）
-
-    Returns:
-        创建的项目信息
-
-    Raises:
-        HTTPException: 创建失败时抛出
-    """
+    """创建项目。"""
     try:
-        # 幂等性检查
         key_str = str(idempotency_key) if idempotency_key else None
         cache_key = f"projects:create:{user_id}:{key_str}" if key_str else None
         if cache_key:
@@ -48,9 +35,7 @@ async def create_project(
                 )
                 return cached_response
 
-        # Create project with user_id
         new_project = await db_service.create_project(project, user_id=user_id)
-
         logger.info(
             "project_created",
             extra={"user_id": user_id, "project_id": new_project.id},
@@ -60,10 +45,7 @@ async def create_project(
             data={"project": new_project}, message="项目创建成功"
         )
 
-        # 保存幂等性响应
         if cache_key:
-            from fastapi.encoders import jsonable_encoder
-
             await db_service.save_idempotency_response(
                 cache_key, jsonable_encoder(response_payload)
             )
@@ -97,7 +79,7 @@ async def search_projects(
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
     user_id: str = Depends(get_current_user),
 ):
-    """搜索项目（按关键词匹配名称或描述）"""
+    """按关键字搜索项目。"""
     try:
         projects = await db_service.search_projects(
             user_id=user_id,
@@ -133,17 +115,7 @@ async def get_projects(
     page: int = Query(1, ge=1, description="页码（从1开始）"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
 ):
-    """
-    获取项目列表（带分页）
-
-    Args:
-        user_id: 当前用户ID（从认证依赖获取）
-        page: 页码
-        limit: 每页数量
-
-    Returns:
-        项目列表和分页信息
-    """
+    """获取项目列表（分页）。"""
     try:
         projects = await db_service.get_projects_by_user(user_id, page, limit)
         total = await db_service.count_projects_by_user(user_id)
@@ -179,19 +151,7 @@ async def get_project(
     project_id: str,
     user_id: str = Depends(get_current_user),
 ):
-    """
-    获取项目详情
-
-    Args:
-        project_id: 项目ID
-        user_id: 当前用户ID（从认证依赖获取）
-
-    Returns:
-        项目详情
-
-    Raises:
-        HTTPException: 项目不存在或无权限访问时抛出
-    """
+    """获取项目详情。"""
     try:
         project = await db_service.get_project(project_id)
         if not project:
@@ -230,13 +190,30 @@ async def update_project(
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
-    """修改项目信息"""
+    """修改项目信息。"""
     try:
         project = await db_service.get_project(project_id)
         if not project:
             raise NotFoundException(message=f"项目不存在: {project_id}")
         if project.userId != user_id:
             raise ForbiddenException(message="无权限修改此项目")
+
+        key_str = str(idempotency_key) if idempotency_key else None
+        cache_key = (
+            f"projects:update:{user_id}:{project_id}:{key_str}" if key_str else None
+        )
+        if cache_key:
+            cached_response = await db_service.get_idempotency_response(cache_key)
+            if cached_response:
+                logger.info(
+                    "idempotency_cache_hit",
+                    extra={
+                        "user_id": user_id,
+                        "project_id": project_id,
+                        "idempotency_key": key_str,
+                    },
+                )
+                return cached_response
 
         updated = await db_service.update_project(
             project_id=project_id,
@@ -246,9 +223,21 @@ async def update_project(
         )
         logger.info(
             "project_updated",
-            extra={"user_id": user_id, "project_id": project_id},
+            extra={
+                "user_id": user_id,
+                "project_id": project_id,
+                "idempotency_key": key_str,
+            },
         )
-        return success_response(data={"project": updated}, message="项目更新成功")
+
+        response_payload = success_response(
+            data={"project": updated}, message="项目更新成功"
+        )
+        if cache_key:
+            await db_service.save_idempotency_response(
+                cache_key, jsonable_encoder(response_payload)
+            )
+        return response_payload
     except APIException:
         raise
     except Exception as e:
@@ -268,7 +257,7 @@ async def delete_project(
     project_id: str,
     user_id: str = Depends(get_current_user),
 ):
-    """删除项目"""
+    """删除项目。"""
     try:
         project = await db_service.get_project(project_id)
         if not project:
@@ -301,7 +290,7 @@ async def get_project_statistics(
     project_id: str,
     user_id: str = Depends(get_current_user),
 ):
-    """获取项目统计信息"""
+    """获取项目统计信息。"""
     try:
         project = await db_service.get_project(project_id)
         if not project:
@@ -332,21 +321,7 @@ async def get_project_files(
     page: int = Query(1, ge=1, description="页码（从1开始）"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
 ):
-    """
-    获取项目的上传文件列表（带分页）
-
-    Args:
-        project_id: 项目ID
-        user_id: 当前用户ID（从认证依赖获取）
-        page: 页码
-        limit: 每页数量
-
-    Returns:
-        文件列表和分页信息
-
-    Raises:
-        HTTPException: 项目不存在或无权限访问时抛出
-    """
+    """获取项目的上传文件列表（分页）。"""
     try:
         project = await db_service.get_project(project_id)
         if not project:

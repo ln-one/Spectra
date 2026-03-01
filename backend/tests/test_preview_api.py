@@ -112,6 +112,28 @@ def test_modify_preview_success(client, monkeypatch, _as_user):
     assert resp.json()["data"]["modify_task_id"] == f"modify-{_TASK_ID}"
 
 
+def test_modify_preview_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
+    cached = {
+        "success": True,
+        "data": {"modify_task_id": "cached-modify-task", "status": "processing"},
+        "message": "cached",
+    }
+    _mock(monkeypatch, db_service, "get_generation_task", _fake_task())
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    _mock(monkeypatch, db_service, "get_idempotency_response", cached)
+    save_mock = AsyncMock(return_value=None)
+    monkeypatch.setattr(db_service, "save_idempotency_response", save_mock)
+
+    resp = client.post(
+        f"/api/v1/preview/{_TASK_ID}/modify",
+        json={"instruction": "please add one summary slide"},
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000031"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["modify_task_id"] == "cached-modify-task"
+    save_mock.assert_not_awaited()
+
+
 def test_get_slide_detail_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_generation_task", _fake_task())
     _mock(monkeypatch, db_service, "get_project", _fake_project())
@@ -166,6 +188,25 @@ def test_export_preview_html_success(client, monkeypatch, _as_user):
     )
     assert resp.status_code == 200
     assert resp.json()["data"]["format"] == "html"
+
+
+def test_export_preview_html_escapes_content(client, monkeypatch, _as_user):
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_generation_task",
+        _fake_task(status="<script>alert(1)</script>"),
+    )
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+
+    resp = client.post(
+        f"/api/v1/preview/{_TASK_ID}/export",
+        json={"format": "html", "include_sources": False},
+    )
+    assert resp.status_code == 200
+    html_content = resp.json()["data"]["content"]
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html_content
+    assert "<script>alert(1)</script>" not in html_content
 
 
 def test_export_preview_invalid_format_400(client, monkeypatch, _as_user):

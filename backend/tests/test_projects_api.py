@@ -95,7 +95,10 @@ def test_search_projects_missing_q_400(client, _as_user):
 
 def test_update_project_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
+    _mock(monkeypatch, db_service, "get_idempotency_response", None)
     _mock(monkeypatch, db_service, "update_project", _fake_project(name="Updated"))
+    save_mock = AsyncMock(return_value=None)
+    monkeypatch.setattr(db_service, "save_idempotency_response", save_mock)
 
     resp = client.put(
         f"/api/v1/projects/{_PROJECT_ID}",
@@ -105,6 +108,29 @@ def test_update_project_success(client, monkeypatch, _as_user):
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["project"]["name"] == "Updated"
+    save_mock.assert_awaited_once()
+
+
+def test_update_project_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
+    cached = {
+        "success": True,
+        "data": {"project": {"id": _PROJECT_ID, "name": "Cached"}},
+        "message": "cached",
+    }
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    _mock(monkeypatch, db_service, "get_idempotency_response", cached)
+    update_mock = AsyncMock(return_value=_fake_project(name="Updated"))
+    monkeypatch.setattr(db_service, "update_project", update_mock)
+
+    resp = client.put(
+        f"/api/v1/projects/{_PROJECT_ID}",
+        json={"name": "Updated", "description": "new desc"},
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000112"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["data"]["project"]["name"] == "Cached"
+    update_mock.assert_not_awaited()
 
 
 def test_update_project_invalid_idempotency_key_400(client, _as_user):

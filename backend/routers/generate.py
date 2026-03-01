@@ -500,27 +500,25 @@ async def get_task_versions(
                 message="无权限访问此任务",
             )
 
-        versions = []
-        if task.status in ("completed", "failed"):
-            file_urls = {}
-            if task.outputUrls:
-                try:
-                    parsed = json.loads(task.outputUrls)
-                    if "pptx" in parsed:
-                        file_urls["ppt_url"] = parsed["pptx"]
-                    if "docx" in parsed:
-                        file_urls["word_url"] = parsed["docx"]
-                except json.JSONDecodeError:
-                    pass
-            versions.append(
-                {
-                    "version": 1,
-                    "created_at": task.createdAt.isoformat(),
-                    "status": task.status,
-                    "file_urls": file_urls,
-                    "modification_note": None,
-                }
-            )
+        file_urls = {}
+        if task.outputUrls:
+            try:
+                parsed = json.loads(task.outputUrls)
+                if "pptx" in parsed:
+                    file_urls["ppt_url"] = parsed["pptx"]
+                if "docx" in parsed:
+                    file_urls["word_url"] = parsed["docx"]
+            except json.JSONDecodeError:
+                pass
+        versions = [
+            {
+                "version": 1,
+                "created_at": task.createdAt.isoformat(),
+                "status": task.status,
+                "file_urls": file_urls,
+                "modification_note": None,
+            }
+        ]
 
         logger.info(
             "task_versions_fetched",

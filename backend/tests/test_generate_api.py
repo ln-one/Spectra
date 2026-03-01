@@ -178,3 +178,39 @@ def test_get_generation_status_forbidden_403(client, monkeypatch, _as_user):
 def test_get_generation_status_no_token_401(client):
     resp = client.get(f"/api/v1/generate/tasks/{_TASK_ID}/status")
     assert resp.status_code == 401
+
+
+def test_get_task_versions_pending_includes_current_task(client, monkeypatch, _as_user):
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_generation_task",
+        _fake_task(status="pending", outputUrls=None),
+    )
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+
+    resp = client.get(f"/api/v1/generate/tasks/{_TASK_ID}/versions")
+    assert resp.status_code == 200
+    versions = resp.json()["data"]["versions"]
+    assert len(versions) == 1
+    assert versions[0]["version"] == 1
+    assert versions[0]["status"] == "pending"
+
+
+def test_get_task_versions_completed_returns_file_urls(client, monkeypatch, _as_user):
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_generation_task",
+        _fake_task(
+            status="completed",
+            outputUrls='{"pptx":"/ppt-url","docx":"/doc-url"}',
+        ),
+    )
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+
+    resp = client.get(f"/api/v1/generate/tasks/{_TASK_ID}/versions")
+    assert resp.status_code == 200
+    version = resp.json()["data"]["versions"][0]
+    assert version["file_urls"]["ppt_url"] == "/ppt-url"
+    assert version["file_urls"]["word_url"] == "/doc-url"

@@ -1,4 +1,4 @@
-﻿"""Files API contract tests for C7/C8 scope."""
+"""Files API contract tests for C7/C8 scope."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
