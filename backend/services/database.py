@@ -1,4 +1,4 @@
-import json
+﻿import json
 from typing import Optional
 
 from prisma import Prisma
@@ -176,7 +176,7 @@ class DatabaseService:
         return created
 
     async def delete_parsed_chunks(self, upload_id: str) -> int:
-        """鍒犻櫎鎸囧畾涓婁紶鏂囦欢鍏宠仈鐨勬墍鏈� ParsedChunk 璁板綍銆�"""
+        """Delete all ParsedChunk records associated with the given upload."""
         result = await self.db.parsedchunk.delete_many(where={"uploadId": upload_id})
         return int(result)
 
@@ -278,12 +278,14 @@ class DatabaseService:
             where={"projectId": project_id, "status": "completed"}
         )
         total_file_size = 0
+        aggregate_available = False
         if hasattr(self.db.upload, "aggregate"):
             try:
                 size_agg = await self.db.upload.aggregate(
                     where={"projectId": project_id},
                     _sum={"size": True},
                 )
+                aggregate_available = True
                 if isinstance(size_agg, dict):
                     total_file_size = int((size_agg.get("_sum") or {}).get("size") or 0)
                 else:
@@ -295,7 +297,7 @@ class DatabaseService:
             except TypeError:
                 pass
 
-        if total_file_size == 0:
+        if not aggregate_available:
             uploads = await self.db.upload.find_many(
                 where={"projectId": project_id},
                 select={"size": True},
@@ -484,28 +486,6 @@ class DatabaseService:
             error_message: Error message if failed
 
         Returns:
-            Updated GenerationTask
-        """
-        update_data = {"status": status}
-
-        if progress is not None:
-            update_data["progress"] = progress
-
-        if output_urls is not None:
-            update_data["outputUrls"] = output_urls
-
-        if error_message is not None:
-            update_data["errorMessage"] = error_message
-
-        task = await self.db.generationtask.update(
-            where={"id": task_id},
-            data=update_data,
-        )
-        return task
-
-
-# Global database service instance
-db_service = DatabaseService()
             Updated GenerationTask
         """
         update_data = {"status": status}
