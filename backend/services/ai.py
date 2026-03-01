@@ -12,7 +12,7 @@ from typing import Optional
 
 from litellm import acompletion
 
-from schemas.intent import IntentClassification, IntentType
+from schemas.intent import IntentClassification, IntentType, ModifyIntent, ModifyType
 from services.courseware_ai import CoursewareAIMixin
 
 logger = logging.getLogger(__name__)
@@ -188,6 +188,90 @@ class AIService(CoursewareAIMixin):
             intent=IntentType.GENERAL_CHAT,
             confidence=0.4,
             method="keyword_fallback",
+        )
+
+    async def parse_modify_intent(self, instruction: str) -> ModifyIntent:
+        """
+        解析修改指令，提取修改子类型和目标幻灯片页码
+
+        使用 LLM 解析，失败时回退到关键词规则。
+        """
+        try:
+            prompt = (
+                "分析以下课件修改指令，返回 JSON：\n"
+                f'指令："{instruction}"\n\n'
+                "返回格式：\n"
+                '{"modify_type": "content|style|structure|global", '
+                '"target_slides": [页码数字] 或 null}\n\n'
+                "类型说明：\n"
+                "- content: 修改文字内容（改标题、改文案、改要点）\n"
+                "- style: 修改风格/模板（改颜色、改字体、改排版）\n"
+                "- structure: 修改结构（加页、删页、调整顺序）\n"
+                "- global: 全局修改（改主题、改整体风格）\n\n"
+                "严格返回 JSON，不要包含其他内容。"
+            )
+            response = await self.generate(prompt=prompt, max_tokens=200)
+            content = response["content"].strip()
+            parsed = json.loads(content)
+
+            modify_type = ModifyType(parsed.get("modify_type", "content"))
+            raw_slides = parsed.get("target_slides")
+            target_slides = [int(s) for s in raw_slides] if raw_slides else None
+            return ModifyIntent(
+                modify_type=modify_type,
+                target_slides=target_slides,
+                instruction=instruction,
+            )
+        except Exception as e:
+            logger.warning(f"LLM modify intent parse failed: {e}, using fallback")
+            return self._parse_modify_intent_by_keywords(instruction)
+
+    @staticmethod
+    def _parse_modify_intent_by_keywords(instruction: str) -> ModifyIntent:
+        """基于关键词的修改意图解析回退"""
+        import re as _re
+
+        msg = instruction.lower()
+
+        # 提取页码
+        target_slides = None
+        page_patterns = [
+            r"第\s*(\d+)\s*页",
+            r"第\s*(\d+)\s*张",
+            r"slide\s*(\d+)",
+            r"第\s*(\d+)\s*[个]?幻灯片",
+        ]
+        found_pages = []
+        for pat in page_patterns:
+            found_pages.extend(int(m) for m in _re.findall(pat, msg))
+        if found_pages:
+            target_slides = sorted(set(found_pages))
+
+        # 判断修改类型
+        style_kw = ["风格", "模板", "颜色", "字体", "排版", "样式", "主题色"]
+        structure_kw = [
+            "添加一页",
+            "加一页",
+            "删除一页",
+            "删掉",
+            "增加一页",
+            "调整顺序",
+        ]
+        global_kw = ["整体", "全部", "所有", "全局", "主题"]
+
+        if any(kw in msg for kw in structure_kw):
+            modify_type = ModifyType.STRUCTURE
+        elif any(kw in msg for kw in global_kw) and not target_slides:
+            modify_type = ModifyType.GLOBAL
+        elif any(kw in msg for kw in style_kw):
+            modify_type = ModifyType.STYLE
+        else:
+            modify_type = ModifyType.CONTENT
+
+        return ModifyIntent(
+            modify_type=modify_type,
+            target_slides=target_slides,
+            instruction=instruction,
         )
 
     async def _retrieve_rag_context(
