@@ -127,6 +127,94 @@ class CoursewareAIMixin:
             summary="基础教学大纲",
         )
 
+    @staticmethod
+    def parse_marp_slides(markdown_content: str) -> list[dict]:
+        """
+        将 Marp Markdown 拆分为独立幻灯片列表
+
+        Returns:
+            [{"index": 0, "title": "...", "content": "..."}, ...]
+        """
+        content = markdown_content.strip()
+        # 去掉 frontmatter
+        fm_match = re.match(r"^---\s*\n[\s\S]*?\n---\s*\n?", content)
+        if fm_match:
+            content = content[fm_match.end() :]
+
+        raw_slides = re.split(r"\n---\s*\n", content)
+        slides = []
+        for i, raw in enumerate(raw_slides):
+            raw = raw.strip()
+            if not raw:
+                continue
+            title_match = re.match(r"^#\s+(.+)$", raw, re.MULTILINE)
+            title = title_match.group(1).strip() if title_match else ""
+            slides.append({"index": i, "title": title, "content": raw})
+        return slides
+
+    @staticmethod
+    def _reassemble_marp(frontmatter: str, slides: list[str]) -> str:
+        """将 frontmatter 和 slide 内容列表重新组装为 Marp Markdown"""
+        parts = [frontmatter.strip()] if frontmatter.strip() else []
+        parts.extend(s.strip() for s in slides if s.strip())
+        return "\n\n---\n\n".join(parts) + "\n"
+
+    @staticmethod
+    def _extract_frontmatter(markdown_content: str) -> str:
+        """提取 Marp frontmatter 部分"""
+        fm_match = re.match(r"^(---\s*\n[\s\S]*?\n---)\s*\n?", markdown_content)
+        return fm_match.group(1) if fm_match else ""
+
+    async def modify_courseware(
+        self,
+        current_content: str,
+        instruction: str,
+        target_slides: Optional[list[int]] = None,
+    ) -> CoursewareContent:
+        """
+        差异化修改课件内容
+
+        仅重新生成目标 slides，保持其余不变。
+        无目标 slides 时对全文调用 LLM 修改。
+        """
+        from services.prompt_service import prompt_service
+
+        frontmatter = self._extract_frontmatter(current_content)
+        all_slides = self.parse_marp_slides(current_content)
+
+        if target_slides and all_slides:
+            target_indices = [s - 1 for s in target_slides if 1 <= s <= len(all_slides)]
+            if not target_indices:
+                target_indices = list(range(len(all_slides)))
+
+            target_content = "\n\n---\n\n".join(
+                all_slides[i]["content"] for i in target_indices
+            )
+            target_labels = [str(i + 1) for i in target_indices]
+            prompt = prompt_service.build_modify_prompt(
+                current_content=target_content,
+                instruction=instruction,
+                target_slides=target_labels,
+            )
+            response = await self.generate(prompt=prompt, max_tokens=3000)
+            modified_raw = self._strip_outer_code_fence(response["content"])
+            modified_parts = re.split(r"\n---\s*\n", modified_raw)
+
+            slide_contents = [s["content"] for s in all_slides]
+            for idx, new_part in zip(target_indices, modified_parts):
+                slide_contents[idx] = new_part.strip()
+
+            new_markdown = self._reassemble_marp(frontmatter, slide_contents)
+        else:
+            prompt = prompt_service.build_modify_prompt(
+                current_content=current_content,
+                instruction=instruction,
+            )
+            response = await self.generate(prompt=prompt, max_tokens=4000)
+            new_markdown = self._strip_outer_code_fence(response["content"])
+
+        return self._parse_courseware_response(new_markdown, instruction[:50])
+
     async def extract_structured_content(
         self,
         project_id: str,
