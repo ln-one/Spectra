@@ -171,7 +171,7 @@ async def general_exception_handler(request: Request, exc: Exception):
             status_code=status.HTTP_400_BAD_REQUEST,
             content=error_response(
                 code="INVALID_INPUT",
-                message="Invalid request parameters",
+                message="请求参数错误",
                 details={"request_id": rid},
             ),
         )

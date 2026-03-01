@@ -1,6 +1,7 @@
 """Request lifecycle middleware and logging context helpers."""
 
 import logging
+import re
 import time
 import uuid
 from contextvars import ContextVar
@@ -10,6 +11,7 @@ from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 logger = logging.getLogger("spectra.access")
+_SAFE_REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 _request_id_ctx: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
 _user_id_ctx: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
@@ -45,13 +47,20 @@ class RequestIDMiddleware:
     def __init__(self, app: ASGIApp):
         self.app = app
 
+    @staticmethod
+    def _normalize_request_id(raw_request_id: Optional[str]) -> str:
+        """Accept only safe request id values; otherwise generate a UUID."""
+        if raw_request_id and _SAFE_REQUEST_ID_PATTERN.fullmatch(raw_request_id):
+            return raw_request_id
+        return str(uuid.uuid4())
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
         headers = Headers(scope=scope)
-        request_id = headers.get("x-request-id") or str(uuid.uuid4())
+        request_id = self._normalize_request_id(headers.get("x-request-id"))
         method = scope.get("method", "-")
         path = scope.get("path", "-")
 
