@@ -8,7 +8,7 @@ Covers:
 """
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from starlette.testclient import TestClient

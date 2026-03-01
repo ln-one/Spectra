@@ -6,14 +6,14 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
 from schemas.generation import ModifyRequest
 from services.database import db_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.exceptions import ForbiddenException, NotFoundException, ValidationException
 from utils.responses import success_response
 
 router = APIRouter(prefix="/preview", tags=["Preview"])
@@ -104,14 +104,9 @@ async def get_preview(task_id: str, user_id: str = Depends(get_current_user)):
             },
             message="获取预览成功",
         )
-    except APIException:
-        raise
     except Exception as e:
         logger.error(f"Get preview failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取预览失败",
-        )
+        raise
 
 
 @router.post("/{task_id}/modify")
@@ -161,14 +156,9 @@ async def modify_courseware(
                 cache_key, jsonable_encoder(response_payload)
             )
         return response_payload
-    except APIException:
-        raise
     except Exception as e:
         logger.error(f"Modify preview failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="修改课件失败",
-        )
+        raise
 
 
 @router.get("/{task_id}/slides/{slide_id}")
@@ -204,14 +194,9 @@ async def get_slide_detail(
             },
             message="获取幻灯片详情成功",
         )
-    except APIException:
-        raise
     except Exception as e:
         logger.error(f"Get slide detail failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取幻灯片详情失败",
-        )
+        raise
 
 
 @router.post("/{task_id}/export")
@@ -226,9 +211,8 @@ async def export_preview(
         slides = _build_slides(task, project)
 
         if request.format not in ("json", "markdown", "html"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"不支持的导出格式: {request.format}",
+            raise ValidationException(
+                message=f"Unsupported export format: {request.format}"
             )
 
         if request.format == "json":
@@ -261,13 +245,6 @@ async def export_preview(
             data={"content": content, "format": request.format},
             message="导出成功",
         )
-    except APIException:
-        raise
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Export preview failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="导出预览失败",
-        )
+        raise

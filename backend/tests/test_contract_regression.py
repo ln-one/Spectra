@@ -13,7 +13,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from starlette.testclient import TestClient
 
 from main import app
 from routers import files as files_router

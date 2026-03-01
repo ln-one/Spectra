@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, status
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.encoders import jsonable_encoder
 
 from schemas import ProjectCreate
@@ -63,10 +63,7 @@ async def create_project(
             extra={"user_id": user_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create project",
-        )
+        raise
 
 
 @router.get("/search")
@@ -103,10 +100,7 @@ async def search_projects(
         logger.error(
             f"Failed to search projects: {e}", extra={"user_id": user_id}, exc_info=True
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="搜索项目失败",
-        )
+        raise
 
 
 @router.get("")
@@ -174,10 +168,7 @@ async def get_project(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get project",
-        )
+        raise
 
 
 @router.put("/{project_id}")
@@ -243,10 +234,7 @@ async def update_project(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="更新项目失败",
-        )
+        raise
 
 
 @router.delete("/{project_id}")
@@ -276,10 +264,7 @@ async def delete_project(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="删除项目失败",
-        )
+        raise
 
 
 @router.get("/{project_id}/statistics")
@@ -360,7 +345,4 @@ async def get_project_files(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get project files",
-        )
+        raise

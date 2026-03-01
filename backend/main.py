@@ -156,6 +156,7 @@ async def general_exception_handler(request: Request, exc: Exception):
             content=error_response(
                 code="SERVICE_UNAVAILABLE",
                 message="数据库服务暂不可用，请稍后重试",
+                details={"request_id": rid},
             ),
         )
 
@@ -170,7 +171,8 @@ async def general_exception_handler(request: Request, exc: Exception):
             status_code=status.HTTP_400_BAD_REQUEST,
             content=error_response(
                 code="INVALID_INPUT",
-                message=str(exc) or "请求参数错误",
+                message="Invalid request parameters",
+                details={"request_id": rid},
             ),
         )
 
@@ -186,6 +188,7 @@ async def general_exception_handler(request: Request, exc: Exception):
             content=error_response(
                 code="EXTERNAL_SERVICE_ERROR",
                 message="上游服务超时或不可达",
+                details={"request_id": rid},
             ),
         )
 
