@@ -1,4 +1,4 @@
-# Onboarding Checklist
+# 新人入职指南
 
 > 更新时间：2026-03-02
 > 本文档只保留新人上手流程，不重复 `getting-started.md` 的安装细节。
