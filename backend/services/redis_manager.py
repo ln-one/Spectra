@@ -23,7 +23,7 @@ class RedisConnectionManager:
         port: int = 6379,
         db: int = 0,
         password: Optional[str] = None,
-        decode_responses: bool = True,
+        decode_responses: bool = False,
     ):
         """
         初始化 Redis 连接配置

@@ -119,10 +119,11 @@ class TaskQueueService:
         """
         try:
             job = Job.fetch(job_id, connection=self.redis_conn)
+            status = self._normalize_status(job.get_status())
 
             status_info = {
                 "job_id": job.id,
-                "status": job.get_status(),
+                "status": status,
                 "created_at": job.created_at.isoformat() if job.created_at else None,
                 "started_at": job.started_at.isoformat() if job.started_at else None,
                 "ended_at": job.ended_at.isoformat() if job.ended_at else None,
@@ -154,21 +155,25 @@ class TaskQueueService:
         """
         try:
             job = Job.fetch(job_id, connection=self.redis_conn)
+            status = self._normalize_status(job.get_status())
 
             # Can only cancel queued or scheduled jobs
-            if job.get_status() in ["queued", "scheduled", "deferred"]:
+            if status in ["queued", "scheduled", "deferred"]:
                 job.cancel()
                 logger.info(f"Canceled job: {job_id}")
                 return True
             else:
-                logger.warning(
-                    f"Cannot cancel job {job_id} with status {job.get_status()}"
-                )
+                logger.warning(f"Cannot cancel job {job_id} with status {status}")
                 return False
 
         except Exception as e:
             logger.error(f"Failed to cancel job {job_id}: {e}")
             return False
+
+    @staticmethod
+    def _normalize_status(status) -> str:
+        """Normalize RQ status enum/string to plain string."""
+        return status.value if hasattr(status, "value") else str(status)
 
     def get_queue_info(self) -> dict:
         """

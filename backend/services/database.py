@@ -390,6 +390,12 @@ class DatabaseService:
         )
         return list(reversed(messages))
 
+    async def get_messages(self, project_id: str, limit: int = 10):
+        """Backward-compatible alias for recent conversation messages."""
+        return await self.get_recent_conversation_messages(
+            project_id=project_id, limit=limit
+        )
+
     async def count_conversation_messages(self, project_id: str) -> int:
         """Count conversation messages in a project."""
         return await self.db.conversation.count(where={"projectId": project_id})

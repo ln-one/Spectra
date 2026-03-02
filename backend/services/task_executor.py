@@ -41,8 +41,13 @@ async def execute_generation_task(
     from services.database import db_service
 
     start_time = time.time()
+    db_connected = False
 
     try:
+        # RQ 在任务执行时会创建/关闭事件循环，数据库连接必须在当前循环中建立
+        await db_service.connect()
+        db_connected = True
+
         logger.info(
             "generation_task_processing_started",
             extra={
@@ -204,6 +209,13 @@ async def execute_generation_task(
 
         # 对于未知错误，也抛出异常以触发重试（但会受到最大重试次数限制）
         raise
+
+    finally:
+        if db_connected:
+            try:
+                await db_service.disconnect()
+            except Exception as e:
+                logger.warning(f"Failed to disconnect database in task {task_id}: {e}")
 
 
 async def _build_user_requirements(project_id: str) -> str:
