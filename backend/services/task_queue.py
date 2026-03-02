@@ -76,7 +76,8 @@ class TaskQueueService:
             raise ValueError(f"Invalid priority: {priority}")
 
         # Import here to avoid circular dependency
-        from services.task_executor import execute_generation_task
+        # Use the sync wrapper so RQ worker executes the coroutine properly
+        from services.task_executor import run_generation_task as execute_generation_task
 
         # 配置重试策略：最多重试 3 次，间隔为 1分钟、5分钟、15分钟
         retry_strategy = Retry(max=3, interval=[60, 300, 900])
@@ -198,12 +199,20 @@ class TaskQueueService:
             workers = Worker.all(connection=self.redis_conn)
             worker_count = len(workers)
 
-            # Get registry counts
-            started_registry = StartedJobRegistry("default", connection=self.redis_conn)
-            finished_registry = FinishedJobRegistry(
-                "default", connection=self.redis_conn
-            )
-            failed_registry = FailedJobRegistry("default", connection=self.redis_conn)
+            # Get registry counts aggregated across all queues
+            started_count = 0
+            finished_count = 0
+            failed_count = 0
+            for queue_name in ("high", "default", "low"):
+                started_count += len(
+                    StartedJobRegistry(queue_name, connection=self.redis_conn)
+                )
+                finished_count += len(
+                    FinishedJobRegistry(queue_name, connection=self.redis_conn)
+                )
+                failed_count += len(
+                    FailedJobRegistry(queue_name, connection=self.redis_conn)
+                )
 
             return {
                 "queues": {
@@ -225,9 +234,9 @@ class TaskQueueService:
                     "active": [w.name for w in workers if w.get_state() == "busy"],
                 },
                 "jobs": {
-                    "started": len(started_registry),
-                    "finished": len(finished_registry),
-                    "failed": len(failed_registry),
+                    "started": started_count,
+                    "finished": finished_count,
+                    "failed": failed_count,
                 },
             }
 

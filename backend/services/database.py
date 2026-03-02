@@ -563,7 +563,7 @@ class DatabaseService:
         if task:
             return await self.db.generationtask.update(
                 where={"id": task_id},
-                data={"retryCount": task.retryCount + 1},
+                data={"retryCount": {"increment": 1}},
             )
         return None
 

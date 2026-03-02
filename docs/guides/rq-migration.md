@@ -69,9 +69,9 @@ redis-cli ping
 
 RQ 相关依赖已添加到 `backend/requirements.txt`：
 ```txt
-redis==5.0.1
-rq==1.15.1
-fakeredis==2.20.1  # 用于测试
+redis==5.2.1
+rq==2.1.0
+fakeredis==2.26.2  # 用于测试
 ```
 
 安装依赖：
@@ -282,9 +282,9 @@ GET /api/v1/generate/tasks/{task_id}/download?file_type=ppt
 ```
 完全不变。
 
-### 前端无需修改
+### 前端改动与兼容性
 
-前端代码无需任何修改，可以继续使用现有的 API 调用逻辑。
+本次迁移保持了 API 调用协议兼容，现有前端可以继续使用当前的 API 调用逻辑而无需强制修改；同时，本 PR 在生成页中增加了持久化/恢复 taskId 以及增强轮询恢复能力的可选前端逻辑，用于在页面刷新或异常中断后更好地恢复任务状态。
 
 ## 监控和运维
 
