@@ -186,22 +186,27 @@ class TestTaskExecutor:
             mock_db_service.increment_task_retry_count.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_unknown_error_handling(
+    async def test_unknown_error_handling_retries_exhausted(
         self, mock_db_service, mock_ai_service, mock_generation_service
     ):
-        """测试未知错误处理"""
+        """测试未知错误处理（重试次数已耗尽）：应标记为 failed"""
         # 模拟未知错误
         mock_ai_service.generate_courseware_content = AsyncMock(
             side_effect=RuntimeError("Unknown error")
         )
 
+        # 模拟当前 RQ job 没有剩余重试次数
+        mock_job = MagicMock()
+        mock_job.retries_left = 0
+
         with (
             patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
             patch("services.generation.generation_service", mock_generation_service),
+            patch("services.task_executor.get_current_job", return_value=mock_job),
         ):
 
-            # 应该抛出异常以触发重试
+            # 应该抛出异常
             with pytest.raises(RuntimeError):
                 await execute_generation_task(
                     task_id="test-task-5",
@@ -210,7 +215,6 @@ class TestTaskExecutor:
                 )
 
             # 验证任务标记为 failed
-            # 找到状态为 failed 的调用
             failed_calls = [
                 call
                 for call in mock_db_service.update_generation_task_status.call_args_list
@@ -218,3 +222,48 @@ class TestTaskExecutor:
             ]
             assert len(failed_calls) > 0
             assert "RuntimeError" in failed_calls[0][1]["error_message"]
+
+            # 验证不增加重试计数（已耗尽）
+            mock_db_service.increment_task_retry_count.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unknown_error_handling_retries_remaining(
+        self, mock_db_service, mock_ai_service, mock_generation_service
+    ):
+        """测试未知错误处理（还有剩余重试次数）：不应标记为 failed，应增加重试计数"""
+        # 模拟未知错误
+        mock_ai_service.generate_courseware_content = AsyncMock(
+            side_effect=RuntimeError("Unknown error")
+        )
+
+        # 模拟当前 RQ job 还有剩余重试次数
+        mock_job = MagicMock()
+        mock_job.retries_left = 2
+
+        with (
+            patch("services.database.DatabaseService", return_value=mock_db_service),
+            patch("services.ai.ai_service", mock_ai_service),
+            patch("services.generation.generation_service", mock_generation_service),
+            patch("services.task_executor.get_current_job", return_value=mock_job),
+        ):
+
+            # 应该抛出异常以触发 RQ 重试
+            with pytest.raises(RuntimeError):
+                await execute_generation_task(
+                    task_id="test-task-6",
+                    project_id="test-project-6",
+                    task_type="pptx",
+                )
+
+            # 验证任务未标记为 failed（避免在重试期间误报）
+            failed_calls = [
+                call
+                for call in mock_db_service.update_generation_task_status.call_args_list
+                if call[1].get("status") == "failed"
+            ]
+            assert len(failed_calls) == 0
+
+            # 验证重试计数已增加
+            mock_db_service.increment_task_retry_count.assert_called_once_with(
+                "test-task-6"
+            )
