@@ -1,7 +1,7 @@
 # ADR-003: OpenAPI 规范模块化
 
 ## 状态
-✅ 已采纳 (2026-02-25)
+ 已采纳 (2026-02-25)
 
 ## 背景
 原 `docs/openapi.yaml` 文件达到 1296 行，存在以下问题：
@@ -15,12 +15,12 @@
 
 ```
 docs/
-├── openapi.yaml              # 打包后的单文件（自动生成）
-├── openapi-source.yaml       # 主入口文件（70行）
+├── openapi.yaml # 打包后的单文件（自动生成）
+├── openapi-source.yaml # 主入口文件（70行）
 └── openapi/
-    ├── paths/                # 7个路径文件
-    ├── schemas/              # 8个模型文件
-    └── components/           # 3个组件文件
+ ├── paths/ # 7个路径文件
+ ├── schemas/ # 8个模型文件
+ └── components/ # 3个组件文件
 ```
 
 ### 工作流程
@@ -29,11 +29,11 @@ docs/
 3. **使用**：FastAPI/Swagger UI 读取打包后的 `openapi.yaml`
 
 ## 优势
-- ✅ 每个文件 50-150 行，AI 和人都易读
-- ✅ 按模块组织，职责清晰
-- ✅ 减少合并冲突
-- ✅ 完全兼容现有工具（Swagger UI、Redoc）
-- ✅ 自动打包，无需手动合并
+- 每个文件 50-150 行，AI 和人都易读
+- 按模块组织，职责清晰
+- 减少合并冲突
+- 完全兼容现有工具（Swagger UI、Redoc）
+- 自动打包，无需手动合并
 
 ## 影响范围
 
@@ -67,12 +67,12 @@ cat docs/openapi/schemas/auth.yaml
 ```
 
 ## 实施步骤
-1. ✅ 创建目录结构
-2. ✅ 拆分文件（按模块）
-3. ✅ 配置打包工具
-4. ✅ 验证功能完整性
-5. ✅ 更新项目规范文档
-6. ✅ 更新 AI 工作流程指引
+1. 创建目录结构
+2. 拆分文件（按模块）
+3. 配置打包工具
+4. 验证功能完整性
+5. 更新项目规范文档
+6. 更新 AI 工作流程指引
 
 ## 维护指南
 
@@ -100,10 +100,10 @@ npm run watch:openapi
 4. 运行打包命令
 
 ## 注意事项
-- ⚠️ 不要直接编辑 `docs/openapi.yaml`（自动生成）
-- ⚠️ 修改后必须运行打包命令
-- ⚠️ AI 应读取 `docs/openapi/` 下的文件，而非打包后的大文件
-- ⚠️ 提交代码前确保已打包
+- 不要直接编辑 `docs/openapi.yaml`（自动生成）
+- 修改后必须运行打包命令
+- AI 应读取 `docs/openapi/` 下的文件，而非打包后的大文件
+- 提交代码前确保已打包
 
 ## 参考资料
 - [OpenAPI 最佳实践](https://swagger.io/docs/specification/using-ref/)

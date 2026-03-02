@@ -11,11 +11,11 @@
 - 创建 `.ai/FAQ.md` 常见问题文档
 - 创建 `.ai/self-check.md` AI 自检清单
 - 创建任务指南：
-  - `.ai/guides/api-workflow.md` - API 开发完整流程
-  - `.ai/guides/adding-api-endpoint.md` - 添加新 API 端点
-  - `.ai/guides/creating-component.md` - 创建 React 组件
-  - `.ai/guides/troubleshooting.md` - 故障排查
-  - `.ai/guides/best-practices.md` - 最佳实践
+ - `.ai/guides/api-workflow.md` - API 开发完整流程
+ - `.ai/guides/adding-api-endpoint.md` - 添加新 API 端点
+ - `.ai/guides/creating-component.md` - 创建 React 组件
+ - `.ai/guides/troubleshooting.md` - 故障排查
+ - `.ai/guides/best-practices.md` - 最佳实践
 - 创建文档验证脚本 `scripts/check-ai-docs.sh`
 - 更新 `.kiro/steering/project-rules.md` 添加 AI 协作系统引用
 

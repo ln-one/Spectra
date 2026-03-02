@@ -25,31 +25,31 @@
 ## 目录结构
 
 ```
-app/          # 页面路由
-components/   # UI组件
-  ├── ui/           # 基础组件 (Shadcn/ui)
-  ├── features/     # 功能组件
-  └── layouts/      # 布局组件
-lib/          # 工具库
-  ├── api/          # API 客户端
-  ├── hooks/        # 自定义 Hooks
-  ├── utils/        # 工具函数
-  └── types/        # 类型定义
+app/ # 页面路由
+components/ # UI组件
+ ├── ui/ # 基础组件 (Shadcn/ui)
+ ├── features/ # 功能组件
+ └── layouts/ # 布局组件
+lib/ # 工具库
+ ├── api/ # API 客户端
+ ├── hooks/ # 自定义 Hooks
+ ├── utils/ # 工具函数
+ └── types/ # 类型定义
 ```
 
 ## 组件规范
 
 ```typescript
 interface ChatInterfaceProps {
-  onSend: (message: string) => void
-  messages: Message[]
+ onSend: (message: string) => void
+ messages: Message[]
 }
 
 export function ChatInterface({ onSend, messages }: ChatInterfaceProps) {
-  // 组件逻辑
-  return (
-    // JSX
-  )
+ // 组件逻辑
+ return (
+ // JSX
+ )
 }
 ```
 
@@ -63,10 +63,10 @@ ChatInterface.tsx
 
 # 拆分后
 ChatInterface/
-├── index.tsx         # 编排者
-├── MessageList.tsx   # 子组件
-├── MessageInput.tsx  # 子组件
-└── types.ts          # 类型定义
+├── index.tsx # 编排者
+├── MessageList.tsx # 子组件
+├── MessageInput.tsx # 子组件
+└── types.ts # 类型定义
 ```
 
 ## API 调用
@@ -74,10 +74,10 @@ ChatInterface/
 ```typescript
 // lib/api/chat.ts
 export async function sendMessage(data: SendMessageRequest): Promise<Message> {
-  return apiRequest<Message>('/api/v1/chat/messages', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+ return apiRequest<Message>('/api/v1/chat/messages', {
+ method: 'POST',
+ body: JSON.stringify(data),
+ })
 }
 ```
 

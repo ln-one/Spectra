@@ -10,19 +10,19 @@
 
 ```prisma
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String   // bcrypt 哈希
-  username  String   @unique
-  fullName  String?
-  
-  projects  Project[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([email])
-  @@index([username])
+ id String @id @default(uuid())
+ email String @unique
+ password String // bcrypt 哈希
+ username String @unique
+ fullName String?
+ 
+ projects Project[]
+ 
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ 
+ @@index([email])
+ @@index([username])
 }
 ```
 
@@ -38,11 +38,11 @@ model User {
 
 ```prisma
 model IdempotencyKey {
-  key       String   @id
-  response  String   // JSON 格式的响应
-  createdAt DateTime @default(now())
-  
-  @@index([createdAt])
+ key String @id
+ response String // JSON 格式的响应
+ createdAt DateTime @default(now())
+ 
+ @@index([createdAt])
 }
 ```
 
@@ -54,30 +54,30 @@ model IdempotencyKey {
 
 ```prisma
 model Project {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  name        String
-  description String?
-  
-  // 教学信息
-  subject             String?
-  gradeLevel          String?
-  duration            Int?
-  teachingObjectives  String?  // JSON 格式
-  
-  status      String   @default("draft")
-  
-  conversations   Conversation[]
-  uploads         Upload[]
-  generationTasks GenerationTask[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([userId, status])
-  @@index([userId, createdAt])
+ id String @id @default(uuid())
+ userId String
+ user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+ name String
+ description String?
+ 
+ // 教学信息
+ subject String?
+ gradeLevel String?
+ duration Int?
+ teachingObjectives String? // JSON 格式
+ 
+ status String @default("draft")
+ 
+ conversations Conversation[]
+ uploads Upload[]
+ generationTasks GenerationTask[]
+ 
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ 
+ @@index([userId, status])
+ @@index([userId, createdAt])
 }
 ```
 
@@ -94,17 +94,17 @@ model Project {
 
 ```prisma
 model Conversation {
-  id          String   @id @default(uuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  role        String   // user/assistant/system
-  content     String
-  metadata    String?  // JSON
-  
-  createdAt   DateTime @default(now())
-  
-  @@index([projectId, createdAt])
+ id String @id @default(uuid())
+ projectId String
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ 
+ role String // user/assistant/system
+ content String
+ metadata String? // JSON
+ 
+ createdAt DateTime @default(now())
+ 
+ @@index([projectId, createdAt])
 }
 ```
 
@@ -118,27 +118,27 @@ model Conversation {
 
 ```prisma
 model Upload {
-  id          String   @id @default(uuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  filename    String
-  filepath    String
-  fileType    String   // pdf/word/ppt/image/video
-  mimeType    String?
-  size        Int
-  
-  status       String   @default("uploading")
-  parseResult  String?  // JSON
-  errorMessage String?
-  usageIntent  String?
-  
-  chunks      ParsedChunk[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([projectId, status])
+ id String @id @default(uuid())
+ projectId String
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ 
+ filename String
+ filepath String
+ fileType String // pdf/word/ppt/image/video
+ mimeType String?
+ size Int
+ 
+ status String @default("uploading")
+ parseResult String? // JSON
+ errorMessage String?
+ usageIntent String?
+ 
+ chunks ParsedChunk[]
+ 
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ 
+ @@index([projectId, status])
 }
 ```
 
@@ -152,18 +152,18 @@ model Upload {
 
 ```prisma
 model ParsedChunk {
-  id          String   @id @default(uuid())
-  uploadId    String
-  upload      Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
-  
-  content     String
-  chunkIndex  Int
-  metadata    String?  // JSON
-  sourceType  String
-  
-  createdAt   DateTime @default(now())
-  
-  @@index([uploadId, chunkIndex])
+ id String @id @default(uuid())
+ uploadId String
+ upload Upload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+ 
+ content String
+ chunkIndex Int
+ metadata String? // JSON
+ sourceType String
+ 
+ createdAt DateTime @default(now())
+ 
+ @@index([uploadId, chunkIndex])
 }
 ```
 
@@ -173,22 +173,22 @@ model ParsedChunk {
 
 ```prisma
 model GenerationTask {
-  id          String   @id @default(uuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  taskType    String   // ppt/word/both
-  status      String   @default("pending")
-  progress    Int      @default(0)
-  
-  inputData    String?  // JSON
-  outputUrls   String?  // JSON
-  errorMessage String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([projectId, status])
+ id String @id @default(uuid())
+ projectId String
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ 
+ taskType String // ppt/word/both
+ status String @default("pending")
+ progress Int @default(0)
+ 
+ inputData String? // JSON
+ outputUrls String? // JSON
+ errorMessage String?
+ 
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ 
+ @@index([projectId, status])
 }
 ```
 
@@ -221,15 +221,15 @@ user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
 ```prisma
 model Course {
-  id        String   @id @default(uuid())
-  title     String
-  chapters  String   // JSON stored as text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+ id String @id @default(uuid())
+ title String
+ chapters String // JSON stored as text
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
 }
 ```
 
-**状态**: 保留用于兼容现有代码  
+**状态**: 保留用于兼容现有代码 
 **计划**: 后续迁移到 Project 模型后移除
 
 ## 字段命名约定
@@ -251,13 +251,13 @@ model Course {
 from pydantic import BaseModel, Field
 
 class ProjectResponse(BaseModel):
-    id: str
-    user_id: str = Field(alias="userId")
-    name: str
-    created_at: datetime = Field(alias="createdAt")
-    
-    class Config:
-        populate_by_name = True
+ id: str
+ user_id: str = Field(alias="userId")
+ name: str
+ created_at: datetime = Field(alias="createdAt")
+ 
+ class Config:
+ populate_by_name = True
 ```
 
 ## 相关文档

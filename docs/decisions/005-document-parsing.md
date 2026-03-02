@@ -1,7 +1,7 @@
 # ADR-005: 文档解析方案
 
-**状态**: ✅ 已接受  
-**日期**: 2026-02-19  
+**状态**: 已接受 
+**日期**: 2026-02-19 
 **更新**: 2026-02-19（增加 LlamaParse 作为备选）
 
 ## 背景
@@ -10,34 +10,34 @@
 
 ## 考虑的方案
 
-| 方案 | 部署    | 优势                   | 劣势                          |
+| 方案 | 部署 | 优势 | 劣势 |
 |------|-------|----------------------|-----------------------------|
-| **MinerU (Magic-PDF)** | 本地/云端 | 公式识别率极高，中文优化，结构分析能力强 | 文件上传需用url                   |
-| **LlamaParse** | 云端    | 零配置，API 简单，版面分析强     | 数据上云，按量付费                   |
-| Docling (IBM) | 本地    | 速度快                  | LaTeX 转化准确度不如 MinerU        |
-| 多模态大模型直读 | 云端    | 准确度高                 | Token 消耗恐怖（单页 1-10 万 Token） |
-| PyMuPDF | 本地    | 轻量免费                 | 复杂排版处理能力弱                   |
+| **MinerU (Magic-PDF)** | 本地/云端 | 公式识别率极高，中文优化，结构分析能力强 | 文件上传需用url |
+| **LlamaParse** | 云端 | 零配置，API 简单，版面分析强 | 数据上云，按量付费 |
+| Docling (IBM) | 本地 | 速度快 | LaTeX 转化准确度不如 MinerU |
+| 多模态大模型直读 | 云端 | 准确度高 | Token 消耗恐怖（单页 1-10 万 Token） |
+| PyMuPDF | 本地 | 轻量免费 | 复杂排版处理能力弱 |
 
 ## 决策
 
 采用 **可插拔架构**，支持两种解析后端：
 
-| 场景 | 推荐方案              | 理由 |
+| 场景 | 推荐方案 | 理由 |
 |------|-------------------|------|
 | **快速开发/原型** | MinerU/LlamaParse | 零配置，API 调用即可 |
-| **比赛演示/生产** | MinerU            | 满足"本地知识库"要求，完全离线 |
+| **比赛演示/生产** | MinerU | 满足"本地知识库"要求，完全离线 |
 
 ```python
 # 可插拔解析器设计
 class DocumentParser:
-    def __init__(self, backend: str = "mineru"):
-        if backend == "mineru":
-            self.parser = MinerUParser()
-        elif backend == "llamaparse":
-            self.parser = LlamaParseParser()
-    
-    async def parse(self, file_path: str) -> StructuredDocument:
-        return await self.parser.parse(file_path)
+ def __init__(self, backend: str = "mineru"):
+ if backend == "mineru":
+ self.parser = MinerUParser()
+ elif backend == "llamaparse":
+ self.parser = LlamaParseParser()
+ 
+ async def parse(self, file_path: str) -> StructuredDocument:
+ return await self.parser.parse(file_path)
 ```
 
 ## MinerU 优势（主选）
@@ -76,13 +76,13 @@ class DocumentParser:
 
 ## 权衡
 
-| 考量 | MinerU    | LlamaParse |
+| 考量 | MinerU | LlamaParse |
 |------|-----------|------------|
-| 数据隐私 | ✅ 可选择完全本地 | ⚠️ 上传云端 |
-| 部署复杂度 | ✅ 简单      | ✅ 简单 |
-| 离线能力 | ✅ 支持      | ❌ 需要网络 |
-| 中文公式 | ✅ 极好      | 一般 |
-| 成本 | ✅ 免费      | 按量付费 |
+| 数据隐私 | 可选择完全本地 | 上传云端 |
+| 部署复杂度 | 简单 | 简单 |
+| 离线能力 | 支持 | 需要网络 |
+| 中文公式 | 极好 | 一般 |
+| 成本 | 免费 | 按量付费 |
 
 ## 影响
 

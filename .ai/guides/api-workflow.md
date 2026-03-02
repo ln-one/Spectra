@@ -1,6 +1,6 @@
 # API 开发工作流程
 
-> 最后更新：2026-02-26 | 版本：1.0  
+> 最后更新：2026-02-26 | 版本：1.0 
 > 任务类型：api | 预估 tokens：600
 
 ## 适用场景
@@ -25,7 +25,7 @@
 | 项目 | `docs/openapi/paths/project.yaml` | `docs/openapi/schemas/project.yaml` |
 | RAG | `docs/openapi/paths/rag.yaml` | `docs/openapi/schemas/rag.yaml` |
 
-**⚠️ 重要**：不要读取 `docs/openapi.yaml`（1200+ 行，自动生成）
+** 重要**：不要读取 `docs/openapi.yaml`（1200+ 行，自动生成）
 
 ---
 
@@ -51,41 +51,41 @@ cat docs/openapi/schemas/auth.yaml
 
 ```yaml
 /api/v1/auth/login:
-  post:
-    summary: 用户登录
-    tags:
-      - auth
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../schemas/auth.yaml#/components/schemas/LoginRequest'
-    responses:
-      '200':
-        description: 登录成功
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/auth.yaml#/components/schemas/LoginResponse'
+ post:
+ summary: 用户登录
+ tags:
+ - auth
+ requestBody:
+ required: true
+ content:
+ application/json:
+ schema:
+ $ref: '../schemas/auth.yaml#/components/schemas/LoginRequest'
+ responses:
+ '200':
+ description: 登录成功
+ content:
+ application/json:
+ schema:
+ $ref: '../schemas/auth.yaml#/components/schemas/LoginResponse'
 ```
 
 **编辑数据模型**（`docs/openapi/schemas/{模块}.yaml`）：
 
 ```yaml
 components:
-  schemas:
-    LoginRequest:
-      type: object
-      required:
-        - username
-        - password
-      properties:
-        username:
-          type: string
-        password:
-          type: string
-          format: password
+ schemas:
+ LoginRequest:
+ type: object
+ required:
+ - username
+ - password
+ properties:
+ username:
+ type: string
+ password:
+ type: string
+ format: password
 ```
 
 ### 3. 打包和验证
@@ -100,7 +100,7 @@ npm run validate:openapi
 
 **预期输出**：
 ```
-✅ OpenAPI specification is valid
+ OpenAPI specification is valid
 ```
 
 **如果验证失败**：
@@ -118,16 +118,16 @@ npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
 **生成的类型**：
 ```typescript
 export interface LoginRequest {
-  username: string;
-  password: string;
+ username: string;
+ password: string;
 }
 
 export interface LoginResponse {
-  success: boolean;
-  data: {
-    token: string;
-    user: User;
-  };
+ success: boolean;
+ data: {
+ token: string;
+ user: User;
+ };
 }
 ```
 
@@ -143,16 +143,16 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
-    # 实现登录逻辑
-    user = await auth_service.authenticate(request.username, request.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    token = await auth_service.create_token(user)
-    return LoginResponse(
-        success=True,
-        data={"token": token, "user": user}
-    )
+ # 实现登录逻辑
+ user = await auth_service.authenticate(request.username, request.password)
+ if not user:
+ raise HTTPException(status_code=401, detail="Invalid credentials")
+ 
+ token = await auth_service.create_token(user)
+ return LoginResponse(
+ success=True,
+ data={"token": token, "user": user}
+ )
 ```
 
 **创建 Schema**（`backend/schemas/auth.py`）：
@@ -161,12 +161,12 @@ async def login(request: LoginRequest):
 from pydantic import BaseModel
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+ username: str
+ password: str
 
 class LoginResponse(BaseModel):
-    success: bool
-    data: dict
+ success: bool
+ data: dict
 ```
 
 **注册路由**（`backend/main.py`）：
@@ -186,10 +186,10 @@ import { apiClient } from './client';
 import type { LoginRequest, LoginResponse } from '../types/api';
 
 export const authApi = {
-  login: async (data: LoginRequest): Promise<LoginResponse> => {
-    const response = await apiClient.post('/api/v1/auth/login', data);
-    return response.data;
-  },
+ login: async (data: LoginRequest): Promise<LoginResponse> => {
+ const response = await apiClient.post('/api/v1/auth/login', data);
+ return response.data;
+ },
 };
 ```
 
@@ -199,14 +199,14 @@ export const authApi = {
 import { authApi } from '@/lib/api/auth';
 
 const handleLogin = async () => {
-  try {
-    const response = await authApi.login({ username, password });
-    if (response.success) {
-      // 处理成功
-    }
-  } catch (error) {
-    // 处理错误
-  }
+ try {
+ const response = await authApi.login({ username, password });
+ if (response.success) {
+ // 处理成功
+ }
+ } catch (error) {
+ // 处理错误
+ }
 };
 ```
 
@@ -216,12 +216,12 @@ const handleLogin = async () => {
 
 ```python
 def test_login_success(client):
-    response = client.post("/api/v1/auth/login", json={
-        "username": "test",
-        "password": "password"
-    })
-    assert response.status_code == 200
-    assert response.json()["success"] is True
+ response = client.post("/api/v1/auth/login", json={
+ "username": "test",
+ "password": "password"
+ })
+ assert response.status_code == 200
+ assert response.json()["success"] is True
 ```
 
 **前端测试**（`frontend/__tests__/auth.test.ts`）：
@@ -230,11 +230,11 @@ def test_login_success(client):
 import { authApi } from '@/lib/api/auth';
 
 test('login success', async () => {
-  const response = await authApi.login({
-    username: 'test',
-    password: 'password'
-  });
-  expect(response.success).toBe(true);
+ const response = await authApi.login({
+ username: 'test',
+ password: 'password'
+ });
+ expect(response.success).toBe(true);
 });
 ```
 

@@ -1,17 +1,17 @@
 # 前端 API 更新清单
 
-## 📋 需要更新的模块
+## 需要更新的模块
 
 根据最新的 OpenAPI 规范，以下模块需要更新：
 
-### 1. ✅ 已实现的模块（无需更新）
+### 1. 已实现的模块（无需更新）
 
-- `auth.ts` - 认证 API ✅
-- `projects.ts` - 项目 CRUD ✅
-- `preview.ts` - 预览 API ✅
-- `rag.ts` - RAG 检索 ✅
+- `auth.ts` - 认证 API
+- `projects.ts` - 项目 CRUD
+- `preview.ts` - 预览 API
+- `rag.ts` - RAG 检索
 
-### 2. ⚠️ 需要更新的模块
+### 2. 需要更新的模块
 
 #### A. `generate.ts` - 生成 API
 
@@ -21,10 +21,10 @@
 
 ```typescript
 async downloadCourseware(
-  taskId: string,
-  fileType: 'ppt' | 'word'
+ taskId: string,
+ fileType: 'ppt' | 'word'
 ): Promise<Blob> {
-  // GET /api/v1/generate/tasks/{task_id}/download?file_type={type}
+ // GET /api/v1/generate/tasks/{task_id}/download?file_type={type}
 }
 ```
 
@@ -32,7 +32,7 @@ async downloadCourseware(
 
 ```typescript
 async getTaskVersions(taskId: string): Promise<VersionsResponse> {
-  // GET /api/v1/generate/tasks/{task_id}/versions
+ // GET /api/v1/generate/tasks/{task_id}/versions
 }
 ```
 
@@ -77,23 +77,23 @@ interface GenerateRequest {
 
 ```typescript
 async sendVoiceMessage(
-  audio: File,
-  projectId: string
+ audio: File,
+ projectId: string
 ): Promise<VoiceMessageResponse> {
-  // POST /api/v1/chat/voice
-  // Content-Type: multipart/form-data
+ // POST /api/v1/chat/voice
+ // Content-Type: multipart/form-data
 }
 
 interface VoiceMessageResponse {
-  success: boolean;
-  data: {
-    text: string;  // 识别的文本
-    confidence: number;  // 识别置信度
-    duration: number;  // 音频时长
-    message: Message;  // 自动创建的消息
-    suggestions?: string[];
-  };
-  message: string;
+ success: boolean;
+ data: {
+ text: string; // 识别的文本
+ confidence: number; // 识别置信度
+ duration: number; // 音频时长
+ message: Message; // 自动创建的消息
+ suggestions?: string[];
+ };
+ message: string;
 }
 ```
 
@@ -118,66 +118,66 @@ interface UploadedFile {
 }
 ```
 
-### 3. 📝 实现优先级
+### 3. 实现优先级
 
 #### P0 - 立即实现（本周）
 
-- ✅ 文件下载接口 (`generate.ts`)
-- ✅ 路径更新 (`generate.ts`)
-- ✅ 基础模板选项 (`generate.ts`)
+- 文件下载接口 (`generate.ts`)
+- 路径更新 (`generate.ts`)
+- 基础模板选项 (`generate.ts`)
 
 #### P1 - 重要功能（下周）
 
-- ⚠️ 语音输入接口 (`chat.ts`)
-- ⚠️ 版本管理接口 (`generate.ts`)
-- ⚠️ 文件解析状态增强 (`files.ts`)
+- 语音输入接口 (`chat.ts`)
+- 版本管理接口 (`generate.ts`)
+- 文件解析状态增强 (`files.ts`)
 
 #### P2 - 可选功能（后续迭代）
 
-- 🔄 动画和游戏生成选项
-- 🔄 高级模板配置
+- 动画和游戏生成选项
+- 高级模板配置
 
-## 🔧 具体修改建议
+## 具体修改建议
 
 ### 1. 更新 `generate.ts`
 
 ```typescript
 // 添加下载方法
 async downloadCourseware(
-  taskId: string,
-  fileType: 'ppt' | 'word'
+ taskId: string,
+ fileType: 'ppt' | 'word'
 ): Promise<Blob> {
-  if (MOCK_MODE) {
-    // Mock 实现
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return new Blob(['mock file content'], {
-      type: fileType === 'ppt'
-        ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    });
-  }
+ if (MOCK_MODE) {
+ // Mock 实现
+ await new Promise(resolve => setTimeout(resolve, 500));
+ return new Blob(['mock file content'], {
+ type: fileType === 'ppt'
+ ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+ : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+ });
+ }
 
-  const response = await fetch(
-    getApiUrl(\`/generate/tasks/\${taskId}/download?file_type=\${fileType}\`),
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': \`Bearer \${localStorage.getItem('access_token')}\`
-      }
-    }
-  );
+ const response = await fetch(
+ getApiUrl(\`/generate/tasks/\${taskId}/download?file_type=\${fileType}\`),
+ {
+ method: 'GET',
+ headers: {
+ 'Authorization': \`Bearer \${localStorage.getItem('access_token')}\`
+ }
+ }
+ );
 
-  if (!response.ok) throw new Error('下载失败');
-  return response.blob();
+ if (!response.ok) throw new Error('下载失败');
+ return response.blob();
 }
 
 // 更新路径
 async getGenerateStatus(taskId: string): Promise<GenerateStatusResponse> {
-  // 旧路径: /generate/status/${taskId}
-  // 新路径: /generate/tasks/${taskId}/status
-  return request<GenerateStatusResponse>(\`/generate/tasks/\${taskId}/status\`, {
-    method: "GET",
-  });
+ // 旧路径: /generate/status/${taskId}
+ // 新路径: /generate/tasks/${taskId}/status
+ return request<GenerateStatusResponse>(\`/generate/tasks/\${taskId}/status\`, {
+ method: "GET",
+ });
 }
 ```
 
@@ -186,38 +186,38 @@ async getGenerateStatus(taskId: string): Promise<GenerateStatusResponse> {
 ```typescript
 // 添加语音输入方法
 async sendVoiceMessage(
-  audio: File,
-  projectId: string
+ audio: File,
+ projectId: string
 ): Promise<VoiceMessageResponse> {
-  if (MOCK_MODE) {
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    return {
-      success: true,
-      data: {
-        text: "这是模拟的语音识别结果",
-        confidence: 0.95,
-        duration: audio.size / 16000, // 模拟时长
-        message: {
-          id: \`msg-\${Date.now()}\`,
-          role: 'user',
-          content: "这是模拟的语音识别结果",
-          timestamp: new Date().toISOString()
-        },
-        suggestions: ["继续对话", "生成课件"]
-      },
-      message: "识别成功"
-    };
-  }
+ if (MOCK_MODE) {
+ await new Promise(resolve => setTimeout(resolve, 2000));
+ return {
+ success: true,
+ data: {
+ text: "这是模拟的语音识别结果",
+ confidence: 0.95,
+ duration: audio.size / 16000, // 模拟时长
+ message: {
+ id: \`msg-\${Date.now()}\`,
+ role: 'user',
+ content: "这是模拟的语音识别结果",
+ timestamp: new Date().toISOString()
+ },
+ suggestions: ["继续对话", "生成课件"]
+ },
+ message: "识别成功"
+ };
+ }
 
-  const formData = new FormData();
-  formData.append('audio', audio);
-  formData.append('project_id', projectId);
+ const formData = new FormData();
+ formData.append('audio', audio);
+ formData.append('project_id', projectId);
 
-  return request<VoiceMessageResponse>('/chat/voice', {
-    method: 'POST',
-    body: formData,
-    // 注意：FormData 会自动设置 Content-Type
-  });
+ return request<VoiceMessageResponse>('/chat/voice', {
+ method: 'POST',
+ body: formData,
+ // 注意：FormData 会自动设置 Content-Type
+ });
 }
 ```
 
@@ -229,7 +229,7 @@ cd frontend
 npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
 ```
 
-## ✅ 验证清单
+## 验证清单
 
 更新完成后，请验证：
 
@@ -240,7 +240,7 @@ npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
 - [ ] 构建无错误
 - [ ] ESLint 检查通过
 
-## 📚 相关文档
+## 相关文档
 
 - [OpenAPI 规范](../docs/openapi.yaml)
 - [OpenAPI 使用指南](../docs/OPENAPI_GUIDE.md)

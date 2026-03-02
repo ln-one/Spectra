@@ -69,10 +69,10 @@ npm run test:coverage
 ```
 backend/
 ├── tests/
-│   ├── conftest.py      # 共享 fixtures
-│   ├── test_api.py      # API 路由测试
-│   └── test_services.py # 服务层测试
-└── pytest.ini           # pytest 配置
+│ ├── conftest.py # 共享 fixtures
+│ ├── test_api.py # API 路由测试
+│ └── test_services.py # 服务层测试
+└── pytest.ini # pytest 配置
 ```
 
 ### 前端
@@ -80,10 +80,10 @@ backend/
 ```
 frontend/
 ├── __tests__/
-│   ├── example.test.tsx  # 示例测试
-│   └── utils.test.ts     # 工具函数测试
-├── jest.config.ts        # Jest 配置
-└── jest.setup.ts         # Jest 初始化
+│ ├── example.test.tsx # 示例测试
+│ └── utils.test.ts # 工具函数测试
+├── jest.config.ts # Jest 配置
+└── jest.setup.ts # Jest 初始化
 ```
 
 ## 编写测试
@@ -97,16 +97,16 @@ from fastapi.testclient import TestClient
 from main import app
 
 def test_example(client):
-    """测试示例"""
-    response = client.get("/api/example")
-    assert response.status_code == 200
-    assert "data" in response.json()
+ """测试示例"""
+ response = client.get("/api/example")
+ assert response.status_code == 200
+ assert "data" in response.json()
 
 @pytest.mark.asyncio
 async def test_async_example():
-    """异步测试示例"""
-    result = await some_async_function()
-    assert result is not None
+ """异步测试示例"""
+ result = await some_async_function()
+ assert result is not None
 ```
 
 ### 前端测试示例
@@ -117,17 +117,17 @@ import { render, screen } from '@testing-library/react'
 import { MyComponent } from '@/components/MyComponent'
 
 describe('MyComponent', () => {
-  it('正确渲染标题', () => {
-    render(<MyComponent title="测试标题" />)
-    expect(screen.getByText('测试标题')).toBeInTheDocument()
-  })
+ it('正确渲染标题', () => {
+ render(<MyComponent title="测试标题" />)
+ expect(screen.getByText('测试标题')).toBeInTheDocument()
+ })
 
-  it('处理点击事件', () => {
-    const handleClick = jest.fn()
-    render(<MyComponent onClick={handleClick} />)
-    screen.getByRole('button').click()
-    expect(handleClick).toHaveBeenCalledTimes(1)
-  })
+ it('处理点击事件', () => {
+ const handleClick = jest.fn()
+ render(<MyComponent onClick={handleClick} />)
+ screen.getByRole('button').click()
+ expect(handleClick).toHaveBeenCalledTimes(1)
+ })
 })
 ```
 

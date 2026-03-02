@@ -19,11 +19,11 @@
 **实现**:
 ```python
 def create_refresh_token(self, data: dict) -> str:
-    """生成 Refresh Token (7天有效期)"""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=7)
-    to_encode.update({"exp": expire, "type": "refresh"})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+ """生成 Refresh Token (7天有效期)"""
+ to_encode = data.copy()
+ expire = datetime.utcnow() + timedelta(days=7)
+ to_encode.update({"exp": expire, "type": "refresh"})
+ return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 ```
 
 **未来优化**:
@@ -43,8 +43,8 @@ def create_refresh_token(self, data: dict) -> str:
 ```python
 @router.post("/logout")
 async def logout(current_user = Depends(get_current_user)):
-    """退出登录（轻量实现）"""
-    return {"success": True, "message": "Logged out successfully"}
+ """退出登录（轻量实现）"""
+ return {"success": True, "message": "Logged out successfully"}
 ```
 
 **安全考虑**:

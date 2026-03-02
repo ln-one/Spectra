@@ -56,21 +56,21 @@ pytest
 1. Settings → Branches → Add rule
 2. Branch name pattern: `main`
 3. 勾选:
-   - Require status checks to pass before merging
-   - Require branches to be up to date before merging
-   - 选择 `frontend` 和 `backend` 检查
+ - Require status checks to pass before merging
+ - Require branches to be up to date before merging
+ - 选择 `frontend` 和 `backend` 检查
 
 ## 工作流程
 
 ```
 开发者提交代码
-    ↓
+ ↓
 GitHub Actions 自动运行
-    ↓
+ ↓
 前端检查 + 后端检查
-    ↓
-全部通过 ✅ → 可以合并
-失败 ❌ → 修复后重新提交
+ ↓
+全部通过 → 可以合并
+失败 → 修复后重新提交
 ```
 
 ## 扩展
@@ -80,8 +80,8 @@ GitHub Actions 自动运行
 
 ```yaml
 - name: Run tests
-  working-directory: frontend
-  run: npm test
+ working-directory: frontend
+ run: npm test
 ```
 
 ### 添加部署

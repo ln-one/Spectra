@@ -42,7 +42,7 @@ EMBEDDING_DIMENSION=1536
 # =============================================================================
 STORAGE_TYPE="local"
 UPLOAD_DIR="./uploads"
-MAX_FILE_SIZE=104857600  # 100MB
+MAX_FILE_SIZE=104857600 # 100MB
 ALLOWED_EXTENSIONS=".pdf,.docx,.pptx,.mp4,.mov"
 
 # =============================================================================
@@ -73,7 +73,7 @@ DATABASE_URL="postgresql://user:password@postgres:5432/spectra"
 # =============================================================================
 JWT_SECRET_KEY="CHANGE-THIS-TO-A-RANDOM-SECRET-KEY-IN-PRODUCTION"
 JWT_ALGORITHM="HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES=1440  # 24 小时
+ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 小时
 
 # =============================================================================
 # AI/LLM Configuration
@@ -142,7 +142,7 @@ NEXT_PUBLIC_ENABLE_AI_GENERATION="true"
 NEXT_PUBLIC_ENABLE_FILE_UPLOAD="true"
 
 # Upload Configuration
-NEXT_PUBLIC_MAX_FILE_SIZE=104857600  # 100MB
+NEXT_PUBLIC_MAX_FILE_SIZE=104857600 # 100MB
 
 # Debug
 NEXT_PUBLIC_DEBUG="true"
@@ -198,6 +198,6 @@ openssl rand -base64 32
 
 ## 相关文档
 
-- [Security Configuration](./security-configuration.md) - 安全配置
-- [Deployment Guide](./deployment-guide.md) - 部署指南
-<!-- REVIEW #B9 (P1): 上述两个链接文件当前不存在，需修复断链。 -->
+- [Deployment Overview](../deployment.md) - 部署指南入口
+- [Production Deployment](./production-deployment.md) - 生产部署步骤
+- [Troubleshooting](./troubleshooting.md) - 排查手册

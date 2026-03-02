@@ -44,20 +44,20 @@ API 定义采用模块化组织，位于 `docs/openapi/` 目录：
 
 ```
 docs/openapi/
-├── paths/          # API 路径定义
-│   ├── auth.yaml   # 认证相关接口
-│   ├── files.yaml  # 文件管理接口
-│   ├── generate.yaml # 课件生成接口
-│   └── project.yaml  # 项目管理接口
-├── schemas/        # 数据模型定义
-│   ├── auth.yaml
-│   ├── files.yaml
-│   ├── generate.yaml
-│   └── common.yaml
-└── components/     # 可复用组件
-    ├── parameters.yaml
-    ├── responses.yaml
-    └── security.yaml
+├── paths/ # API 路径定义
+│ ├── auth.yaml # 认证相关接口
+│ ├── files.yaml # 文件管理接口
+│ ├── generate.yaml # 课件生成接口
+│ └── project.yaml # 项目管理接口
+├── schemas/ # 数据模型定义
+│ ├── auth.yaml
+│ ├── files.yaml
+│ ├── generate.yaml
+│ └── common.yaml
+└── components/ # 可复用组件
+ ├── parameters.yaml
+ ├── responses.yaml
+ └── security.yaml
 ```
 
 ### 打包后的文件
@@ -125,8 +125,8 @@ npm run validate:openapi
 # backend/routers/auth.py
 @router.post("/register")
 async def register(request: RegisterRequest):
-    # 实现注册逻辑
-    pass
+ # 实现注册逻辑
+ pass
 ```
 
 ### 5. 验证一致性

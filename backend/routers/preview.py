@@ -9,7 +9,9 @@ import json
 import logging
 from html import escape as html_escape
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel, Field
 
 from schemas.preview import (
     ExportData,
@@ -35,6 +37,13 @@ router = APIRouter(prefix="/preview", tags=["Preview"])
 logger = logging.getLogger(__name__)
 
 
+class ExportRequest(BaseModel):
+    """导出请求"""
+
+    format: str = Field(..., description="导出格式: json/markdown/html")
+    include_sources: bool = Field(True, description="是否包含来源信息")
+
+
 async def _resolve_task(task_or_project_id: str, user_id: str):
     """Resolve identifier as task_id first, then project_id fallback."""
     task = await db_service.get_generation_task(task_or_project_id)
@@ -56,6 +65,31 @@ async def _resolve_task(task_or_project_id: str, user_id: str):
     if not latest_task:
         raise NotFoundException(message="暂无可预览的生成任务")
     return latest_task, project
+
+
+def _build_slides(task, project):
+    """Build slides payload for a task."""
+    return [
+        {
+            "id": f"{task.id}-slide-1",
+            "index": 0,
+            "title": project.name,
+            "content": (
+                f"项目《{project.name}》课件已生成。\n"
+                "你可以在页面中下载 PPT 或 Word 文件，或回到对话页继续修改需求。"
+            ),
+        },
+        {
+            "id": f"{task.id}-slide-2",
+            "index": 1,
+            "title": "任务信息",
+            "content": (
+                f"任务状态: {task.status}\n"
+                f"任务类型: {task.taskType}\n"
+                f"进度: {task.progress}%"
+            ),
+        },
+    ]
 
 
 @router.get("/{task_id}")
@@ -124,6 +158,11 @@ async def modify_preview(
             ).model_dump(),
             message="修改完成",
         )
+        if cache_key:
+            await db_service.save_idempotency_response(
+                cache_key, jsonable_encoder(response_payload)
+            )
+        return response_payload
     except APIException:
         raise
     except Exception as e:
