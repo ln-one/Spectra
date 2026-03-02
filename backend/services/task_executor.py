@@ -4,6 +4,7 @@ RQ 任务执行器
 执行课件生成任务，包含错误处理和状态更新。
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -38,14 +39,15 @@ async def execute_generation_task(
     Raises:
         Exception: 任务执行失败时抛出异常
     """
-    from services.database import db_service
+    from services.database import DatabaseService
 
     start_time = time.time()
+    db_service = DatabaseService()
     db_connected = False
 
     try:
         # RQ 在任务执行时会创建/关闭事件循环，数据库连接必须在当前循环中建立
-        await db_service.connect()
+        await asyncio.wait_for(db_service.connect(), timeout=10)
         db_connected = True
 
         logger.info(
@@ -74,7 +76,7 @@ async def execute_generation_task(
         )
 
         # 构建用户需求
-        user_requirements = await _build_user_requirements(project_id)
+        user_requirements = await _build_user_requirements(db_service, project_id)
 
         # 生成课件内容
         courseware_content = await ai_service.generate_courseware_content(
@@ -213,12 +215,17 @@ async def execute_generation_task(
     finally:
         if db_connected:
             try:
-                await db_service.disconnect()
+                # 避免 disconnect 挂住 worker，导致后续任务长期排队
+                await asyncio.wait_for(db_service.disconnect(), timeout=5)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    f"Database disconnect timed out in task {task_id}; continue anyway"
+                )
             except Exception as e:
                 logger.warning(f"Failed to disconnect database in task {task_id}: {e}")
 
 
-async def _build_user_requirements(project_id: str) -> str:
+async def _build_user_requirements(db_service, project_id: str) -> str:
     """
     构建用户需求文本
 
@@ -228,8 +235,6 @@ async def _build_user_requirements(project_id: str) -> str:
     Returns:
         用户需求文本
     """
-    from services.database import db_service
-
     # 获取项目信息
     project = await db_service.get_project(project_id)
     if not project:
