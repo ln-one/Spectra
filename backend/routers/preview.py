@@ -9,9 +9,7 @@ import json
 import logging
 from html import escape as html_escape
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
-from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from schemas.preview import (
     ExportData,
@@ -35,13 +33,6 @@ from utils.responses import success_response
 
 router = APIRouter(prefix="/preview", tags=["Preview"])
 logger = logging.getLogger(__name__)
-
-
-class ExportRequest(BaseModel):
-    """导出请求"""
-
-    format: str = Field(..., description="导出格式: json/markdown/html")
-    include_sources: bool = Field(True, description="是否包含来源信息")
 
 
 async def _resolve_task(task_or_project_id: str, user_id: str):
@@ -158,11 +149,6 @@ async def modify_preview(
             ).model_dump(),
             message="修改完成",
         )
-        if cache_key:
-            await db_service.save_idempotency_response(
-                cache_key, jsonable_encoder(response_payload)
-            )
-        return response_payload
     except APIException:
         raise
     except Exception as e:
