@@ -149,7 +149,7 @@ async def generate_courseware(
     生成课件
 
     创建一个后台生成任务，立即返回任务 ID。
-    任务将在后台异步处理，用户可通过 /generate/status/{task_id} 查询状态。
+    任务将在后台异步处理，用户可通过 /generate/tasks/{task_id}/status (under /api/v1)查询状态。
 
     Args:
         request: 生成请求（包含项目ID和生成类型）
