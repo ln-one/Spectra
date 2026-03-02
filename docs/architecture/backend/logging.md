@@ -220,4 +220,4 @@ json_logging.init_request_instrument(app)
 ## 相关文档
 
 - [Error Handling](./error-handling.md) - 错误处理
-- [Deployment](./deployment.md) - 部署配置
+- [Deployment](../deployment.md) - 部署配置

@@ -127,7 +127,7 @@ git push origin feat/feature-name
 
 ## Related Documentation
 
-- [Tech Stack](./project/tech-stack.md)
+- [Tech Stack](./architecture/tech-stack.md)
 - [Project Requirements](./project/requirements.md)
 - [Technical Decisions](./decisions/)
 

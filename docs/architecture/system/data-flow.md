@@ -90,7 +90,8 @@ sequenceDiagram
     B-->>F: 返回文件信息
     
     Note over B,AI: 异步处理
-    B->>AI: 调用 LlamaParse/Qwen-VL
+    B->>AI: 调用当前解析链路 (pypdf/docx/pptx)
+    Note over B,AI: MinerU/LlamaParse/Qwen-VL 为规划中能力
     AI-->>B: 返回解析结果
     B->>DB: 更新 Upload<br/>(status=ready, parseResult)
     B->>DB: 创建 ParsedChunk 记录

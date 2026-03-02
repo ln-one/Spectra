@@ -271,7 +271,7 @@ npm run test
 
 ```
 Spectra/
-├── frontend/          # Next.js 14 应用
+├── frontend/          # Next.js 15 应用
 │   ├── app/          # 页面和路由
 │   ├── components/   # React 组件
 │   └── lib/          # 工具函数

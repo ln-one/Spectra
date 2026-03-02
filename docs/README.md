@@ -1,35 +1,32 @@
-# Spectra Documentation
+# Spectra 文档中心
 
-AI-powered intelligent courseware generation system documentation.
+> 更新时间：2026-03-02
+> 目标：文档按“入口清晰、状态明确、与代码对齐”组织。
 
-> **Important**: Read [Contributing Guide (CONTRIBUTING.md)](./CONTRIBUTING.md) before starting
+## 1. 先读（核心）
 
-## Quick Links
+- [贡献规范](./CONTRIBUTING.md)
+- [技术栈（MVP 对齐版）](./architecture/tech-stack.md)
+- [系统总览](./architecture/system/overview.md)
+- [OpenAPI 文档](./openapi/README.md)
 
-### Core
-- [Contributing Guide](./CONTRIBUTING.md) - Must read
-- [Rules Hierarchy](./RULES_HIERARCHY.md) - AI collaboration rules
+## 2. 架构与设计
 
-### Project Basics
-- [Requirements](./project/requirements.md)
-- [Tech Stack](./project/tech-stack.md)
+- [架构目录说明](./architecture/README.md)
+- [技术决策 ADR](./decisions/README.md)
 
-### Standards
-- [Frontend Standards](./standards/frontend.md)
-- [Backend Standards](./standards/backend.md)
-- [Git Standards](./standards/git.md)
-- [Documentation Standards](./standards/documentation.md)
+## 3. 开发与协作
 
-### Development
-- [Docker Setup](./guides/docker-setup.md)
-- [CI/CD Guide](./guides/ci-cd.md)
+- [开发指南](./guides/README.md)
+- [工程规范](./standards/README.md)
 
-### Architecture & Decisions
-- [Architecture Design](./architecture/)
-- [Technical Decisions (ADR)](./decisions/)
+## 4. 项目与需求资料
 
-### Requirements Analysis (Current Phase)
-- [Requirements](./requirements/)
-  - [UX Requirements](./requirements/ux/)
-  - [Functional Requirements](./requirements/functional/)
-  - [AI Capabilities](./requirements/ai/)
+- [项目原始需求](./project/requirements.md)
+- [需求分析目录](./requirements/README.md)
+
+## 5. 文档状态约定
+
+- `已落地`：代码中已存在实现。
+- `规划中`：有方案但未接入主流程。
+- `历史文档`：仅保留背景，不作为当前实现依据。

@@ -119,8 +119,6 @@ DASHSCOPE_API_KEY="sk-your-real-api-key"
 | `docs/project/MVP_CHECKLIST.md` | MVP 功能清单 |
 | `docs/project/MVP_TEST_GUIDE.md` | 详细测试指南 |
 | `docs/project/MVP_AI_CONFIG.md` | AI 配置说明 |
-| `docs/project/TEAM_DIVISION.md` | 团队分工 |
-| `docs/project/PHASE1_TASKS.md` | Phase 1 任务 |
 
 ---
 
