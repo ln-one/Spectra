@@ -453,4 +453,4 @@ This project is licensed under the [Creative Commons Attribution-NonCommercial 4
 
 - [x] Free to use, copy, and modify
 - [x] Attribution required
-- [ ] **Commercial use prohibited**
+- [x] **Commercial use prohibited**
