@@ -47,9 +47,17 @@ async def lifespan(app: FastAPI):
     try:
         await redis_manager.connect()
         logger.info("Redis connection established")
+
+        # Initialize task queue service
+        from services.task_queue import TaskQueueService
+
+        redis_conn = redis_manager.get_connection()
+        app.state.task_queue_service = TaskQueueService(redis_conn)
+        logger.info("Task queue service initialized")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
         logger.warning("Application starting without Redis - task queue will not work")
+        app.state.task_queue_service = None
 
     yield
 
