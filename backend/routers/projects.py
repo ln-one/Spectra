@@ -144,10 +144,7 @@ async def get_projects(
             extra={"user_id": user_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取项目列表失败",
-        )
+        raise
 
 
 @router.get("/{project_id}")
