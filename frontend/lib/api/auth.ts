@@ -26,46 +26,22 @@ export interface AuthResponse {
 }
 
 // Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
-const mockUsers: UserInfo[] = [
-  {
-    id: "user-1",
-    email: "test@example.com",
-    username: "testuser",
-    fullName: "Test User",
-    createdAt: new Date().toISOString(),
-  },
-];
-
-const mockTokens: Record<string, string> = {
-  "test@example.com": "mock-jwt-token-user-1",
-};
-
-const mockRefreshTokens: Record<string, string> = {
-  "test@example.com": "mock-refresh-token-user-1",
-};
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _mockUsers: UserInfo[] = [];
 
 export const authApi = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const token = mockTokens[data.email] || `mock-jwt-token-${Date.now()}`;
-      const refreshToken =
-        mockRefreshTokens[data.email] || `mock-refresh-token-${Date.now()}`;
-      const user = mockUsers.find((u) => u.email === data.email) || {
-        id: `user-${Date.now()}`,
-        email: data.email,
-        username: data.email.split("@")[0],
-        createdAt: new Date().toISOString(),
-      };
       return {
         success: true,
         data: {
-          access_token: token,
-          refresh_token: refreshToken,
+          access_token: "mock-jwt-token",
+          refresh_token: "mock-refresh-token",
           expires_in: 3600,
-          user,
         },
-        message: "登录成功",
+        message: "Mock 登录成功",
       };
     }
 
@@ -78,32 +54,16 @@ export const authApi = {
 
   async register(data: RegisterRequest): Promise<AuthResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const existingUser = mockUsers.find((u) => u.email === data.email);
-      if (existingUser) {
-        throw new Error("用户已存在");
-      }
-      const newUser: UserInfo = {
-        id: `user-${Date.now()}`,
-        email: data.email,
-        username: data.username,
-        fullName: data.fullName,
-        createdAt: new Date().toISOString(),
-      };
-      mockUsers.push(newUser);
-      const token = `mock-jwt-token-${Date.now()}`;
-      const refreshToken = `mock-refresh-token-${Date.now()}`;
-      mockTokens[data.email] = token;
-      mockRefreshTokens[data.email] = refreshToken;
       return {
         success: true,
         data: {
-          access_token: token,
-          refresh_token: refreshToken,
+          access_token: "mock-jwt-token",
+          refresh_token: "mock-refresh-token",
           expires_in: 3600,
-          user: newUser,
         },
-        message: "注册成功",
+        message: "Mock 注册成功",
       };
     }
 
@@ -116,13 +76,20 @@ export const authApi = {
 
   async getCurrentUser(): Promise<components["schemas"]["UserInfoResponse"]> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 300));
       return {
         success: true,
         data: {
-          user: mockUsers[0],
+          user: {
+            id: "mock-user-id",
+            email: "mock@example.com",
+            username: "mockuser",
+            fullName: "Mock User",
+            createdAt: new Date().toISOString(),
+          },
         },
-        message: "获取成功",
+        message: "Mock 获取成功",
       };
     }
 
@@ -133,10 +100,11 @@ export const authApi = {
 
   async logout(): Promise<{ success: boolean; message: string }> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 200));
       return {
         success: true,
-        message: "退出登录成功",
+        message: "Mock 退出登录成功",
       };
     }
 
@@ -147,18 +115,16 @@ export const authApi = {
 
   async refreshToken(data: { refreshToken: string }): Promise<AuthResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 300));
-      const token = `mock-jwt-token-${Date.now()}`;
-      const refreshToken = `mock-refresh-token-${Date.now()}`;
       return {
         success: true,
         data: {
-          access_token: token,
-          refresh_token: refreshToken,
+          access_token: "mock-jwt-token",
+          refresh_token: "mock-refresh-token",
           expires_in: 3600,
-          user: mockUsers[0],
         },
-        message: "刷新成功",
+        message: "Mock 刷新成功",
       };
     }
 

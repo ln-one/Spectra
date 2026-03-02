@@ -64,58 +64,8 @@ function getFileTypeFromExtension(
 }
 
 // Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
-const mockFiles: UploadedFile[] = [
-  {
-    id: "file-1",
-    filename: "二次函数教学大纲.pdf",
-    file_type: "pdf",
-    mime_type: "application/pdf",
-    file_size: 1024000,
-    status: "ready",
-    parse_progress: 100,
-    parse_details: {
-      pages_extracted: 15,
-      images_extracted: 8,
-      text_length: 5420,
-    },
-    usage_intent: "用于第一章概念讲解",
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "file-2",
-    filename: "教学案例集.docx",
-    file_type: "word",
-    mime_type:
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    file_size: 512000,
-    status: "ready",
-    parse_progress: 100,
-    parse_details: {
-      pages_extracted: 10,
-      images_extracted: 3,
-      text_length: 3200,
-    },
-    usage_intent: "案例分析素材",
-    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "file-3",
-    filename: "课堂实录.mp4",
-    file_type: "video",
-    mime_type: "video/mp4",
-    file_size: 52428800,
-    status: "ready",
-    parse_progress: 100,
-    parse_details: {
-      duration: 1800, // 30分钟
-    },
-    usage_intent: "示例视频",
-    created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _mockFiles: UploadedFile[] = [];
 
 function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
   return {
@@ -150,6 +100,7 @@ export const filesApi = {
     onProgress?: (progress: number) => void
   ): Promise<UploadResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 1000));
       if (onProgress) {
         onProgress(100);
@@ -157,27 +108,23 @@ export const filesApi = {
       const fileType = getFileTypeFromExtension(
         file.name.split(".").pop() || ""
       );
-      const newFile: UploadedFile = {
-        id: `file-${Date.now()}`,
-        filename: file.name,
-        file_type: fileType,
-        mime_type: file.type,
-        file_size: file.size,
-        status: "ready",
-        parse_progress: 100,
-        parse_details: {
-          pages_extracted: Math.floor(Math.random() * 20) + 1,
-          images_extracted: Math.floor(Math.random() * 10),
-          text_length: Math.floor(Math.random() * 10000) + 1000,
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      mockFiles.unshift(newFile);
       return {
         success: true,
-        data: { file: newFile },
-        message: "上传成功",
+        data: {
+          file: {
+            id: `mock-file-${Date.now()}`,
+            filename: file.name,
+            file_type: fileType,
+            mime_type: file.type,
+            file_size: file.size,
+            status: "ready",
+            parse_progress: 100,
+            parse_details: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        },
+        message: "Mock 上传成功",
       };
     }
 
@@ -225,21 +172,17 @@ export const filesApi = {
     params?: { page?: number; limit?: number }
   ): Promise<GetFilesResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 300));
-      const page = params?.page || 1;
-      const limit = params?.limit || 20;
-      const start = (page - 1) * limit;
-      const end = start + limit;
-      const files = mockFiles.slice(start, end);
       return {
         success: true,
         data: {
-          files,
-          total: mockFiles.length,
-          page,
-          limit,
+          files: [],
+          total: 0,
+          page: params?.page || 1,
+          limit: params?.limit || 20,
         },
-        message: "获取成功",
+        message: "Mock 获取成功",
       };
     }
 
@@ -267,20 +210,26 @@ export const filesApi = {
     data: UpdateFileIntentRequest
   ): Promise<UpdateFileIntentResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 300));
-      const index = mockFiles.findIndex((f) => f.id === fileId);
-      if (index === -1) {
-        throw new Error("文件不存在");
-      }
-      mockFiles[index] = {
-        ...mockFiles[index],
-        usage_intent: data.usage_intent,
-        updated_at: new Date().toISOString(),
-      };
       return {
         success: true,
-        data: { file: mockFiles[index] },
-        message: "标注成功",
+        data: {
+          file: {
+            id: fileId,
+            filename: "mock.pdf",
+            file_type: "pdf",
+            mime_type: "application/pdf",
+            file_size: 0,
+            status: "ready",
+            parse_progress: 100,
+            parse_details: {},
+            usage_intent: data.usage_intent,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        },
+        message: "Mock 标注成功",
       };
     }
 
@@ -303,15 +252,11 @@ export const filesApi = {
     fileId: string
   ): Promise<{ success: boolean; message: string }> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 300));
-      const index = mockFiles.findIndex((f) => f.id === fileId);
-      if (index === -1) {
-        throw new Error("文件不存在");
-      }
-      mockFiles.splice(index, 1);
       return {
         success: true,
-        message: "删除成功",
+        message: "Mock 删除成功",
       };
     }
 
@@ -324,30 +269,14 @@ export const filesApi = {
     fileIds: string[]
   ): Promise<components["schemas"]["BatchDeleteResponse"]> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const deleted: number[] = [];
-      const failed: { file_id: string; error: string }[] = [];
-
-      for (const fileId of fileIds) {
-        const index = mockFiles.findIndex((f) => f.id === fileId);
-        if (index !== -1) {
-          mockFiles.splice(index, 1);
-          deleted.push(1);
-        } else {
-          failed.push({
-            file_id: fileId,
-            error: "文件不存在",
-          });
-        }
-      }
-
       return {
         success: true,
         data: {
-          deleted: deleted.length,
-          failed: failed.length > 0 ? failed : undefined,
+          deleted: fileIds.length,
         },
-        message: "批量删除完成",
+        message: "Mock 批量删除完成",
       };
     }
 
@@ -366,45 +295,32 @@ export const filesApi = {
     onProgress?: (progress: number) => void
   ): Promise<components["schemas"]["BatchUploadResponse"]> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 1500));
       if (onProgress) {
         onProgress(100);
       }
 
-      const uploadedFiles: UploadedFile[] = [];
-      const failed: { filename: string; error: string }[] = [];
-
-      for (const file of files) {
-        const fileType = getFileTypeFromExtension(
-          file.name.split(".").pop() || ""
-        );
-        uploadedFiles.push({
-          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          filename: file.name,
-          file_type: fileType,
-          mime_type: file.type,
-          file_size: file.size,
-          status: "ready",
-          parse_progress: 100,
-          parse_details: {
-            pages_extracted: Math.floor(Math.random() * 20) + 1,
-            images_extracted: Math.floor(Math.random() * 10),
-            text_length: Math.floor(Math.random() * 10000) + 1000,
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-        mockFiles.unshift(uploadedFiles[uploadedFiles.length - 1]);
-      }
-
       return {
         success: true,
         data: {
-          files: uploadedFiles,
-          total: uploadedFiles.length,
-          failed: failed.length > 0 ? failed : undefined,
+          files: files.map((file, i) => ({
+            id: `mock-file-${Date.now()}-${i}`,
+            filename: file.name,
+            file_type: getFileTypeFromExtension(
+              file.name.split(".").pop() || ""
+            ),
+            mime_type: file.type,
+            file_size: file.size,
+            status: "ready",
+            parse_progress: 100,
+            parse_details: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })),
+          total: files.length,
         },
-        message: "批量上传成功",
+        message: "Mock 批量上传成功",
       };
     }
 

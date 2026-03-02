@@ -21,41 +21,21 @@ export type GenerateStatusResponse =
   components["schemas"]["GenerateStatusResponse"];
 
 // Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
-interface MockTask {
-  id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  progress: number;
-  result?: {
-    ppt_url?: string;
-    word_url?: string;
-    version?: number;
-  };
-  error?: string;
-}
-
-const mockTasks: Map<string, MockTask> = new Map();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _mockTasks: Map<string, { status: string; progress: number }> = new Map();
 
 export const generateApi = {
   async generateCourseware(data: GenerateRequest): Promise<GenerateResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const taskId = `task-${Date.now()}`;
-      const task: MockTask = {
-        id: taskId,
-        status: "processing",
-        progress: 0,
-      };
-      mockTasks.set(taskId, task);
-
-      startMockProgress(taskId);
-
       return {
         success: true,
         data: {
-          task_id: taskId,
+          task_id: `mock-task-${Date.now()}`,
           status: "processing",
         },
-        message: "生成任务已创建",
+        message: "Mock 生成任务已创建",
       };
     }
 
@@ -70,29 +50,16 @@ export const generateApi = {
 
   async getGenerateStatus(taskId: string): Promise<GenerateStatusResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 300));
-      const task = mockTasks.get(taskId);
-      if (!task) {
-        return {
-          success: true,
-          data: {
-            task_id: taskId,
-            status: "pending",
-            progress: 0,
-          },
-          message: "任务不存在",
-        };
-      }
       return {
         success: true,
         data: {
-          task_id: task.id,
-          status: task.status,
-          progress: task.progress,
-          result: task.result,
-          error: task.error,
+          task_id: taskId,
+          status: "completed",
+          progress: 100,
         },
-        message: "获取成功",
+        message: "Mock 获取成功",
       };
     }
 
@@ -113,6 +80,7 @@ export const generateApi = {
     fileType: "pptx" | "docx"
   ): Promise<Blob> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 500));
       const content = `Mock ${fileType.toUpperCase()} file content for task ${taskId}`;
       return new Blob([content], {
@@ -168,31 +136,3 @@ export const generateApi = {
     window.URL.revokeObjectURL(url);
   },
 };
-
-function startMockProgress(taskId: string): void {
-  let progress = 0;
-  const interval = setInterval(() => {
-    const task = mockTasks.get(taskId);
-    if (!task) {
-      clearInterval(interval);
-      return;
-    }
-
-    progress += Math.random() * 20;
-    if (progress >= 100) {
-      progress = 100;
-      task.status = "completed";
-      task.progress = 100;
-      task.result = {
-        ppt_url: "/mock/sample.pptx",
-        word_url: "/mock/sample.docx",
-        version: 1,
-      };
-      mockTasks.set(taskId, task);
-      clearInterval(interval);
-    } else {
-      task.progress = Math.round(progress);
-      mockTasks.set(taskId, task);
-    }
-  }, 1000);
-}

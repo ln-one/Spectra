@@ -14,72 +14,21 @@ export type SourceDetailResponse =
   components["schemas"]["SourceDetailResponse"];
 
 // Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
-const mockRAGResults = [
-  {
-    chunk_id: "chunk-1",
-    content:
-      "二次函数是指未知数的最高次数为二次的多项式函数。一般式为 y = ax² + bx + c（a≠0）。",
-    score: 0.95,
-    source: {
-      chunk_id: "chunk-1",
-      source_type: "document" as const,
-      filename: "初中数学教材.pdf",
-      page_number: 45,
-      preview_text: "二次函数是指未知数的最高次数为二次的多项式函数...",
-    },
-  },
-  {
-    chunk_id: "chunk-2",
-    content:
-      "二次函数的图像是一条抛物线。当 a>0 时，抛物线开口向上；当 a<0 时，抛物线开口向下。",
-    score: 0.88,
-    source: {
-      chunk_id: "chunk-2",
-      source_type: "document" as const,
-      filename: "初中数学教材.pdf",
-      page_number: 48,
-      preview_text: "二次函数的图像是一条抛物线...",
-    },
-  },
-  {
-    chunk_id: "chunk-3",
-    content: "顶点坐标为 (-b/2a, (4ac-b²)/4a)，对称轴为直线 x = -b/2a。",
-    score: 0.82,
-    source: {
-      chunk_id: "chunk-3",
-      source_type: "document" as const,
-      filename: "教学参考.pdf",
-      page_number: 12,
-      preview_text: "顶点坐标为...",
-    },
-  },
-  {
-    chunk_id: "chunk-4",
-    content: "例题：已知二次函数 y = x² - 4x + 3，求其顶点坐标和对称轴。",
-    score: 0.75,
-    source: {
-      chunk_id: "chunk-4",
-      source_type: "document" as const,
-      filename: "习题集.pdf",
-      page_number: 23,
-      preview_text: "例题：已知二次函数...",
-    },
-  },
-];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _mockRAGResults = [];
 
 export const ragApi = {
   async search(data: RAGSearchRequest): Promise<RAGSearchResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 800));
-      const topK = data.top_k || 5;
-      const results = mockRAGResults.slice(0, topK);
       return {
         success: true,
         data: {
-          results,
-          total: results.length,
+          results: [],
+          total: 0,
         },
-        message: "检索成功",
+        message: "Mock 检索成功",
       };
     }
 
@@ -91,32 +40,32 @@ export const ragApi = {
 
   async getSourceDetail(chunkId: string): Promise<SourceDetailResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 300));
-      const result = mockRAGResults.find((r) => r.chunk_id === chunkId);
-      if (!result) {
-        throw new Error("来源不存在");
-      }
       return {
         success: true,
         data: {
-          chunk_id: result.chunk_id,
-          content: result.content,
-          source: result.source,
-          context: {
-            previous_chunk: "上一段内容...",
-            next_chunk: "下一段内容...",
+          chunk_id: chunkId,
+          content: "Mock content",
+          source: {
+            chunk_id: chunkId,
+            source_type: "document",
+            filename: "mock.pdf",
+            page_number: 1,
+            preview_text: "Mock preview",
           },
+          context: {},
           file_info: {
-            id: "file-1",
-            filename: result.source.filename,
+            id: "mock-file-id",
+            filename: "mock.pdf",
             file_type: "pdf",
-            file_size: 1024000,
+            file_size: 0,
             status: "ready",
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
         },
-        message: "获取成功",
+        message: "Mock 获取成功",
       };
     }
 
@@ -131,19 +80,15 @@ export const ragApi = {
     threshold?: number;
   }): Promise<RAGSearchResponse> {
     if (ENABLE_MOCK) {
+      // TODO: 临时调试用，生产环境应删除此分支
       await new Promise((resolve) => setTimeout(resolve, 800));
-      const topK = data.top_k || 5;
-      const threshold = data.threshold || 0.7;
-      const results = mockRAGResults
-        .slice(0, topK)
-        .filter((r) => r.score >= threshold);
       return {
         success: true,
         data: {
-          results,
-          total: results.length,
+          results: [],
+          total: 0,
         },
-        message: "相似内容查找成功",
+        message: "Mock 相似内容查找成功",
       };
     }
 
