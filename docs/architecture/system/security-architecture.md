@@ -6,30 +6,30 @@
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant F as Frontend
-    participant B as Backend
-    participant DB as Database
+ participant C as Client
+ participant F as Frontend
+ participant B as Backend
+ participant DB as Database
 
-    C->>F: 1. 访问登录页
-    F->>C: 显示登录表单
-    
-    C->>F: 2. 提交邮箱密码
-    F->>B: POST /auth/login
-    B->>DB: 验证用户凭证
-    DB-->>B: 返回用户信息
-    B->>B: 生成 JWT Token
-    B-->>F: 返回 {access_token, user}
-    F->>F: 存储 Token 到 localStorage
-    F-->>C: 跳转到项目列表
-    
-    C->>F: 3. 访问受保护资源
-    F->>B: GET /projects<br/>Header: Authorization: Bearer {token}
-    B->>B: 验证 JWT Token
-    B->>DB: 查询用户项目
-    DB-->>B: 返回项目列表
-    B-->>F: 返回数据
-    F-->>C: 显示项目列表
+ C->>F: 1. 访问登录页
+ F->>C: 显示登录表单
+ 
+ C->>F: 2. 提交邮箱密码
+ F->>B: POST /auth/login
+ B->>DB: 验证用户凭证
+ DB-->>B: 返回用户信息
+ B->>B: 生成 JWT Token
+ B-->>F: 返回 {access_token, user}
+ F->>F: 存储 Token 到 localStorage
+ F-->>C: 跳转到项目列表
+ 
+ C->>F: 3. 访问受保护资源
+ F->>B: GET /projects<br/>Header: Authorization: Bearer {token}
+ B->>B: 验证 JWT Token
+ B->>DB: 查询用户项目
+ DB-->>B: 返回项目列表
+ B-->>F: 返回数据
+ F-->>C: 显示项目列表
 ```
 
 ### Token 管理
@@ -38,23 +38,23 @@ sequenceDiagram
 ```python
 # services/auth_service.py
 def create_access_token(user_id: str) -> str:
-    payload = {
-        "sub": user_id,
-        "exp": datetime.utcnow() + timedelta(minutes=30)
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+ payload = {
+ "sub": user_id,
+ "exp": datetime.utcnow() + timedelta(minutes=30)
+ }
+ return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 ```
 
 **Token 验证**：
 ```python
 # utils/dependencies.py
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+ credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    token = credentials.credentials
-    payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    user_id = payload.get("sub")
-    return await db_service.get_user_by_id(user_id)
+ token = credentials.credentials
+ payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+ user_id = payload.get("sub")
+ return await db_service.get_user_by_id(user_id)
 ```
 **双 Token 刷新机制 (Refresh Token)**
 - Access Token：有效期 30 分钟，用于常规 API 请求。
@@ -76,9 +76,9 @@ async def get_current_user(
 # routers/projects.py
 @router.get("/projects")
 async def get_projects(current_user = Depends(get_current_user)):
-    # 自动过滤当前用户的项目
-    projects = await db_service.get_user_projects(current_user.id)
-    return {"success": True, "data": projects}
+ # 自动过滤当前用户的项目
+ projects = await db_service.get_user_projects(current_user.id)
+ return {"success": True, "data": projects}
 ```
 
 ### 权限检查
@@ -86,18 +86,18 @@ async def get_projects(current_user = Depends(get_current_user)):
 ```python
 # utils/dependencies.py
 async def verify_project_access(
-    project_id: str,
-    current_user = Depends(get_current_user)
+ project_id: str,
+ current_user = Depends(get_current_user)
 ):
-    project = await db_service.get_project(project_id)
-    
-    if not project:
-        raise HTTPException(status_code=404)
-    
-    if project.userId != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    return project
+ project = await db_service.get_project(project_id)
+ 
+ if not project:
+ raise HTTPException(status_code=404)
+ 
+ if project.userId != current_user.id:
+ raise HTTPException(status_code=403, detail="Access denied")
+ 
+ return project
 ```
 
 ## API 安全
@@ -107,11 +107,11 @@ async def verify_project_access(
 ```python
 # main.py
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+ CORSMiddleware,
+ allow_origins=["http://localhost:5173"],
+ allow_credentials=True,
+ allow_methods=["*"],
+ allow_headers=["*"],
 )
 ```
 
@@ -128,8 +128,8 @@ app.state.limiter = limiter
 @router.post("/courseware")
 @limiter.limit("5/minute")
 async def create_generation_task(request: Request, data: GenerateRequest):
-    # 每分钟最多 5 次生成请求
-    pass
+ # 每分钟最多 5 次生成请求
+ pass
 ```
 
 ### 幂等性保护
@@ -138,23 +138,23 @@ async def create_generation_task(request: Request, data: GenerateRequest):
 # routers/generate.py
 @router.post("/courseware")
 async def create_generation_task(
-    request: GenerateRequest,
-    idempotency_key: str = Header(None, alias="Idempotency-Key")
+ request: GenerateRequest,
+ idempotency_key: str = Header(None, alias="Idempotency-Key")
 ):
-    if idempotency_key:
-        # 检查是否重复请求
-        existing = await idempotency_service.check(idempotency_key)
-        if existing:
-            return existing.response
-    
-    # 执行业务逻辑
-    result = await generation_service.create_task(request)
-    
-    # 缓存响应
-    if idempotency_key:
-        await idempotency_service.store(idempotency_key, result)
-    
-    return result
+ if idempotency_key:
+ # 检查是否重复请求
+ existing = await idempotency_service.check(idempotency_key)
+ if existing:
+ return existing.response
+ 
+ # 执行业务逻辑
+ result = await generation_service.create_task(request)
+ 
+ # 缓存响应
+ if idempotency_key:
+ await idempotency_service.store(idempotency_key, result)
+ 
+ return result
 ```
 
 ## 数据安全
@@ -168,10 +168,10 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+ return pwd_context.hash(password)
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+ return pwd_context.verify(plain, hashed)
 ```
 
 ### 输入验证
@@ -181,9 +181,9 @@ def verify_password(plain: str, hashed: str) -> bool:
 from pydantic import BaseModel, EmailStr, Field
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=100)
-    username: str = Field(min_length=3, max_length=50, pattern="^[a-zA-Z0-9_-]+$")
+ email: EmailStr
+ password: str = Field(min_length=8, max_length=100)
+ username: str = Field(min_length=3, max_length=50, pattern="^[a-zA-Z0-9_-]+$")
 ```
 
 ### SQL 注入防护
@@ -217,16 +217,16 @@ LLAMA_PARSE_API_KEY=llx-xxx
 ```python
 # utils/log_sanitizer.py
 def sanitize_log_data(data: dict) -> dict:
-    sensitive_keys = ["password", "token", "api_key", "secret"]
-    
-    sanitized = {}
-    for key, value in data.items():
-        if any(s in key.lower() for s in sensitive_keys):
-            sanitized[key] = "***REDACTED***"
-        else:
-            sanitized[key] = value
-    
-    return sanitized
+ sensitive_keys = ["password", "token", "api_key", "secret"]
+ 
+ sanitized = {}
+ for key, value in data.items():
+ if any(s in key.lower() for s in sensitive_keys):
+ sanitized[key] = "***REDACTED***"
+ else:
+ sanitized[key] = value
+ 
+ return sanitized
 ```
 
 ## 安全最佳实践

@@ -1,15 +1,16 @@
-# Development Guides
+# 开发指南
 
-## Available Guides
+> 更新时间：2026-03-02
 
-- [Getting Started](./getting-started.md) - Quick start guide for new developers
-- [Docker Setup Guide](./docker-setup.md) - Development environment with Docker
-- [CI/CD Guide](./ci-cd.md) - Continuous integration with GitHub Actions
-- [Code Quality Guide](./code-quality.md) - Linting and formatting tools
+## 推荐阅读顺序
 
-## Planned Guides
+1. [Getting Started](./getting-started.md) - 环境准备与本地启动
+2. [Testing](./testing.md) - 测试与验证
+3. [Code Quality](./code-quality.md) - Lint/Format/质量门禁
+4. [CI/CD](./ci-cd.md) - 持续集成流程
+5. [Docker Setup](./docker-setup.md) - 容器化开发
 
-- [ ] Testing Guide
-- [ ] Deployment Guide
-- [ ] API Integration Guide
+## 说明
 
+- `onboarding.md` 作为补充流程清单，不再重复环境安装步骤。
+- Docker 问题优先看 `docker-setup.md`，再看 `docker-fix.md`。

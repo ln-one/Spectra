@@ -121,15 +121,15 @@ python -m pytest tests/ --cov=services.generation --cov=services.template --cov-
 ## 测试覆盖
 
 当前测试覆盖：
-- ✅ GenerationService 核心功能（单元测试）
-- ✅ TemplateService 模板功能（单元测试）
-- ✅ 自定义异常类（单元测试）
-- ✅ 错误处理逻辑（单元测试）
-- ✅ 工具检测（单元测试）
-- ✅ 端到端生成流程（集成测试）
-- ✅ 文件格式验证（集成测试）
-- ✅ 性能测试（集成测试）
-- ⏳ API 端点测试（Phase 2B）
+- GenerationService 核心功能（单元测试）
+- TemplateService 模板功能（单元测试）
+- 自定义异常类（单元测试）
+- 错误处理逻辑（单元测试）
+- 工具检测（单元测试）
+- 端到端生成流程（集成测试）
+- 文件格式验证（集成测试）
+- 性能测试（集成测试）
+- API 端点测试（Phase 2B）
 
 ## 测试结果
 
@@ -140,7 +140,7 @@ python -m pytest tests/ --cov=services.generation --cov=services.template --cov-
 - 14 集成测试
 ```
 
-所有测试通过 ✅
+所有测试通过 
 
 ## 测试标记
 
@@ -183,8 +183,8 @@ pandoc --version
 
 ## 下一步
 
-- ✅ 单元测试完成
-- ✅ 集成测试完成
+- 单元测试完成
+- 集成测试完成
 - [ ] 增加测试覆盖率到 90%+
 - [ ] 添加性能基准测试
 - [ ] 添加 API 端点测试（Phase 2B）

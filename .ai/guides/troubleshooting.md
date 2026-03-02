@@ -1,6 +1,6 @@
 # 故障排查指南
 
-> 最后更新：2026-02-26 | 版本：1.0  
+> 最后更新：2026-02-26 | 版本：1.0 
 > 任务类型：all | 预估 tokens：500
 
 ## 前端常见问题
@@ -22,11 +22,11 @@ Error: Module not found: Can't resolve '@/components/Button'
 
 ```json
 {
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+ "compilerOptions": {
+ "paths": {
+ "@/*": ["./src/*"]
+ }
+ }
 }
 ```
 
@@ -64,15 +64,15 @@ Error: Hydration failed because the initial UI does not match what was rendered 
 import { useEffect, useState } from 'react';
 
 export function MyComponent() {
-  const [mounted, setMounted] = useState(false);
+ const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+ useEffect(() => {
+ setMounted(true);
+ }, []);
 
-  if (!mounted) return null;
+ if (!mounted) return null;
 
-  return <div>{window.innerWidth}</div>;
+ return <div>{window.innerWidth}</div>;
 }
 ```
 
@@ -107,7 +107,7 @@ Error: Network Error
 ```typescript
 // frontend/lib/api/client.ts
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+ baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
 });
 ```
 
@@ -127,11 +127,11 @@ Error: Request failed with status code 401
 ```typescript
 // 在请求拦截器中添加 token
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+ const token = localStorage.getItem('token');
+ if (token) {
+ config.headers.Authorization = `Bearer ${token}`;
+ }
+ return config;
 });
 ```
 
@@ -202,13 +202,13 @@ Error: Can't reach database server
 
 ```
 {
-  "detail": [
-    {
-      "loc": ["body", "title"],
-      "msg": "field required",
-      "type": "value_error.missing"
-    }
-  ]
+ "detail": [
+ {
+ "loc": ["body", "title"],
+ "msg": "field required",
+ "type": "value_error.missing"
+ }
+ ]
 }
 ```
 
@@ -221,8 +221,8 @@ Error: Can't reach database server
 
 ```python
 class CreateCourseRequest(BaseModel):
-    title: str  # 必填
-    description: Optional[str] = None  # 可选
+ title: str # 必填
+ description: Optional[str] = None # 可选
 ```
 
 #### 错误：500 Internal Server Error
@@ -236,11 +236,11 @@ class CreateCourseRequest(BaseModel):
 
 ```python
 try:
-    result = await some_operation()
-    return {"success": True, "data": result}
+ result = await some_operation()
+ return {"success": True, "data": result}
 except Exception as e:
-    logger.error(f"Error: {str(e)}")
-    raise HTTPException(status_code=500, detail="Internal server error")
+ logger.error(f"Error: {str(e)}")
+ raise HTTPException(status_code=500, detail="Internal server error")
 ```
 
 ---

@@ -68,11 +68,11 @@
 ## 规则优先级理解
 
 - [ ] 我知道规则冲突时的优先级顺序：
-  1. OpenAPI 规范（API 契约）
-  2. 代码规范（`docs/standards/`）
-  3. 任务指南（`.ai/guides/`）
-  4. 全局规约（`.cursorrules`）
-  5. 子目录规约（`frontend/.cursorrules`, `backend/.cursorrules`）
+ 1. OpenAPI 规范（API 契约）
+ 2. 代码规范（`docs/standards/`）
+ 3. 任务指南（`.ai/guides/`）
+ 4. 全局规约（`.cursorrules`）
+ 5. 子目录规约（`frontend/.cursorrules`, `backend/.cursorrules`）
 
 ---
 
@@ -123,20 +123,20 @@
 
 回答以下问题：
 
-1. **Q**: 我需要查看认证相关的 API，应该读取哪个文件？  
-   **A**: `docs/openapi/paths/auth.yaml` 和 `docs/openapi/schemas/auth.yaml`
+1. **Q**: 我需要查看认证相关的 API，应该读取哪个文件？ 
+ **A**: `docs/openapi/paths/auth.yaml` 和 `docs/openapi/schemas/auth.yaml`
 
-2. **Q**: 我修改了 OpenAPI 文件，下一步应该做什么？  
-   **A**: 运行 `npm run bundle:openapi` 打包，然后运行 `npm run validate:openapi` 验证
+2. **Q**: 我修改了 OpenAPI 文件，下一步应该做什么？ 
+ **A**: 运行 `npm run bundle:openapi` 打包，然后运行 `npm run validate:openapi` 验证
 
-3. **Q**: 我需要创建一个新的 React 组件，应该参考哪个文档？  
-   **A**: `.ai/guides/creating-component.md`
+3. **Q**: 我需要创建一个新的 React 组件，应该参考哪个文档？ 
+ **A**: `.ai/guides/creating-component.md`
 
-4. **Q**: 我遇到了 "Module not found" 错误，应该怎么办？  
-   **A**: 查看 `.ai/guides/troubleshooting.md` 中的前端常见问题部分
+4. **Q**: 我遇到了 "Module not found" 错误，应该怎么办？ 
+ **A**: 查看 `.ai/guides/troubleshooting.md` 中的前端常见问题部分
 
-5. **Q**: 我不确定应该在哪个模块添加新的 API，应该怎么办？  
-   **A**: 查看 `.ai/guides/adding-api-endpoint.md` 中的"选择模块"部分
+5. **Q**: 我不确定应该在哪个模块添加新的 API，应该怎么办？ 
+ **A**: 查看 `.ai/guides/adding-api-endpoint.md` 中的"选择模块"部分
 
 ---
 

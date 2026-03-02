@@ -3,38 +3,38 @@
 ## Quick Start
 
 1. **Clone the repository**
-   ```bash
-   git clone https://github.com/ln-one/Spectra-Backend.git
-   cd Spectra-Backend
-   ```
+ ```bash
+ git clone https://github.com/ln-one/Spectra-Backend.git
+ cd Spectra-Backend
+ ```
 
 2. **Set up Python environment**
-   ```bash
-   python3.11 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+ ```bash
+ python3.11 -m venv venv
+ source venv/bin/activate # On Windows: venv\Scripts\activate
+ ```
 
 3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+ ```bash
+ pip install -r requirements.txt
+ ```
 
 4. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your API keys
-   ```
+ ```bash
+ cp .env.example .env
+ # Edit .env and add your API keys
+ ```
 
 5. **Initialize database**
-   ```bash
-   prisma generate
-   prisma db push
-   ```
+ ```bash
+ prisma generate
+ prisma db push
+ ```
 
 6. **Run the server**
-   ```bash
-   uvicorn main:app --reload
-   ```
+ ```bash
+ uvicorn main:app --reload
+ ```
 
 The API will be available at `http://localhost:8000`
 
@@ -60,11 +60,11 @@ Update `main.py` to configure specific origins:
 
 ```python
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://yourdomain.com"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+ CORSMiddleware,
+ allow_origins=["https://yourdomain.com"],
+ allow_credentials=False,
+ allow_methods=["*"],
+ allow_headers=["*"],
 )
 ```
 
@@ -113,8 +113,8 @@ Once running, access the interactive API documentation at:
 When you update the Prisma schema:
 
 ```bash
-prisma db push  # Development
-prisma migrate dev  # Production (creates migration files)
+prisma db push # Development
+prisma migrate dev # Production (creates migration files)
 ```
 
 ## Monitoring and Logging
