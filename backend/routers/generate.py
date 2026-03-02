@@ -232,7 +232,6 @@ async def generate_courseware(
                 else None
             ),
             priority="default",
-            timeout=1800,  # 30 minutes
         )
 
         # 将 RQ Job ID 存储到数据库
