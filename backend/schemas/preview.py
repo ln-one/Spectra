@@ -70,7 +70,7 @@ class ModifyRequest(BaseModel):
     """修改请求"""
 
     instruction: str = Field(..., min_length=1, max_length=2000)
-    target_slides: Optional[list[str]] = None
+    target_slides: Optional[list[int]] = None
     context: Optional[dict] = None
 
 

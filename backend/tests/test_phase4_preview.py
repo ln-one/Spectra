@@ -9,7 +9,10 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import FastAPI
+from starlette.testclient import TestClient
 
+from routers.preview import router as preview_router
 from schemas.intent import ModifyIntent, ModifyType
 from schemas.outline import CoursewareOutline, OutlineSection
 from schemas.preview import (
@@ -29,6 +32,7 @@ from schemas.preview import (
 from services.ai import AIService
 from services.courseware_ai import CoursewareAIMixin
 from services.quality_service import QualityReport, check_quality
+from utils.dependencies import get_current_user
 
 # ============================================================
 # Preview Schemas
@@ -197,6 +201,10 @@ class TestModifyIntentKeywords:
 
     def test_style_modify(self):
         result = AIService._parse_modify_intent_by_keywords("换一个模板风格")
+        assert result.modify_type == ModifyType.STYLE
+
+    def test_style_theme_color_not_global(self):
+        result = AIService._parse_modify_intent_by_keywords("把主题色改成蓝色")
         assert result.modify_type == ModifyType.STYLE
 
     def test_structure_modify(self):
@@ -400,3 +408,30 @@ class TestParseModifyIntent:
             result = await ai.parse_modify_intent("把第3页标题改成xxx")
         assert isinstance(result, ModifyIntent)
         assert result.target_slides == [3]
+
+
+# ============================================================
+# Preview Router Validation
+# ============================================================
+
+
+class TestPreviewRouterValidation:
+    """preview router 请求体验证测试"""
+
+    def test_modify_preview_invalid_target_slides_returns_422(self):
+        app = FastAPI()
+        app.include_router(preview_router, prefix="/api/v1")
+        app.dependency_overrides[get_current_user] = lambda: "u-001"
+        try:
+            with TestClient(app) as client:
+                resp = client.post(
+                    "/api/v1/preview/task-123/modify",
+                    json={
+                        "instruction": "修改内容",
+                        "target_slides": ["abc"],
+                    },
+                )
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+
+        assert resp.status_code == 422

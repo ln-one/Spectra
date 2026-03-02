@@ -107,19 +107,20 @@ def check_quality(
 
     # 3. 结构一致性（与大纲对比）
     if outline:
-        expected_slides = outline.total_slides
-        actual_slides = len(slides)
-        diff = abs(expected_slides - actual_slides)
-        if diff > 3:
-            issues.append(
-                QualityIssue(
-                    level="warning",
-                    message=(
-                        f"实际页数（{actual_slides}）与大纲预期"
-                        f"（{expected_slides}）差异较大"
-                    ),
+        if outline.total_slides is not None:
+            expected_slides = outline.total_slides
+            actual_slides = len(slides)
+            diff = abs(expected_slides - actual_slides)
+            if diff > 3:
+                issues.append(
+                    QualityIssue(
+                        level="warning",
+                        message=(
+                            f"实际页数（{actual_slides}）与大纲预期"
+                            f"（{expected_slides}）差异较大"
+                        ),
+                    )
                 )
-            )
 
         # 检查大纲章节标题是否在 slides 中出现
         slide_titles = {s["title"].lower() for s in slides if s["title"]}

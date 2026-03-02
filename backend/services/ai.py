@@ -8,6 +8,7 @@ AI Service - LLM 统一接口
 import json
 import logging
 import os
+import re
 from typing import Optional
 
 from litellm import acompletion
@@ -229,8 +230,6 @@ class AIService(CoursewareAIMixin):
     @staticmethod
     def _parse_modify_intent_by_keywords(instruction: str) -> ModifyIntent:
         """基于关键词的修改意图解析回退"""
-        import re as _re
-
         msg = instruction.lower()
 
         # 提取页码
@@ -243,7 +242,7 @@ class AIService(CoursewareAIMixin):
         ]
         found_pages = []
         for pat in page_patterns:
-            found_pages.extend(int(m) for m in _re.findall(pat, msg))
+            found_pages.extend(int(m) for m in re.findall(pat, msg))
         if found_pages:
             target_slides = sorted(set(found_pages))
 
@@ -261,10 +260,10 @@ class AIService(CoursewareAIMixin):
 
         if any(kw in msg for kw in structure_kw):
             modify_type = ModifyType.STRUCTURE
-        elif any(kw in msg for kw in global_kw) and not target_slides:
-            modify_type = ModifyType.GLOBAL
         elif any(kw in msg for kw in style_kw):
             modify_type = ModifyType.STYLE
+        elif any(kw in msg for kw in global_kw) and not target_slides:
+            modify_type = ModifyType.GLOBAL
         else:
             modify_type = ModifyType.CONTENT
 

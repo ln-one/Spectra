@@ -200,11 +200,25 @@ class CoursewareAIMixin:
             modified_raw = self._strip_outer_code_fence(response["content"])
             modified_parts = re.split(r"\n---\s*\n", modified_raw)
 
-            slide_contents = [s["content"] for s in all_slides]
-            for idx, new_part in zip(target_indices, modified_parts):
-                slide_contents[idx] = new_part.strip()
+            if len(modified_parts) != len(target_indices):
+                logger.warning(
+                    "modify_courseware: LLM returned %d sections for %d targets, "
+                    "falling back to full-document regeneration.",
+                    len(modified_parts),
+                    len(target_indices),
+                )
+                prompt = prompt_service.build_modify_prompt(
+                    current_content=current_content,
+                    instruction=instruction,
+                )
+                response = await self.generate(prompt=prompt, max_tokens=4000)
+                new_markdown = self._strip_outer_code_fence(response["content"])
+            else:
+                slide_contents = [s["content"] for s in all_slides]
+                for idx, new_part in zip(target_indices, modified_parts):
+                    slide_contents[idx] = new_part.strip()
 
-            new_markdown = self._reassemble_marp(frontmatter, slide_contents)
+                new_markdown = self._reassemble_marp(frontmatter, slide_contents)
         else:
             prompt = prompt_service.build_modify_prompt(
                 current_content=current_content,

@@ -7,6 +7,7 @@ Preview Router - 课件预览、修改、导出
 
 import json
 import logging
+from html import escape as html_escape
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -98,9 +99,7 @@ async def modify_preview(
 
         from services.ai import ai_service
 
-        target_slides = (
-            [int(s) for s in body.target_slides] if body.target_slides else None
-        )
+        target_slides = body.target_slides
         if not target_slides:
             modify_intent = await ai_service.parse_modify_intent(body.instruction)
             target_slides = modify_intent.target_slides
@@ -225,13 +224,14 @@ async def export_preview(
                 )
         else:
             slides_html = "".join(
-                f"<section><h2>{s.title}</h2>" f"<div>{s.content}</div></section>\n"
+                f"<section><h2>{html_escape(s.title)}</h2>"
+                f"<div>{html_escape(s.content)}</div></section>\n"
                 for s in slides
             )
             export_content = (
                 f"<!DOCTYPE html><html><head>"
                 f"<meta charset='utf-8'>"
-                f"<title>{content.get('title', 'Preview')}</title>"
+                f"<title>{html_escape(content.get('title', 'Preview'))}</title>"
                 f"</head><body>{slides_html}</body></html>"
             )
 
