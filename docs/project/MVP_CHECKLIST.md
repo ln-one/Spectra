@@ -1,198 +1,65 @@
 # MVP 验证清单
 
-> 最后更新：2026-02-26
+> 更新时间：2026-03-02
 
-## 🎯 MVP 目标
+## 验收目标
 
-用户可以完成完整流程：
-```
-注册/登录 → 创建项目 → 生成课件 → 下载文件
-```
+- [ ] 完整跑通一次端到端流程
+- [ ] 记录关键日志与异常处理结果
+- [ ] 产出演示可复现步骤
 
----
+## API 清单
 
-## ✅ 后端 API 检查
+### 认证
+- [x] `POST /auth/register`
+- [x] `POST /auth/login`
+- [x] `GET /auth/me`
+- [x] `POST /auth/refresh`
 
-### 认证 API
-- [x] POST `/auth/register` - 注册
-- [x] POST `/auth/login` - 登录
-- [x] GET `/auth/me` - 获取用户信息
-- [x] POST `/auth/refresh` - 刷新 token
+### 项目
+- [x] `POST /projects`
+- [x] `GET /projects`
+- [x] `GET /projects/{id}`
 
-### 项目 API
-- [x] POST `/projects` - 创建项目
-- [x] GET `/projects` - 获取项目列表
-- [x] GET `/projects/{id}` - 获取项目详情
+### 生成
+- [x] `POST /generate/courseware`
+- [x] `GET /generate/tasks/{id}/status`
+- [x] `GET /generate/tasks/{id}/download`
 
-### 生成 API
-- [x] POST `/generate/courseware` - 创建生成任务
-- [x] GET `/generate/tasks/{id}/status` - 查询状态
-- [x] GET `/generate/tasks/{id}/download` - 下载文件（已修复路径）
+## 页面清单
 
----
+- [x] `/auth/login`
+- [x] `/auth/register`
+- [x] `/projects`
+- [x] `/projects/new`
+- [x] `/projects/[id]`
+- [x] `/projects/[id]/generate`
 
-## ✅ 前端页面检查
+## 端到端手工回归
 
-### 认证页面
-- [x] `/auth/login` - 登录页面
-- [x] `/auth/register` - 注册页面
-- [x] 表单验证（React Hook Form + Zod）
-- [x] 错误提示
-
-### 项目页面
-- [x] `/projects` - 项目列表
-- [x] `/projects/new` - 新建项目
-- [x] `/projects/[id]` - 项目详情
-
-### 生成页面
-- [x] `/projects/[id]/generate` - 生成页面
-- [x] 生成按钮（触发课件生成）
-- [x] 进度显示（实时轮询状态）
-- [x] 下载按钮（PPT + Word）
-- [x] 错误处理和用户反馈
-
----
-
-## ✅ 集成测试
-
-### 端到端流程（待手动测试）
-- [ ] 用户注册成功
-- [ ] 用户登录成功
+- [ ] 注册成功
+- [ ] 登录成功
 - [ ] 创建项目成功
 - [ ] 生成课件成功
 - [ ] 下载 PPT 成功
 - [ ] 下载 Word 成功
 
-### 错误处理（待验证）
-- [ ] 未登录访问受保护页面 → 跳转登录
-- [ ] 重复注册 → 提示已存在
-- [ ] 错误密码 → 提示错误
-- [ ] 下载未完成任务 → 提示等待
+## 错误场景
 
-### 代码层面
-- [x] 后端单元测试通过（255 个测试）
-- [x] 前端单元测试通过（8 个测试）
-- [x] 前端 Lint 检查通过
-- [x] 后端 Lint 检查通过
+- [ ] 未登录访问受保护页面跳转登录
+- [ ] 重复注册返回冲突提示
+- [ ] 密码错误返回认证失败
+- [ ] 未完成任务下载被拦截
 
----
+## 回归命令
 
-## 🧪 测试脚本
-
-### 后端测试
 ```bash
-cd backend
+# 后端
+cd backend && source venv/bin/activate && uvicorn main:app --reload
 
-# 1. 启动服务
-uvicorn main:app --reload
+# 前端
+cd frontend && npm run dev
 
-# 2. 运行下载测试（另一个终端）
-python test_download.py
+# 可选脚本
+./test_integration.sh
 ```
-
-### 前端测试
-```bash
-cd frontend
-
-# 1. 启动开发服务器
-npm run dev
-
-# 2. 手动测试流程
-# - 访问 http://localhost:3000
-# - 注册 → 登录 → 创建项目 → 生成 → 下载
-```
-
----
-
-## 📊 当前状态
-
-| 模块 | 负责人 | 状态 | 备注 |
-|------|--------|------|------|
-| 认证 API | 成员 C | ✅ 完成 | register/login/me/refresh 已实现 |
-| 项目 API | 成员 C | ✅ 完成 | CRUD 已实现 |
-| 生成 API | 成员 A | ✅ 完成 | 创建任务/查询状态已实现 |
-| 下载 API | 成员 A | ✅ 完成 | 下载路由已实现 |
-| 前端认证页 | 成员 B | ✅ 完成 | 登录/注册页面已完成 |
-| 前端项目页 | 成员 B | ✅ 完成 | 列表/详情/新建已完成 |
-| 前端生成页 | 成员 A | ✅ 完成 | 生成页面已创建（2026-02-27） |
-| 前端下载集成 | 成员 A | ✅ 完成 | API 路径已修复 |
-| AI 服务 | 成员 D | ✅ 可用 | RAG/向量化已完成 |
-
----
-
-## 🚨 阻塞问题
-
-记录当前阻塞 MVP 的问题：
-
-| 问题 | 负责人 | 状态 | 解决方案 |
-|------|--------|------|---------|
-| 前端下载 API 路径不匹配 | 成员 A | ✅ 已解决 | 已修复为 `/generate/tasks/{id}/download?file_type={type}` |
-| 缺少前端生成页面 | 成员 A | ✅ 已解决 | 已创建完整生成页面，包含生成按钮、进度跟踪、下载功能 |
-| 后端生成响应格式不符合 OpenAPI | 成员 A | ✅ 已解决 | 修改为使用 `success_response()` 包装响应 |
-| 旧用户密码哈希被截断 | 成员 C | ⚠️  已识别 | 新用户正常，旧用户需重新注册 |
-
----
-
-## 📝 下一步行动
-
-### 立即执行（成员 A - TL）
-1. [ ] 重启后端服务（应用最新修复）：
-   ```bash
-   # 停止当前后端进程
-   pkill -f "uvicorn main:app"
-   
-   # 启动后端（带自动重载）
-   cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   ```
-2. [ ] 启动前端服务：`cd frontend && npm run dev`
-3. [ ] 运行集成测试：`./test_integration.sh`
-4. [ ] 手动测试完整 MVP 流程
-5. [ ] 记录测试结果和问题
-6. [ ] 准备演示视频
-
-### 测试清单
-```bash
-# 1. 后端健康检查
-curl http://localhost:8000/health
-
-# 2. 前端访问
-open http://localhost:3000
-
-# 3. 完整流程测试
-- 注册新用户
-- 登录系统
-- 创建项目
-- 点击"生成"按钮
-- 等待生成完成
-- 下载 PPT 和 Word
-```
-
-### 如果遇到问题
-- 检查后端日志
-- 检查前端控制台
-- 验证数据库连接
-- 确认 Marp/Pandoc 已安装
-
----
-
-## ✅ MVP 完成标准
-
-所有以下场景可以正常运行：
-
-1. ✅ 用户可以注册账号（代码已完成）
-2. ✅ 用户可以登录（代码已完成）
-3. ✅ 用户可以创建项目（代码已完成）
-4. ✅ 用户可以生成课件（代码已完成）
-5. ✅ 用户可以下载 PPT（代码已完成）
-6. ✅ 用户可以下载 Word（代码已完成）
-
-### 🎉 代码完成度：100%
-
-所有 MVP 必需的代码已经实现，现在需要：
-- 手动端到端测试验证
-- 修复测试中发现的问题
-- 准备演示
-
----
-
-*最后更新: 2026-02-27 | 分支: feat/mvp-integration*

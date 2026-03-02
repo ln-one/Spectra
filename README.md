@@ -5,13 +5,13 @@
 
 An AI-powered intelligent courseware generation system that helps educators quickly create high-quality multimodal teaching materials through natural conversation.
 
-## 📚 快速导航
+## 快速导航
 
 | 入门指南 | 开发规范 | 其他 |
 |---------|---------|------|
-| [🚀 快速开始](./docs/guides/getting-started.md) | [🎨 前端规范](./docs/standards/frontend.md) | [📖 贡献指南](./docs/CONTRIBUTING.md) |
-| [🐳 Docker 配置](./docs/guides/docker-setup.md) | [⚙️ 后端规范](./docs/standards/backend.md) | [🔄 CI/CD](./docs/guides/ci-cd.md) |
-| [🧪 测试指南](./docs/guides/testing.md) | [📝 Git 规范](./docs/standards/git.md) | [📋 技术决策](./docs/decisions/) |
+| [快速开始](./docs/guides/getting-started.md) | [前端规范](./docs/standards/frontend.md) | [贡献指南](./docs/CONTRIBUTING.md) |
+| [Docker 配置](./docs/guides/docker-setup.md) | [后端规范](./docs/standards/backend.md) | [CI/CD](./docs/guides/ci-cd.md) |
+| [测试指南](./docs/guides/testing.md) | [Git 规范](./docs/standards/git.md) | [技术决策](./docs/decisions/) |
 
 ## Project Structure
 
@@ -279,22 +279,22 @@ Frontend will be available at http://localhost:3000
 
 ### Current Implementation (Phase 3 - Scaffolding)
 
-- ✅ **Authentication System** - User registration and login (skeleton)
-- ✅ **Project Management** - Create and manage courseware projects
-- ✅ **File Upload** - Drag-and-drop file upload with validation
-- ✅ **API Architecture** - RESTful API with `/api/v1` prefix
-- ✅ **Database Schema** - Complete data models with Prisma ORM
-- ✅ **Error Handling** - Unified error responses and logging
-- ✅ **CI/CD Pipeline** - Automated testing and code quality checks
+- [x] **Authentication System** - User registration and login (skeleton)
+- [x] **Project Management** - Create and manage courseware projects
+- [x] **File Upload** - Drag-and-drop file upload with validation
+- [x] **API Architecture** - RESTful API with `/api/v1` prefix
+- [x] **Database Schema** - Complete data models with Prisma ORM
+- [x] **Error Handling** - Unified error responses and logging
+- [x] **CI/CD Pipeline** - Automated testing and code quality checks
 
 ### Planned Features (Phase 4+)
 
-- 🔄 **AI Chat Interface** - Natural conversation for courseware design
-- 🔄 **Document Parsing** - Extract content from PDFs, DOCX, videos
-- 🔄 **RAG Search** - Knowledge base retrieval for content generation
-- 🔄 **Courseware Generation** - AI-powered slide and lesson plan creation
-- 🔄 **Preview & Editing** - Real-time preview with modification support
-- 🔄 **Multi-format Export** - Export to PPT, PDF, Word formats
+- [ ] **AI Chat Interface** - Natural conversation for courseware design
+- [ ] **Document Parsing** - Extract content from PDFs, DOCX, videos
+- [ ] **RAG Search** - Knowledge base retrieval for content generation
+- [ ] **Courseware Generation** - AI-powered slide and lesson plan creation
+- [ ] **Preview & Editing** - Real-time preview with modification support
+- [ ] **Multi-format Export** - Export to PPT, PDF, Word formats
 
 ## API Endpoints
 
@@ -451,6 +451,6 @@ cd ../backend && pip install -r requirements.txt && prisma generate
 
 This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/).
 
-- ✅ Free to use, copy, and modify
-- ✅ Attribution required
-- ❌ **Commercial use prohibited**
+- [x] Free to use, copy, and modify
+- [x] Attribution required
+- [ ] **Commercial use prohibited**
