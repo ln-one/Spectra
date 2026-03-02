@@ -6,8 +6,8 @@
 
 ```
 main → develop → feature/功能名
-              → bugfix/问题描述
-              → hotfix/紧急修复
+ → bugfix/问题描述
+ → hotfix/紧急修复
 ```
 
 ## Commit 规范
@@ -34,8 +34,8 @@ docs(readme): 更新安装说明
 
 ## 最佳实践
 
-- ✅ 小步提交，频繁提交
-- ✅ 每个 commit 只做一件事
-- ✅ 及时同步 develop 分支
-- ❌ 禁止直接 Push 到 main
+- 小步提交，频繁提交
+- 每个 commit 只做一件事
+- 及时同步 develop 分支
+- 禁止直接 Push 到 main
 

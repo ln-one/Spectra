@@ -15,63 +15,63 @@ FastAPI backend project with Python 3.11, Pydantic v2, and Prisma ORM. Optimized
 
 ```
 Spectra-Backend/
-├── routers/          # API route handlers
-│   ├── auth.py       # Authentication endpoints
-│   ├── files.py      # File upload endpoints
-│   ├── generate.py   # AI generation endpoints
-│   ├── projects.py   # Project management endpoints
-│   ├── chat.py       # Chat endpoints
-│   ├── preview.py    # Preview endpoints
-│   ├── rag.py        # RAG search endpoints
-│   └── courses.py    # Course management endpoints (legacy)
-├── services/         # Business logic layer
-│   ├── db_service.py # Database operations
-│   ├── ai_service.py # AI service integration
-│   ├── file_service.py # File handling
-│   └── auth_service.py # Authentication service
-├── schemas/          # Pydantic models
-│   └── __init__.py   # Data validation schemas
-├── utils/            # Utility modules
-│   ├── dependencies.py # FastAPI dependencies
-│   ├── exceptions.py   # Custom exceptions
-│   ├── logger.py       # Logging configuration
-│   └── responses.py    # Response formatters
-├── prisma/           # Prisma ORM
-│   ├── schema.prisma # Database schema
-│   └── migrations/   # Database migrations
-├── uploads/          # Uploaded files directory
-├── main.py           # Application entry point
-├── requirements.txt  # Python dependencies
-└── .env.example      # Environment variables template
+├── routers/ # API route handlers
+│ ├── auth.py # Authentication endpoints
+│ ├── files.py # File upload endpoints
+│ ├── generate.py # AI generation endpoints
+│ ├── projects.py # Project management endpoints
+│ ├── chat.py # Chat endpoints
+│ ├── preview.py # Preview endpoints
+│ ├── rag.py # RAG search endpoints
+│ └── courses.py # Course management endpoints (legacy)
+├── services/ # Business logic layer
+│ ├── db_service.py # Database operations
+│ ├── ai_service.py # AI service integration
+│ ├── file_service.py # File handling
+│ └── auth_service.py # Authentication service
+├── schemas/ # Pydantic models
+│ └── __init__.py # Data validation schemas
+├── utils/ # Utility modules
+│ ├── dependencies.py # FastAPI dependencies
+│ ├── exceptions.py # Custom exceptions
+│ ├── logger.py # Logging configuration
+│ └── responses.py # Response formatters
+├── prisma/ # Prisma ORM
+│ ├── schema.prisma # Database schema
+│ └── migrations/ # Database migrations
+├── uploads/ # Uploaded files directory
+├── main.py # Application entry point
+├── requirements.txt # Python dependencies
+└── .env.example # Environment variables template
 ```
 
 ## Setup
 
 1. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+ ```bash
+ pip install -r requirements.txt
+ ```
 
 2. **Configure environment**:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+ ```bash
+ cp .env.example .env
+ # Edit .env with your configuration
+ ```
 
 3. **Generate Prisma client**:
-   ```bash
-   prisma generate
-   ```
+ ```bash
+ prisma generate
+ ```
 
 4. **Run database migrations**:
-   ```bash
-   prisma db push
-   ```
+ ```bash
+ prisma db push
+ ```
 
 5. **Start the server**:
-   ```bash
-   uvicorn main:app --reload
-   ```
+ ```bash
+ uvicorn main:app --reload
+ ```
 
 The API will be available at `http://localhost:8000`
 
@@ -181,7 +181,7 @@ CHROMA_PORT="8001"
 
 # File Storage
 STORAGE_TYPE="local"
-MAX_FILE_SIZE=104857600  # 100MB
+MAX_FILE_SIZE=104857600 # 100MB
 ```
 
 ### Code Quality

@@ -1,166 +1,25 @@
 # State Management
 
-## 状态管理方案
+> 状态说明（2026-03-02）：前端业务状态以 Zustand 为主，React Context 仅用于少量 UI 组件上下文。
 
-采用 **React Context + Zustand** 混合方案：
+## 当前实现
 
-- **React Context**: 全局配置、主题、用户信息
-- **Zustand**: 业务状态（项目、对话、上传）
+| Store | 文件 | 主要职责 |
+|---|---|---|
+| Auth Store | `frontend/stores/authStore.ts` | 登录、注册、鉴权状态 |
+| Chat Store | `frontend/stores/chatStore.ts` | 消息列表、发送、语音消息 |
+| Upload Store | `frontend/stores/uploadStore.ts` | 上传队列与文件状态 |
+| Generate Store | `frontend/stores/generateStore.ts` | 生成任务与进度 |
 
-## 状态结构
+## 设计约束
 
-### 1. Project State
+- 业务数据和异步行为放在 Zustand store 中。
+- 组件内部表单状态由 React Hook Form 管理，不放全局 store。
+- React Context 只用于 UI 组件内部上下文（例如 `components/ui/form.tsx`）。
 
-```typescript
-// stores/projectStore.ts
-interface ProjectState {
-  // 数据
-  currentProject: Project | null;
-  projects: Project[];
-  
-  // 操作
-  setCurrentProject: (project: Project) => void;
-  createProject: (data: CreateProjectData) => Promise<Project>;
-  updateProject: (id: string, data: Partial<Project>) => Promise<void>;
-  deleteProject: (id: string) => Promise<void>;
-  fetchProjects: () => Promise<void>;
-}
+## 推荐实践
 
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  subject: string;
-  gradeLevel: string;
-  duration: number;
-  teachingObjectives: string[];
-  status: 'draft' | 'generating' | 'completed';
-  createdAt: string;
-  updatedAt: string;
-}
-```
+- 按业务域拆 store，避免单一超大 store。
+- store action 命名使用动词短语，例如 `fetchMessages`、`sendMessage`。
+- API 调用统一经 `frontend/lib/api/*` 封装，不在页面层直接拼接请求。
 
-### 2. Chat State
-
-```typescript
-// stores/chatStore.ts
-interface ChatState {
-  // 数据
-  messages: Message[];
-  isTyping: boolean;
-  
-  // 操作
-  addMessage: (message: Message) => void;
-  sendMessage: (content: string) => Promise<void>;
-  sendVoiceMessage: (audioBlob: Blob) => Promise<void>;
-  clearMessages: () => void;
-  setTyping: (isTyping: boolean) => void;
-}
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  metadata?: {
-    intent?: string;
-    extractedInfo?: Record<string, any>;
-    suggestions?: string[];
-  };
-  createdAt: string;
-}
-```
-
-### 3. Upload State
-
-```typescript
-// stores/uploadStore.ts
-interface UploadState {
-  // 数据
-  uploads: Upload[];
-  uploadQueue: UploadTask[];
-  
-  // 操作
-  addUpload: (file: File) => Promise<void>;
-  updateUploadStatus: (id: string, status: UploadStatus) => void;
-  annotateUpload: (id: string, annotation: string) => Promise<void>;
-  deleteUpload: (id: string) => Promise<void>;
-  fetchUploads: (projectId: string) => Promise<void>;
-}
-
-interface Upload {
-  id: string;
-  projectId: string;
-  filename: string;
-  filepath: string;
-  fileType: string;
-  mimeType: string;
-  size: number;
-  status: 'uploading' | 'parsing' | 'ready' | 'failed';
-  parseResult?: ParseResult;
-  usageIntent?: string;
-  createdAt: string;
-}
-```
-
-### 4. Generation State
-
-```typescript
-// stores/generationStore.ts
-interface GenerationState {
-  // 数据
-  currentTask: GenerationTask | null;
-  tasks: GenerationTask[];
-  
-  // 操作
-  createTask: (data: CreateTaskData) => Promise<GenerationTask>;
-  fetchTaskStatus: (taskId: string) => Promise<void>;
-  cancelTask: (taskId: string) => Promise<void>;
-  pollTaskStatus: (taskId: string) => void;
-  stopPolling: () => void;
-}
-
-interface GenerationTask {
-  id: string;
-  projectId: string;
-  taskType: 'ppt' | 'word' | 'both';
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  inputData: Record<string, any>;
-  outputUrls?: {
-    ppt?: string;
-    word?: string;
-  };
-  errorMessage?: string;
-  createdAt: string;
-  completedAt?: string;
-}
-```
-
-## Store 使用示例
-
-```typescript
-// 在组件中使用
-import { useProjectStore } from '@/stores/projectStore';
-import { useChatStore } from '@/stores/chatStore';
-
-function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const { currentProject, setCurrentProject } = useProjectStore();
-  const { messages, sendMessage } = useChatStore();
-  
-  useEffect(() => {
-    fetchProject(params.id).then(setCurrentProject);
-  }, [params.id]);
-  
-  const handleSendMessage = async (content: string) => {
-    await sendMessage(content);
-  };
-  
-  return (
-    <ChatInterface
-      projectId={params.id}
-      messages={messages}
-      onSend={handleSendMessage}
-    />
-  );
-}
-```

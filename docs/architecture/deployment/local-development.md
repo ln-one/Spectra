@@ -49,7 +49,7 @@ cd backend
 
 # 创建虚拟环境
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate # Windows: venv\Scripts\activate
 
 # 安装依赖
 pip install -r requirements.txt
@@ -86,34 +86,34 @@ npm run dev
 version: '3.8'
 
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    depends_on:
-      - backend
+ frontend:
+ build:
+ context: ./frontend
+ dockerfile: Dockerfile.dev
+ ports:
+ - "3000:3000"
+ volumes:
+ - ./frontend:/app
+ - /app/node_modules
+ environment:
+ - NEXT_PUBLIC_API_URL=http://localhost:8000
+ depends_on:
+ - backend
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - ./backend/uploads:/app/uploads
-    environment:
-      - DATABASE_URL=file:./dev.db
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+ backend:
+ build:
+ context: ./backend
+ dockerfile: Dockerfile.dev
+ ports:
+ - "8000:8000"
+ volumes:
+ - ./backend:/app
+ - ./backend/uploads:/app/uploads
+ environment:
+ - DATABASE_URL=file:./dev.db
+ - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+ - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+ command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ## 数据持久化

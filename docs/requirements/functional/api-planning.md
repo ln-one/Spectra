@@ -1,7 +1,7 @@
 # API规划
 
 ## 目标
-给出前后端接口清单与优先级，支撑“输入-生成-修改-导出”闭环。  
+给出前后端接口清单与优先级，支撑“输入-生成-修改-导出”闭环。 
 详细字段定义以 `docs/openapi.yaml` 为准，本文仅做功能级规划。
 
 ## 规划原则
@@ -54,20 +54,20 @@
 ## 调用主流程
 ```mermaid
 sequenceDiagram
-    participant U as 教师
-    participant FE as Frontend
-    participant BE as Backend
+ participant U as 教师
+ participant FE as Frontend
+ participant BE as Backend
 
-    U->>FE: 创建项目
-    FE->>BE: POST /api/v1/projects
-    U->>FE: 对话输入+上传资料
-    FE->>BE: POST /api/v1/chat/messages
-    FE->>BE: POST /api/v1/files
-    U->>FE: 发起生成
-    FE->>BE: POST /api/v1/generate/courseware
-    loop 轮询进度
-        FE->>BE: GET /api/v1/generate/status/{task_id}
-    end
-    BE-->>FE: 返回下载地址
-    U->>FE: 预览并下载
+ U->>FE: 创建项目
+ FE->>BE: POST /api/v1/projects
+ U->>FE: 对话输入+上传资料
+ FE->>BE: POST /api/v1/chat/messages
+ FE->>BE: POST /api/v1/files
+ U->>FE: 发起生成
+ FE->>BE: POST /api/v1/generate/courseware
+ loop 轮询进度
+ FE->>BE: GET /api/v1/generate/status/{task_id}
+ end
+ BE-->>FE: 返回下载地址
+ U->>FE: 预览并下载
 ```

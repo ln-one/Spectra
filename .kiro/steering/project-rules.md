@@ -23,7 +23,7 @@ inclusion: always
 
 ## AI 自主学习机制
 
-**⚠️ 强制执行 - 在回复用户前必须完成**：
+** 强制执行 - 在回复用户前必须完成**：
 
 ### 第一步：上下文加载（新对话或新任务时）
 如果满足以下任一条件，立即读取 `.ai/CONTEXT.md`：
@@ -51,43 +51,43 @@ inclusion: always
 ## 规则优先级
 
 ```
-1. docs/openapi/              (API 契约 - 拆分后的模块文件)
-2. docs/standards/            (代码规范)
-3. .cursorrules (根目录)       (全局规约)
-4. 子目录 .cursorrules         (团队自定义)
+1. docs/openapi/ (API 契约 - 拆分后的模块文件)
+2. docs/standards/ (代码规范)
+3. .cursorrules (根目录) (全局规约)
+4. 子目录 .cursorrules (团队自定义)
 ```
 
 ## OpenAPI 文档规范
 
 **重要**: OpenAPI 规范已拆分为模块化文件，AI 应参照拆分后的文件：
 
-- ❌ **不要读取** `docs/openapi.yaml` (1266行，自动生成的打包文件)
-- ✅ **应该读取** `docs/openapi/` 下的模块文件 (每个50-150行)
+- **不要读取** `docs/openapi.yaml` (1266行，自动生成的打包文件)
+- **应该读取** `docs/openapi/` 下的模块文件 (每个50-150行)
 
 ### 文件结构
 ```
 docs/openapi/
-├── paths/          # API 路径定义 (按模块拆分)
-│   ├── auth.yaml
-│   ├── chat.yaml
-│   ├── files.yaml
-│   ├── generate.yaml
-│   ├── preview.yaml
-│   ├── project.yaml
-│   └── rag.yaml
-├── schemas/        # 数据模型定义
-│   ├── common.yaml
-│   ├── auth.yaml
-│   ├── chat.yaml
-│   ├── files.yaml
-│   ├── generate.yaml
-│   ├── preview.yaml
-│   ├── project.yaml
-│   └── rag.yaml
-└── components/     # 可复用组件
-    ├── parameters.yaml
-    ├── responses.yaml
-    └── security.yaml
+├── paths/ # API 路径定义 (按模块拆分)
+│ ├── auth.yaml
+│ ├── chat.yaml
+│ ├── files.yaml
+│ ├── generate.yaml
+│ ├── preview.yaml
+│ ├── project.yaml
+│ └── rag.yaml
+├── schemas/ # 数据模型定义
+│ ├── common.yaml
+│ ├── auth.yaml
+│ ├── chat.yaml
+│ ├── files.yaml
+│ ├── generate.yaml
+│ ├── preview.yaml
+│ ├── project.yaml
+│ └── rag.yaml
+└── components/ # 可复用组件
+ ├── parameters.yaml
+ ├── responses.yaml
+ └── security.yaml
 ```
 
 ### AI 工作流程

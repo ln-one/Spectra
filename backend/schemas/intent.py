@@ -26,11 +26,20 @@ class IntentClassification(BaseModel):
     method: str = Field(default="llm", description="分类方法 (llm/keyword_fallback)")
 
 
-class ModifyIntent(BaseModel):
-    """课件修改意图详情（Phase 4 扩展）"""
+class ModifyType(str, Enum):
+    """修改子类型"""
 
-    modify_type: str = Field(
-        ..., description="修改子类型 (content/style/structure/global)"
+    CONTENT = "content"  # 改文字内容
+    STYLE = "style"  # 改模板/风格
+    STRUCTURE = "structure"  # 加减页/调整结构
+    GLOBAL = "global"  # 改主题/全局修改
+
+
+class ModifyIntent(BaseModel):
+    """课件修改意图详情"""
+
+    modify_type: ModifyType = Field(..., description="修改子类型")
+    target_slides: Optional[list[int]] = Field(
+        None, description="目标幻灯片页码（1-based）"
     )
-    target_slides: Optional[list[str]] = Field(None, description="目标幻灯片编号")
     instruction: str = Field(..., description="修改指令")

@@ -1,6 +1,6 @@
 # 添加新 API 端点
 
-> 最后更新：2026-02-26 | 版本：1.0  
+> 最后更新：2026-02-26 | 版本：1.0 
 > 任务类型：api, backend, frontend | 预估 tokens：500
 
 ## 适用场景
@@ -40,48 +40,48 @@
 
 ```yaml
 components:
-  schemas:
-    # 请求模型
-    CreateCourseRequest:
-      type: object
-      required:
-        - title
-        - description
-      properties:
-        title:
-          type: string
-          minLength: 1
-          maxLength: 100
-        description:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-    
-    # 响应模型
-    Course:
-      type: object
-      properties:
-        id:
-          type: string
-        title:
-          type: string
-        description:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-    
-    CreateCourseResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        data:
-          $ref: '#/components/schemas/Course'
-        message:
-          type: string
+ schemas:
+ # 请求模型
+ CreateCourseRequest:
+ type: object
+ required:
+ - title
+ - description
+ properties:
+ title:
+ type: string
+ minLength: 1
+ maxLength: 100
+ description:
+ type: string
+ tags:
+ type: array
+ items:
+ type: string
+ 
+ # 响应模型
+ Course:
+ type: object
+ properties:
+ id:
+ type: string
+ title:
+ type: string
+ description:
+ type: string
+ created_at:
+ type: string
+ format: date-time
+ 
+ CreateCourseResponse:
+ type: object
+ properties:
+ success:
+ type: boolean
+ data:
+ $ref: '#/components/schemas/Course'
+ message:
+ type: string
 ```
 
 ### 步骤 3：定义 API 路径
@@ -90,30 +90,30 @@ components:
 
 ```yaml
 /api/v1/courses:
-  post:
-    summary: 创建课程
-    description: 创建一个新的课程
-    tags:
-      - courses
-    security:
-      - BearerAuth: []
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../schemas/project.yaml#/components/schemas/CreateCourseRequest'
-    responses:
-      '200':
-        description: 创建成功
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/project.yaml#/components/schemas/CreateCourseResponse'
-      '400':
-        $ref: '../components/responses.yaml#/components/responses/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/components/responses/Unauthorized'
+ post:
+ summary: 创建课程
+ description: 创建一个新的课程
+ tags:
+ - courses
+ security:
+ - BearerAuth: []
+ requestBody:
+ required: true
+ content:
+ application/json:
+ schema:
+ $ref: '../schemas/project.yaml#/components/schemas/CreateCourseRequest'
+ responses:
+ '200':
+ description: 创建成功
+ content:
+ application/json:
+ schema:
+ $ref: '../schemas/project.yaml#/components/schemas/CreateCourseResponse'
+ '400':
+ $ref: '../components/responses.yaml#/components/responses/BadRequest'
+ '401':
+ $ref: '../components/responses.yaml#/components/responses/Unauthorized'
 ```
 
 ### 步骤 4：打包和验证
@@ -143,20 +143,20 @@ from datetime import datetime
 from typing import Optional, List
 
 class CreateCourseRequest(BaseModel):
-    title: str = Field(..., min_length=1, max_length=100)
-    description: str
-    tags: Optional[List[str]] = []
+ title: str = Field(..., min_length=1, max_length=100)
+ description: str
+ tags: Optional[List[str]] = []
 
 class Course(BaseModel):
-    id: str
-    title: str
-    description: str
-    created_at: datetime
+ id: str
+ title: str
+ description: str
+ created_at: datetime
 
 class CreateCourseResponse(BaseModel):
-    success: bool
-    data: Course
-    message: str
+ success: bool
+ data: Course
+ message: str
 ```
 
 **创建路由**（`backend/routers/courses.py`）：
@@ -171,28 +171,28 @@ router = APIRouter(prefix="/api/v1/courses", tags=["courses"])
 
 @router.post("", response_model=CreateCourseResponse)
 async def create_course(
-    request: CreateCourseRequest,
-    current_user = Depends(get_current_user),
-    db = Depends(get_db)
+ request: CreateCourseRequest,
+ current_user = Depends(get_current_user),
+ db = Depends(get_db)
 ):
-    """创建新课程"""
-    try:
-        # 创建课程
-        course = await db.course.create(
-            data={
-                "title": request.title,
-                "description": request.description,
-                "user_id": current_user.id
-            }
-        )
-        
-        return CreateCourseResponse(
-            success=True,
-            data=Course(**course.dict()),
-            message="课程创建成功"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Invalid request data")
+ """创建新课程"""
+ try:
+ # 创建课程
+ course = await db.course.create(
+ data={
+ "title": request.title,
+ "description": request.description,
+ "user_id": current_user.id
+ }
+ )
+ 
+ return CreateCourseResponse(
+ success=True,
+ data=Course(**course.dict()),
+ message="课程创建成功"
+ )
+ except Exception as e:
+ raise HTTPException(status_code=400, detail="Invalid request data")
 ```
 
 **注册路由**（`backend/main.py`）：
@@ -210,15 +210,15 @@ app.include_router(courses.router)
 ```typescript
 import { apiClient } from './client';
 import type { 
-  CreateCourseRequest, 
-  CreateCourseResponse 
+ CreateCourseRequest, 
+ CreateCourseResponse 
 } from '../types/api';
 
 export const coursesApi = {
-  create: async (data: CreateCourseRequest): Promise<CreateCourseResponse> => {
-    const response = await apiClient.post('/api/v1/courses', data);
-    return response.data;
-  },
+ create: async (data: CreateCourseRequest): Promise<CreateCourseResponse> => {
+ const response = await apiClient.post('/api/v1/courses', data);
+ return response.data;
+ },
 };
 ```
 
@@ -229,25 +229,25 @@ import { coursesApi } from '@/lib/api/courses';
 import { useState } from 'react';
 
 export function CreateCourseForm() {
-  const [loading, setLoading] = useState(false);
+ const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (data: CreateCourseRequest) => {
-    setLoading(true);
-    try {
-      const response = await coursesApi.create(data);
-      if (response.success) {
-        console.log('课程创建成功:', response.data);
-      }
-    } catch (error) {
-      console.error('创建失败:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+ const handleSubmit = async (data: CreateCourseRequest) => {
+ setLoading(true);
+ try {
+ const response = await coursesApi.create(data);
+ if (response.success) {
+ console.log('课程创建成功:', response.data);
+ }
+ } catch (error) {
+ console.error('创建失败:', error);
+ } finally {
+ setLoading(false);
+ }
+ };
 
-  return (
-    // 表单 UI
-  );
+ return (
+ // 表单 UI
+ );
 }
 ```
 
@@ -257,25 +257,25 @@ export function CreateCourseForm() {
 
 ```python
 def test_create_course_success(client, auth_headers):
-    response = client.post(
-        "/api/v1/courses",
-        json={
-            "title": "测试课程",
-            "description": "这是一个测试课程"
-        },
-        headers=auth_headers
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is True
-    assert data["data"]["title"] == "测试课程"
+ response = client.post(
+ "/api/v1/courses",
+ json={
+ "title": "测试课程",
+ "description": "这是一个测试课程"
+ },
+ headers=auth_headers
+ )
+ assert response.status_code == 200
+ data = response.json()
+ assert data["success"] is True
+ assert data["data"]["title"] == "测试课程"
 
 def test_create_course_unauthorized(client):
-    response = client.post(
-        "/api/v1/courses",
-        json={"title": "测试", "description": "测试"}
-    )
-    assert response.status_code == 401
+ response = client.post(
+ "/api/v1/courses",
+ json={"title": "测试", "description": "测试"}
+ )
+ assert response.status_code == 401
 ```
 
 **前端测试**（`frontend/__tests__/courses.test.ts`）：
@@ -284,13 +284,13 @@ def test_create_course_unauthorized(client):
 import { coursesApi } from '@/lib/api/courses';
 
 test('create course success', async () => {
-  const response = await coursesApi.create({
-    title: '测试课程',
-    description: '这是一个测试课程'
-  });
-  
-  expect(response.success).toBe(true);
-  expect(response.data.title).toBe('测试课程');
+ const response = await coursesApi.create({
+ title: '测试课程',
+ description: '这是一个测试课程'
+ });
+ 
+ expect(response.success).toBe(true);
+ expect(response.data.title).toBe('测试课程');
 });
 ```
 
@@ -315,11 +315,11 @@ npm run test
 ```yaml
 # docs/openapi/schemas/project.yaml
 CreateCourseRequest:
-  type: object
-  required: [title, description]
-  properties:
-    title: {type: string, minLength: 1, maxLength: 100}
-    description: {type: string}
+ type: object
+ required: [title, description]
+ properties:
+ title: {type: string, minLength: 1, maxLength: 100}
+ description: {type: string}
 ```
 
 ### OpenAPI Path
@@ -327,16 +327,16 @@ CreateCourseRequest:
 ```yaml
 # docs/openapi/paths/project.yaml
 /api/v1/courses:
-  post:
-    summary: 创建课程
-    tags: [courses]
-    security: [{BearerAuth: []}]
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../schemas/project.yaml#/components/schemas/CreateCourseRequest'
+ post:
+ summary: 创建课程
+ tags: [courses]
+ security: [{BearerAuth: []}]
+ requestBody:
+ required: true
+ content:
+ application/json:
+ schema:
+ $ref: '../schemas/project.yaml#/components/schemas/CreateCourseRequest'
 ```
 
 ### 后端实现
@@ -345,8 +345,8 @@ CreateCourseRequest:
 # backend/routers/courses.py
 @router.post("", response_model=CreateCourseResponse)
 async def create_course(request: CreateCourseRequest):
-    course = await db.course.create(data=request.dict())
-    return CreateCourseResponse(success=True, data=course)
+ course = await db.course.create(data=request.dict())
+ return CreateCourseResponse(success=True, data=course)
 ```
 
 ### 前端调用
@@ -354,9 +354,9 @@ async def create_course(request: CreateCourseRequest):
 ```typescript
 // frontend/lib/api/courses.ts
 export const coursesApi = {
-  create: async (data: CreateCourseRequest) => {
-    return await apiClient.post('/api/v1/courses', data);
-  }
+ create: async (data: CreateCourseRequest) => {
+ return await apiClient.post('/api/v1/courses', data);
+ }
 };
 ```
 
@@ -397,17 +397,17 @@ export const coursesApi = {
 
 ```yaml
 security:
-  - BearerAuth: []
+ - BearerAuth: []
 ```
 
 在后端使用 `Depends(get_current_user)`：
 
 ```python
 async def create_course(
-    request: CreateCourseRequest,
-    current_user = Depends(get_current_user)
+ request: CreateCourseRequest,
+ current_user = Depends(get_current_user)
 ):
-    # current_user 包含当前用户信息
+ # current_user 包含当前用户信息
 ```
 
 ### Q: 如何处理错误？
@@ -416,10 +416,10 @@ async def create_course(
 
 ```yaml
 responses:
-  '400':
-    $ref: '../components/responses.yaml#/components/responses/BadRequest'
-  '401':
-    $ref: '../components/responses.yaml#/components/responses/Unauthorized'
+ '400':
+ $ref: '../components/responses.yaml#/components/responses/BadRequest'
+ '401':
+ $ref: '../components/responses.yaml#/components/responses/Unauthorized'
 ```
 
 后端抛出 HTTPException：

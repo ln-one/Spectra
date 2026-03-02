@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
 
 from schemas import ProjectCreate
@@ -63,7 +63,10 @@ async def create_project(
             extra={"user_id": user_id},
             exc_info=True,
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="创建项目失败",
+        )
 
 
 @router.get("/search")
@@ -96,11 +99,16 @@ async def search_projects(
             data={"projects": projects, "total": total, "page": page, "limit": limit},
             message="搜索项目成功",
         )
+    except APIException:
+        raise
     except Exception as e:
         logger.error(
             f"Failed to search projects: {e}", extra={"user_id": user_id}, exc_info=True
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="搜索项目失败",
+        )
 
 
 @router.get("")
@@ -128,13 +136,18 @@ async def get_projects(
             },
             message="获取项目列表成功",
         )
+    except APIException:
+        raise
     except Exception as e:
         logger.error(
             f"Failed to fetch projects: {str(e)}",
             extra={"user_id": user_id},
             exc_info=True,
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取项目列表失败",
+        )
 
 
 @router.get("/{project_id}")
@@ -168,7 +181,10 @@ async def get_project(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取项目详情失败",
+        )
 
 
 @router.put("/{project_id}")
@@ -234,7 +250,10 @@ async def update_project(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="更新项目失败",
+        )
 
 
 @router.delete("/{project_id}")
@@ -264,7 +283,10 @@ async def delete_project(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="删除项目失败",
+        )
 
 
 @router.get("/{project_id}/statistics")
@@ -290,7 +312,10 @@ async def get_project_statistics(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取统计信息失败",
+        )
 
 
 @router.get("/{project_id}/files")
@@ -345,4 +370,7 @@ async def get_project_files(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取项目文件列表失败",
+        )

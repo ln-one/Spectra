@@ -80,7 +80,7 @@ isort --check .
 
 ```bash
 # 在项目根目录
-npm install  # 自动安装 Git hooks
+npm install # 自动安装 Git hooks
 ```
 
 ### Pre-commit Hook
@@ -154,13 +154,13 @@ Install extensions:
 Add to `.vscode/settings.json`:
 ```json
 {
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter"
-  },
-  "python.linting.flake8Enabled": true,
-  "python.linting.enabled": true
+ "editor.formatOnSave": true,
+ "editor.defaultFormatter": "esbenp.prettier-vscode",
+ "[python]": {
+ "editor.defaultFormatter": "ms-python.black-formatter"
+ },
+ "python.linting.flake8Enabled": true,
+ "python.linting.enabled": true
 }
 ```
 
@@ -185,8 +185,8 @@ GitHub Actions automatically checks:
 - Backend: Black + isort + Flake8 + Tests + Prisma
 
 本地 Git hooks 与 CI 检查项基本一致，并在本地包含额外检查（如 `prisma validate`），确保：
-- ✅ 本地通过 = CI 通过
-- ✅ 减少 CI 失败次数
-- ✅ 更快的开发反馈
+- 本地通过 = CI 通过
+- 减少 CI 失败次数
+- 更快的开发反馈
 
 See [CI/CD Guide](./ci-cd.md) for details.

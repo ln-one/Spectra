@@ -30,7 +30,7 @@
 
 ### 关键文件
 - `docs/openapi-source.yaml` - OpenAPI 主文件（引用模块）
-- `docs/openapi.yaml` - 打包后的完整规范（⚠️ 自动生成，不要直接读取）
+- `docs/openapi.yaml` - 打包后的完整规范（ 自动生成，不要直接读取）
 - `backend/main.py` - FastAPI 应用入口
 - `frontend/app/page.tsx` - Next.js 首页
 
@@ -38,7 +38,7 @@
 
 ## 任务类型索引
 
-### 🎨 前端开发
+### 前端开发
 **必读**：
 - `.ai/guides/creating-component.md` - 组件创建指南
 - `docs/standards/frontend.md` - 前端规范
@@ -53,12 +53,12 @@
 **常用命令**：
 ```bash
 cd frontend
-npm run dev          # 启动开发服务器
-npm run build        # 构建生产版本
-npm run test         # 运行测试
+npm run dev # 启动开发服务器
+npm run build # 构建生产版本
+npm run test # 运行测试
 ```
 
-### ⚙️ 后端开发
+### 后端开发
 **必读**：
 - `.ai/guides/code-organization.md` - 代码组织规范（必读）
 - `.ai/guides/adding-api-endpoint.md` - API 端点添加指南
@@ -75,20 +75,20 @@ npm run test         # 运行测试
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # macOS/Linux
+source venv/bin/activate # macOS/Linux
 pip install -r requirements.txt
-uvicorn main:app --reload  # 启动开发服务器
-pytest                     # 运行测试
+uvicorn main:app --reload # 启动开发服务器
+pytest # 运行测试
 ```
 
-### 🔌 API 修改
+### API 修改
 **必读**：
 - `.ai/guides/api-workflow.md` - API 开发完整流程
 - `docs/openapi/README.md` - OpenAPI 使用指南
 
-**⚠️ 重要**：
-- ✅ 读取 `docs/openapi/paths/{模块}.yaml` 和 `docs/openapi/schemas/{模块}.yaml`
-- ❌ 不要读取 `docs/openapi.yaml`（1200+ 行，自动生成）
+** 重要**：
+- 读取 `docs/openapi/paths/{模块}.yaml` 和 `docs/openapi/schemas/{模块}.yaml`
+- 不要读取 `docs/openapi.yaml`（1200+ 行，自动生成）
 
 **工作流程**：
 1. 编辑模块文件（`docs/openapi/paths/` 或 `docs/openapi/schemas/`）
@@ -96,7 +96,7 @@ pytest                     # 运行测试
 3. 运行 `npm run validate:openapi` 验证
 4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts`
 
-### 📝 文档编写
+### 文档编写
 **必读**：
 - `docs/standards/documentation.md` - 文档规范
 - `.ai/guides/best-practices.md` - 最佳实践

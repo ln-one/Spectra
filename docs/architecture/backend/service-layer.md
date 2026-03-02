@@ -1,60 +1,33 @@
 # Service Layer Design
 
+> 状态说明（2026-03-02）：本页仅列当前代码中存在的服务。
+
 ## 设计原则
 
-- **业务封装**：封装核心业务逻辑，对外提供清晰接口
-- **服务编排**：协调多个服务调用，处理复杂业务流程
-- **异步处理**：使用 async/await 处理 IO 密集型操作
-- **错误处理**：捕获异常，返回友好错误信息
-- **可测试性**：服务间松耦合，便于单元测试
+- 业务逻辑集中在 `services/`，Router 只做协议层处理。
+- IO 场景统一用 async/await。
+- 外部依赖调用失败时提供可控回退，不在 Router 层吞异常。
 
-## Service 列表
+## 当前服务清单
 
-| Service | 文件 | 功能 | 依赖 |
-|---------|------|------|------|
-| DatabaseService | database.py | 数据库 CRUD | Prisma |
-| AIService | ai.py | LLM 调用 | LiteLLM |
-| FileService | file.py | 文件存储 | 本地文件系统 |
-| ParseService | parse_service.py | 文档解析 | LlamaParse |
-| VideoService | video_service.py | 视频处理 | Qwen-VL API |
-| RAGService | rag_service.py | RAG 检索 | ChromaDB |
-| GenerationService | generation_service.py | 课件生成 | Marp, Pandoc |
+| Service | 文件 | 作用 | 状态 |
+|---|---|---|---|
+| `DatabaseService` | `database.py` | Prisma 数据读写 | 已实现 |
+| `AuthService` | `auth_service.py` | 注册、登录、Token 相关 | 已实现 |
+| `AIService` | `ai.py` | LLM 调用与意图分类 | 已实现 |
+| `EmbeddingService` | `embedding_service.py` | 向量化（DashScope + 本地回退） | 已实现 |
+| `VectorService` | `vector_service.py` | ChromaDB collection 管理 | 已实现 |
+| `RAGService` | `rag_service.py` | 召回、检索结果组装 | 已实现 |
+| `File Parser` | `file_parser.py` | PDF/Word/PPT 轻量解析 | 已实现 |
+| `Generation` | `generation/*` | Marp/Pandoc 导出 | 已实现 |
 
-## 异步任务处理
+## 规划中的能力
 
-使用 **FastAPI BackgroundTasks** 处理异步任务（文件解析、课件生成）。
-<!-- REVIEW #B10 (P2): 文档示例强调后台任务编排，但当前 backend/routers/generate.py 仍为 mock 返回，尚未接入 BackgroundTasks/任务队列实现。 -->
+- 可插拔解析器（MinerU/LlamaParse）。
+- 视频理解与语音识别能力。
 
-```python
-# routers/generate.py
-from fastapi import BackgroundTasks
+## 与 Router 的边界
 
-@router.post("/courseware")
-async def create_generation_task(
-    request: GenerateRequest,
-    background_tasks: BackgroundTasks
-):
-    """创建课件生成任务"""
-    # 1. 创建任务记录
-    task = await db_service.create_generation_task(
-        project_id=request.project_id,
-        task_type="courseware",
-        status="pending"
-    )
-    
-    # 2. 添加后台任务
-    background_tasks.add_task(
-        process_generation_task,
-        task_id=task.id,
-        request=request
-    )
-    
-    # 3. 立即返回任务 ID
-    return {
-        "success": True,
-        "data": {"task_id": task.id},
-        "message": "任务已创建"
-    }
-```
+- Router：参数校验、权限检查、HTTP 响应码。
+- Service：业务编排、外部调用、异常语义化。
 
-详细实现参见各服务文档。

@@ -1,6 +1,6 @@
 # ADR-007: 课件生成方案 - Marp + Pandoc
 
-**状态**: ✅ 已接受  
+**状态**: 已接受 
 **日期**: 2026-02-19
 
 ## 背景
@@ -46,10 +46,10 @@
 
 ```
 AI (Qwen) 输出 Markdown
-     │
-     ├──→ Marp CLI ──→ .pptx / HTML5 课件
-     │
-     └──→ Pandoc   ──→ .docx 教案
+ │
+ ├──→ Marp CLI ──→ .pptx / HTML5 课件
+ │
+ └──→ Pandoc ──→ .docx 教案
 ```
 
 ## 权衡

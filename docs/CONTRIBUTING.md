@@ -64,10 +64,10 @@ AuthModule.ts
 
 # After splitting
 AuthModule/
-├── index.ts      # Orchestrator
-├── Logic.ts      # Business logic
-├── UI.tsx        # UI components
-└── Types.ts      # Type definitions
+├── index.ts # Orchestrator
+├── Logic.ts # Business logic
+├── UI.tsx # UI components
+└── Types.ts # Type definitions
 ```
 
 Index file serves only as orchestrator:
@@ -120,18 +120,18 @@ git push origin feat/feature-name
 
 ## Detailed Standards
 
-- [Code Standards](./standards/code.md) - Frontend/backend code standards, API conventions
+- [Frontend Standards](./standards/frontend.md) - Frontend code and component conventions
+- [Backend Standards](./standards/backend.md) - Backend code and API conventions
 - [Git Standards](./standards/git.md) - Branch strategy, commit, PR conventions
 - [Documentation Standards](./standards/documentation.md) - Markdown, Mermaid, document structure
 - [Testing Guide](./guides/testing.md) - Unit tests, integration tests, CI/CD testing
 
 ## Related Documentation
 
-- [Tech Stack](./project/tech-stack.md)
+- [Tech Stack](./architecture/tech-stack.md)
 - [Project Requirements](./project/requirements.md)
 - [Technical Decisions](./decisions/)
 
 ---
 
 These standards are designed to enable more efficient collaboration between team members and AI, maintaining a healthy and maintainable codebase.
-

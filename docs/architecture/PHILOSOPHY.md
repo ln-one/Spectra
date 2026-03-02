@@ -42,20 +42,20 @@
 
 ```mermaid
 graph TB
-    A[架构师定义契约] --> B[生成前端类型]
-    A --> C[生成后端 Schema]
-    B --> D[前后端并行开发]
-    C --> D
-    D --> E[实现符合契约]
+ A[架构师定义契约] --> B[生成前端类型]
+ A --> C[生成后端 Schema]
+ B --> D[前后端并行开发]
+ C --> D
+ D --> E[实现符合契约]
 ```
 
 ## 规则层级
 
 ```
-1. docs/openapi.yaml          (API 契约)
-2. docs/standards/            (代码规范)
-3. .cursorrules (根目录)       (全局规约)
-4. 子目录 .cursorrules         (团队自定义)
+1. docs/openapi.yaml (API 契约)
+2. docs/standards/ (代码规范)
+3. .cursorrules (根目录) (全局规约)
+4. 子目录 .cursorrules (团队自定义)
 ```
 
 冲突时，高优先级覆盖低优先级。

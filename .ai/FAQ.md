@@ -30,8 +30,8 @@
 
 ### Q: 我应该读取哪个 OpenAPI 文件？
 **A**: 
-- ✅ **应该读取**：`docs/openapi/paths/{模块}.yaml` 和 `docs/openapi/schemas/{模块}.yaml`
-- ❌ **不要读取**：`docs/openapi.yaml`（1200+ 行，自动生成的打包文件）
+- **应该读取**：`docs/openapi/paths/{模块}.yaml` 和 `docs/openapi/schemas/{模块}.yaml`
+- **不要读取**：`docs/openapi.yaml`（1200+ 行，自动生成的打包文件）
 
 **原因**：模块文件只有 50-150 行，更容易理解和修改。
 
@@ -76,16 +76,16 @@ npm run validate:openapi
 ```bash
 cd frontend
 npm install
-npm run dev  # 访问 http://localhost:3000
+npm run dev # 访问 http://localhost:3000
 ```
 
 **后端**：
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # macOS/Linux
+source venv/bin/activate # macOS/Linux
 pip install -r requirements.txt
-uvicorn main:app --reload  # 访问 http://localhost:8000
+uvicorn main:app --reload # 访问 http://localhost:8000
 ```
 
 ### Q: 如何运行测试？

@@ -35,21 +35,22 @@ A modern, minimalist dashboard built with Next.js 15 App Router, featuring authe
 
 1. **Install dependencies**:
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
 2. **Configure environment**:
 
-   ```bash
-   cp .env.example .env.local
-   # Edit .env.local with your configuration
-   ```
+```bash
+cp .env.example .env.local
+# Edit .env.local with your configuration
+```
 
 3. **Run development server**:
-   ```bash
-   npm run dev
-   ```
+
+```bash
+npm run dev
+```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
@@ -69,7 +70,7 @@ NEXT_PUBLIC_ENABLE_AI_GENERATION="true"
 NEXT_PUBLIC_ENABLE_FILE_UPLOAD="true"
 
 # Upload Configuration
-NEXT_PUBLIC_MAX_FILE_SIZE=104857600  # 100MB
+NEXT_PUBLIC_MAX_FILE_SIZE=104857600 # 100MB
 
 # Debug
 NEXT_PUBLIC_DEBUG="true"
@@ -79,26 +80,26 @@ NEXT_PUBLIC_DEBUG="true"
 
 ```
 ├── app/
-│   ├── auth/
-│   │   ├── login/          # Login page
-│   │   └── register/       # Registration page
-│   ├── layout.tsx          # Root layout with global styles
-│   ├── page.tsx            # Main dashboard page
-│   └── globals.css         # Global styles and CSS variables
+│ ├── auth/
+│ │ ├── login/ # Login page
+│ │ └── register/ # Registration page
+│ ├── layout.tsx # Root layout with global styles
+│ ├── page.tsx # Main dashboard page
+│ └── globals.css # Global styles and CSS variables
 ├── components/
-│   ├── ui/                 # Shadcn/ui components
-│   ├── Sidebar.tsx         # Navigation sidebar
-│   ├── SplitView.tsx       # Split-view container
-│   ├── CourseOutline.tsx   # Interactive course tree
-│   ├── SlidePreview.tsx    # Slide preview panel
-│   └── FileUploadDropzone.tsx # File upload component
+│ ├── ui/ # Shadcn/ui components
+│ ├── Sidebar.tsx # Navigation sidebar
+│ ├── SplitView.tsx # Split-view container
+│ ├── CourseOutline.tsx # Interactive course tree
+│ ├── SlidePreview.tsx # Slide preview panel
+│ └── FileUploadDropzone.tsx # File upload component
 ├── lib/
-│   ├── api.ts              # API client wrapper
-│   ├── auth.ts             # Authentication utilities
-│   └── utils.ts            # Utility functions
+│ ├── api.ts # API client wrapper
+│ ├── auth.ts # Authentication utilities
+│ └── utils.ts # Utility functions
 ├── stores/
-│   └── authStore.ts        # Authentication state management
-└── __tests__/              # Test files
+│ └── authStore.ts # Authentication state management
+└── __tests__/ # Test files
 ```
 
 ## Design System
@@ -111,14 +112,14 @@ NEXT_PUBLIC_DEBUG="true"
 ## Scripts
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm start            # Start production server
-npm run lint         # Run ESLint
-npm run format       # Format code with Prettier
+npm run dev # Start development server
+npm run build # Build for production
+npm start # Start production server
+npm run lint # Run ESLint
+npm run format # Format code with Prettier
 npm run format:check # Check code formatting
-npm test             # Run tests
-npm run test:watch   # Run tests in watch mode
+npm test # Run tests
+npm run test:watch # Run tests in watch mode
 npm run test:coverage # Run tests with coverage
 ```
 

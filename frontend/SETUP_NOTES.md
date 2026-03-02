@@ -17,25 +17,29 @@ Zustand is used for global state management in the authentication store (`stores
 ### Authentication Module (Task 3.8)
 
 1. **`lib/auth.ts`** - Core authentication utilities
-   - Token storage management (localStorage)
-   - Auth service API methods (skeleton)
-   - TypeScript interfaces for User, LoginResponse, RegisterRequest
+
+- Token storage management (localStorage)
+- Auth service API methods (skeleton)
+- TypeScript interfaces for User, LoginResponse, RegisterRequest
 
 2. **`stores/authStore.ts`** - Global authentication state
-   - Zustand store for auth state management
-   - Login, register, logout, checkAuth methods (skeleton)
-   - Error handling and loading states
+
+- Zustand store for auth state management
+- Login, register, logout, checkAuth methods (skeleton)
+- Error handling and loading states
 
 3. **`app/auth/login/page.tsx`** - Login page
-   - Login form with email and password
-   - Integration with authStore
-   - Link to registration page
+
+- Login form with email and password
+- Integration with authStore
+- Link to registration page
 
 4. **`app/auth/register/page.tsx`** - Registration page
-   - Registration form with email, username, password, fullName
-   - Password confirmation validation
-   - Integration with authStore
-   - Link to login page
+
+- Registration form with email, username, password, fullName
+- Password confirmation validation
+- Integration with authStore
+- Link to login page
 
 ## TODO
 

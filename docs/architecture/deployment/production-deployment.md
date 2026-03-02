@@ -4,10 +4,10 @@
 
 ```
 Internet → Load Balancer → Frontend Pods
-                         → Backend Pods → PostgreSQL
-                                       → Redis
-                                       → ChromaDB
-                                       → OSS/S3
+ → Backend Pods → PostgreSQL
+ → Redis
+ → ChromaDB
+ → OSS/S3
 ```
 
 ## 数据库迁移
@@ -17,23 +17,23 @@ Internet → Load Balancer → Frontend Pods
 **1. 安装 PostgreSQL**：
 ```bash
 docker run -d \
-  --name postgres \
-  -e POSTGRES_PASSWORD=your_password \
-  -e POSTGRES_DB=spectra \
-  -p 5432:5432 \
-  postgres:15
+ --name postgres \
+ -e POSTGRES_PASSWORD=your_password \
+ -e POSTGRES_DB=spectra \
+ -p 5432:5432 \
+ postgres:15
 ```
 
 **2. 修改 Prisma Schema**：
 ```prisma
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+ provider = "postgresql"
+ url = env("DATABASE_URL")
 }
 // 补充说明：在生产环境下使用二进制引擎以提高 Linux 环境兼容性
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-1.1.x", "linux-musl"]
+ provider = "prisma-client-js"
+ binaryTargets = ["native", "debian-openssl-1.1.x", "linux-musl"]
 }
 ```
 
@@ -56,19 +56,19 @@ prisma db push
 ```python
 # backend/services/storage.py
 class StorageService(ABC):
-    @abstractmethod
-    def upload(self, file_path: str, object_name: str) -> str:
-        pass
+ @abstractmethod
+ def upload(self, file_path: str, object_name: str) -> str:
+ pass
 
 class OSSStorage(StorageService):
-    def __init__(self, access_key: str, secret_key: str, bucket: str):
-        import oss2
-        auth = oss2.Auth(access_key, secret_key)
-        self.bucket = oss2.Bucket(auth, 'oss-cn-hangzhou.aliyuncs.com', bucket)
-    
-    def upload(self, file_path: str, object_name: str) -> str:
-        self.bucket.put_object_from_file(object_name, file_path)
-        return f"https://{self.bucket.bucket_name}.oss-cn-hangzhou.aliyuncs.com/{object_name}"
+ def __init__(self, access_key: str, secret_key: str, bucket: str):
+ import oss2
+ auth = oss2.Auth(access_key, secret_key)
+ self.bucket = oss2.Bucket(auth, 'oss-cn-hangzhou.aliyuncs.com', bucket)
+ 
+ def upload(self, file_path: str, object_name: str) -> str:
+ self.bucket.put_object_from_file(object_name, file_path)
+ return f"https://{self.bucket.bucket_name}.oss-cn-hangzhou.aliyuncs.com/{object_name}"
 ```
 ## 网关配置 (Nginx)
 
@@ -76,21 +76,21 @@ class OSSStorage(StorageService):
 
 ```nginx
 server {
-    listen 443 ssl;
-    server_name spectra.yourdomain.com;
+ listen 443 ssl;
+ server_name spectra.yourdomain.com;
 
-    # 前端静态资源
-    location / {
-        proxy_pass http://frontend:3000;
-    }
+ # 前端静态资源
+ location / {
+ proxy_pass http://frontend:3000;
+ }
 
-    # 后端 API
-    location /api/ {
-        proxy_pass http://backend:8000/;
-        proxy_read_timeout 300s; # 重要：调高超时以支持长时间的 AI 生成任务
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
+ # 后端 API
+ location /api/ {
+ proxy_pass http://backend:8000/;
+ proxy_read_timeout 300s; # 重要：调高超时以支持长时间的 AI 生成任务
+ proxy_set_header Host $host;
+ proxy_set_header X-Real-IP $remote_addr;
+ }
 }
 ```
 
@@ -103,19 +103,19 @@ server {
 import redis
 
 class CacheService:
-    def __init__(self):
-        self.redis = redis.Redis(
-            host=os.getenv("REDIS_HOST", "localhost"),
-            port=int(os.getenv("REDIS_PORT", 6379)),
-            decode_responses=True
-        )
-    
-    def get(self, key: str) -> Optional[dict]:
-        value = self.redis.get(key)
-        return json.loads(value) if value else None
-    
-    def set(self, key: str, value: dict, ttl: int = 3600):
-        self.redis.setex(key, ttl, json.dumps(value))
+ def __init__(self):
+ self.redis = redis.Redis(
+ host=os.getenv("REDIS_HOST", "localhost"),
+ port=int(os.getenv("REDIS_PORT", 6379)),
+ decode_responses=True
+ )
+ 
+ def get(self, key: str) -> Optional[dict]:
+ value = self.redis.get(key)
+ return json.loads(value) if value else None
+ 
+ def set(self, key: str, value: dict, ttl: int = 3600):
+ self.redis.setex(key, ttl, json.dumps(value))
 ```
 
 ## 监控与日志
@@ -125,14 +125,14 @@ class CacheService:
 ```python
 # backend/utils/logger.py
 class JSONFormatter(logging.Formatter):
-    def format(self, record):
-        log_data = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "level": record.levelname,
-            "message": record.getMessage(),
-            "module": record.module,
-        }
-        return json.dumps(log_data)
+ def format(self, record):
+ log_data = {
+ "timestamp": datetime.utcnow().isoformat(),
+ "level": record.levelname,
+ "message": record.getMessage(),
+ "module": record.module,
+ }
+ return json.dumps(log_data)
 ```
 
 ## 安全加固
@@ -156,4 +156,5 @@ tar -czf backup/uploads-$(date +%Y%m%d).tar.gz backend/uploads
 ## 相关文档
 
 - [Environment Variables](./environment-variables.md) - 环境变量
-- [Security Configuration](./security-configuration.md) - 安全配置
+- [Deployment Overview](../deployment.md) - 部署总览
+- [Troubleshooting](./troubleshooting.md) - 常见问题排查
