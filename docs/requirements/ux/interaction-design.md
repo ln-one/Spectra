@@ -1,14 +1,23 @@
-﻿# 交互设计
+# 交互设计摘要
 
-已拆分为模块化文档，统一入口见：
+> 更新时间：2026-03-02
 
-- [interaction-design/README.md](./interaction-design/README.md)
+## 主流程
 
-分模块文件：
-- [01 核心流程与输入上传](./interaction-design/01-core-flow.md)
-- [02 教学法引导](./interaction-design/02-pedagogy.md)
-- [03 需求确认与生成进度](./interaction-design/03-confirm-generate.md)
-- [04 预览修改与溯源](./interaction-design/04-preview-modify.md)
-- [05 互动游戏配置](./interaction-design/05-interactive-game.md)
-- [06 下载导出与演示](./interaction-design/06-export-presentation.md)
-- [07 交互规范与质量](./interaction-design/07-ux-standards.md)
+1. 需求输入：文字/语音 + 项目配置
+2. 资料上传：文件上传与用途标注
+3. 生成确认：查看配置并启动任务
+4. 预览修改：查看结果并提交修改
+5. 导出演示：下载或演示展示
+
+## 关键约束
+
+- 每一步都要有明确状态反馈（处理中/完成/失败）。
+- 每次关键操作都要有可追踪结果（任务 ID、文件状态、版本）。
+- 错误提示必须可操作（告诉用户下一步做什么）。
+
+## 验收清单
+
+- [ ] 用户可在无说明情况下完成主流程
+- [ ] 失败场景有可恢复路径
+- [ ] 生成进度与结果状态一致

@@ -16,7 +16,7 @@ pytest -m "not integration"
 GitHub Actions CI 也跳过集成测试：
 ```yaml
 - name: Test
-  run: pytest -m "not integration"
+ run: pytest -m "not integration"
 ```
 
 ## 手动运行集成测试
@@ -43,8 +43,8 @@ import pytest
 
 @pytest.mark.integration
 def test_full_workflow():
-    """测试完整的用户流程"""
-    # 测试代码...
+ """测试完整的用户流程"""
+ # 测试代码...
 ```
 
 ## 测试分类

@@ -67,13 +67,13 @@
 ## 上下文边界图
 ```mermaid
 flowchart LR
-    U[教师用户] --> FE[前端应用 Next.js]
-    FE --> BE[后端服务 FastAPI]
-    BE --> LLM[大模型服务]
-    BE --> RAG[本地知识库/RAG]
-    BE --> FS[文件存储]
-    BE --> DB[(SQLite/后续PostgreSQL)]
-    BE --> OUT[导出文件 PPTX/DOCX/HTML5/GIF/MP4]
+ U[教师用户] --> FE[前端应用 Next.js]
+ FE --> BE[后端服务 FastAPI]
+ BE --> LLM[大模型服务]
+ BE --> RAG[本地知识库/RAG]
+ BE --> FS[文件存储]
+ BE --> DB[(SQLite/后续PostgreSQL)]
+ BE --> OUT[导出文件 PPTX/DOCX/HTML5/GIF/MP4]
 ```
 
 ## 边界验收口径（首版）

@@ -1,6 +1,6 @@
 # ADR-008: LLM 路由策略 - LiteLLM（不使用 LangChain）
 
-**状态**: ✅ 已接受  
+**状态**: 已接受 
 **日期**: 2026-02-19
 
 ## 背景
@@ -40,16 +40,16 @@
 from litellm import completion
 
 async def generate_outline(intent: TeachingIntent) -> CourseOutline:
-    response = await completion(
-        model="qwen/qwen-plus",
-        messages=[
-            {"role": "system", "content": OUTLINE_SYSTEM_PROMPT},
-            {"role": "user", "content": format_intent(intent)}
-        ],
-        response_format={"type": "json_object"}
-    )
-    return parse_outline(response)
-    return CourseOutline.model_validate_json(response.choices[0].message.content)
+ response = await completion(
+ model="qwen/qwen-plus",
+ messages=[
+ {"role": "system", "content": OUTLINE_SYSTEM_PROMPT},
+ {"role": "user", "content": format_intent(intent)}
+ ],
+ response_format={"type": "json_object"}
+ )
+ return parse_outline(response)
+ return CourseOutline.model_validate_json(response.choices[0].message.content)
 ```
 
 对比 LangChain 的方式：
@@ -70,25 +70,25 @@ result = await chain.arun(intent=intent)
 
 ```
 ┌─────────────────────────────────────────┐
-│              AI Service                  │
+│ AI Service │
 ├─────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────────┐   │
-│  │ LiteLLM     │  │ Prompt Manager  │   │
-│  │ (路由层)    │  │ (模板管理)       │   │
-│  └──────┬──────┘  └────────┬────────┘   │
-│         │                   │            │
-│  ┌──────▼───────────────────▼────────┐  │
-│  │         Business Logic             │  │
-│  │  - intent_parser.py                │  │
-│  │  - outline_generator.py            │  │
-│  │  - content_generator.py            │  │
-│  │  - revision_handler.py             │  │
-│  └───────────────────────────────────┘  │
+│ ┌─────────────┐ ┌─────────────────┐ │
+│ │ LiteLLM │ │ Prompt Manager │ │
+│ │ (路由层) │ │ (模板管理) │ │
+│ └──────┬──────┘ └────────┬────────┘ │
+│ │ │ │
+│ ┌──────▼───────────────────▼────────┐ │
+│ │ Business Logic │ │
+│ │ - intent_parser.py │ │
+│ │ - outline_generator.py │ │
+│ │ - content_generator.py │ │
+│ │ - revision_handler.py │ │
+│ └───────────────────────────────────┘ │
 └─────────────────────────────────────────┘
-                    │
-         ┌──────────┼──────────┐
-         ▼          ▼          ▼
-     [Qwen API] [GPT API] [Claude API]
+ │
+ ┌──────────┼──────────┐
+ ▼ ▼ ▼
+ [Qwen API] [GPT API] [Claude API]
 ```
 
 ## 模型配置
@@ -98,23 +98,23 @@ result = await chain.arun(intent=intent)
 from litellm import Router
 
 router = Router(
-    model_list=[
-        {
-            "model_name": "main",
-            "litellm_params": {
-                "model": "qwen/qwen-plus",
-                "api_key": os.getenv("DASHSCOPE_API_KEY"),
-            },
-        },
-        {
-            "model_name": "main",  # fallback
-            "litellm_params": {
-                "model": "gpt-4",
-                "api_key": os.getenv("OPENAI_API_KEY"),
-            },
-        },
-    ],
-    fallbacks=[{"main": ["main"]}],  # 自动 fallback
+ model_list=[
+ {
+ "model_name": "main",
+ "litellm_params": {
+ "model": "qwen/qwen-plus",
+ "api_key": os.getenv("DASHSCOPE_API_KEY"),
+ },
+ },
+ {
+ "model_name": "main", # fallback
+ "litellm_params": {
+ "model": "gpt-4",
+ "api_key": os.getenv("OPENAI_API_KEY"),
+ },
+ },
+ ],
+ fallbacks=[{"main": ["main"]}], # 自动 fallback
 )
 ```
 

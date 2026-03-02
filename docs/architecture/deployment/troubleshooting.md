@@ -73,9 +73,9 @@ docker-compose logs backend
 
 # 测试 API 连接
 curl -X POST https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation \
-  -H "Authorization: Bearer $DASHSCOPE_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"qwen-plus","input":{"messages":[{"role":"user","content":"test"}]}}'
+ -H "Authorization: Bearer $DASHSCOPE_API_KEY" \
+ -H "Content-Type: application/json" \
+ -d '{"model":"qwen-plus","input":{"messages":[{"role":"user","content":"test"}]}}'
 ```
 
 ### 6. JWT 认证失败

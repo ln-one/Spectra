@@ -25,36 +25,36 @@
 
 ## 2. 规划与现状差异（必须明确）
 
-| 主题      | 规划口径                     | 当前代码现状         | 结论                         |
+| 主题 | 规划口径 | 当前代码现状 | 结论 |
 | ------- | ------------------------ | -------------- | -------------------------- |
-| 文档解析主方案 | MinerU（主）+ LlamaParse（备） | 当前未接入，使用本地轻量解析 | 规划未落地                      |
-| 视频理解    | Qwen-VL                  | 当前未接入          | 规划未落地                      |
-| 语音识别    | Faster-Whisper           | 当前未接入          | 规划未落地                      |
-| 状态管理表述  | React Context 为主         | 实际以 Zustand 为主 | 文档需改为“Zustand 主、Context 辅” |
-| 生产数据库   | PostgreSQL               | 当前默认 SQLite    | 按 MVP 合理，生产前迁移             |
+| 文档解析主方案 | MinerU（主）+ LlamaParse（备） | 当前未接入，使用本地轻量解析 | 规划未落地 |
+| 视频理解 | Qwen-VL | 当前未接入 | 规划未落地 |
+| 语音识别 | Faster-Whisper | 当前未接入 | 规划未落地 |
+| 状态管理表述 | React Context 为主 | 实际以 Zustand 为主 | 文档需改为“Zustand 主、Context 辅” |
+| 生产数据库 | PostgreSQL | 当前默认 SQLite | 按 MVP 合理，生产前迁移 |
 
 ## 3. 过渡路线（从 MVP 到完整技术栈）
 
 ### Phase A（低风险对齐）
 - 目标：先把文档与代码完全一致。
 - 动作：
-  - 统一所有技术栈描述为“MVP 已实现 vs 规划”。
-  - 清理过时结论（例如把未上线能力标成“已确定并落地”）。
-  - 修复文档错误链接与重复入口。
+ - 统一所有技术栈描述为“MVP 已实现 vs 规划”。
+ - 清理过时结论（例如把未上线能力标成“已确定并落地”）。
+ - 修复文档错误链接与重复入口。
 
 ### Phase B（能力补齐）
 - 目标：补齐最关键 AI 能力差异。
 - 动作：
-  - 为 `file_parser` 增加可插拔解析器接口（Local/MinerU/LlamaParse）。
-  - 增加解析策略开关（环境变量），默认仍保留本地轻量方案。
-  - 增加回归测试：PDF/Word/PPT 解析结果与失败回退。
+ - 为 `file_parser` 增加可插拔解析器接口（Local/MinerU/LlamaParse）。
+ - 增加解析策略开关（环境变量），默认仍保留本地轻量方案。
+ - 增加回归测试：PDF/Word/PPT 解析结果与失败回退。
 
 ### Phase C（生产化）
 - 目标：非 MVP 能力与部署能力完善。
 - 动作：
-  - 评估接入 Qwen-VL/Faster-Whisper 的收益与成本。
-  - 从 SQLite 迁移到 PostgreSQL（含迁移脚本、回滚策略、压测）。
-  - 结合实际并发情况评估是否从 ChromaDB 升级到 Milvus/Qdrant。
+ - 评估接入 Qwen-VL/Faster-Whisper 的收益与成本。
+ - 从 SQLite 迁移到 PostgreSQL（含迁移脚本、回滚策略、压测）。
+ - 结合实际并发情况评估是否从 ChromaDB 升级到 Milvus/Qdrant。
 
 ## 4. 当前不建议立即做的改造
 

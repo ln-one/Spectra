@@ -5,12 +5,12 @@
 ### 1. python-jose 漏洞（Critical + Moderate）
 - **CVE**: ECDSA 密钥混淆 + JWE 压缩内容 DoS
 - **影响**: backend/requirements.txt
-- **状态**: ✅ 已修复
+- **状态**: 已修复
 
 ### 2. minimatch ReDoS 漏洞（High）
 - **CVE**: 通过重复通配符导致 ReDoS
 - **影响**: frontend/package-lock.json
-- **状态**: ⚠️ 需要手动修复
+- **状态**: 需要手动修复
 
 ---
 
@@ -113,22 +113,22 @@ name: Security Scan
 on: [push, pull_request]
 
 jobs:
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      # Python 安全扫描
-      - name: Python Security Check
-        run: |
-          pip install safety
-          safety check -r backend/requirements.txt
-      
-      # Node.js 安全扫描
-      - name: Node Security Check
-        run: |
-          cd frontend
-          npm audit
+ security:
+ runs-on: ubuntu-latest
+ steps:
+ - uses: actions/checkout@v3
+ 
+ # Python 安全扫描
+ - name: Python Security Check
+ run: |
+ pip install safety
+ safety check -r backend/requirements.txt
+ 
+ # Node.js 安全扫描
+ - name: Node Security Check
+ run: |
+ cd frontend
+ npm audit
 ```
 
 ---

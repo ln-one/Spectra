@@ -1,6 +1,6 @@
 # 创建 React 组件
 
-> 最后更新：2026-02-26 | 版本：1.0  
+> 最后更新：2026-02-26 | 版本：1.0 
 > 任务类型：frontend | 预估 tokens：400
 
 ## 适用场景
@@ -39,27 +39,27 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 interface CourseCardProps {
-  title: string;
-  description: string;
-  onEdit?: () => void;
+ title: string;
+ description: string;
+ onEdit?: () => void;
 }
 
 export function CourseCard({ title, description, onEdit }: CourseCardProps) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p>{description}</p>
-        {onEdit && (
-          <Button onClick={onEdit} variant="outline">
-            编辑
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
+ return (
+ <Card>
+ <CardHeader>
+ <CardTitle>{title}</CardTitle>
+ </CardHeader>
+ <CardContent>
+ <p>{description}</p>
+ {onEdit && (
+ <Button onClick={onEdit} variant="outline">
+ 编辑
+ </Button>
+ )}
+ </CardContent>
+ </Card>
+ );
 }
 ```
 
@@ -72,14 +72,14 @@ Next.js 页面组件：
 import { CourseCard } from '@/components/CourseCard';
 
 export default function CoursesPage() {
-  return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">我的课程</h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <CourseCard title="课程 1" description="描述" />
-      </div>
-    </div>
-  );
+ return (
+ <div className="container mx-auto p-4">
+ <h1 className="text-2xl font-bold mb-4">我的课程</h1>
+ <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+ <CourseCard title="课程 1" description="描述" />
+ </div>
+ </div>
+ );
 }
 ```
 
@@ -92,17 +92,17 @@ export default function CoursesPage() {
 ```typescript
 // components/MyComponent.tsx
 interface MyComponentProps {
-  title: string;
-  children?: React.ReactNode;
+ title: string;
+ children?: React.ReactNode;
 }
 
 export function MyComponent({ title, children }: MyComponentProps) {
-  return (
-    <div>
-      <h2>{title}</h2>
-      {children}
-    </div>
-  );
+ return (
+ <div>
+ <h2>{title}</h2>
+ {children}
+ </div>
+ );
 }
 ```
 
@@ -116,15 +116,15 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 export function Counter() {
-  const [count, setCount] = useState(0);
+ const [count, setCount] = useState(0);
 
-  return (
-    <div className="flex items-center gap-2">
-      <Button onClick={() => setCount(count - 1)}>-</Button>
-      <span>{count}</span>
-      <Button onClick={() => setCount(count + 1)}>+</Button>
-    </div>
-  );
+ return (
+ <div className="flex items-center gap-2">
+ <Button onClick={() => setCount(count - 1)}>-</Button>
+ <span>{count}</span>
+ <Button onClick={() => setCount(count + 1)}>+</Button>
+ </div>
+ );
 }
 ```
 
@@ -139,35 +139,35 @@ import { coursesApi } from '@/lib/api/courses';
 import { CourseCard } from './CourseCard';
 
 export function CourseList() {
-  const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
+ const [courses, setCourses] = useState([]);
+ const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const response = await coursesApi.list();
-        if (response.success) {
-          setCourses(response.data);
-        }
-      } catch (error) {
-        console.error('获取课程失败:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+ useEffect(() => {
+ const fetchCourses = async () => {
+ try {
+ const response = await coursesApi.list();
+ if (response.success) {
+ setCourses(response.data);
+ }
+ } catch (error) {
+ console.error('获取课程失败:', error);
+ } finally {
+ setLoading(false);
+ }
+ };
 
-    fetchCourses();
-  }, []);
+ fetchCourses();
+ }, []);
 
-  if (loading) return <div>加载中...</div>;
+ if (loading) return <div>加载中...</div>;
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {courses.map((course) => (
-        <CourseCard key={course.id} {...course} />
-      ))}
-    </div>
-  );
+ return (
+ <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+ {courses.map((course) => (
+ <CourseCard key={course.id} {...course} />
+ ))}
+ </div>
+ );
 }
 ```
 
@@ -185,11 +185,11 @@ export function CourseList() {
 
 ```
 components/
-├── ui/              # Shadcn/ui 组件
-│   ├── button.tsx
-│   ├── card.tsx
-│   └── dialog.tsx
-├── CourseCard.tsx   # 业务组件
+├── ui/ # Shadcn/ui 组件
+│ ├── button.tsx
+│ ├── card.tsx
+│ └── dialog.tsx
+├── CourseCard.tsx # 业务组件
 ├── CourseList.tsx
 └── Sidebar.tsx
 ```
@@ -199,16 +199,16 @@ components/
 ```typescript
 // 定义 Props 接口
 interface CourseCardProps {
-  title: string;
-  description?: string;  // 可选
-  onEdit?: () => void;   // 可选回调
-  children?: React.ReactNode;  // 子元素
+ title: string;
+ description?: string; // 可选
+ onEdit?: () => void; // 可选回调
+ children?: React.ReactNode; // 子元素
 }
 
 // 使用泛型
 interface ListProps<T> {
-  items: T[];
-  renderItem: (item: T) => React.ReactNode;
+ items: T[];
+ renderItem: (item: T) => React.ReactNode;
 }
 ```
 
@@ -218,7 +218,7 @@ interface ListProps<T> {
 
 ```typescript
 <div className="flex items-center gap-4 p-4 bg-white rounded-lg shadow">
-  <h2 className="text-xl font-bold">标题</h2>
+ <h2 className="text-xl font-bold">标题</h2>
 </div>
 ```
 
@@ -232,8 +232,8 @@ interface ListProps<T> {
 import { useState } from 'react';
 
 export function MyComponent() {
-  const [state, setState] = useState(0);
-  // ...
+ const [state, setState] = useState(0);
+ // ...
 }
 ```
 
@@ -244,17 +244,17 @@ import { memo, useCallback, useMemo } from 'react';
 
 // 使用 memo 避免不必要的重渲染
 export const CourseCard = memo(function CourseCard({ title, description }) {
-  return <div>{title}</div>;
+ return <div>{title}</div>;
 });
 
 // 使用 useCallback 缓存回调
 const handleClick = useCallback(() => {
-  console.log('clicked');
+ console.log('clicked');
 }, []);
 
 // 使用 useMemo 缓存计算结果
 const filteredCourses = useMemo(() => {
-  return courses.filter(c => c.active);
+ return courses.filter(c => c.active);
 }, [courses]);
 ```
 
@@ -268,15 +268,15 @@ import { render, screen } from '@testing-library/react';
 import { CourseCard } from '@/components/CourseCard';
 
 test('renders course card', () => {
-  render(
-    <CourseCard 
-      title="测试课程" 
-      description="这是描述" 
-    />
-  );
-  
-  expect(screen.getByText('测试课程')).toBeInTheDocument();
-  expect(screen.getByText('这是描述')).toBeInTheDocument();
+ render(
+ <CourseCard 
+ title="测试课程" 
+ description="这是描述" 
+ />
+ );
+ 
+ expect(screen.getByText('测试课程')).toBeInTheDocument();
+ expect(screen.getByText('这是描述')).toBeInTheDocument();
 });
 ```
 
@@ -303,24 +303,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 interface FormData {
-  title: string;
-  description: string;
+ title: string;
+ description: string;
 }
 
 export function CourseForm() {
-  const { register, handleSubmit } = useForm<FormData>();
+ const { register, handleSubmit } = useForm<FormData>();
 
-  const onSubmit = async (data: FormData) => {
-    console.log(data);
-  };
+ const onSubmit = async (data: FormData) => {
+ console.log(data);
+ };
 
-  return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <Input {...register('title')} placeholder="标题" />
-      <Input {...register('description')} placeholder="描述" />
-      <Button type="submit">提交</Button>
-    </form>
-  );
+ return (
+ <form onSubmit={handleSubmit(onSubmit)}>
+ <Input {...register('title')} placeholder="标题" />
+ <Input {...register('description')} placeholder="描述" />
+ <Button type="submit">提交</Button>
+ </form>
+ );
 }
 ```
 

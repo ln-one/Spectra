@@ -89,7 +89,7 @@ docker-compose restart frontend
 docker-compose logs backend
 
 # 应该看到：
-# INFO:     Uvicorn running on http://0.0.0.0:8000
+# INFO: Uvicorn running on http://0.0.0.0:8000
 
 # 检查前端日志
 docker-compose logs frontend
@@ -131,10 +131,10 @@ docker-compose up --build
 
 ```yaml
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
-    # 添加这行，每次启动都检查依赖
-    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --reload"
+ backend:
+ build:
+ context: ./backend
+ dockerfile: Dockerfile.dev
+ # 添加这行，每次启动都检查依赖
+ command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --reload"
 ```
