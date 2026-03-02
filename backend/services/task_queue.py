@@ -9,7 +9,7 @@ import os
 from typing import Optional
 
 from redis import Redis
-from rq import Queue
+from rq import Queue, Retry
 from rq.job import Job
 from rq.registry import FailedJobRegistry, FinishedJobRegistry, StartedJobRegistry
 
@@ -40,7 +40,7 @@ class TaskQueueService:
         task_type: str,
         template_config: Optional[dict] = None,
         priority: str = "default",
-        timeout: int = 1800,  # 30 minutes
+        timeout: int = 1800,  # 30 minutes default
     ) -> Job:
         """
         提交课件生成任务到队列
@@ -51,14 +51,20 @@ class TaskQueueService:
             task_type: 任务类型（pptx/docx/both）
             template_config: 模板配置（可选）
             priority: 优先级（high/default/low）
-            timeout: 超时时间（秒）
+            timeout: 超时时间（秒），默认 1800 秒（30分钟），最大 3600 秒（60分钟）
 
         Returns:
             Job: RQ Job 实例
 
         Raises:
-            ValueError: 优先级参数无效时抛出
+            ValueError: 优先级参数无效或超时时间超出范围时抛出
         """
+        # Validate timeout
+        if timeout < 60:
+            raise ValueError("Timeout must be at least 60 seconds")
+        if timeout > 3600:
+            raise ValueError("Timeout cannot exceed 3600 seconds (60 minutes)")
+
         # Select queue based on priority
         if priority == "high":
             queue = self.high_queue
@@ -72,6 +78,9 @@ class TaskQueueService:
         # Import here to avoid circular dependency
         from services.task_executor import execute_generation_task
 
+        # 配置重试策略：最多重试 3 次，间隔为 1分钟、5分钟、15分钟
+        retry_strategy = Retry(max=3, interval=[60, 300, 900])
+
         # Enqueue task
         job = queue.enqueue(
             execute_generation_task,
@@ -80,6 +89,7 @@ class TaskQueueService:
             task_type=task_type,
             template_config=template_config,
             job_timeout=timeout,
+            retry=retry_strategy,
             result_ttl=int(os.getenv("RQ_RESULT_TTL", "86400")),  # 24 hours
             failure_ttl=int(os.getenv("RQ_FAILURE_TTL", "604800")),  # 7 days
         )

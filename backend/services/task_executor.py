@@ -6,9 +6,18 @@ RQ 任务执行器
 
 import json
 import logging
+import time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+# 定义可重试的错误类型
+RETRYABLE_ERRORS = (
+    ConnectionError,
+    TimeoutError,
+    OSError,  # 包含网络和文件系统临时错误
+)
 
 
 async def execute_generation_task(
@@ -31,6 +40,8 @@ async def execute_generation_task(
     """
     from services.database import db_service
 
+    start_time = time.time()
+
     try:
         logger.info(
             "generation_task_processing_started",
@@ -38,6 +49,7 @@ async def execute_generation_task(
                 "task_id": task_id,
                 "project_id": project_id,
                 "task_type": task_type,
+                "timestamp": time.time(),
             },
         )
 
@@ -119,13 +131,67 @@ async def execute_generation_task(
                 "task_id": task_id,
                 "project_id": project_id,
                 "output_urls": output_urls,
+                "execution_time": time.time() - start_time,
+                "timestamp": time.time(),
             },
         )
 
-    except Exception as e:
+    except RETRYABLE_ERRORS as e:
+        # 可重试错误：记录日志，增加重试计数，抛出异常触发 RQ 重试
+        logger.warning(
+            f"Retryable error in task {task_id}: {type(e).__name__}: {str(e)}",
+            extra={
+                "task_id": task_id,
+                "project_id": project_id,
+                "error_type": type(e).__name__,
+                "execution_time": time.time() - start_time,
+                "timestamp": time.time(),
+            },
+        )
+
+        # 增加重试计数
+        try:
+            await db_service.increment_task_retry_count(task_id)
+        except Exception as db_error:
+            logger.error(f"Failed to increment retry count: {db_error}")
+
+        # 重新抛出异常以触发 RQ 重试机制
+        raise
+
+    except (ValueError, KeyError, TypeError) as e:
+        # 不可重试错误（参数/数据错误）：记录日志，标记为 failed
         logger.error(
-            f"Generation task failed: {str(e)}",
-            extra={"task_id": task_id, "project_id": project_id},
+            f"Permanent error in task {task_id}: {type(e).__name__}: {str(e)}",
+            extra={
+                "task_id": task_id,
+                "project_id": project_id,
+                "error_type": type(e).__name__,
+                "execution_time": time.time() - start_time,
+                "timestamp": time.time(),
+            },
+            exc_info=True,
+        )
+
+        # 更新任务状态为 failed，不重试
+        await db_service.update_generation_task_status(
+            task_id=task_id,
+            status="failed",
+            error_message=f"{type(e).__name__}: {str(e)}",
+        )
+
+        # 不抛出异常，避免触发重试
+
+    except Exception as e:
+        # 未知错误：记录详细日志，更新状态为 failed
+        logger.error(
+            f"Unknown error in task {task_id}: {type(e).__name__}: {str(e)}",
+            extra={
+                "task_id": task_id,
+                "project_id": project_id,
+                "error_type": type(e).__name__,
+                "execution_time": time.time() - start_time,
+                "timestamp": time.time(),
+            },
             exc_info=True,
         )
 
@@ -133,10 +199,10 @@ async def execute_generation_task(
         await db_service.update_generation_task_status(
             task_id=task_id,
             status="failed",
-            error_message=str(e),
+            error_message=f"{type(e).__name__}: {str(e)}",
         )
 
-        # 重新抛出异常以触发 RQ 重试机制
+        # 对于未知错误，也抛出异常以触发重试（但会受到最大重试次数限制）
         raise
 
 
