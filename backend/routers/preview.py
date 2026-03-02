@@ -158,9 +158,7 @@ async def modify_preview(
     try:
         task, project = await _resolve_task(task_id, user_id)
         key_str = str(idempotency_key) if idempotency_key else None
-        cache_key = (
-            f"preview:modify:{user_id}:{task.id}:{key_str}" if key_str else None
-        )
+        cache_key = f"preview:modify:{user_id}:{task.id}:{key_str}" if key_str else None
         if cache_key:
             cached_response = await db_service.get_idempotency_response(cache_key)
             if cached_response:
