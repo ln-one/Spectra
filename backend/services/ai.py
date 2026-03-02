@@ -256,14 +256,18 @@ class AIService(CoursewareAIMixin):
             "增加一页",
             "调整顺序",
         ]
-        global_kw = ["整体", "全部", "所有", "全局", "主题"]
+        has_structure = any(kw in msg for kw in structure_kw)
+        has_style = any(kw in msg for kw in style_kw)
+        has_global_scope = any(kw in msg for kw in ["整体", "全部", "所有", "全局"])
+        # “主题色”应归到 style，不应触发 global
+        has_global_theme = "主题" in msg and "主题色" not in msg
 
-        if any(kw in msg for kw in structure_kw):
+        if has_structure:
             modify_type = ModifyType.STRUCTURE
-        elif any(kw in msg for kw in style_kw):
-            modify_type = ModifyType.STYLE
-        elif any(kw in msg for kw in global_kw) and not target_slides:
+        elif (has_global_scope or has_global_theme) and not target_slides:
             modify_type = ModifyType.GLOBAL
+        elif has_style:
+            modify_type = ModifyType.STYLE
         else:
             modify_type = ModifyType.CONTENT
 
