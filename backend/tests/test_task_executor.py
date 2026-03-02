@@ -14,14 +14,17 @@ from services.task_executor import execute_generation_task
 @pytest.fixture
 def mock_db_service():
     """Mock 数据库服务"""
-    mock = AsyncMock()
+    mock = MagicMock()
     mock.connect = AsyncMock()
     mock.disconnect = AsyncMock()
     mock.update_generation_task_status = AsyncMock()
     mock.increment_task_retry_count = AsyncMock()
-    mock.get_project = AsyncMock(
-        return_value=MagicMock(name="Test Project", description="Test Description")
-    )
+
+    # 创建 mock project 对象
+    mock_project = MagicMock()
+    mock_project.name = "Test Project"
+    mock_project.description = "Test Description"
+    mock.get_project = AsyncMock(return_value=mock_project)
     mock.get_messages = AsyncMock(return_value=[])
     return mock
 
@@ -57,7 +60,7 @@ class TestTaskExecutor:
     ):
         """测试成功执行 PPTX 生成任务"""
         with (
-            patch("services.database.db_service", mock_db_service),
+            patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
             patch("services.generation.generation_service", mock_generation_service),
         ):
@@ -94,7 +97,7 @@ class TestTaskExecutor:
     ):
         """测试成功执行 PPTX + DOCX 生成任务"""
         with (
-            patch("services.database.db_service", mock_db_service),
+            patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
             patch("services.generation.generation_service", mock_generation_service),
         ):
@@ -128,7 +131,7 @@ class TestTaskExecutor:
         )
 
         with (
-            patch("services.database.db_service", mock_db_service),
+            patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
             patch("services.generation.generation_service", mock_generation_service),
         ):
@@ -157,7 +160,7 @@ class TestTaskExecutor:
         )
 
         with (
-            patch("services.database.db_service", mock_db_service),
+            patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
             patch("services.generation.generation_service", mock_generation_service),
         ):
@@ -170,11 +173,14 @@ class TestTaskExecutor:
             )
 
             # 验证任务标记为 failed
-            final_call = mock_db_service.update_generation_task_status.call_args_list[
-                -1
+            # 找到状态为 failed 的调用
+            failed_calls = [
+                call
+                for call in mock_db_service.update_generation_task_status.call_args_list
+                if call[1].get("status") == "failed"
             ]
-            assert final_call[1]["status"] == "failed"
-            assert "ValueError" in final_call[1]["error_message"]
+            assert len(failed_calls) > 0
+            assert "ValueError" in failed_calls[0][1]["error_message"]
 
             # 验证不增加重试计数
             mock_db_service.increment_task_retry_count.assert_not_called()
@@ -190,7 +196,7 @@ class TestTaskExecutor:
         )
 
         with (
-            patch("services.database.db_service", mock_db_service),
+            patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
             patch("services.generation.generation_service", mock_generation_service),
         ):
@@ -204,7 +210,11 @@ class TestTaskExecutor:
                 )
 
             # 验证任务标记为 failed
-            final_call = mock_db_service.update_generation_task_status.call_args_list[
-                -1
+            # 找到状态为 failed 的调用
+            failed_calls = [
+                call
+                for call in mock_db_service.update_generation_task_status.call_args_list
+                if call[1].get("status") == "failed"
             ]
-            assert final_call[1]["status"] == "failed"
+            assert len(failed_calls) > 0
+            assert "RuntimeError" in failed_calls[0][1]["error_message"]

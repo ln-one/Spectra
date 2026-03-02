@@ -1,3 +1,6 @@
+# Build tools (must be first to avoid conflicts)
+setuptools>=65.0.0
+
 # Core Framework
 fastapi==0.129.0
 uvicorn[standard]==0.32.1
