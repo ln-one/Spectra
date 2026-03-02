@@ -5,7 +5,7 @@
  * 支持 Mock 模式用于前端独立开发
  */
 
-import { request } from "./client";
+import { request, ENABLE_MOCK } from "./client";
 import type { components } from "../types/api";
 
 export type LoginRequest = components["schemas"]["LoginRequest"];
@@ -25,8 +25,7 @@ export interface AuthResponse {
   message: string;
 }
 
-const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
-
+// Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
 const mockUsers: UserInfo[] = [
   {
     id: "user-1",
@@ -47,7 +46,7 @@ const mockRefreshTokens: Record<string, string> = {
 
 export const authApi = {
   async login(data: LoginRequest): Promise<AuthResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const token = mockTokens[data.email] || `mock-jwt-token-${Date.now()}`;
       const refreshToken =
@@ -78,7 +77,7 @@ export const authApi = {
   },
 
   async register(data: RegisterRequest): Promise<AuthResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const existingUser = mockUsers.find((u) => u.email === data.email);
       if (existingUser) {
@@ -116,7 +115,7 @@ export const authApi = {
   },
 
   async getCurrentUser(): Promise<components["schemas"]["UserInfoResponse"]> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       return {
         success: true,
@@ -133,7 +132,7 @@ export const authApi = {
   },
 
   async logout(): Promise<{ success: boolean; message: string }> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 200));
       return {
         success: true,
@@ -147,7 +146,7 @@ export const authApi = {
   },
 
   async refreshToken(data: { refreshToken: string }): Promise<AuthResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const token = `mock-jwt-token-${Date.now()}`;
       const refreshToken = `mock-refresh-token-${Date.now()}`;

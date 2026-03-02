@@ -11,7 +11,7 @@
  * - 增强生成选项（模板、主题色等）
  */
 
-import { request, getApiUrl } from "./client";
+import { request, getApiUrl, ENABLE_MOCK } from "./client";
 import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
@@ -20,8 +20,7 @@ export type GenerateResponse = components["schemas"]["GenerateResponse"];
 export type GenerateStatusResponse =
   components["schemas"]["GenerateStatusResponse"];
 
-const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
-
+// Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
 interface MockTask {
   id: string;
   status: "pending" | "processing" | "completed" | "failed";
@@ -38,7 +37,7 @@ const mockTasks: Map<string, MockTask> = new Map();
 
 export const generateApi = {
   async generateCourseware(data: GenerateRequest): Promise<GenerateResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const taskId = `task-${Date.now()}`;
       const task: MockTask = {
@@ -70,7 +69,7 @@ export const generateApi = {
   },
 
   async getGenerateStatus(taskId: string): Promise<GenerateStatusResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const task = mockTasks.get(taskId);
       if (!task) {
@@ -113,7 +112,7 @@ export const generateApi = {
     taskId: string,
     fileType: "pptx" | "docx"
   ): Promise<Blob> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const content = `Mock ${fileType.toUpperCase()} file content for task ${taskId}`;
       return new Blob([content], {

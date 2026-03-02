@@ -5,7 +5,7 @@
  * 支持 Mock 模式用于前端独立开发
  */
 
-import { request } from "./client";
+import { request, ENABLE_MOCK } from "./client";
 import type { components } from "../types/api";
 
 export type Project = components["schemas"]["Project"];
@@ -13,8 +13,7 @@ export type ProjectRequest = components["schemas"]["ProjectRequest"];
 export type GetProjectsResponse = components["schemas"]["GetProjectsResponse"];
 export type ProjectResponse = components["schemas"]["ProjectResponse"];
 
-const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
-
+// Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
 const mockProjects: Project[] = [
   {
     id: "proj-1",
@@ -50,7 +49,7 @@ export const projectsApi = {
     page?: number;
     limit?: number;
   }): Promise<GetProjectsResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const page = params?.page || 1;
       const limit = params?.limit || 20;
@@ -83,7 +82,7 @@ export const projectsApi = {
   },
 
   async getProject(projectId: string): Promise<ProjectResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const project = mockProjects.find((p) => p.id === projectId);
       if (!project) {
@@ -102,7 +101,7 @@ export const projectsApi = {
   },
 
   async createProject(data: ProjectRequest): Promise<ProjectResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const newProject: Project = {
         id: `proj-${Date.now()}`,
@@ -131,7 +130,7 @@ export const projectsApi = {
     projectId: string,
     data: ProjectRequest
   ): Promise<ProjectResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const index = mockProjects.findIndex((p) => p.id === projectId);
       if (index === -1) {
@@ -158,7 +157,7 @@ export const projectsApi = {
   async deleteProject(
     projectId: string
   ): Promise<{ success: boolean; message: string }> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const index = mockProjects.findIndex((p) => p.id === projectId);
       if (index === -1) {
@@ -182,7 +181,7 @@ export const projectsApi = {
     page?: number;
     limit?: number;
   }): Promise<GetProjectsResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const keyword = params.q.toLowerCase();
       const filtered = mockProjects.filter(

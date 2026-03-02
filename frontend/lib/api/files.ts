@@ -8,7 +8,7 @@
  * 更新内容: 增强文件解析状态字段
  */
 
-import { request, getApiUrl } from "./client";
+import { request, getApiUrl, ENABLE_MOCK } from "./client";
 import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
@@ -19,8 +19,6 @@ export type UpdateFileIntentRequest =
   components["schemas"]["UpdateFileIntentRequest"];
 export type UpdateFileIntentResponse =
   components["schemas"]["UpdateFileIntentResponse"];
-
-const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
 function parseUploadErrorMessage(raw: string, fallback: string): string {
   try {
@@ -65,6 +63,7 @@ function getFileTypeFromExtension(
   return FILE_TYPE_MAP[ext] || "pdf";
 }
 
+// Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
 const mockFiles: UploadedFile[] = [
   {
     id: "file-1",
@@ -150,7 +149,7 @@ export const filesApi = {
     projectId: string,
     onProgress?: (progress: number) => void
   ): Promise<UploadResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       if (onProgress) {
         onProgress(100);
@@ -225,7 +224,7 @@ export const filesApi = {
     projectId: string,
     params?: { page?: number; limit?: number }
   ): Promise<GetFilesResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const page = params?.page || 1;
       const limit = params?.limit || 20;
@@ -267,7 +266,7 @@ export const filesApi = {
     fileId: string,
     data: UpdateFileIntentRequest
   ): Promise<UpdateFileIntentResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const index = mockFiles.findIndex((f) => f.id === fileId);
       if (index === -1) {
@@ -303,7 +302,7 @@ export const filesApi = {
   async deleteFile(
     fileId: string
   ): Promise<{ success: boolean; message: string }> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const index = mockFiles.findIndex((f) => f.id === fileId);
       if (index === -1) {
@@ -324,7 +323,7 @@ export const filesApi = {
   async batchDeleteFiles(
     fileIds: string[]
   ): Promise<components["schemas"]["BatchDeleteResponse"]> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const deleted: number[] = [];
       const failed: { file_id: string; error: string }[] = [];
@@ -366,7 +365,7 @@ export const filesApi = {
     projectId: string,
     onProgress?: (progress: number) => void
   ): Promise<components["schemas"]["BatchUploadResponse"]> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       if (onProgress) {
         onProgress(100);

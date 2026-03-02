@@ -5,15 +5,14 @@
  * 支持 Mock 模式用于前端独立开发
  */
 
-import { request } from "./client";
+import { request, ENABLE_MOCK } from "./client";
 import type { components } from "../types/api";
 
 export type PreviewResponse = components["schemas"]["PreviewResponse"];
 export type ModifyRequest = components["schemas"]["ModifyRequest"];
 export type ModifyResponse = components["schemas"]["ModifyResponse"];
 
-const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
-
+// Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
 const mockSlides = [
   {
     id: "slide-1",
@@ -81,7 +80,7 @@ const mockLessonPlan = {
 
 export const previewApi = {
   async getPreview(taskId: string): Promise<PreviewResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       return {
         success: true,
@@ -103,7 +102,7 @@ export const previewApi = {
     taskId: string,
     data: ModifyRequest
   ): Promise<ModifyResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const modifyTaskId = `modify-${Date.now()}`;
       return {

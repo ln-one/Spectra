@@ -8,6 +8,9 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export const API_VERSION = "/api/v1";
 
+// Mock 模式开关（仅用于临时调试，默认关闭）
+export const ENABLE_MOCK = process.env.NEXT_PUBLIC_MOCK === "true";
+
 export interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
   idempotencyKey?: string;

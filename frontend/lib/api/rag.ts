@@ -5,7 +5,7 @@
  * 支持 Mock 模式用于前端独立开发
  */
 
-import { request } from "./client";
+import { request, ENABLE_MOCK } from "./client";
 import type { components } from "../types/api";
 
 export type RAGSearchRequest = components["schemas"]["RAGSearchRequest"];
@@ -13,8 +13,7 @@ export type RAGSearchResponse = components["schemas"]["RAGSearchResponse"];
 export type SourceDetailResponse =
   components["schemas"]["SourceDetailResponse"];
 
-const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
-
+// Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
 const mockRAGResults = [
   {
     chunk_id: "chunk-1",
@@ -70,7 +69,7 @@ const mockRAGResults = [
 
 export const ragApi = {
   async search(data: RAGSearchRequest): Promise<RAGSearchResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const topK = data.top_k || 5;
       const results = mockRAGResults.slice(0, topK);
@@ -91,7 +90,7 @@ export const ragApi = {
   },
 
   async getSourceDetail(chunkId: string): Promise<SourceDetailResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const result = mockRAGResults.find((r) => r.chunk_id === chunkId);
       if (!result) {
@@ -131,7 +130,7 @@ export const ragApi = {
     top_k?: number;
     threshold?: number;
   }): Promise<RAGSearchResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const topK = data.top_k || 5;
       const threshold = data.threshold || 0.7;

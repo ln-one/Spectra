@@ -8,7 +8,7 @@
  * 更新内容: 添加语音输入接口支持
  */
 
-import { request } from "./client";
+import { request, ENABLE_MOCK } from "./client";
 import type { components } from "../types/api";
 
 export type Message = components["schemas"]["Message"];
@@ -18,8 +18,7 @@ export type GetMessagesResponse = components["schemas"]["GetMessagesResponse"];
 export type VoiceMessageResponse =
   components["schemas"]["VoiceMessageResponse"];
 
-const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
-
+// Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
 const mockMessages: Message[] = [
   {
     id: "msg-1",
@@ -44,7 +43,7 @@ const mockMessages: Message[] = [
 
 export const chatApi = {
   async sendMessage(data: SendMessageRequest): Promise<SendMessageResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       const userMessage: Message = {
         id: `msg-${Date.now()}`,
@@ -91,7 +90,7 @@ export const chatApi = {
     projectId: string,
     params?: { page?: number; limit?: number }
   ): Promise<GetMessagesResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const page = params?.page || 1;
       const limit = params?.limit || 20;
@@ -130,7 +129,7 @@ export const chatApi = {
     audio: File,
     projectId: string
   ): Promise<VoiceMessageResponse> {
-    if (MOCK_MODE) {
+    if (ENABLE_MOCK) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       const userMessage: Message = {
