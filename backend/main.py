@@ -159,7 +159,11 @@ async def root():
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Health check endpoint"""
-    db_healthy = True
+    try:
+        await db_service.db.execute_raw("SELECT 1")
+        db_healthy = True
+    except Exception:
+        db_healthy = False
     redis_healthy = await redis_manager.health_check()
 
     return {

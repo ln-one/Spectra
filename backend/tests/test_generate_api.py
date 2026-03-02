@@ -65,7 +65,7 @@ def test_generate_courseware_success(client, monkeypatch, _as_user):
 
     from main import app
 
-    app.state.task_queue_service = mock_task_queue
+    monkeypatch.setattr(app.state, "task_queue_service", mock_task_queue, raising=False)
 
     resp = client.post(
         "/api/v1/generate/courseware",

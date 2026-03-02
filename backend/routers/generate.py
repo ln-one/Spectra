@@ -3,8 +3,9 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
+from starlette.concurrency import run_in_threadpool
 
 from schemas.generation import GenerateRequest
 from services.database import db_service
@@ -139,6 +140,7 @@ async def _build_user_requirements(project_id: str) -> str:
 
 @router.post("/courseware")
 async def generate_courseware(
+    http_request: Request,
     request: GenerateRequest,
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
@@ -205,9 +207,21 @@ async def generate_courseware(
         )
 
         # 使用 RQ 提交任务到队列
-        from main import app
-
-        task_queue_service = app.state.task_queue_service
+        task_queue_service = getattr(http_request.app.state, "task_queue_service", None)
+        if task_queue_service is None:
+            logger.error(
+                "task_queue_service_unavailable",
+                extra={
+                    "user_id": user_id,
+                    "project_id": request.project_id,
+                    "task_id": task.id,
+                    "type": request.type.value,
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Task queue service is unavailable. Please try again later.",
+            )
         job = task_queue_service.enqueue_generation_task(
             task_id=task.id,
             project_id=request.project_id,
@@ -277,6 +291,7 @@ async def generate_courseware(
 @router.get("/tasks/{task_id}/status")
 async def get_generation_status(
     task_id: str,
+    http_request: Request,
     user_id: str = Depends(get_current_user),
 ):
     """
@@ -318,11 +333,13 @@ async def get_generation_status(
             and task.rqJobId
         ):
             try:
-                from main import app
-
-                task_queue_service = app.state.task_queue_service
+                task_queue_service = getattr(
+                    http_request.app.state, "task_queue_service", None
+                )
                 if task_queue_service:
-                    job_status = task_queue_service.get_job_status(task.rqJobId)
+                    job_status = await run_in_threadpool(
+                        task_queue_service.get_job_status, task.rqJobId
+                    )
                     if job_status:
                         # 映射 RQ 状态到我们的状态
                         rq_status = job_status.get("status")

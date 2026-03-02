@@ -21,6 +21,34 @@ RETRYABLE_ERRORS = (
 )
 
 
+def run_generation_task(
+    task_id: str,
+    project_id: str,
+    task_type: str,
+    template_config: Optional[dict] = None,
+):
+    """
+    同步包装函数，供 RQ worker 调用。
+
+    RQ 只能执行同步函数；此函数通过 asyncio.run 在新事件循环中执行
+    真正的异步任务逻辑 execute_generation_task。
+
+    Args:
+        task_id: 任务 ID
+        project_id: 项目 ID
+        task_type: 任务类型（pptx/docx/both）
+        template_config: 模板配置（可选）
+    """
+    asyncio.run(
+        execute_generation_task(
+            task_id=task_id,
+            project_id=project_id,
+            task_type=task_type,
+            template_config=template_config,
+        )
+    )
+
+
 async def execute_generation_task(
     task_id: str,
     project_id: str,

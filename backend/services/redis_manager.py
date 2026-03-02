@@ -10,6 +10,7 @@ from typing import Optional
 
 from redis import Redis
 from redis.exceptions import ConnectionError, RedisError
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
@@ -54,19 +55,27 @@ class RedisConnectionManager:
         Raises:
             ConnectionError: 连接失败时抛出
         """
-        try:
-            self._connection = Redis(
-                host=self.host,
-                port=self.port,
-                db=self.db,
-                password=self.password if self.password else None,
-                decode_responses=self.decode_responses,
+        host = self.host
+        port = self.port
+        db = self.db
+        password = self.password
+        decode_responses = self.decode_responses
+
+        def _do_connect() -> Redis:
+            conn = Redis(
+                host=host,
+                port=port,
+                db=db,
+                password=password if password else None,
+                decode_responses=decode_responses,
                 socket_connect_timeout=5,
                 socket_timeout=5,
             )
+            conn.ping()
+            return conn
 
-            # 测试连接
-            self._connection.ping()
+        try:
+            self._connection = await run_in_threadpool(_do_connect)
             logger.info(f"Successfully connected to Redis at {self.host}:{self.port}")
             return self._connection
 
@@ -82,8 +91,9 @@ class RedisConnectionManager:
     async def disconnect(self):
         """关闭 Redis 连接"""
         if self._connection:
+            conn = self._connection
             try:
-                self._connection.close()
+                await run_in_threadpool(conn.close)
                 logger.info("Redis connection closed")
             except Exception as e:
                 logger.warning(f"Error closing Redis connection: {e}")
@@ -118,7 +128,7 @@ class RedisConnectionManager:
                 logger.warning("Redis connection not established")
                 return False
 
-            self._connection.ping()
+            await run_in_threadpool(self._connection.ping)
             return True
         except RedisError as e:
             logger.error(f"Redis health check failed: {e}")
