@@ -162,10 +162,10 @@ export function CoursewarePreview({ taskId }: { taskId: string }) {
 // components/SourceBadge.tsx
 export function SourceBadge({ source }: { source: Source }) {
  const icon = {
- video: '',
- document: '',
- image: '',
- ai: '',
+ video: 'Video',
+ document: 'Doc',
+ image: 'Image',
+ ai: 'AI',
  }[source.type];
  
  return (
