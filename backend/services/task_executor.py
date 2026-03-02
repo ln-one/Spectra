@@ -10,6 +10,8 @@ import logging
 import time
 from typing import Optional
 
+from rq import get_current_job
+
 logger = logging.getLogger(__name__)
 
 
@@ -217,7 +219,7 @@ async def execute_generation_task(
         # 不抛出异常，避免触发重试
 
     except Exception as e:
-        # 未知错误：记录详细日志，更新状态为 failed
+        # 未知错误：记录详细日志
         logger.error(
             f"Unknown error in task {task_id}: {type(e).__name__}: {str(e)}",
             extra={
@@ -230,14 +232,32 @@ async def execute_generation_task(
             exc_info=True,
         )
 
-        # 更新任务状态为 failed
+        # 检查当前 RQ job 是否还有重试次数，避免在重试期间将状态标记为 failed
+        retries_left = 0
+        try:
+            current_job = get_current_job()
+            retries_left = current_job.retries_left if current_job else 0
+        except Exception as job_err:
+            logger.error(
+                f"Could not determine retries_left for task {task_id}: {job_err}; "
+                "treating as retries exhausted"
+            )
+
+        if retries_left > 0:
+            # 还有重试次数：增加重试计数，重新抛出以触发 RQ 重试，不标记为 failed
+            try:
+                await db_service.increment_task_retry_count(task_id)
+            except Exception as db_error:
+                logger.error(f"Failed to increment retry count: {db_error}")
+            raise
+
+        # 重试次数已耗尽：标记为 failed
         await db_service.update_generation_task_status(
             task_id=task_id,
             status="failed",
             error_message=f"{type(e).__name__}: {str(e)}",
         )
 
-        # 对于未知错误，也抛出异常以触发重试（但会受到最大重试次数限制）
         raise
 
     finally:
