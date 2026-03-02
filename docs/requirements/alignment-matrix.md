@@ -103,7 +103,10 @@
 
 | 交互模块 | 对应功能 | 依赖 AI 能力 |
 |----------|----------|--------------|
-| [交互设计摘要](./ux/interaction-design.md) | F01-F16 | C1-C5 |
+| [输入与资料采集流](./ux/interaction-design.md#输入与资料采集流) | F01-F06 | C1, C2 |
+| [生成与结构编排流](./ux/interaction-design.md#生成与结构编排流) | F07-F10, F12 | C1, C2, C4 |
+| [修改与版本管理流](./ux/interaction-design.md#修改与版本管理流) | F11, F13, F17-F19 | C2, C5 |
+| [课堂体验与互动流](./ux/interaction-design.md#课堂体验与互动流) | F14-F16 | C3, C4 |
 
 ---
 
