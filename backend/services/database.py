@@ -505,6 +505,62 @@ class DatabaseService:
         )
         return task
 
+    async def update_generation_task_rq_job_id(
+        self,
+        task_id: str,
+        rq_job_id: str,
+    ):
+        """
+        Update task's RQ Job ID
+
+        Args:
+            task_id: Task ID
+            rq_job_id: RQ Job ID
+
+        Returns:
+            Updated GenerationTask
+        """
+        return await self.db.generationtask.update(
+            where={"id": task_id},
+            data={"rqJobId": rq_job_id},
+        )
+
+    async def get_generation_task_by_rq_job_id(
+        self,
+        rq_job_id: str,
+    ):
+        """
+        Get task by RQ Job ID
+
+        Args:
+            rq_job_id: RQ Job ID
+
+        Returns:
+            GenerationTask or None if not found
+        """
+        return await self.db.generationtask.find_first(where={"rqJobId": rq_job_id})
+
+    async def increment_task_retry_count(
+        self,
+        task_id: str,
+    ):
+        """
+        Increment task retry count
+
+        Args:
+            task_id: Task ID
+
+        Returns:
+            Updated GenerationTask
+        """
+        task = await self.get_generation_task(task_id)
+        if task:
+            return await self.db.generationtask.update(
+                where={"id": task_id},
+                data={"retryCount": task.retryCount + 1},
+            )
+        return None
+
 
 # Global database service instance
 db_service = DatabaseService()

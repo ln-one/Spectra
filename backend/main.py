@@ -20,6 +20,7 @@ from routers import (
     rag_router,
 )
 from services import db_service
+from services.redis_manager import RedisConnectionManager
 from utils.exceptions import APIException
 from utils.logger import setup_logging
 from utils.responses import error_response
@@ -34,14 +35,26 @@ setup_logging(log_level=log_level, log_format=log_format)
 
 logger = logging.getLogger(__name__)
 
+# Initialize Redis connection manager
+redis_manager = RedisConnectionManager.from_env()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    # Startup: Connect to database
+    # Startup: Connect to database and Redis
     await db_service.connect()
+    try:
+        await redis_manager.connect()
+        logger.info("Redis connection established")
+    except Exception as e:
+        logger.error(f"Failed to connect to Redis: {e}")
+        logger.warning("Application starting without Redis - task queue will not work")
+
     yield
-    # Shutdown: Disconnect from database
+
+    # Shutdown: Disconnect from database and Redis
+    await redis_manager.disconnect()
     await db_service.disconnect()
 
 
@@ -138,7 +151,14 @@ async def root():
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy"}
+    db_healthy = True
+    redis_healthy = await redis_manager.health_check()
+
+    return {
+        "status": "healthy" if (db_healthy and redis_healthy) else "degraded",
+        "database": "connected" if db_healthy else "disconnected",
+        "redis": "connected" if redis_healthy else "disconnected",
+    }
 
 
 if __name__ == "__main__":

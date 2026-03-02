@@ -1,0 +1,226 @@
+"""
+RQ 任务队列服务
+
+封装 RQ 队列操作，提供任务提交和查询接口。
+"""
+
+import logging
+import os
+from typing import Optional
+
+from redis import Redis
+from rq import Queue
+from rq.job import Job
+from rq.registry import FailedJobRegistry, FinishedJobRegistry, StartedJobRegistry
+
+logger = logging.getLogger(__name__)
+
+
+class TaskQueueService:
+    """RQ 任务队列服务"""
+
+    def __init__(self, redis_conn: Redis):
+        """
+        初始化队列服务
+
+        Args:
+            redis_conn: Redis 连接实例
+        """
+        self.redis_conn = redis_conn
+        self.high_queue = Queue("high", connection=redis_conn)
+        self.default_queue = Queue("default", connection=redis_conn)
+        self.low_queue = Queue("low", connection=redis_conn)
+
+        logger.info("Task queue service initialized with 3 priority queues")
+
+    def enqueue_generation_task(
+        self,
+        task_id: str,
+        project_id: str,
+        task_type: str,
+        template_config: Optional[dict] = None,
+        priority: str = "default",
+        timeout: int = 1800,  # 30 minutes
+    ) -> Job:
+        """
+        提交课件生成任务到队列
+
+        Args:
+            task_id: 任务 ID
+            project_id: 项目 ID
+            task_type: 任务类型（pptx/docx/both）
+            template_config: 模板配置（可选）
+            priority: 优先级（high/default/low）
+            timeout: 超时时间（秒）
+
+        Returns:
+            Job: RQ Job 实例
+
+        Raises:
+            ValueError: 优先级参数无效时抛出
+        """
+        # Select queue based on priority
+        if priority == "high":
+            queue = self.high_queue
+        elif priority == "default":
+            queue = self.default_queue
+        elif priority == "low":
+            queue = self.low_queue
+        else:
+            raise ValueError(f"Invalid priority: {priority}")
+
+        # Import here to avoid circular dependency
+        from services.task_executor import execute_generation_task
+
+        # Enqueue task
+        job = queue.enqueue(
+            execute_generation_task,
+            task_id=task_id,
+            project_id=project_id,
+            task_type=task_type,
+            template_config=template_config,
+            job_timeout=timeout,
+            result_ttl=int(os.getenv("RQ_RESULT_TTL", "86400")),  # 24 hours
+            failure_ttl=int(os.getenv("RQ_FAILURE_TTL", "604800")),  # 7 days
+        )
+
+        logger.info(
+            f"Enqueued generation task: task_id={task_id}, "
+            f"job_id={job.id}, priority={priority}, timeout={timeout}s"
+        )
+
+        return job
+
+    def get_job_status(self, job_id: str) -> Optional[dict]:
+        """
+        获取任务状态
+
+        Args:
+            job_id: RQ Job ID
+
+        Returns:
+            dict: 任务状态信息，包含：
+                - job_id: Job ID
+                - status: 状态（queued/started/finished/failed/
+                  deferred/scheduled/stopped/canceled）
+                - result: 执行结果（如果已完成）
+                - exc_info: 错误信息（如果失败）
+            None: Job 不存在时返回 None
+        """
+        try:
+            job = Job.fetch(job_id, connection=self.redis_conn)
+
+            status_info = {
+                "job_id": job.id,
+                "status": job.get_status(),
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+                "started_at": job.started_at.isoformat() if job.started_at else None,
+                "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+            }
+
+            # Add result if finished
+            if job.is_finished:
+                status_info["result"] = job.result
+
+            # Add error info if failed
+            if job.is_failed:
+                status_info["exc_info"] = job.exc_info
+
+            return status_info
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch job {job_id}: {e}")
+            return None
+
+    def cancel_job(self, job_id: str) -> bool:
+        """
+        取消任务
+
+        Args:
+            job_id: RQ Job ID
+
+        Returns:
+            bool: 取消成功返回 True，否则返回 False
+        """
+        try:
+            job = Job.fetch(job_id, connection=self.redis_conn)
+
+            # Can only cancel queued or scheduled jobs
+            if job.get_status() in ["queued", "scheduled", "deferred"]:
+                job.cancel()
+                logger.info(f"Canceled job: {job_id}")
+                return True
+            else:
+                logger.warning(
+                    f"Cannot cancel job {job_id} with status {job.get_status()}"
+                )
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to cancel job {job_id}: {e}")
+            return False
+
+    def get_queue_info(self) -> dict:
+        """
+        获取队列统计信息
+
+        Returns:
+            dict: 队列统计信息，包含：
+                - high: 高优先级队列信息
+                - default: 默认优先级队列信息
+                - low: 低优先级队列信息
+                - workers: Worker 数量
+        """
+        try:
+            # Get queue lengths
+            high_count = len(self.high_queue)
+            default_count = len(self.default_queue)
+            low_count = len(self.low_queue)
+
+            # Get worker count
+            from rq import Worker
+
+            workers = Worker.all(connection=self.redis_conn)
+            worker_count = len(workers)
+
+            # Get registry counts
+            started_registry = StartedJobRegistry("default", connection=self.redis_conn)
+            finished_registry = FinishedJobRegistry(
+                "default", connection=self.redis_conn
+            )
+            failed_registry = FailedJobRegistry("default", connection=self.redis_conn)
+
+            return {
+                "queues": {
+                    "high": {
+                        "name": "high",
+                        "count": high_count,
+                    },
+                    "default": {
+                        "name": "default",
+                        "count": default_count,
+                    },
+                    "low": {
+                        "name": "low",
+                        "count": low_count,
+                    },
+                },
+                "workers": {
+                    "count": worker_count,
+                    "active": [w.name for w in workers if w.get_state() == "busy"],
+                },
+                "jobs": {
+                    "started": len(started_registry),
+                    "finished": len(finished_registry),
+                    "failed": len(failed_registry),
+                },
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get queue info: {e}")
+            return {
+                "queues": {},
+                "workers": {"count": 0, "active": []},
+                "jobs": {"started": 0, "finished": 0, "failed": 0},
+                "error": str(e),
+            }
