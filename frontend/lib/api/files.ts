@@ -2,13 +2,12 @@
  * Files API
  *
  * 基于 OpenAPI 契约的文件 API 封装
- * 支持 Mock 模式用于前端独立开发
  *
  * 更新日期: 2026-02-25
  * 更新内容: 增强文件解析状态字段
  */
 
-import { request, getApiUrl, ENABLE_MOCK } from "./client";
+import { request, getApiUrl } from "./client";
 import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
@@ -37,35 +36,6 @@ function parseUploadErrorMessage(raw: string, fallback: string): string {
   }
   return fallback;
 }
-
-const FILE_TYPE_MAP: Record<string, UploadedFile["file_type"]> = {
-  pdf: "pdf",
-  doc: "word",
-  docx: "word",
-  ppt: "ppt",
-  pptx: "ppt",
-  mp4: "video",
-  webm: "video",
-  avi: "video",
-  mov: "video",
-  jpg: "image",
-  jpeg: "image",
-  png: "image",
-  gif: "image",
-  webp: "image",
-  svg: "image",
-};
-
-function getFileTypeFromExtension(
-  extension: string
-): UploadedFile["file_type"] {
-  const ext = extension.toLowerCase();
-  return FILE_TYPE_MAP[ext] || "pdf";
-}
-
-// Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _mockFiles: UploadedFile[] = [];
 
 function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
   return {
@@ -99,35 +69,6 @@ export const filesApi = {
     projectId: string,
     onProgress?: (progress: number) => void
   ): Promise<UploadResponse> {
-    if (ENABLE_MOCK) {
-      // TODO: 临时调试用，生产环境应删除此分支
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      if (onProgress) {
-        onProgress(100);
-      }
-      const fileType = getFileTypeFromExtension(
-        file.name.split(".").pop() || ""
-      );
-      return {
-        success: true,
-        data: {
-          file: {
-            id: `mock-file-${Date.now()}`,
-            filename: file.name,
-            file_type: fileType,
-            mime_type: file.type,
-            file_size: file.size,
-            status: "ready",
-            parse_progress: 100,
-            parse_details: {},
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        },
-        message: "Mock 上传成功",
-      };
-    }
-
     return new Promise((resolve, reject) => {
       const formData = new FormData();
       formData.append("file", file);
@@ -171,21 +112,6 @@ export const filesApi = {
     projectId: string,
     params?: { page?: number; limit?: number }
   ): Promise<GetFilesResponse> {
-    if (ENABLE_MOCK) {
-      // TODO: 临时调试用，生产环境应删除此分支
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      return {
-        success: true,
-        data: {
-          files: [],
-          total: 0,
-          page: params?.page || 1,
-          limit: params?.limit || 20,
-        },
-        message: "Mock 获取成功",
-      };
-    }
-
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.set("page", String(params.page));
     if (params?.limit) queryParams.set("limit", String(params.limit));
@@ -209,30 +135,6 @@ export const filesApi = {
     fileId: string,
     data: UpdateFileIntentRequest
   ): Promise<UpdateFileIntentResponse> {
-    if (ENABLE_MOCK) {
-      // TODO: 临时调试用，生产环境应删除此分支
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      return {
-        success: true,
-        data: {
-          file: {
-            id: fileId,
-            filename: "mock.pdf",
-            file_type: "pdf",
-            mime_type: "application/pdf",
-            file_size: 0,
-            status: "ready",
-            parse_progress: 100,
-            parse_details: {},
-            usage_intent: data.usage_intent,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        },
-        message: "Mock 标注成功",
-      };
-    }
-
     const response = await request<UpdateFileIntentResponse>(
       `/files/${fileId}/intent`,
       {
@@ -251,15 +153,6 @@ export const filesApi = {
   async deleteFile(
     fileId: string
   ): Promise<{ success: boolean; message: string }> {
-    if (ENABLE_MOCK) {
-      // TODO: 临时调试用，生产环境应删除此分支
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      return {
-        success: true,
-        message: "Mock 删除成功",
-      };
-    }
-
     return request(`/files/${fileId}`, {
       method: "DELETE",
     });
@@ -268,18 +161,6 @@ export const filesApi = {
   async batchDeleteFiles(
     fileIds: string[]
   ): Promise<components["schemas"]["BatchDeleteResponse"]> {
-    if (ENABLE_MOCK) {
-      // TODO: 临时调试用，生产环境应删除此分支
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return {
-        success: true,
-        data: {
-          deleted: fileIds.length,
-        },
-        message: "Mock 批量删除完成",
-      };
-    }
-
     return request<components["schemas"]["BatchDeleteResponse"]>(
       "/files/batch",
       {
@@ -294,36 +175,6 @@ export const filesApi = {
     projectId: string,
     onProgress?: (progress: number) => void
   ): Promise<components["schemas"]["BatchUploadResponse"]> {
-    if (ENABLE_MOCK) {
-      // TODO: 临时调试用，生产环境应删除此分支
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      if (onProgress) {
-        onProgress(100);
-      }
-
-      return {
-        success: true,
-        data: {
-          files: files.map((file, i) => ({
-            id: `mock-file-${Date.now()}-${i}`,
-            filename: file.name,
-            file_type: getFileTypeFromExtension(
-              file.name.split(".").pop() || ""
-            ),
-            mime_type: file.type,
-            file_size: file.size,
-            status: "ready",
-            parse_progress: 100,
-            parse_details: {},
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })),
-          total: files.length,
-        },
-        message: "Mock 批量上传成功",
-      };
-    }
-
     const formData = new FormData();
     files.forEach((file) => {
       formData.append("files", file);

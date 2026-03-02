@@ -2,7 +2,6 @@
  * Generate API
  *
  * 基于 OpenAPI 契约的生成 API 封装
- * 支持 Mock 模式用于前端独立开发
  *
  * 更新日期: 2026-02-25
  * 更新内容:
@@ -11,7 +10,7 @@
  * - 增强生成选项（模板、主题色等）
  */
 
-import { request, getApiUrl, ENABLE_MOCK } from "./client";
+import { request, getApiUrl } from "./client";
 import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
@@ -20,25 +19,8 @@ export type GenerateResponse = components["schemas"]["GenerateResponse"];
 export type GenerateStatusResponse =
   components["schemas"]["GenerateStatusResponse"];
 
-// Mock 数据（仅当 ENABLE_MOCK 为 true 时使用）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _mockTasks: Map<string, { status: string; progress: number }> = new Map();
-
 export const generateApi = {
   async generateCourseware(data: GenerateRequest): Promise<GenerateResponse> {
-    if (ENABLE_MOCK) {
-      // TODO: 临时调试用，生产环境应删除此分支
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return {
-        success: true,
-        data: {
-          task_id: `mock-task-${Date.now()}`,
-          status: "processing",
-        },
-        message: "Mock 生成任务已创建",
-      };
-    }
-
     return request<GenerateResponse>("/generate/courseware", {
       method: "POST",
       body: JSON.stringify(data),
@@ -49,20 +31,6 @@ export const generateApi = {
   },
 
   async getGenerateStatus(taskId: string): Promise<GenerateStatusResponse> {
-    if (ENABLE_MOCK) {
-      // TODO: 临时调试用，生产环境应删除此分支
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      return {
-        success: true,
-        data: {
-          task_id: taskId,
-          status: "completed",
-          progress: 100,
-        },
-        message: "Mock 获取成功",
-      };
-    }
-
     // 更新：新的 API 路径
     return request<GenerateStatusResponse>(`/generate/tasks/${taskId}/status`, {
       method: "GET",
@@ -79,18 +47,6 @@ export const generateApi = {
     taskId: string,
     fileType: "pptx" | "docx"
   ): Promise<Blob> {
-    if (ENABLE_MOCK) {
-      // TODO: 临时调试用，生产环境应删除此分支
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const content = `Mock ${fileType.toUpperCase()} file content for task ${taskId}`;
-      return new Blob([content], {
-        type:
-          fileType === "pptx"
-            ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
-    }
-
     const token = TokenStorage.getAccessToken();
     const headers: Record<string, string> = {};
     if (token) {
