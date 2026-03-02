@@ -77,7 +77,9 @@ class TaskQueueService:
 
         # Import here to avoid circular dependency
         # Use the sync wrapper so RQ worker executes the coroutine properly
-        from services.task_executor import run_generation_task as execute_generation_task
+        from services.task_executor import (
+            run_generation_task as execute_generation_task,
+        )
 
         # 配置重试策略：最多重试 3 次，间隔为 1分钟、5分钟、15分钟
         retry_strategy = Retry(max=3, interval=[60, 300, 900])
