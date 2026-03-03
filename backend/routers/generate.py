@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import Optional
@@ -15,6 +16,23 @@ from utils.responses import success_response
 
 router = APIRouter(prefix="/generate", tags=["Generate"])
 logger = logging.getLogger(__name__)
+
+
+async def process_generation_task(
+    task_id: str,
+    project_id: str,
+    task_type: str,
+    template_config: Optional[dict] = None,
+) -> None:
+    """Backward-compatible wrapper for background generation execution."""
+    from services.task_executor import execute_generation_task
+
+    await execute_generation_task(
+        task_id=task_id,
+        project_id=project_id,
+        task_type=task_type,
+        template_config=template_config,
+    )
 
 
 def _is_requirement_like_message(message: str) -> bool:
@@ -208,9 +226,13 @@ async def generate_courseware(
 
         # 使用 RQ 提交任务到队列
         task_queue_service = getattr(http_request.app.state, "task_queue_service", None)
+        rq_job_id = None
+        template_config = (
+            request.template_config.model_dump() if request.template_config else None
+        )
         if task_queue_service is None:
-            logger.error(
-                "task_queue_service_unavailable",
+            logger.warning(
+                "task_queue_service_unavailable_fallback_local_execution",
                 extra={
                     "user_id": user_id,
                     "project_id": request.project_id,
@@ -218,24 +240,25 @@ async def generate_courseware(
                     "type": request.type.value,
                 },
             )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Task queue service is unavailable. Please try again later.",
+            asyncio.create_task(
+                process_generation_task(
+                    task_id=task.id,
+                    project_id=request.project_id,
+                    task_type=request.type.value,
+                    template_config=template_config,
+                )
             )
-        job = task_queue_service.enqueue_generation_task(
-            task_id=task.id,
-            project_id=request.project_id,
-            task_type=request.type.value,
-            template_config=(
-                request.template_config.model_dump()
-                if request.template_config
-                else None
-            ),
-            priority="default",
-        )
-
-        # 将 RQ Job ID 存储到数据库
-        await db_service.update_generation_task_rq_job_id(task.id, job.id)
+        else:
+            job = task_queue_service.enqueue_generation_task(
+                task_id=task.id,
+                project_id=request.project_id,
+                task_type=request.type.value,
+                template_config=template_config,
+                priority="default",
+            )
+            rq_job_id = job.id
+            # 将 RQ Job ID 存储到数据库
+            await db_service.update_generation_task_rq_job_id(task.id, rq_job_id)
 
         logger.info(
             "courseware_generation_started",
@@ -243,7 +266,7 @@ async def generate_courseware(
                 "user_id": user_id,
                 "project_id": request.project_id,
                 "task_id": task.id,
-                "rq_job_id": job.id,
+                "rq_job_id": rq_job_id,
                 "type": request.type.value,
                 "idempotency_key": key_str,
             },
