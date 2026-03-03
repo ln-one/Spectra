@@ -37,6 +37,8 @@ interface GenerationTask {
   error?: string;
 }
 
+const getTaskStorageKey = (projectId: string) => `generate:task:${projectId}`;
+
 export default function ProjectGeneratePage() {
   const params = useParams();
   const router = useRouter();
@@ -48,6 +50,87 @@ export default function ProjectGeneratePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentTask, setCurrentTask] = useState<GenerationTask | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearPersistedTask = () => {
+    window.localStorage.removeItem(getTaskStorageKey(projectId));
+  };
+
+  const persistTaskId = (taskId: string) => {
+    window.localStorage.setItem(getTaskStorageKey(projectId), taskId);
+  };
+
+  const toGenerationTask = (
+    taskData: {
+      task_id?: string;
+      status?: string;
+      progress?: number;
+      result?: {
+        pptx?: string;
+        docx?: string;
+        ppt_url?: string;
+        word_url?: string;
+      };
+      error?: string;
+    },
+    fallbackTaskId: string
+  ): GenerationTask => ({
+    task_id: taskData.task_id || fallbackTaskId,
+    status: (taskData.status as GenerationTask["status"]) || "pending",
+    progress: taskData.progress || 0,
+    result: taskData.result
+      ? {
+          pptx: taskData.result.pptx || taskData.result.ppt_url,
+          docx: taskData.result.docx || taskData.result.word_url,
+        }
+      : undefined,
+    error: taskData.error,
+  });
+
+  const handleTaskTerminalState = (status: GenerationTask["status"]) => {
+    if (status === "completed" || status === "failed") {
+      clearPersistedTask();
+      setIsGenerating(false);
+    }
+  };
+
+  const startPolling = (taskId: string) => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await generateApi.getGenerateStatus(taskId);
+        const task = toGenerationTask(response.data, taskId);
+
+        setCurrentTask(task);
+
+        if (task.status === "completed") {
+          clearInterval(interval);
+          pollingIntervalRef.current = null;
+          handleTaskTerminalState(task.status);
+          toast({
+            title: "生成完成",
+            description: "课件已成功生成，可以下载了",
+          });
+        } else if (task.status === "failed") {
+          clearInterval(interval);
+          pollingIntervalRef.current = null;
+          handleTaskTerminalState(task.status);
+          toast({
+            title: "生成失败",
+            description: task.error || "生成过程中出现错误",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to poll status:", error);
+      }
+    }, 2000);
+
+    pollingIntervalRef.current = interval;
+  };
 
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
@@ -85,63 +168,37 @@ export default function ProjectGeneratePage() {
     };
   }, [projectId, router, toast]);
 
-  const startPolling = (taskId: string) => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
+  useEffect(() => {
+    const restoreTask = async () => {
+      const persistedTaskId = window.localStorage.getItem(
+        getTaskStorageKey(projectId)
+      );
 
-    const interval = setInterval(async () => {
+      if (!persistedTaskId || currentTask) {
+        return;
+      }
+
       try {
-        const response = await generateApi.getGenerateStatus(taskId);
-        const taskData = response.data;
-        const resultData = taskData.result as
-          | {
-              pptx?: string;
-              docx?: string;
-              ppt_url?: string;
-              word_url?: string;
-            }
-          | undefined;
+        const response = await generateApi.getGenerateStatus(persistedTaskId);
+        const task = toGenerationTask(response.data, persistedTaskId);
+        setCurrentTask(task);
 
-        setCurrentTask({
-          task_id: taskData.task_id || taskId,
-          status: taskData.status || "pending",
-          progress: taskData.progress || 0,
-          result: resultData
-            ? {
-                pptx: resultData.pptx || resultData.ppt_url,
-                docx: resultData.docx || resultData.word_url,
-              }
-            : undefined,
-          error: taskData.error,
-        });
-
-        if (taskData.status === "completed") {
-          clearInterval(interval);
-          pollingIntervalRef.current = null;
-          setIsGenerating(false);
-          toast({
-            title: "生成完成",
-            description: "课件已成功生成，可以下载了",
-          });
-        } else if (taskData.status === "failed") {
-          clearInterval(interval);
-          pollingIntervalRef.current = null;
-          setIsGenerating(false);
-          toast({
-            title: "生成失败",
-            description: taskData.error || "生成过程中出现错误",
-            variant: "destructive",
-          });
+        if (task.status === "pending" || task.status === "processing") {
+          setIsGenerating(true);
+          startPolling(task.task_id);
+        } else {
+          handleTaskTerminalState(task.status);
         }
       } catch (error) {
-        console.error("Failed to poll status:", error);
+        console.error("Failed to restore task:", error);
+        clearPersistedTask();
       }
-    }, 2000);
+    };
 
-    pollingIntervalRef.current = interval;
-  };
+    if (!isLoading) {
+      restoreTask();
+    }
+  }, [projectId, isLoading, currentTask]);
 
   const handleGenerate = async () => {
     if (!project) return;
@@ -160,6 +217,7 @@ export default function ProjectGeneratePage() {
         throw new Error("未返回任务 ID");
       }
 
+      persistTaskId(taskId);
       setCurrentTask({
         task_id: taskId,
         status: "pending",
@@ -174,6 +232,7 @@ export default function ProjectGeneratePage() {
       startPolling(taskId);
     } catch (error) {
       setIsGenerating(false);
+      clearPersistedTask();
       toast({
         title: "创建任务失败",
         description: error instanceof Error ? error.message : "请稍后重试",
