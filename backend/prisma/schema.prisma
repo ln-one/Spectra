@@ -147,6 +147,10 @@ model GenerationTask {
   status      String   @default("pending")  // pending/processing/completed/failed
   progress    Int      @default(0)          // 0-100
   
+  // RQ 任务队列字段
+  rqJobId     String?  // RQ Job ID
+  retryCount  Int      @default(0)  // 重试次数
+  
   // 输入输出
   inputData    String?  // JSON：生成指令集（意图+RAG结果+配置）
   outputUrls   String?  // JSON：{ppt_url, word_url}
@@ -156,6 +160,7 @@ model GenerationTask {
   updatedAt   DateTime @updatedAt
   
   @@index([projectId, status])
+  @@index([rqJobId])
 }
 
 // ============================================

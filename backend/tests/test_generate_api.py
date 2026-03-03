@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from main import app
-from routers import generate as generate_router
 from services.database import db_service
 from utils.dependencies import get_current_user
 
@@ -52,11 +51,21 @@ def test_generate_courseware_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     _mock(monkeypatch, db_service, "get_idempotency_response", None)
     _mock(monkeypatch, db_service, "create_generation_task", _fake_task())
+    _mock(monkeypatch, db_service, "update_generation_task_rq_job_id", None)
     save_mock = AsyncMock(return_value=None)
     monkeypatch.setattr(db_service, "save_idempotency_response", save_mock)
-    monkeypatch.setattr(
-        generate_router, "process_generation_task", AsyncMock(return_value=None)
-    )
+
+    # Mock TaskQueueService
+    from unittest.mock import Mock
+
+    mock_job = Mock()
+    mock_job.id = "rq-job-123"
+    mock_task_queue = Mock()
+    mock_task_queue.enqueue_generation_task.return_value = mock_job
+
+    from main import app
+
+    monkeypatch.setattr(app.state, "task_queue_service", mock_task_queue, raising=False)
 
     resp = client.post(
         "/api/v1/generate/courseware",

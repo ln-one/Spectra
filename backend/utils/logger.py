@@ -5,8 +5,6 @@ Configures structured logging for the application.
 Supports both JSON and text formats based on environment configuration.
 """
 
-# REVIEW #B10 (P2): 当前实现仅配置 console handler；与架构文档中的文件轮转与请求日志中间件方案尚未对齐。
-
 import logging
 import sys
 from typing import Any, Dict
@@ -83,9 +81,12 @@ def setup_logging(log_level: str = "INFO", log_format: str = "text") -> None:
                 datefmt="%Y-%m-%d %H:%M:%S",
             )
     else:
-        # Text format
+        # Text format – include request_id / user_id when available
         formatter = logging.Formatter(
-            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            fmt=(
+                "%(asctime)s - %(name)s - %(levelname)s"
+                " [rid=%(request_id)s uid=%(user_id)s] %(message)s"
+            ),
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
@@ -99,19 +100,3 @@ def setup_logging(log_level: str = "INFO", log_format: str = "text") -> None:
 
 # Get logger instance for this module
 logger = logging.getLogger(__name__)
-
-
-# TODO: Add request ID middleware
-# This middleware can add a unique request_id to each request
-# and include it in all log messages for that request
-#
-# Example:
-# class RequestIDMiddleware:
-#     async def __call__(self, request: Request, call_next):
-#         request_id = str(uuid.uuid4())
-#         # Add to request state
-#         request.state.request_id = request_id
-#         # Add to logging context
-#         with logging_context(request_id=request_id):
-#             response = await call_next(request)
-#         return response

@@ -294,9 +294,8 @@ class DatabaseService:
                         total_file_size = int(sum_payload.get("size") or 0)
                     else:
                         total_file_size = int(getattr(sum_payload, "size", 0) or 0)
-            except TypeError:
-                pass
-
+            except (TypeError, ValueError, AttributeError):
+                aggregate_available = False
         if not aggregate_available:
             uploads = await self.db.upload.find_many(
                 where={"projectId": project_id},
@@ -389,6 +388,12 @@ class DatabaseService:
             order={"createdAt": "desc"},
         )
         return list(reversed(messages))
+
+    async def get_messages(self, project_id: str, limit: int = 10):
+        """Backward-compatible alias for recent conversation messages."""
+        return await self.get_recent_conversation_messages(
+            project_id=project_id, limit=limit
+        )
 
     async def count_conversation_messages(self, project_id: str) -> int:
         """Count conversation messages in a project."""
@@ -504,6 +509,62 @@ class DatabaseService:
             data=update_data,
         )
         return task
+
+    async def update_generation_task_rq_job_id(
+        self,
+        task_id: str,
+        rq_job_id: str,
+    ):
+        """
+        Update task's RQ Job ID
+
+        Args:
+            task_id: Task ID
+            rq_job_id: RQ Job ID
+
+        Returns:
+            Updated GenerationTask
+        """
+        return await self.db.generationtask.update(
+            where={"id": task_id},
+            data={"rqJobId": rq_job_id},
+        )
+
+    async def get_generation_task_by_rq_job_id(
+        self,
+        rq_job_id: str,
+    ):
+        """
+        Get task by RQ Job ID
+
+        Args:
+            rq_job_id: RQ Job ID
+
+        Returns:
+            GenerationTask or None if not found
+        """
+        return await self.db.generationtask.find_first(where={"rqJobId": rq_job_id})
+
+    async def increment_task_retry_count(
+        self,
+        task_id: str,
+    ):
+        """
+        Increment task retry count
+
+        Args:
+            task_id: Task ID
+
+        Returns:
+            Updated GenerationTask
+        """
+        task = await self.get_generation_task(task_id)
+        if task:
+            return await self.db.generationtask.update(
+                where={"id": task_id},
+                data={"retryCount": {"increment": 1}},
+            )
+        return None
 
 
 # Global database service instance

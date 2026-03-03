@@ -1,3 +1,6 @@
+# Build tools (must be first to avoid conflicts)
+setuptools>=65.0.0
+
 # Core Framework
 fastapi==0.129.0
 uvicorn[standard]==0.32.1
@@ -37,6 +40,11 @@ python-pptx>=1.0.2         # PPTX 文本提取
 # Courseware Generation (待集成)
 # marp-cli 通过 npm 安装
 # pandoc 通过系统包管理器安装
+
+# Task Queue & Redis
+rq==2.1.0                  # Redis Queue for async task processing
+redis==5.2.1               # Redis client
+fakeredis==2.26.2          # Fake Redis for testing
 
 # Logging (optional, for JSON logging)
 # python-json-logger==2.0.7

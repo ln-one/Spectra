@@ -65,7 +65,7 @@ async def create_project(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create project",
+            detail="创建项目失败",
         )
 
 
@@ -99,6 +99,8 @@ async def search_projects(
             data={"projects": projects, "total": total, "page": page, "limit": limit},
             message="搜索项目成功",
         )
+    except APIException:
+        raise
     except Exception as e:
         logger.error(
             f"Failed to search projects: {e}", extra={"user_id": user_id}, exc_info=True
@@ -134,16 +136,15 @@ async def get_projects(
             },
             message="获取项目列表成功",
         )
+    except APIException:
+        raise
     except Exception as e:
         logger.error(
             f"Failed to fetch projects: {str(e)}",
             extra={"user_id": user_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch projects",
-        )
+        raise
 
 
 @router.get("/{project_id}")
@@ -179,7 +180,7 @@ async def get_project(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get project",
+            detail="获取项目详情失败",
         )
 
 
@@ -368,5 +369,5 @@ async def get_project_files(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get project files",
+            detail="获取项目文件列表失败",
         )

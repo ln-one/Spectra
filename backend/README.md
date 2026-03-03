@@ -68,12 +68,44 @@ Spectra-Backend/
  prisma db push
  ```
 
-5. **Start the server**:
+5. **Start Redis** (required for task queue):
+ ```bash
+ # Using Docker
+ docker run -d -p 6379:6379 redis:7-alpine
+ 
+ # Or using Docker Compose (recommended)
+ docker-compose up -d redis
+ ```
+
+6. **Start RQ Worker** (for background tasks):
+ ```bash
+ # Single worker
+ python worker.py
+ 
+ # Multiple workers (in separate terminals)
+ python worker.py &
+ python worker.py &
+ ```
+
+7. **Start the server**:
  ```bash
  uvicorn main:app --reload
  ```
 
 The API will be available at `http://localhost:8000`
+
+### Using Docker Compose (Recommended)
+
+Start all services (Redis, Backend, Worker, Frontend):
+```bash
+docker-compose up -d
+
+# Scale workers
+docker-compose up -d --scale worker=4
+
+# View logs
+docker-compose logs -f worker
+```
 
 ## API Endpoints
 
@@ -155,6 +187,63 @@ The project uses:
 - SQLite for development database (PostgreSQL for production)
 - JWT for authentication
 - ChromaDB for vector storage
+- **Redis + RQ** for async task queue
+
+### Task Queue System
+
+The backend uses RQ (Redis Queue) for handling long-running tasks like courseware generation:
+
+**Architecture**:
+- **Redis**: Message broker and task storage
+- **RQ Queue**: Task queue with priority support (high/default/low)
+- **Worker**: Background process that executes tasks
+- **Task Executor**: Business logic for task execution
+
+**Key Features**:
+- ✅ Task persistence (survives server restart)
+- ✅ Automatic retry with exponential backoff
+- ✅ Priority queues (high/default/low)
+- ✅ Timeout control (default 30 min, max 60 min)
+- ✅ Status tracking (queued → processing → completed/failed)
+- ✅ Horizontal scaling (multiple workers)
+
+**Worker Management**:
+
+```bash
+# Start a single worker
+python worker.py
+
+# Start multiple workers (for parallel processing)
+python worker.py &
+python worker.py &
+python worker.py &
+
+# Using Docker Compose (recommended)
+docker-compose up -d --scale worker=4
+
+# Monitor worker logs
+docker-compose logs -f worker
+
+# Stop workers gracefully (completes current task)
+# Send SIGTERM or SIGINT (Ctrl+C)
+```
+
+**Environment Variables** (see `.env.example`):
+```bash
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=  # Optional
+RQ_QUEUE_DEFAULT_TIMEOUT=1800  # 30 minutes
+RQ_RESULT_TTL=86400  # 24 hours
+RQ_FAILURE_TTL=604800  # 7 days
+```
+
+**Monitoring**:
+- Queue stats: `GET /api/v1/admin/queue/stats` (if implemented)
+- RQ Dashboard: `rq-dashboard --redis-host localhost` (optional)
+
+For more details, see the [RQ Migration Guide](../docs/guides/rq-migration.md).
 
 ### Environment Variables
 
@@ -174,6 +263,15 @@ DASHSCOPE_API_KEY="your-dashscope-key"
 LLAMAPARSE_API_KEY="your-llamaparse-key"
 OPENAI_API_KEY="your-openai-key"
 DEFAULT_MODEL="qwen-plus"
+
+# Redis & Task Queue
+REDIS_HOST="localhost"
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=""  # Optional
+RQ_QUEUE_DEFAULT_TIMEOUT=1800
+RQ_RESULT_TTL=86400
+RQ_FAILURE_TTL=604800
 
 # Vector Database
 CHROMA_HOST="localhost"

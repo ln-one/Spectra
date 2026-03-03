@@ -1,10 +1,12 @@
+import asyncio
 import json
 import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
+from starlette.concurrency import run_in_threadpool
 
 from schemas.generation import GenerateRequest
 from services.database import db_service
@@ -14,6 +16,23 @@ from utils.responses import success_response
 
 router = APIRouter(prefix="/generate", tags=["Generate"])
 logger = logging.getLogger(__name__)
+
+
+async def process_generation_task(
+    task_id: str,
+    project_id: str,
+    task_type: str,
+    template_config: Optional[dict] = None,
+) -> None:
+    """Backward-compatible wrapper for background generation execution."""
+    from services.task_executor import execute_generation_task
+
+    await execute_generation_task(
+        task_id=task_id,
+        project_id=project_id,
+        task_type=task_type,
+        template_config=template_config,
+    )
 
 
 def _is_requirement_like_message(message: str) -> bool:
@@ -139,8 +158,8 @@ async def _build_user_requirements(project_id: str) -> str:
 
 @router.post("/courseware")
 async def generate_courseware(
+    http_request: Request,
     request: GenerateRequest,
-    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -148,11 +167,10 @@ async def generate_courseware(
     生成课件
 
     创建一个后台生成任务，立即返回任务 ID。
-    任务将在后台异步处理，用户可通过 /generate/status/{task_id} 查询状态。
+    任务将在后台异步处理，用户可通过 /generate/tasks/{task_id}/status (under /api/v1)查询状态。
 
     Args:
         request: 生成请求（包含项目ID和生成类型）
-        background_tasks: FastAPI 后台任务
         user_id: 当前用户ID（从认证依赖获取）
         idempotency_key: 幂等性密钥（可选）
 
@@ -206,18 +224,41 @@ async def generate_courseware(
             ),
         )
 
-        # 添加后台任务
-        background_tasks.add_task(
-            process_generation_task,
-            task_id=task.id,
-            project_id=request.project_id,
-            task_type=request.type.value,
-            template_config=(
-                request.template_config.model_dump()
-                if request.template_config
-                else None
-            ),
+        # 使用 RQ 提交任务到队列
+        task_queue_service = getattr(http_request.app.state, "task_queue_service", None)
+        rq_job_id = None
+        template_config = (
+            request.template_config.model_dump() if request.template_config else None
         )
+        if task_queue_service is None:
+            logger.warning(
+                "task_queue_service_unavailable_fallback_local_execution",
+                extra={
+                    "user_id": user_id,
+                    "project_id": request.project_id,
+                    "task_id": task.id,
+                    "type": request.type.value,
+                },
+            )
+            asyncio.create_task(
+                process_generation_task(
+                    task_id=task.id,
+                    project_id=request.project_id,
+                    task_type=request.type.value,
+                    template_config=template_config,
+                )
+            )
+        else:
+            job = task_queue_service.enqueue_generation_task(
+                task_id=task.id,
+                project_id=request.project_id,
+                task_type=request.type.value,
+                template_config=template_config,
+                priority="default",
+            )
+            rq_job_id = job.id
+            # 将 RQ Job ID 存储到数据库
+            await db_service.update_generation_task_rq_job_id(task.id, rq_job_id)
 
         logger.info(
             "courseware_generation_started",
@@ -225,6 +266,7 @@ async def generate_courseware(
                 "user_id": user_id,
                 "project_id": request.project_id,
                 "task_id": task.id,
+                "rq_job_id": rq_job_id,
                 "type": request.type.value,
                 "idempotency_key": key_str,
             },
@@ -268,135 +310,17 @@ async def generate_courseware(
         )
 
 
-async def process_generation_task(
-    task_id: str,
-    project_id: str,
-    task_type: str,
-    template_config: Optional[dict] = None,
-):
-    """
-    后台任务：处理课件生成
-
-    Args:
-        task_id: 任务 ID
-        project_id: 项目 ID
-        task_type: 任务类型（pptx/docx/both）
-        template_config: 模板配置
-    """
-    try:
-        logger.info(
-            "generation_task_processing_started",
-            extra={
-                "task_id": task_id,
-                "project_id": project_id,
-                "task_type": task_type,
-            },
-        )
-
-        # 更新任务状态为 processing
-        await db_service.update_generation_task_status(
-            task_id=task_id,
-            status="processing",
-            progress=10,
-        )
-
-        # 调用 AI Service 获取课件内容
-        from services.ai import ai_service
-        from services.template import TemplateConfig
-
-        logger.info(
-            f"Calling AI service to generate courseware content for task {task_id}"
-        )
-
-        user_requirements = await _build_user_requirements(project_id)
-
-        # 生成课件内容
-        courseware_content = await ai_service.generate_courseware_content(
-            project_id=project_id,
-            user_requirements=user_requirements,
-            template_style=(
-                template_config.get("style", "default")
-                if template_config
-                else "default"
-            ),
-        )
-
-        await db_service.update_generation_task_status(task_id, "processing", 30)
-
-        # 调用 GenerationService 生成文件
-        from services.generation import generation_service
-
-        # 构建模板配置
-        if template_config:
-            tpl_config = TemplateConfig(**template_config)
-        else:
-            tpl_config = TemplateConfig()
-
-        output_urls = {}
-
-        if task_type in ["pptx", "both"]:
-            logger.info(f"Generating PPTX for task {task_id}")
-            pptx_path = await generation_service.generate_pptx(
-                courseware_content, task_id, tpl_config
-            )
-            output_urls["pptx"] = (
-                f"/api/v1/generate/tasks/{task_id}/download?file_type=ppt"
-            )
-            logger.info(f"PPTX generated: {pptx_path}")
-            await db_service.update_generation_task_status(task_id, "processing", 60)
-
-        if task_type in ["docx", "both"]:
-            logger.info(f"Generating DOCX for task {task_id}")
-            docx_path = await generation_service.generate_docx(
-                courseware_content, task_id, tpl_config
-            )
-            output_urls["docx"] = (
-                f"/api/v1/generate/tasks/{task_id}/download?file_type=word"
-            )
-            logger.info(f"DOCX generated: {docx_path}")
-            await db_service.update_generation_task_status(task_id, "processing", 90)
-
-        # 更新任务状态为 completed
-        await db_service.update_generation_task_status(
-            task_id=task_id,
-            status="completed",
-            progress=100,
-            output_urls=json.dumps(output_urls),
-        )
-
-        logger.info(
-            "generation_task_completed",
-            extra={
-                "task_id": task_id,
-                "project_id": project_id,
-                "output_urls": output_urls,
-            },
-        )
-
-    except Exception as e:
-        logger.error(
-            f"Generation task failed: {str(e)}",
-            extra={"task_id": task_id, "project_id": project_id},
-            exc_info=True,
-        )
-
-        # 更新任务状态为 failed
-        await db_service.update_generation_task_status(
-            task_id=task_id,
-            status="failed",
-            error_message=str(e),
-        )
-
-
 @router.get("/tasks/{task_id}/status")
 async def get_generation_status(
     task_id: str,
+    http_request: Request,
     user_id: str = Depends(get_current_user),
 ):
     """
     查询生成状态
 
     查询指定任务的生成状态、进度和结果。
+    优先从数据库查询，如果任务在队列中则从 Redis 获取实时状态。
 
     Args:
         task_id: 任务ID
@@ -423,9 +347,41 @@ async def get_generation_status(
                 message="无权限访问此任务",
             )
 
+        # 如果任务状态为 pending 或 processing，尝试从 Redis 获取实时状态
+        task_status = task.status
+        if (
+            task_status in ["pending", "processing"]
+            and hasattr(task, "rqJobId")
+            and task.rqJobId
+        ):
+            try:
+                task_queue_service = getattr(
+                    http_request.app.state, "task_queue_service", None
+                )
+                if task_queue_service:
+                    job_status = await run_in_threadpool(
+                        task_queue_service.get_job_status, task.rqJobId
+                    )
+                    if job_status:
+                        # 映射 RQ 状态到我们的状态
+                        rq_status = job_status.get("status")
+                        if rq_status == "started":
+                            task_status = "processing"
+                        elif rq_status == "finished":
+                            task_status = "completed"
+                        elif rq_status == "failed":
+                            task_status = "failed"
+                        elif rq_status in ["queued", "deferred", "scheduled"]:
+                            task_status = "pending"
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get job status from Redis: {e}",
+                    extra={"task_id": task_id, "rq_job_id": task.rqJobId},
+                )
+
         logger.info(
             "generation_status_checked",
-            extra={"user_id": user_id, "task_id": task_id, "status": task.status},
+            extra={"user_id": user_id, "task_id": task_id, "status": task_status},
         )
 
         # 解析输出 URLs
@@ -439,7 +395,7 @@ async def get_generation_status(
         return success_response(
             data={
                 "task_id": task.id,
-                "status": task.status,
+                "status": task_status,
                 "progress": task.progress,
                 "result": result,
                 "error": task.errorMessage,
