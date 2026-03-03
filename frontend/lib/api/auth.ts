@@ -53,6 +53,8 @@ export const authApi = {
     });
   },
 
+  // 注意：函数参数使用驼峰命名 (refreshToken)，API 请求使用下划线命名 (refresh_token)
+  // 这是符合 JavaScript 命名规范的前端适配
   async refreshToken(data: { refreshToken: string }): Promise<AuthResponse> {
     return request<AuthResponse>("/auth/refresh", {
       method: "POST",

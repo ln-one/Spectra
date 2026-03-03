@@ -53,7 +53,8 @@ export const generateApi = {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    // 修复：使用正确的后端路径
+    // 注意：前端使用用户友好的扩展名 (pptx/docx)，后端使用简写 (ppt/word)
+    // 这是一个 API 适配层转换
     const apiFileType = fileType === "pptx" ? "ppt" : "word";
     const response = await fetch(
       getApiUrl(`/generate/tasks/${taskId}/download?file_type=${apiFileType}`),
