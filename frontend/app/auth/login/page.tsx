@@ -23,7 +23,7 @@ import { Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().min(1, "请输入邮箱").email("请输入有效的邮箱地址"),
-  password: z.string().min(1, "请输入密码"),
+  password: z.string().min(8, "密码至少8个字符"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;

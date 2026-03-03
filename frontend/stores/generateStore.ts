@@ -51,6 +51,19 @@ export interface GenerateState {
 
 const pollingIntervals: Map<string, NodeJS.Timeout> = new Map();
 
+// 清理所有轮询定时器
+const cleanupAllPolling = () => {
+  pollingIntervals.forEach((interval) => {
+    clearInterval(interval);
+  });
+  pollingIntervals.clear();
+};
+
+// 页面卸载时清理所有定时器，防止内存泄漏
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", cleanupAllPolling);
+}
+
 export const useGenerateStore = create<GenerateState>()((set, get) => ({
   currentTask: null,
   tasks: [],

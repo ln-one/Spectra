@@ -62,6 +62,10 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
       // TODO: 实现登录逻辑
       const response = await authService.login(email, password);
       TokenStorage.setAccessToken(response.access_token);
+      // 存储 refresh_token
+      if (response.refresh_token) {
+        TokenStorage.setRefreshToken(response.refresh_token);
+      }
       set({
         user: response.user,
         isAuthenticated: true,
@@ -95,6 +99,10 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
         fullName,
       });
       TokenStorage.setAccessToken(response.access_token);
+      // 存储 refresh_token
+      if (response.refresh_token) {
+        TokenStorage.setRefreshToken(response.refresh_token);
+      }
       set({
         user: response.user,
         isAuthenticated: true,

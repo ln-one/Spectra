@@ -49,15 +49,17 @@ function onTokenRefreshed(token: string): void {
 async function tryRefreshToken(): Promise<boolean> {
   if (isRefreshing) {
     return new Promise((resolve) => {
-      subscribeTokenRefresh(() => resolve(true));
+      subscribeTokenRefresh((token: string) => resolve(!!token));
     });
   }
 
   isRefreshing = true;
+  let refreshSuccess = false;
 
   try {
     const success = await authService.refreshToken();
     if (success) {
+      refreshSuccess = true;
       const newToken = TokenStorage.getAccessToken();
       if (newToken) {
         onTokenRefreshed(newToken);
@@ -68,6 +70,10 @@ async function tryRefreshToken(): Promise<boolean> {
     return false;
   } finally {
     isRefreshing = false;
+    // Notify waiting subscribers even on failure so they don't hang
+    if (!refreshSuccess) {
+      onTokenRefreshed("");
+    }
   }
 }
 

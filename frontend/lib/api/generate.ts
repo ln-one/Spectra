@@ -2,7 +2,6 @@
  * Generate API
  *
  * 基于 OpenAPI 契约的生成 API 封装
- * 支持 Mock 模式用于前端独立开发
  *
  * 更新日期: 2026-02-25
  * 更新内容:
@@ -19,47 +18,10 @@ export type GenerateRequest = components["schemas"]["GenerateRequest"];
 export type GenerateResponse = components["schemas"]["GenerateResponse"];
 export type GenerateStatusResponse =
   components["schemas"]["GenerateStatusResponse"];
-
-const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
-
-interface MockTask {
-  id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  progress: number;
-  result?: {
-    ppt_url?: string;
-    word_url?: string;
-    version?: number;
-  };
-  error?: string;
-}
-
-const mockTasks: Map<string, MockTask> = new Map();
+export type VersionsResponse = components["schemas"]["VersionsResponse"];
 
 export const generateApi = {
   async generateCourseware(data: GenerateRequest): Promise<GenerateResponse> {
-    if (MOCK_MODE) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const taskId = `task-${Date.now()}`;
-      const task: MockTask = {
-        id: taskId,
-        status: "processing",
-        progress: 0,
-      };
-      mockTasks.set(taskId, task);
-
-      startMockProgress(taskId);
-
-      return {
-        success: true,
-        data: {
-          task_id: taskId,
-          status: "processing",
-        },
-        message: "生成任务已创建",
-      };
-    }
-
     return request<GenerateResponse>("/generate/courseware", {
       method: "POST",
       body: JSON.stringify(data),
@@ -70,35 +32,19 @@ export const generateApi = {
   },
 
   async getGenerateStatus(taskId: string): Promise<GenerateStatusResponse> {
-    if (MOCK_MODE) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      const task = mockTasks.get(taskId);
-      if (!task) {
-        return {
-          success: true,
-          data: {
-            task_id: taskId,
-            status: "pending",
-            progress: 0,
-          },
-          message: "任务不存在",
-        };
-      }
-      return {
-        success: true,
-        data: {
-          task_id: task.id,
-          status: task.status,
-          progress: task.progress,
-          result: task.result,
-          error: task.error,
-        },
-        message: "获取成功",
-      };
-    }
-
     // 更新：新的 API 路径
     return request<GenerateStatusResponse>(`/generate/tasks/${taskId}/status`, {
+      method: "GET",
+    });
+  },
+
+  /**
+   * 获取任务的所有版本
+   * @param taskId 任务 ID
+   * @returns 版本列表
+   */
+  async getTaskVersions(taskId: string): Promise<VersionsResponse> {
+    return request<VersionsResponse>(`/generate/tasks/${taskId}/versions`, {
       method: "GET",
     });
   },
@@ -113,24 +59,14 @@ export const generateApi = {
     taskId: string,
     fileType: "pptx" | "docx"
   ): Promise<Blob> {
-    if (MOCK_MODE) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const content = `Mock ${fileType.toUpperCase()} file content for task ${taskId}`;
-      return new Blob([content], {
-        type:
-          fileType === "pptx"
-            ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
-    }
-
     const token = TokenStorage.getAccessToken();
     const headers: Record<string, string> = {};
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    // 修复：使用正确的后端路径
+    // 注意：前端使用用户友好的扩展名 (pptx/docx)，后端使用简写 (ppt/word)
+    // 这是一个 API 适配层转换
     const apiFileType = fileType === "pptx" ? "ppt" : "word";
     const response = await fetch(
       getApiUrl(`/generate/tasks/${taskId}/download?file_type=${apiFileType}`),
@@ -169,31 +105,3 @@ export const generateApi = {
     window.URL.revokeObjectURL(url);
   },
 };
-
-function startMockProgress(taskId: string): void {
-  let progress = 0;
-  const interval = setInterval(() => {
-    const task = mockTasks.get(taskId);
-    if (!task) {
-      clearInterval(interval);
-      return;
-    }
-
-    progress += Math.random() * 20;
-    if (progress >= 100) {
-      progress = 100;
-      task.status = "completed";
-      task.progress = 100;
-      task.result = {
-        ppt_url: "/mock/sample.pptx",
-        word_url: "/mock/sample.docx",
-        version: 1,
-      };
-      mockTasks.set(taskId, task);
-      clearInterval(interval);
-    } else {
-      task.progress = Math.round(progress);
-      mockTasks.set(taskId, task);
-    }
-  }, 1000);
-}

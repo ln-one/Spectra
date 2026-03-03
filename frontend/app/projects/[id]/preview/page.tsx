@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { previewApi, generateApi } from "@/lib/api";
+import { previewApi, generateApi, projectsApi } from "@/lib/api";
 import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,8 +33,11 @@ interface PreviewData {
 interface Project {
   id: string;
   name: string;
-  grade_level: string;
-  subject: string;
+  description: string;
+  grade_level?: string;
+  status: "draft" | "in_progress" | "completed";
+  created_at: string;
+  updated_at: string;
 }
 
 export default function ProjectPreviewPage() {
@@ -58,25 +61,29 @@ export default function ProjectPreviewPage() {
 
     const fetchData = async () => {
       try {
-        const [projectRes, previewRes] = await Promise.all([
-          fetch(`/api/v1/projects/${projectId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }).then((r) => r.json()),
-          previewApi.getPreview(projectId),
-        ]);
+        // 先获取项目信息（必需）
+        const projectRes = await projectsApi.getProject(projectId);
 
         if (projectRes.data?.project) {
           setProject(projectRes.data.project);
         }
 
-        const previewData: PreviewData = {
-          task_id: previewRes.data.task_id,
-          slides: previewRes.data.slides || [],
-          current_slide: 0,
-        };
-        setPreview(previewData);
-      } catch {
-        console.error("Failed to fetch data");
+        // 尝试获取预览（可选，没有生成任务时可能失败）
+        try {
+          const previewRes = await previewApi.getPreview(projectId);
+          const previewData: PreviewData = {
+            task_id: previewRes.data.task_id,
+            slides: previewRes.data.slides || [],
+            current_slide: 0,
+          };
+          setPreview(previewData);
+        } catch (previewError) {
+          // 预览获取失败可能是没有生成任务，这是正常的
+          console.warn("Preview not available:", previewError);
+          // 不显示错误toast，因为这是预期情况（还没生成课件）
+        }
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
         toast({
           title: "加载失败",
           description: "无法获取项目信息",
@@ -138,12 +145,15 @@ export default function ProjectPreviewPage() {
       };
 
       setTimeout(pollStatus, 3000);
-    } catch {
-      console.error("Failed to generate");
+    } catch (error) {
+      console.error("Failed to generate:", error);
       setIsGenerating(false);
+      // 提取更详细的错误信息
+      const errorMessage =
+        error instanceof Error ? error.message : "请稍后重试";
       toast({
         title: "生成失败",
-        description: "请稍后重试",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -200,7 +210,12 @@ export default function ProjectPreviewPage() {
           </Button>
           <h2 className="font-semibold truncate">{project?.name || "预览"}</h2>
           <p className="text-sm text-muted-foreground">
-            {project?.grade_level} · {project?.subject}
+            {project?.grade_level || "未设置"} ·{" "}
+            {project?.status === "completed"
+              ? "已完成"
+              : project?.status === "in_progress"
+                ? "生成中"
+                : "草稿"}
           </p>
         </div>
 

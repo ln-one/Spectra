@@ -93,6 +93,21 @@ export function FileUploadDropzone({
         return;
       }
 
+      // 保存本次上传的文件信息，用于回调
+      const uploadedFileInfos: UploadFile[] = validFiles.map((file) => ({
+        id: `pending-${file.name}-${Date.now()}`,
+        filename: file.name,
+        name: file.name,
+        size: file.size,
+        type: file.type || "application/octet-stream",
+        fileType: file.name.split(".").pop() || "unknown",
+        mimeType: file.type || "application/octet-stream",
+        status: "uploading" as const,
+        projectId: projectId || "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+
       if (!projectId) {
         onUpload?.(validFiles);
         return;
@@ -104,8 +119,16 @@ export function FileUploadDropzone({
         await addUpload(projectId, validFiles[0]);
       }
 
-      const uploadedFiles = useUploadStore.getState().uploads;
-      onUploadComplete?.(uploadedFiles);
+      // 获取本次上传完成后的文件状态
+      const currentUploads = useUploadStore.getState().uploads;
+      // 过滤出本次上传的文件（通过名称匹配）
+      const uploadedFiles = currentUploads.filter((upload) =>
+        validFiles.some((file) => file.name === upload.filename)
+      );
+
+      onUploadComplete?.(
+        uploadedFiles.length > 0 ? uploadedFiles : uploadedFileInfos
+      );
     },
     [
       projectId,
