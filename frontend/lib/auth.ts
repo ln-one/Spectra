@@ -87,9 +87,9 @@ export const TokenStorage = {
     if (typeof window === "undefined") return null;
     const cookies = document.cookie.split(";");
     for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split("=");
+      const [name, ...valueParts] = cookie.trim().split("=");
       if (name === "access_token") {
-        return value || null;
+        return valueParts.join("=") || null;
       }
     }
     return null;

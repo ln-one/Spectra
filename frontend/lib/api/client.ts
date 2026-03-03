@@ -8,9 +8,6 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export const API_VERSION = "/api/v1";
 
-// Mock 模式开关（仅用于临时调试，默认关闭）
-export const ENABLE_MOCK = process.env.NEXT_PUBLIC_MOCK === "true";
-
 export interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
   idempotencyKey?: string;
@@ -52,15 +49,17 @@ function onTokenRefreshed(token: string): void {
 async function tryRefreshToken(): Promise<boolean> {
   if (isRefreshing) {
     return new Promise((resolve) => {
-      subscribeTokenRefresh(() => resolve(true));
+      subscribeTokenRefresh((success: boolean) => resolve(success));
     });
   }
 
   isRefreshing = true;
+  let refreshSuccess = false;
 
   try {
     const success = await authService.refreshToken();
     if (success) {
+      refreshSuccess = true;
       const newToken = TokenStorage.getAccessToken();
       if (newToken) {
         onTokenRefreshed(newToken);
@@ -71,6 +70,10 @@ async function tryRefreshToken(): Promise<boolean> {
     return false;
   } finally {
     isRefreshing = false;
+    // Notify waiting subscribers even on failure so they don't hang
+    if (!refreshSuccess) {
+      onTokenRefreshed("");
+    }
   }
 }
 
