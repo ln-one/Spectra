@@ -176,3 +176,39 @@ def test_extract_text_for_rag_signature():
     sig = inspect.signature(extract_text_for_rag)
     params = list(sig.parameters.keys())
     assert params == ["filepath", "filename", "file_type"]
+
+
+def test_extract_text_for_rag_fallback_to_local_when_provider_unsupported(
+    tmp_path: Path, monkeypatch
+):
+    """当配置 provider 不支持 file_type 时，应自动回退到 local。"""
+    from services.parsers.local_provider import LocalProvider
+    import services.file_parser as file_parser_module
+
+    class _UnsupportedProvider:
+        name = "mineru"
+
+        def supports(self, file_type: str) -> bool:
+            return False
+
+        def extract_text(self, filepath: str, filename: str, file_type: str):
+            raise AssertionError("unsupported provider should not be used")
+
+    calls = {"local": 0}
+
+    def _fake_get_parser(provider_name=None):
+        if provider_name == "local":
+            calls["local"] += 1
+            return LocalProvider()
+        return _UnsupportedProvider()
+
+    monkeypatch.setattr(file_parser_module, "get_parser", _fake_get_parser)
+
+    file_path = tmp_path / "notes.txt"
+    file_path.write_text("fallback local content", encoding="utf-8")
+
+    text, details = extract_text_for_rag(str(file_path), "notes.txt", "other")
+
+    assert "fallback local content" in text
+    assert details["text_length"] > 0
+    assert calls["local"] == 1

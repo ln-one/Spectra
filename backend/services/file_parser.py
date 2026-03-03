@@ -44,5 +44,17 @@ def extract_text_for_rag(
 
     # 委托给可插拔解析器 provider
     parser = get_parser()
+
+    # 若当前 provider 不支持该文件类型，回退到 local（避免非预期退化）
+    if not parser.supports(file_type) and parser.name != "local":
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Provider %s 不支持 file_type=%s，回退到 local",
+            parser.name,
+            file_type,
+        )
+        parser = get_parser("local")
+
     text, details = parser.extract_text(filepath, filename, file_type)
     return text, details

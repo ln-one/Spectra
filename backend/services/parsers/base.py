@@ -17,8 +17,10 @@
 * 如果 provider 自身不可用（依赖缺失、API Key 缺失等），
   应在实例化阶段抛出 ``ProviderNotAvailableError``，由 registry 统一处理回退。
 * 解析执行期间的失败（文件损坏、超时等），provider 不应向外抛出运行时异常；
-  应捕获异常并返回空文本。``details`` 推荐携带失败信息（如 ``parse_error``），
-  但为兼容现有实现，未携带 ``parse_error`` 也视为合法。
+  应捕获异常并返回空文本，并仅在 ``details`` 中返回标准字段（如页数、文本长度等，
+  见上方列表）。错误信息不应写入 ``details``，而应由上层写入 OpenAPI 中的
+  ``parse_error`` 字段或在内部日志中记录，避免将 ``parse_error``/``error`` 混入
+  ``details`` 造成契约漂移。
 """
 
 from __future__ import annotations

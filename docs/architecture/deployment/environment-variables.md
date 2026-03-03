@@ -85,7 +85,7 @@ LLAMAPARSE_API_KEY="llx-your-production-llamaparse-api-key"
 DEFAULT_MODEL="qwen-plus"
 
 # Document parser provider (see ADR-005)
-# 生产环境推荐 mineru（完全离线），或 local（轻量默认）
+# 生产环境推荐 local（当前可用）；mineru（完全离线，待集成完成后再启用）
 DOCUMENT_PARSER="local"
 
 # =============================================================================
