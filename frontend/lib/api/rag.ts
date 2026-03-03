@@ -12,6 +12,20 @@ export type RAGSearchResponse = components["schemas"]["RAGSearchResponse"];
 export type SourceDetailResponse =
   components["schemas"]["SourceDetailResponse"];
 
+export interface IndexFileRequest {
+  file_id: string;
+  chunk_size?: number;
+  chunk_overlap?: number;
+}
+
+export interface IndexFileResponse {
+  success: boolean;
+  data?: {
+    index_task_id: string;
+    status: "pending" | "processing" | "completed" | "failed";
+  };
+}
+
 export const ragApi = {
   async search(data: RAGSearchRequest): Promise<RAGSearchResponse> {
     return request<RAGSearchResponse>("/rag/search", {
@@ -32,6 +46,18 @@ export const ragApi = {
     threshold?: number;
   }): Promise<RAGSearchResponse> {
     return request<RAGSearchResponse>("/rag/similar", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * 索引新文件到知识库
+   * @param data 索引请求
+   * @returns 索引任务信息
+   */
+  async indexFile(data: IndexFileRequest): Promise<IndexFileResponse> {
+    return request<IndexFileResponse>("/rag/index", {
       method: "POST",
       body: JSON.stringify(data),
     });

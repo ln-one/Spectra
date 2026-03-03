@@ -42,7 +42,9 @@ describe("API Integration Tests", () => {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.warn("Backend is not available, skipping API integration tests");
+        console.warn(
+          "Backend is not available, skipping API integration tests"
+        );
       }
     } catch {
       console.warn("Backend is not available, skipping API integration tests");
@@ -187,10 +189,12 @@ describe("API Integration Tests", () => {
     it.skip("should create generate task", async () => {
       const response = await generateApi.generateCourseware({
         project_id: testProjectId,
-        file_ids: [],
+        type: "ppt",
         options: {
-          format: "pptx",
           template: "default",
+          show_page_number: true,
+          include_animations: false,
+          include_games: false,
         },
       });
 
@@ -217,7 +221,7 @@ describe("API Integration Tests", () => {
 
     it.skip("should modify preview", async () => {
       const response = await previewApi.modifyPreview(testTaskId, {
-        modifications: [],
+        instruction: "请优化PPT的排版",
       });
 
       expect(response.success).toBe(true);

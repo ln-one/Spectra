@@ -151,7 +151,7 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${projectId}_${fileType}.${fileType}`;
+      a.download = `${projectId}_${fileType.replace("x", "")}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

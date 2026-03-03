@@ -49,7 +49,7 @@ function onTokenRefreshed(token: string): void {
 async function tryRefreshToken(): Promise<boolean> {
   if (isRefreshing) {
     return new Promise((resolve) => {
-      subscribeTokenRefresh((success: boolean) => resolve(success));
+      subscribeTokenRefresh((token: string) => resolve(!!token));
     });
   }
 

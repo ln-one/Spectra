@@ -18,6 +18,7 @@ export type GenerateRequest = components["schemas"]["GenerateRequest"];
 export type GenerateResponse = components["schemas"]["GenerateResponse"];
 export type GenerateStatusResponse =
   components["schemas"]["GenerateStatusResponse"];
+export type VersionsResponse = components["schemas"]["VersionsResponse"];
 
 export const generateApi = {
   async generateCourseware(data: GenerateRequest): Promise<GenerateResponse> {
@@ -33,6 +34,17 @@ export const generateApi = {
   async getGenerateStatus(taskId: string): Promise<GenerateStatusResponse> {
     // 更新：新的 API 路径
     return request<GenerateStatusResponse>(`/generate/tasks/${taskId}/status`, {
+      method: "GET",
+    });
+  },
+
+  /**
+   * 获取任务的所有版本
+   * @param taskId 任务 ID
+   * @returns 版本列表
+   */
+  async getTaskVersions(taskId: string): Promise<VersionsResponse> {
+    return request<VersionsResponse>(`/generate/tasks/${taskId}/versions`, {
       method: "GET",
     });
   },

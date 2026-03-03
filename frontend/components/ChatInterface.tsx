@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useChatStore } from "@/stores/chatStore";
 import { MessageList } from "@/components/MessageList";
 import { MessageInput } from "@/components/MessageInput";
@@ -27,12 +27,17 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
 
   const [hasLoaded, setHasLoaded] = useState(false);
 
-  useEffect(() => {
+  // 使用 useCallback 包装 fetchMessages 以稳定引用
+  const handleFetchMessages = useCallback(() => {
     if (projectId && !hasLoaded) {
       fetchMessages(projectId);
       setHasLoaded(true);
     }
-  }, [projectId, fetchMessages, hasLoaded]);
+  }, [projectId, hasLoaded, fetchMessages]);
+
+  useEffect(() => {
+    handleFetchMessages();
+  }, [handleFetchMessages]);
 
   useEffect(() => {
     return () => {

@@ -60,6 +60,11 @@ export const useChatStore = create<ChatState>()((set, _get) => ({
           messages: [...state.messages, assistantMessage],
           suggestions: response.data.suggestions || [],
         }));
+      } else if (!response.success) {
+        // API 返回失败
+        set({
+          error: response.message || "发送消息失败",
+        });
       }
     } catch (error) {
       set({

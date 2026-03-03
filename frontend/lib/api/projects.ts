@@ -11,6 +11,8 @@ export type Project = components["schemas"]["Project"];
 export type ProjectRequest = components["schemas"]["ProjectRequest"];
 export type GetProjectsResponse = components["schemas"]["GetProjectsResponse"];
 export type ProjectResponse = components["schemas"]["ProjectResponse"];
+export type ProjectStatisticsResponse =
+  components["schemas"]["ProjectStatisticsResponse"];
 
 export const projectsApi = {
   async getProjects(params?: {
@@ -59,6 +61,22 @@ export const projectsApi = {
     return request(`/projects/${projectId}`, {
       method: "DELETE",
     });
+  },
+
+  /**
+   * 获取项目统计信息
+   * @param projectId 项目 ID
+   * @returns 项目统计信息
+   */
+  async getProjectStatistics(
+    projectId: string
+  ): Promise<ProjectStatisticsResponse> {
+    return request<ProjectStatisticsResponse>(
+      `/projects/${projectId}/statistics`,
+      {
+        method: "GET",
+      }
+    );
   },
 
   async searchProjects(params: {
