@@ -1,10 +1,9 @@
-import asyncio
 import json
 import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
 from starlette.concurrency import run_in_threadpool
 
@@ -160,6 +159,7 @@ async def _build_user_requirements(project_id: str) -> str:
 async def generate_courseware(
     http_request: Request,
     request: GenerateRequest,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -213,23 +213,20 @@ async def generate_courseware(
                 )
                 return cached_response
 
+        template_config = (
+            request.template_config.model_dump() if request.template_config else None
+        )
+
         # 创建生成任务
         task = await db_service.create_generation_task(
             project_id=request.project_id,
             task_type=request.type.value,
-            template_config=(
-                request.template_config.model_dump()
-                if request.template_config
-                else None
-            ),
+            template_config=template_config,
         )
 
         # 使用 RQ 提交任务到队列
         task_queue_service = getattr(http_request.app.state, "task_queue_service", None)
         rq_job_id = None
-        template_config = (
-            request.template_config.model_dump() if request.template_config else None
-        )
         if task_queue_service is None:
             logger.warning(
                 "task_queue_service_unavailable_fallback_local_execution",
@@ -240,13 +237,12 @@ async def generate_courseware(
                     "type": request.type.value,
                 },
             )
-            asyncio.create_task(
-                process_generation_task(
-                    task_id=task.id,
-                    project_id=request.project_id,
-                    task_type=request.type.value,
-                    template_config=template_config,
-                )
+            background_tasks.add_task(
+                process_generation_task,
+                task_id=task.id,
+                project_id=request.project_id,
+                task_type=request.type.value,
+                template_config=template_config,
             )
         else:
             job = task_queue_service.enqueue_generation_task(

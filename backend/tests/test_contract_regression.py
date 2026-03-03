@@ -10,8 +10,7 @@ API surface stability.
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
-
+from unittest.mock import AsyncMock, patch
 import pytest
 
 from main import app
@@ -423,7 +422,10 @@ class TestHealthEndpoints:
         resp = client.get("/")
         assert resp.status_code == 200
 
-    def test_health_200(self, client):
-        resp = client.get("/health")
+    def test_health_200(self, client, monkeypatch):
+        import main as main_module
+        with patch("prisma.client.Prisma.execute_raw", AsyncMock(return_value=None)):
+            monkeypatch.setattr(main_module.redis_manager, "health_check", AsyncMock(return_value=True))
+            resp = client.get("/health")
         assert resp.status_code == 200
         assert resp.json()["status"] == "healthy"
