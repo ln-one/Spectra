@@ -62,7 +62,7 @@ async def _resolve_task(task_or_project_id: str, user_id: str):
 
 
 def _build_slides(task, project):
-    """Build slides payload for a task."""
+    """Build slides payload for a task (legacy fallback)."""
     return [
         {
             "id": f"{task.id}-slide-1",
@@ -141,10 +141,7 @@ async def get_preview(task_id: str, user_id: str = Depends(get_current_user)):
         raise
     except Exception as e:
         logger.error(f"Get preview failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取预览失败",
-        )
+        raise
 
 
 @router.post("/{task_id}/modify")
@@ -212,10 +209,7 @@ async def modify_preview(
         raise
     except Exception as e:
         logger.error(f"Modify preview failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="修改课件失败",
-        )
+        raise
 
 
 @router.get("/{task_id}/slides/{slide_id}")

@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from services.auth_service import auth_service
 from utils.exceptions import ErrorCode, UnauthorizedException
+from utils.middleware import set_context_user_id
 
 _security = HTTPBearer(auto_error=False, scheme_name="BearerAuth")
 
@@ -34,6 +35,9 @@ async def get_current_user(
             message="令牌无效或已过期",
             error_code=ErrorCode.INVALID_TOKEN,
         )
+
+    # Publish user_id into the request context for logging
+    set_context_user_id(user_id)
 
     return user_id
 

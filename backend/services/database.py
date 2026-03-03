@@ -294,9 +294,8 @@ class DatabaseService:
                         total_file_size = int(sum_payload.get("size") or 0)
                     else:
                         total_file_size = int(getattr(sum_payload, "size", 0) or 0)
-            except TypeError:
-                pass
-
+            except (TypeError, ValueError, AttributeError):
+                aggregate_available = False
         if not aggregate_available:
             uploads = await self.db.upload.find_many(
                 where={"projectId": project_id},
