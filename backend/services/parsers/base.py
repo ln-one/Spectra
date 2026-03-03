@@ -16,8 +16,9 @@
 -----------
 * 如果 provider 自身不可用（依赖缺失、API Key 缺失等），
   应在实例化阶段抛出 ``ProviderNotAvailableError``，由 registry 统一处理回退。
-* 解析执行期间的失败（文件损坏、超时等），provider 应 **捕获异常并返回空文本 + 错误详情**，
-  由上层 ``rag_indexing_service`` 统一走占位 fallback，保持现有语义稳定。
+* 解析执行期间的失败（文件损坏、超时等），provider 不应向外抛出运行时异常；
+  应捕获异常并返回空文本。``details`` 推荐携带失败信息（如 ``parse_error``），
+  但为兼容现有实现，未携带 ``parse_error`` 也视为合法。
 """
 
 from __future__ import annotations

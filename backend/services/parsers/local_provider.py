@@ -17,7 +17,7 @@ class LocalProvider(BaseParseProvider):
     """基于 pypdf / python-docx / python-pptx 的本地轻量解析器。"""
 
     name = "local"
-    supported_types = {"pdf", "word", "ppt"}
+    supported_types = {"pdf", "word", "ppt", "other"}
 
     def extract_text(
         self, filepath: str, filename: str, file_type: str
@@ -78,6 +78,8 @@ class LocalProvider(BaseParseProvider):
             details["text_length"] = len(text)
             return text, details
         except Exception:
+            # 与 MVP 行为对齐：DOCX 解析失败时 pages_extracted 仍为 1
+            details["pages_extracted"] = 1
             return "", details
 
     @staticmethod

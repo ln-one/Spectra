@@ -128,6 +128,7 @@ class TestLocalProvider:
         p = LocalProvider()
         text, details = p.extract_text(str(bad_path), "bad.docx", "word")
         assert text == ""
+        assert details["pages_extracted"] == 1
 
     def test_corrupted_pptx(self, tmp_path: Path):
         bad_path = tmp_path / "bad.pptx"
