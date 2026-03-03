@@ -182,8 +182,8 @@ def test_extract_text_for_rag_fallback_to_local_when_provider_unsupported(
     tmp_path: Path, monkeypatch
 ):
     """当配置 provider 不支持 file_type 时，应自动回退到 local。"""
-    from services.parsers.local_provider import LocalProvider
     import services.file_parser as file_parser_module
+    from services.parsers.local_provider import LocalProvider
 
     class _UnsupportedProvider:
         name = "mineru"
