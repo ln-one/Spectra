@@ -250,8 +250,8 @@ async def health_check():
     except Exception:
         db_healthy = False
     redis_healthy = await redis_manager.health_check()
-    db_required = os.getenv("DB_REQUIRED", "false").lower() == "true"
-    redis_required = os.getenv("REDIS_REQUIRED", "false").lower() == "true"
+    db_required = os.getenv("DB_REQUIRED", "true").lower() == "true"
+    redis_required = os.getenv("REDIS_REQUIRED", "true").lower() == "true"
     overall_healthy = (db_healthy or not db_required) and (
         redis_healthy or not redis_required
     )
