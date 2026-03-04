@@ -9,9 +9,9 @@ import pytest
 from eval.metrics import (
     EvalResult,
     compute_hit_rate,
-    compute_mrr,
     compute_keyword_hit_rate,
     compute_metrics,
+    compute_mrr,
 )
 
 
