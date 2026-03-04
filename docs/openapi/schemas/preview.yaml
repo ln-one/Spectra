@@ -20,7 +20,7 @@ PreviewResponse:
 
 Slide:
   type: object
-  required: [id, index, title, content]
+  required: [id, index, title, content, sources]
   properties:
     id:
       type: string
@@ -44,6 +44,7 @@ SourceReference:
   properties:
     chunk_id:
       type: string
+      description: 来源片段唯一标识，可用于查询来源详情
     source_type:
       type: string
       enum: [video, document, ai_generated]

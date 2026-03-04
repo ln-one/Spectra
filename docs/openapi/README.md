@@ -27,6 +27,8 @@
 | 项目 | `paths/project.yaml` | `schemas/project.yaml` |
 | RAG | `paths/rag.yaml` | `schemas/rag.yaml` |
 
+> `generate` 模块采用二级拆分：`generate.yaml` 为索引入口，具体定义在 `generate-*.yaml` 子文件中。
+
 ### 完整工作流程
 
 参考 [`.ai/guides/api-workflow.md`](../../.ai/guides/api-workflow.md) 了解：

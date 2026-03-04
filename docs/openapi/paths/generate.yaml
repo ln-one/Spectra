@@ -1,117 +1,44 @@
+# Generate 路径索引（拆分入口）
+# 说明：为符合文档复杂度阈值，本文件仅保留路径引用。
+
 /api/v1/generate/courseware:
-  post:
-    summary: 生成课件
-    tags: [Generate]
-    security:
-      - BearerAuth: []
-    parameters:
-      - $ref: '../components/parameters.yaml#/IdempotencyKey'
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../schemas/generate.yaml#/GenerateRequest'
-    responses:
-      '200':
-        description: 生成任务已创建
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/generate.yaml#/GenerateResponse'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
+  $ref: './generate-task.yaml#/~1api~1v1~1generate~1courseware'
+
+/api/v1/generate/sessions:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions'
+
+/api/v1/generate/sessions/{session_id}:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}'
+
+/api/v1/generate/sessions/{session_id}/events:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1events'
+
+/api/v1/generate/sessions/{session_id}/outline:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline'
+
+/api/v1/generate/sessions/{session_id}/commands:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
+
+/api/v1/generate/sessions/{session_id}/confirm:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1confirm'
+
+/api/v1/generate/sessions/{session_id}/outline/redraft:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline~1redraft'
+
+/api/v1/generate/sessions/{session_id}/resume:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1resume'
+
+/api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1slides~1{slide_id}~1regenerate'
+
+/api/v1/generate/capabilities:
+  $ref: './generate-session.yaml#/~1api~1v1~1generate~1capabilities'
 
 /api/v1/generate/tasks/{task_id}/status:
-  get:
-    summary: 查询生成状态
-    tags: [Generate]
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: task_id
-        in: path
-        required: true
-        schema:
-          type: string
-    responses:
-      '200':
-        description: 成功
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/generate.yaml#/GenerateStatusResponse'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+  $ref: './generate-task.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1status'
 
 /api/v1/generate/tasks/{task_id}/download:
-  get:
-    summary: 下载生成的课件文件
-    tags: [Generate]
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: task_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: file_type
-        in: query
-        required: true
-        schema:
-          type: string
-          enum: [ppt, word]
-        description: 要下载的文件类型
-    responses:
-      '200':
-        description: 文件下载成功
-        content:
-          application/vnd.openxmlformats-officedocument.presentationml.presentation:
-            schema:
-              type: string
-              format: binary
-          application/vnd.openxmlformats-officedocument.wordprocessingml.document:
-            schema:
-              type: string
-              format: binary
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+  $ref: './generate-task.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1download'
 
 /api/v1/generate/tasks/{task_id}/versions:
-  get:
-    summary: 获取任务的所有版本
-    tags: [Generate]
-    security:
-      - BearerAuth: []
-    parameters:
-      - name: task_id
-        in: path
-        required: true
-        schema:
-          type: string
-    responses:
-      '200':
-        description: 成功
-        content:
-          application/json:
-            schema:
-              $ref: '../schemas/generate.yaml#/VersionsResponse'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-      '403':
-        $ref: '../components/responses.yaml#/Forbidden'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
+  $ref: './generate-task.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1versions'

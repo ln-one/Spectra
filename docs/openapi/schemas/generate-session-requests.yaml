@@ -1,0 +1,220 @@
+CreateGenerationSessionRequest:
+  type: object
+  required: [project_id, output_type]
+  properties:
+    project_id:
+      type: string
+    output_type:
+      $ref: './generate-core.yaml#/GenerationSessionMode'
+    options:
+      $ref: './generate-core.yaml#/GenerationOptions'
+    client_session_id:
+      type: string
+
+CreateGenerationSessionResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: './generate-session-models.yaml#/SessionRef'
+    message:
+      type: string
+
+GenerationSessionResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      $ref: './generate-session-models.yaml#/SessionStatePayload'
+    message:
+      type: string
+
+UpdateOutlineRequest:
+  type: object
+  required: [outline, base_version]
+  properties:
+    base_version:
+      type: integer
+      minimum: 1
+      description: 客户端编辑所基于的大纲版本（并发控制）
+    outline:
+      $ref: './generate-core.yaml#/OutlineDocument'
+    change_reason:
+      type: string
+      maxLength: 1000
+
+UpdateOutlineResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        session:
+          $ref: './generate-session-models.yaml#/SessionRef'
+        outline:
+          $ref: './generate-core.yaml#/OutlineDocument'
+    message:
+      type: string
+
+ConfirmOutlineRequest:
+  type: object
+  properties:
+    continue_from_retrieval:
+      type: boolean
+      default: true
+      description: 是否复用 ANALYZING 阶段上下文
+    expected_state:
+      allOf:
+        - $ref: './generate-core.yaml#/GenerationState'
+      description: 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM
+
+ConfirmOutlineResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        session:
+          $ref: './generate-session-models.yaml#/SessionRef'
+    message:
+      type: string
+
+RedraftOutlineRequest:
+  type: object
+  required: [instruction, base_version]
+  properties:
+    instruction:
+      type: string
+      minLength: 1
+      maxLength: 1000
+      description: 用户要求重写大纲的指导语
+    base_version:
+      type: integer
+      minimum: 1
+      description: 当前确认页所见大纲版本
+
+RedraftOutlineResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        session:
+          $ref: './generate-session-models.yaml#/SessionRef'
+    message:
+      type: string
+
+ResumeSessionRequest:
+  type: object
+  properties:
+    cursor:
+      type: string
+      description: 上次消费到的事件游标
+    last_known_state:
+      $ref: './generate-core.yaml#/GenerationState'
+
+ResumeSessionResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        session:
+          $ref: './generate-session-models.yaml#/SessionRef'
+        latest_event:
+          $ref: './generate-session-models.yaml#/GenerationEvent'
+    message:
+      type: string
+
+RegenerateSlideRequest:
+  type: object
+  required: [patch]
+  properties:
+    instruction:
+      type: string
+      minLength: 1
+      maxLength: 2000
+      description: 可选自然语言补充说明，最终以结构化 patch 为准
+    slide_index:
+      type: integer
+      minimum: 1
+    patch:
+      $ref: './generate-commands.yaml#/StructuredSlidePatch'
+    expected_render_version:
+      type: integer
+      minimum: 1
+      description: 防止并发覆盖的版本控制字段
+
+RegenerateSlideResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        session:
+          $ref: './generate-session-models.yaml#/SessionRef'
+        updated_slide:
+          type: object
+          properties:
+            slide_id:
+              type: string
+            slide_index:
+              type: integer
+            content_markdown:
+              type: string
+            sources:
+              type: array
+              items:
+                $ref: './preview.yaml#/SourceReference'
+            render_version:
+              type: integer
+    message:
+      type: string
+
+GenerationEventListResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: './generate-session-models.yaml#/GenerationEvent'
+    message:
+      type: string
+
+GenerationSessionCommandRequest:
+  $ref: './generate-commands.yaml#/GenerationSessionCommandRequest'
+
+GenerationSessionCommandResponse:
+  $ref: './generate-commands.yaml#/GenerationSessionCommandResponse'
+
+GenerationCapabilitiesResponse:
+  $ref: './generate-commands.yaml#/GenerationCapabilitiesResponse'

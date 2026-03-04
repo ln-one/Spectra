@@ -1,0 +1,43 @@
+# Generate Session Schema 索引（拆分入口）
+
+SessionRef:
+  $ref: './generate-session-models.yaml#/SessionRef'
+SessionStatePayload:
+  $ref: './generate-session-models.yaml#/SessionStatePayload'
+GenerationEvent:
+  $ref: './generate-session-models.yaml#/GenerationEvent'
+
+CreateGenerationSessionRequest:
+  $ref: './generate-session-requests.yaml#/CreateGenerationSessionRequest'
+CreateGenerationSessionResponse:
+  $ref: './generate-session-requests.yaml#/CreateGenerationSessionResponse'
+GenerationSessionResponse:
+  $ref: './generate-session-requests.yaml#/GenerationSessionResponse'
+UpdateOutlineRequest:
+  $ref: './generate-session-requests.yaml#/UpdateOutlineRequest'
+UpdateOutlineResponse:
+  $ref: './generate-session-requests.yaml#/UpdateOutlineResponse'
+ConfirmOutlineRequest:
+  $ref: './generate-session-requests.yaml#/ConfirmOutlineRequest'
+ConfirmOutlineResponse:
+  $ref: './generate-session-requests.yaml#/ConfirmOutlineResponse'
+RedraftOutlineRequest:
+  $ref: './generate-session-requests.yaml#/RedraftOutlineRequest'
+RedraftOutlineResponse:
+  $ref: './generate-session-requests.yaml#/RedraftOutlineResponse'
+ResumeSessionRequest:
+  $ref: './generate-session-requests.yaml#/ResumeSessionRequest'
+ResumeSessionResponse:
+  $ref: './generate-session-requests.yaml#/ResumeSessionResponse'
+RegenerateSlideRequest:
+  $ref: './generate-session-requests.yaml#/RegenerateSlideRequest'
+RegenerateSlideResponse:
+  $ref: './generate-session-requests.yaml#/RegenerateSlideResponse'
+GenerationEventListResponse:
+  $ref: './generate-session-requests.yaml#/GenerationEventListResponse'
+GenerationCapabilitiesResponse:
+  $ref: './generate-session-requests.yaml#/GenerationCapabilitiesResponse'
+GenerationSessionCommandRequest:
+  $ref: './generate-session-requests.yaml#/GenerationSessionCommandRequest'
+GenerationSessionCommandResponse:
+  $ref: './generate-session-requests.yaml#/GenerationSessionCommandResponse'

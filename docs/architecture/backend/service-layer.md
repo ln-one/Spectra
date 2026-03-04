@@ -31,3 +31,8 @@
 - Router：参数校验、权限检查、HTTP 响应码。
 - Service：业务编排、外部调用、异常语义化。
 
+## 状态转换校验（新增约束）
+
+- 所有会修改生成会话状态的动作，统一由 Service 层的 `StateTransitionGuard` 校验。
+- Router 不直接判断状态跳转是否合法，只负责把 Command 转交 Service。
+- 若违反状态机规则，Service 返回统一冲突语义（`409` + `INVALID_STATE_TRANSITION`）。

@@ -1,0 +1,111 @@
+CapabilityStatus:
+  type: string
+  enum: [available, degraded, unavailable]
+
+CapabilityDeclaration:
+  type: object
+  required: [name, status, operations]
+  properties:
+    name:
+      type: string
+      enum:
+        - document_parser
+        - video_understanding
+        - speech_recognition
+        - outline_generation
+        - slide_regeneration
+        - event_stream
+    status:
+      $ref: '#/CapabilityStatus'
+    providers:
+      type: array
+      items:
+        type: string
+    default_provider:
+      type: string
+    fallback_chain:
+      type: array
+      items:
+        type: string
+    operations:
+      type: array
+      items:
+        type: string
+    status_message:
+      type: string
+
+StateTransitionRule:
+  type: object
+  required: [command_type, from_state, to_state]
+  properties:
+    command_type:
+      $ref: './generate-command-core.yaml#/GenerationCommandType'
+    from_state:
+      $ref: './generate-core.yaml#/GenerationState'
+    to_state:
+      $ref: './generate-core.yaml#/GenerationState'
+
+StateMachineDeclaration:
+  type: object
+  required: [states, terminal_states, transitions]
+  properties:
+    states:
+      type: array
+      items:
+        $ref: './generate-core.yaml#/GenerationState'
+    terminal_states:
+      type: array
+      items:
+        $ref: './generate-core.yaml#/GenerationState'
+    transitions:
+      type: array
+      items:
+        $ref: '#/StateTransitionRule'
+
+GenerationCapabilitiesResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [contract_versions, default_contract_version, capabilities, state_machine, command_interface]
+      properties:
+        contract_versions:
+          type: array
+          items:
+            type: string
+        default_contract_version:
+          type: string
+        command_interface:
+          type: object
+          required: [endpoint, supported_commands]
+          properties:
+            endpoint:
+              type: string
+              example: /api/v1/generate/sessions/{session_id}/commands
+            supported_commands:
+              type: array
+              items:
+                $ref: './generate-command-core.yaml#/GenerationCommandType'
+        capabilities:
+          type: array
+          items:
+            $ref: '#/CapabilityDeclaration'
+        state_machine:
+          $ref: '#/StateMachineDeclaration'
+        deprecations:
+          type: array
+          items:
+            type: object
+            properties:
+              api:
+                type: string
+              sunset_at:
+                type: string
+                format: date-time
+              replacement:
+                type: string
+    message:
+      type: string

@@ -1,0 +1,154 @@
+GenerationState:
+  type: string
+  enum:
+    - IDLE
+    - CONFIGURING
+    - ANALYZING
+    - DRAFTING_OUTLINE
+    - AWAITING_OUTLINE_CONFIRM
+    - GENERATING_CONTENT
+    - RENDERING
+    - SUCCESS
+    - FAILED
+
+GenerateTaskStatus:
+  type: string
+  enum: [pending, processing, completed, failed]
+
+GenerationSessionMode:
+  type: string
+  enum: [ppt, word, both]
+
+GenerationEventType:
+  type: string
+  enum:
+    - state.changed
+    - progress.updated
+    - outline.ready
+    - outline.updated
+    - slide.updated
+    - task.completed
+    - task.failed
+    - session.recovered
+
+CoursewareStylePreset:
+  type: string
+  enum: [academic, vibrant, dark_tech, custom]
+
+GenerationAudience:
+  type: string
+  enum: [beginner, intermediate, professional]
+
+SlidePatchOperation:
+  type: string
+  enum: [replace, append, remove, reorder]
+
+SessionContextSnapshot:
+  type: object
+  properties:
+    retrieval_id:
+      type: string
+    selected_source_ids:
+      type: array
+      items:
+        type: string
+    notes:
+      type: string
+
+GenerationOptions:
+  type: object
+  properties:
+    template:
+      type: string
+      enum: [default, gaia, uncover, academic]
+      default: default
+      description: PPT 模板风格
+    style_preset:
+      $ref: '#/CoursewareStylePreset'
+    theme_color:
+      type: string
+      pattern: '^#[0-9A-Fa-f]{6}$'
+      description: 主题色（十六进制颜色代码）
+      example: '#4A90E2'
+    show_page_number:
+      type: boolean
+      default: true
+      description: 是否显示页码
+    header:
+      type: string
+      description: 页眉文本
+    footer:
+      type: string
+      description: 页脚文本
+    pages:
+      type: integer
+      minimum: 1
+      maximum: 100
+      description: 期望的页数
+    audience:
+      $ref: '#/GenerationAudience'
+    target_duration_minutes:
+      type: integer
+      minimum: 5
+      maximum: 240
+    include_animations:
+      type: boolean
+      default: false
+      description: 是否生成动画创意
+    include_games:
+      type: boolean
+      default: false
+      description: 是否生成互动游戏
+    animation_format:
+      type: string
+      enum: [gif, mp4, html5]
+      description: 动画输出格式（当 include_animations 为 true 时）
+    use_text_to_image:
+      type: boolean
+      default: false
+      description: 是否启用自动配图
+    system_prompt_tone:
+      type: string
+      maxLength: 2000
+      description: 用户输入的主基调 Prompt
+    rag_source_ids:
+      type: array
+      items:
+        type: string
+      description: 本次生成绑定的素材 ID 列表
+
+OutlineNode:
+  type: object
+  required: [id, order, title]
+  properties:
+    id:
+      type: string
+    order:
+      type: integer
+      minimum: 1
+    title:
+      type: string
+    key_points:
+      type: array
+      items:
+        type: string
+    slide_hint:
+      type: string
+    estimated_minutes:
+      type: integer
+      minimum: 1
+      maximum: 90
+
+OutlineDocument:
+  type: object
+  required: [version, nodes]
+  properties:
+    version:
+      type: integer
+      minimum: 1
+    nodes:
+      type: array
+      items:
+        $ref: '#/OutlineNode'
+    summary:
+      type: string

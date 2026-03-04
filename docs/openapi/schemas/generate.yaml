@@ -1,137 +1,75 @@
+# Generate Schema 索引（拆分入口）
+# 说明：为符合文档复杂度阈值，本文件仅保留 schema 引用。
+
+GenerationState:
+  $ref: './generate-core.yaml#/GenerationState'
+GenerateTaskStatus:
+  $ref: './generate-core.yaml#/GenerateTaskStatus'
+GenerationSessionMode:
+  $ref: './generate-core.yaml#/GenerationSessionMode'
+GenerationEventType:
+  $ref: './generate-core.yaml#/GenerationEventType'
+CoursewareStylePreset:
+  $ref: './generate-core.yaml#/CoursewareStylePreset'
+GenerationAudience:
+  $ref: './generate-core.yaml#/GenerationAudience'
+SlidePatchOperation:
+  $ref: './generate-core.yaml#/SlidePatchOperation'
+SessionContextSnapshot:
+  $ref: './generate-core.yaml#/SessionContextSnapshot'
+GenerationOptions:
+  $ref: './generate-core.yaml#/GenerationOptions'
+OutlineNode:
+  $ref: './generate-core.yaml#/OutlineNode'
+OutlineDocument:
+  $ref: './generate-core.yaml#/OutlineDocument'
+
+SessionRef:
+  $ref: './generate-session.yaml#/SessionRef'
+SessionStatePayload:
+  $ref: './generate-session.yaml#/SessionStatePayload'
+GenerationEvent:
+  $ref: './generate-session.yaml#/GenerationEvent'
+CreateGenerationSessionRequest:
+  $ref: './generate-session.yaml#/CreateGenerationSessionRequest'
+CreateGenerationSessionResponse:
+  $ref: './generate-session.yaml#/CreateGenerationSessionResponse'
+GenerationSessionResponse:
+  $ref: './generate-session.yaml#/GenerationSessionResponse'
+UpdateOutlineRequest:
+  $ref: './generate-session.yaml#/UpdateOutlineRequest'
+UpdateOutlineResponse:
+  $ref: './generate-session.yaml#/UpdateOutlineResponse'
+ConfirmOutlineRequest:
+  $ref: './generate-session.yaml#/ConfirmOutlineRequest'
+ConfirmOutlineResponse:
+  $ref: './generate-session.yaml#/ConfirmOutlineResponse'
+RedraftOutlineRequest:
+  $ref: './generate-session.yaml#/RedraftOutlineRequest'
+RedraftOutlineResponse:
+  $ref: './generate-session.yaml#/RedraftOutlineResponse'
+ResumeSessionRequest:
+  $ref: './generate-session.yaml#/ResumeSessionRequest'
+ResumeSessionResponse:
+  $ref: './generate-session.yaml#/ResumeSessionResponse'
+RegenerateSlideRequest:
+  $ref: './generate-session.yaml#/RegenerateSlideRequest'
+RegenerateSlideResponse:
+  $ref: './generate-session.yaml#/RegenerateSlideResponse'
+GenerationEventListResponse:
+  $ref: './generate-session.yaml#/GenerationEventListResponse'
+GenerationCapabilitiesResponse:
+  $ref: './generate-session.yaml#/GenerationCapabilitiesResponse'
+GenerationSessionCommandRequest:
+  $ref: './generate-session.yaml#/GenerationSessionCommandRequest'
+GenerationSessionCommandResponse:
+  $ref: './generate-session.yaml#/GenerationSessionCommandResponse'
+
 GenerateRequest:
-  type: object
-  required: [project_id, type]
-  properties:
-    project_id:
-      type: string
-    type:
-      type: string
-      enum: [ppt, word, both]
-    options:
-      type: object
-      properties:
-        template:
-          type: string
-          enum: [default, gaia, uncover, academic]
-          default: default
-          description: PPT 模板风格
-        theme_color:
-          type: string
-          pattern: '^#[0-9A-Fa-f]{6}$'
-          description: 主题色（十六进制颜色代码）
-          example: '#4A90E2'
-        show_page_number:
-          type: boolean
-          default: true
-          description: 是否显示页码
-        header:
-          type: string
-          description: 页眉文本
-        footer:
-          type: string
-          description: 页脚文本
-        pages:
-          type: integer
-          minimum: 1
-          maximum: 100
-          description: 期望的页数
-        include_animations:
-          type: boolean
-          default: false
-          description: 是否生成动画创意
-        include_games:
-          type: boolean
-          default: false
-          description: 是否生成互动游戏
-        animation_format:
-          type: string
-          enum: [gif, mp4, html5]
-          description: 动画输出格式（当 include_animations 为 true 时）
-
+  $ref: './generate-legacy.yaml#/GenerateRequest'
 GenerateResponse:
-  type: object
-  required: [success, data, message]
-  properties:
-    success:
-      type: boolean
-    data:
-      type: object
-      properties:
-        task_id:
-          type: string
-        status:
-          type: string
-          enum: [pending, processing, completed, failed]
-    message:
-      type: string
-
+  $ref: './generate-legacy.yaml#/GenerateResponse'
 GenerateStatusResponse:
-  type: object
-  required: [success, data, message]
-  properties:
-    success:
-      type: boolean
-    data:
-      type: object
-      properties:
-        task_id:
-          type: string
-        status:
-          type: string
-          enum: [pending, processing, completed, failed]
-        progress:
-          type: integer
-          minimum: 0
-          maximum: 100
-          description: 生成进度百分比
-        result:
-          type: object
-          properties:
-            ppt_url:
-              type: string
-            word_url:
-              type: string
-            version:
-              type: integer
-              description: 当前版本号
-        error:
-          type: string
-    message:
-      type: string
-
+  $ref: './generate-legacy.yaml#/GenerateStatusResponse'
 VersionsResponse:
-  type: object
-  required: [success, data, message]
-  properties:
-    success:
-      type: boolean
-    data:
-      type: object
-      properties:
-        task_id:
-          type: string
-        versions:
-          type: array
-          items:
-            type: object
-            properties:
-              version:
-                type: integer
-              created_at:
-                type: string
-                format: date-time
-              status:
-                type: string
-                enum: [completed, failed]
-              file_urls:
-                type: object
-                properties:
-                  ppt_url:
-                    type: string
-                  word_url:
-                    type: string
-              modification_note:
-                type: string
-                description: 修改说明
-    message:
-      type: string
+  $ref: './generate-legacy.yaml#/VersionsResponse'

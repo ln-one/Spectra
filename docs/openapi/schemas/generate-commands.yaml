@@ -1,0 +1,29 @@
+# Generate Command/Capability Schema 索引
+
+GenerationCommandType:
+  $ref: './generate-command-core.yaml#/GenerationCommandType'
+StructuredPatchOperationType:
+  $ref: './generate-command-core.yaml#/StructuredPatchOperationType'
+StructuredSlidePatchOperation:
+  $ref: './generate-command-core.yaml#/StructuredSlidePatchOperation'
+StructuredSlidePatch:
+  $ref: './generate-command-core.yaml#/StructuredSlidePatch'
+GenerationCommandEnvelope:
+  $ref: './generate-command-core.yaml#/GenerationCommandEnvelope'
+GenerationSessionCommandRequest:
+  $ref: './generate-command-core.yaml#/GenerationSessionCommandRequest'
+AppliedTransition:
+  $ref: './generate-command-core.yaml#/AppliedTransition'
+GenerationSessionCommandResponse:
+  $ref: './generate-command-core.yaml#/GenerationSessionCommandResponse'
+
+CapabilityStatus:
+  $ref: './generate-capabilities.yaml#/CapabilityStatus'
+CapabilityDeclaration:
+  $ref: './generate-capabilities.yaml#/CapabilityDeclaration'
+StateTransitionRule:
+  $ref: './generate-capabilities.yaml#/StateTransitionRule'
+StateMachineDeclaration:
+  $ref: './generate-capabilities.yaml#/StateMachineDeclaration'
+GenerationCapabilitiesResponse:
+  $ref: './generate-capabilities.yaml#/GenerationCapabilitiesResponse'

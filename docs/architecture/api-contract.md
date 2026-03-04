@@ -104,7 +104,10 @@ FastAPI 自动提供两种 API 文档界面：
  "success": false,
  "error": {
  "code": "ERROR_CODE",
- "message": "详细错误描述"
+ "message": "详细错误描述",
+ "retryable": false,
+ "details": {},
+ "trace_id": "trace-xxx"
  },
  "message": "用户友好的错误消息"
 }
@@ -126,8 +129,57 @@ FastAPI 自动提供两种 API 文档界面：
 4. **类型安全**: 前后端使用生成的类型，避免手写
 5. **保持同步**: 实现必须与契约一致
 
+## 生成域契约（2026-03 架构调整）
+
+为支撑“前端导向设计文档”中的阶段式生成体验，生成域采用“命令 + 查询 + 事件”三类契约：
+
+- **Command（动作）**：
+ - `POST /api/v1/generate/sessions`：创建会话
+ - `POST /api/v1/generate/sessions/{session_id}/commands`：唯一写入口（更新大纲/重写/确认/重绘/恢复）
+- **Query（读取）**：
+ - `GET /api/v1/generate/sessions/{session_id}`：会话快照
+ - `GET /api/v1/generate/tasks/{task_id}/status`：兼容旧轮询状态接口
+- **Event（推送）**：
+ - `GET /api/v1/generate/sessions/{session_id}/events`：SSE 事件流
+
+### 状态枚举（统一）
+
+`IDLE -> CONFIGURING -> ANALYZING -> DRAFTING_OUTLINE -> AWAITING_OUTLINE_CONFIRM -> GENERATING_CONTENT -> RENDERING -> SUCCESS|FAILED`
+
+约束：
+- `AWAITING_OUTLINE_CONFIRM` 为唯一人工确认断点。
+- `FAILED` 必须返回 `error.code`、`error.message`、`retryable`。
+- 会话类接口优先返回 `session_id`，`task_id` 作为兼容字段保留。
+
+### 与旧契约兼容策略
+
+- 保留 `/api/v1/generate/courseware` 与 `/tasks/{task_id}/status`，避免一次性破坏现有调用。
+- 保留 `/outline`、`/confirm`、`/resume`、`/regenerate` 作为兼容别名，并标记 `deprecated`。
+- 新增字段时保持向后兼容：旧客户端可继续识别 `status`，新客户端消费 `state + events`。
+- 统一将 `Idempotency-Key` 用于写操作接口，保证重试安全。
+
+### 可扩展性与低返工约束（新增）
+
+1. **版本协商**：
+ - 客户端可通过 `X-Contract-Version` 声明期望契约版本。
+ - 服务端通过 `/api/v1/generate/capabilities` 暴露可用版本和特性。
+2. **并发控制**：
+ - 大纲修改必须带 `base_version`，防止覆盖他人变更。
+ - 局部重绘建议带 `expected_render_version`，冲突返回 `409 Conflict`。
+3. **状态冲突语义**：
+ - 对“状态不允许该操作”的场景统一返回 `409`，避免前端误判为参数错误。
+ - 响应中使用 `allowed_actions` 与 `transition.validated_by` 告知可执行动作和校验器。
+4. **外部能力降级语义**：
+ - 当 MinerU/Qwen-VL/Whisper 不可用时，不中断主流程，返回 `fallback`/`fallbacks` 信息。
+ - 降级信息至少包含：`capability`、`fallback_used`、`fallback_target`、`user_message`。
+5. **演进策略**：
+ - 新能力优先通过可选字段和 `capabilities` 开关引入，不先改破坏性字段。
+ - 保持 `session_id` 主模型稳定，`task_id` 仅作为兼容层存在。
+
 ## 相关文档
 
 - [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
 - [OpenAPI 拆分决策](../decisions/ADR-003-openapi-modularization.md)
 - [后端 OpenAPI 同步指南](../BACKEND_OPENAPI_SYNC.md)
+- [前端导向设计文档](./前端导向设计文档.md)
+- [契约优先架构调整说明](./contract-first-adjustment.md)

@@ -12,6 +12,11 @@ Message:
     timestamp:
       type: string
       format: date-time
+    citations:
+      type: array
+      description: assistant 回复关联的来源引用（可选，建议尽量返回）
+      items:
+        $ref: './preview.yaml#/SourceReference'
 
 SendMessageRequest:
   type: object
