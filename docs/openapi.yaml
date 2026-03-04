@@ -780,6 +780,8 @@ paths:
                 $ref: '#/components/schemas/GenerationCapabilitiesResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/generate/tasks/{task_id}/status:
     get:
       summary: 查询生成状态
@@ -2558,7 +2560,8 @@ components:
           default: true
           description: 是否复用 ANALYZING 阶段上下文
         expected_state:
-          $ref: '#/components/schemas/GenerationState'
+          allOf:
+            - $ref: '#/components/schemas/GenerationState'
           description: 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM
     ConfirmOutlineResponse:
       type: object
