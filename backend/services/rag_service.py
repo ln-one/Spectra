@@ -76,6 +76,7 @@ class RAGService:
         query: str,
         top_k: int = 5,
         filters: Optional[dict] = None,
+        score_threshold: float = 0.0,
     ) -> list[RAGResult]:
         """
         语义检索
@@ -85,9 +86,10 @@ class RAGService:
             query: 查询文本
             top_k: 返回结果数量
             filters: 过滤条件 {"file_types": [...], "file_ids": [...]}
+            score_threshold: 最低相似度阈值（0.0 表示不过滤），过滤低质量结果
 
         Returns:
-            检索结果列表
+            检索结果列表（按 score 降序，已过滤低于阈值的结果）
         """
         collection = self._vector.get_collection_if_exists(project_id)
         if collection is None:
@@ -142,6 +144,19 @@ class RAGService:
                         ),
                         metadata=meta,
                     )
+                )
+
+        # 过滤低于阈值的结果
+        if score_threshold > 0.0:
+            before = len(rag_results)
+            rag_results = [r for r in rag_results if r.score >= score_threshold]
+            if len(rag_results) < before:
+                logger.debug(
+                    "score_threshold=%.2f filtered %d/%d results for project %s",
+                    score_threshold,
+                    before - len(rag_results),
+                    before,
+                    project_id,
                 )
 
         return rag_results

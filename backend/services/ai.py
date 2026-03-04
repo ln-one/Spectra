@@ -278,10 +278,13 @@ class AIService(CoursewareAIMixin):
         )
 
     async def _retrieve_rag_context(
-        self, project_id: str, query: str, top_k: int = 5
+        self, project_id: str, query: str, top_k: int = 5, score_threshold: float = 0.3
     ) -> Optional[list[dict]]:
         """
         检索 RAG 上下文（如果项目有已索引的文档）
+
+        Args:
+            score_threshold: 最低相似度阈值，过滤低质量结果（默认 0.3）
 
         Returns:
             RAG 结果列表（dict 格式），无结果时返回 None
@@ -290,7 +293,10 @@ class AIService(CoursewareAIMixin):
 
         try:
             results = await rag_service.search(
-                project_id=project_id, query=query, top_k=top_k
+                project_id=project_id,
+                query=query,
+                top_k=top_k,
+                score_threshold=score_threshold,
             )
             if results:
                 return [r.model_dump() for r in results]
