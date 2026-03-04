@@ -1,18 +1,26 @@
 """
-File Parser Service
+File Parser Service — 可插拔解析器的统一入口。
 
-MVP 阶段的轻量解析服务：
-- PDF: pypdf
-- DOCX: python-docx
-- PPTX: python-pptx
-- 纯文本: 直接读取
-- 图片/视频: 生成可检索的占位描述
+通过 ``DOCUMENT_PARSER`` 环境变量切换解析 provider（与 ADR-005 一致）。
+默认使用 ``local`` provider（pypdf / python-docx / python-pptx）。
+
+本模块保留 ``extract_text_for_rag()`` 函数签名不变，
+确保上层 ``rag_indexing_service.py`` 零改动。
+图片/视频占位逻辑不属于解析器职责，仍保留在本模块。
 """
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
+
+from services.parsers import get_parser
+
+logger = logging.getLogger(__name__)
+
+# 纯文本扩展名：由入口层直接读取，不委托给外部 provider
+_PLAIN_TEXT_EXTENSIONS = {".txt", ".md", ".csv"}
 
 
 def extract_text_for_rag(
@@ -21,36 +29,14 @@ def extract_text_for_rag(
     """
     从文件中提取可用于 RAG 的文本及解析详情。
 
+    签名与返回结构与 MVP 阶段完全一致，内部委托给可插拔 provider。
+
     Returns:
         (text, parse_details)
     """
-    path = Path(filepath)
-    ext = path.suffix.lower()
     details: dict[str, Any] = {}
 
-    if file_type == "pdf" or ext == ".pdf":
-        text, pdf_details = _extract_pdf_text(path)
-        details.update(pdf_details)
-        return text, details
-
-    if ext in {".txt", ".md", ".csv"}:
-        text = path.read_text(encoding="utf-8", errors="replace")
-        details["text_length"] = len(text)
-        return text, details
-
-    if file_type == "word" or ext in {".docx", ".doc"}:
-        text = _extract_docx_text(path)
-        details["pages_extracted"] = max(1, text.count("\n\n"))
-        details["text_length"] = len(text)
-        return text, details
-
-    if file_type == "ppt" or ext in {".pptx", ".ppt"}:
-        text, slide_count = _extract_pptx_text(path)
-        details["pages_extracted"] = slide_count
-        details["text_length"] = len(text)
-        return text, details
-
-    # 多模态占位信息：至少将文件元信息入库，便于被检索和引用
+    # 图片/视频占位逻辑 —— 不走解析器 provider
     if file_type == "image":
         text = f"图片资料：{filename}。该图片可作为课堂讲解示例或视觉辅助素材。"
         details["images_extracted"] = 1
@@ -63,58 +49,23 @@ def extract_text_for_rag(
         details["text_length"] = len(text)
         return text, details
 
-    # 兜底：尝试按文本读取
-    text = path.read_text(encoding="utf-8", errors="replace")
-    details["text_length"] = len(text)
+    # 纯文本短路：按扩展名直接读取，避免外部 provider 处理 txt/md/csv
+    ext = Path(filepath).suffix.lower()
+    if ext in _PLAIN_TEXT_EXTENSIONS:
+        text = Path(filepath).read_text(encoding="utf-8", errors="replace")
+        return text, {"text_length": len(text)}
+
+    # 委托给可插拔解析器 provider
+    parser = get_parser()
+
+    # 若当前 provider 不支持该文件类型，回退到 local（避免非预期退化）
+    if not parser.supports(file_type) and parser.name != "local":
+        logger.warning(
+            "Provider %s 不支持 file_type=%s，回退到 local",
+            parser.name,
+            file_type,
+        )
+        parser = get_parser("local")
+
+    text, details = parser.extract_text(filepath, filename, file_type)
     return text, details
-
-
-def _extract_pdf_text(path: Path) -> tuple[str, dict]:
-    details: dict[str, Any] = {"pages_extracted": 0, "text_length": 0}
-    try:
-        from pypdf import PdfReader
-
-        reader = PdfReader(str(path))
-        pages = []
-        for page in reader.pages:
-            pages.append(page.extract_text() or "")
-        text = "\n\n".join(pages).strip()
-        details["pages_extracted"] = len(reader.pages)
-        details["text_length"] = len(text)
-        return text, details
-    except Exception:
-        # 失败时返回空文本，由上层决定是否降级占位
-        return "", details
-
-
-def _extract_docx_text(path: Path) -> str:
-    try:
-        from docx import Document
-
-        doc = Document(str(path))
-        paragraphs = [
-            p.text.strip() for p in doc.paragraphs if p.text and p.text.strip()
-        ]
-        return "\n".join(paragraphs).strip()
-    except Exception:
-        return ""
-
-
-def _extract_pptx_text(path: Path) -> tuple[str, int]:
-    try:
-        from pptx import Presentation
-
-        prs = Presentation(str(path))
-        slide_texts: list[str] = []
-        for slide in prs.slides:
-            shape_texts = []
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text:
-                    content = shape.text.strip()
-                    if content:
-                        shape_texts.append(content)
-            if shape_texts:
-                slide_texts.append("\n".join(shape_texts))
-        return "\n\n".join(slide_texts).strip(), len(prs.slides)
-    except Exception:
-        return "", 0

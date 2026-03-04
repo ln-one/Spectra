@@ -264,6 +264,10 @@ LLAMAPARSE_API_KEY="your-llamaparse-key"
 OPENAI_API_KEY="your-openai-key"
 DEFAULT_MODEL="qwen-plus"
 
+# Document parser provider: local | mineru | llamaparse (默认 local)
+# 详见 services/parsers/README.md 及 ADR-005
+DOCUMENT_PARSER="local"
+
 # Redis & Task Queue
 REDIS_HOST="localhost"
 REDIS_PORT=6379

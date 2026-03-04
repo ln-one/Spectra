@@ -26,7 +26,9 @@ DEFAULT_MODEL="qwen-plus"
 
 LLAMAPARSE_API_KEY="llx-your-llamaparse-api-key"
 OPENAI_API_KEY="sk-your-openai-api-key"
-
+# Document parser provider (see ADR-005 & backend/services/parsers/README.md)
+# local (default) | mineru | llamaparse
+DOCUMENT_PARSER="local"
 # =============================================================================
 # Vector Database Configuration
 # =============================================================================
@@ -81,6 +83,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 小时
 DASHSCOPE_API_KEY="sk-your-production-dashscope-api-key"
 LLAMAPARSE_API_KEY="llx-your-production-llamaparse-api-key"
 DEFAULT_MODEL="qwen-plus"
+
+# Document parser provider (see ADR-005)
+# 生产环境推荐 local（当前可用）；mineru（完全离线，待集成完成后再启用）
+DOCUMENT_PARSER="local"
 
 # =============================================================================
 # Vector Database Configuration

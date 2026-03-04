@@ -1,8 +1,8 @@
 # ADR-005: 文档解析方案
 
-**状态**: 已接受 
+**状态**: 部分落地（Local + Provider 抽象 + 预留实现） 
 **日期**: 2026-02-19 
-**更新**: 2026-02-19（增加 LlamaParse 作为备选）
+**更新**: 2026-03-03（可插拔架构落地：Local Provider 默认实现 + MinerU/LlamaParse 预留骨架）
 
 ## 背景
 
@@ -87,7 +87,7 @@ class DocumentParser:
 ## 影响
 
 - 后端需要实现可插拔的解析器接口
-- 通过环境变量配置选择后端：`DOCUMENT_PARSER=mineru|llamaparse`
+- 通过环境变量配置选择后端：`DOCUMENT_PARSER=local|mineru|llamaparse`（默认 `local`）
 - 文件上传后异步处理，需要任务队列
 - 解析结果统一存储为 Markdown 格式
 
