@@ -16,7 +16,8 @@ def test_extract_text_for_rag_txt_file(tmp_path: Path):
     file_path = tmp_path / "notes.txt"
     file_path.write_text("第一行内容\n第二行内容", encoding="utf-8")
 
-    text, details = extract_text_for_rag(str(file_path), "notes.txt", "other")
+    # 生产流程中 _resolve_file_type() 将 txt 归类为 "word"
+    text, details = extract_text_for_rag(str(file_path), "notes.txt", "word")
 
     assert "第一行内容" in text
     assert details["text_length"] > 0
@@ -26,7 +27,8 @@ def test_extract_text_for_rag_md_file(tmp_path: Path):
     file_path = tmp_path / "readme.md"
     file_path.write_text("# 标题\n正文内容", encoding="utf-8")
 
-    text, details = extract_text_for_rag(str(file_path), "readme.md", "other")
+    # 生产流程中 _resolve_file_type() 将 md 归类为 "word"
+    text, details = extract_text_for_rag(str(file_path), "readme.md", "word")
 
     assert "标题" in text
     assert details["text_length"] > 0
@@ -36,7 +38,8 @@ def test_extract_text_for_rag_csv_file(tmp_path: Path):
     file_path = tmp_path / "data.csv"
     file_path.write_text("姓名,分数\n张三,90", encoding="utf-8")
 
-    text, details = extract_text_for_rag(str(file_path), "data.csv", "other")
+    # 生产流程中 _resolve_file_type() 将 csv 归类为 "word"
+    text, details = extract_text_for_rag(str(file_path), "data.csv", "word")
 
     assert "张三" in text
     assert details["text_length"] > 0
@@ -204,10 +207,16 @@ def test_extract_text_for_rag_fallback_to_local_when_provider_unsupported(
 
     monkeypatch.setattr(file_parser_module, "get_parser", _fake_get_parser)
 
-    file_path = tmp_path / "notes.txt"
-    file_path.write_text("fallback local content", encoding="utf-8")
+    # 使用 .docx 文件：生产 _resolve_file_type() 将 docx 归类为 "word"，
+    # 且 .docx 不会被入口层纯文本短路，能真正走到 provider 回退逻辑。
+    from docx import Document as DocxDocument
 
-    text, details = extract_text_for_rag(str(file_path), "notes.txt", "other")
+    docx_path = tmp_path / "notes.docx"
+    _doc = DocxDocument()
+    _doc.add_paragraph("fallback local content")
+    _doc.save(str(docx_path))
+
+    text, details = extract_text_for_rag(str(docx_path), "notes.docx", "word")
 
     assert "fallback local content" in text
     assert details["text_length"] > 0

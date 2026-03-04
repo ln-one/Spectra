@@ -11,9 +11,16 @@ File Parser Service — 可插拔解析器的统一入口。
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
 from typing import Any
 
 from services.parsers import get_parser
+
+logger = logging.getLogger(__name__)
+
+# 纯文本扩展名：由入口层直接读取，不委托给外部 provider
+_PLAIN_TEXT_EXTENSIONS = {".txt", ".md", ".csv"}
 
 
 def extract_text_for_rag(
@@ -42,14 +49,18 @@ def extract_text_for_rag(
         details["text_length"] = len(text)
         return text, details
 
+    # 纯文本短路：按扩展名直接读取，避免外部 provider 处理 txt/md/csv
+    ext = Path(filepath).suffix.lower()
+    if ext in _PLAIN_TEXT_EXTENSIONS:
+        text = Path(filepath).read_text(encoding="utf-8", errors="replace")
+        return text, {"text_length": len(text)}
+
     # 委托给可插拔解析器 provider
     parser = get_parser()
 
     # 若当前 provider 不支持该文件类型，回退到 local（避免非预期退化）
     if not parser.supports(file_type) and parser.name != "local":
-        import logging
-
-        logging.getLogger(__name__).warning(
+        logger.warning(
             "Provider %s 不支持 file_type=%s，回退到 local",
             parser.name,
             file_type,

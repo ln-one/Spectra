@@ -28,16 +28,16 @@ class LocalProvider(BaseParseProvider):
         if file_type == "pdf" or ext == ".pdf":
             return self._extract_pdf(path)
 
+        # 纯文本类型（txt/md/csv）优先按扩展名短路，避免错误走 _extract_docx
+        if ext in {".txt", ".md", ".csv"}:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            return text, {"text_length": len(text)}
+
         if file_type == "word" or ext in {".docx", ".doc"}:
             return self._extract_docx(path)
 
         if file_type == "ppt" or ext in {".pptx", ".ppt"}:
             return self._extract_pptx(path)
-
-        # 纯文本兜底（.txt / .md / .csv 等）
-        if ext in {".txt", ".md", ".csv"}:
-            text = path.read_text(encoding="utf-8", errors="replace")
-            return text, {"text_length": len(text)}
 
         # 未知类型：尝试按文本读取
         text = path.read_text(encoding="utf-8", errors="replace")
