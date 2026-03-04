@@ -202,3 +202,54 @@ class TestDeleteProjectIndex:
         ]
         await rag_svc.index_chunks("proj-del", chunks)
         assert await rag_svc.delete_project_index("proj-del") is True
+
+
+class TestScoreThreshold:
+    """score_threshold 过滤测试（D-5.3）"""
+
+    @pytest.fixture
+    async def indexed_svc(self, rag_svc):
+        chunks = [
+            ParsedChunkData(
+                chunk_id=f"thr-{i}",
+                content=f"内容片段{i}",
+                metadata={"source_type": "pdf", "filename": "test.pdf"},
+            )
+            for i in range(5)
+        ]
+        await rag_svc.index_chunks("proj-thr", chunks)
+        return rag_svc
+
+    @pytest.mark.asyncio
+    async def test_threshold_zero_returns_all(self, indexed_svc):
+        results = await indexed_svc.search(
+            "proj-thr", "内容", top_k=5, score_threshold=0.0
+        )
+        assert len(results) == 5
+
+    @pytest.mark.asyncio
+    async def test_threshold_one_returns_none(self, indexed_svc):
+        """阈值为 1.0 时，除完全匹配外应全部过滤"""
+        results = await indexed_svc.search(
+            "proj-thr", "完全不相关的查询xyz", top_k=5, score_threshold=1.0
+        )
+        assert len(results) == 0
+
+    @pytest.mark.asyncio
+    async def test_threshold_filters_low_scores(self, indexed_svc):
+        """高阈值应比低阈值返回更少结果"""
+        low = await indexed_svc.search("proj-thr", "内容", top_k=5, score_threshold=0.0)
+        high = await indexed_svc.search(
+            "proj-thr", "内容", top_k=5, score_threshold=0.9
+        )
+        assert len(high) <= len(low)
+
+    @pytest.mark.asyncio
+    async def test_results_above_threshold(self, indexed_svc):
+        """返回的结果 score 均应 >= threshold"""
+        threshold = 0.5
+        results = await indexed_svc.search(
+            "proj-thr", "内容片段", top_k=5, score_threshold=threshold
+        )
+        for r in results:
+            assert r.score >= threshold
