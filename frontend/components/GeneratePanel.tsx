@@ -54,6 +54,7 @@ export interface GenerateOptions {
   include_animations?: boolean;
   include_games?: boolean;
   animation_format?: "gif" | "mp4" | "html5";
+  use_text_to_image?: boolean;
 }
 
 interface GeneratePanelProps {
@@ -101,6 +102,7 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
     pages: 10,
     include_animations: false,
     include_games: false,
+    use_text_to_image: false,
   });
 
   const handleStartGenerate = async () => {
@@ -115,6 +117,7 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
         include_animations: options.include_animations ?? false,
         include_games: options.include_games ?? false,
         animation_format: options.animation_format,
+        use_text_to_image: options.use_text_to_image ?? false,
       });
       pollTaskStatus(task.id);
       toast({

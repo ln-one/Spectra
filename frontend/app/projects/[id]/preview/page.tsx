@@ -103,6 +103,7 @@ export default function ProjectPreviewPage() {
       const res = await generateApi.generateCourseware({
         project_id: projectId,
         type: "both",
+        start_mode: "direct_generate",
       });
 
       const taskId = res.data.task_id;

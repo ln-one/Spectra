@@ -233,6 +233,7 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
       const requestData: GenerateRequest = {
         project_id: projectId,
         type: taskType,
+        start_mode: "direct_generate",
         options,
       };
 

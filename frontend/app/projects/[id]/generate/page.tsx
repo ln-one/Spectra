@@ -210,6 +210,7 @@ export default function ProjectGeneratePage() {
       const response = await generateApi.generateCourseware({
         project_id: projectId,
         type: "both",
+        start_mode: "direct_generate",
       });
 
       const taskId = response.data.task_id || "";

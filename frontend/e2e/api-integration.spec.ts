@@ -248,11 +248,13 @@ describe("API Integration Tests", () => {
       const response = await generateApi.generateCourseware({
         project_id: testProjectId,
         type: "ppt",
+        start_mode: "direct_generate",
         options: {
           template: "default",
           show_page_number: true,
           include_animations: false,
           include_games: false,
+          use_text_to_image: false,
         },
       });
 
