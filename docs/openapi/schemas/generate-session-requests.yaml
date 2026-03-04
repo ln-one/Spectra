@@ -75,7 +75,8 @@ ConfirmOutlineRequest:
       default: true
       description: 是否复用 ANALYZING 阶段上下文
     expected_state:
-      $ref: './generate-core.yaml#/GenerationState'
+      allOf:
+        - $ref: './generate-core.yaml#/GenerationState'
       description: 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM
 
 ConfirmOutlineResponse:

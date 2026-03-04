@@ -157,3 +157,5 @@
               $ref: '../schemas/generate.yaml#/GenerationCapabilitiesResponse'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
