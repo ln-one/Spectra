@@ -1,0 +1,140 @@
+ExternalFallbackInfo:
+  type: object
+  required: [capability, fallback_used]
+  properties:
+    capability:
+      type: string
+      enum: [document_parser, video_understanding, speech_recognition]
+    provider:
+      type: string
+      description: 原始目标能力或供应商
+      example: MinerU
+    fallback_used:
+      type: boolean
+    fallback_target:
+      type: string
+      description: 实际回退到的能力或供应商
+      example: local_parser
+    reason_code:
+      type: string
+      description: 降级原因码（超时/限流/服务不可用等）
+      example: PROVIDER_TIMEOUT
+    user_message:
+      type: string
+      description: 可直接展示给用户的降级提示语
+
+SessionRef:
+  type: object
+  required: [session_id, project_id, state, contract_version]
+  properties:
+    session_id:
+      type: string
+    project_id:
+      type: string
+    task_id:
+      type: string
+      description: 兼容旧任务模型时可返回
+    state:
+      $ref: './generate-core.yaml#/GenerationState'
+    state_reason:
+      type: string
+      description: 状态附加语义（用于未知状态或灰度状态说明）
+    status:
+      $ref: './generate-core.yaml#/GenerateTaskStatus'
+    contract_version:
+      type: string
+      example: '2026-03'
+    schema_version:
+      type: integer
+      minimum: 1
+      description: 会话载荷结构版本
+    progress:
+      type: integer
+      minimum: 0
+      maximum: 100
+    resumable:
+      type: boolean
+    updated_at:
+      type: string
+      format: date-time
+
+SessionStatePayload:
+  type: object
+  required: [session]
+  properties:
+    session:
+      $ref: '#/SessionRef'
+    options:
+      $ref: './generate-core.yaml#/GenerationOptions'
+    outline:
+      $ref: './generate-core.yaml#/OutlineDocument'
+    context_snapshot:
+      $ref: './generate-core.yaml#/SessionContextSnapshot'
+    capabilities:
+      type: array
+      description: 服务端可用能力标识，客户端需按存在性启用功能
+      items:
+        type: string
+        example: outline_editing
+    fallbacks:
+      type: array
+      description: 当前会话发生过的能力降级记录（按时间追加）
+      items:
+        $ref: '#/ExternalFallbackInfo'
+    allowed_actions:
+      type: array
+      description: 当前状态下允许的下一步动作（防止前后端状态错配）
+      items:
+        type: string
+        example: update_outline
+    result:
+      type: object
+      properties:
+        ppt_url:
+          type: string
+        word_url:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+    error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        retryable:
+          type: boolean
+        fallback:
+          $ref: '#/ExternalFallbackInfo'
+
+GenerationEvent:
+  type: object
+  required: [event_id, event_type, state, timestamp, cursor]
+  properties:
+    event_id:
+      type: string
+    event_schema_version:
+      type: integer
+      minimum: 1
+      default: 1
+    event_type:
+      $ref: './generate-core.yaml#/GenerationEventType'
+    state:
+      $ref: './generate-core.yaml#/GenerationState'
+    state_reason:
+      type: string
+    progress:
+      type: integer
+      minimum: 0
+      maximum: 100
+    timestamp:
+      type: string
+      format: date-time
+    cursor:
+      type: string
+      description: 增量消费游标
+    payload:
+      type: object
+      description: 事件附带的业务数据

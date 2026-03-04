@@ -5,10 +5,11 @@
 ## 当前推荐阅读顺序
 
 1. [技术栈（MVP 对齐版）](./tech-stack.md)
-2. [系统总览](./system/overview.md)
-3. [前端架构](./frontend/overview.md)
-4. [后端架构](./backend/overview.md)
-5. [部署说明](./deployment.md)
+2. [契约优先架构调整说明](./contract-first-adjustment.md)
+3. [系统总览](./system/overview.md)
+4. [前端架构](./frontend/overview.md)
+5. [后端架构](./backend/overview.md)
+6. [部署说明](./deployment.md)
 
 ## 文档定位
 

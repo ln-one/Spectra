@@ -7,6 +7,15 @@ IdempotencyKey:
     format: uuid
   description: 幂等性密钥，用于防止重复请求。
 
+ContractVersion:
+  name: X-Contract-Version
+  in: header
+  required: false
+  schema:
+    type: string
+    example: '2026-03'
+  description: 客户端期望的契约版本；服务端可据此做兼容降级与告警。
+
 PageParam:
   name: page
   in: query

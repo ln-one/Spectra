@@ -1,0 +1,158 @@
+/api/v1/generate/sessions:
+  post:
+    summary: 创建生成会话
+    description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate.yaml#/CreateGenerationSessionRequest'
+    responses:
+      '200':
+        description: 会话创建成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/CreateGenerationSessionResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/generate/sessions/{session_id}:
+  get:
+    summary: 查询生成会话快照
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/GenerationSessionResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/sessions/{session_id}/events:
+  get:
+    summary: 获取生成事件流（SSE）
+    description: |
+      默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
+      返回短轮询事件列表。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 事件游标（用于断线续传）
+      - name: accept
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [text/event-stream, application/json]
+          default: text/event-stream
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          text/event-stream:
+            schema:
+              type: string
+              description: SSE stream，data 字段符合 GenerationEvent
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/GenerationEventListResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/sessions/{session_id}/resume:
+  post:
+    summary: 恢复中断会话
+    description: 前端断线或刷新后用于恢复当前会话状态与最新事件
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate.yaml#/ResumeSessionRequest'
+    responses:
+      '200':
+        description: 恢复成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/ResumeSessionResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/generate/capabilities:
+  get:
+    summary: 获取生成域能力声明
+    description: 返回服务端当前支持的契约版本、特性开关与弃用信息。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/GenerationCapabilitiesResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'

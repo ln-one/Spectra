@@ -1,0 +1,159 @@
+/api/v1/generate/sessions/{session_id}/outline:
+  put:
+    summary: 更新大纲并回写会话
+    description: 用户在 AWAITING_OUTLINE_CONFIRM 阶段提交修改后的大纲
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate.yaml#/UpdateOutlineRequest'
+    responses:
+      '200':
+        description: 大纲更新成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/UpdateOutlineResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/generate/sessions/{session_id}/confirm:
+  post:
+    summary: 确认大纲并继续生成
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate.yaml#/ConfirmOutlineRequest'
+    responses:
+      '200':
+        description: 已进入内容生成
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/ConfirmOutlineResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/generate/sessions/{session_id}/outline/redraft:
+  post:
+    summary: 请求 AI 重写大纲
+    description: 在 AWAITING_OUTLINE_CONFIRM 阶段基于用户反馈回到 DRAFTING_OUTLINE
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate.yaml#/RedraftOutlineRequest'
+    responses:
+      '200':
+        description: 已进入大纲重写阶段
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/RedraftOutlineResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
+  post:
+    summary: 局部重绘单页
+    description: 针对指定 slide 做原子化重绘，避免全量重渲染
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: slide_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate.yaml#/RegenerateSlideRequest'
+    responses:
+      '200':
+        description: 局部重绘成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate.yaml#/RegenerateSlideResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
