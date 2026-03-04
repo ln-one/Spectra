@@ -13,11 +13,8 @@
 - 创建会话：`POST /api/v1/generate/sessions`
 - 会话快照：`GET /api/v1/generate/sessions/{session_id}`
 - 事件流：`GET /api/v1/generate/sessions/{session_id}/events`
-- 更新大纲：`PUT /api/v1/generate/sessions/{session_id}/outline`
-- 重写大纲：`POST /api/v1/generate/sessions/{session_id}/outline/redraft`
-- 确认生成：`POST /api/v1/generate/sessions/{session_id}/confirm`
-- 恢复会话：`POST /api/v1/generate/sessions/{session_id}/resume`
-- 局部重绘：`POST /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate`
+- 命令写入口：`POST /api/v1/generate/sessions/{session_id}/commands`
+- Query 与 Command 分离：读取只走 GET，修改只走 commands。
 
 ## 3. 前端必须消费的契约字段
 
@@ -27,6 +24,7 @@
 - `fallbacks`：外部能力降级记录，驱动“已自动回退”提示。
 - `GenerationEvent.cursor`：断线续连位置。
 - `slide.sources` / `message.citations`：输出溯源入口（至少页级可追溯）。
+- `transition.validated_by`：状态转换由统一校验器执行（StateTransitionGuard）。
 
 ## 4. 冲突处理规则
 

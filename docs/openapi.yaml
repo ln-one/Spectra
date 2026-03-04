@@ -521,7 +521,8 @@ paths:
   /api/v1/generate/sessions/{session_id}/outline:
     put:
       summary: 更新大纲并回写会话
-      description: 用户在 AWAITING_OUTLINE_CONFIRM 阶段提交修改后的大纲
+      description: 兼容别名，等价于 command_type=UPDATE_OUTLINE
+      deprecated: true
       tags:
         - Generate
       security:
@@ -557,9 +558,52 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/generate/sessions/{session_id}/commands:
+    post:
+      summary: 执行会话命令（唯一写入口）
+      description: |
+        所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
+        服务层必须通过统一状态转换校验器（StateTransitionGuard）决定是否允许执行。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerationSessionCommandRequest'
+      responses:
+        '200':
+          description: 命令已执行或接受
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationSessionCommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/confirm:
     post:
       summary: 确认大纲并继续生成
+      description: 兼容别名，等价于 command_type=CONFIRM_OUTLINE
+      deprecated: true
       tags:
         - Generate
       security:
@@ -598,7 +642,8 @@ paths:
   /api/v1/generate/sessions/{session_id}/outline/redraft:
     post:
       summary: 请求 AI 重写大纲
-      description: 在 AWAITING_OUTLINE_CONFIRM 阶段基于用户反馈回到 DRAFTING_OUTLINE
+      description: 兼容别名，等价于 command_type=REDRAFT_OUTLINE
+      deprecated: true
       tags:
         - Generate
       security:
@@ -637,7 +682,8 @@ paths:
   /api/v1/generate/sessions/{session_id}/resume:
     post:
       summary: 恢复中断会话
-      description: 前端断线或刷新后用于恢复当前会话状态与最新事件
+      description: 兼容别名，等价于 command_type=RESUME_SESSION
+      deprecated: true
       tags:
         - Generate
       security:
@@ -673,7 +719,8 @@ paths:
   /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
     post:
       summary: 局部重绘单页
-      description: 针对指定 slide 做原子化重绘，避免全量重渲染
+      description: 兼容别名，等价于 command_type=REGENERATE_SLIDE
+      deprecated: true
       tags:
         - Generate
       security:
@@ -1441,6 +1488,16 @@ components:
               type: string
             message:
               type: string
+            retryable:
+              type: boolean
+              description: 是否建议客户端重试
+            details:
+              type: object
+              description: 结构化错误详情（例如字段错误、状态冲突上下文）
+              additionalProperties: true
+            trace_id:
+              type: string
+              description: 服务端追踪 ID，用于日志排障
     LoginRequest:
       type: object
       required:
@@ -2066,6 +2123,46 @@ components:
             type: string
         notes:
           type: string
+    CapabilityStatus:
+      type: string
+      enum:
+        - available
+        - degraded
+        - unavailable
+    CapabilityDeclaration:
+      type: object
+      required:
+        - name
+        - status
+        - operations
+      properties:
+        name:
+          type: string
+          enum:
+            - document_parser
+            - video_understanding
+            - speech_recognition
+            - outline_generation
+            - slide_regeneration
+            - event_stream
+        status:
+          $ref: '#/components/schemas/CapabilityStatus'
+        providers:
+          type: array
+          items:
+            type: string
+        default_provider:
+          type: string
+        fallback_chain:
+          type: array
+          items:
+            type: string
+        operations:
+          type: array
+          items:
+            type: string
+        status_message:
+          type: string
     ExternalFallbackInfo:
       type: object
       required:
@@ -2110,10 +2207,9 @@ components:
           $ref: '#/components/schemas/SessionContextSnapshot'
         capabilities:
           type: array
-          description: 服务端可用能力标识，客户端需按存在性启用功能
+          description: 服务端能力声明（状态、供应商、可用操作）
           items:
-            type: string
-            example: outline_editing
+            $ref: '#/components/schemas/CapabilityDeclaration'
         fallbacks:
           type: array
           description: 当前会话发生过的能力降级记录（按时间追加）
@@ -2146,6 +2242,10 @@ components:
               type: boolean
             fallback:
               $ref: '#/components/schemas/ExternalFallbackInfo'
+            transition_guard:
+              type: string
+              description: 状态转换校验器名称
+              example: StateTransitionGuard
     GenerationSessionResponse:
       type: object
       required:
@@ -2255,6 +2355,201 @@ components:
               $ref: '#/components/schemas/OutlineDocument'
         message:
           type: string
+    UpdateOutlineCommand:
+      type: object
+      required:
+        - command_type
+        - base_version
+        - outline
+      properties:
+        command_type:
+          type: string
+          enum:
+            - UPDATE_OUTLINE
+        base_version:
+          type: integer
+          minimum: 1
+        outline:
+          $ref: '#/components/schemas/OutlineDocument'
+        change_reason:
+          type: string
+          maxLength: 1000
+    RedraftOutlineCommand:
+      type: object
+      required:
+        - command_type
+        - instruction
+        - base_version
+      properties:
+        command_type:
+          type: string
+          enum:
+            - REDRAFT_OUTLINE
+        instruction:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        base_version:
+          type: integer
+          minimum: 1
+    ConfirmOutlineCommand:
+      type: object
+      required:
+        - command_type
+      properties:
+        command_type:
+          type: string
+          enum:
+            - CONFIRM_OUTLINE
+        continue_from_retrieval:
+          type: boolean
+          default: true
+        expected_state:
+          $ref: '#/components/schemas/GenerationState'
+    StructuredPatchOperationType:
+      type: string
+      enum:
+        - replace_text
+        - insert_block
+        - remove_block
+        - replace_image
+        - reorder_block
+    StructuredSlidePatchOperation:
+      type: object
+      required:
+        - op
+        - path
+      properties:
+        op:
+          $ref: '#/components/schemas/StructuredPatchOperationType'
+        path:
+          type: string
+          description: 目标路径（JSON Pointer 风格）
+          example: /slides/5/body/blocks/2
+        value:
+          type: object
+          description: 操作值（按 op 类型解释）
+        note:
+          type: string
+          description: 可选备注，便于审计与回放
+    StructuredSlidePatch:
+      type: object
+      required:
+        - schema_version
+        - operations
+      properties:
+        schema_version:
+          type: integer
+          minimum: 1
+          default: 1
+        operations:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/StructuredSlidePatchOperation'
+    RegenerateSlideCommand:
+      type: object
+      required:
+        - command_type
+        - slide_id
+        - patch
+      properties:
+        command_type:
+          type: string
+          enum:
+            - REGENERATE_SLIDE
+        slide_id:
+          type: string
+        patch:
+          $ref: '#/components/schemas/StructuredSlidePatch'
+        expected_render_version:
+          type: integer
+          minimum: 1
+    ResumeSessionCommand:
+      type: object
+      required:
+        - command_type
+      properties:
+        command_type:
+          type: string
+          enum:
+            - RESUME_SESSION
+        cursor:
+          type: string
+        last_known_state:
+          $ref: '#/components/schemas/GenerationState'
+    GenerationCommandEnvelope:
+      oneOf:
+        - $ref: '#/components/schemas/UpdateOutlineCommand'
+        - $ref: '#/components/schemas/RedraftOutlineCommand'
+        - $ref: '#/components/schemas/ConfirmOutlineCommand'
+        - $ref: '#/components/schemas/RegenerateSlideCommand'
+        - $ref: '#/components/schemas/ResumeSessionCommand'
+      discriminator:
+        propertyName: command_type
+    GenerationSessionCommandRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          $ref: '#/components/schemas/GenerationCommandEnvelope'
+    GenerationCommandType:
+      type: string
+      enum:
+        - UPDATE_OUTLINE
+        - REDRAFT_OUTLINE
+        - CONFIRM_OUTLINE
+        - REGENERATE_SLIDE
+        - RESUME_SESSION
+    AppliedTransition:
+      type: object
+      required:
+        - command_type
+        - from_state
+        - to_state
+        - validated_by
+      properties:
+        command_type:
+          $ref: '#/components/schemas/GenerationCommandType'
+        from_state:
+          $ref: '#/components/schemas/GenerationState'
+        to_state:
+          $ref: '#/components/schemas/GenerationState'
+        validated_by:
+          type: string
+          example: StateTransitionGuard
+    GenerationSessionCommandResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - command_id
+            - session
+          properties:
+            command_id:
+              type: string
+            accepted:
+              type: boolean
+              default: true
+            transition:
+              $ref: '#/components/schemas/AppliedTransition'
+            session:
+              $ref: '#/components/schemas/SessionRef'
+            warnings:
+              type: array
+              items:
+                type: string
+        message:
+          type: string
     ConfirmOutlineRequest:
       type: object
       properties:
@@ -2338,30 +2633,21 @@ components:
               $ref: '#/components/schemas/GenerationEvent'
         message:
           type: string
-    SlidePatchOperation:
-      type: string
-      enum:
-        - replace
-        - append
-        - remove
-        - reorder
     RegenerateSlideRequest:
       type: object
       required:
-        - instruction
+        - patch
       properties:
         instruction:
           type: string
           minLength: 1
           maxLength: 2000
-        operation:
-          $ref: '#/components/schemas/SlidePatchOperation'
+          description: 可选自然语言补充说明，最终以结构化 patch 为准
         slide_index:
           type: integer
           minimum: 1
-        preserve_theme:
-          type: boolean
-          default: true
+        patch:
+          $ref: '#/components/schemas/StructuredSlidePatch'
         expected_render_version:
           type: integer
           minimum: 1
@@ -2397,6 +2683,38 @@ components:
                   type: integer
         message:
           type: string
+    StateTransitionRule:
+      type: object
+      required:
+        - command_type
+        - from_state
+        - to_state
+      properties:
+        command_type:
+          $ref: '#/components/schemas/GenerationCommandType'
+        from_state:
+          $ref: '#/components/schemas/GenerationState'
+        to_state:
+          $ref: '#/components/schemas/GenerationState'
+    StateMachineDeclaration:
+      type: object
+      required:
+        - states
+        - terminal_states
+        - transitions
+      properties:
+        states:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenerationState'
+        terminal_states:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenerationState'
+        transitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateTransitionRule'
     GenerationCapabilitiesResponse:
       type: object
       required:
@@ -2411,21 +2729,35 @@ components:
           required:
             - contract_versions
             - default_contract_version
-            - features
+            - capabilities
+            - state_machine
+            - command_interface
           properties:
             contract_versions:
               type: array
               items:
                 type: string
-                example: 2026-03
             default_contract_version:
               type: string
-            features:
+            command_interface:
               type: object
-              additionalProperties:
-                type: boolean
-              description: |
-                例如：{"outline_editing": true, "slide_regenerate": true}
+              required:
+                - endpoint
+                - supported_commands
+              properties:
+                endpoint:
+                  type: string
+                  example: /api/v1/generate/sessions/{session_id}/commands
+                supported_commands:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/GenerationCommandType'
+            capabilities:
+              type: array
+              items:
+                $ref: '#/components/schemas/CapabilityDeclaration'
+            state_machine:
+              $ref: '#/components/schemas/StateMachineDeclaration'
             deprecations:
               type: array
               items:

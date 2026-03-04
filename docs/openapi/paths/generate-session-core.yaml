@@ -105,7 +105,8 @@
 /api/v1/generate/sessions/{session_id}/resume:
   post:
     summary: 恢复中断会话
-    description: 前端断线或刷新后用于恢复当前会话状态与最新事件
+    description: 兼容别名，等价于 command_type=RESUME_SESSION
+    deprecated: true
     tags: [Generate]
     security:
       - BearerAuth: []

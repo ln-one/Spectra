@@ -38,11 +38,7 @@
 - `POST /api/v1/generate/sessions`
 - `GET /api/v1/generate/sessions/{session_id}`
 - `GET /api/v1/generate/sessions/{session_id}/events`
-- `PUT /api/v1/generate/sessions/{session_id}/outline`
-- `POST /api/v1/generate/sessions/{session_id}/outline/redraft`
-- `POST /api/v1/generate/sessions/{session_id}/confirm`
-- `POST /api/v1/generate/sessions/{session_id}/resume`
-- `POST /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate`
+- `POST /api/v1/generate/sessions/{session_id}/commands`（唯一写入口）
 
 ### 4.2 核心模型
 
@@ -57,6 +53,7 @@
 - `GET /api/v1/generate/tasks/{task_id}/status`
 - `GET /api/v1/generate/tasks/{task_id}/download`
 - `GET /api/v1/generate/tasks/{task_id}/versions`
+- `PUT /outline`、`POST /confirm`、`POST /resume`、`POST /regenerate`（deprecated 兼容别名）
 
 ## 5. 实施建议（先设计后实现）
 

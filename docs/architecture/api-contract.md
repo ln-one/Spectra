@@ -104,7 +104,10 @@ FastAPI 自动提供两种 API 文档界面：
  "success": false,
  "error": {
  "code": "ERROR_CODE",
- "message": "详细错误描述"
+ "message": "详细错误描述",
+ "retryable": false,
+ "details": {},
+ "trace_id": "trace-xxx"
  },
  "message": "用户友好的错误消息"
 }
@@ -132,11 +135,7 @@ FastAPI 自动提供两种 API 文档界面：
 
 - **Command（动作）**：
  - `POST /api/v1/generate/sessions`：创建会话
-- `PUT /api/v1/generate/sessions/{session_id}/outline`：提交/修改大纲
-- `POST /api/v1/generate/sessions/{session_id}/outline/redraft`：请求 AI 重写大纲
-- `POST /api/v1/generate/sessions/{session_id}/confirm`：确认大纲并继续
- - `POST /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate`：局部重绘
- - `POST /api/v1/generate/sessions/{session_id}/resume`：断线恢复
+ - `POST /api/v1/generate/sessions/{session_id}/commands`：唯一写入口（更新大纲/重写/确认/重绘/恢复）
 - **Query（读取）**：
  - `GET /api/v1/generate/sessions/{session_id}`：会话快照
  - `GET /api/v1/generate/tasks/{task_id}/status`：兼容旧轮询状态接口
@@ -155,6 +154,7 @@ FastAPI 自动提供两种 API 文档界面：
 ### 与旧契约兼容策略
 
 - 保留 `/api/v1/generate/courseware` 与 `/tasks/{task_id}/status`，避免一次性破坏现有调用。
+- 保留 `/outline`、`/confirm`、`/resume`、`/regenerate` 作为兼容别名，并标记 `deprecated`。
 - 新增字段时保持向后兼容：旧客户端可继续识别 `status`，新客户端消费 `state + events`。
 - 统一将 `Idempotency-Key` 用于写操作接口，保证重试安全。
 
@@ -168,7 +168,7 @@ FastAPI 自动提供两种 API 文档界面：
  - 局部重绘建议带 `expected_render_version`，冲突返回 `409 Conflict`。
 3. **状态冲突语义**：
  - 对“状态不允许该操作”的场景统一返回 `409`，避免前端误判为参数错误。
- - 响应中使用 `allowed_actions` 告知可执行动作，减少重试猜测。
+ - 响应中使用 `allowed_actions` 与 `transition.validated_by` 告知可执行动作和校验器。
 4. **外部能力降级语义**：
  - 当 MinerU/Qwen-VL/Whisper 不可用时，不中断主流程，返回 `fallback`/`fallbacks` 信息。
  - 降级信息至少包含：`capability`、`fallback_used`、`fallback_target`、`user_message`。

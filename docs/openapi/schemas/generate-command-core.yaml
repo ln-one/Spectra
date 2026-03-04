@@ -1,0 +1,172 @@
+GenerationCommandType:
+  type: string
+  enum:
+    - UPDATE_OUTLINE
+    - REDRAFT_OUTLINE
+    - CONFIRM_OUTLINE
+    - REGENERATE_SLIDE
+    - RESUME_SESSION
+
+StructuredPatchOperationType:
+  type: string
+  enum: [replace_text, insert_block, remove_block, replace_image, reorder_block]
+
+StructuredSlidePatchOperation:
+  type: object
+  required: [op, path]
+  properties:
+    op:
+      $ref: '#/StructuredPatchOperationType'
+    path:
+      type: string
+      description: 目标路径（JSON Pointer 风格）
+      example: /slides/5/body/blocks/2
+    value:
+      type: object
+      description: 操作值（按 op 类型解释）
+    note:
+      type: string
+      description: 可选备注，便于审计与回放
+
+StructuredSlidePatch:
+  type: object
+  required: [schema_version, operations]
+  properties:
+    schema_version:
+      type: integer
+      minimum: 1
+      default: 1
+    operations:
+      type: array
+      minItems: 1
+      maxItems: 30
+      items:
+        $ref: '#/StructuredSlidePatchOperation'
+
+UpdateOutlineCommand:
+  type: object
+  required: [command_type, base_version, outline]
+  properties:
+    command_type:
+      type: string
+      enum: [UPDATE_OUTLINE]
+    base_version:
+      type: integer
+      minimum: 1
+    outline:
+      $ref: './generate-core.yaml#/OutlineDocument'
+    change_reason:
+      type: string
+      maxLength: 1000
+
+RedraftOutlineCommand:
+  type: object
+  required: [command_type, instruction, base_version]
+  properties:
+    command_type:
+      type: string
+      enum: [REDRAFT_OUTLINE]
+    instruction:
+      type: string
+      minLength: 1
+      maxLength: 1000
+    base_version:
+      type: integer
+      minimum: 1
+
+ConfirmOutlineCommand:
+  type: object
+  required: [command_type]
+  properties:
+    command_type:
+      type: string
+      enum: [CONFIRM_OUTLINE]
+    continue_from_retrieval:
+      type: boolean
+      default: true
+    expected_state:
+      $ref: './generate-core.yaml#/GenerationState'
+
+RegenerateSlideCommand:
+  type: object
+  required: [command_type, slide_id, patch]
+  properties:
+    command_type:
+      type: string
+      enum: [REGENERATE_SLIDE]
+    slide_id:
+      type: string
+    patch:
+      $ref: '#/StructuredSlidePatch'
+    expected_render_version:
+      type: integer
+      minimum: 1
+
+ResumeSessionCommand:
+  type: object
+  required: [command_type]
+  properties:
+    command_type:
+      type: string
+      enum: [RESUME_SESSION]
+    cursor:
+      type: string
+    last_known_state:
+      $ref: './generate-core.yaml#/GenerationState'
+
+GenerationCommandEnvelope:
+  oneOf:
+    - $ref: '#/UpdateOutlineCommand'
+    - $ref: '#/RedraftOutlineCommand'
+    - $ref: '#/ConfirmOutlineCommand'
+    - $ref: '#/RegenerateSlideCommand'
+    - $ref: '#/ResumeSessionCommand'
+  discriminator:
+    propertyName: command_type
+
+GenerationSessionCommandRequest:
+  type: object
+  required: [command]
+  properties:
+    command:
+      $ref: '#/GenerationCommandEnvelope'
+
+AppliedTransition:
+  type: object
+  required: [command_type, from_state, to_state, validated_by]
+  properties:
+    command_type:
+      $ref: '#/GenerationCommandType'
+    from_state:
+      $ref: './generate-core.yaml#/GenerationState'
+    to_state:
+      $ref: './generate-core.yaml#/GenerationState'
+    validated_by:
+      type: string
+      example: StateTransitionGuard
+
+GenerationSessionCommandResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [command_id, session]
+      properties:
+        command_id:
+          type: string
+        accepted:
+          type: boolean
+          default: true
+        transition:
+          $ref: '#/AppliedTransition'
+        session:
+          $ref: './generate-session-models.yaml#/SessionRef'
+        warnings:
+          type: array
+          items:
+            type: string
+    message:
+      type: string

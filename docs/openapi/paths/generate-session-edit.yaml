@@ -1,7 +1,11 @@
+/api/v1/generate/sessions/{session_id}/commands:
+  $ref: './generate-session-command.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
+
 /api/v1/generate/sessions/{session_id}/outline:
   put:
     summary: 更新大纲并回写会话
-    description: 用户在 AWAITING_OUTLINE_CONFIRM 阶段提交修改后的大纲
+    description: 兼容别名，等价于 command_type=UPDATE_OUTLINE
+    deprecated: true
     tags: [Generate]
     security:
       - BearerAuth: []
@@ -40,6 +44,8 @@
 /api/v1/generate/sessions/{session_id}/confirm:
   post:
     summary: 确认大纲并继续生成
+    description: 兼容别名，等价于 command_type=CONFIRM_OUTLINE
+    deprecated: true
     tags: [Generate]
     security:
       - BearerAuth: []
@@ -78,7 +84,8 @@
 /api/v1/generate/sessions/{session_id}/outline/redraft:
   post:
     summary: 请求 AI 重写大纲
-    description: 在 AWAITING_OUTLINE_CONFIRM 阶段基于用户反馈回到 DRAFTING_OUTLINE
+    description: 兼容别名，等价于 command_type=REDRAFT_OUTLINE
+    deprecated: true
     tags: [Generate]
     security:
       - BearerAuth: []
@@ -117,7 +124,8 @@
 /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
   post:
     summary: 局部重绘单页
-    description: 针对指定 slide 做原子化重绘，避免全量重渲染
+    description: 兼容别名，等价于 command_type=REGENERATE_SLIDE
+    deprecated: true
     tags: [Generate]
     security:
       - BearerAuth: []

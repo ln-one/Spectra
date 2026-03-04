@@ -37,3 +37,7 @@ GenerationEventListResponse:
   $ref: './generate-session-requests.yaml#/GenerationEventListResponse'
 GenerationCapabilitiesResponse:
   $ref: './generate-session-requests.yaml#/GenerationCapabilitiesResponse'
+GenerationSessionCommandRequest:
+  $ref: './generate-session-requests.yaml#/GenerationSessionCommandRequest'
+GenerationSessionCommandResponse:
+  $ref: './generate-session-requests.yaml#/GenerationSessionCommandResponse'

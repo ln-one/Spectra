@@ -60,6 +60,10 @@ GenerationEventListResponse:
   $ref: './generate-session.yaml#/GenerationEventListResponse'
 GenerationCapabilitiesResponse:
   $ref: './generate-session.yaml#/GenerationCapabilitiesResponse'
+GenerationSessionCommandRequest:
+  $ref: './generate-session.yaml#/GenerationSessionCommandRequest'
+GenerationSessionCommandResponse:
+  $ref: './generate-session.yaml#/GenerationSessionCommandResponse'
 
 GenerateRequest:
   $ref: './generate-legacy.yaml#/GenerateRequest'

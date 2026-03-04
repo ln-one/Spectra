@@ -72,10 +72,9 @@ SessionStatePayload:
       $ref: './generate-core.yaml#/SessionContextSnapshot'
     capabilities:
       type: array
-      description: 服务端可用能力标识，客户端需按存在性启用功能
+      description: 服务端能力声明（状态、供应商、可用操作）
       items:
-        type: string
-        example: outline_editing
+        $ref: './generate-commands.yaml#/CapabilityDeclaration'
     fallbacks:
       type: array
       description: 当前会话发生过的能力降级记录（按时间追加）
@@ -108,6 +107,10 @@ SessionStatePayload:
           type: boolean
         fallback:
           $ref: '#/ExternalFallbackInfo'
+        transition_guard:
+          type: string
+          description: 状态转换校验器名称
+          example: StateTransitionGuard
 
 GenerationEvent:
   type: object

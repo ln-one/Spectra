@@ -24,3 +24,13 @@ ErrorResponse:
           type: string
         message:
           type: string
+        retryable:
+          type: boolean
+          description: 是否建议客户端重试
+        details:
+          type: object
+          description: 结构化错误详情（例如字段错误、状态冲突上下文）
+          additionalProperties: true
+        trace_id:
+          type: string
+          description: 服务端追踪 ID，用于日志排障

@@ -147,20 +147,18 @@ ResumeSessionResponse:
 
 RegenerateSlideRequest:
   type: object
-  required: [instruction]
+  required: [patch]
   properties:
     instruction:
       type: string
       minLength: 1
       maxLength: 2000
-    operation:
-      $ref: './generate-core.yaml#/SlidePatchOperation'
+      description: 可选自然语言补充说明，最终以结构化 patch 为准
     slide_index:
       type: integer
       minimum: 1
-    preserve_theme:
-      type: boolean
-      default: true
+    patch:
+      $ref: './generate-commands.yaml#/StructuredSlidePatch'
     expected_render_version:
       type: integer
       minimum: 1
@@ -211,40 +209,11 @@ GenerationEventListResponse:
     message:
       type: string
 
+GenerationSessionCommandRequest:
+  $ref: './generate-commands.yaml#/GenerationSessionCommandRequest'
+
+GenerationSessionCommandResponse:
+  $ref: './generate-commands.yaml#/GenerationSessionCommandResponse'
+
 GenerationCapabilitiesResponse:
-  type: object
-  required: [success, data, message]
-  properties:
-    success:
-      type: boolean
-    data:
-      type: object
-      required: [contract_versions, default_contract_version, features]
-      properties:
-        contract_versions:
-          type: array
-          items:
-            type: string
-            example: '2026-03'
-        default_contract_version:
-          type: string
-        features:
-          type: object
-          additionalProperties:
-            type: boolean
-          description: |
-            例如：{"outline_editing": true, "slide_regenerate": true}
-        deprecations:
-          type: array
-          items:
-            type: object
-            properties:
-              api:
-                type: string
-              sunset_at:
-                type: string
-                format: date-time
-              replacement:
-                type: string
-    message:
-      type: string
+  $ref: './generate-commands.yaml#/GenerationCapabilitiesResponse'

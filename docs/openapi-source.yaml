@@ -50,6 +50,8 @@ paths:
     $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1events'
   /api/v1/generate/sessions/{session_id}/outline:
     $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline'
+  /api/v1/generate/sessions/{session_id}/commands:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
   /api/v1/generate/sessions/{session_id}/confirm:
     $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1confirm'
   /api/v1/generate/sessions/{session_id}/outline/redraft:
