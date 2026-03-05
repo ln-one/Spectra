@@ -2,6 +2,8 @@
 RAG Service 测试（使用临时 ChromaDB + mock embedding）
 """
 
+import hashlib
+
 import pytest
 
 from services.rag_service import ParsedChunkData, RAGService
@@ -16,10 +18,18 @@ class MockEmbeddingService:
         self._call_count = 0
 
     async def embed_text(self, text: str) -> list[float]:
-        """根据文本内容生成确定性向量"""
+        """根据文本内容生成稳定、低碰撞的确定性向量"""
         self._call_count += 1
-        h = hash(text) % 1000
-        return [h / 1000.0, (h * 7 % 1000) / 1000.0, (h * 13 % 1000) / 1000.0]
+        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        vector = []
+        for i in range(self._dim):
+            start = (i * 4) % len(digest)
+            chunk = digest[start : start + 4]
+            if len(chunk) < 4:
+                chunk += digest[: 4 - len(chunk)]
+            value = int.from_bytes(chunk, "big") / 0xFFFFFFFF
+            vector.append(value)
+        return vector
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         return [await self.embed_text(t) for t in texts]
