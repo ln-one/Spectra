@@ -10,8 +10,8 @@ from typing import Any
 import pytest
 
 from services.chunking import split_text
-from services.parsers.base import BaseParseProvider, ProviderNotAvailableError
 from services.parsers import registry
+from services.parsers.base import BaseParseProvider, ProviderNotAvailableError
 from services.parsers.registry import get_parser
 from services.rag_service import ParsedChunkData, RAGService
 from services.vector_service import VectorService
