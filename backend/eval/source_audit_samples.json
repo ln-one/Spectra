@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "description": "D4 来源质量抽样样本（先行版）",
+  "samples": [
+    {
+      "id": "audit-001",
+      "output_text": "本节介绍牛顿第二定律，核心公式是 F=ma。",
+      "rag_results": [
+        {
+          "content": "牛顿第二定律指出，物体加速度与合力成正比，与质量成反比，常写作 F=ma。",
+          "source": {
+            "chunk_id": "chunk-001",
+            "source_type": "document",
+            "filename": "physics.pdf",
+            "page_number": 12,
+            "preview_text": "牛顿第二定律...F=ma"
+          }
+        }
+      ],
+      "source_details": [
+        {
+          "chunk_id": "chunk-001",
+          "content": "牛顿第二定律指出，物体加速度与合力成正比，与质量成反比，常写作 F=ma。"
+        }
+      ]
+    },
+    {
+      "id": "audit-002",
+      "output_text": "该页内容来自视频中光合作用片段。",
+      "preview_sources": [
+        {
+          "chunk_id": "chunk-vid-001",
+          "source_type": "video",
+          "filename": "bio.mp4",
+          "timestamp": "00:02:15",
+          "preview_text": "光合作用发生在叶绿体"
+        }
+      ],
+      "source_details": [
+        {
+          "chunk_id": "chunk-vid-001",
+          "content": "光合作用发生在叶绿体，利用光能合成有机物。"
+        }
+      ]
+    }
+  ]
+}

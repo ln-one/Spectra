@@ -83,3 +83,19 @@ cd backend
 ```
 
 如果有已知的相关 chunk ID，填入 `relevant_chunk_ids` 可启用 hit_rate 和 MRR 计算。
+
+## D4 来源质量抽样评测（先行版）
+
+```bash
+cd backend
+
+# 运行来源质量评测（基于 RAGSearch/SourceDetail/Preview sources 字段）
+.venv-wsl/bin/python eval/source_quality_audit.py \
+  --dataset eval/source_audit_samples.json \
+  --output eval/results/source_audit_latest.json
+```
+
+评测指标：
+- `coverage_rate`：输出是否具备来源
+- `readability_rate`：来源字段是否可读可定位（chunk_id/source_type/filename/page|timestamp）
+- `relevance_rate`：输出文本与来源文本关键词重合
