@@ -141,12 +141,13 @@ export async function request<T>(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new ApiError(
-      data.error?.code || "UNKNOWN_ERROR",
-      data.error?.message || data.message || "Request failed",
-      response.status,
-      data.error?.details
-    );
+    // 尝试从多种可能的错误格式中提取错误信息
+    const errorCode = data.error?.code ?? data.code ?? "UNKNOWN_ERROR";
+    const errorMessage =
+      data.error?.message ?? data.message ?? data.msg ?? "Request failed";
+    const errorDetails = data.error?.details ?? data.details;
+
+    throw new ApiError(errorCode, errorMessage, response.status, errorDetails);
   }
 
   return data;
