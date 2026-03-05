@@ -57,7 +57,9 @@ def test_freeze_baseline_writes_expected_fields(tmp_path):
     assert payload["baseline_version"] == "1"
     assert payload["notes"] == "v1"
     assert payload["metrics"]["keyword_hit_rate"] == pytest.approx(0.8)
-    assert payload["guardrails"]["explainability_rate_hard_floor"] == pytest.approx(0.95)
+    assert payload["guardrails"]["explainability_rate_hard_floor"] == pytest.approx(
+        0.95
+    )
 
 
 def test_check_regression_passes_when_within_guardrails(tmp_path):
