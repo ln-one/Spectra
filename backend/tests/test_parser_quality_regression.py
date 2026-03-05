@@ -11,7 +11,8 @@ import pytest
 
 from services.chunking import split_text
 from services.parsers.base import BaseParseProvider, ProviderNotAvailableError
-from services.parsers.registry import get_parser, register_provider
+from services.parsers import registry
+from services.parsers.registry import get_parser
 from services.rag_service import ParsedChunkData, RAGService
 from services.vector_service import VectorService
 
@@ -299,9 +300,11 @@ class TestFileTypeRegression:
 class TestFallbackRegression:
     """Provider 回退机制验证。"""
 
-    def test_unavailable_provider_falls_back(self):
+    def test_unavailable_provider_falls_back(self, monkeypatch):
         """不可用 provider 应自动回退到 local。"""
-        register_provider("unavailable", UnavailableProvider)
+        monkeypatch.setitem(
+            registry._PROVIDER_FACTORIES, "unavailable", UnavailableProvider
+        )
         parser = get_parser("unavailable")
         assert parser.name == "local"
 

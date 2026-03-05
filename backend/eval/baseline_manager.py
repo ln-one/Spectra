@@ -222,21 +222,22 @@ def main() -> int:
                 args.avg_latency_ms_max_ratio is not None,
             ]
         ):
+            baseline_guardrails = _load_json(Path(args.baseline)).get("guardrails", {})
             override = Guardrails(
                 keyword_hit_rate_min_delta=(
                     args.keyword_hit_rate_min_delta
                     if args.keyword_hit_rate_min_delta is not None
-                    else -0.03
+                    else baseline_guardrails.get("keyword_hit_rate_min_delta", -0.03)
                 ),
                 failure_rate_max_delta=(
                     args.failure_rate_max_delta
                     if args.failure_rate_max_delta is not None
-                    else 0.05
+                    else baseline_guardrails.get("failure_rate_max_delta", 0.05)
                 ),
                 avg_latency_ms_max_ratio=(
                     args.avg_latency_ms_max_ratio
                     if args.avg_latency_ms_max_ratio is not None
-                    else 1.50
+                    else baseline_guardrails.get("avg_latency_ms_max_ratio", 1.50)
                 ),
             )
 

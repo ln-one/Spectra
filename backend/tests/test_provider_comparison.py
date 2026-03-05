@@ -181,7 +181,9 @@ class TestCompareProviders:
         )
         good_r = report.reports[0]
         bad_r = report.reports[1]
-        # 如果 good 确实比 bad 好，应检测到回归
-        if good_r.keyword_hit_rate - bad_r.keyword_hit_rate > 0.1:
-            regressions = report.quality_regression_detected()
-            assert "bad" in regressions
+        regressions = report.quality_regression_detected()
+        assert "bad" in regressions, (
+            "Expected 'bad' provider to be flagged as regression; "
+            f"good hit rate={good_r.keyword_hit_rate}, "
+            f"bad hit rate={bad_r.keyword_hit_rate}"
+        )
