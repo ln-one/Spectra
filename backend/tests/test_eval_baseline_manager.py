@@ -87,7 +87,7 @@ def test_partial_guardrails_override_keeps_baseline_thresholds(tmp_path):
     baseline = tmp_path / "baseline.json"
 
     _write_result(baseline_result, keyword=0.8, failure=0.1, latency=100.0)
-    _write_result(current, keyword=0.78, failure=0.16, latency=130.0)
+    _write_result(current, keyword=0.791, failure=0.16, latency=130.0)
     freeze_baseline(
         result_path=baseline_result,
         output_path=baseline,
