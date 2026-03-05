@@ -63,6 +63,16 @@ class BadProvider(BaseParseProvider):
         return filename, {"text_length": len(filename)}
 
 
+class BrokenProvider(BaseParseProvider):
+    name = "broken"
+    supported_types = {"pdf"}
+
+    def extract_text(
+        self, filepath: str, filename: str, file_type: str
+    ) -> tuple[str, dict[str, Any]]:
+        raise RuntimeError("provider crashed")
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -187,3 +197,17 @@ class TestCompareProviders:
             f"good hit rate={good_r.keyword_hit_rate}, "
             f"bad hit rate={bad_r.keyword_hit_rate}"
         )
+
+    @pytest.mark.asyncio
+    async def test_provider_exception_does_not_break_comparison(
+        self, sample_file, queries, mock_emb
+    ):
+        report = await compare_providers(
+            providers=[GoodProvider(), BrokenProvider()],
+            content_files=[(sample_file, "test.txt", "pdf")],
+            queries_with_keywords=queries,
+            emb_service=mock_emb,
+        )
+        assert len(report.reports) == 2
+        broken_report = next(r for r in report.reports if r.provider_name == "broken")
+        assert broken_report.total_chunks == 0

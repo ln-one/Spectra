@@ -112,7 +112,17 @@ class AIService(CoursewareAIMixin):
             )
         except Exception as e:
             logger.warning(f"LLM intent classification failed: {e}, using fallback")
-            return self._classify_intent_by_keywords(user_message)
+            try:
+                return self._classify_intent_by_keywords(user_message)
+            except Exception as fallback_exc:
+                logger.error(
+                    "Keyword intent fallback failed: %s", fallback_exc, exc_info=True
+                )
+                return IntentClassification(
+                    intent=IntentType.GENERAL_CHAT,
+                    confidence=0.0,
+                    method="keyword_fallback",
+                )
 
     @staticmethod
     def _classify_intent_by_keywords(message: str) -> IntentClassification:
@@ -225,7 +235,17 @@ class AIService(CoursewareAIMixin):
             )
         except Exception as e:
             logger.warning(f"LLM modify intent parse failed: {e}, using fallback")
-            return self._parse_modify_intent_by_keywords(instruction)
+            try:
+                return self._parse_modify_intent_by_keywords(instruction)
+            except Exception as fallback_exc:
+                logger.error(
+                    "Keyword modify fallback failed: %s", fallback_exc, exc_info=True
+                )
+                return ModifyIntent(
+                    modify_type=ModifyType.CONTENT,
+                    target_slides=None,
+                    instruction=instruction,
+                )
 
     @staticmethod
     def _parse_modify_intent_by_keywords(instruction: str) -> ModifyIntent:

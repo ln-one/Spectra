@@ -128,12 +128,18 @@ async def compare_providers(
     reports: list[ProviderQualityReport] = []
 
     for provider in providers:
-        report = await _evaluate_single_provider(
-            provider=provider,
-            content_files=content_files,
-            queries=queries_with_keywords,
-            emb_service=emb_service,
-        )
+        try:
+            report = await _evaluate_single_provider(
+                provider=provider,
+                content_files=content_files,
+                queries=queries_with_keywords,
+                emb_service=emb_service,
+            )
+        except Exception as exc:
+            logger.exception(
+                "evaluate_provider_failed: provider=%s error=%s", provider.name, exc
+            )
+            report = ProviderQualityReport(provider_name=provider.name)
         reports.append(report)
 
     return ComparisonReport(
@@ -160,7 +166,16 @@ async def _evaluate_single_provider(
         all_chunks: list[str] = []
         chunk_idx = 0
         for filepath, filename, file_type in content_files:
-            text, _details = provider.extract_text(filepath, filename, file_type)
+            try:
+                text, _details = provider.extract_text(filepath, filename, file_type)
+            except Exception as exc:
+                logger.warning(
+                    "provider_extract_failed: provider=%s file=%s error=%s",
+                    provider.name,
+                    filename,
+                    exc,
+                )
+                continue
             if not text.strip():
                 continue
             chunks_text = split_text(text)
@@ -190,7 +205,16 @@ async def _evaluate_single_provider(
             if not q.expected_keywords:
                 continue
             total_queries += 1
-            results = await rag_svc.search(project_id, q.query, top_k=5)
+            try:
+                results = await rag_svc.search(project_id, q.query, top_k=5)
+            except Exception as exc:
+                logger.warning(
+                    "provider_search_failed: provider=%s query=%s error=%s",
+                    provider.name,
+                    q.query,
+                    exc,
+                )
+                continue
             total_results += len(results)
             combined = " ".join(r.content for r in results).lower()
             if any(kw.lower() in combined for kw in q.expected_keywords):

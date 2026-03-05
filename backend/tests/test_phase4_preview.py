@@ -409,6 +409,25 @@ class TestParseModifyIntent:
         assert isinstance(result, ModifyIntent)
         assert result.target_slides == [3]
 
+    @pytest.mark.asyncio
+    async def test_llm_parse_and_keyword_fallback_both_fail_returns_safe_default(self):
+        ai = AIService()
+        with patch.object(
+            ai,
+            "generate",
+            new_callable=AsyncMock,
+            side_effect=Exception("LLM error"),
+        ):
+            with patch.object(
+                AIService,
+                "_parse_modify_intent_by_keywords",
+                side_effect=Exception("fallback error"),
+            ):
+                result = await ai.parse_modify_intent("把第3页标题改成xxx")
+        assert isinstance(result, ModifyIntent)
+        assert result.modify_type == ModifyType.CONTENT
+        assert result.target_slides is None
+
 
 # ============================================================
 # Preview Router Validation
