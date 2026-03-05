@@ -15,6 +15,7 @@ RAG 评测脚本
 
 import argparse
 import asyncio
+import hashlib
 import json
 import sys
 import time
@@ -25,6 +26,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from eval.metrics import EvalResult, compute_metrics  # noqa: E402
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 async def run_single_case(
@@ -66,6 +75,7 @@ async def run_eval(
     top_k: int,
     output_path: Path,
     baseline_path: Path | None,
+    run_tag: str | None = None,
 ) -> None:
     from services.rag_service import rag_service
 
@@ -107,9 +117,14 @@ async def run_eval(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output = {
         "timestamp": datetime.now().isoformat(),
+        "tool_version": "rag-eval-v1",
         "project_id": project_id,
+        "python_version": sys.version.split()[0],
         "dataset_version": dataset.get("version", "unknown"),
+        "dataset_path": str(dataset_path),
+        "dataset_sha256": _sha256_file(dataset_path),
         "top_k": top_k,
+        "run_tag": run_tag,
         "metrics": {
             "keyword_hit_rate": metrics.keyword_hit_rate,
             "hit_rate_at_k": metrics.hit_rate_at_k,
@@ -150,6 +165,7 @@ def main() -> None:
         help="结果输出路径",
     )
     parser.add_argument("--baseline", default=None, help="基线结果路径（可选）")
+    parser.add_argument("--tag", default=None, help="运行标签（可选）")
     args = parser.parse_args()
 
     asyncio.run(
@@ -159,6 +175,7 @@ def main() -> None:
             top_k=args.top_k,
             output_path=Path(args.output),
             baseline_path=Path(args.baseline) if args.baseline else None,
+            run_tag=args.tag,
         )
     )
 
