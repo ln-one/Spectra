@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "description": "D1 解析质量样本池（预研）",
+  "samples": [
+    {
+      "filename": "bio_doc.txt",
+      "file_type": "pdf",
+      "scene": "biology",
+      "content": "光合作用发生在叶绿体。光能转化为化学能。二氧化碳和水合成有机物。"
+    },
+    {
+      "filename": "physics_doc.txt",
+      "file_type": "word",
+      "scene": "physics",
+      "content": "牛顿第二定律公式为F=ma。合力决定加速度方向和大小。"
+    },
+    {
+      "filename": "math_doc.txt",
+      "file_type": "ppt",
+      "scene": "math",
+      "content": "一次函数图像是直线。斜率决定倾斜程度。截距决定与坐标轴交点。"
+    }
+  ],
+  "queries": [
+    {
+      "query": "光合作用的关键要素",
+      "expected_keywords": ["光合作用", "叶绿体", "光能"]
+    },
+    {
+      "query": "牛顿第二定律",
+      "expected_keywords": ["牛顿", "F=ma", "加速度"]
+    },
+    {
+      "query": "一次函数图像特征",
+      "expected_keywords": ["一次函数", "斜率", "截距", "直线"]
+    }
+  ]
+}
