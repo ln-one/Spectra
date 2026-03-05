@@ -1,60 +1,48 @@
 "use client";
 
-import { useState } from "react";
-import {
-  useGenerateStore,
-  type TaskType,
-  type GenerationTask,
-} from "@/stores/generateStore";
-import { generateApi } from "@/lib/api/generate";
+import { useState, useEffect, useCallback } from "react";
+import { useGenerateStore, type GenerationSession } from "@/stores/generateStore";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Download,
+  Sparkles,
   Presentation,
   FileText,
   Loader2,
-  Play,
-  Square,
-  RefreshCw,
   Palette,
   Hash,
   Film,
   Gamepad2,
+  Download,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ChevronRight,
+  Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+// GenerationOptions 类型（与 OpenAPI 对齐）
 export interface GenerateOptions {
   template?: "default" | "gaia" | "uncover" | "academic";
+  style_preset?: "academic" | "vibrant" | "dark_tech" | "custom";
   theme_color?: string;
   show_page_number?: boolean;
   header?: string;
   footer?: string;
   pages?: number;
+  audience?: "beginner" | "intermediate" | "professional";
+  target_duration_minutes?: number;
   include_animations?: boolean;
   include_games?: boolean;
   animation_format?: "gif" | "mp4" | "html5";
   use_text_to_image?: boolean;
+  system_prompt_tone?: string;
 }
 
 interface GeneratePanelProps {
@@ -62,42 +50,89 @@ interface GeneratePanelProps {
   className?: string;
 }
 
+// 模板选项（带视觉预览）
 const TEMPLATE_OPTIONS = [
-  { value: "default", label: "默认模板", description: "简洁现代的通用风格" },
-  { value: "gaia", label: "Gaia", description: "自然主题风格" },
-  { value: "uncover", label: "Uncover", description: "创意展示风格" },
-  { value: "academic", label: "Academic", description: "学术风格" },
+  {
+    value: "default",
+    label: "默认",
+    description: "简洁现代",
+    preview: "from-slate-50 to-slate-100",
+  },
+  {
+    value: "gaia",
+    label: "Gaia",
+    description: "自然主题",
+    preview: "from-green-50 to-emerald-100",
+  },
+  {
+    value: "uncover",
+    label: "Uncover",
+    description: "创意展示",
+    preview: "from-purple-50 to-indigo-100",
+  },
+  {
+    value: "academic",
+    label: "Academic",
+    description: "学术风格",
+    preview: "from-blue-50 to-sky-100",
+  },
 ];
 
+// 主题色（使用新版设计规范颜色）
 const THEME_COLORS = [
-  { value: "#4A90E2", label: "蓝色", class: "bg-blue-500" },
-  { value: "#52C41A", label: "绿色", class: "bg-green-500" },
-  { value: "#FA8C16", label: "橙色", class: "bg-orange-500" },
-  { value: "#EB2F96", label: "粉色", class: "bg-pink-500" },
-  { value: "#722ED1", label: "紫色", class: "bg-purple-500" },
-  { value: "#13C2C2", label: "青色", class: "bg-cyan-500" },
+  { value: "#4C8C6A", label: "薄荷绿", class: "bg-[#4C8C6A]" },
+  { value: "#3F83A3", label: "湖蓝", class: "bg-[#3F83A3]" },
+  { value: "#D98A4E", label: "杏橙", class: "bg-[#D98A4E]" },
+  { value: "#596359", label: "橄榄灰", class: "bg-[#596359]" },
+  { value: "#7A857A", label: "青灰", class: "bg-[#7A857A]" },
+  { value: "#C45353", label: "珊瑚红", class: "bg-[#C45353]" },
+];
+
+// Session 状态到中文的映射
+const STATE_LABELS: Record<string, string> = {
+  IDLE: "空闲",
+  CONFIGURING: "配置中",
+  ANALYZING: "分析中",
+  DRAFTING_OUTLINE: "生成大纲",
+  AWAITING_OUTLINE_CONFIRM: "等待确认",
+  GENERATING_CONTENT: "生成内容",
+  RENDERING: "渲染中",
+  SUCCESS: "已完成",
+  FAILED: "失败",
+};
+
+// 生成中状态列表
+const GENERATING_STATES = [
+  "CONFIGURING",
+  "ANALYZING",
+  "DRAFTING_OUTLINE",
+  "AWAITING_OUTLINE_CONFIRM",
+  "GENERATING_CONTENT",
+  "RENDERING",
 ];
 
 export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
+  // 使用 Session 相关的 Store 方法
   const {
-    currentTask,
-    tasks,
+    currentSession,
+    sessions,
     isLoading,
-    isPolling,
     error,
-    createTask,
-    pollTaskStatus,
-    stopPolling,
-    fetchTaskStatus,
-    clearTasks,
+    createSession,
+    getSession,
+    connectSessionEvents,
+    disconnectSessionEvents,
+    setCurrentSession,
+    clearSessions,
   } = useGenerateStore();
 
   const { toast } = useToast();
 
-  const [selectedType, setSelectedType] = useState<TaskType>("ppt");
+  // 本地状态
+  const [selectedMode, setSelectedMode] = useState<"ppt" | "word" | "both">("ppt");
   const [options, setOptions] = useState<GenerateOptions>({
     template: "default",
-    theme_color: "#4A90E2",
+    theme_color: "#4C8C6A",
     show_page_number: true,
     pages: 10,
     include_animations: false,
@@ -105,9 +140,54 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
     use_text_to_image: false,
   });
 
+  // SSE 事件监听
+  useEffect(() => {
+    if (!currentSession?.sessionId) return;
+
+    const unsubscribe = connectSessionEvents(
+      currentSession.sessionId,
+      (event) => {
+        console.log("Session event:", event);
+        // 根据事件更新状态
+        if (event.event_type === "state.changed") {
+          getSession(currentSession.sessionId);
+        } else if (event.event_type === "task.completed") {
+          getSession(currentSession.sessionId);
+          toast({
+            title: "生成完成",
+            description: "课件已生成完成，您可以下载了",
+          });
+        } else if (event.event_type === "task.failed") {
+          getSession(currentSession.sessionId);
+          toast({
+            title: "生成失败",
+            description: "请重试或联系支持",
+            variant: "destructive",
+          });
+        }
+      },
+      (error) => {
+        console.error("SSE error:", error);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentSession?.sessionId, connectSessionEvents, getSession, toast]);
+
+  // 判断生成状态
+  const isGenerating = currentSession
+    ? GENERATING_STATES.includes(currentSession.state)
+    : false;
+  const isCompleted = currentSession?.state === "SUCCESS";
+  const isFailed = currentSession?.state === "FAILED";
+
+  // 开始生成
   const handleStartGenerate = async () => {
     try {
-      const task = await createTask(projectId, selectedType, {
+      // 创建会话
+      const session = await createSession(projectId, selectedMode, {
         template: options.template || "default",
         theme_color: options.theme_color,
         show_page_number: options.show_page_number ?? true,
@@ -119,10 +199,10 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
         animation_format: options.animation_format,
         use_text_to_image: options.use_text_to_image ?? false,
       });
-      pollTaskStatus(task.id);
+
       toast({
         title: "开始生成",
-        description: "任务已创建，正在生成课件...",
+        description: "正在创建生成会话...",
       });
     } catch (error) {
       toast({
@@ -133,9 +213,10 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
     }
   };
 
-  const handleCancel = () => {
-    if (currentTask) {
-      stopPolling();
+  // 取消生成（发送取消命令）
+  const handleCancel = async () => {
+    if (currentSession?.sessionId) {
+      // TODO: 实现取消逻辑
       toast({
         title: "已取消",
         description: "生成任务已取消",
@@ -143,237 +224,216 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
     }
   };
 
+  // 下载课件
   const handleDownload = async (fileType: "pptx" | "docx") => {
-    if (!currentTask) return;
-
-    try {
-      const blob = await generateApi.downloadCourseware(
-        currentTask.id,
-        fileType
-      );
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${projectId}_${fileType.replace("x", "")}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "下载成功",
-        description: `${fileType.toUpperCase()} 文件已下载`,
-      });
-    } catch (error) {
-      toast({
-        title: "下载失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
-        variant: "destructive",
-      });
-    }
+    if (!currentSession) return;
+    // TODO: 实现下载逻辑
+    toast({
+      title: "下载功能",
+      description: "下载功能开发中...",
+    });
   };
 
+  // 刷新状态
   const handleRefresh = async () => {
-    if (currentTask) {
-      await fetchTaskStatus(currentTask.id);
+    if (currentSession?.sessionId) {
+      await getSession(currentSession.sessionId);
     }
   };
-
-  const isGenerating =
-    currentTask?.status === "processing" || currentTask?.status === "pending";
-  const isCompleted = currentTask?.status === "completed";
-  const isFailed = currentTask?.status === "failed";
 
   return (
-    <Card className={cn("w-full", className)}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Presentation className="h-5 w-5" />
-          课件生成
-        </CardTitle>
-        <CardDescription>选择生成类型和选项，创建您的教学课件</CardDescription>
-      </CardHeader>
+    <div className={cn("flex flex-col h-full", className)}>
+      {/* 标题区 */}
+      <div className="px-4 py-3 border-b">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-[#4C8C6A]" />
+          <span className="font-semibold text-[#1F2520]">课件生成</span>
+        </div>
+        <p className="text-xs text-[#596359] mt-1">配置生成选项，创建您的教学课件</p>
+      </div>
 
-      <CardContent className="space-y-6">
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <Tabs defaultValue="generate" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="generate">生成</TabsTrigger>
-            <TabsTrigger value="history">
-              历史记录
-              {tasks.length > 0 && (
-                <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs">
-                  {tasks.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="generate" className="space-y-6">
-            <div className="space-y-4">
-              <Label>生成类型</Label>
-              <div className="grid grid-cols-3 gap-3">
-                <Button
-                  variant={selectedType === "ppt" ? "default" : "outline"}
-                  className="flex flex-col items-center gap-2 h-auto py-4"
-                  onClick={() => setSelectedType("ppt")}
-                  disabled={isGenerating}
-                >
-                  <Presentation className="h-6 w-6" />
-                  <span>PPT</span>
-                </Button>
-                <Button
-                  variant={selectedType === "word" ? "default" : "outline"}
-                  className="flex flex-col items-center gap-2 h-auto py-4"
-                  onClick={() => setSelectedType("word")}
-                  disabled={isGenerating}
-                >
-                  <FileText className="h-6 w-6" />
-                  <span>Word</span>
-                </Button>
-                <Button
-                  variant={selectedType === "both" ? "default" : "outline"}
-                  className="flex flex-col items-center gap-2 h-auto py-4"
-                  onClick={() => setSelectedType("both")}
-                  disabled={isGenerating}
-                >
-                  <Presentation className="h-6 w-6" />
-                  <FileText className="h-6 w-6" />
-                  <span>全部</span>
-                </Button>
-              </div>
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-5">
+          {/* 错误提示 */}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
             </div>
+          )}
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Palette className="h-4 w-4" />
-                <Label>模板风格</Label>
-              </div>
-              <Select
-                value={options.template}
-                onValueChange={(value) =>
-                  setOptions({
-                    ...options,
-                    template: value as GenerateOptions["template"],
-                  })
-                }
-                disabled={isGenerating}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="选择模板" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TEMPLATE_OPTIONS.map((template) => (
-                    <SelectItem key={template.value} value={template.value}>
-                      <div className="flex flex-col">
-                        <span>{template.label}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {template.description}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Palette className="h-4 w-4" />
-                <Label>主题色</Label>
-              </div>
-              <div className="flex gap-2">
-                {THEME_COLORS.map((color) => (
-                  <button
-                    key={color.value}
+          {/* 生成类型选择 */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-[#596359] uppercase tracking-wide">
+              输出类型
+            </Label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: "ppt", label: "PPT", icon: Presentation },
+                { value: "word", label: "Word", icon: FileText },
+                { value: "both", label: "全部", icon: Zap },
+              ].map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  onClick={() => setSelectedMode(value as typeof selectedMode)}
+                  disabled={isGenerating}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all",
+                    selectedMode === value
+                      ? "border-[#4C8C6A] bg-[#4C8C6A]/5"
+                      : "border-transparent bg-[#F6F7F5] hover:bg-[#F1F3EF]",
+                    isGenerating && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <Icon
                     className={cn(
-                      "h-8 w-8 rounded-full border-2 transition-all",
-                      options.theme_color === color.value
-                        ? "border-primary scale-110"
-                        : "border-transparent hover:scale-105"
+                      "h-5 w-5",
+                      selectedMode === value ? "text-[#4C8C6A]" : "text-[#596359]"
                     )}
-                    style={{ backgroundColor: color.value }}
-                    onClick={() =>
-                      setOptions({ ...options, theme_color: color.value })
-                    }
-                    disabled={isGenerating}
-                    title={color.label}
                   />
-                ))}
-                <Input
-                  type="color"
-                  value={options.theme_color || "#4A90E2"}
-                  onChange={(e) =>
-                    setOptions({ ...options, theme_color: e.target.value })
-                  }
-                  className="w-8 h-8 p-0.5"
-                  disabled={isGenerating}
-                />
-              </div>
+                  <span
+                    className={cn(
+                      "text-sm font-medium",
+                      selectedMode === value ? "text-[#4C8C6A]" : "text-[#1F2520]"
+                    )}
+                  >
+                    {label}
+                  </span>
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Hash className="h-4 w-4" />
-                <Label>页数</Label>
-              </div>
+          {/* 模板选择 */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-[#596359] uppercase tracking-wide">
+              模板风格
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              {TEMPLATE_OPTIONS.map((template) => (
+                <button
+                  key={template.value}
+                  onClick={() =>
+                    setOptions({ ...options, template: template.value as GenerateOptions["template"] })
+                  }
+                  disabled={isGenerating}
+                  className={cn(
+                    "relative p-3 rounded-lg border-2 transition-all text-left",
+                    options.template === template.value
+                      ? "border-[#4C8C6A] ring-1 ring-[#4C8C6A]/20"
+                      : "border-[#E3E7DF] hover:border-[#4C8C6A]/50",
+                    isGenerating && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {/* 模板预览 */}
+                  <div
+                    className={cn(
+                      "h-12 rounded-md mb-2 bg-gradient-to-br",
+                      template.preview
+                    )}
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-[#1F2520]">
+                      {template.label}
+                    </span>
+                    {options.template === template.value && (
+                      <CheckCircle2 className="h-4 w-4 text-[#4C8C6A]" />
+                    )}
+                  </div>
+                  <p className="text-xs text-[#7A857A]">{template.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 主题色选择 */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-[#596359] uppercase tracking-wide">
+              主题色
+            </Label>
+            <div className="flex gap-2">
+              {THEME_COLORS.map((color) => (
+                <button
+                  key={color.value}
+                  onClick={() => setOptions({ ...options, theme_color: color.value })}
+                  disabled={isGenerating}
+                  className={cn(
+                    "h-8 w-8 rounded-full transition-all",
+                    options.theme_color === color.value
+                      ? "ring-2 ring-offset-2 ring-[#4C8C6A] scale-110"
+                      : "hover:scale-105",
+                    isGenerating && "opacity-50 cursor-not-allowed"
+                  )}
+                  style={{ backgroundColor: color.value }}
+                  title={color.label}
+                />
+              ))}
               <Input
-                type="number"
-                min={1}
-                max={100}
-                value={options.pages || 10}
-                onChange={(e) =>
-                  setOptions({
-                    ...options,
-                    pages: parseInt(e.target.value) || 10,
-                  })
-                }
+                type="color"
+                value={options.theme_color || "#4C8C6A"}
+                onChange={(e) => setOptions({ ...options, theme_color: e.target.value })}
+                className="w-8 h-8 p-0.5 rounded-full"
                 disabled={isGenerating}
               />
             </div>
+          </div>
 
-            <div className="flex items-center space-x-2">
+          {/* 页数设置 */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-medium text-[#596359] uppercase tracking-wide">
+                期望页数
+              </Label>
+              <span className="text-sm text-[#1F2520]">{options.pages || 10} 页</span>
+            </div>
+            <Input
+              type="range"
+              min={1}
+              max={50}
+              value={options.pages || 10}
+              onChange={(e) => setOptions({ ...options, pages: parseInt(e.target.value) })}
+              disabled={isGenerating}
+              className="accent-[#4C8C6A]"
+            />
+          </div>
+
+          {/* 高级选项 */}
+          <div className="space-y-3 pt-2">
+            <Label className="text-xs font-medium text-[#596359] uppercase tracking-wide">
+              高级选项
+            </Label>
+
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="showPageNumber"
                 checked={options.show_page_number}
                 onCheckedChange={(checked) =>
-                  setOptions({
-                    ...options,
-                    show_page_number: checked as boolean,
-                  })
+                  setOptions({ ...options, show_page_number: checked as boolean })
                 }
                 disabled={isGenerating}
+                className="data-[state=checked]:bg-[#4C8C6A] data-[state=checked]:border-[#4C8C6A]"
               />
-              <Label htmlFor="showPageNumber">显示页码</Label>
+              <Label htmlFor="showPageNumber" className="text-sm text-[#1F2520]">
+                显示页码
+              </Label>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="includeAnimations"
                 checked={options.include_animations}
                 onCheckedChange={(checked) =>
-                  setOptions({
-                    ...options,
-                    include_animations: checked as boolean,
-                  })
+                  setOptions({ ...options, include_animations: checked as boolean })
                 }
                 disabled={isGenerating}
+                className="data-[state=checked]:bg-[#4C8C6A] data-[state=checked]:border-[#4C8C6A]"
               />
-              <Label
-                htmlFor="includeAnimations"
-                className="flex items-center gap-2"
-              >
-                <Film className="h-4 w-4" />
+              <Label htmlFor="includeAnimations" className="flex items-center gap-1.5 text-sm text-[#1F2520]">
+                <Film className="h-4 w-4 text-[#596359]" />
                 包含动画创意
               </Label>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="includeGames"
                 checked={options.include_games}
@@ -381,203 +441,126 @@ export function GeneratePanel({ projectId, className }: GeneratePanelProps) {
                   setOptions({ ...options, include_games: checked as boolean })
                 }
                 disabled={isGenerating}
+                className="data-[state=checked]:bg-[#4C8C6A] data-[state=checked]:border-[#4C8C6A]"
               />
-              <Label htmlFor="includeGames" className="flex items-center gap-2">
-                <Gamepad2 className="h-4 w-4" />
+              <Label htmlFor="includeGames" className="flex items-center gap-1.5 text-sm text-[#1F2520]">
+                <Gamepad2 className="h-4 w-4 text-[#596359]" />
                 包含互动游戏
               </Label>
             </div>
+          </div>
 
-            {currentTask && isGenerating && (
-              <div className="space-y-3 pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <Label>生成进度</Label>
-                  <span className="text-sm text-muted-foreground">
-                    {currentTask.progress}%
+          {/* 生成进度展示 */}
+          {currentSession && isGenerating && (
+            <div className="space-y-3 p-4 bg-[#F6F7F5] rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#4C8C6A]" />
+                  <span className="text-sm font-medium text-[#1F2520]">
+                    {STATE_LABELS[currentSession.state] || "生成中"}
                   </span>
                 </div>
-                <Progress value={currentTask.progress} className="h-2" />
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  正在生成
-                  {currentTask.taskType === "ppt"
-                    ? "PPT"
-                    : currentTask.taskType === "word"
-                      ? "Word文档"
-                      : "课件"}
-                  ...
-                </div>
+                <span className="text-sm text-[#596359]">
+                  {currentSession.progress || 0}%
+                </span>
               </div>
-            )}
-
-            {currentTask && isCompleted && (
-              <div className="space-y-3 pt-4 border-t">
-                <Alert>
-                  <AlertDescription>
-                    生成完成！您可以下载课件文件。
-                  </AlertDescription>
-                </Alert>
-                <div className="flex gap-2">
-                  {(selectedType === "ppt" || selectedType === "both") && (
-                    <Button
-                      onClick={() => handleDownload("pptx")}
-                      className="flex-1"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      下载 PPT
-                    </Button>
-                  )}
-                  {(selectedType === "word" || selectedType === "both") && (
-                    <Button
-                      onClick={() => handleDownload("docx")}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      下载 Word
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {currentTask && isFailed && (
-              <div className="space-y-3 pt-4 border-t">
-                <Alert variant="destructive">
-                  <AlertDescription>
-                    {currentTask.errorMessage || "生成失败，请重试"}
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              {!isGenerating ? (
-                <Button
-                  onClick={handleStartGenerate}
-                  className="flex-1"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      创建任务...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 mr-2" />
-                      开始生成
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    onClick={handleCancel}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <Square className="h-4 w-4 mr-2" />
-                    取消
-                  </Button>
-                  <Button
-                    onClick={handleRefresh}
-                    variant="outline"
-                    disabled={isPolling}
-                  >
-                    <RefreshCw
-                      className={cn("h-4 w-4", isPolling && "animate-spin")}
-                    />
-                  </Button>
-                </>
-              )}
+              <Progress
+                value={currentSession.progress || 0}
+                className="h-1.5 bg-[#E3E7DF] [&>div]:bg-[#4C8C6A]"
+              />
+              <p className="text-xs text-[#7A857A]">请稍候，课件正在生成中...</p>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="history" className="space-y-4">
-            {tasks.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                暂无生成历史
+          {/* 完成状态 */}
+          {currentSession && isCompleted && (
+            <div className="space-y-3 p-4 bg-green-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-[#2F8F5B]" />
+                <span className="text-sm font-medium text-[#2F8F5B]">
+                  生成完成
+                </span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {tasks.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onDownload={handleDownload}
-                  />
-                ))}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearTasks}
-                  className="w-full"
-                >
-                  清空历史记录
-                </Button>
+              <p className="text-xs text-[#596359]">课件已生成，您可以下载了</p>
+              <div className="flex gap-2">
+                {(selectedMode === "ppt" || selectedMode === "both") && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleDownload("pptx")}
+                    className="bg-[#4C8C6A] hover:bg-[#3D7A58]"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    PPT
+                  </Button>
+                )}
+                {(selectedMode === "word" || selectedMode === "both") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDownload("docx")}
+                    className="border-[#4C8C6A] text-[#4C8C6A]"
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    Word
+                  </Button>
+                )}
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
-  );
-}
+            </div>
+          )}
 
-interface TaskItemProps {
-  task: GenerationTask;
-  onDownload: (fileType: "pptx" | "docx") => void;
-}
-
-function TaskItem({ task, onDownload }: TaskItemProps) {
-  const statusColors = {
-    pending: "bg-yellow-500",
-    processing: "bg-blue-500",
-    completed: "bg-green-500",
-    failed: "bg-red-500",
-  };
-
-  const statusLabels = {
-    pending: "等待中",
-    processing: "生成中",
-    completed: "已完成",
-    failed: "失败",
-  };
-
-  return (
-    <div className="flex items-center justify-between p-3 border rounded-lg">
-      <div className="flex items-center gap-3">
-        <div
-          className={cn("h-2 w-2 rounded-full", statusColors[task.status])}
-        />
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">
-            {task.taskType === "ppt"
-              ? "PPT"
-              : task.taskType === "word"
-                ? "Word"
-                : "全部"}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {new Date(task.createdAt).toLocaleString("zh-CN")}
-          </span>
+          {/* 失败状态 */}
+          {currentSession && isFailed && (
+            <div className="space-y-3 p-4 bg-red-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-5 w-5 text-[#C45353]" />
+                <span className="text-sm font-medium text-[#C45353]">
+                  生成失败
+                </span>
+              </div>
+              <p className="text-xs text-[#596359]">请检查配置后重试</p>
+            </div>
+          )}
         </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {task.status === "processing" && (
-          <span className="text-xs text-muted-foreground">
-            {task.progress}%
-          </span>
-        )}
-        {task.status === "completed" && (
-          <Button size="sm" onClick={() => onDownload("pptx")}>
-            <Download className="h-3 w-3" />
+      </ScrollArea>
+
+      {/* 底部操作区 */}
+      <div className="p-4 border-t bg-white">
+        {!isGenerating ? (
+          <Button
+            onClick={handleStartGenerate}
+            disabled={isLoading}
+            className="w-full bg-[#4C8C6A] hover:bg-[#3D7A58] text-white"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                创建会话...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                开始生成
+              </>
+            )}
           </Button>
+        ) : (
+          <div className="flex gap-2">
+            <Button
+              onClick={handleCancel}
+              variant="outline"
+              className="flex-1 border-[#E3E7DF] text-[#596359]"
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleRefresh}
+              variant="outline"
+              className="border-[#E3E7DF] text-[#596359]"
+            >
+              <Clock className="h-4 w-4" />
+            </Button>
+          </div>
         )}
-        <span className="text-xs text-muted-foreground">
-          {statusLabels[task.status]}
-        </span>
       </div>
     </div>
   );

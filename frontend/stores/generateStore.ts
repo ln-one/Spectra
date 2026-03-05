@@ -419,9 +419,9 @@ export const useGenerateStore = create<GenerateState>()((set, get) => ({
         projectId: response.data.session.project_id,
         taskId: response.data.session.task_id,
         state: response.data.session.state,
-        progress: 0,
+        progress: response.data.session.progress ?? 0,
         contractVersion: response.data.session.contract_version,
-        resumable: false,
+        resumable: response.data.session.resumable ?? false,
         // 注意：创建会话时只返回 session 引用，详细通过状态需 getSession 获取
       };
 
