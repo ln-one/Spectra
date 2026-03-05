@@ -29,6 +29,11 @@ class Guardrails:
     keyword_hit_rate_min_delta: float = -0.03
     failure_rate_max_delta: float = 0.05
     avg_latency_ms_max_ratio: float = 1.50
+    explainability_rate_min_delta: float = -0.02
+    continuity_rate_min_delta: float = -0.02
+    fallback_hit_rate_min_delta: float = -0.05
+    explainability_rate_hard_floor: float = 0.95
+    continuity_rate_hard_floor: float = 0.95
 
 
 def _load_json(path: Path) -> dict:
@@ -69,6 +74,11 @@ def freeze_baseline(
             "keyword_hit_rate_min_delta": guardrails.keyword_hit_rate_min_delta,
             "failure_rate_max_delta": guardrails.failure_rate_max_delta,
             "avg_latency_ms_max_ratio": guardrails.avg_latency_ms_max_ratio,
+            "explainability_rate_min_delta": guardrails.explainability_rate_min_delta,
+            "continuity_rate_min_delta": guardrails.continuity_rate_min_delta,
+            "fallback_hit_rate_min_delta": guardrails.fallback_hit_rate_min_delta,
+            "explainability_rate_hard_floor": guardrails.explainability_rate_hard_floor,
+            "continuity_rate_hard_floor": guardrails.continuity_rate_hard_floor,
         },
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -99,6 +109,21 @@ def check_regression(
         ),
         avg_latency_ms_max_ratio=baseline.get("guardrails", {}).get(
             "avg_latency_ms_max_ratio", 1.50
+        ),
+        explainability_rate_min_delta=baseline.get("guardrails", {}).get(
+            "explainability_rate_min_delta", -0.02
+        ),
+        continuity_rate_min_delta=baseline.get("guardrails", {}).get(
+            "continuity_rate_min_delta", -0.02
+        ),
+        fallback_hit_rate_min_delta=baseline.get("guardrails", {}).get(
+            "fallback_hit_rate_min_delta", -0.05
+        ),
+        explainability_rate_hard_floor=baseline.get("guardrails", {}).get(
+            "explainability_rate_hard_floor", 0.95
+        ),
+        continuity_rate_hard_floor=baseline.get("guardrails", {}).get(
+            "continuity_rate_hard_floor", 0.95
         ),
     )
 
@@ -134,6 +159,51 @@ def check_regression(
                 f"(阈值 {g.avg_latency_ms_max_ratio:.2f}x)"
             )
 
+    # D5 降级质量门禁（当 current/baseline 任一包含该指标时启用）
+    degradation_keys = ("explainability_rate", "continuity_rate", "fallback_hit_rate")
+    d5_enabled = any(k in curr_m or k in base_m for k in degradation_keys)
+
+    if d5_enabled:
+        for key in degradation_keys:
+            if key not in curr_m or key not in base_m:
+                violations.append(f"D5 指标缺失: {key}")
+
+        if "explainability_rate" in curr_m and "explainability_rate" in base_m:
+            explainability_delta = (
+                curr_m["explainability_rate"] - base_m["explainability_rate"]
+            )
+            if explainability_delta < g.explainability_rate_min_delta:
+                violations.append(
+                    f"explainability_rate 下降 {explainability_delta:.2%} "
+                    f"(阈值 {g.explainability_rate_min_delta:.2%})"
+                )
+            if curr_m["explainability_rate"] < g.explainability_rate_hard_floor:
+                violations.append(
+                    f"explainability_rate 绝对值 {curr_m['explainability_rate']:.2%} "
+                    f"(hard floor {g.explainability_rate_hard_floor:.2%})"
+                )
+
+        if "continuity_rate" in curr_m and "continuity_rate" in base_m:
+            continuity_delta = curr_m["continuity_rate"] - base_m["continuity_rate"]
+            if continuity_delta < g.continuity_rate_min_delta:
+                violations.append(
+                    f"continuity_rate 下降 {continuity_delta:.2%} "
+                    f"(阈值 {g.continuity_rate_min_delta:.2%})"
+                )
+            if curr_m["continuity_rate"] < g.continuity_rate_hard_floor:
+                violations.append(
+                    f"continuity_rate 绝对值 {curr_m['continuity_rate']:.2%} "
+                    f"(hard floor {g.continuity_rate_hard_floor:.2%})"
+                )
+
+        if "fallback_hit_rate" in curr_m and "fallback_hit_rate" in base_m:
+            fallback_delta = curr_m["fallback_hit_rate"] - base_m["fallback_hit_rate"]
+            if fallback_delta < g.fallback_hit_rate_min_delta:
+                violations.append(
+                    f"fallback_hit_rate 下降 {fallback_delta:.2%} "
+                    f"(阈值 {g.fallback_hit_rate_min_delta:.2%})"
+                )
+
     return len(violations) == 0, violations
 
 
@@ -163,6 +233,36 @@ def _build_parser() -> argparse.ArgumentParser:
         default=1.50,
         help="平均延迟最大允许倍数（默认 1.50）",
     )
+    freeze_parser.add_argument(
+        "--explainability-rate-min-delta",
+        type=float,
+        default=-0.02,
+        help="可解释率最低允许变化（默认 -0.02）",
+    )
+    freeze_parser.add_argument(
+        "--continuity-rate-min-delta",
+        type=float,
+        default=-0.02,
+        help="主流程可继续率最低允许变化（默认 -0.02）",
+    )
+    freeze_parser.add_argument(
+        "--fallback-hit-rate-min-delta",
+        type=float,
+        default=-0.05,
+        help="回退命中率最低允许变化（默认 -0.05）",
+    )
+    freeze_parser.add_argument(
+        "--explainability-rate-hard-floor",
+        type=float,
+        default=0.95,
+        help="可解释率绝对下限（默认 0.95）",
+    )
+    freeze_parser.add_argument(
+        "--continuity-rate-hard-floor",
+        type=float,
+        default=0.95,
+        help="主流程可继续率绝对下限（默认 0.95）",
+    )
 
     check_parser = sub.add_parser("check", help="校验当前结果是否相对基线退化")
     check_parser.add_argument("--current", required=True, help="当前评测结果路径")
@@ -185,6 +285,36 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="覆盖基线阈值（可选）",
     )
+    check_parser.add_argument(
+        "--explainability-rate-min-delta",
+        type=float,
+        default=None,
+        help="覆盖基线阈值（可选）",
+    )
+    check_parser.add_argument(
+        "--continuity-rate-min-delta",
+        type=float,
+        default=None,
+        help="覆盖基线阈值（可选）",
+    )
+    check_parser.add_argument(
+        "--fallback-hit-rate-min-delta",
+        type=float,
+        default=None,
+        help="覆盖基线阈值（可选）",
+    )
+    check_parser.add_argument(
+        "--explainability-rate-hard-floor",
+        type=float,
+        default=None,
+        help="覆盖 hard floor（可选）",
+    )
+    check_parser.add_argument(
+        "--continuity-rate-hard-floor",
+        type=float,
+        default=None,
+        help="覆盖 hard floor（可选）",
+    )
     return parser
 
 
@@ -197,6 +327,11 @@ def main() -> int:
             keyword_hit_rate_min_delta=args.keyword_hit_rate_min_delta,
             failure_rate_max_delta=args.failure_rate_max_delta,
             avg_latency_ms_max_ratio=args.avg_latency_ms_max_ratio,
+            explainability_rate_min_delta=args.explainability_rate_min_delta,
+            continuity_rate_min_delta=args.continuity_rate_min_delta,
+            fallback_hit_rate_min_delta=args.fallback_hit_rate_min_delta,
+            explainability_rate_hard_floor=args.explainability_rate_hard_floor,
+            continuity_rate_hard_floor=args.continuity_rate_hard_floor,
         )
         payload = freeze_baseline(
             result_path=Path(args.result),
@@ -220,6 +355,11 @@ def main() -> int:
                 args.keyword_hit_rate_min_delta is not None,
                 args.failure_rate_max_delta is not None,
                 args.avg_latency_ms_max_ratio is not None,
+                args.explainability_rate_min_delta is not None,
+                args.continuity_rate_min_delta is not None,
+                args.fallback_hit_rate_min_delta is not None,
+                args.explainability_rate_hard_floor is not None,
+                args.continuity_rate_hard_floor is not None,
             ]
         ):
             baseline_guardrails = _load_json(Path(args.baseline)).get("guardrails", {})
@@ -238,6 +378,31 @@ def main() -> int:
                     args.avg_latency_ms_max_ratio
                     if args.avg_latency_ms_max_ratio is not None
                     else baseline_guardrails.get("avg_latency_ms_max_ratio", 1.50)
+                ),
+                explainability_rate_min_delta=(
+                    args.explainability_rate_min_delta
+                    if args.explainability_rate_min_delta is not None
+                    else baseline_guardrails.get("explainability_rate_min_delta", -0.02)
+                ),
+                continuity_rate_min_delta=(
+                    args.continuity_rate_min_delta
+                    if args.continuity_rate_min_delta is not None
+                    else baseline_guardrails.get("continuity_rate_min_delta", -0.02)
+                ),
+                fallback_hit_rate_min_delta=(
+                    args.fallback_hit_rate_min_delta
+                    if args.fallback_hit_rate_min_delta is not None
+                    else baseline_guardrails.get("fallback_hit_rate_min_delta", -0.05)
+                ),
+                explainability_rate_hard_floor=(
+                    args.explainability_rate_hard_floor
+                    if args.explainability_rate_hard_floor is not None
+                    else baseline_guardrails.get("explainability_rate_hard_floor", 0.95)
+                ),
+                continuity_rate_hard_floor=(
+                    args.continuity_rate_hard_floor
+                    if args.continuity_rate_hard_floor is not None
+                    else baseline_guardrails.get("continuity_rate_hard_floor", 0.95)
                 ),
             )
 

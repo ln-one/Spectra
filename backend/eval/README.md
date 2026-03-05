@@ -56,6 +56,10 @@ cd backend
 - `keyword_hit_rate` 最多下降 `3%`
 - `failure_rate` 最多上升 `5%`
 - `avg_latency_ms` 最多上升到 `1.5x`
+- `explainability_rate` 最多下降 `2%`
+- `continuity_rate` 最多下降 `2%`
+- `fallback_hit_rate` 最多下降 `5%`
+- hard floor: `explainability_rate >= 95%`、`continuity_rate >= 95%`
 
 ## 指标说明
 
