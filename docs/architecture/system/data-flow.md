@@ -1,5 +1,82 @@
 # Data Flow Design
 
+> 状态说明（2026-03-06）：本文档新增“目标数据流（会话化）”。旧 `task` 流仍保留用于兼容，不能作为新功能基线。
+
+## 目标数据流（会话化：NotebookLM 三栏 + Gamma Studio）
+
+### A. 主工作台（三栏）闭环
+
+```mermaid
+flowchart LR
+  U["User"] --> FE["Workbench (3 Columns)"]
+  FE --> L["资料栏 Files/Sources"]
+  FE --> C["对话栏 Chat Context"]
+  FE --> O["大纲栏 Outline Editor"]
+  O --> S["Gamma Studio Entry"]
+  S --> R["Render (Marp/Pandoc)"]
+```
+
+说明：
+- 资料栏负责选择/标注可用素材；
+- 对话栏负责需求收敛与补充；
+- 大纲栏负责结构化编辑、重写与确认；
+- 进入 Gamma Studio 后触发正式生成与渲染导出。
+
+### B. 会话化生成主链路
+
+```mermaid
+sequenceDiagram
+ participant U as User
+ participant FE as Frontend Workbench
+ participant B as Backend Session API
+ participant DB as Database
+ participant V as Vector DB
+ participant AI as AI Service
+ participant R as Marp/Pandoc
+
+ U->>FE: 新建生成会话
+ FE->>B: POST /generate/sessions
+ B->>DB: 创建 GenerationSession(state=CONFIGURING)
+ B-->>FE: 返回 session_id + state
+
+ U->>FE: 输入需求/选择资料
+ FE->>B: POST /chat/messages + session_id
+ B->>V: 检索资料上下文
+ B->>AI: 生成对话回复（含资料记忆）
+ B-->>FE: 回复 + 来源提示
+
+ U->>FE: 生成/编辑大纲
+ FE->>B: POST /generate/sessions/{id}/commands (UPDATE/REDRAFT_OUTLINE)
+ B->>AI: 生成或重写大纲
+ B->>DB: 写入 OutlineVersion + SessionEvent
+ B-->>FE: 返回最新 outline + allowed_actions
+
+ U->>FE: 确认大纲
+ FE->>B: POST /generate/sessions/{id}/confirm
+ B->>DB: state -> GENERATING_CONTENT
+ B->>AI: 生成完整 Markdown
+ B->>R: 渲染 PPTX/DOCX
+ B->>DB: 记录 GenerationTask(兼容层) + SessionEvent
+ B-->>FE: state=SUCCESS + result urls
+```
+
+### C. 预览与修改（会话版本化）
+
+```mermaid
+sequenceDiagram
+ participant U as User
+ participant FE as Frontend
+ participant B as Backend
+ participant AI as AI Service
+ participant DB as Database
+
+ U->>FE: 在 Studio 预览并提出修改
+ FE->>B: POST /generate/sessions/{id}/commands (REGENERATE_SLIDE / PATCH)
+ B->>AI: 局部重生成
+ B->>DB: 生成新版本 + 记录 SessionEvent
+ B-->>FE: 返回新版本预览与来源
+```
+
 ## 核心业务流程
 
 ### 1. 用户注册与登录
@@ -111,7 +188,7 @@ sequenceDiagram
  participant AI as AI Service
  participant DB as Database
 
- U->>F: 点击"生成课件"
+ U->>F: 点击"生成课件"（兼容旧流程）
  F->>B: POST /generate/courseware<br/>Authorization + project_id
  B->>B: 验证用户权限
  B->>DB: 创建 GenerationTask<br/>(status=pending)
@@ -127,7 +204,7 @@ sequenceDiagram
  B->>DB: 更新 GenerationTask<br/>(status=completed, outputUrls)
  
  Note over F: 前端轮询
- F->>B: GET /generate/status/{task_id}
+ F->>B: GET /generate/tasks/{task_id}/status
  B->>DB: 查询任务状态
  B-->>F: 返回状态和进度
  F-->>U: 更新进度条
@@ -144,7 +221,7 @@ sequenceDiagram
  participant DB as Database
 
  U->>F: 访问预览页
- F->>B: GET /preview/{task_id}<br/>Authorization
+ F->>B: GET /preview/{task_id}<br/>Authorization（兼容旧流程）
  B->>B: 验证用户权限
  B->>DB: 查询生成结果
  B-->>F: 返回预览数据<br/>(slides + lesson_plan)
@@ -176,8 +253,13 @@ sequenceDiagram
 
 ### 异步流
 - 文件解析异步处理
-- 课件生成异步处理
+- 会话化内容生成与渲染异步处理
 - 前端通过轮询或 WebSocket 获取状态
+
+### 会话流（新增）
+- 以 `session_id` 作为产品主上下文，`task_id` 作为渲染执行上下文（兼容层）。
+- 大纲编辑与重写通过版本化记录，支持恢复、审计、回放。
+- 三栏工作台（资料/对话/大纲）共享同一会话快照，避免状态漂移。
 
 ### 幂等流
 - 关键操作支持幂等性键
