@@ -1,35 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { projectsApi, filesApi } from "@/lib/api";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { TokenStorage } from "@/lib/auth";
-import { Loader2, ArrowLeft, Upload, Trash2 } from "lucide-react";
+import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
+import {
+  ProjectHeader,
+  StudioPanel,
+  StudioExpandedPanel,
+  ChatPanel,
+  SourcesPanel,
+} from "@/components/project";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
-interface Project {
-  id: string;
-  name: string;
-  subject?: string;
-  grade_level?: string;
-  status: string;
-}
-
-interface FileItem {
-  id: string;
-  filename: string;
-  file_type: string;
-  status: string;
-}
+const springTransition = {
+  type: "spring",
+  stiffness: 300,
+  damping: 30,
+} as const;
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
 
-  const [project, setProject] = useState<Project | null>(null);
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
+  const {
+    project,
+    isLoading,
+    layoutMode,
+    fetchProject,
+    fetchFiles,
+    fetchMessages,
+    startGeneration,
+    reset,
+  } = useProjectStore();
 
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
@@ -38,70 +48,42 @@ export default function ProjectDetailPage() {
       return;
     }
 
-    const fetchData = async () => {
-      try {
-        const [projectRes, filesRes] = await Promise.all([
-          projectsApi.getProject(projectId),
-          filesApi.getProjectFiles(projectId),
-        ]);
-        const projectData = projectRes?.data?.project;
-        if (projectData) {
-          setProject(projectData);
-        }
-        setFiles(filesRes?.data?.files ?? []);
-      } catch (error) {
-        console.error("Failed to fetch project:", error);
-      } finally {
-        setIsLoading(false);
-      }
+    fetchProject(projectId);
+    fetchFiles(projectId);
+    fetchMessages(projectId);
+
+    return () => {
+      reset();
     };
+  }, [projectId, router, fetchProject, fetchFiles, fetchMessages, reset]);
 
-    fetchData();
-  }, [projectId, router]);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploadedFiles = e.target.files;
-    if (!uploadedFiles || uploadedFiles.length === 0) return;
-
-    setIsUploading(true);
-    try {
-      for (const file of Array.from(uploadedFiles)) {
-        await filesApi.uploadFile(file, projectId);
-      }
-      const filesRes = await filesApi.getProjectFiles(projectId);
-      setFiles(filesRes?.data?.files ?? []);
-    } catch (error) {
-      console.error("Failed to upload file:", error);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleFileDelete = async (fileId: string) => {
-    try {
-      await filesApi.deleteFile(fileId);
-      setFiles(files.filter((f) => f.id !== fileId));
-    } catch (error) {
-      console.error("Failed to delete file:", error);
-    }
+  const handleToolClick = async (tool: GenerationTool) => {
+    await startGeneration(projectId, tool);
   };
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <Loader2 className="h-6 w-6 animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-3"
+        >
+          <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+          <span className="text-sm text-zinc-500">加载中...</span>
+        </motion.div>
       </div>
     );
   }
 
   if (!project) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <p>项目不存在</p>
+          <p className="text-zinc-600">项目不存在</p>
           <button
             onClick={() => router.push("/projects")}
-            className="mt-4 px-3 py-1.5 bg-black text-white rounded text-sm"
+            className="mt-4 px-4 py-2 bg-zinc-900 text-white text-sm rounded-full hover:bg-zinc-800 transition-colors"
           >
             返回项目列表
           </button>
@@ -111,72 +93,97 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white p-8">
-      <div className="max-w-4xl mx-auto">
-        <button
-          onClick={() => router.push("/projects")}
-          className="flex items-center gap-1 text-sm text-gray-500 mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          返回
-        </button>
+    <div className="h-screen flex flex-col bg-zinc-50 overflow-hidden">
+      <ProjectHeader />
 
-        <h1 className="text-xl font-bold mb-2">{project.name}</h1>
-        {project.subject && (
-          <p className="text-sm text-gray-500 mb-6">
-            {project.grade_level} · {project.subject}
-          </p>
-        )}
-
-        <div className="border rounded p-4 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-medium">文件列表</h2>
-            <label className="flex items-center gap-1 px-3 py-1.5 bg-black text-white rounded text-sm cursor-pointer">
-              <Upload className="w-4 h-4" />
-              {isUploading ? "上传中..." : "上传文件"}
-              <input
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                disabled={isUploading}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          {files.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">暂无文件</p>
-          ) : (
-            <div className="space-y-2">
-              {files.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center justify-between p-2 border rounded"
-                >
-                  <span className="text-sm truncate">{file.filename}</span>
-                  <button
-                    onClick={() => handleFileDelete(file.id)}
-                    className="p-1 text-gray-400 hover:text-red-500"
+      <div className="flex-1 relative overflow-hidden">
+        <AnimatePresence mode="wait">
+          {layoutMode === "normal" ? (
+            <motion.div
+              key="normal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={springTransition}
+              className="h-full"
+            >
+              <ResizablePanelGroup orientation="horizontal" className="h-full">
+                <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+                  <motion.div
+                    layout
+                    transition={springTransition}
+                    className="h-full border-r border-gray-100"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                    <StudioPanel onToolClick={handleToolClick} />
+                  </motion.div>
+                </ResizablePanel>
 
-        <div className="pt-4 border-t">
-          <button
-            onClick={() => {
-              TokenStorage.clearTokens();
-              router.push("/auth/login");
-            }}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            退出登录
-          </button>
-        </div>
+                <ResizableHandle withHandle />
+
+                <ResizablePanel defaultSize={50} minSize={35}>
+                  <motion.div
+                    layout
+                    transition={springTransition}
+                    className="h-full border-r border-gray-100"
+                  >
+                    <ChatPanel projectId={projectId} />
+                  </motion.div>
+                </ResizablePanel>
+
+                <ResizableHandle withHandle />
+
+                <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+                  <motion.div layout transition={springTransition} className="h-full">
+                    <SourcesPanel projectId={projectId} />
+                  </motion.div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="expanded"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={springTransition}
+              className="h-full relative"
+            >
+              <motion.div
+                layout
+                transition={springTransition}
+                className="absolute inset-0 left-0 right-[25%]"
+              >
+                <StudioExpandedPanel />
+              </motion.div>
+
+              <motion.div
+                layout
+                initial={{ x: 100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 100, opacity: 0 }}
+                transition={springTransition}
+                className="absolute right-0 top-0 bottom-[52%] w-[25%] m-3"
+              >
+                <div className="h-full bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 overflow-hidden">
+                  <ChatPanel projectId={projectId} />
+                </div>
+              </motion.div>
+
+              <motion.div
+                layout
+                initial={{ x: 100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 100, opacity: 0 }}
+                transition={{ ...springTransition, delay: 0.05 }}
+                className="absolute right-0 bottom-0 top-[52%] w-[25%] m-3"
+              >
+                <div className="h-full bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 overflow-hidden">
+                  <SourcesPanel projectId={projectId} />
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

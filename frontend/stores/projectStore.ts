@@ -1,0 +1,226 @@
+import { create } from "zustand";
+import type { components } from "@/lib/types/api";
+import { projectsApi, filesApi, chatApi, generateApi } from "@/lib/api";
+
+type Project = components["schemas"]["Project"];
+type UploadedFile = components["schemas"]["UploadedFile"];
+type Message = components["schemas"]["Message"];
+type GenerationState = components["schemas"]["GenerationState"];
+type OutlineDocument = components["schemas"]["OutlineDocument"];
+type GenerationOptions = components["schemas"]["GenerationOptions"];
+type SessionStatePayload = components["schemas"]["SessionStatePayload"];
+
+export type LayoutMode = "normal" | "expanded";
+export type ExpandedTool = "ppt" | "word" | "mindmap" | "outline" | null;
+
+export interface GenerationTool {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  type: "ppt" | "word" | "mindmap" | "outline";
+}
+
+export const GENERATION_TOOLS: GenerationTool[] = [
+  { id: "ppt", name: "PPT 课件", description: "生成演示文稿", icon: "📊", type: "ppt" },
+  { id: "word", name: "Word 文档", description: "生成文档资料", icon: "📄", type: "word" },
+  { id: "mindmap", name: "思维导图", description: "生成知识图谱", icon: "🧠", type: "mindmap" },
+  { id: "outline", name: "课程大纲", description: "生成课程大纲", icon: "📋", type: "outline" },
+  { id: "quiz", name: "测验题库", description: "生成测验题目", icon: "❓", type: "ppt" },
+  { id: "summary", name: "内容摘要", description: "生成内容摘要", icon: "📝", type: "word" },
+  { id: "animation", name: "动画素材", description: "生成动画资源", icon: "🎬", type: "ppt" },
+  { id: "handout", name: "讲义资料", description: "生成讲义文档", icon: "📖", type: "word" },
+];
+
+export interface GenerationHistory {
+  id: string;
+  toolId: string;
+  toolName: string;
+  status: "completed" | "failed" | "processing";
+  createdAt: string;
+  title: string;
+}
+
+interface ProjectState {
+  project: Project | null;
+  files: UploadedFile[];
+  messages: Message[];
+  selectedFileIds: string[];
+  generationSession: SessionStatePayload | null;
+  generationHistory: GenerationHistory[];
+
+  layoutMode: LayoutMode;
+  expandedTool: ExpandedTool;
+
+  isLoading: boolean;
+  isSending: boolean;
+  isUploading: boolean;
+  error: string | null;
+
+  fetchProject: (projectId: string) => Promise<void>;
+  fetchFiles: (projectId: string) => Promise<void>;
+  fetchMessages: (projectId: string) => Promise<void>;
+  uploadFile: (file: File, projectId: string) => Promise<void>;
+  deleteFile: (fileId: string) => Promise<void>;
+  toggleFileSelection: (fileId: string) => void;
+  sendMessage: (projectId: string, content: string) => Promise<void>;
+  startGeneration: (projectId: string, tool: GenerationTool, options?: GenerationOptions) => Promise<void>;
+  confirmOutline: (sessionId: string) => Promise<void>;
+  setLayoutMode: (mode: LayoutMode) => void;
+  setExpandedTool: (tool: ExpandedTool) => void;
+  reset: () => void;
+}
+
+const initialState = {
+  project: null,
+  files: [],
+  messages: [],
+  selectedFileIds: [],
+  generationSession: null,
+  generationHistory: [],
+  layoutMode: "normal" as LayoutMode,
+  expandedTool: null as ExpandedTool,
+  isLoading: false,
+  isSending: false,
+  isUploading: false,
+  error: null,
+};
+
+export const useProjectStore = create<ProjectState>()((set, get) => ({
+  ...initialState,
+
+  fetchProject: async (projectId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await projectsApi.getProject(projectId);
+      set({ project: response?.data?.project ?? null });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "获取项目失败" });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  fetchFiles: async (projectId: string) => {
+    try {
+      const response = await filesApi.getProjectFiles(projectId);
+      set({ files: response?.data?.files ?? [] });
+    } catch (error) {
+      console.error("Failed to fetch files:", error);
+    }
+  },
+
+  fetchMessages: async (projectId: string) => {
+    try {
+      const response = await chatApi.getMessages({ project_id: projectId, limit: 50 });
+      set({ messages: response?.data?.messages ?? [] });
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
+    }
+  },
+
+  uploadFile: async (file: File, projectId: string) => {
+    set({ isUploading: true });
+    try {
+      await filesApi.uploadFile(file, projectId);
+      await get().fetchFiles(projectId);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "上传失败" });
+    } finally {
+      set({ isUploading: false });
+    }
+  },
+
+  deleteFile: async (fileId: string) => {
+    try {
+      await filesApi.deleteFile(fileId);
+      set((state) => ({
+        files: state.files.filter((f) => f.id !== fileId),
+        selectedFileIds: state.selectedFileIds.filter((id) => id !== fileId),
+      }));
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "删除失败" });
+    }
+  },
+
+  toggleFileSelection: (fileId: string) => {
+    set((state) => ({
+      selectedFileIds: state.selectedFileIds.includes(fileId)
+        ? state.selectedFileIds.filter((id) => id !== fileId)
+        : [...state.selectedFileIds, fileId],
+    }));
+  },
+
+  sendMessage: async (projectId: string, content: string) => {
+    if (!content.trim()) return;
+    set({ isSending: true });
+    try {
+      const userMessage: Message = {
+        id: `temp-${Date.now()}`,
+        role: "user",
+        content,
+        timestamp: new Date().toISOString(),
+      };
+      set((state) => ({ messages: [...state.messages, userMessage] }));
+
+      const response = await chatApi.sendMessage({
+        project_id: projectId,
+        content,
+      });
+
+      if (response?.data?.message) {
+        set((state) => ({
+          messages: [...state.messages.slice(0, -1), userMessage, response.data!.message!],
+        }));
+      }
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "发送失败" });
+    } finally {
+      set({ isSending: false });
+    }
+  },
+
+  startGeneration: async (projectId: string, tool: GenerationTool, options?: GenerationOptions) => {
+    try {
+      const response = await generateApi.createSession({
+        project_id: projectId,
+        output_type: tool.type === "mindmap" || tool.type === "outline" ? "ppt" : tool.type,
+        options,
+      });
+
+      if (response?.data?.session) {
+        const sessionId = response.data.session.session_id;
+        const sessionResponse = await generateApi.getSession(sessionId);
+        set({ generationSession: sessionResponse?.data ?? null });
+
+        const historyItem: GenerationHistory = {
+          id: sessionId,
+          toolId: tool.id,
+          toolName: tool.name,
+          status: "processing",
+          createdAt: new Date().toISOString(),
+          title: tool.name,
+        };
+        set((state) => ({
+          generationHistory: [historyItem, ...state.generationHistory],
+        }));
+      }
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "生成失败" });
+    }
+  },
+
+  confirmOutline: async (sessionId: string) => {
+    try {
+      await generateApi.confirmOutline(sessionId, { continue_from_retrieval: true });
+      const sessionResponse = await generateApi.getSession(sessionId);
+      set({ generationSession: sessionResponse?.data ?? null });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "确认失败" });
+    }
+  },
+
+  setLayoutMode: (mode: LayoutMode) => set({ layoutMode: mode }),
+  setExpandedTool: (tool: ExpandedTool) => set({ expandedTool: tool }),
+  reset: () => set(initialState),
+}));

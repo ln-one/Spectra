@@ -2,10 +2,14 @@ export * from "./client";
 export * from "./auth";
 export * from "./projects";
 export * from "./files";
+export * from "./chat";
+export * from "./generate";
 
 export { authApi } from "./auth";
 export { projectsApi } from "./projects";
 export { filesApi } from "./files";
+export { chatApi } from "./chat";
+export { generateApi } from "./generate";
 
 export type {
   LoginRequest,
