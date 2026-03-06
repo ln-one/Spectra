@@ -11,26 +11,16 @@ export type LoginRequest = components["schemas"]["LoginRequest"];
 export type RegisterRequest = components["schemas"]["RegisterRequest"];
 export type UserInfo = components["schemas"]["UserInfo"];
 
-// 成功的认证响应数据（token 字段为必需）
-export interface AuthSuccessData {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  user: UserInfo;
-}
-
-// 失败的认证响应数据（可能没有 token）
-export interface AuthFailureData {
+interface AuthResponseData {
   access_token?: string;
   refresh_token?: string;
   expires_in?: number;
   user?: UserInfo;
 }
 
-// 完整的认证响应类型
 export interface AuthResponse {
   success: boolean;
-  data: AuthSuccessData | AuthFailureData;
+  data: AuthResponseData;
   message: string;
 }
 

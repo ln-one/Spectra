@@ -3,33 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { projectsApi } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { LogoutButton } from "@/components/LogoutButton";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 
 export default function NewProjectPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    description: "",
     subject: "",
     grade_level: "",
   });
@@ -41,7 +21,7 @@ export default function NewProjectPage() {
     try {
       const response = await projectsApi.createProject({
         name: formData.name,
-        description: formData.description,
+        description: "",
         grade_level: formData.grade_level,
       });
       router.push(`/projects/${response.data.project?.id}`);
@@ -52,113 +32,91 @@ export default function NewProjectPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 max-w-2xl">
-      <div className="mb-6 flex justify-between items-center">
-        <Button variant="ghost" onClick={() => router.push("/projects")}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          返回项目列表
-        </Button>
-        <LogoutButton />
-      </div>
+    <div className="min-h-screen bg-white p-8">
+      <div className="max-w-md mx-auto">
+        <button
+          onClick={() => router.push("/projects")}
+          className="flex items-center gap-1 text-sm text-gray-500 mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          返回
+        </button>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>创建新项目</CardTitle>
-          <CardDescription>填写项目信息开始创建课件</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <h1 className="text-xl font-bold mb-6">创建新项目</h1>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="name" className="text-sm">项目名称 *</label>
+            <input
+              id="name"
+              placeholder="例如：初中数学二次函数"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">项目名称 *</Label>
-              <Input
-                id="name"
-                placeholder="例如：初中数学二次函数"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+              <label htmlFor="grade_level" className="text-sm">学段 *</label>
+              <select
+                id="grade_level"
+                value={formData.grade_level}
+                onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
                 required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="grade_level">学段 *</Label>
-                <Select
-                  value={formData.grade_level}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, grade_level: value })
-                  }
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择学段" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="小学">小学</SelectItem>
-                    <SelectItem value="初中">初中</SelectItem>
-                    <SelectItem value="高中">高中</SelectItem>
-                    <SelectItem value="大学">大学</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="subject">学科 *</Label>
-                <Select
-                  value={formData.subject}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, subject: value })
-                  }
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择学科" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="语文">语文</SelectItem>
-                    <SelectItem value="数学">数学</SelectItem>
-                    <SelectItem value="英语">英语</SelectItem>
-                    <SelectItem value="物理">物理</SelectItem>
-                    <SelectItem value="化学">化学</SelectItem>
-                    <SelectItem value="生物">生物</SelectItem>
-                    <SelectItem value="历史">历史</SelectItem>
-                    <SelectItem value="地理">地理</SelectItem>
-                    <SelectItem value="政治">政治</SelectItem>
-                    <SelectItem value="其他">其他</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                className="w-full px-3 py-2 border rounded-md text-sm"
+              >
+                <option value="">选择学段</option>
+                <option value="小学">小学</option>
+                <option value="初中">初中</option>
+                <option value="高中">高中</option>
+                <option value="大学">大学</option>
+              </select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">项目描述</Label>
-              <Textarea
-                id="description"
-                placeholder="描述您的教学目标和内容需求..."
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                rows={4}
-              />
-            </div>
-
-            <div className="flex justify-end gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push("/projects")}
+              <label htmlFor="subject" className="text-sm">学科 *</label>
+              <select
+                id="subject"
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                required
+                className="w-full px-3 py-2 border rounded-md text-sm"
               >
-                取消
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "创建中..." : "创建项目"}
-              </Button>
+                <option value="">选择学科</option>
+                <option value="语文">语文</option>
+                <option value="数学">数学</option>
+                <option value="英语">英语</option>
+                <option value="物理">物理</option>
+                <option value="化学">化学</option>
+                <option value="生物">生物</option>
+                <option value="历史">历史</option>
+                <option value="地理">地理</option>
+                <option value="政治">政治</option>
+                <option value="其他">其他</option>
+              </select>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => router.push("/projects")}
+              className="flex-1 py-2 border rounded-md text-sm"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 py-2 bg-black text-white rounded-md text-sm disabled:opacity-50"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "创建"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

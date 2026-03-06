@@ -7,17 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Suspense } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -29,7 +18,6 @@ const registerSchema = z
       .min(3, "用户名至少3个字符")
       .max(50, "用户名最多50个字符")
       .regex(/^[a-zA-Z0-9_-]+$/, "只能包含字母、数字、下划线和连字符"),
-    fullName: z.string().optional(),
     password: z
       .string()
       .min(8, "密码至少8个字符")
@@ -61,12 +49,7 @@ function RegisterForm() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await registerUser(
-        data.email,
-        data.password,
-        data.username,
-        data.fullName
-      );
+      await registerUser(data.email, data.password, data.username);
       toast({
         title: "注册成功",
         description: "正在跳转到项目页面...",
@@ -82,127 +65,97 @@ function RegisterForm() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">注册</CardTitle>
-          <CardDescription>创建您的账号以开始使用 Spectra</CardDescription>
-        </CardHeader>
+    <div className="flex min-h-screen items-center justify-center bg-white px-4 py-8">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          <h1 className="text-xl font-bold">注册</h1>
+        </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                {...register("email")}
-                disabled={isLoading}
-              />
-              {errors.email && (
-                <p className="text-sm text-red-500">{errors.email.message}</p>
-              )}
-            </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-sm">邮箱</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="your@email.com"
+              {...register("email")}
+              disabled={isLoading}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+            {errors.email && (
+              <p className="text-xs text-red-500">{errors.email.message}</p>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="username">用户名</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="username"
-                {...register("username")}
-                disabled={isLoading}
-              />
-              {errors.username && (
-                <p className="text-sm text-red-500">
-                  {errors.username.message}
-                </p>
-              )}
-            </div>
+          <div className="space-y-2">
+            <label htmlFor="username" className="text-sm">用户名</label>
+            <input
+              id="username"
+              type="text"
+              placeholder="username"
+              {...register("username")}
+              disabled={isLoading}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+            {errors.username && (
+              <p className="text-xs text-red-500">{errors.username.message}</p>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="fullName">姓名（可选）</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="张三"
-                {...register("fullName")}
-                disabled={isLoading}
-              />
-              {errors.fullName && (
-                <p className="text-sm text-red-500">
-                  {errors.fullName.message}
-                </p>
-              )}
-            </div>
+          <div className="space-y-2">
+            <label htmlFor="password" className="text-sm">密码</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              {...register("password")}
+              disabled={isLoading}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+            {errors.password && (
+              <p className="text-xs text-red-500">{errors.password.message}</p>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register("password")}
-                disabled={isLoading}
-              />
-              {errors.password && (
-                <p className="text-sm text-red-500">
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
+          <div className="space-y-2">
+            <label htmlFor="confirmPassword" className="text-sm">确认密码</label>
+            <input
+              id="confirmPassword"
+              type="password"
+              placeholder="••••••••"
+              {...register("confirmPassword")}
+              disabled={isLoading}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+            {errors.confirmPassword && (
+              <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">确认密码</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                {...register("confirmPassword")}
-                disabled={isLoading}
-              />
-              {errors.confirmPassword && (
-                <p className="text-sm text-red-500">
-                  {errors.confirmPassword.message}
-                </p>
-              )}
-            </div>
-          </CardContent>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-2 bg-black text-white rounded-md text-sm disabled:opacity-50"
+          >
+            {isLoading ? "注册中..." : "注册"}
+          </button>
 
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "注册中..." : "注册"}
-            </Button>
-
-            <div className="text-center text-sm text-gray-600">
-              已有账号？{" "}
-              <Link
-                href="/auth/login"
-                className="font-medium text-blue-600 hover:text-blue-500"
-              >
-                立即登录
-              </Link>
-            </div>
-          </CardFooter>
+          <div className="text-center text-sm">
+            已有账号？{" "}
+            <Link href="/auth/login" className="text-blue-600">
+              立即登录
+            </Link>
+          </div>
         </form>
-      </Card>
+      </div>
     </div>
   );
 }
 
 function RegisterLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">注册</CardTitle>
-          <CardDescription>创建您的账号以开始使用 Spectra</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+    <div className="flex min-h-screen items-center justify-center bg-white px-4">
+      <Loader2 className="h-6 w-6 animate-spin" />
     </div>
   );
 }

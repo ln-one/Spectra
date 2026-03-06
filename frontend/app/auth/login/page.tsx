@@ -7,17 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Suspense } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -59,79 +48,67 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">登录</CardTitle>
-          <CardDescription>输入您的邮箱和密码以登录系统</CardDescription>
-        </CardHeader>
+    <div className="flex min-h-screen items-center justify-center bg-white px-4">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          <h1 className="text-xl font-bold">登录</h1>
+        </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                {...register("email")}
-                disabled={isLoading}
-              />
-              {errors.email && (
-                <p className="text-sm text-red-500">{errors.email.message}</p>
-              )}
-            </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-sm">邮箱</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="your@email.com"
+              {...register("email")}
+              disabled={isLoading}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+            {errors.email && (
+              <p className="text-xs text-red-500">{errors.email.message}</p>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register("password")}
-                disabled={isLoading}
-              />
-              {errors.password && (
-                <p className="text-sm text-red-500">
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
-          </CardContent>
+          <div className="space-y-2">
+            <label htmlFor="password" className="text-sm">密码</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              {...register("password")}
+              disabled={isLoading}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+            {errors.password && (
+              <p className="text-xs text-red-500">{errors.password.message}</p>
+            )}
+          </div>
 
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "登录中..." : "登录"}
-            </Button>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-2 bg-black text-white rounded-md text-sm disabled:opacity-50"
+          >
+            {isLoading ? "登录中..." : "登录"}
+          </button>
 
-            <div className="text-center text-sm text-gray-600">
-              还没有账号？{" "}
-              <Link
-                href="/auth/register"
-                className="font-medium text-blue-600 hover:text-blue-500"
-              >
-                立即注册
-              </Link>
-            </div>
-          </CardFooter>
+          <div className="text-center text-sm">
+            还没有账号？{" "}
+            <Link href="/auth/register" className="text-blue-600">
+              立即注册
+            </Link>
+          </div>
         </form>
-      </Card>
+      </div>
     </div>
   );
 }
 
 function LoginLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">登录</CardTitle>
-          <CardDescription>输入您的邮箱和密码以登录系统</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+    <div className="flex min-h-screen items-center justify-center bg-white px-4">
+      <Loader2 className="h-6 w-6 animate-spin" />
     </div>
   );
 }
