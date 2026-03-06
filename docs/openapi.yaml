@@ -153,9 +153,16 @@ paths:
       parameters:
         - name: project_id
           in: query
-          required: true
+          required: false
           schema:
             type: string
+          description: 项目级查询范围（兼容字段）
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 会话级查询范围（推荐）。提供后优先按会话隔离上下文。
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/LimitParam'
       responses:
@@ -196,6 +203,9 @@ paths:
                 project_id:
                   type: string
                   description: 项目 ID
+                session_id:
+                  type: string
+                  description: 会话 ID（推荐，确保语音输入归属到当前会话）
       responses:
         '200':
           description: 成功
@@ -877,6 +887,7 @@ paths:
   /api/v1/preview/{task_id}:
     get:
       summary: 获取课件预览
+      description: 兼容旧任务流（推荐迁移到 /generate/sessions/{session_id}/preview）
       tags:
         - Preview
       security:
@@ -903,6 +914,7 @@ paths:
   /api/v1/preview/{task_id}/modify:
     post:
       summary: 提交修改指令
+      description: 兼容旧任务流（推荐迁移到 /generate/sessions/{session_id}/preview/modify）
       tags:
         - Preview
       security:
@@ -938,7 +950,7 @@ paths:
   /api/v1/preview/{task_id}/slides/{slide_id}:
     get:
       summary: 获取单个幻灯片详情
-      description: 查看特定幻灯片的详细内容和来源
+      description: 查看特定幻灯片的详细内容和来源（兼容旧任务流）
       tags:
         - Preview
       security:
@@ -970,7 +982,7 @@ paths:
   /api/v1/preview/{task_id}/export:
     post:
       summary: 导出预览内容
-      description: 将预览内容导出为指定格式
+      description: 将预览内容导出为指定格式（兼容旧任务流）
       tags:
         - Preview
       security:
@@ -986,39 +998,14 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - format
-              properties:
-                format:
-                  type: string
-                  enum:
-                    - json
-                    - markdown
-                    - html
-                  description: 导出格式
-                include_sources:
-                  type: boolean
-                  default: true
-                  description: 是否包含来源信息
+              $ref: '#/components/schemas/ExportRequest'
       responses:
         '200':
           description: 导出成功
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      content:
-                        type: string
-                        description: 导出的内容
-                      format:
-                        type: string
+                $ref: '#/components/schemas/ExportResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1602,6 +1589,9 @@ components:
         data:
           type: object
           properties:
+            session_id:
+              type: string
+              description: 查询时的会话范围（当请求带 session_id 时返回）
             messages:
               type: array
               items:
@@ -1622,6 +1612,11 @@ components:
       properties:
         project_id:
           type: string
+        session_id:
+          type: string
+          description: |
+            会话级上下文隔离 ID（推荐）。当提供时，服务端必须按 session 范围检索历史与资料，
+            避免同一 project 下多个生成流程相互污染。
         content:
           type: string
           minLength: 1
@@ -1642,6 +1637,9 @@ components:
         data:
           type: object
           properties:
+            session_id:
+              type: string
+              description: 本次回复实际绑定的会话 ID
             message:
               $ref: '#/components/schemas/Message'
             suggestions:
@@ -1662,6 +1660,9 @@ components:
         data:
           type: object
           properties:
+            session_id:
+              type: string
+              description: 本次语音对话绑定的会话 ID（如有）
             text:
               type: string
               description: 识别的文本内容
@@ -2938,8 +2939,16 @@ components:
         data:
           type: object
           properties:
+            session_id:
+              type: string
+              description: 会话级预览上下文 ID（session-first 流程）
             task_id:
               type: string
+              description: 兼容旧任务流的执行 ID
+            render_version:
+              type: integer
+              minimum: 1
+              description: 当前可预览渲染版本
             slides:
               type: array
               items:
@@ -2953,6 +2962,9 @@ components:
       required:
         - instruction
       properties:
+        session_id:
+          type: string
+          description: 会话级修改作用域（推荐）
         instruction:
           type: string
           minLength: 1
@@ -2963,6 +2975,10 @@ components:
             type: string
         context:
           type: object
+        base_render_version:
+          type: integer
+          minimum: 1
+          description: 并发控制版本（防止覆盖更新）
     ModifyResponse:
       type: object
       required:
@@ -2975,6 +2991,9 @@ components:
         data:
           type: object
           properties:
+            session_id:
+              type: string
+              description: 修改任务实际作用的会话
             modify_task_id:
               type: string
             status:
@@ -2984,6 +3003,10 @@ components:
                 - processing
                 - completed
                 - failed
+            render_version:
+              type: integer
+              minimum: 1
+              description: 修改后最新渲染版本
         message:
           type: string
     SlideDetailResponse:
@@ -2998,6 +3021,9 @@ components:
         data:
           type: object
           properties:
+            session_id:
+              type: string
+              description: 当前幻灯片详情所属会话
             slide:
               $ref: '#/components/schemas/Slide'
             teaching_plan:
@@ -3019,6 +3045,54 @@ components:
                       - next
                       - related
               description: 相关幻灯片
+        message:
+          type: string
+    ExportRequest:
+      type: object
+      required:
+        - format
+      properties:
+        format:
+          type: string
+          enum:
+            - json
+            - markdown
+            - html
+          description: 导出格式
+        include_sources:
+          type: boolean
+          default: true
+          description: 是否包含来源信息
+        expected_render_version:
+          type: integer
+          minimum: 1
+          description: 可选并发保护版本
+    ExportResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            session_id:
+              type: string
+              description: 导出时绑定的会话 ID
+            task_id:
+              type: string
+              description: 兼容旧任务执行 ID
+            content:
+              type: string
+              description: 导出的内容
+            format:
+              type: string
+            render_version:
+              type: integer
+              minimum: 1
         message:
           type: string
     RAGSearchRequest:
