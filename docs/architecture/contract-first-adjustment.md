@@ -1,6 +1,6 @@
 # 契约优先架构调整说明（前端导向）
 
-> 更新时间：2026-03-06
+> 更新时间：2026-03-04
 > 目标：把前端导向的交互状态机落到可执行 API 契约，支持前后端并行推进。
 
 ## 1. 调整背景
@@ -93,16 +93,3 @@
 - [前端导向设计文档](./前端导向设计文档.md)
 - [API 契约](./api-contract.md)
 - [技术栈（MVP 对齐版）](./tech-stack.md)
-- [后端数据模型](./backend/data-models.md)
-- [系统数据流](./system/data-flow.md)
-
-## 9. 2026-03-06 架构补充（NotebookLM + Gamma）
-
-1. 交互信息架构采用三栏工作台（资料/对话/大纲），并与同一 `session_id` 绑定。  
-2. Gamma 风格流程作为生成主链路：`大纲初稿 -> 大纲编辑/重写 -> 确认 -> 生成`。  
-3. Marp/Pandoc 保持渲染层职责，不参与会话状态建模。  
-4. 数据模型冻结基线：
-- `generation_session`（主状态）
-- `outline_version`（大纲版本）
-- `session_event`（事件流）
-- `generation_task`（兼容渲染执行记录）

@@ -24,11 +24,6 @@ SendMessageRequest:
   properties:
     project_id:
       type: string
-    session_id:
-      type: string
-      description: |
-        会话级上下文隔离 ID（推荐）。当提供时，服务端必须按 session 范围检索历史与资料，
-        避免同一 project 下多个生成流程相互污染。
     content:
       type: string
       minLength: 1
@@ -47,9 +42,6 @@ SendMessageResponse:
     data:
       type: object
       properties:
-        session_id:
-          type: string
-          description: 本次回复实际绑定的会话 ID
         message:
           $ref: '#/Message'
         suggestions:
@@ -68,9 +60,6 @@ GetMessagesResponse:
     data:
       type: object
       properties:
-        session_id:
-          type: string
-          description: 查询时的会话范围（当请求带 session_id 时返回）
         messages:
           type: array
           items:
@@ -93,9 +82,6 @@ VoiceMessageResponse:
     data:
       type: object
       properties:
-        session_id:
-          type: string
-          description: 本次语音对话绑定的会话 ID（如有）
         text:
           type: string
           description: 识别的文本内容

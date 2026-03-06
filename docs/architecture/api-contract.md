@@ -176,19 +176,6 @@ FastAPI 自动提供两种 API 文档界面：
  - 新能力优先通过可选字段和 `capabilities` 开关引入，不先改破坏性字段。
  - 保持 `session_id` 主模型稳定，`task_id` 仅作为兼容层存在。
 
-### NotebookLM 三栏与 Session-First 约束（2026-03-06）
-
-1. **Chat 作用域**：
- - `POST /api/v1/chat/messages`、`POST /api/v1/chat/voice` 支持 `session_id`；
- - 当携带 `session_id` 时，服务端必须优先按会话隔离历史、资料和引用来源。
-2. **Preview/Export 作用域**：
- - 新增 `/api/v1/generate/sessions/{session_id}/preview*` 会话级接口作为主路径；
- - 旧 `/api/v1/preview/{task_id}*` 保留兼容，不再作为新功能基线。
-3. **版本与并发**：
- - 预览修改/导出支持 `base_render_version` / `expected_render_version`，冲突返回 `409`。
-4. **前端一致性**：
- - 三栏工作台（资料/对话/大纲）必须共享同一 `session_id`，禁止同屏混用跨会话数据。
-
 ## 相关文档
 
 - [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
