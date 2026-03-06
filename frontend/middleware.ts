@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/auth/login", "/auth/register", "/auth"];
+// 公开路径（无需登录即可访问）
+const publicPaths = ["/auth/login", "/auth/register", "/auth", "/"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 公开路径直接放行
   if (publicPaths.some((path) => pathname.startsWith(path))) {
     return NextResponse.next();
   }
 
   const token = request.cookies.get("access_token")?.value;
 
+  // 未登录用户重定向到欢迎页
   if (!token) {
-    const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   const response = NextResponse.next();

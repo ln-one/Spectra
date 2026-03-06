@@ -48,23 +48,31 @@ export default function NewProjectPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="name" className="text-sm">项目名称 *</label>
+            <label htmlFor="name" className="text-sm">
+              项目名称 *
+            </label>
             <input
               id="name"
               placeholder="例如：初中数学二次函数"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               required
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="grade_level" className="text-sm">学段 *</label>
+            <label htmlFor="grade_level" className="text-sm">
+              学段 *
+            </label>
             <select
               id="grade_level"
               value={formData.grade_level}
-              onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, grade_level: e.target.value })
+              }
               required
               className="w-full px-3 py-2 border rounded-md text-sm"
             >
@@ -89,7 +97,11 @@ export default function NewProjectPage() {
               disabled={isLoading}
               className="flex-1 py-2 bg-black text-white rounded-md text-sm disabled:opacity-50"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "创建"}
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+              ) : (
+                "创建"
+              )}
             </button>
           </div>
         </form>

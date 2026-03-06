@@ -73,7 +73,9 @@ function RegisterForm() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm">邮箱</label>
+            <label htmlFor="email" className="text-sm">
+              邮箱
+            </label>
             <input
               id="email"
               type="email"
@@ -88,7 +90,9 @@ function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="username" className="text-sm">用户名</label>
+            <label htmlFor="username" className="text-sm">
+              用户名
+            </label>
             <input
               id="username"
               type="text"
@@ -103,7 +107,9 @@ function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="password" className="text-sm">密码</label>
+            <label htmlFor="password" className="text-sm">
+              密码
+            </label>
             <input
               id="password"
               type="password"
@@ -118,7 +124,9 @@ function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="confirmPassword" className="text-sm">确认密码</label>
+            <label htmlFor="confirmPassword" className="text-sm">
+              确认密码
+            </label>
             <input
               id="confirmPassword"
               type="password"
@@ -128,7 +136,9 @@ function RegisterForm() {
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.confirmPassword && (
-              <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>
+              <p className="text-xs text-red-500">
+                {errors.confirmPassword.message}
+              </p>
             )}
           </div>
 

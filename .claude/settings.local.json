@@ -11,7 +11,8 @@
       "Bash(cd D:/Code/Spectra/backend && venv/Scripts/python.exe -m pytest tests/test_courseware_ai.py::TestGenerateOutline::test_successful_outline_generation -v 2>&1)",
       "Bash(venv/Scripts/python.exe:*)",
       "Bash(gh pr:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(ls:*)"
     ]
   }
 }

@@ -7,7 +7,12 @@
  * 更新内容: 增强文件解析状态字段
  */
 
-import { request, getApiUrl, DEFAULT_CONTRACT_VERSION, generateIdempotencyKey } from "./client";
+import {
+  request,
+  getApiUrl,
+  DEFAULT_CONTRACT_VERSION,
+  generateIdempotencyKey,
+} from "./client";
 import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
