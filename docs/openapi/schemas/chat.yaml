@@ -24,6 +24,11 @@ SendMessageRequest:
   properties:
     project_id:
       type: string
+    session_id:
+      type: string
+      description: |
+        会话级上下文隔离 ID（预留字段）。当前后端实现仍以 project 作用域为主，
+        在 session-first 链路完全落地前该字段可能被忽略。
     content:
       type: string
       minLength: 1
@@ -42,6 +47,9 @@ SendMessageResponse:
     data:
       type: object
       properties:
+        session_id:
+          type: string
+          description: 本次回复绑定的会话 ID（可选，session-first 实现完成后稳定返回）
         message:
           $ref: '#/Message'
         suggestions:
@@ -60,6 +68,9 @@ GetMessagesResponse:
     data:
       type: object
       properties:
+        session_id:
+          type: string
+          description: 查询时的会话范围（可选字段，当前实现可能为空）
         messages:
           type: array
           items:
@@ -82,6 +93,9 @@ VoiceMessageResponse:
     data:
       type: object
       properties:
+        session_id:
+          type: string
+          description: 本次语音对话绑定的会话 ID（可选，当前实现可能为空）
         text:
           type: string
           description: 识别的文本内容

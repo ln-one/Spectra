@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "description": "RAG 检索评测数据集 - 教育课件场景",
+  "cases": [
+    {
+      "id": "edu-001",
+      "query": "光合作用的基本过程是什么",
+      "expected_keywords": ["光合作用", "叶绿体", "二氧化碳", "葡萄糖", "光能"],
+      "relevant_chunk_ids": [],
+      "category": "biology",
+      "difficulty": "easy"
+    },
+    {
+      "id": "edu-002",
+      "query": "牛顿第二定律的公式和应用",
+      "expected_keywords": ["牛顿", "F=ma", "加速度", "合力", "质量"],
+      "relevant_chunk_ids": [],
+      "category": "physics",
+      "difficulty": "easy"
+    },
+    {
+      "id": "edu-003",
+      "query": "一次函数的图像特征",
+      "expected_keywords": ["一次函数", "斜率", "截距", "直线", "坐标"],
+      "relevant_chunk_ids": [],
+      "category": "math",
+      "difficulty": "easy"
+    },
+    {
+      "id": "edu-004",
+      "query": "细胞分裂的有丝分裂各阶段特征",
+      "expected_keywords": ["有丝分裂", "前期", "中期", "后期", "染色体"],
+      "relevant_chunk_ids": [],
+      "category": "biology",
+      "difficulty": "medium"
+    },
+    {
+      "id": "edu-005",
+      "query": "化学反应速率的影响因素",
+      "expected_keywords": ["反应速率", "温度", "浓度", "催化剂", "压强"],
+      "relevant_chunk_ids": [],
+      "category": "chemistry",
+      "difficulty": "medium"
+    },
+    {
+      "id": "edu-006",
+      "query": "文言文虚词之的用法",
+      "expected_keywords": ["之", "结构助词", "代词", "动词", "用法"],
+      "relevant_chunk_ids": [],
+      "category": "chinese",
+      "difficulty": "medium"
+    },
+    {
+      "id": "edu-007",
+      "query": "二战爆发的历史背景和主要原因",
+      "expected_keywords": ["二战", "法西斯", "凡尔赛条约", "经济危机", "纳粹"],
+      "relevant_chunk_ids": [],
+      "category": "history",
+      "difficulty": "medium"
+    },
+    {
+      "id": "edu-008",
+      "query": "英语现在完成时的构成和用法",
+      "expected_keywords": ["现在完成时", "have", "has", "过去分词", "already"],
+      "relevant_chunk_ids": [],
+      "category": "english",
+      "difficulty": "easy"
+    },
+    {
+      "id": "edu-009",
+      "query": "基因突变和基因重组的区别",
+      "expected_keywords": ["基因突变", "基因重组", "变异", "遗传", "DNA"],
+      "relevant_chunk_ids": [],
+      "category": "biology",
+      "difficulty": "hard"
+    },
+    {
+      "id": "edu-010",
+      "query": "电磁感应定律的内容和应用场景",
+      "expected_keywords": ["电磁感应", "法拉第", "磁通量", "感应电流", "楞次定律"],
+      "relevant_chunk_ids": [],
+      "category": "physics",
+      "difficulty": "hard"
+    }
+  ]
+}

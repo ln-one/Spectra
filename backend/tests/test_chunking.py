@@ -83,3 +83,31 @@ class TestSplitText:
 
         with pytest.raises(ValueError, match="chunk_overlap must be less"):
             split_text("一些文本内容。" * 50, chunk_size=50, chunk_overlap=50)
+
+
+class TestChinesePunctuationSeparators:
+    """中文标点分割符优化测试（D-5.3）"""
+
+    def test_split_on_semicolon(self):
+        """应在分号处断开，而非逗号"""
+        # 构造一段用分号分隔的长文本
+        segment = "这是一个子句内容" * 8
+        text = f"{segment}；{segment}；{segment}"
+        result = split_text(text, chunk_size=60, chunk_overlap=5)
+        assert len(result) >= 2
+        # 至少有一个块以分号结尾（说明在分号处断开）
+        ends_with_semicolon = any(c.endswith("；") for c in result[:-1])
+        assert ends_with_semicolon
+
+    def test_separators_include_chinese_punctuation(self):
+        from services.chunking import SEPARATORS
+
+        assert "；" in SEPARATORS
+        assert "，" in SEPARATORS
+        assert "……" in SEPARATORS
+
+    def test_semicolon_priority_over_comma(self):
+        """分号优先级高于逗号"""
+        from services.chunking import SEPARATORS
+
+        assert SEPARATORS.index("；") < SEPARATORS.index("，")
