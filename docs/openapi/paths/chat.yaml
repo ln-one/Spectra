@@ -34,7 +34,7 @@
     parameters:
       - name: project_id
         in: query
-        required: true
+        required: false
         schema:
           type: string
         description: 项目级查询范围（兼容字段）
