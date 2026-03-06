@@ -60,6 +60,40 @@ async def test_index_upload_file_for_rag_success(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_index_upload_file_for_rag_with_session_id(monkeypatch):
+    upload = _fake_upload()
+    monkeypatch.setattr(
+        rag_indexing_service,
+        "extract_text_for_rag",
+        lambda filepath, filename, file_type: ("line one", {"text_length": 8}),
+    )
+    monkeypatch.setattr(
+        rag_indexing_service,
+        "split_text",
+        lambda text, chunk_size, chunk_overlap: ["line one"],
+    )
+    create_chunks_mock = AsyncMock(return_value=[SimpleNamespace(id="chunk-1")])
+    monkeypatch.setattr(
+        rag_indexing_service.db_service,
+        "create_parsed_chunks",
+        create_chunks_mock,
+    )
+    index_mock = AsyncMock(return_value=1)
+    monkeypatch.setattr(rag_indexing_service.rag_service, "index_chunks", index_mock)
+
+    await rag_indexing_service.index_upload_file_for_rag(
+        upload=upload,
+        project_id="p-001",
+        session_id="s-001",
+    )
+
+    chunks_arg = create_chunks_mock.await_args.kwargs["chunks"]
+    assert chunks_arg[0]["metadata"]["session_id"] == "s-001"
+    rag_chunks = index_mock.await_args.args[1]
+    assert rag_chunks[0].metadata["session_id"] == "s-001"
+
+
+@pytest.mark.asyncio
 async def test_index_upload_file_for_rag_parse_error_fallback(monkeypatch):
     upload = _fake_upload(filename="broken.pdf", fileType="pdf")
 
