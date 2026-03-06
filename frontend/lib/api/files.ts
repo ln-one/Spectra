@@ -41,25 +41,15 @@ function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
   return {
     id: String(raw.id || ""),
     filename: String(raw.filename || ""),
-    file_type: (raw.file_type ||
-      raw.fileType ||
-      "pdf") as UploadedFile["file_type"],
-    mime_type: String(raw.mime_type || raw.mimeType || ""),
-    file_size: Number(raw.file_size || raw.size || 0),
+    file_type: String(raw.file_type || "pdf") as UploadedFile["file_type"],
+    mime_type: String(raw.mime_type || ""),
+    file_size: Number(raw.file_size || 0),
     status: String(raw.status || "ready") as UploadedFile["status"],
-    parse_progress: Number(raw.parse_progress || raw.parseProgress || 100),
-    parse_details: (raw.parse_details ||
-      raw.parseResult ||
-      {}) as UploadedFile["parse_details"],
-    usage_intent: (raw.usage_intent || raw.usageIntent || undefined) as
-      | string
-      | undefined,
-    created_at: String(
-      raw.created_at || raw.createdAt || new Date().toISOString()
-    ),
-    updated_at: String(
-      raw.updated_at || raw.updatedAt || new Date().toISOString()
-    ),
+    parse_progress: Number(raw.parse_progress || 100),
+    parse_details: (raw.parse_details || {}) as UploadedFile["parse_details"],
+    usage_intent: (raw.usage_intent || undefined) as string | undefined,
+    created_at: String(raw.created_at || new Date().toISOString()),
+    updated_at: String(raw.updated_at || new Date().toISOString()),
   };
 }
 
@@ -81,6 +71,13 @@ export const filesApi = {
       if (token) {
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       }
+
+      // 添加幂等键
+      const idempotencyKey = `upload_${Date.now()}_${file.name}`;
+      xhr.setRequestHeader("Idempotency-Key", idempotencyKey);
+
+      // 添加契约版本头
+      xhr.setRequestHeader("X-Contract-Version", "2026-03");
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable && onProgress) {
@@ -190,6 +187,13 @@ export const filesApi = {
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       }
 
+      // 添加幂等键
+      const idempotencyKey = `batch_upload_${Date.now()}`;
+      xhr.setRequestHeader("Idempotency-Key", idempotencyKey);
+
+      // 添加契约版本头
+      xhr.setRequestHeader("X-Contract-Version", "2026-03");
+
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable && onProgress) {
           const progress = Math.round((event.loaded / event.total) * 100);
@@ -199,7 +203,13 @@ export const filesApi = {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed?.data?.files && Array.isArray(parsed.data.files)) {
+            parsed.data.files = parsed.data.files.map(
+              (f: Record<string, unknown>) => normalizeFileFromServer(f)
+            );
+          }
+          resolve(parsed);
         } else {
           reject(
             new Error(parseUploadErrorMessage(xhr.responseText, "批量上传失败"))

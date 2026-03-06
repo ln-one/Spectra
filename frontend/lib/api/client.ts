@@ -7,10 +7,19 @@ import { TokenStorage, authService } from "../auth";
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export const API_VERSION = "/api/v1";
+export const DEFAULT_CONTRACT_VERSION = "2026-03";
+
+function generateIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
 
 export interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
   idempotencyKey?: string;
+  autoIdempotency?: boolean;
   headers?: Record<string, string>;
   _retry?: boolean;
 }
@@ -20,7 +29,9 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public status?: number,
-    public details?: Record<string, unknown>
+    public details?: Record<string, unknown>,
+    public retryable?: boolean,
+    public traceId?: string
   ) {
     super(message);
     this.name = "ApiError";
@@ -94,6 +105,7 @@ export async function request<T>(
   const {
     requireAuth = true,
     idempotencyKey,
+    autoIdempotency = false,
     headers = {},
     _retry = false,
     ...fetchOptions
@@ -114,9 +126,17 @@ export async function request<T>(
     }
   }
 
-  if (idempotencyKey) {
-    requestHeaders["Idempotency-Key"] = idempotencyKey;
+  // 添加幂等键：优先使用传入的 idempotencyKey，否则在需要时自动生成
+  let finalIdempotencyKey = idempotencyKey;
+  if (!finalIdempotencyKey && autoIdempotency) {
+    finalIdempotencyKey = generateIdempotencyKey();
   }
+  if (finalIdempotencyKey) {
+    requestHeaders["Idempotency-Key"] = finalIdempotencyKey;
+  }
+
+  // 添加契约版本头
+  requestHeaders["X-Contract-Version"] = DEFAULT_CONTRACT_VERSION;
 
   const response = await fetch(getApiUrl(path), {
     ...fetchOptions,
@@ -145,7 +165,9 @@ export async function request<T>(
       data.error?.code || "UNKNOWN_ERROR",
       data.error?.message || data.message || "Request failed",
       response.status,
-      data.error?.details
+      data.error?.details,
+      data.error?.retryable,
+      data.error?.trace_id
     );
   }
 

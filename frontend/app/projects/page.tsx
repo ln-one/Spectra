@@ -30,7 +30,7 @@ export default function ProjectsPage() {
     const fetchProjects = async () => {
       try {
         const response = await projectsApi.getProjects();
-        setProjects(response.data.projects || []);
+        setProjects(response?.data?.projects ?? []);
       } catch (error) {
         console.error("Failed to fetch projects:", error);
       } finally {

@@ -44,11 +44,11 @@ export default function ProjectDetailPage() {
           projectsApi.getProject(projectId),
           filesApi.getProjectFiles(projectId),
         ]);
-        const projectData = projectRes.data.project;
+        const projectData = projectRes?.data?.project;
         if (projectData) {
           setProject(projectData);
         }
-        setFiles(filesRes.data.files || []);
+        setFiles(filesRes?.data?.files ?? []);
       } catch (error) {
         console.error("Failed to fetch project:", error);
       } finally {
@@ -69,7 +69,7 @@ export default function ProjectDetailPage() {
         await filesApi.uploadFile(file, projectId);
       }
       const filesRes = await filesApi.getProjectFiles(projectId);
-      setFiles(filesRes.data.files || []);
+      setFiles(filesRes?.data?.files ?? []);
     } catch (error) {
       console.error("Failed to upload file:", error);
     } finally {

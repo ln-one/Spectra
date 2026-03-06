@@ -10,7 +10,6 @@ export default function NewProjectPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    subject: "",
     grade_level: "",
   });
 
@@ -57,46 +56,21 @@ export default function NewProjectPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="grade_level" className="text-sm">学段 *</label>
-              <select
-                id="grade_level"
-                value={formData.grade_level}
-                onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
-                required
-                className="w-full px-3 py-2 border rounded-md text-sm"
-              >
-                <option value="">选择学段</option>
-                <option value="小学">小学</option>
-                <option value="初中">初中</option>
-                <option value="高中">高中</option>
-                <option value="大学">大学</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="subject" className="text-sm">学科 *</label>
-              <select
-                id="subject"
-                value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                required
-                className="w-full px-3 py-2 border rounded-md text-sm"
-              >
-                <option value="">选择学科</option>
-                <option value="语文">语文</option>
-                <option value="数学">数学</option>
-                <option value="英语">英语</option>
-                <option value="物理">物理</option>
-                <option value="化学">化学</option>
-                <option value="生物">生物</option>
-                <option value="历史">历史</option>
-                <option value="地理">地理</option>
-                <option value="政治">政治</option>
-                <option value="其他">其他</option>
-              </select>
-            </div>
+          <div className="space-y-2">
+            <label htmlFor="grade_level" className="text-sm">学段 *</label>
+            <select
+              id="grade_level"
+              value={formData.grade_level}
+              onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
+              required
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            >
+              <option value="">选择学段</option>
+              <option value="小学">小学</option>
+              <option value="初中">初中</option>
+              <option value="高中">高中</option>
+              <option value="大学">大学</option>
+            </select>
           </div>
 
           <div className="flex gap-3 pt-4">
