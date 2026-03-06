@@ -359,31 +359,50 @@ class DatabaseService:
         role: str,
         content: str,
         metadata: Optional[dict] = None,
+        session_id: Optional[str] = None,
     ):
         """Create a conversation message."""
-        return await self.db.conversation.create(
-            data={
-                "projectId": project_id,
-                "role": role,
-                "content": content,
-                "metadata": json.dumps(metadata) if metadata else None,
-            }
-        )
+        data: dict = {
+            "projectId": project_id,
+            "role": role,
+            "content": content,
+            "metadata": json.dumps(metadata) if metadata else None,
+        }
+        if session_id:
+            data["sessionId"] = session_id
+        return await self.db.conversation.create(data=data)
 
-    async def get_conversation_messages(self, project_id: str, page: int, limit: int):
+    async def get_conversation_messages(
+        self,
+        project_id: str,
+        page: int,
+        limit: int,
+        session_id: Optional[str] = None,
+    ):
         """Get conversation messages by project with pagination."""
         skip = (page - 1) * limit
+        where: dict = {"projectId": project_id}
+        if session_id:
+            where["sessionId"] = session_id
         return await self.db.conversation.find_many(
-            where={"projectId": project_id},
+            where=where,
             skip=skip,
             take=limit,
             order={"createdAt": "asc"},
         )
 
-    async def get_recent_conversation_messages(self, project_id: str, limit: int = 10):
+    async def get_recent_conversation_messages(
+        self,
+        project_id: str,
+        limit: int = 10,
+        session_id: Optional[str] = None,
+    ):
         """Get latest messages by project in chronological order."""
+        where: dict = {"projectId": project_id}
+        if session_id:
+            where["sessionId"] = session_id
         messages = await self.db.conversation.find_many(
-            where={"projectId": project_id},
+            where=where,
             take=limit,
             order={"createdAt": "desc"},
         )
@@ -395,18 +414,31 @@ class DatabaseService:
             project_id=project_id, limit=limit
         )
 
-    async def count_conversation_messages(self, project_id: str) -> int:
+    async def count_conversation_messages(
+        self,
+        project_id: str,
+        session_id: Optional[str] = None,
+    ) -> int:
         """Count conversation messages in a project."""
-        return await self.db.conversation.count(where={"projectId": project_id})
+        where: dict = {"projectId": project_id}
+        if session_id:
+            where["sessionId"] = session_id
+        return await self.db.conversation.count(where=where)
 
     async def get_conversations_paginated(
-        self, project_id: str, page: int = 1, limit: int = 20
+        self,
+        project_id: str,
+        page: int = 1,
+        limit: int = 20,
+        session_id: Optional[str] = None,
     ):
         """Return (messages, total) for a project with pagination."""
         messages = await self.get_conversation_messages(
-            project_id=project_id, page=page, limit=limit
+            project_id=project_id, page=page, limit=limit, session_id=session_id
         )
-        total = await self.count_conversation_messages(project_id=project_id)
+        total = await self.count_conversation_messages(
+            project_id=project_id, session_id=session_id
+        )
         return messages, total
 
     # ============================================
@@ -418,6 +450,7 @@ class DatabaseService:
         project_id: str,
         task_type: str,
         template_config: Optional[dict] = None,
+        session_id: Optional[str] = None,
     ):
         """
         Create a new generation task
@@ -437,6 +470,7 @@ class DatabaseService:
         task = await self.db.generationtask.create(
             data={
                 "projectId": project_id,
+                "sessionId": session_id,
                 "taskType": task_type,
                 "status": "pending",
                 "progress": 0,

@@ -16,6 +16,7 @@ from routers import (
     download_router,
     files_router,
     generate_router,
+    generate_sessions_router,
     preview_router,
     projects_router,
     rag_router,
@@ -102,6 +103,7 @@ api_v1_router.include_router(auth_router, tags=["Auth"])
 api_v1_router.include_router(chat_router, tags=["Chat"])
 api_v1_router.include_router(files_router, tags=["Files"])
 api_v1_router.include_router(generate_router, tags=["Generate"])
+api_v1_router.include_router(generate_sessions_router, tags=["Generate"])
 api_v1_router.include_router(download_router, tags=["Generate"])
 api_v1_router.include_router(preview_router, tags=["Preview"])
 api_v1_router.include_router(projects_router, tags=["Projects"])
@@ -245,7 +247,9 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     try:
-        await db_service.db.execute_raw("SELECT 1")
+        # SQLite 下 execute_raw("SELECT 1") 会报 P2010（SELECT 返回结果不允许），
+        # 这里改用 query_raw 做纯连通性探测。
+        await db_service.db.query_raw("SELECT 1")
         db_healthy = True
     except Exception:
         db_healthy = False

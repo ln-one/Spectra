@@ -4,6 +4,7 @@ from .courses import router as courses_router
 from .download import router as download_router
 from .files import router as files_router
 from .generate import router as generate_router
+from .generate_sessions import router as generate_sessions_router
 from .preview import router as preview_router
 from .projects import router as projects_router
 from .rag import router as rag_router
@@ -15,6 +16,7 @@ __all__ = [
     "download_router",
     "files_router",
     "generate_router",
+    "generate_sessions_router",
     "preview_router",
     "projects_router",
     "rag_router",

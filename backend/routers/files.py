@@ -101,7 +101,11 @@ async def _verify_project_access(project_id: str, user_id: str):
     return project
 
 
-async def _index_upload_for_rag(upload, project_id: str):
+async def _index_upload_for_rag(
+    upload,
+    project_id: str,
+    session_id: Optional[str] = None,
+):
     """解析上传文件并建立 RAG 索引。"""
     await db_service.update_upload_status(upload.id, status="parsing")
 
@@ -109,6 +113,7 @@ async def _index_upload_for_rag(upload, project_id: str):
         parse_result = await index_upload_file_for_rag(
             upload=upload,
             project_id=project_id,
+            session_id=session_id,
             chunk_size=500,
             chunk_overlap=50,
             reindex=False,
@@ -162,6 +167,7 @@ async def upload_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     project_id: str = Form(...),
+    session_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -170,7 +176,7 @@ async def upload_file(
         upload = await _save_and_record_upload(file, project_id)
         await db_service.update_upload_status(upload.id, status="parsing")
         latest = await db_service.get_file(upload.id)
-        background_tasks.add_task(_index_upload_for_rag, latest, project_id)
+        background_tasks.add_task(_index_upload_for_rag, latest, project_id, session_id)
 
         logger.info(
             "file_uploaded",
@@ -179,6 +185,7 @@ async def upload_file(
                 "project_id": project_id,
                 "file_id": upload.id,
                 "upload_filename": file.filename,
+                "session_id": session_id,
                 "idempotency_key": bool(idempotency_key),
             },
         )
@@ -202,6 +209,7 @@ async def batch_upload_files(
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     project_id: str = Form(...),
+    session_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -215,7 +223,12 @@ async def batch_upload_files(
                 upload = await _save_and_record_upload(file, project_id)
                 await db_service.update_upload_status(upload.id, status="parsing")
                 latest = await db_service.get_file(upload.id)
-                background_tasks.add_task(_index_upload_for_rag, latest, project_id)
+                background_tasks.add_task(
+                    _index_upload_for_rag,
+                    latest,
+                    project_id,
+                    session_id,
+                )
                 uploaded_files.append(latest)
             except Exception as e:
                 failed.append({"filename": file.filename, "error": str(e)})
@@ -227,6 +240,7 @@ async def batch_upload_files(
                 "project_id": project_id,
                 "success_count": len(uploaded_files),
                 "failed_count": len(failed),
+                "session_id": session_id,
                 "idempotency_key": bool(idempotency_key),
             },
         )
