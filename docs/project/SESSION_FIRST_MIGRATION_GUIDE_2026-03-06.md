@@ -43,7 +43,7 @@
 
 ## A（架构师）
 
-1. 冻结状态机与并发语义：`base_version`、`expected_state`、`base_render_version`。
+1. 冻结状态机与并发语义：`base_render_version`、`expected_render_version`。
 2. 冻结兼容策略：旧端点 Sunset 计划与替代路径。
 3. 组织跨组评审：B/C/D 对 `session_id` 作用域达成一致。
 
