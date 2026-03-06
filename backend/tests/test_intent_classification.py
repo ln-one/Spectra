@@ -80,3 +80,18 @@ class TestLLMClassification:
             mock_gen.return_value = mock_response
             result = await svc.classify_intent("你好")
             assert result.method == "keyword_fallback"
+
+    @pytest.mark.asyncio
+    async def test_llm_and_keyword_fallback_both_fail_returns_safe_default(self):
+        svc = AIService()
+        with patch.object(svc, "generate", new_callable=AsyncMock) as mock_gen:
+            mock_gen.side_effect = Exception("API error")
+            with patch.object(
+                AIService,
+                "_classify_intent_by_keywords",
+                side_effect=Exception("fallback error"),
+            ):
+                result = await svc.classify_intent("任意消息")
+                assert result.intent == IntentType.GENERAL_CHAT
+                assert result.method == "keyword_fallback"
+                assert result.confidence == 0.0

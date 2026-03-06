@@ -9,16 +9,33 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# RAG 上下文单条 chunk 最大字符数，超出截断（避免 prompt 过长）
+_RAG_CHUNK_MAX_CHARS = 600
+
 
 def _format_rag_context(rag_results: list[dict]) -> str:
-    """将 RAG 检索结果格式化为 prompt 中的参考资料部分"""
+    """
+    将 RAG 检索结果格式化为 prompt 中的参考资料部分
+
+    优化点：
+    - 显示相似度分数，帮助 LLM 判断参考价值
+    - 截断过长 chunk，避免 prompt 超长
+    - 明确要求 LLM 引用来源编号
+    """
     if not rag_results:
         return ""
     sections = []
     for i, r in enumerate(rag_results, 1):
         source = r.get("source", {})
         filename = source.get("filename", "未知来源")
-        sections.append(f"[参考资料 {i}]（来源：{filename}）\n{r['content']}")
+        score = r.get("score", 0.0)
+        content = r.get("content", "")
+        # 截断过长 chunk
+        if len(content) > _RAG_CHUNK_MAX_CHARS:
+            content = content[:_RAG_CHUNK_MAX_CHARS] + "…（内容已截断）"
+        sections.append(
+            f"[参考资料 {i}]（来源：{filename}，相关度：{score:.0%}）\n{content}"
+        )
     return "\n\n".join(sections)
 
 
@@ -96,8 +113,8 @@ class PromptService:
         if rag_context:
             formatted = _format_rag_context(rag_context)
             rag_section = (
-                "\n以下是从用户上传资料中检索到的参考内容，"
-                "请在生成课件时充分参考并引用相关知识点：\n\n"
+                "\n以下是从用户上传资料中检索到的参考内容（按相关度排序）。"
+                "请在生成课件时优先引用高相关度资料，并在内容中注明来源编号（如「参考资料1」）：\n\n"
                 f"{formatted}\n\n"
             )
         return f"""你是一位资深学科教学设计师，擅长将教学内容转化为结构清晰、\
@@ -191,7 +208,9 @@ class PromptService:
         rag_section = ""
         if rag_context:
             formatted = _format_rag_context(rag_context)
-            rag_section = f"\n参考资料：\n{formatted}\n"
+            rag_section = (
+                f"\n参考资料（按相关度排序，回答时请引用来源编号）：\n{formatted}\n"
+            )
 
         history_section = ""
         if conversation_history:

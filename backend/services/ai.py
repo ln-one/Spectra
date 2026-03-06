@@ -112,7 +112,17 @@ class AIService(CoursewareAIMixin):
             )
         except Exception as e:
             logger.warning(f"LLM intent classification failed: {e}, using fallback")
-            return self._classify_intent_by_keywords(user_message)
+            try:
+                return self._classify_intent_by_keywords(user_message)
+            except Exception as fallback_exc:
+                logger.error(
+                    "Keyword intent fallback failed: %s", fallback_exc, exc_info=True
+                )
+                return IntentClassification(
+                    intent=IntentType.GENERAL_CHAT,
+                    confidence=0.0,
+                    method="keyword_fallback",
+                )
 
     @staticmethod
     def _classify_intent_by_keywords(message: str) -> IntentClassification:
@@ -225,7 +235,17 @@ class AIService(CoursewareAIMixin):
             )
         except Exception as e:
             logger.warning(f"LLM modify intent parse failed: {e}, using fallback")
-            return self._parse_modify_intent_by_keywords(instruction)
+            try:
+                return self._parse_modify_intent_by_keywords(instruction)
+            except Exception as fallback_exc:
+                logger.error(
+                    "Keyword modify fallback failed: %s", fallback_exc, exc_info=True
+                )
+                return ModifyIntent(
+                    modify_type=ModifyType.CONTENT,
+                    target_slides=None,
+                    instruction=instruction,
+                )
 
     @staticmethod
     def _parse_modify_intent_by_keywords(instruction: str) -> ModifyIntent:
@@ -278,10 +298,13 @@ class AIService(CoursewareAIMixin):
         )
 
     async def _retrieve_rag_context(
-        self, project_id: str, query: str, top_k: int = 5
+        self, project_id: str, query: str, top_k: int = 5, score_threshold: float = 0.3
     ) -> Optional[list[dict]]:
         """
         检索 RAG 上下文（如果项目有已索引的文档）
+
+        Args:
+            score_threshold: 最低相似度阈值，过滤低质量结果（默认 0.3）
 
         Returns:
             RAG 结果列表（dict 格式），无结果时返回 None
@@ -290,7 +313,10 @@ class AIService(CoursewareAIMixin):
 
         try:
             results = await rag_service.search(
-                project_id=project_id, query=query, top_k=top_k
+                project_id=project_id,
+                query=query,
+                top_k=top_k,
+                score_threshold=score_threshold,
             )
             if results:
                 return [r.model_dump() for r in results]

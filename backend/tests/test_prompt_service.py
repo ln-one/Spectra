@@ -90,3 +90,47 @@ class TestPromptService:
             conversation_history=history,
         )
         assert "之前的问题" in prompt
+
+
+class TestFormatRagContextOptimized:
+    """优化后的 RAG 上下文格式化测试（D-5.3）"""
+
+    def test_score_displayed(self):
+        results = [{"content": "内容", "source": {"filename": "a.pdf"}, "score": 0.85}]
+        formatted = _format_rag_context(results)
+        assert "85%" in formatted
+
+    def test_score_missing_defaults_zero(self):
+        results = [{"content": "内容", "source": {"filename": "a.pdf"}}]
+        formatted = _format_rag_context(results)
+        assert "0%" in formatted
+
+    def test_long_chunk_truncated(self):
+        from services.prompt_service import _RAG_CHUNK_MAX_CHARS
+
+        long_content = "A" * (_RAG_CHUNK_MAX_CHARS + 100)
+        results = [
+            {"content": long_content, "source": {"filename": "a.pdf"}, "score": 0.9}
+        ]
+        formatted = _format_rag_context(results)
+        assert "截断" in formatted
+        assert len(formatted) < len(long_content) + 200
+
+    def test_short_chunk_not_truncated(self):
+        content = "短内容"
+        results = [{"content": content, "source": {"filename": "a.pdf"}, "score": 0.9}]
+        formatted = _format_rag_context(results)
+        assert content in formatted
+        assert "截断" not in formatted
+
+    def test_citation_instruction_in_courseware_prompt(self):
+        svc = PromptService()
+        rag = [{"content": "内容", "source": {"filename": "a.pdf"}, "score": 0.8}]
+        prompt = svc.build_courseware_prompt("主题", rag_context=rag)
+        assert "来源编号" in prompt
+
+    def test_citation_instruction_in_chat_prompt(self):
+        svc = PromptService()
+        rag = [{"content": "内容", "source": {"filename": "a.pdf"}, "score": 0.8}]
+        prompt = svc.build_chat_response_prompt("问题", "ask_question", rag_context=rag)
+        assert "来源编号" in prompt
