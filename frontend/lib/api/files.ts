@@ -7,7 +7,7 @@
  * 更新内容: 增强文件解析状态字段
  */
 
-import { request, getApiUrl } from "./client";
+import { request, getApiUrl, DEFAULT_CONTRACT_VERSION, generateIdempotencyKey } from "./client";
 import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
@@ -73,11 +73,11 @@ export const filesApi = {
       }
 
       // 添加幂等键
-      const idempotencyKey = `upload_${Date.now()}_${file.name}`;
+      const idempotencyKey = generateIdempotencyKey();
       xhr.setRequestHeader("Idempotency-Key", idempotencyKey);
 
       // 添加契约版本头
-      xhr.setRequestHeader("X-Contract-Version", "2026-03");
+      xhr.setRequestHeader("X-Contract-Version", DEFAULT_CONTRACT_VERSION);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable && onProgress) {
@@ -98,9 +98,21 @@ export const filesApi = {
             new Error(parseUploadErrorMessage(xhr.responseText, "上传失败"))
           );
         }
+        // 清理事件监听器
+        xhr.onprogress = null;
+        xhr.onload = null;
+        xhr.onerror = null;
+        xhr.upload.onprogress = null;
       };
 
-      xhr.onerror = () => reject(new Error("上传失败：网络异常"));
+      xhr.onerror = () => {
+        // 清理事件监听器
+        xhr.onprogress = null;
+        xhr.onload = null;
+        xhr.onerror = null;
+        xhr.upload.onprogress = null;
+        reject(new Error("上传失败：网络异常"));
+      };
       xhr.send(formData);
     });
   },
@@ -188,11 +200,11 @@ export const filesApi = {
       }
 
       // 添加幂等键
-      const idempotencyKey = `batch_upload_${Date.now()}`;
+      const idempotencyKey = generateIdempotencyKey();
       xhr.setRequestHeader("Idempotency-Key", idempotencyKey);
 
       // 添加契约版本头
-      xhr.setRequestHeader("X-Contract-Version", "2026-03");
+      xhr.setRequestHeader("X-Contract-Version", DEFAULT_CONTRACT_VERSION);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable && onProgress) {
@@ -215,9 +227,21 @@ export const filesApi = {
             new Error(parseUploadErrorMessage(xhr.responseText, "批量上传失败"))
           );
         }
+        // 清理事件监听器
+        xhr.onprogress = null;
+        xhr.onload = null;
+        xhr.onerror = null;
+        xhr.upload.onprogress = null;
       };
 
-      xhr.onerror = () => reject(new Error("批量上传失败：网络异常"));
+      xhr.onerror = () => {
+        // 清理事件监听器
+        xhr.onprogress = null;
+        xhr.onload = null;
+        xhr.onerror = null;
+        xhr.upload.onprogress = null;
+        reject(new Error("批量上传失败：网络异常"));
+      };
       xhr.send(formData);
     });
   },

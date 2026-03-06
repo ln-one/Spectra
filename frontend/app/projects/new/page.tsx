@@ -23,7 +23,10 @@ export default function NewProjectPage() {
         description: "",
         grade_level: formData.grade_level,
       });
-      router.push(`/projects/${response.data.project?.id}`);
+      const projectId = response?.data?.project?.id;
+      if (projectId) {
+        router.push(`/projects/${projectId}`);
+      }
     } catch (error) {
       console.error("Failed to create project:", error);
       setIsLoading(false);
