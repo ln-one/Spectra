@@ -44,7 +44,7 @@
       content:
         application/json:
           schema:
-            $ref: '../schemas/preview.yaml#/ModifySessionRequest'
+            $ref: '../schemas/preview.yaml#/ModifyRequest'
     responses:
       '200':
         description: 修改任务已创建
@@ -172,7 +172,7 @@
       content:
         application/json:
           schema:
-            $ref: '../schemas/preview.yaml#/ModifyRequest'
+            $ref: '../schemas/preview.yaml#/ModifySessionRequest'
     responses:
       '200':
         description: 修改任务已创建
