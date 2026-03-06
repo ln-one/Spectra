@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Suspense } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import { useToast } from "@/hooks/use-toast";
+import { useNotification } from "@/hooks/use-notification";
 import { Loader2 } from "lucide-react";
 import { motion, useReducedMotion, type Easing } from "framer-motion";
 
@@ -34,7 +34,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, isLoading } = useAuthStore();
-  const { toast } = useToast();
+  const { success, error } = useNotification();
   const prefersReducedMotion = useReducedMotion() ?? false;
 
   const redirect = searchParams.get("redirect") || "/projects";
@@ -50,18 +50,11 @@ function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       await login(data.email, data.password);
-      toast({
-        title: "登录成功",
-        description: "欢迎回来！",
-      });
+      success("登录成功", "欢迎回来！");
       router.push(redirect);
-    } catch (error) {
-      console.error("[Login] Error:", error);
-      toast({
-        title: "登录失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
-        variant: "destructive",
-      });
+    } catch (err) {
+      console.error("[Login] Error:", err);
+      error("登录失败", err instanceof Error ? err.message : "请稍后重试");
     }
   };
 
