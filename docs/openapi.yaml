@@ -153,7 +153,7 @@ paths:
       parameters:
         - name: project_id
           in: query
-          required: false
+          required: true
           schema:
             type: string
           description: 项目级查询范围（兼容字段）
@@ -887,7 +887,7 @@ paths:
   /api/v1/preview/{task_id}:
     get:
       summary: 获取课件预览
-      description: 兼容旧任务流（推荐迁移到 /generate/sessions/{session_id}/preview）
+      description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview）
       tags:
         - Preview
       security:
@@ -914,7 +914,7 @@ paths:
   /api/v1/preview/{task_id}/modify:
     post:
       summary: 提交修改指令
-      description: 兼容旧任务流（推荐迁移到 /generate/sessions/{session_id}/preview/modify）
+      description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview/modify）
       tags:
         - Preview
       security:
@@ -931,7 +931,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ModifyRequest'
+              $ref: '#/components/schemas/ModifySessionRequest'
       responses:
         '200':
           description: 修改任务已创建
@@ -1012,6 +1012,138 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/generate/sessions/{session_id}/preview:
+    get:
+      summary: 获取会话级课件预览
+      tags:
+        - Preview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/generate/sessions/{session_id}/preview/modify:
+    post:
+      summary: 提交会话级预览修改
+      tags:
+        - Preview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyRequest'
+      responses:
+        '200':
+          description: 修改任务已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModifyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}:
+    get:
+      summary: 获取会话级单页详情
+      tags:
+        - Preview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slide_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlideDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/generate/sessions/{session_id}/preview/export:
+    post:
+      summary: 导出会话级预览内容
+      tags:
+        - Preview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '200':
+          description: 导出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/rag/search:
     post:
       summary: 检索知识库
@@ -2957,14 +3089,11 @@ components:
               $ref: '#/components/schemas/LessonPlan'
         message:
           type: string
-    ModifyRequest:
+    ModifySessionRequest:
       type: object
       required:
         - instruction
       properties:
-        session_id:
-          type: string
-          description: 会话级修改作用域（推荐）
         instruction:
           type: string
           minLength: 1
@@ -3095,6 +3224,28 @@ components:
               minimum: 1
         message:
           type: string
+    ModifyRequest:
+      type: object
+      required:
+        - instruction
+      properties:
+        session_id:
+          type: string
+          description: 兼容字段。仅在 task 路由下用于显式绑定会话。
+        instruction:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        target_slides:
+          type: array
+          items:
+            type: string
+        context:
+          type: object
+        base_render_version:
+          type: integer
+          minimum: 1
+          description: 并发控制版本（防止覆盖更新）
     RAGSearchRequest:
       type: object
       required:

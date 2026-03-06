@@ -1,7 +1,7 @@
 /api/v1/preview/{task_id}:
   get:
     summary: 获取课件预览
-    description: 兼容旧任务流（推荐迁移到 /generate/sessions/{session_id}/preview）
+    description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview）
     tags: [Preview]
     security:
       - BearerAuth: []
@@ -28,7 +28,7 @@
 /api/v1/preview/{task_id}/modify:
   post:
     summary: 提交修改指令
-    description: 兼容旧任务流（推荐迁移到 /generate/sessions/{session_id}/preview/modify）
+    description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview/modify）
     tags: [Preview]
     security:
       - BearerAuth: []
@@ -44,7 +44,7 @@
       content:
         application/json:
           schema:
-            $ref: '../schemas/preview.yaml#/ModifyRequest'
+            $ref: '../schemas/preview.yaml#/ModifySessionRequest'
     responses:
       '200':
         description: 修改任务已创建

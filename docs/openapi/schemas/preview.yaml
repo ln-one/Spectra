@@ -106,7 +106,26 @@ ModifyRequest:
   properties:
     session_id:
       type: string
-      description: 会话级修改作用域（推荐）
+      description: 兼容字段。仅在 task 路由下用于显式绑定会话。
+    instruction:
+      type: string
+      minLength: 1
+      maxLength: 2000
+    target_slides:
+      type: array
+      items:
+        type: string
+    context:
+      type: object
+    base_render_version:
+      type: integer
+      minimum: 1
+      description: 并发控制版本（防止覆盖更新）
+
+ModifySessionRequest:
+  type: object
+  required: [instruction]
+  properties:
     instruction:
       type: string
       minLength: 1
