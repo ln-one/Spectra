@@ -5,6 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileText, File, Trash2, Check, Loader2, AlertCircle } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type { components } from "@/lib/types/api";
 
 type UploadedFile = components["schemas"]["UploadedFile"];
@@ -17,11 +21,11 @@ const FILE_TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string 
   ppt: { icon: File, color: "text-orange-500" },
 };
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  uploading: { label: "上传中", color: "text-zinc-500" },
-  parsing: { label: "解析中", color: "text-blue-500" },
-  ready: { label: "就绪", color: "text-emerald-500" },
-  failed: { label: "失败", color: "text-red-500" },
+const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  uploading: { label: "上传中", variant: "secondary" },
+  parsing: { label: "解析中", variant: "outline" },
+  ready: { label: "就绪", variant: "default" },
+  failed: { label: "失败", variant: "destructive" },
 };
 
 interface SourcesPanelProps {
@@ -77,14 +81,9 @@ function FileItem({
           {file.filename}
         </p>
         <div className="flex items-center gap-2 mt-1">
-          <span
-            className={cn(
-              "text-[10px]",
-              isSelected ? "text-white/70" : statusConfig.color
-            )}
-          >
+          <Badge variant={statusConfig.variant} className="text-[10px] px-1.5 py-0">
             {statusConfig.label}
-          </span>
+          </Badge>
           {file.file_size && (
             <span className={cn("text-[10px]", isSelected ? "text-white/50" : "text-zinc-400")}>
               {(file.file_size / 1024).toFixed(1)} KB
@@ -117,20 +116,22 @@ function FileItem({
         </div>
       )}
 
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={(e) => {
           e.stopPropagation();
           onDelete();
         }}
         className={cn(
-          "absolute bottom-2 right-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity",
+          "absolute bottom-2 right-2 w-7 h-7 opacity-0 group-hover:opacity-100 transition-opacity",
           isSelected
             ? "bg-white/10 hover:bg-white/20 text-white"
             : "bg-zinc-200 hover:bg-zinc-300 text-zinc-600"
         )}
       >
         <Trash2 className="w-3.5 h-3.5" />
-      </button>
+      </Button>
     </motion.div>
   );
 }
@@ -174,14 +175,14 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="p-4 border-b border-gray-100">
+    <Card className="h-full rounded-none border-0 shadow-none">
+      <CardHeader className="px-4 py-3 space-y-0">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900">Sources</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <CardTitle className="text-sm">Sources</CardTitle>
+            <CardDescription className="text-xs">
               {files.length} 个文件 · {selectedFileIds.length} 已选
-            </p>
+            </CardDescription>
           </div>
           <label className="relative">
             <input
@@ -193,16 +194,16 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
               disabled={isUploading}
               className="hidden"
             />
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <Button
+              size="sm"
               disabled={isUploading}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                "gap-1.5 rounded-full text-xs",
                 isUploading
-                  ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
-                  : "bg-zinc-900 text-white hover:bg-zinc-800"
+                  ? "bg-zinc-100 text-zinc-400"
+                  : "bg-zinc-900 hover:bg-zinc-800"
               )}
+              onClick={() => fileInputRef.current?.click()}
             >
               {isUploading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -210,43 +211,47 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                 <Upload className="w-3.5 h-3.5" />
               )}
               {isUploading ? "上传中" : "上传"}
-            </motion.button>
+            </Button>
           </label>
         </div>
-      </div>
+      </CardHeader>
 
-      <div
-        className="flex-1 overflow-y-auto p-3"
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-      >
-        {files.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center px-4">
-            <div className="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center mb-4">
-              <Upload className="w-7 h-7 text-zinc-400" />
-            </div>
-            <p className="text-sm font-medium text-zinc-700">上传素材</p>
-            <p className="text-xs text-zinc-500 mt-1">拖拽文件到此处或点击上传按钮</p>
-            <p className="text-[10px] text-zinc-400 mt-2">
-              支持 PDF、Word、PPT、视频等格式
-            </p>
+      <CardContent className="p-0 h-[calc(100%-60px)]">
+        <ScrollArea className="h-full px-3">
+          <div
+            className="min-h-full py-1"
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+          >
+            {files.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center py-12">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center mb-4">
+                  <Upload className="w-7 h-7 text-zinc-400" />
+                </div>
+                <p className="text-sm font-medium text-zinc-700">上传素材</p>
+                <p className="text-xs text-zinc-500 mt-1">拖拽文件到此处或点击上传按钮</p>
+                <p className="text-[10px] text-zinc-400 mt-2">
+                  支持 PDF、Word、PPT、视频等格式
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 pb-3">
+                <AnimatePresence mode="popLayout">
+                  {files.map((file) => (
+                    <FileItem
+                      key={file.id}
+                      file={file}
+                      isSelected={selectedFileIds.includes(file.id)}
+                      onToggle={() => toggleFileSelection(file.id)}
+                      onDelete={() => deleteFile(file.id)}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-2">
-            <AnimatePresence mode="popLayout">
-              {files.map((file) => (
-                <FileItem
-                  key={file.id}
-                  file={file}
-                  isSelected={selectedFileIds.includes(file.id)}
-                  onToggle={() => toggleFileSelection(file.id)}
-                  onDelete={() => deleteFile(file.id)}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
-    </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   );
 }
