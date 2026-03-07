@@ -56,7 +56,7 @@ function FileItem({
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       onClick={onToggle}
       className={cn(
-        "group relative flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all",
+        "group relative flex items-start gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all",
         isSelected
           ? "bg-zinc-900 text-white ring-2 ring-zinc-900"
           : "bg-zinc-50 hover:bg-zinc-100"
@@ -64,23 +64,23 @@ function FileItem({
     >
       <div
         className={cn(
-          "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+          "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
           isSelected ? "bg-white/10" : "bg-white shadow-sm"
         )}
       >
-        <Icon className={cn("w-5 h-5", isSelected ? "text-white" : config.color)} />
+        <Icon className={cn("w-4.5 h-4.5", isSelected ? "text-white" : config.color)} />
       </div>
 
       <div className="flex-1 min-w-0">
         <p
           className={cn(
-            "text-sm font-medium truncate",
+            "text-[11px] font-medium truncate",
             isSelected ? "text-white" : "text-zinc-800"
           )}
         >
           {file.filename}
         </p>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-1.5 mt-0.5">
           <Badge variant={statusConfig.variant} className="text-[10px] px-1.5 py-0">
             {statusConfig.label}
           </Badge>
@@ -92,7 +92,7 @@ function FileItem({
         </div>
 
         {file.status === "parsing" && file.parse_progress !== undefined && (
-          <div className="mt-2">
+          <div className="mt-1.5">
             <div className="h-1 bg-white/20 rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
@@ -105,14 +105,14 @@ function FileItem({
       </div>
 
       {isSelected && (
-        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-white flex items-center justify-center">
-          <Check className="w-3 h-3 text-zinc-900" />
+        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-white flex items-center justify-center">
+          <Check className="w-2.5 h-2.5 text-zinc-900" />
         </div>
       )}
 
       {file.status === "failed" && (
-        <div className="absolute top-2 right-2">
-          <AlertCircle className="w-4 h-4 text-red-500" />
+        <div className="absolute top-1.5 right-1.5">
+          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
         </div>
       )}
 
@@ -124,13 +124,13 @@ function FileItem({
           onDelete();
         }}
         className={cn(
-          "absolute bottom-2 right-2 w-7 h-7 opacity-0 group-hover:opacity-100 transition-opacity",
+          "absolute bottom-1.5 right-1.5 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity",
           isSelected
             ? "bg-white/10 hover:bg-white/20 text-white"
             : "bg-zinc-200 hover:bg-zinc-300 text-zinc-600"
         )}
       >
-        <Trash2 className="w-3.5 h-3.5" />
+        <Trash2 className="w-3 h-3" />
       </Button>
     </motion.div>
   );
@@ -175,83 +175,85 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
   };
 
   return (
-    <Card className="h-full rounded-none border-0 shadow-none">
-      <CardHeader className="px-4 py-3 space-y-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-sm">Sources</CardTitle>
-            <CardDescription className="text-xs">
-              {files.length} 个文件 · {selectedFileIds.length} 已选
-            </CardDescription>
+    <div className="h-full p-2.5 bg-transparent">
+      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden">
+        <CardHeader className="px-4 py-3 space-y-0 border-b border-zinc-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-sm font-semibold">Sources</CardTitle>
+              <CardDescription className="text-xs text-zinc-500">
+                {files.length} 个文件 · {selectedFileIds.length} 已选
+              </CardDescription>
+            </div>
+            <label className="relative">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mov,.avi"
+                onChange={handleFileSelect}
+                disabled={isUploading}
+                className="hidden"
+              />
+              <Button
+                size="sm"
+                disabled={isUploading}
+                className={cn(
+                  "gap-1.5 rounded-full text-[11px] h-7",
+                  isUploading
+                    ? "bg-zinc-100 text-zinc-400"
+                    : "bg-zinc-900 hover:bg-zinc-800"
+                )}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {isUploading ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Upload className="w-3 h-3" />
+                )}
+                {isUploading ? "上传中" : "上传"}
+              </Button>
+            </label>
           </div>
-          <label className="relative">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mov,.avi"
-              onChange={handleFileSelect}
-              disabled={isUploading}
-              className="hidden"
-            />
-            <Button
-              size="sm"
-              disabled={isUploading}
-              className={cn(
-                "gap-1.5 rounded-full text-xs",
-                isUploading
-                  ? "bg-zinc-100 text-zinc-400"
-                  : "bg-zinc-900 hover:bg-zinc-800"
-              )}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {isUploading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Upload className="w-3.5 h-3.5" />
-              )}
-              {isUploading ? "上传中" : "上传"}
-            </Button>
-          </label>
-        </div>
-      </CardHeader>
+        </CardHeader>
 
-      <CardContent className="p-0 h-[calc(100%-60px)]">
-        <ScrollArea className="h-full px-3">
-          <div
-            className="min-h-full py-1"
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-          >
-            {files.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center py-12">
-                <div className="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center mb-4">
-                  <Upload className="w-7 h-7 text-zinc-400" />
+        <CardContent className="p-0 h-[calc(100%-52px)]">
+          <ScrollArea className="h-full">
+            <div
+              className="min-h-full p-2.5"
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+            >
+              {files.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center py-10">
+                  <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center mb-3">
+                    <Upload className="w-6 h-6 text-zinc-400" />
+                  </div>
+                  <p className="text-sm font-medium text-zinc-700">上传素材</p>
+                  <p className="text-xs text-zinc-500 mt-1">拖拽文件到此处或点击上传按钮</p>
+                  <p className="text-[10px] text-zinc-400 mt-1.5">
+                    支持 PDF、Word、PPT、视频等格式
+                  </p>
                 </div>
-                <p className="text-sm font-medium text-zinc-700">上传素材</p>
-                <p className="text-xs text-zinc-500 mt-1">拖拽文件到此处或点击上传按钮</p>
-                <p className="text-[10px] text-zinc-400 mt-2">
-                  支持 PDF、Word、PPT、视频等格式
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2 pb-3">
-                <AnimatePresence mode="popLayout">
-                  {files.map((file) => (
-                    <FileItem
-                      key={file.id}
-                      file={file}
-                      isSelected={selectedFileIds.includes(file.id)}
-                      onToggle={() => toggleFileSelection(file.id)}
-                      onDelete={() => deleteFile(file.id)}
-                    />
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+              ) : (
+                <div className="space-y-1.5">
+                  <AnimatePresence mode="popLayout">
+                    {files.map((file) => (
+                      <FileItem
+                        key={file.id}
+                        file={file}
+                        isSelected={selectedFileIds.includes(file.id)}
+                        onToggle={() => toggleFileSelection(file.id)}
+                        onDelete={() => deleteFile(file.id)}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

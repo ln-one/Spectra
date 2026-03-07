@@ -24,25 +24,25 @@ function MessageBubble({ message, index }: { message: Message; index: number }) 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, type: "spring", stiffness: 300, damping: 30 }}
-      className={cn("flex gap-3", isUser ? "flex-row-reverse" : "flex-row")}
+      className={cn("flex gap-2.5", isUser ? "flex-row-reverse" : "flex-row")}
     >
       <div
         className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+          "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
           isUser ? "bg-zinc-900" : "bg-zinc-100"
         )}
       >
         {isUser ? (
-          <User className="w-4 h-4 text-white" />
+          <User className="w-3.5 h-3.5 text-white" />
         ) : (
-          <Bot className="w-4 h-4 text-zinc-600" />
+          <Bot className="w-3.5 h-3.5 text-zinc-600" />
         )}
       </div>
 
-      <div className={cn("flex flex-col gap-1.5 max-w-[75%]", isUser ? "items-end" : "items-start")}>
+      <div className={cn("flex flex-col gap-1 max-w-[75%]", isUser ? "items-end" : "items-start")}>
         <div
           className={cn(
-            "px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
+            "px-3.5 py-2 rounded-2xl text-sm leading-relaxed",
             isUser
               ? "bg-zinc-900 text-white rounded-tr-md"
               : "bg-zinc-100 text-zinc-800 rounded-tl-md"
@@ -104,67 +104,69 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   };
 
   return (
-    <Card className="h-full rounded-none border-0 shadow-none">
-      <CardHeader className="px-4 py-3 space-y-0">
-        <CardTitle className="text-sm">Chat</CardTitle>
-        <CardDescription className="text-xs">AI 助手对话</CardDescription>
-      </CardHeader>
+    <div className="h-full p-2.5 bg-transparent">
+      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden">
+        <CardHeader className="px-4 py-3 space-y-0 border-b border-zinc-100">
+          <CardTitle className="text-sm font-semibold">Chat</CardTitle>
+          <CardDescription className="text-xs text-zinc-500">AI 助手对话</CardDescription>
+        </CardHeader>
 
-      <CardContent className="p-0 h-[calc(100%-120px)]">
-        <ScrollArea className="h-full px-4">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center py-12">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center mb-4">
-                <Bot className="w-7 h-7 text-zinc-400" />
+        <CardContent className="p-0 h-[calc(100%-130px)]">
+          <ScrollArea className="h-full px-3.5">
+            {messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center py-10">
+                <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center mb-3">
+                  <Bot className="w-6 h-6 text-zinc-400" />
+                </div>
+                <p className="text-sm font-medium text-zinc-700">开始对话</p>
+                <p className="text-xs text-zinc-500 mt-1">向 AI 助手提问关于项目的问题</p>
               </div>
-              <p className="text-sm font-medium text-zinc-700">开始对话</p>
-              <p className="text-xs text-zinc-500 mt-1">向 AI 助手提问关于项目的问题</p>
-            </div>
-          ) : (
-            <div className="space-y-4 py-2">
-              <AnimatePresence mode="popLayout">
-                {messages.map((message, index) => (
-                  <MessageBubble key={message.id} message={message} index={index} />
-                ))}
-              </AnimatePresence>
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </ScrollArea>
-      </CardContent>
-
-      <CardFooter className="px-4 py-3 border-t border-gray-100 flex-col gap-2">
-        <div className="flex items-end gap-2 w-full">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入消息..."
-            className="min-h-[44px] max-h-[120px] resize-none rounded-2xl bg-zinc-50 border-zinc-200 focus:border-zinc-300"
-            rows={1}
-          />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!input.trim() || isSending}
-            className={cn(
-              "shrink-0 rounded-xl w-11 h-11",
-              input.trim() && !isSending
-                ? "bg-zinc-900 hover:bg-zinc-800"
-                : "bg-zinc-100 text-zinc-400"
-            )}
-          >
-            {isSending ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              <Send className="w-5 h-5" />
+              <div className="space-y-3 py-2">
+                <AnimatePresence mode="popLayout">
+                  {messages.map((message, index) => (
+                    <MessageBubble key={message.id} message={message} index={index} />
+                  ))}
+                </AnimatePresence>
+                <div ref={messagesEndRef} />
+              </div>
             )}
-          </Button>
-        </div>
-        <p className="text-[10px] text-zinc-400 text-center w-full">
-          按 Enter 发送，Shift + Enter 换行
-        </p>
-      </CardFooter>
-    </Card>
+          </ScrollArea>
+        </CardContent>
+
+        <CardFooter className="px-3.5 py-2.5 border-t border-zinc-100 flex-col gap-1.5">
+          <div className="flex items-end gap-2 w-full">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="输入消息..."
+              className="min-h-[40px] max-h-[100px] resize-none rounded-2xl bg-zinc-50 border-zinc-200 focus:border-zinc-300"
+              rows={1}
+            />
+            <Button
+              size="icon"
+              onClick={handleSend}
+              disabled={!input.trim() || isSending}
+              className={cn(
+                "shrink-0 rounded-xl w-10 h-10",
+                input.trim() && !isSending
+                  ? "bg-zinc-900 hover:bg-zinc-800"
+                  : "bg-zinc-100 text-zinc-400"
+              )}
+            >
+              {isSending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
+          <p className="text-[10px] text-zinc-400 text-center w-full">
+            按 Enter 发送，Shift + Enter 换行
+          </p>
+        </CardFooter>
+      </Card>
+    </div>
   );
 }
