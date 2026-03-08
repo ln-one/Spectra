@@ -4,20 +4,20 @@
 
 ## 主稿顺序
 
-1. [执行摘要](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/00-executive-summary.md)
-2. [前言与项目综述](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/01-overview.md)
-3. [可行性分析](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/02-feasibility.md)
-4. [业务与需求分析](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/03-requirements-analysis.md)
-5. [系统架构设计](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/04-architecture.md)
-6. [关键技术实现](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/05-key-technologies.md)
-7. [项目测试与效果评估](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/06-testing-evaluation.md)
-8. [组织管理与商业价值](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/07-organization-business.md)
-9. [题目要求覆盖说明](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/08-requirements-coverage.md)
+1. [执行摘要](./00-executive-summary.md)
+2. [前言与项目综述](./01-overview.md)
+3. [可行性分析](./02-feasibility.md)
+4. [业务与需求分析](./03-requirements-analysis.md)
+5. [系统架构设计](./04-architecture.md)
+6. [关键技术实现](./05-key-technologies.md)
+7. [项目测试与效果评估](./06-testing-evaluation.md)
+8. [组织管理与商业价值](./07-organization-business.md)
+9. [题目要求覆盖说明](./08-requirements-coverage.md)
 
 ## 附录顺序
 
-1. [术语表](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/00-terms.md)
-2. [提交版主稿结构建议](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/09-submission-manuscript.md)
+1. [术语表](./00-terms.md)
+2. [提交版主稿结构建议](./09-submission-manuscript.md)
 
 ## 不进入正式正文的内部文件
 
