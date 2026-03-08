@@ -4,11 +4,11 @@ RQ Worker 启动脚本
 启动 RQ Worker 进程，监听任务队列并执行任务。
 """
 
+import asyncio
 import logging
 import os
 import signal
 import sys
-import asyncio
 
 from redis import Redis
 from rq import SimpleWorker, Worker

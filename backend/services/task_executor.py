@@ -1,4 +1,4 @@
-"""
+﻿"""
 RQ 任务执行器
 
 执行课件生成任务，包含错误处理和状态更新。
@@ -250,7 +250,8 @@ async def execute_generation_task(
                 )
         except Exception as sync_err:
             logger.error(
-                "failed_to_sync_session_success_state task_id=%s session_id=%s error=%s",
+                "failed_to_sync_session_success_state task_id=%s session_id=%s "
+                "error=%s",
                 task_id,
                 session_id,
                 sync_err,
@@ -315,7 +316,8 @@ async def execute_generation_task(
                 )
             except Exception as sync_err:
                 logger.error(
-                    "failed_to_sync_session_failed_state task_id=%s session_id=%s error=%s",
+                    "failed_to_sync_session_failed_state task_id=%s session_id=%s "
+                    "error=%s",
                     task_id,
                     session_id,
                     sync_err,
