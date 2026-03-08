@@ -535,7 +535,7 @@ paths:
   /api/v1/preview/{task_id}/modify:
     post:
       summary: 提交修改指令
-      description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview/modify）
+      description: 兼容旧任务流（推荐在目标环境中迁移到基于会话的预览修改接口，具体以目标合同规范为准）
       tags:
         - Preview
       security:
