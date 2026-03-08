@@ -97,7 +97,7 @@ function LoginForm() {
         className="w-full max-w-sm"
       >
         <Card className="border-0 shadow-sm">
-          <CardHeader className="space-y-1 text-center pb-6">
+          <CardHeader className="p-6 space-y-1 text-center pb-6">
             <motion.div
               variants={itemVariants}
               initial="hidden"

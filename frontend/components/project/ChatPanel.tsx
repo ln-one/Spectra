@@ -104,12 +104,12 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   };
 
   return (
-    <div className="h-full p-1.5 bg-transparent">
-      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between px-4 h-[52px] border-b border-zinc-100 space-y-0 py-0">
-          <div className="flex flex-col justify-center">
-            <CardTitle className="text-sm font-semibold">Chat</CardTitle>
-            <CardDescription className="text-xs text-zinc-500">AI 助手对话</CardDescription>
+    <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
+        <CardHeader className="flex flex-row items-center justify-between px-4 border-b border-zinc-100 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
+          <div className="flex flex-col justify-center shrink-0">
+            <CardTitle className="text-sm font-semibold leading-tight">Chat</CardTitle>
+            <CardDescription className="text-xs text-zinc-500 leading-tight">AI 助手对话</CardDescription>
           </div>
         </CardHeader>
 

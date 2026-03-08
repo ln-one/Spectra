@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
   Sparkles,
@@ -17,6 +17,8 @@ import {
   Star,
   Users,
   ChevronRight,
+  X,
+  Play,
 } from "lucide-react";
 
 import { TokenStorage } from "@/lib/auth";
@@ -185,7 +187,7 @@ function Navbar() {
   );
 }
 
-function HeroSection() {
+function HeroSection({ onShowVideo }: { onShowVideo: () => void }) {
   const prefersReducedMotion = useReducedMotion() ?? false;
 
   const rotateWords = ["课件创作", "高效备课", "智能教学", "AI 辅助"];
@@ -274,9 +276,10 @@ function HeroSection() {
             size="lg"
             variant="outline"
             className="h-12 px-8 text-base"
-            asChild
+            onClick={onShowVideo}
           >
-            <Link href="/auth/login">观看演示</Link>
+            <Play className="mr-2 h-4 w-4" />
+            观看演示
           </Button>
         </motion.div>
 
@@ -421,7 +424,7 @@ function FeaturesSection() {
           {features.map((feature) => (
             <motion.div key={feature.title} variants={itemVariants}>
               <Card className="h-full group hover:shadow-lg transition-all duration-300 border-border/50 hover:border-border overflow-hidden">
-                <CardHeader>
+                <CardHeader className="p-6">
                   <div
                     className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${feature.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}
                   >
@@ -564,7 +567,7 @@ function TestimonialsSection() {
               }}
             >
               <Card className="h-full hover:shadow-lg transition-shadow duration-300">
-                <CardHeader>
+                <CardHeader className="p-6">
                   <div className="flex items-center gap-4 mb-4">
                     <Avatar className="h-12 w-12">
                       <AvatarImage
@@ -605,7 +608,7 @@ function TestimonialsSection() {
   );
 }
 
-function CTASection() {
+function CTASection({ onShowVideo }: { onShowVideo: () => void }) {
   const prefersReducedMotion = useReducedMotion() ?? false;
 
   return (
@@ -681,12 +684,10 @@ function CTASection() {
                     size="lg"
                     variant="outline"
                     className="h-14 px-10 text-base bg-white/10 backdrop-blur-sm border-white/30 hover:bg-white/20 hover:border-white/50 transition-all duration-300"
-                    asChild
+                    onClick={onShowVideo}
                   >
-                    <Link href="/auth/login">
-                      <BookOpen className="mr-2 h-4 w-4" />
-                      观看演示
-                    </Link>
+                    <Play className="mr-2 h-4 w-4" />
+                    观看演示
                   </Button>
                 </div>
 
@@ -861,6 +862,7 @@ function LoadingState() {
 export default function WelcomePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
@@ -880,13 +882,52 @@ export default function WelcomePage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <HeroSection />
+      <HeroSection onShowVideo={() => setShowVideoModal(true)} />
       <StatsSection />
       <FeaturesSection />
       <WorkflowSection />
       <TestimonialsSection />
-      <CTASection />
+      <CTASection onShowVideo={() => setShowVideoModal(true)} />
       <Footer />
+
+      {/* 视频弹窗 */}
+      <AnimatePresence>
+        {showVideoModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowVideoModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="relative w-full max-w-4xl mx-4 bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                <h3 className="text-lg font-semibold text-white">产品演示</h3>
+                <button
+                  onClick={() => setShowVideoModal(false)}
+                  className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="aspect-video bg-zinc-800 flex flex-col items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-zinc-700 flex items-center justify-center mb-4">
+                  <Play className="w-8 h-8 text-zinc-400 ml-1" />
+                </div>
+                <p className="text-zinc-400 text-lg">演示视频暂未上线</p>
+                <p className="text-zinc-500 text-sm mt-2">敬请期待</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

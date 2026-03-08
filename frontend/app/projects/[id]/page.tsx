@@ -2,9 +2,8 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
-import { Group, Panel } from "react-resizable-panels";
 import { TokenStorage } from "@/lib/auth";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import {
@@ -18,67 +17,13 @@ import { LightRays } from "@/components/ui/light-rays";
 
 const springConfig = {
   type: "spring",
-  stiffness: 400,
-  damping: 35,
+  stiffness: 280,
+  damping: 28,
+  mass: 1,
 } as const;
 
-const overlayBgVariants = {
-  initial: { opacity: 0 },
-  animate: {
-    opacity: 1,
-    transition: { duration: 0.25 }
-  },
-  exit: {
-    opacity: 0,
-    transition: { duration: 0.2, delay: 0.1 }
-  },
-};
-
-const mainPanelVariants = {
-  initial: {
-    opacity: 0,
-    scale: 0.96,
-    x: -30,
-  },
-  animate: {
-    opacity: 1,
-    scale: 1,
-    x: 0,
-    transition: springConfig,
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.96,
-    x: -30,
-    transition: { duration: 0.2 }
-  },
-};
-
-const sidePanelVariants = {
-  initial: (index: number) => ({
-    opacity: 0,
-    x: 80,
-    scale: 0.92,
-  }),
-  animate: (index: number) => ({
-    opacity: 1,
-    x: 0,
-    scale: 1,
-    transition: {
-      ...springConfig,
-      delay: 0.12 + index * 0.06,
-    }
-  }),
-  exit: (index: number) => ({
-    opacity: 0,
-    x: 80,
-    scale: 0.92,
-    transition: {
-      duration: 0.18,
-      delay: index * 0.02,
-    }
-  }),
-};
+const PAGE_GAP = 24;
+const PANEL_GAP = 12;
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -163,6 +108,8 @@ export default function ProjectDetailPage() {
     );
   }
 
+  const isExpanded = layoutMode === "expanded";
+
   return (
     <div className="h-screen flex flex-col bg-zinc-100 overflow-hidden relative">
       <LightRays
@@ -176,64 +123,65 @@ export default function ProjectDetailPage() {
 
       <ProjectHeader />
 
-      <div className="flex-1 min-h-0 relative px-1.5 py-1.5">
-        <Group orientation="horizontal" className="h-full gap-0">
-          <Panel defaultSize="25%" minSize="20%" maxSize="35%">
-            <StudioPanel onToolClick={handleToolClick} />
-          </Panel>
+      <div className="flex-1 min-h-0 relative" style={{ padding: PAGE_GAP }}>
+        <motion.div
+          className="absolute inset-0"
+          style={{ padding: PAGE_GAP }}
+          initial={false}
+        >
+          <motion.div
+            layout
+            className="absolute"
+            initial={false}
+            animate={{
+              left: PAGE_GAP,
+              top: PAGE_GAP,
+              width: isExpanded ? `calc(70% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(25% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
+              height: `calc(100% - ${PAGE_GAP * 2}px)`,
+            }}
+            transition={springConfig}
+          >
+            {isExpanded ? (
+              <StudioExpandedPanel />
+            ) : (
+              <StudioPanel onToolClick={handleToolClick} />
+            )}
+          </motion.div>
 
-          <Panel defaultSize="50%" minSize="35%">
+          <motion.div
+            layout
+            className="absolute"
+            initial={false}
+            animate={{
+              left: isExpanded ? `calc(70% + ${PANEL_GAP / 2}px)` : `calc(25% + ${PANEL_GAP / 2}px)`,
+              top: PAGE_GAP,
+              width: isExpanded ? `calc(30% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(50% - ${PANEL_GAP}px)`,
+              height: isExpanded ? `calc(50% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(100% - ${PAGE_GAP * 2}px)`,
+            }}
+            transition={springConfig}
+          >
             <ChatPanel projectId={projectId} />
-          </Panel>
+          </motion.div>
 
-          <Panel defaultSize="25%" minSize="20%" maxSize="35%">
+          <motion.div
+            layout
+            className="absolute"
+            initial={false}
+            animate={{
+              left: isExpanded ? `calc(70% + ${PANEL_GAP / 2}px)` : `calc(75% + ${PANEL_GAP / 2}px)`,
+              top: isExpanded ? `calc(50% + ${PANEL_GAP / 2}px)` : PAGE_GAP,
+              width: isExpanded ? `calc(30% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(25% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
+              height: isExpanded ? `calc(50% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(100% - ${PAGE_GAP * 2}px)`,
+            }}
+            transition={springConfig}
+          >
             <SourcesPanel projectId={projectId} />
-          </Panel>
-        </Group>
+          </motion.div>
+        </motion.div>
+      </div>
 
-        <AnimatePresence mode="wait">
-          {layoutMode === "expanded" && (
-            <motion.div
-              key="expanded-overlay"
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="absolute inset-0 z-20 pointer-events-auto"
-            >
-              <motion.div
-                variants={overlayBgVariants}
-                className="absolute inset-0 bg-black/10 backdrop-blur-[3px]"
-              />
-
-              <motion.div
-                variants={mainPanelVariants}
-                className="absolute left-1.5 right-[30%] top-1.5 bottom-1.5"
-              >
-                <StudioExpandedPanel />
-              </motion.div>
-
-              <motion.div
-                custom={0}
-                variants={sidePanelVariants}
-                className="absolute right-1.5 top-1.5 bottom-[52%] w-[27%]"
-              >
-                <div className="h-full bg-white/98 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/60 overflow-hidden">
-                  <ChatPanel projectId={projectId} />
-                </div>
-              </motion.div>
-
-              <motion.div
-                custom={1}
-                variants={sidePanelVariants}
-                className="absolute right-1.5 bottom-1.5 top-[52%] w-[27%]"
-              >
-                <div className="h-full bg-white/98 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/60 overflow-hidden">
-                  <SourcesPanel projectId={projectId} />
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
+        <p className="text-[10px] text-zinc-400">Spectra 提供的内容未必准确，因此请仔细核查回答内容。</p>
       </div>
     </div>
   );

@@ -33,12 +33,12 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   };
 
   return (
-    <div className="h-full p-1.5 bg-transparent">
-      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between px-4 h-[52px] border-b border-zinc-100 space-y-0 py-0">
-          <div className="flex flex-col justify-center">
-            <CardTitle className="text-sm font-semibold">Studio</CardTitle>
-            <CardDescription className="text-xs text-zinc-500">AI 生成工具</CardDescription>
+    <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
+        <CardHeader className="flex flex-row items-center justify-between px-4 border-b border-zinc-100 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
+          <div className="flex flex-col justify-center shrink-0">
+            <CardTitle className="text-sm font-semibold leading-tight">Studio</CardTitle>
+            <CardDescription className="text-xs text-zinc-500 leading-tight">AI 生成工具</CardDescription>
           </div>
         </CardHeader>
 
@@ -130,10 +130,10 @@ export function StudioExpandedPanel() {
   };
 
   return (
-    <Card className="h-full rounded-2xl shadow-2xl border border-white/60 bg-white/98 backdrop-blur-xl overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between px-5 py-3 space-y-0 border-b border-zinc-100">
-        <div>
-          <CardTitle className="text-base font-semibold">
+    <Card className="h-full rounded-2xl shadow-2xl border border-white/60 bg-white/98 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]" style={{ transform: "translateZ(0)" }}>
+      <CardHeader className="flex flex-row items-center justify-between px-5 border-b border-zinc-100 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
+        <div className="flex flex-col justify-center shrink-0">
+          <CardTitle className="text-base font-semibold leading-tight">
             {expandedTool === "ppt" && "PPT 课件生成"}
             {expandedTool === "word" && "Word 文档生成"}
             {expandedTool === "mindmap" && "思维导图生成"}
@@ -143,14 +143,14 @@ export function StudioExpandedPanel() {
             {expandedTool === "animation" && "动画脚本生成"}
             {expandedTool === "handout" && "讲义生成"}
           </CardTitle>
-          <CardDescription className="text-xs text-zinc-500 mt-0.5">配置生成参数</CardDescription>
+          <CardDescription className="text-xs text-zinc-500 leading-tight">配置生成参数</CardDescription>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleClose} className="text-xs text-zinc-500 hover:text-zinc-700">
+        <Button variant="ghost" size="sm" onClick={handleClose} className="text-xs text-zinc-500 hover:text-zinc-700 shrink-0">
           关闭
         </Button>
       </CardHeader>
 
-      <CardContent className="p-5 h-[calc(100%-64px)]">
+      <CardContent className="p-5 h-[calc(100%-52px)]">
         <ScrollArea className="h-full">
           <div className="space-y-5">
             <div className="text-center py-10">
