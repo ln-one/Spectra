@@ -552,7 +552,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ModifySessionRequest'
+              $ref: '#/components/schemas/ModifyRequest'
       responses:
         '200':
           description: 修改任务已创建
@@ -1856,11 +1856,14 @@ components:
               $ref: '#/components/schemas/LessonPlan'
         message:
           type: string
-    ModifySessionRequest:
+    ModifyRequest:
       type: object
       required:
         - instruction
       properties:
+        session_id:
+          type: string
+          description: 兼容字段。仅在 task 路由下用于显式绑定会话。
         instruction:
           type: string
           minLength: 1
