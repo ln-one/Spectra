@@ -68,5 +68,5 @@ async def test_recover_stale_tasks_updates_task_and_session():
 
     assert summary == {"scanned": 1, "recovered": 1, "session_updated": 1}
     db.generationtask.update.assert_awaited_once()
-    db.generationsession.update.assert_awaited_once()
+    assert db.generationsession.update.await_count == 2
     db.sessionevent.create.assert_awaited_once()

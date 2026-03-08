@@ -181,6 +181,18 @@ class StateTransitionGuard:
         """返回指定状态下允许的下一步动作列表（用于响应 allowed_actions 字段）。"""
         return list(_ALLOWED_ACTIONS.get(state, []))
 
+    @staticmethod
+    def get_transitions() -> list[dict[str, str]]:
+        """返回公开的状态迁移表，用于 capability/state-machine 声明。"""
+        return [
+            {
+                "command_type": cmd_type,
+                "from_state": from_state,
+                "to_state": to_state,
+            }
+            for (cmd_type, from_state), to_state in _TRANSITION_TABLE.items()
+        ]
+
 
 # 全局单例
 state_transition_guard = StateTransitionGuard()

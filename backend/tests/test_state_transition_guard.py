@@ -27,3 +27,13 @@ def test_validate_rejects_invalid_transition():
 def test_get_allowed_actions_for_success():
     actions = StateTransitionGuard.get_allowed_actions("SUCCESS")
     assert actions == ["regenerate_slide", "export"]
+
+
+def test_get_transitions_exposes_public_transition_table():
+    transitions = StateTransitionGuard.get_transitions()
+    assert isinstance(transitions, list)
+    assert {
+        "command_type": "CONFIRM_OUTLINE",
+        "from_state": "AWAITING_OUTLINE_CONFIRM",
+        "to_state": "GENERATING_CONTENT",
+    } in transitions

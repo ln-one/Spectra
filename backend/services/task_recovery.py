@@ -12,7 +12,9 @@ TaskRecoveryService - 任务执行层恢复与幂等保护（C1）
 
 from __future__ import annotations
 
+import json
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from prisma import Prisma
@@ -110,21 +112,24 @@ class TaskRecoveryService:
                             "errorRetryable": True,
                         },
                     )
-                    # 追加恢复事件
-                    import uuid
-
+                    # 追加恢复事件并同步 lastCursor
+                    cursor = str(uuid.uuid4())
                     await self._db.sessionevent.create(
                         data={
                             "sessionId": task.sessionId,
                             "eventType": "task.failed",
                             "state": "FAILED",
                             "stateReason": "worker_interrupted",
-                            "cursor": str(uuid.uuid4()),
-                            "payload": (
-                                '{"reason": "WORKER_INTERRUPTED",' ' "retryable": true}'
+                            "cursor": cursor,
+                            "payload": json.dumps(
+                                {"reason": "WORKER_INTERRUPTED", "retryable": True}
                             ),
                             "schemaVersion": 1,
                         }
+                    )
+                    await self._db.generationsession.update(
+                        where={"id": task.sessionId},
+                        data={"lastCursor": cursor},
                     )
                     session_updated += 1
 

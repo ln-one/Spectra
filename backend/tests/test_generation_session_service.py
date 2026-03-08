@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
 from typing import Optional
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -27,10 +27,11 @@ def _fake_session(
         resumable=True,
         updatedAt=now,
         renderVersion=1,
-        currentOutlineVersion=0,
+        currentOutlineVersion=1,
         outputType=output_type,
         options=options,
         outlineVersions=[],
+        tasks=[],
         fallbacksJson=None,
         pptUrl=None,
         wordUrl=None,
@@ -92,7 +93,9 @@ async def test_execute_command_returns_transition_payload(monkeypatch):
         "services.task_recovery.TaskRecoveryService.is_session_already_running",
         AsyncMock(return_value=False),
     )
-    monkeypatch.setattr(service._guard, "validate", lambda *_: _allow_confirm_transition())
+    monkeypatch.setattr(
+        service._guard, "validate", lambda *_: _allow_confirm_transition()
+    )
 
     result = await service.execute_command(
         session_id="s-001",
@@ -140,7 +143,9 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
         "services.task_recovery.TaskRecoveryService.is_session_already_running",
         AsyncMock(return_value=False),
     )
-    monkeypatch.setattr(service._guard, "validate", lambda *_: _allow_confirm_transition())
+    monkeypatch.setattr(
+        service._guard, "validate", lambda *_: _allow_confirm_transition()
+    )
 
     result = await service.execute_command(
         session_id="s-001",
@@ -181,7 +186,9 @@ async def test_execute_command_fallbacks_to_local_when_queue_unavailable(monkeyp
         "services.task_recovery.TaskRecoveryService.is_session_already_running",
         AsyncMock(return_value=False),
     )
-    monkeypatch.setattr(service._guard, "validate", lambda *_: _allow_confirm_transition())
+    monkeypatch.setattr(
+        service._guard, "validate", lambda *_: _allow_confirm_transition()
+    )
 
     result = await service.execute_command(
         session_id="s-001",
@@ -218,7 +225,9 @@ async def test_execute_command_fallbacks_to_local_when_enqueue_fails(monkeypatch
         "services.task_recovery.TaskRecoveryService.is_session_already_running",
         AsyncMock(return_value=False),
     )
-    monkeypatch.setattr(service._guard, "validate", lambda *_: _allow_confirm_transition())
+    monkeypatch.setattr(
+        service._guard, "validate", lambda *_: _allow_confirm_transition()
+    )
 
     result = await service.execute_command(
         session_id="s-001",
@@ -230,3 +239,88 @@ async def test_execute_command_fallbacks_to_local_when_enqueue_fails(monkeypatch
     assert result["task_id"] == "task-303"
     assert result["session"]["task_id"] == "task-303"
     assert "task_enqueue_failed_fallback_local_execution" in result["warnings"]
+
+
+@pytest.mark.asyncio
+async def test_get_events_ignores_cursor_from_other_session():
+    session = _fake_session(state="ANALYZING")
+    now = datetime.now(timezone.utc)
+    pivot = SimpleNamespace(createdAt=now, sessionId="s-other")
+    event = SimpleNamespace(
+        id="e-001",
+        schemaVersion=1,
+        eventType="state.changed",
+        state="ANALYZING",
+        stateReason=None,
+        progress=20,
+        createdAt=now,
+        cursor="c-001",
+        payload="{}",
+    )
+
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        sessionevent=SimpleNamespace(
+            find_unique=AsyncMock(return_value=pivot),
+            find_many=AsyncMock(return_value=[event]),
+        ),
+    )
+    service = GenerationSessionService(db=db)
+
+    events = await service.get_events(
+        session_id="s-001",
+        user_id="u-001",
+        cursor="cursor-from-other-session",
+    )
+
+    where_arg = db.sessionevent.find_many.await_args.kwargs["where"]
+    assert "createdAt" not in where_arg
+    assert events[0]["event_id"] == "e-001"
+
+
+@pytest.mark.asyncio
+async def test_get_session_snapshot_uses_guard_public_allowed_actions():
+    session = _fake_session(state="SUCCESS")
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert payload["allowed_actions"] == ["export"]
+    service._guard.get_allowed_actions.assert_called_once_with("SUCCESS")
+
+
+@pytest.mark.asyncio
+async def test_get_session_runtime_state_uses_lightweight_select():
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value={
+                    "userId": "u-001",
+                    "state": "RENDERING",
+                    "lastCursor": "c-101",
+                    "updatedAt": datetime.now(timezone.utc),
+                }
+            )
+        ),
+    )
+    service = GenerationSessionService(db=db)
+
+    runtime = await service.get_session_runtime_state(
+        session_id="s-001",
+        user_id="u-001",
+    )
+
+    assert runtime["state"] == "RENDERING"
+    assert runtime["last_cursor"] == "c-101"
+    call_kwargs = db.generationsession.find_unique.await_args.kwargs
+    assert call_kwargs["where"] == {"id": "s-001"}
+    assert set(call_kwargs["select"].keys()) == {
+        "userId",
+        "state",
+        "lastCursor",
+        "updatedAt",
+    }

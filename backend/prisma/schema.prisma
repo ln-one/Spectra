@@ -210,7 +210,7 @@ model GenerationSession {
   progress        Int      @default(0)
 
   // 大纲版本控制
-  currentOutlineVersion Int @default(0)
+  currentOutlineVersion Int @default(1)
 
   // 渲染版本（并发控制）
   renderVersion   Int      @default(0)

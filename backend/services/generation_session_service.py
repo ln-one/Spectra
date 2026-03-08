@@ -152,7 +152,7 @@ class GenerationSessionService:
                 "clientSessionId": client_session_id,
                 "state": "IDLE",
                 "renderVersion": 0,
-                "currentOutlineVersion": 0,
+                "currentOutlineVersion": 1,
                 "resumable": True,
             }
         )
@@ -199,8 +199,6 @@ class GenerationSessionService:
             except (json.JSONDecodeError, AttributeError):
                 outline = None
 
-        from services.state_transition_guard import _ALLOWED_ACTIONS
-
         fallbacks = []
         if session.fallbacksJson:
             try:
@@ -221,7 +219,7 @@ class GenerationSessionService:
             "context_snapshot": None,
             "capabilities": _default_capabilities(),
             "fallbacks": fallbacks,
-            "allowed_actions": _ALLOWED_ACTIONS.get(session.state, []),
+            "allowed_actions": self._guard.get_allowed_actions(session.state),
             "result": (
                 {
                     "ppt_url": session.pptUrl,
@@ -242,6 +240,43 @@ class GenerationSessionService:
                 if session.state == "FAILED" and session.errorCode
                 else None
             ),
+        }
+
+    async def get_session_runtime_state(self, session_id: str, user_id: str) -> dict:
+        """
+        返回 SSE 轮询所需的轻量会话状态，避免每秒加载 outline/tasks。
+        """
+        session = await self._db.generationsession.find_unique(
+            where={"id": session_id},
+            select={
+                "userId": True,
+                "state": True,
+                "lastCursor": True,
+                "updatedAt": True,
+            },
+        )
+        if session is None:
+            raise ValueError(f"Session not found: {session_id}")
+
+        owner_id = (
+            session.get("userId") if isinstance(session, dict) else session.userId
+        )
+        if owner_id != user_id:
+            raise PermissionError("无权访问该会话")
+
+        state = session.get("state") if isinstance(session, dict) else session.state
+        last_cursor = (
+            session.get("lastCursor")
+            if isinstance(session, dict)
+            else session.lastCursor
+        )
+        updated_at = (
+            session.get("updatedAt") if isinstance(session, dict) else session.updatedAt
+        )
+        return {
+            "state": state,
+            "last_cursor": last_cursor,
+            "updated_at": updated_at,
         }
 
     # ----------------------------------------------------------
@@ -436,7 +471,7 @@ class GenerationSessionService:
         if cursor:
             # 找到 cursor 对应事件的 createdAt，返回之后的事件
             pivot = await self._db.sessionevent.find_unique(where={"cursor": cursor})
-            if pivot:
+            if pivot and getattr(pivot, "sessionId", None) == session_id:
                 where["createdAt"] = {"gt": pivot.createdAt}
 
         events = await self._db.sessionevent.find_many(

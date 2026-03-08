@@ -48,9 +48,9 @@ def _get_task_queue_service(request: Request):
     """Extract task_queue_service from app state (None if Redis unavailable)."""
     return getattr(request.app.state, "task_queue_service", None)
 
+
 def _parse_idempotency_key(key: Optional[UUID]) -> Optional[str]:
     return str(key) if key else None
-
 
 
 def _validate_positive_int(value, field_name: str):
@@ -146,14 +146,17 @@ async def create_generation_session(
 
     svc = _get_session_service()
     key_str = _parse_idempotency_key(idempotency_key)
+    cache_key = (
+        f"create_session:{user_id}:{project_id}:{output_type}:{key_str}"
+        if key_str
+        else None
+    )
 
     # 幂等：相同 key 直接返回缓存
     if key_str:
         from services.database import db_service as _db
 
-        cached = await _db.get_idempotency_response(
-            f"create_session:{user_id}:{key_str}"
-        )
+        cached = await _db.get_idempotency_response(cache_key)
         if cached:
             return cached
 
@@ -170,9 +173,7 @@ async def create_generation_session(
         message="会话创建成功",
     )
     if key_str:
-        await db_service.save_idempotency_response(
-            f"create_session:{user_id}:{key_str}", resp
-        )
+        await db_service.save_idempotency_response(cache_key, resp)
     return resp
 
 
@@ -255,8 +256,8 @@ async def get_session_events(
 
             # 检查会话是否已终止（SUCCESS/FAILED），终止 SSE
             try:
-                snapshot = await svc.get_session_snapshot(session_id, user_id)
-                state = snapshot["session"]["state"]
+                runtime_state = await svc.get_session_runtime_state(session_id, user_id)
+                state = runtime_state["state"]
                 if state in ("SUCCESS", "FAILED"):
                     break
             except Exception:
@@ -555,16 +556,13 @@ async def get_capabilities(
 ):
     """返回服务端当前支持的契约版本、特性开关与弃用信息。"""
     from services.generation_session_service import _default_capabilities
-    from services.state_transition_guard import VALID_COMMANDS, VALID_STATES, _TRANSITION_TABLE
+    from services.state_transition_guard import (
+        VALID_COMMANDS,
+        VALID_STATES,
+        state_transition_guard,
+    )
 
-    transitions = [
-        {
-            "command_type": cmd_type,
-            "from_state": from_state,
-            "to_state": to_state,
-        }
-        for (cmd_type, from_state), to_state in _TRANSITION_TABLE.items()
-    ]
+    transitions = state_transition_guard.get_transitions()
 
     return success_response(
         data={
@@ -591,7 +589,10 @@ async def get_capabilities(
                     "/api/v1/generate/sessions/{session_id}/confirm",
                     "/api/v1/generate/sessions/{session_id}/outline/redraft",
                     "/api/v1/generate/sessions/{session_id}/resume",
-                    "/api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate",
+                    (
+                        "/api/v1/generate/sessions/{session_id}/slides/"
+                        "{slide_id}/regenerate"
+                    ),
                 ]
             ],
         },
