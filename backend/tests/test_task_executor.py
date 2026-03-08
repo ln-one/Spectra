@@ -19,12 +19,16 @@ def mock_db_service():
     mock.disconnect = AsyncMock()
     mock.update_generation_task_status = AsyncMock()
     mock.increment_task_retry_count = AsyncMock()
+    mock_task = MagicMock()
+    mock_task.sessionId = None
+    mock.get_generation_task = AsyncMock(return_value=mock_task)
 
     # 创建 mock project 对象
     mock_project = MagicMock()
     mock_project.name = "Test Project"
     mock_project.description = "Test Description"
     mock.get_project = AsyncMock(return_value=mock_project)
+    mock.get_recent_conversation_messages = AsyncMock(return_value=[])
     mock.get_messages = AsyncMock(return_value=[])
     return mock
 
