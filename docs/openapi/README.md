@@ -1,6 +1,7 @@
 # OpenAPI 规范文档结构
 
 本目录包含拆分后的 OpenAPI 规范文件，便于维护和阅读。
+当前采用“正式联调规范 + 目标契约规范”双轨管理。
 
 ## AI 使用指南
 
@@ -14,6 +15,13 @@
 
  **不要读取**（1200+ 行，太大）：
 - `docs/openapi.yaml` - 自动生成的打包文件
+
+### 哪份规范给谁用？
+
+- `docs/openapi-source.yaml` -> `docs/openapi.yaml`
+  当前可联调真相源。只包含后端已经实现、前端可以直接接入的接口。
+- `docs/openapi-target-source.yaml`
+  目标契约真相源。包含 session-first 等规划接口，用于架构设计、任务拆解和 contract-first 开发，不作为当前联调依据。
 
 ### 快速索引
 
@@ -43,8 +51,9 @@
 
 ```
 docs/
-├── openapi.yaml # 打包后的单文件（给 FastAPI/Swagger 使用）
-├── openapi-source.yaml # 主入口文件（包含所有引用）
+├── openapi.yaml # 打包后的单文件（当前可联调规范）
+├── openapi-source.yaml # 正式联调规范入口（只含已实现接口）
+├── openapi-target-source.yaml # 目标契约入口（含规划中的 session-first 接口）
 └── openapi/
  ├── paths/ # API 路径定义
  │ ├── auth.yaml # 认证相关接口
@@ -84,8 +93,11 @@ npm install
 ### 3. 打包成单文件
 
 ```bash
-# 手动打包
+# 打包当前可联调规范
 npm run bundle:openapi
+
+# 打包目标契约规范
+npm run bundle:openapi:target
 
 # 或使用脚本
 ./scripts/bundle-openapi.sh
@@ -97,7 +109,7 @@ npm run bundle:openapi
 npm run watch:openapi
 ```
 
-修改任何 `docs/openapi/` 下的文件后，会自动重新打包。
+修改任何 `docs/openapi/` 下的文件后，会自动重新打包当前可联调规范。
 
 ## 编辑规范
 
@@ -105,8 +117,11 @@ npm run watch:openapi
 
 1. 在对应的 `paths/*.yaml` 文件中添加路径定义
 2. 在对应的 `schemas/*.yaml` 文件中添加数据模型
-3. 在 `docs/openapi-source.yaml` 中添加路径引用
-4. 运行 `npm run bundle:openapi` 打包
+3. 先判断接口属于“已实现”还是“目标契约”
+4. 在对应入口文件中添加路径引用：
+   - 已实现接口 -> `docs/openapi-source.yaml`
+   - 规划接口 -> `docs/openapi-target-source.yaml`
+5. 运行对应的打包命令
 
 ### 修改现有接口
 
@@ -115,7 +130,8 @@ npm run watch:openapi
 ## 注意事项
 
 - **不要直接编辑** `docs/openapi.yaml`，它是自动生成的
-- FastAPI 读取的是 `docs/openapi.yaml`（打包后的单文件）
+- `docs/openapi.yaml` 是当前可联调规范，不应混入未实现接口
+- 目标接口先进入 `docs/openapi-target-source.yaml`，待后端落地后再切入正式规范
 - 开发时编辑 `docs/openapi/` 下的文件
 - 提交代码前记得运行打包命令
 
