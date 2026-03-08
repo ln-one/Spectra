@@ -267,10 +267,10 @@ class GenerationSessionService:
             PermissionError: 无权访问
             ConflictError: 状态不允许或版本冲突（由调用层转为 409）
         """
-        # 幂等检查
+        # 幂等检查（key 含 user_id + session_id 防跨用户/跨会话溢用）
         if idempotency_key:
             cached = await self._db.idempotencykey.find_unique(
-                where={"key": f"cmd:{idempotency_key}"}
+                where={"key": f"cmd:{user_id}:{session_id}:{idempotency_key}"}
             )
             if cached:
                 return json.loads(cached.response)
@@ -398,12 +398,12 @@ class GenerationSessionService:
             "warnings": warnings,
         }
 
-        # 缓存幂等响应
+        # 缓存幂等响应（key 含 user_id + session_id 防跨用户/跨会话溢用）
         if idempotency_key:
             try:
                 await self._db.idempotencykey.create(
                     data={
-                        "key": f"cmd:{idempotency_key}",
+                        "key": f"cmd:{user_id}:{session_id}:{idempotency_key}",
                         "response": json.dumps(response_data),
                     }
                 )
