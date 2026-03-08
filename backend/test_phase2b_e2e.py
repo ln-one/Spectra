@@ -138,13 +138,15 @@ async def print_api_test_commands(project_id: str, task_id: str):
     print("=" * 60)
 
     print("\n# 创建任务")
-    print(f"""curl -X POST "http://localhost:8000/api/v1/generate/courseware" \\
+    print(
+        f"""curl -X POST "http://localhost:8000/api/v1/generate/courseware" \\
   -H "Content-Type: application/json" \\
   -d '{{
     "project_id": "{project_id}",
     "type": "both",
     "template_config": {{"style": "gaia"}}
-  }}'""")
+  }}'"""
+    )
 
     print("\n# 查询状态")
     print(f'curl "http://localhost:8000/api/v1/generate/tasks/{task_id}/status"')

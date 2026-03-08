@@ -208,7 +208,9 @@ async def upload_file(
         upload = await _save_and_record_upload(file, project_id)
         await db_service.update_upload_status(upload.id, status="parsing")
         latest = await db_service.get_file(upload.id)
-        _dispatch_rag_indexing(request, background_tasks, latest, project_id, session_id)
+        _dispatch_rag_indexing(
+            request, background_tasks, latest, project_id, session_id
+        )
 
         logger.info(
             "file_uploaded",
@@ -262,7 +264,6 @@ async def batch_upload_files(
                 uploaded_files.append(latest)
             except Exception as e:
                 failed.append({"filename": file.filename, "error": str(e)})
-
 
         logger.info(
             "batch_files_uploaded",

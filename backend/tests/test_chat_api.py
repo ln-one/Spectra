@@ -85,7 +85,9 @@ def test_send_message_scopes_recent_messages_by_session(client, monkeypatch, _as
             ]
         ),
     )
-    recent_mock = AsyncMock(return_value=[_fake_conv(role="user", content="in session")])
+    recent_mock = AsyncMock(
+        return_value=[_fake_conv(role="user", content="in session")]
+    )
     monkeypatch.setattr(db_service, "get_recent_conversation_messages", recent_mock)
     _mock(monkeypatch, rag_service, "search", [])
     _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
