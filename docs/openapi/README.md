@@ -99,7 +99,7 @@ npm run bundle:openapi
 # 打包目标契约规范
 npm run bundle:openapi:target
 
-# 或使用脚本
+# 或使用脚本（仅打包当前可联调规范）
 ./scripts/bundle-openapi.sh
 ```
 
