@@ -104,6 +104,64 @@ class TaskQueueService:
 
         return job
 
+    def enqueue_rag_indexing_task(
+        self,
+        file_id: str,
+        project_id: str,
+        session_id: Optional[str] = None,
+        priority: str = "default",
+        timeout: int = 300,
+    ) -> Job:
+        """
+        提交 RAG 索引任务到可恢复队列（C1）。
+
+        Args:
+            file_id: Upload 记录 ID
+            project_id: 项目 ID
+            session_id: 会话 ID（C5 数据隔离可选）
+            priority: 优先级（high/default/low）
+            timeout: 超时时间（秒），默认 300 秒
+
+        Returns:
+            Job: RQ Job 实例
+        """
+        if timeout < 30:
+            raise ValueError("Timeout must be at least 30 seconds")
+        if timeout > 1800:
+            raise ValueError("Timeout cannot exceed 1800 seconds")
+
+        if priority == "high":
+            queue = self.high_queue
+        elif priority == "default":
+            queue = self.default_queue
+        elif priority == "low":
+            queue = self.low_queue
+        else:
+            raise ValueError(f"Invalid priority: {priority}")
+
+        from services.task_executor import run_rag_indexing_task
+
+        retry_strategy = Retry(max=2, interval=[30, 120])
+
+        job = queue.enqueue(
+            run_rag_indexing_task,
+            file_id=file_id,
+            project_id=project_id,
+            session_id=session_id,
+            job_timeout=timeout,
+            retry=retry_strategy,
+            result_ttl=int(os.getenv("RQ_RESULT_TTL", "86400")),
+            failure_ttl=int(os.getenv("RQ_FAILURE_TTL", "604800")),
+        )
+
+        logger.info(
+            "Enqueued RAG indexing task: file_id=%s project_id=%s job_id=%s",
+            file_id,
+            project_id,
+            job.id,
+        )
+        return job
+
     def get_job_status(self, job_id: str) -> Optional[dict]:
         """
         获取任务状态
