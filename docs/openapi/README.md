@@ -15,6 +15,7 @@
 
  **不要读取**（1200+ 行，太大）：
 - `docs/openapi.yaml` - 自动生成的打包文件
+- `docs/openapi-target.yaml` - 自动生成的目标契约打包文件
 
 ### 哪份规范给谁用？
 
