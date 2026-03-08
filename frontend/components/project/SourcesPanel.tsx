@@ -121,7 +121,7 @@ function FileItem({
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onClick={onToggle}
       className={cn(
-        "group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200",
+        "group relative flex items-center gap-2 p-2.5 rounded-xl cursor-pointer transition-all duration-200",
         isSelected
           ? "bg-white shadow-sm border-2 border-zinc-200"
           : "bg-white hover:bg-zinc-50 shadow-sm hover:shadow-md border border-zinc-100"
@@ -129,12 +129,12 @@ function FileItem({
     >
       <div
         className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105",
+          "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105",
           config.bgGradient
         )}
       >
         <Icon className={cn(
-          "w-5 h-5 transition-colors",
+          "w-4 h-4 transition-colors",
           config.color
         )} />
       </div>
@@ -150,7 +150,7 @@ function FileItem({
         </p>
 
         {file.status === "parsing" && file.parse_progress !== undefined && (
-          <div className="mt-2">
+          <div className="mt-1.5">
             <div className="h-1 rounded-full overflow-hidden bg-zinc-100">
               <motion.div
                 initial={{ width: 0 }}
@@ -163,7 +163,7 @@ function FileItem({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 shrink-0">
         <div className={cn(
           "w-2 h-2 rounded-full transition-all",
           statusConfig.color,
@@ -178,9 +178,9 @@ function FileItem({
               e.stopPropagation();
               onDelete();
             }}
-            className="w-7 h-7 rounded-lg bg-zinc-100 hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-colors"
+            className="w-6 h-6 rounded-md bg-zinc-100 hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-colors"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-3 h-3" />
           </Button>
         </div>
       </div>
@@ -190,9 +190,9 @@ function FileItem({
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-zinc-900 flex items-center justify-center shadow-lg"
+          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-900 flex items-center justify-center shadow-lg"
         >
-          <Check className="w-3 h-3 text-white" strokeWidth={3} />
+          <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
         </motion.div>
       )}
     </motion.div>

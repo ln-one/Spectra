@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { TokenStorage } from "@/lib/auth";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
@@ -41,6 +41,17 @@ export default function ProjectDetailPage() {
     reset,
   } = useProjectStore();
 
+  const [studioWidth, setStudioWidth] = useState(25);
+  const [chatWidth, setChatWidth] = useState(50);
+  const [sourcesWidth, setSourcesWidth] = useState(25);
+  const [expandedStudioWidth, setExpandedStudioWidth] = useState(70);
+
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthsRef = useRef({ studio: 0, chat: 0, sources: 0 });
+
+  const isExpanded = layoutMode === "expanded";
+
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
     if (!token) {
@@ -61,9 +72,64 @@ export default function ProjectDetailPage() {
     await startGeneration(projectId, tool);
   };
 
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent, handle: "studio-chat" | "chat-sources") => {
+      e.preventDefault();
+      isDraggingRef.current = true;
+      startXRef.current = e.clientX;
+      startWidthsRef.current = {
+        studio: studioWidth,
+        chat: chatWidth,
+        sources: sourcesWidth,
+      };
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (!isDraggingRef.current) return;
+
+        const deltaX = moveEvent.clientX - startXRef.current;
+        const containerWidth = window.innerWidth - PAGE_GAP * 2;
+        const deltaPercent = (deltaX / containerWidth) * 100;
+
+        if (handle === "studio-chat") {
+          const newStudio = Math.max(
+            15,
+            Math.min(40, startWidthsRef.current.studio + deltaPercent)
+          );
+          const newChat = Math.max(
+            30,
+            Math.min(60, startWidthsRef.current.chat - deltaPercent)
+          );
+          setStudioWidth(newStudio);
+          setChatWidth(newChat);
+        } else {
+          const newChat = Math.max(
+            30,
+            Math.min(60, startWidthsRef.current.chat + deltaPercent)
+          );
+          const newSources = Math.max(
+            15,
+            Math.min(40, startWidthsRef.current.sources - deltaPercent)
+          );
+          setChatWidth(newChat);
+          setSourcesWidth(newSources);
+        }
+      };
+
+      const handleMouseUp = () => {
+        isDraggingRef.current = false;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [studioWidth, chatWidth, sourcesWidth]
+  );
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-100 flex items-center justify-center relative overflow-hidden">
+      <div className="h-screen bg-zinc-100 flex items-center justify-center relative overflow-hidden">
         <LightRays
           count={8}
           color="rgba(180, 200, 255, 0.15)"
@@ -86,7 +152,7 @@ export default function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-zinc-100 flex items-center justify-center relative overflow-hidden">
+      <div className="h-screen bg-zinc-100 flex items-center justify-center relative overflow-hidden">
         <LightRays
           count={8}
           color="rgba(180, 200, 255, 0.15)"
@@ -108,8 +174,6 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const isExpanded = layoutMode === "expanded";
-
   return (
     <div className="h-screen flex flex-col bg-zinc-100 overflow-hidden relative">
       <LightRays
@@ -123,65 +187,109 @@ export default function ProjectDetailPage() {
 
       <ProjectHeader />
 
-      <div className="flex-1 min-h-0 relative" style={{ padding: PAGE_GAP }}>
+      <div
+        className="flex-1 min-h-0 relative flex"
+        style={{ padding: PAGE_GAP }}
+      >
         <motion.div
-          className="absolute inset-0"
-          style={{ padding: PAGE_GAP }}
-          initial={false}
+          layout
+          className="h-full"
+          animate={{
+            width: isExpanded ? `${expandedStudioWidth}%` : `${studioWidth}%`,
+          }}
+          transition={springConfig}
         >
-          <motion.div
-            layout
-            className="absolute"
-            initial={false}
-            animate={{
-              left: PAGE_GAP,
-              top: PAGE_GAP,
-              width: isExpanded ? `calc(70% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(25% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
-              height: `calc(100% - ${PAGE_GAP * 2}px)`,
-            }}
-            transition={springConfig}
-          >
+          <AnimatePresence mode="wait">
             {isExpanded ? (
-              <StudioExpandedPanel />
+              <motion.div
+                key="expanded"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full"
+              >
+                <StudioExpandedPanel />
+              </motion.div>
             ) : (
-              <StudioPanel onToolClick={handleToolClick} />
+              <motion.div
+                key="normal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full"
+              >
+                <StudioPanel onToolClick={handleToolClick} />
+              </motion.div>
             )}
-          </motion.div>
+          </AnimatePresence>
+        </motion.div>
 
-          <motion.div
-            layout
-            className="absolute"
-            initial={false}
-            animate={{
-              left: isExpanded ? `calc(70% + ${PANEL_GAP / 2}px)` : `calc(25% + ${PANEL_GAP / 2}px)`,
-              top: PAGE_GAP,
-              width: isExpanded ? `calc(30% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(50% - ${PANEL_GAP}px)`,
-              height: isExpanded ? `calc(50% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(100% - ${PAGE_GAP * 2}px)`,
-            }}
-            transition={springConfig}
-          >
+        {!isExpanded && (
+          <div
+            className="h-full cursor-col-resize shrink-0"
+            style={{ width: PANEL_GAP }}
+            onMouseDown={(e) => handleMouseDown(e, "studio-chat")}
+          />
+        )}
+
+        <motion.div
+          layout
+          className="h-full"
+          animate={{
+            width: isExpanded ? `${100 - expandedStudioWidth}%` : `${chatWidth}%`,
+          }}
+          transition={springConfig}
+        >
+          {isExpanded ? (
+            <div className="h-full flex flex-col" style={{ gap: PANEL_GAP }}>
+              <motion.div
+                className="flex-1"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...springConfig, delay: 0.05 }}
+              >
+                <ChatPanel projectId={projectId} />
+              </motion.div>
+              <motion.div
+                className="flex-1"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...springConfig, delay: 0.1 }}
+              >
+                <SourcesPanel projectId={projectId} />
+              </motion.div>
+            </div>
+          ) : (
             <ChatPanel projectId={projectId} />
-          </motion.div>
+          )}
+        </motion.div>
 
+        {!isExpanded && (
+          <div
+            className="h-full cursor-col-resize shrink-0"
+            style={{ width: PANEL_GAP }}
+            onMouseDown={(e) => handleMouseDown(e, "chat-sources")}
+          />
+        )}
+
+        {!isExpanded && (
           <motion.div
             layout
-            className="absolute"
-            initial={false}
+            className="h-full"
             animate={{
-              left: isExpanded ? `calc(70% + ${PANEL_GAP / 2}px)` : `calc(75% + ${PANEL_GAP / 2}px)`,
-              top: isExpanded ? `calc(50% + ${PANEL_GAP / 2}px)` : PAGE_GAP,
-              width: isExpanded ? `calc(30% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(25% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
-              height: isExpanded ? `calc(50% - ${PAGE_GAP + PANEL_GAP / 2}px)` : `calc(100% - ${PAGE_GAP * 2}px)`,
+              width: `${sourcesWidth}%`,
             }}
             transition={springConfig}
           >
             <SourcesPanel projectId={projectId} />
           </motion.div>
-        </motion.div>
+        )}
       </div>
 
       <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
-        <p className="text-[10px] text-zinc-400">Spectra 提供的内容未必准确，因此请仔细核查回答内容。</p>
+        <p className="text-[10px] text-zinc-400">
+          Spectra 提供的内容未必准确，因此请仔细核查回答内容。
+        </p>
       </div>
     </div>
   );
