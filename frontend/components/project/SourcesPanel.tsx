@@ -175,46 +175,44 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
   };
 
   return (
-    <div className="h-full p-2.5 bg-transparent">
+    <div className="h-full p-1.5 bg-transparent">
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden">
-        <CardHeader className="px-4 py-3 space-y-0 border-b border-zinc-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-sm font-semibold">Sources</CardTitle>
-              <CardDescription className="text-xs text-zinc-500">
-                {files.length} 个文件 · {selectedFileIds.length} 已选
-              </CardDescription>
-            </div>
-            <label className="relative">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mov,.avi"
-                onChange={handleFileSelect}
-                disabled={isUploading}
-                className="hidden"
-              />
-              <Button
-                size="sm"
-                disabled={isUploading}
-                className={cn(
-                  "gap-1.5 rounded-full text-[11px] h-7",
-                  isUploading
-                    ? "bg-zinc-100 text-zinc-400"
-                    : "bg-zinc-900 hover:bg-zinc-800"
-                )}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {isUploading ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Upload className="w-3 h-3" />
-                )}
-                {isUploading ? "上传中" : "上传"}
-              </Button>
-            </label>
+        <CardHeader className="flex flex-row items-center justify-between px-4 h-[52px] border-b border-zinc-100 space-y-0 py-0">
+          <div className="flex flex-col justify-center">
+            <CardTitle className="text-sm font-semibold">Sources</CardTitle>
+            <CardDescription className="text-xs text-zinc-500">
+              {files.length} 个文件 · {selectedFileIds.length} 已选
+            </CardDescription>
           </div>
+          <label className="relative">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mov,.avi"
+              onChange={handleFileSelect}
+              disabled={isUploading}
+              className="hidden"
+            />
+            <Button
+              size="sm"
+              disabled={isUploading}
+              className={cn(
+                "gap-1.5 rounded-full text-[11px] h-7",
+                isUploading
+                  ? "bg-zinc-100 text-zinc-400"
+                  : "bg-zinc-900 hover:bg-zinc-800"
+              )}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isUploading ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Upload className="w-3 h-3" />
+              )}
+              {isUploading ? "上传中" : "上传"}
+            </Button>
+          </label>
         </CardHeader>
 
         <CardContent className="p-0 h-[calc(100%-52px)]">

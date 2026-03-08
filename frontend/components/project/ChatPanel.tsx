@@ -104,14 +104,16 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   };
 
   return (
-    <div className="h-full p-2.5 bg-transparent">
+    <div className="h-full p-1.5 bg-transparent">
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden">
-        <CardHeader className="px-4 py-3 space-y-0 border-b border-zinc-100">
-          <CardTitle className="text-sm font-semibold">Chat</CardTitle>
-          <CardDescription className="text-xs text-zinc-500">AI 助手对话</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between px-4 h-[52px] border-b border-zinc-100 space-y-0 py-0">
+          <div className="flex flex-col justify-center">
+            <CardTitle className="text-sm font-semibold">Chat</CardTitle>
+            <CardDescription className="text-xs text-zinc-500">AI 助手对话</CardDescription>
+          </div>
         </CardHeader>
 
-        <CardContent className="p-0 h-[calc(100%-130px)]">
+        <CardContent className="p-0 h-[calc(100%-132px)]">
           <ScrollArea className="h-full px-3.5">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center py-10">

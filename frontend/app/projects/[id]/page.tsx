@@ -176,7 +176,7 @@ export default function ProjectDetailPage() {
 
       <ProjectHeader />
 
-      <div className="flex-1 min-h-0 relative px-2.5 py-2.5">
+      <div className="flex-1 min-h-0 relative px-1.5 py-1.5">
         <Group orientation="horizontal" className="h-full gap-0">
           <Panel defaultSize="25%" minSize="20%" maxSize="35%">
             <StudioPanel onToolClick={handleToolClick} />
@@ -207,7 +207,7 @@ export default function ProjectDetailPage() {
 
               <motion.div
                 variants={mainPanelVariants}
-                className="absolute left-2.5 right-[30%] top-2.5 bottom-2.5"
+                className="absolute left-1.5 right-[30%] top-1.5 bottom-1.5"
               >
                 <StudioExpandedPanel />
               </motion.div>
@@ -215,7 +215,7 @@ export default function ProjectDetailPage() {
               <motion.div
                 custom={0}
                 variants={sidePanelVariants}
-                className="absolute right-2.5 top-2.5 bottom-[52%] w-[27%]"
+                className="absolute right-1.5 top-1.5 bottom-[52%] w-[27%]"
               >
                 <div className="h-full bg-white/98 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/60 overflow-hidden">
                   <ChatPanel projectId={projectId} />
@@ -225,7 +225,7 @@ export default function ProjectDetailPage() {
               <motion.div
                 custom={1}
                 variants={sidePanelVariants}
-                className="absolute right-2.5 bottom-2.5 top-[52%] w-[27%]"
+                className="absolute right-1.5 bottom-1.5 top-[52%] w-[27%]"
               >
                 <div className="h-full bg-white/98 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/60 overflow-hidden">
                   <SourcesPanel projectId={projectId} />
