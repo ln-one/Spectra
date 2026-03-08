@@ -508,7 +508,7 @@ paths:
   /api/v1/preview/{task_id}:
     get:
       summary: 获取课件预览
-      description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview）
+      description: 兼容旧任务流（推荐在目标环境中迁移到基于会话的预览接口）
       tags:
         - Preview
       security:
