@@ -48,9 +48,49 @@ def _get_task_queue_service(request: Request):
     """Extract task_queue_service from app state (None if Redis unavailable)."""
     return getattr(request.app.state, "task_queue_service", None)
 
-
 def _parse_idempotency_key(key: Optional[UUID]) -> Optional[str]:
     return str(key) if key else None
+
+
+
+def _validate_positive_int(value, field_name: str):
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=f"{field_name} must be an integer >= 1",
+        )
+
+
+def _validate_optional_positive_int(value, field_name: str):
+    if value is None:
+        return
+    _validate_positive_int(value, field_name)
+
+
+def _validate_command_payload(command: dict):
+    if not isinstance(command, dict):
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="command must be an object",
+        )
+
+    command_type = command.get("command_type")
+    if not command_type:
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="command.command_type is required",
+        )
+
+    if command_type in {"UPDATE_OUTLINE", "REDRAFT_OUTLINE"}:
+        _validate_positive_int(command.get("base_version"), "base_version")
+    if command_type == "REGENERATE_SLIDE":
+        _validate_optional_positive_int(
+            command.get("expected_render_version"),
+            "expected_render_version",
+        )
 
 
 # ============================================================
@@ -86,6 +126,15 @@ async def create_generation_session(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=ErrorCode.INVALID_INPUT,
             message="project_id 和 output_type 为必填字段",
+        )
+
+    # P2：output_type enum 校验
+    _ALLOWED_OUTPUT_TYPES = {"ppt", "word", "both"}
+    if output_type not in _ALLOWED_OUTPUT_TYPES:
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=f"output_type 必须是 {sorted(_ALLOWED_OUTPUT_TYPES)} 之一",
         )
 
     # 验证项目归属
@@ -246,6 +295,8 @@ async def execute_session_command(
             message="command 字段为必填",
         )
 
+    _validate_command_payload(command)
+
     svc = _get_session_service()
     try:
         result = await svc.execute_command(
@@ -288,6 +339,7 @@ async def update_outline(
             error_code=ErrorCode.INVALID_INPUT,
             message="outline 和 base_version 为必填字段",
         )
+    _validate_positive_int(base_version, "base_version")
 
     svc = _get_session_service()
     try:
@@ -378,6 +430,8 @@ async def redraft_outline(
             message="instruction 和 base_version 为必填字段",
         )
 
+    _validate_positive_int(base_version, "base_version")
+
     svc = _get_session_service()
     try:
         result = await svc.execute_command(
@@ -460,6 +514,11 @@ async def regenerate_slide(
             message="patch 字段为必填",
         )
 
+    _validate_optional_positive_int(
+        body.get("expected_render_version"),
+        "expected_render_version",
+    )
+
     svc = _get_session_service()
     try:
         result = await svc.execute_command(
@@ -496,23 +555,45 @@ async def get_capabilities(
 ):
     """返回服务端当前支持的契约版本、特性开关与弃用信息。"""
     from services.generation_session_service import _default_capabilities
+    from services.state_transition_guard import VALID_COMMANDS, VALID_STATES, _TRANSITION_TABLE
+
+    transitions = [
+        {
+            "command_type": cmd_type,
+            "from_state": from_state,
+            "to_state": to_state,
+        }
+        for (cmd_type, from_state), to_state in _TRANSITION_TABLE.items()
+    ]
 
     return success_response(
         data={
-            "contract_version": CONTRACT_VERSION,
-            "capabilities": _default_capabilities(),
-            "deprecated_endpoints": [
-                "/api/v1/generate/sessions/{session_id}/outline",
-                "/api/v1/generate/sessions/{session_id}/confirm",
-                "/api/v1/generate/sessions/{session_id}/outline/redraft",
-                "/api/v1/generate/sessions/{session_id}/resume",
-                "/api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate",
-            ],
-            "feature_flags": {
-                "sse_enabled": True,
-                "idempotency_required": True,
-                "version_conflict_check": True,
+            "contract_versions": [CONTRACT_VERSION],
+            "default_contract_version": CONTRACT_VERSION,
+            "command_interface": {
+                "endpoint": "/api/v1/generate/sessions/{session_id}/commands",
+                "supported_commands": sorted(VALID_COMMANDS),
             },
+            "capabilities": _default_capabilities(),
+            "state_machine": {
+                "states": sorted(VALID_STATES),
+                "terminal_states": ["SUCCESS", "FAILED"],
+                "transitions": transitions,
+            },
+            "deprecations": [
+                {
+                    "api": ep,
+                    "sunset_at": "2026-06-01T00:00:00Z",
+                    "replacement": "/api/v1/generate/sessions/{session_id}/commands",
+                }
+                for ep in [
+                    "/api/v1/generate/sessions/{session_id}/outline",
+                    "/api/v1/generate/sessions/{session_id}/confirm",
+                    "/api/v1/generate/sessions/{session_id}/outline/redraft",
+                    "/api/v1/generate/sessions/{session_id}/resume",
+                    "/api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate",
+                ]
+            ],
         },
         message="能力声明获取成功",
     )
@@ -592,6 +673,11 @@ async def modify_session_preview(
             error_code=ErrorCode.INVALID_INPUT,
             message="slide_id 和 patch 为必填字段",
         )
+
+    _validate_optional_positive_int(
+        body.get("expected_render_version"),
+        "expected_render_version",
+    )
 
     svc = _get_session_service()
     try:
