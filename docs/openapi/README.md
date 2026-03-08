@@ -54,6 +54,7 @@
 docs/
 ├── openapi.yaml # 打包后的单文件（当前可联调规范）
 ├── openapi-source.yaml # 正式联调规范入口（只含已实现接口）
+├── openapi-target.yaml # 打包后的目标契约规范
 ├── openapi-target-source.yaml # 目标契约入口（含规划中的 session-first 接口）
 └── openapi/
  ├── paths/ # API 路径定义
