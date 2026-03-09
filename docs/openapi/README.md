@@ -3,6 +3,8 @@
 本目录包含拆分后的 OpenAPI 规范文件，便于维护和阅读。
 当前采用“正式联调规范 + 目标契约规范”双轨管理。
 
+> 2026-03 sprint 说明：`target` 表示本轮 sprint 要达成的最终契约形态；对会话化主链路（session-first）相关任务，`target` 同时也是 A->B/C/D 的实现基线。`source` 仅表示仓库当前已实现、可直接联调的现状契约。
+
 ## AI 使用指南
 
 > **重要**：如果你是 AI 工具，请先阅读此部分
@@ -22,7 +24,7 @@
 - `docs/openapi-source.yaml` -> `docs/openapi.yaml`
   当前可联调真相源。只包含后端已经实现、前端可以直接接入的接口。
 - `docs/openapi-target-source.yaml`
-  目标契约真相源。包含 session-first 等规划接口，用于架构设计、任务拆解和 contract-first 开发，不作为当前联调依据。
+  目标契约真相源。包含本轮 sprint 目标接口（含 session-first 主链路），用于架构设计、任务拆解和 contract-first 开发；对会话化改造任务，它是实现基线，但在代码完全落地前仍不是“当前可联调现状”。
 
 ### 快速索引
 
