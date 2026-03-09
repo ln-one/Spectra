@@ -72,6 +72,17 @@ def _to_message(conv) -> dict:
         ).model_dump(mode="json")
 
 
+def _dump_capability_status(capability_status) -> dict:
+    """Serialize capability status to JSON-safe dict with mock compatibility."""
+    model_dump = getattr(capability_status, "model_dump", None)
+    if callable(model_dump):
+        try:
+            return model_dump(mode="json")
+        except TypeError:
+            return model_dump()
+    return jsonable_encoder(capability_status)
+
+
 @router.post("/messages")
 async def send_message(
     body: SendMessageRequest,
@@ -268,15 +279,45 @@ async def voice_message(
     try:
         await _verify_project_ownership(project_id, user_id)
         key_str = str(idempotency_key) if idempotency_key else None
-        cache_key = f"chat:voice:{user_id}:{project_id}:{key_str}" if key_str else None
+        cache_key = (
+            f"chat:voice:{user_id}:{project_id}:{session_id}:{key_str}"
+            if key_str
+            else None
+        )
         if cache_key:
             cached_response = await db_service.get_idempotency_response(cache_key)
             if cached_response:
                 return cached_response
 
-        raw = await audio.read()
-        duration = max(1.0, len(raw) / 32000.0)
-        recognized_text = "语音内容已识别，请继续描述课件需求。"
+        # 保存音频文件到临时位置
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=Path(audio.filename or "audio.wav").suffix
+        ) as tmp_file:
+            content = await audio.read()
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+        estimated_duration = max(1.0, len(content) / 32000.0)
+
+        # 调用音频服务进行识别
+        from services.audio_service import transcribe_audio
+
+        recognized_text, confidence, duration, capability_status = transcribe_audio(
+            tmp_path
+        )
+        duration = duration if duration > 0 else estimated_duration
+
+        # 清理临时文件
+        Path(tmp_path).unlink(missing_ok=True)
+
+        # 如果识别失败，使用可解释降级文案，避免误导为“已识别”
+        if not recognized_text:
+            recognized_text = (
+                capability_status.user_message
+                or "语音识别暂不可用，请改用文本输入或稍后重试。"
+            )
 
         await db_service.create_conversation_message(
             project_id=project_id,
@@ -287,9 +328,14 @@ async def voice_message(
                     "source": "voice",
                     "filename": audio.filename,
                     "idempotency_key": key_str,
+                    "capability_status": _dump_capability_status(capability_status),
                 }
                 if key_str
-                else {"source": "voice", "filename": audio.filename}
+                else {
+                    "source": "voice",
+                    "filename": audio.filename,
+                    "capability_status": _dump_capability_status(capability_status),
+                }
             ),
             session_id=session_id,
         )
@@ -305,10 +351,12 @@ async def voice_message(
 
         response_payload = success_response(
             data={
+                "session_id": session_id,
                 "text": recognized_text,
-                "confidence": 0.85,
+                "confidence": confidence,
                 "duration": round(duration, 2),
                 "message": _to_message(assistant_msg),
+                "capability_status": _dump_capability_status(capability_status),
                 "suggestions": ["补充教学目标", "补充参考资料", "开始生成课件"],
             },
             message="语音识别成功",

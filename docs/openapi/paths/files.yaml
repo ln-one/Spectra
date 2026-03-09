@@ -19,6 +19,9 @@
                 format: binary
               project_id:
                 type: string
+              session_id:
+                type: string
+                description: 可选会话 ID。提供后，索引与检索按 project_id + session_id 隔离。
     responses:
       '200':
         description: 上传成功
@@ -118,6 +121,9 @@
                 description: 多个文件
               project_id:
                 type: string
+              session_id:
+                type: string
+                description: 可选会话 ID。提供后，批量上传索引按 project_id + session_id 隔离。
     responses:
       '200':
         description: 批量上传成功

@@ -38,6 +38,12 @@
         schema:
           type: string
         description: 项目 ID。当前实现按 project 维度隔离对话上下文。
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 可选会话 ID。提供后按 project_id + session_id 作用域读取历史。
       - $ref: '../components/parameters.yaml#/PageParam'
       - $ref: '../components/parameters.yaml#/LimitParam'
     responses:
@@ -76,6 +82,9 @@
               project_id:
                 type: string
                 description: 项目 ID
+              session_id:
+                type: string
+                description: 可选会话 ID。提供后按 project_id + session_id 作用域处理语音对话。
     responses:
       '200':
         description: 成功

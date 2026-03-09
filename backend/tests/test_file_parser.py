@@ -65,9 +65,9 @@ def test_extract_text_for_rag_video_placeholder(tmp_path: Path):
 
     text, details = extract_text_for_rag(str(file_path), "lecture.mp4", "video")
 
-    assert "视频资料" in text
     assert "lecture.mp4" in text
-    assert details["duration"] == 0
+    assert "capability_status" in details
+    assert details["capability_status"]["capability"] == "video_understanding"
     assert details["text_length"] > 0
 
 
@@ -220,4 +220,101 @@ def test_extract_text_for_rag_fallback_to_local_when_provider_unsupported(
 
     assert "fallback local content" in text
     assert details["text_length"] > 0
+    assert calls["local"] == 1
+
+
+def test_extract_text_for_rag_fallback_to_llamaparse_when_mineru_unavailable(
+    tmp_path: Path, monkeypatch
+):
+    import services.file_parser as file_parser_module
+
+    class _FakeUnavailableProvider:
+        name = "local"  # registry fallback behavior when provider unavailable
+
+        def supports(self, _file_type: str) -> bool:
+            return True
+
+        def extract_text(self, _filepath: str, _filename: str, _file_type: str):
+            return "", {"text_length": 0}
+
+    class _FakeLlamaProvider:
+        name = "llamaparse"
+
+        def supports(self, _file_type: str) -> bool:
+            return True
+
+        def extract_text(self, _filepath: str, _filename: str, _file_type: str):
+            return "llama parse content", {"pages_extracted": 1, "text_length": 19}
+
+    calls = {"mineru": 0, "llamaparse": 0, "local": 0}
+
+    def _fake_get_parser(provider_name=None):
+        if provider_name == "mineru":
+            calls["mineru"] += 1
+            return _FakeUnavailableProvider()
+        if provider_name == "llamaparse":
+            calls["llamaparse"] += 1
+            return _FakeLlamaProvider()
+        calls["local"] += 1
+        from services.parsers.local_provider import LocalProvider
+
+        return LocalProvider()
+
+    monkeypatch.setattr(file_parser_module, "get_parser", _fake_get_parser)
+    monkeypatch.setenv("DOCUMENT_PARSER", "mineru")
+
+    from docx import Document as DocxDocument
+
+    docx_path = tmp_path / "notes.docx"
+    _doc = DocxDocument()
+    _doc.add_paragraph("fallback content")
+    _doc.save(str(docx_path))
+
+    text, details = extract_text_for_rag(str(docx_path), "notes.docx", "word")
+
+    assert text == "llama parse content"
+    assert details["capability_status"]["status"] == "degraded"
+    assert details["capability_status"]["provider"] == "llamaparse"
+    assert details["capability_status"]["fallback_target"] == "llamaparse"
+    assert calls["mineru"] == 1
+    assert calls["llamaparse"] == 1
+
+
+def test_extract_text_for_rag_unknown_provider_falls_back_to_local(
+    tmp_path: Path, monkeypatch
+):
+    import services.file_parser as file_parser_module
+    from services.parsers.local_provider import LocalProvider
+
+    class _ResolvedLocalProvider(LocalProvider):
+        name = "local"
+
+    calls = {"unknown": 0, "local": 0}
+
+    def _fake_get_parser(provider_name=None):
+        if provider_name == "unknown-provider":
+            calls["unknown"] += 1
+            return _ResolvedLocalProvider()
+        if provider_name == "local":
+            calls["local"] += 1
+            return _ResolvedLocalProvider()
+        return _ResolvedLocalProvider()
+
+    monkeypatch.setattr(file_parser_module, "get_parser", _fake_get_parser)
+    monkeypatch.setenv("DOCUMENT_PARSER", "unknown-provider")
+
+    from docx import Document as DocxDocument
+
+    docx_path = tmp_path / "notes.docx"
+    _doc = DocxDocument()
+    _doc.add_paragraph("local fallback content")
+    _doc.save(str(docx_path))
+
+    text, details = extract_text_for_rag(str(docx_path), "notes.docx", "word")
+
+    assert "local fallback content" in text
+    assert details["capability_status"]["status"] == "degraded"
+    assert details["capability_status"]["provider"] == "local"
+    assert details["capability_status"]["fallback_target"] == "local"
+    assert calls["unknown"] == 1
     assert calls["local"] == 1

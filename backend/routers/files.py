@@ -1,7 +1,8 @@
+import json
 import logging
 import os
 import pathlib
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import (
@@ -193,6 +194,65 @@ def _validate_upload_file(filename: str):
         raise ValueError(f"不支持的文件类型: {filename}")
 
 
+def _derive_parse_progress(status: Optional[str]) -> Optional[int]:
+    if not status:
+        return None
+    status_l = status.lower()
+    if status_l in {"ready", "failed"}:
+        return 100
+    if status_l == "parsing":
+        return 50
+    if status_l == "uploading":
+        return 0
+    return None
+
+
+def _safe_parse_json_object(value: Any) -> Optional[dict]:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning("Invalid parseResult JSON during upload serialization")
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
+
+
+def _extract_parse_details(parse_result: Optional[dict]) -> Optional[dict]:
+    if not parse_result:
+        return None
+    keys = {"pages_extracted", "images_extracted", "text_length", "duration"}
+    details = {k: parse_result[k] for k in keys if k in parse_result}
+    return details or None
+
+
+def _serialize_upload(upload: Any) -> dict:
+    parse_result = _safe_parse_json_object(getattr(upload, "parseResult", None))
+    status = getattr(upload, "status", None)
+    return {
+        "id": getattr(upload, "id", None),
+        "filename": getattr(upload, "filename", None),
+        "file_type": getattr(upload, "fileType", None),
+        "mime_type": getattr(upload, "mimeType", None),
+        "file_size": getattr(upload, "size", None),
+        "status": status,
+        "parse_progress": _derive_parse_progress(status),
+        "parse_details": _extract_parse_details(parse_result),
+        "parse_error": getattr(upload, "errorMessage", None),
+        "usage_intent": getattr(upload, "usageIntent", None),
+        "parse_result": parse_result,
+        "created_at": getattr(upload, "createdAt", None),
+        "updated_at": getattr(upload, "updatedAt", None),
+    }
+
+
 @router.post("")
 async def upload_file(
     request: Request,
@@ -223,7 +283,10 @@ async def upload_file(
                 "idempotency_key": bool(idempotency_key),
             },
         )
-        return success_response(data={"file": latest}, message="文件上传成功")
+        return success_response(
+            data={"file": _serialize_upload(latest)},
+            message="文件上传成功",
+        )
     except APIException:
         raise
     except Exception as e:
@@ -261,7 +324,7 @@ async def batch_upload_files(
                 _dispatch_rag_indexing(
                     request, background_tasks, latest, project_id, session_id
                 )
-                uploaded_files.append(latest)
+                uploaded_files.append(_serialize_upload(latest))
             except Exception as e:
                 failed.append({"filename": file.filename, "error": str(e)})
 
@@ -328,7 +391,7 @@ async def update_file_intent(
         )
 
         return success_response(
-            data={"file": updated_file},
+            data={"file": _serialize_upload(updated_file)},
             message="文件用途标注成功",
         )
     except APIException:
