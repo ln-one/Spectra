@@ -116,60 +116,67 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0 relative"
           style={{ height: "52px" }}
         >
-          {!isExpanded ? (
-            <>
+          <motion.div
+            className="flex flex-col justify-center shrink-0"
+            layout
+            transition={{ type: "spring", stiffness: 350, damping: 30 }}
+          >
+            <motion.div
+              layout
+              className="tracking-tight font-semibold leading-tight"
+              animate={{ fontSize: isExpanded ? "1rem" : "0.875rem" }}
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+            >
+              {isExpanded ? TOOL_TITLES[expandedTool || "ppt"] : "Studio"}
+            </motion.div>
+            <CardDescription className="text-xs text-zinc-500 leading-tight">
+              {isExpanded ? "配置生成参数" : "AI 生成工具"}
+            </CardDescription>
+          </motion.div>
+
+          <AnimatePresence>
+            {isExpanded && (
               <motion.div
-                className="flex flex-col justify-center shrink-0"
-                layout
-                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
               >
-                <motion.div
-                  layout
-                  className="tracking-tight font-semibold leading-tight"
-                  animate={{ fontSize: "0.875rem" }}
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClose}
+                  className="text-xs text-zinc-500 hover:text-zinc-700 shrink-0"
                 >
-                  Studio
-                </motion.div>
-                <CardDescription className="text-xs text-zinc-500 leading-tight">
-                  AI 生成工具
-                </CardDescription>
+                  关闭
+                </Button>
               </motion.div>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClose}
-                className="text-xs text-zinc-500 hover:text-zinc-700 shrink-0 z-10"
-              >
-                关闭
-              </Button>
-              <motion.div
-                layoutId={`icon-${expandedTool}`}
-                className={cn(
-                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-                  "rounded-xl flex items-center justify-center",
-                  "backdrop-blur-md border border-white/40"
-                )}
-                style={{
-                  width: 36,
-                  height: 36,
-                  background: `linear-gradient(135deg, ${currentColor.glow}, transparent)`,
-                  boxShadow: `0 4px 12px ${currentColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
-                }}
-                initial={{ scale: 1 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              >
-                <CurrentIcon
-                  className="w-4.5 h-4.5"
-                  style={{ color: currentColor.primary }}
-                />
-              </motion.div>
-              <div className="w-12" />
-            </>
+            )}
+          </AnimatePresence>
+
+          {isExpanded && expandedTool && (
+            <motion.div
+              layoutId={`icon-${expandedTool}`}
+              className={cn(
+                "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50",
+                "rounded-xl flex items-center justify-center",
+                "backdrop-blur-md border border-white/40"
+              )}
+              style={{
+                width: 36,
+                height: 36,
+                background: `linear-gradient(135deg, ${currentColor.glow}, transparent)`,
+                boxShadow: `0 4px 12px ${currentColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+              }}
+              initial={{ scale: 1 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            >
+              <CurrentIcon
+                className="w-4.5 h-4.5"
+                style={{ color: currentColor.primary }}
+              />
+            </motion.div>
           )}
         </CardHeader>
 
