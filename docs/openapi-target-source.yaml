@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  title: Spectra API
-  version: 1.1.0
-  description: 多模态AI教学智能体 API - 当前可联调接口规范（仅包含已实现接口）
+  title: Spectra API Target Contract
+  version: 1.1.0-target
+  description: 多模态AI教学智能体 API - 目标契约规范（包含本轮 sprint 目标接口；对 session-first 会话化改造任务，作为实现基线）
 
 servers:
   - url: http://localhost:8000
@@ -42,6 +42,26 @@ paths:
   # Generate
   /api/v1/generate/courseware:
     $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1courseware'
+  /api/v1/generate/sessions:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions'
+  /api/v1/generate/sessions/{session_id}:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}'
+  /api/v1/generate/sessions/{session_id}/events:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1events'
+  /api/v1/generate/sessions/{session_id}/outline:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline'
+  /api/v1/generate/sessions/{session_id}/commands:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
+  /api/v1/generate/sessions/{session_id}/confirm:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1confirm'
+  /api/v1/generate/sessions/{session_id}/outline/redraft:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline~1redraft'
+  /api/v1/generate/sessions/{session_id}/resume:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1resume'
+  /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1slides~1{slide_id}~1regenerate'
+  /api/v1/generate/capabilities:
+    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1capabilities'
   /api/v1/generate/tasks/{task_id}/status:
     $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1status'
   /api/v1/generate/tasks/{task_id}/download:
@@ -58,6 +78,14 @@ paths:
     $ref: './openapi/paths/preview.yaml#/~1api~1v1~1preview~1{task_id}~1slides~1{slide_id}'
   /api/v1/preview/{task_id}/export:
     $ref: './openapi/paths/preview.yaml#/~1api~1v1~1preview~1{task_id}~1export'
+  /api/v1/generate/sessions/{session_id}/preview:
+    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview'
+  /api/v1/generate/sessions/{session_id}/preview/modify:
+    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview~1modify'
+  /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}:
+    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview~1slides~1{slide_id}'
+  /api/v1/generate/sessions/{session_id}/preview/export:
+    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview~1export'
 
   # RAG
   /api/v1/rag/search:

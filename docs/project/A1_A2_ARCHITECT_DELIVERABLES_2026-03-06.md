@@ -17,6 +17,11 @@
 2. 数据流修订（NotebookLM 三栏 + Gamma 会话流）：`docs/architecture/system/data-flow.md`
 3. 系统概览修订（会话化主线）：`docs/architecture/system/overview.md`
 
+补充口径（2026-03-09）：
+- `target` = 本轮 sprint 要达成的最终契约形态。
+- 对会话化改造任务，`target` 同时是 A->B/C/D 的实现基线。
+- `source/current` 仅表示仓库当下可联调现状与兼容层，不覆盖本轮设计冻结结论。
+
 ## A1 完整产品范围冻结（按用户旅程）
 
 ### 1) 本阶段必须可用（In Scope）

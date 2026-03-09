@@ -37,13 +37,7 @@
         required: true
         schema:
           type: string
-        description: 项目级查询范围（兼容字段）
-      - name: session_id
-        in: query
-        required: false
-        schema:
-          type: string
-        description: 会话级查询范围（推荐）。提供后优先按会话隔离上下文。
+        description: 项目 ID。当前实现按 project 维度隔离对话上下文。
       - $ref: '../components/parameters.yaml#/PageParam'
       - $ref: '../components/parameters.yaml#/LimitParam'
     responses:
@@ -82,9 +76,6 @@
               project_id:
                 type: string
                 description: 项目 ID
-              session_id:
-                type: string
-                description: 会话 ID（推荐，确保语音输入归属到当前会话）
     responses:
       '200':
         description: 成功

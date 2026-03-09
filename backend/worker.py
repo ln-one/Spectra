@@ -4,6 +4,7 @@ RQ Worker 启动脚本
 启动 RQ Worker 进程，监听任务队列并执行任务。
 """
 
+import asyncio
 import logging
 import os
 import signal
@@ -23,6 +24,27 @@ logger = logging.getLogger(__name__)
 
 # 全局变量用于优雅关闭
 worker_instance = None
+
+
+async def _run_recovery_scan():
+    """
+    Run one recovery pass on worker startup to mark stale processing tasks.
+    """
+    from services.database import DatabaseService
+    from services.task_recovery import TaskRecoveryService
+
+    db_service = DatabaseService()
+    await db_service.connect()
+    try:
+        summary = await TaskRecoveryService(db_service.db).recover_stale_tasks()
+        logger.info(
+            "Task recovery scan completed: scanned=%s recovered=%s session_updated=%s",
+            summary.get("scanned"),
+            summary.get("recovered"),
+            summary.get("session_updated"),
+        )
+    finally:
+        await db_service.disconnect()
 
 
 def signal_handler(signum, frame):
@@ -74,6 +96,19 @@ def main():
     # 创建队列列表（按优先级顺序）
     queues = ["high", "default", "low"]
     logger.info(f"Worker will listen to queues: {queues}")
+
+    # C1: startup recovery scan for stale tasks (enabled by default).
+    if os.getenv("WORKER_RECOVERY_SCAN", "true").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        try:
+            asyncio.run(_run_recovery_scan())
+        except Exception as e:
+            # Do not block worker startup if recovery scan fails.
+            logger.error("Task recovery scan failed: %s", e, exc_info=True)
 
     # 对 async/Prisma 任务，SimpleWorker（不 fork）更稳定
     worker_class_name = os.getenv("RQ_WORKER_CLASS", "simple").lower()

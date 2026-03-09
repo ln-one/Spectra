@@ -9,6 +9,7 @@ import pytest
 from main import app
 from services import db_service
 from services.ai import ai_service
+from services.rag_service import rag_service
 from utils.dependencies import get_current_user
 
 _NOW = datetime.now(timezone.utc)
@@ -70,6 +71,37 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert body["data"]["message"]["role"] == "assistant"
     assert body["data"]["message"]["content"] == "assistant reply"
     assert len(body["data"]["suggestions"]) == 3
+
+
+def test_send_message_scopes_recent_messages_by_session(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        db_service,
+        "create_conversation_message",
+        AsyncMock(
+            side_effect=[
+                _fake_conv(role="user", conv_id="c-user"),
+                _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+            ]
+        ),
+    )
+    recent_mock = AsyncMock(
+        return_value=[_fake_conv(role="user", content="in session")]
+    )
+    monkeypatch.setattr(db_service, "get_recent_conversation_messages", recent_mock)
+    _mock(monkeypatch, rag_service, "search", [])
+    _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
+
+    resp = client.post(
+        "/api/v1/chat/messages",
+        json={"project_id": "p-001", "session_id": "s-001", "content": "Hello AI"},
+    )
+    assert resp.status_code == 200
+    recent_mock.assert_awaited_once_with(
+        project_id="p-001",
+        limit=10,
+        session_id="s-001",
+    )
 
 
 def test_send_message_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
@@ -143,6 +175,33 @@ def test_get_messages_success(client, monkeypatch, _as_user):
     assert body["data"]["total"] == 2
     assert body["data"]["page"] == 1
     assert len(body["data"]["messages"]) == 2
+
+
+def test_get_messages_includes_citations_from_metadata(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    expected_citations = [
+        {
+            "chunk_id": "chunk-1",
+            "source_type": "document",
+            "filename": "notes.pdf",
+            "page_number": 2,
+            "timestamp": None,
+            "score": 0.92,
+        }
+    ]
+    convs = [
+        _fake_conv(
+            role="assistant",
+            conv_id="c-001",
+            metadata='{"citations":[{"chunk_id":"chunk-1","source_type":"document","filename":"notes.pdf","page_number":2,"score":0.92}]}',
+        ),
+    ]
+    _mock(monkeypatch, db_service, "get_conversations_paginated", (convs, 1))
+
+    resp = client.get("/api/v1/chat/messages?project_id=p-001&page=1&limit=20")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["messages"][0]["citations"] == expected_citations
 
 
 def test_get_messages_no_token_401(client):

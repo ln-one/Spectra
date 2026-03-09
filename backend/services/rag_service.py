@@ -77,6 +77,7 @@ class RAGService:
         top_k: int = 5,
         filters: Optional[dict] = None,
         score_threshold: float = 0.0,
+        session_id: Optional[str] = None,
     ) -> list[RAGResult]:
         """
         语义检索
@@ -87,6 +88,8 @@ class RAGService:
             top_k: 返回结果数量
             filters: 过滤条件 {"file_types": [...], "file_ids": [...]}
             score_threshold: 最低相似度阈值（0.0 表示不过滤），过滤低质量结果
+            session_id: 会话 ID（C5 数据隔离）。提供时仅检索该 session 入库的分块，
+                        不跨会话复用，防止同 project 多 session 间资料互串。
 
         Returns:
             检索结果列表（按 score 降序，已过滤低于阈值的结果）
@@ -101,16 +104,22 @@ class RAGService:
 
         # 构建 ChromaDB where 过滤
         where = None
+        conditions = []
+
+        # C5 数据隔离：session_id 过滤（project_id + session_id 双重约束）
+        if session_id:
+            conditions.append({"session_id": {"$eq": session_id}})
+
         if filters:
-            conditions = []
             if filters.get("file_types"):
                 conditions.append({"source_type": {"$in": filters["file_types"]}})
             if filters.get("file_ids"):
                 conditions.append({"upload_id": {"$in": filters["file_ids"]}})
-            if len(conditions) == 1:
-                where = conditions[0]
-            elif len(conditions) > 1:
-                where = {"$and": conditions}
+
+        if len(conditions) == 1:
+            where = conditions[0]
+        elif len(conditions) > 1:
+            where = {"$and": conditions}
 
         # query 向量化
         query_embedding = await self._embedding.embed_text(query)
