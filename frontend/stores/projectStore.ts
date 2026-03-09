@@ -155,9 +155,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   sendMessage: async (projectId: string, content: string) => {
     if (!content.trim()) return;
     set({ isSending: true });
+    const tempId = `temp-${Date.now()}`;
     try {
       const userMessage: Message = {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         role: "user",
         content,
         timestamp: new Date().toISOString(),
@@ -175,7 +176,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         }));
       }
     } catch (error) {
-      set({ error: { code: "SEND_MESSAGE_FAILED", message: getErrorMessage(error) } });
+      // 回滚乐观更新：移除临时消息
+      set((state) => ({
+        messages: state.messages.filter((m) => m.id !== tempId),
+        error: { code: "SEND_MESSAGE_FAILED", message: getErrorMessage(error) },
+      }));
     } finally {
       set({ isSending: false });
     }
@@ -191,8 +196,6 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
       if (response?.data?.session) {
         const sessionId = response.data.session.session_id;
-        const sessionResponse = await generateApi.getSession(sessionId);
-        set({ generationSession: sessionResponse?.data ?? null });
 
         const historyItem: GenerationHistory = {
           id: sessionId,
@@ -205,6 +208,20 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         set((state) => ({
           generationHistory: [historyItem, ...state.generationHistory],
         }));
+
+        try {
+          const sessionResponse = await generateApi.getSession(sessionId);
+          set({ generationSession: sessionResponse?.data ?? null });
+        } catch (sessionError) {
+          // 会话创建成功但获取快照失败，标记历史为失败
+          set((state) => ({
+            generationSession: null,
+            generationHistory: state.generationHistory.map((h) =>
+              h.id === sessionId ? { ...h, status: "failed" as const } : h
+            ),
+            error: { code: "SESSION_FETCH_FAILED", message: getErrorMessage(sessionError) },
+          }));
+        }
       }
     } catch (error) {
       set({ error: { code: "GENERATION_FAILED", message: getErrorMessage(error) } });
