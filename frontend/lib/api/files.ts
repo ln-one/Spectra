@@ -58,12 +58,18 @@ function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
   };
 }
 
+// OpenAPI 契约定义的最大文件大小: 100MB
+const MAX_FILE_SIZE = 104857600;
+
 export const filesApi = {
   async uploadFile(
     file: File,
     projectId: string,
     onProgress?: (progress: number) => void
   ): Promise<UploadResponse> {
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(`文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`);
+    }
     return new Promise((resolve, reject) => {
       const formData = new FormData();
       formData.append("file", file);
@@ -189,6 +195,13 @@ export const filesApi = {
     projectId: string,
     onProgress?: (progress: number) => void
   ): Promise<components["schemas"]["BatchUploadResponse"]> {
+    // 校验每个文件大小
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(`文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`);
+      }
+    }
+
     const formData = new FormData();
     files.forEach((file) => {
       formData.append("files", file);

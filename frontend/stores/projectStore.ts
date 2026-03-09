@@ -49,6 +49,7 @@ interface ProjectState {
   selectedFileIds: string[];
   generationSession: SessionStatePayload | null;
   generationHistory: GenerationHistory[];
+  lastFailedInput: string | null;
 
   layoutMode: LayoutMode;
   expandedTool: ExpandedTool;
@@ -69,6 +70,7 @@ interface ProjectState {
   confirmOutline: (sessionId: string) => Promise<void>;
   setLayoutMode: (mode: LayoutMode) => void;
   setExpandedTool: (tool: ExpandedTool) => void;
+  clearLastFailedInput: () => void;
   reset: () => void;
 }
 
@@ -79,6 +81,7 @@ const initialState = {
   selectedFileIds: [],
   generationSession: null,
   generationHistory: [],
+  lastFailedInput: null as string | null,
   layoutMode: "normal" as LayoutMode,
   expandedTool: null as ExpandedTool,
   isLoading: false,
@@ -154,7 +157,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   sendMessage: async (projectId: string, content: string) => {
     if (!content.trim()) return;
-    set({ isSending: true });
+    set({ isSending: true, lastFailedInput: null });
     const tempId = `temp-${Date.now()}`;
     try {
       const userMessage: Message = {
@@ -176,9 +179,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         }));
       }
     } catch (error) {
-      // 回滚乐观更新：移除临时消息
+      // 回滚乐观更新：移除临时消息，并保留用户输入
       set((state) => ({
         messages: state.messages.filter((m) => m.id !== tempId),
+        lastFailedInput: content,
         error: { code: "SEND_MESSAGE_FAILED", message: getErrorMessage(error) },
       }));
     } finally {
@@ -240,5 +244,6 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   setLayoutMode: (mode: LayoutMode) => set({ layoutMode: mode }),
   setExpandedTool: (tool: ExpandedTool) => set({ expandedTool: tool }),
+  clearLastFailedInput: () => set({ lastFailedInput: null }),
   reset: () => set(initialState),
 }));

@@ -88,13 +88,21 @@ function CitationBadge({ citation }: { citation: SourceReference }) {
 }
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
-  const { messages, isSending, sendMessage } = useProjectStore();
+  const { messages, isSending, sendMessage, lastFailedInput, clearLastFailedInput } = useProjectStore();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // 发送失败时恢复用户输入
+  useEffect(() => {
+    if (lastFailedInput) {
+      setInput(lastFailedInput);
+      clearLastFailedInput();
+    }
+  }, [lastFailedInput, clearLastFailedInput]);
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;

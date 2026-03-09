@@ -176,6 +176,18 @@ export async function request<T>(
 
   const data = await response.json();
 
+  // 409 冲突：状态或版本冲突，明确提示用户
+  if (response.status === 409) {
+    throw new ApiError(
+      data.error?.code || "CONFLICT",
+      data.error?.message || "操作冲突：当前状态或版本已变更，请刷新后重试",
+      409,
+      data.error?.details,
+      false,
+      data.error?.trace_id
+    );
+  }
+
   if (!response.ok) {
     throw new ApiError(
       data.error?.code || "UNKNOWN_ERROR",
