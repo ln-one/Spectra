@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardDescription, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { GenerationConfigPanel } from "./GenerationConfigPanel";
 
 const TOOL_ICONS: Record<string, React.ElementType> = {
   ppt: Presentation,
@@ -112,46 +113,64 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
         <CardHeader
-          className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
+          className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0 relative"
           style={{ height: "52px" }}
         >
-          <motion.div
-            className="flex flex-col justify-center shrink-0"
-            layout
-            transition={{ type: "spring", stiffness: 350, damping: 30 }}
-          >
-            <motion.div
-              layout
-              className="tracking-tight font-semibold leading-tight"
-              animate={{ fontSize: isExpanded ? "1rem" : "0.875rem" }}
-              transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            >
-              {isExpanded ? TOOL_TITLES[expandedTool || "ppt"] : "Studio"}
-            </motion.div>
-            <CardDescription className="text-xs text-zinc-500 leading-tight">
-              {isExpanded ? "配置生成参数" : "AI 生成工具"}
-            </CardDescription>
-          </motion.div>
-
-          <AnimatePresence>
-            {isExpanded && (
+          {!isExpanded ? (
+            <>
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.15 }}
+                className="flex flex-col justify-center shrink-0"
+                layout
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
               >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClose}
-                  className="text-xs text-zinc-500 hover:text-zinc-700 shrink-0"
+                <motion.div
+                  layout
+                  className="tracking-tight font-semibold leading-tight"
+                  animate={{ fontSize: "0.875rem" }}
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 >
-                  关闭
-                </Button>
+                  Studio
+                </motion.div>
+                <CardDescription className="text-xs text-zinc-500 leading-tight">
+                  AI 生成工具
+                </CardDescription>
               </motion.div>
-            )}
-          </AnimatePresence>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                className="text-xs text-zinc-500 hover:text-zinc-700 shrink-0 z-10"
+              >
+                关闭
+              </Button>
+              <motion.div
+                layoutId={`icon-${expandedTool}`}
+                className={cn(
+                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+                  "rounded-xl flex items-center justify-center",
+                  "backdrop-blur-md border border-white/40"
+                )}
+                style={{
+                  width: 36,
+                  height: 36,
+                  background: `linear-gradient(135deg, ${currentColor.glow}, transparent)`,
+                  boxShadow: `0 4px 12px ${currentColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                }}
+                initial={{ scale: 1 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              >
+                <CurrentIcon
+                  className="w-4.5 h-4.5"
+                  style={{ color: currentColor.primary }}
+                />
+              </motion.div>
+              <div className="w-12" />
+            </>
+          )}
         </CardHeader>
 
         <CardContent className="p-0 h-[calc(100%-52px)]">
@@ -243,65 +262,44 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                 </motion.div>
 
                 <AnimatePresence>
-                  {isExpanded && (
+                  {isExpanded && expandedTool && (
                     <motion.div
-                      key="expanded-content"
+                      key={`${expandedTool}-expanded-content`}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute inset-0 flex flex-col items-center pt-6 pointer-events-auto"
+                      className="absolute inset-0 flex flex-col pointer-events-auto"
                       style={{ padding: "0 12px" }}
                     >
                       <motion.div
-                        layoutId={`icon-${expandedTool}`}
-                        className={cn(
-                          "rounded-2xl flex items-center justify-center mb-3",
-                          "backdrop-blur-md border border-white/40"
-                        )}
-                        style={{
-                          width: 64,
-                          height: 64,
-                          background: `linear-gradient(135deg, ${currentColor.glow}, transparent)`,
-                          boxShadow: `0 8px 24px ${currentColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
-                        }}
-                        transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                      >
-                        <CurrentIcon
-                          className="w-8 h-8"
-                          style={{ color: currentColor.primary }}
-                        />
-                      </motion.div>
-                      <motion.p
-                        className="text-sm font-medium mb-0.5"
-                        style={{ color: currentColor.primary }}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ delay: 0.05, duration: 0.15 }}
-                      >
-                        {TOOL_TITLES[expandedTool || "ppt"]}
-                      </motion.p>
-                      <motion.p
-                        className="text-xs text-zinc-400 mb-4"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ delay: 0.1, duration: 0.15 }}
-                      >
-                        选择素材后开始生成
-                      </motion.p>
-                      <motion.div
-                        className="p-4 rounded-xl bg-zinc-50/80 backdrop-blur-sm border border-zinc-100 w-full"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        transition={{ delay: 0.15, duration: 0.15 }}
+                        transition={{ delay: 0.05, duration: 0.15 }}
+                        className="w-full flex-1 min-h-0"
                       >
-                        <p className="text-xs text-zinc-500 mb-2">操作提示</p>
-                        <p className="text-xs text-zinc-400">
-                          请在右侧 Sources 面板选择需要处理的文件，然后点击生成按钮开始创作
-                        </p>
+                        {expandedTool === "ppt" ? (
+                          <div className="bg-zinc-50/90 backdrop-blur-sm border border-zinc-200/60 rounded-xl p-3 h-full overflow-y-auto">
+                            <GenerationConfigPanel
+                              variant="compact"
+                              onGenerate={(config) => {
+                                console.log("Generate config:", config);
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="bg-zinc-50/90 backdrop-blur-sm border border-zinc-200/60 rounded-xl p-4 h-full flex flex-col items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-100 to-zinc-200 flex items-center justify-center mb-3">
+                              <Sparkles className="w-6 h-6 text-zinc-400" />
+                            </div>
+                            <p className="text-sm font-medium text-zinc-600 mb-1">功能开发中</p>
+                            <p className="text-xs text-zinc-400 text-center">
+                              {TOOL_TITLES[expandedTool]}功能即将上线
+                            </p>
+                            <p className="text-xs text-zinc-300 mt-2">敬请期待</p>
+                          </div>
+                        )}
                       </motion.div>
                     </motion.div>
                   )}

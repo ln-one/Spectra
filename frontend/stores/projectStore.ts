@@ -12,14 +12,14 @@ type GenerationOptions = components["schemas"]["GenerationOptions"];
 type SessionStatePayload = components["schemas"]["SessionStatePayload"];
 
 export type LayoutMode = "normal" | "expanded";
-export type ExpandedTool = "ppt" | "word" | "mindmap" | "outline" | null;
+export type ExpandedTool = "ppt" | "word" | "mindmap" | "outline" | "quiz" | "summary" | "animation" | "handout" | null;
 
 export interface GenerationTool {
   id: string;
   name: string;
   description: string;
   icon: string;
-  type: "ppt" | "word" | "mindmap" | "outline";
+  type: "ppt" | "word" | "mindmap" | "outline" | "quiz" | "summary" | "animation" | "handout";
 }
 
 export const GENERATION_TOOLS: GenerationTool[] = [
@@ -27,10 +27,10 @@ export const GENERATION_TOOLS: GenerationTool[] = [
   { id: "word", name: "Word 文档", description: "生成文档资料", icon: "📄", type: "word" },
   { id: "mindmap", name: "思维导图", description: "生成知识图谱", icon: "🧠", type: "mindmap" },
   { id: "outline", name: "课程大纲", description: "生成课程大纲", icon: "📋", type: "outline" },
-  { id: "quiz", name: "测验题库", description: "生成测验题目", icon: "❓", type: "ppt" },
-  { id: "summary", name: "内容摘要", description: "生成内容摘要", icon: "📝", type: "word" },
-  { id: "animation", name: "动画素材", description: "生成动画资源", icon: "🎬", type: "ppt" },
-  { id: "handout", name: "讲义资料", description: "生成讲义文档", icon: "📖", type: "word" },
+  { id: "quiz", name: "测验题库", description: "生成测验题目", icon: "❓", type: "quiz" },
+  { id: "summary", name: "内容摘要", description: "生成内容摘要", icon: "📝", type: "summary" },
+  { id: "animation", name: "动画素材", description: "生成动画资源", icon: "🎬", type: "animation" },
+  { id: "handout", name: "讲义资料", description: "生成讲义文档", icon: "📖", type: "handout" },
 ];
 
 export interface GenerationHistory {
