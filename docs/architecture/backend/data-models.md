@@ -200,7 +200,7 @@ model GenerationTask {
 
 ## 2026-03 架构修订（Gamma 大纲流 + NotebookLM 三栏）
 
-> 说明：本节为架构冻结目标模型。当前代码仍以 `GenerationTask` 为主，后续由成员 C 按此模型落地迁移。
+> 说明：本节为 2026-03 sprint 冻结实现基线。对 A/B/C/D 的会话化改造任务，应以本节和 `docs/openapi-target-source.yaml` 为准；旧 `GenerationTask` 主流程仅表示当前兼容现状，不再作为新实现决策依据。
 
 ### 目标建模原则
 
@@ -209,67 +209,80 @@ model GenerationTask {
 - 事件可回放：关键状态变化与用户命令必须落事件表，支持恢复与审计。
 - 渲染解耦：继续保留 Marp/Pandoc 作为渲染层，不把渲染细节耦合进会话状态。
 
-### 目标模型（新增）
+### 冻结模型（会话化主链路）
 
 ```prisma
 model GenerationSession {
- id               String   @id @default(uuid())
- projectId         String
- project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
- state             String   // IDLE/CONFIGURING/.../SUCCESS/FAILED
- mode              String   // ppt/word/both
- currentVersion    Int      @default(0)
- activeOutlineId   String?
- activeTaskId      String?  // 兼容现有 GenerationTask
- optionsSnapshot   String?  // JSON：模板、页数、受众、绑定资料等
- contextSnapshot   String?  // JSON：NotebookLM 三栏上下文快照（资料/对话/大纲）
- resumable         Boolean  @default(true)
- errorMessage      String?
- createdAt         DateTime @default(now())
- updatedAt         DateTime @updatedAt
+ id                    String   @id @default(uuid())
+ projectId             String
+ project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ userId                String
+ state                 String   @default("IDLE")
+ stateReason           String?
+ outputType            String   // ppt/word/both
+ options               String?  // JSON：GenerationOptions
+ progress              Int      @default(0)
+ currentOutlineVersion Int      @default(1)
+ renderVersion         Int      @default(0)
+ pptUrl                String?
+ wordUrl               String?
+ errorCode             String?
+ errorMessage          String?
+ errorRetryable        Boolean  @default(false)
+ resumable             Boolean  @default(false)
+ lastCursor            String?
+ clientSessionId       String?
+ fallbacksJson         String?  // JSON：ExternalFallbackInfo[]
+ createdAt             DateTime @default(now())
+ updatedAt             DateTime @updatedAt
 
  @@index([projectId, state])
- @@index([projectId, updatedAt])
+ @@index([userId, state])
+ @@index([clientSessionId])
 }
 
 model OutlineVersion {
- id               String   @id @default(uuid())
- sessionId        String
- session          GenerationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
- version          Int
- source           String   // draft/user_edit/redraft
- outlineDocument  String   // JSON：title/sections/summary/total_slides
- isConfirmed      Boolean  @default(false)
- createdBy        String?  // user_id/system
- createdAt        DateTime @default(now())
+ id           String   @id @default(uuid())
+ sessionId    String
+ session      GenerationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+ version      Int
+ outlineData  String   // JSON：OutlineDocument
+ changeReason String?
+ createdAt    DateTime @default(now())
 
  @@unique([sessionId, version])
- @@index([sessionId, createdAt])
+ @@index([sessionId, version])
 }
 
 model SessionEvent {
- id               String   @id @default(uuid())
- sessionId        String
- session          GenerationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
- eventType        String   // state.changed/outline.updated/task.completed/...
- fromState        String?
- toState          String?
- payload          String?  // JSON：命令参数、fallback、trace 等
- cursor           String   // 增量事件游标
- createdAt        DateTime @default(now())
+ id            String   @id @default(uuid())
+ sessionId     String
+ session       GenerationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+ eventType     String   // GenerationEventType
+ state         String   // 事件发生时的 GenerationState
+ stateReason   String?
+ progress      Int?
+ cursor        String   @unique
+ payload       String?  // JSON：命令参数、fallback、trace 等
+ schemaVersion Int      @default(1)
+ createdAt     DateTime @default(now())
 
+ @@index([sessionId, cursor])
  @@index([sessionId, createdAt])
- @@unique([sessionId, cursor])
 }
 ```
+
+补充约束：
+- 字段命名以已提交 Prisma / OpenAPI 为准：`outputType`、`currentOutlineVersion`、`renderVersion`，不再使用早期草案中的 `mode`、`currentVersion`、`optionsSnapshot` 等命名。
+- `context_snapshot` 仍保留在 API 响应层，作为会话快照载荷字段；是否持久化为独立列由后续实现决定，但不影响本轮状态机与命令契约。
 
 ### 现有模型的角色调整
 
 - `GenerationTask`：降级为“渲染执行单元”，负责生成文件与进度，不再承载完整产品态。
 - `Conversation`：继续承载聊天记录，并通过 `metadata.session_id` 关联会话上下文。
-- `Upload`/`ParsedChunk`：继续承载资料层；通过 `GenerationSession.optionsSnapshot.rag_source_ids` 绑定本次会话使用素材。
+- `Upload`/`ParsedChunk`：继续承载资料层；会话使用素材通过 `options`/`context_snapshot` 承载，不再依赖早期草案字段名。
 
-### 关系视图（目标）
+### 关系视图（冻结版）
 
 ```text
 Project
