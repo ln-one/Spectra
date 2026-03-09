@@ -48,6 +48,26 @@ UploadedFile:
     parse_result:
       type: object
       description: 解析结果摘要
+      properties:
+        chunk_count:
+          type: integer
+          description: 切分片段数量
+        indexed_count:
+          type: integer
+          description: 入库索引片段数量
+        capability_status:
+          $ref: './common.yaml#/CapabilityStatus'
+          description: 解析能力状态（含降级信息）
+        segments:
+          type: array
+          description: 视频解析片段（video 场景）
+          items:
+            type: object
+        sources:
+          type: array
+          description: 来源引用（video 场景）
+          items:
+            $ref: './common.yaml#/SourceReference'
     created_at:
       type: string
       format: date-time

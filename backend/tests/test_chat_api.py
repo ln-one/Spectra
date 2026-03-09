@@ -1,4 +1,4 @@
-"""Chat API endpoint tests (PR-34 compatible C5)."""
+﻿"""Chat API endpoint tests (PR-34 compatible C5)."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -231,6 +231,23 @@ def test_voice_message_no_token_401(client):
 
 def test_voice_message_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        "services.audio_service.transcribe_audio",
+        lambda *_args, **_kwargs: (
+            "语音识别文本",
+            0.91,
+            1.8,
+            SimpleNamespace(
+                model_dump=lambda: {
+                    "capability": "speech_recognition",
+                    "provider": "Faster-Whisper",
+                    "status": "available",
+                    "fallback_used": False,
+                },
+                user_message=None,
+            ),
+        ),
+    )
     monkeypatch.setattr(
         db_service,
         "create_conversation_message",

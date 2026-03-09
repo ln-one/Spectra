@@ -1,0 +1,17 @@
+CapabilitiesHealthResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        document_parser:
+          $ref: './common.yaml#/CapabilityStatus'
+        video_understanding:
+          $ref: './common.yaml#/CapabilityStatus'
+        speech_recognition:
+          $ref: './common.yaml#/CapabilityStatus'
+    message:
+      type: string
