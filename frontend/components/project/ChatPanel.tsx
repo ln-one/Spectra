@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Bot, User, Loader2, ExternalLink } from "lucide-react";
+import DOMPurify from "isomorphic-dompurify";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -18,6 +19,12 @@ interface ChatPanelProps {
 
 function MessageBubble({ message, index }: { message: Message; index: number }) {
   const isUser = message.role === "user";
+
+  // 净化用户输入内容，防止 XSS
+  const sanitizedContent = DOMPurify.sanitize(message.content, {
+    ALLOWED_TAGS: [], // 纯文本模式，不过滤任何 HTML 标签
+    ALLOWED_ATTR: [],
+  });
 
   return (
     <motion.div
@@ -48,7 +55,7 @@ function MessageBubble({ message, index }: { message: Message; index: number }) 
               : "bg-zinc-100 text-zinc-800 rounded-tl-md"
           )}
         >
-          {message.content}
+          {sanitizedContent}
         </div>
 
         {message.citations && message.citations.length > 0 && (

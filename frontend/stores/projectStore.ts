@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { components } from "@/lib/types/api";
 import { projectsApi, filesApi, chatApi, generateApi } from "@/lib/api";
+import { ApiError, getErrorMessage } from "@/lib/api/errors";
 
 type Project = components["schemas"]["Project"];
 type UploadedFile = components["schemas"]["UploadedFile"];
@@ -55,7 +56,7 @@ interface ProjectState {
   isLoading: boolean;
   isSending: boolean;
   isUploading: boolean;
-  error: string | null;
+  error: ApiError | null;
 
   fetchProject: (projectId: string) => Promise<void>;
   fetchFiles: (projectId: string) => Promise<void>;
@@ -95,7 +96,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const response = await projectsApi.getProject(projectId);
       set({ project: response?.data?.project ?? null });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "获取项目失败" });
+      set({ error: { code: "FETCH_PROJECT_FAILED", message: getErrorMessage(error) } });
     } finally {
       set({ isLoading: false });
     }
@@ -125,7 +126,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       await filesApi.uploadFile(file, projectId);
       await get().fetchFiles(projectId);
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "上传失败" });
+      set({ error: { code: "UPLOAD_FAILED", message: getErrorMessage(error) } });
     } finally {
       set({ isUploading: false });
     }
@@ -139,7 +140,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         selectedFileIds: state.selectedFileIds.filter((id) => id !== fileId),
       }));
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "删除失败" });
+      set({ error: { code: "DELETE_FILE_FAILED", message: getErrorMessage(error) } });
     }
   },
 
@@ -174,7 +175,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         }));
       }
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "发送失败" });
+      set({ error: { code: "SEND_MESSAGE_FAILED", message: getErrorMessage(error) } });
     } finally {
       set({ isSending: false });
     }
@@ -206,7 +207,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         }));
       }
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "生成失败" });
+      set({ error: { code: "GENERATION_FAILED", message: getErrorMessage(error) } });
     }
   },
 
@@ -216,7 +217,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const sessionResponse = await generateApi.getSession(sessionId);
       set({ generationSession: sessionResponse?.data ?? null });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "确认失败" });
+      set({ error: { code: "CONFIRM_OUTLINE_FAILED", message: getErrorMessage(error) } });
     }
   },
 

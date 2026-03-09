@@ -74,6 +74,8 @@ async function tryRefreshToken(): Promise<boolean> {
       const newToken = TokenStorage.getAccessToken();
       if (newToken) {
         onTokenRefreshed(newToken);
+        // 刷新成功后同步更新 authStore 用户状态
+        await syncUserAfterRefresh();
       }
     }
     return success;
@@ -85,6 +87,20 @@ async function tryRefreshToken(): Promise<boolean> {
     if (!refreshSuccess) {
       onTokenRefreshed("");
     }
+  }
+}
+
+/**
+ * Token 刷新成功后同步用户状态到 authStore
+ * 使用动态导入避免循环依赖
+ */
+async function syncUserAfterRefresh(): Promise<void> {
+  try {
+    const { useAuthStore } = await import("@/stores/authStore");
+    const user = await authService.getCurrentUser();
+    useAuthStore.getState().setUser(user);
+  } catch {
+    // 忽略错误，用户状态将在下次 checkAuth 时更新
   }
 }
 

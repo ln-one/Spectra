@@ -12,7 +12,8 @@
       "Bash(venv/Scripts/python.exe:*)",
       "Bash(gh pr:*)",
       "Bash(npm run:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

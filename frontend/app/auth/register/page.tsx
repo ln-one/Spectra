@@ -18,6 +18,7 @@ const registerSchema = z
       .min(3, "用户名至少3个字符")
       .max(50, "用户名最多50个字符")
       .regex(/^[a-zA-Z0-9_-]+$/, "只能包含字母、数字、下划线和连字符"),
+    fullName: z.string().max(100, "姓名最多100个字符").optional(),
     password: z
       .string()
       .min(8, "密码至少8个字符")
@@ -49,7 +50,7 @@ function RegisterForm() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await registerUser(data.email, data.password, data.username);
+      await registerUser(data.email, data.password, data.username, data.fullName);
       toast({
         title: "注册成功",
         description: "正在跳转到项目页面...",
@@ -103,6 +104,23 @@ function RegisterForm() {
             />
             {errors.username && (
               <p className="text-xs text-red-500">{errors.username.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="fullName" className="text-sm">
+              姓名 <span className="text-gray-400">(可选)</span>
+            </label>
+            <input
+              id="fullName"
+              type="text"
+              placeholder="您的全名"
+              {...register("fullName")}
+              disabled={isLoading}
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+            {errors.fullName && (
+              <p className="text-xs text-red-500">{errors.fullName.message}</p>
             )}
           </div>
 
