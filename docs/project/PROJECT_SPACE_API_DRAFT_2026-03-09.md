@@ -3,6 +3,7 @@
 > 日期：2026-03-09
 > 目标：在既有 `/projects` 主干上，为“课程空间 / 学习空间 / 引用 / 协作审核 / 按需外化”提供一套可扩展、可渐进落地的接口草案。
 > 前提：现有 `/projects`、`/files`、`/generate`、`/preview`、`/rag` 已存在，`session-first` 目标接口将完成。
+> 说明：除特殊说明外，本文中的路径均为完整的 `/api/v1/*` 路径。
 
 ## 1. 设计原则
 
@@ -19,7 +20,7 @@
 建议 API 资源分为六类：
 
 1. `projects`
-2. `sessions`
+2. `generation-sessions`
 3. `references`
 4. `versions`
 5. `artifacts`
@@ -28,10 +29,10 @@
 关系如下：
 
 - `project` 是主资源
-- `session` 是 `project` 下的工作会话
+- `generation-session` 是 `project` 下的生成工作会话
 - `reference` 是 `project` 对其他 `project` 的引用关系
 - `version` 是 `project` 的正式状态记录
-- `artifact` 是从 `project` 或 `session` 派生出的结果
+- `artifact` 是从 `project` 或 `generation-session` 派生出的结果
 - `candidate-change` 是协作者提交的候选变更
 
 ## 3. 建议保留的现有接口
@@ -40,44 +41,44 @@
 
 ### 3.1 项目
 
-- `POST /projects`
-- `GET /projects`
-- `GET /projects/{project_id}`
-- `PUT /projects/{project_id}`
-- `DELETE /projects/{project_id}`
+- `POST /api/v1/projects`
+- `GET /api/v1/projects`
+- `GET /api/v1/projects/{project_id}`
+- `PUT /api/v1/projects/{project_id}`
+- `DELETE /api/v1/projects/{project_id}`
 
 ### 3.2 文件
 
-- `POST /files`
-- `POST /files/batch`
-- `PATCH /files/{file_id}/intent`
-- `DELETE /files/{file_id}`
+- `POST /api/v1/files`
+- `POST /api/v1/files/batch`
+- `PATCH /api/v1/files/{file_id}/intent`
+- `DELETE /api/v1/files/{file_id}`
 
 ### 3.3 生成
 
-- `POST /generate/courseware`
-- `GET /generate/tasks/{task_id}/status`
-- `GET /generate/tasks/{task_id}/versions`
-- `GET /generate/tasks/{task_id}/download`
+- `POST /api/v1/generate/courseware`
+- `GET /api/v1/generate/tasks/{task_id}/status`
+- `GET /api/v1/generate/tasks/{task_id}/versions`
+- `GET /api/v1/generate/tasks/{task_id}/download`
 
 ### 3.4 预览
 
-- `GET /preview/{task_id}`
-- `POST /preview/{task_id}/modify`
-- `GET /preview/{task_id}/slides/{slide_id}`
-- `POST /preview/{task_id}/export`
+- `GET /api/v1/preview/{task_or_project_id}`
+- `POST /api/v1/preview/{task_or_project_id}/modify`
+- `GET /api/v1/preview/{task_or_project_id}/slides/{slide_id}`
+- `POST /api/v1/preview/{task_or_project_id}/export`
 
 说明：
 
 1. 这些接口可继续承担兼容层职责。
-2. 新功能应优先围绕 `project/session` 新语义补接口。
+2. 新功能应优先围绕 `project + generation-session` 的现有主语义补接口。
 3. 旧接口内部可逐步适配到新的资源模型。
 
 ## 4. 项目接口扩展
 
 ## 4.1 获取项目详情
 
-### `GET /projects/{project_id}`
+### `GET /api/v1/projects/{project_id}`
 
 建议扩展返回字段：
 
@@ -97,7 +98,7 @@
 }
 ```
 
-### `PUT /projects/{project_id}`
+### `PUT /api/v1/projects/{project_id}`
 
 建议支持补充字段：
 
@@ -113,7 +114,7 @@
 
 ## 4.2 从已有项目创建新项目
 
-### `POST /projects`
+### `POST /api/v1/projects`
 
 建议扩展入参：
 
@@ -133,13 +134,13 @@
 2. 若传了 `base_project_id`，后端自动创建一条主基底引用。
 3. `reference_mode` 仅允许 `follow` 或 `pinned`。
 
-## 5. Session 接口
+## 5. Generation Session 接口
 
-`session` 是下一阶段的核心工作上下文，建议作为新主链路接口。
+当前仓库已经通过 `session-first` 契约引入了 `GenerationSession`，因此这里直接沿用 `/api/v1/generate/sessions*` 作为会话主链路，而不再并行设计另一套 `/projects/{project_id}/sessions` 语义。
 
 ## 5.1 创建会话
 
-### `POST /projects/{project_id}/sessions`
+### `POST /api/v1/generate/sessions`
 
 用途：
 
@@ -151,6 +152,7 @@
 
 ```json
 {
+  "project_id": "proj_xxx",
   "title": "第一次生成会话",
   "purpose": "authoring",
   "base_version_id": "ver_xxx"
@@ -172,9 +174,14 @@
 }
 ```
 
+说明：
+
+1. `project_id` 继续作为生成会话的归属边界。
+2. `purpose`、`base_version_id` 属于下一阶段建议补强字段。
+
 ## 5.2 会话列表
 
-### `GET /projects/{project_id}/sessions`
+### `GET /api/v1/generate/sessions?project_id={project_id}`
 
 支持过滤：
 
@@ -184,7 +191,7 @@
 
 ## 5.3 获取单个会话
 
-### `GET /projects/{project_id}/sessions/{session_id}`
+### `GET /api/v1/generate/sessions/{session_id}`
 
 返回：
 
@@ -197,10 +204,10 @@
 
 建议与现有规划保持一致：
 
-- `GET /generate/sessions/{session_id}/preview`
-- `POST /generate/sessions/{session_id}/preview/modify`
-- `GET /generate/sessions/{session_id}/preview/slides/{slide_id}`
-- `POST /generate/sessions/{session_id}/preview/export`
+- `GET /api/v1/generate/sessions/{session_id}/preview`
+- `POST /api/v1/generate/sessions/{session_id}/preview/modify`
+- `GET /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}`
+- `POST /api/v1/generate/sessions/{session_id}/preview/export`
 
 扩展建议：
 
@@ -212,7 +219,7 @@
 
 ## 6.1 创建引用
 
-### `POST /projects/{project_id}/references`
+### `POST /api/v1/projects/{project_id}/references`
 
 用途：
 
@@ -240,7 +247,7 @@
 
 ## 6.2 获取引用列表
 
-### `GET /projects/{project_id}/references`
+### `GET /api/v1/projects/{project_id}/references`
 
 返回：
 
@@ -250,7 +257,7 @@
 
 ## 6.3 更新引用
 
-### `PATCH /projects/{project_id}/references/{reference_id}`
+### `PATCH /api/v1/projects/{project_id}/references/{reference_id}`
 
 允许更新：
 
@@ -268,7 +275,7 @@
 
 ## 6.4 删除引用
 
-### `DELETE /projects/{project_id}/references/{reference_id}`
+### `DELETE /api/v1/projects/{project_id}/references/{reference_id}`
 
 注意：
 
@@ -279,7 +286,7 @@
 
 ## 7.1 项目版本列表
 
-### `GET /projects/{project_id}/versions`
+### `GET /api/v1/projects/{project_id}/versions`
 
 返回：
 
@@ -292,7 +299,7 @@
 
 ## 7.2 获取单个版本
 
-### `GET /projects/{project_id}/versions/{version_id}`
+### `GET /api/v1/projects/{project_id}/versions/{version_id}`
 
 返回：
 
@@ -309,7 +316,7 @@
 
 ## 8.1 项目导出物列表
 
-### `GET /projects/{project_id}/artifacts`
+### `GET /api/v1/projects/{project_id}/artifacts`
 
 支持过滤：
 
@@ -320,7 +327,7 @@
 
 ## 8.2 获取单个导出物
 
-### `GET /projects/{project_id}/artifacts/{artifact_id}`
+### `GET /api/v1/projects/{project_id}/artifacts/{artifact_id}`
 
 返回：
 
@@ -333,7 +340,7 @@
 
 ## 8.3 创建临时按需结果
 
-### `POST /projects/{project_id}/artifacts`
+### `POST /api/v1/projects/{project_id}/artifacts`
 
 用途：
 
@@ -360,7 +367,7 @@
 
 ## 9.1 提交候选变更
 
-### `POST /projects/{project_id}/candidate-changes`
+### `POST /api/v1/projects/{project_id}/candidate-changes`
 
 请求示例：
 
@@ -381,7 +388,7 @@
 
 ## 9.2 候选变更列表
 
-### `GET /projects/{project_id}/candidate-changes`
+### `GET /api/v1/projects/{project_id}/candidate-changes`
 
 支持过滤：
 
@@ -391,7 +398,7 @@
 
 ## 9.3 审核候选变更
 
-### `POST /projects/{project_id}/candidate-changes/{change_id}/review`
+### `POST /api/v1/projects/{project_id}/candidate-changes/{change_id}/review`
 
 请求示例：
 
@@ -412,9 +419,9 @@
 
 若后续要正式支持“只读访问、不污染教师空间”，建议新增：
 
-### `GET /projects/{project_id}/members`
-### `POST /projects/{project_id}/members`
-### `PATCH /projects/{project_id}/members/{member_id}`
+### `GET /api/v1/projects/{project_id}/members`
+### `POST /api/v1/projects/{project_id}/members`
+### `PATCH /api/v1/projects/{project_id}/members/{member_id}`
 
 能力位建议拆成：
 
@@ -447,7 +454,7 @@
 
 先补：
 
-1. `/projects/{id}/sessions`
+1. `/api/v1/generate/sessions` 的 `project_id` 查询扩展
 2. `/projects/{id}/versions`
 3. `/projects/{id}/artifacts`
 
@@ -471,7 +478,7 @@
 
 最稳的 API 演进路线，不是发明一套全新资源体系，而是在既有 `/projects` 主干上补齐：
 
-1. `sessions`
+1. `generation-sessions`
 2. `references`
 3. `versions`
 4. `artifacts`

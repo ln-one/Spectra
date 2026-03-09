@@ -1,7 +1,7 @@
 # Project-Space 最小数据模型草案
 
 > 日期：2026-03-09
-> 目标：在不推翻现有 `Project / Session / Upload / GenerationTask` 主干的前提下，补足“引用、个人学习空间、候选变更、轻量版本”所需的最小数据模型。
+> 目标：在不推翻现有 `Project / GenerationSession / Upload / GenerationTask` 主干的前提下，补足“引用、个人学习空间、候选变更、轻量版本”所需的最小数据模型。
 
 ## 1. 设计原则
 
@@ -22,10 +22,11 @@
 4. `Upload`
 5. `ParsedChunk`
 6. `GenerationTask`
+7. `GenerationSession`
 
-这些对象继续保留，下一阶段重点是补五类对象：
+这些对象继续保留。下一阶段重点是扩展一类既有对象，并补四类新对象：
 
-1. `ProjectSession`
+1. `GenerationSession`（扩展）
 2. `ProjectReference`
 3. `ProjectVersion`
 4. `Artifact`
@@ -33,7 +34,7 @@
 
 ## 3. 核心新增对象
 
-## 3.1 ProjectSession
+### 3.1 GenerationSession（扩展）
 
 用途：
 
@@ -45,7 +46,7 @@
 建议字段：
 
 ```text
-ProjectSession
+GenerationSession
 - id
 - projectId
 - ownerUserId
@@ -64,7 +65,7 @@ ProjectSession
 2. `baseVersionId` 用于标识当前会话从哪个正式状态开始工作。
 3. `purpose` 只是业务辅助字段，不是权限本体。
 
-## 3.2 ProjectReference
+### 3.2 ProjectReference
 
 用途：
 
@@ -96,7 +97,7 @@ ProjectReference
 2. 可有多个 `relationType=auxiliary`
 3. 引用关系必须经过 DAG 校验
 
-## 3.3 ProjectVersion
+### 3.3 ProjectVersion
 
 用途：
 
@@ -125,7 +126,7 @@ ProjectVersion
 2. 只有正式入库的结构化变化才写入 `ProjectVersion`。
 3. `snapshotData` 可以先是轻量 JSON 摘要，不必一开始做完整 diff 系统。
 
-## 3.4 Artifact
+### 3.4 Artifact
 
 用途：
 
@@ -156,7 +157,7 @@ Artifact
 2. `Artifact` 负责长期记录生成结果归属与来源。
 3. 这样可以逐步把“任务”和“结果”解耦。
 
-## 3.5 CandidateChange
+### 3.5 CandidateChange
 
 用途：
 
@@ -282,13 +283,13 @@ Project
 
 1. 新建一个 `Project(kind=study)`
 2. 新增一条 `ProjectReference(mode=follow, relationType=base)`
-3. 初始化一个 `ProjectSession`
+3. 初始化一个 `GenerationSession`
 
 ## 7.3 协作者提交修改
 
 写入：
 
-1. 协作者在自己的 `ProjectSession` 中生成结果
+1. 协作者在自己的 `GenerationSession` 中生成结果
 2. 保存一条 `CandidateChange`
 3. 维护者审核
 4. 通过后写入新的 `ProjectVersion`
@@ -299,7 +300,7 @@ Project
 
 ### P0
 
-1. `ProjectSession`
+1. `GenerationSession` 扩展
 2. `ProjectVersion`
 3. `Artifact`
 
@@ -330,7 +331,7 @@ Project
 
 当前最稳的做法不是重写现有数据模型，而是在 `Project` 主干上增量补齐：
 
-1. `ProjectSession`
+1. `GenerationSession` 扩展
 2. `ProjectReference`
 3. `ProjectVersion`
 4. `Artifact`
