@@ -41,3 +41,69 @@ ErrorResponse:
     message:
       type: string
       description: 根级错误摘要，通常为“请求失败”或业务级失败说明
+
+CapabilityStatus:
+  type: object
+  description: 能力执行状态与降级信息（统一字段，适用于解析/视频/语音）
+  required: [capability, provider, status, fallback_used]
+  properties:
+    capability:
+      type: string
+      enum: [document_parser, video_understanding, speech_recognition]
+      description: 能力标识
+    provider:
+      type: string
+      description: 实际执行的 provider（如 MinerU、Qwen-VL、Faster-Whisper、local_parser）
+    status:
+      type: string
+      enum: [available, degraded, unavailable]
+      description: 能力状态
+    fallback_used:
+      type: boolean
+      description: 是否发生降级
+    fallback_target:
+      type: string
+      description: 降级目标 provider（仅当 fallback_used=true 时有值）
+    reason_code:
+      type: string
+      enum:
+        - PROVIDER_TIMEOUT
+        - PROVIDER_RATE_LIMITED
+        - PROVIDER_UNAVAILABLE
+        - INVALID_INPUT_FORMAT
+        - UNSUPPORTED_FILE_TYPE
+        - EMPTY_OUTPUT
+        - INTERNAL_ERROR
+      description: 失败或降级原因码
+    user_message:
+      type: string
+      description: 可直接展示给用户的提示语
+    trace_id:
+      type: string
+      description: 链路追踪 ID
+
+SourceReference:
+  type: object
+  description: 内容来源引用（用于溯源）
+  required: [chunk_id, source_type, filename]
+  properties:
+    chunk_id:
+      type: string
+      description: 片段唯一标识
+    source_type:
+      type: string
+      enum: [document, video, audio, ai_generated]
+      description: 来源类型
+    filename:
+      type: string
+      description: 源文件名
+    page_number:
+      type: integer
+      description: 页码（文档场景）
+    timestamp:
+      type: number
+      format: float
+      description: 时间戳（视频/音频场景，单位秒）
+    content_preview:
+      type: string
+      description: 内容预览片段

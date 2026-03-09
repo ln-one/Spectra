@@ -43,12 +43,21 @@ _SESSION_TO_TASK_TYPE = {
 
 
 # ============================================================
-# 内部辅助：能力声明（默认占位，C4 阶段接管 capability_health）
+# 内部辅助：能力声明（集成 capability_health）
 # ============================================================
 
 
 def _default_capabilities() -> list[dict]:
-    """返回最小能力声明列表（C4 实现 capability_health 后替换）。"""
+    """返回能力声明列表，集成真实健康检查。"""
+    from services.capability_health import get_all_capabilities_health
+
+    # 获取三能力的健康状态
+    health_status = get_all_capabilities_health()
+
+    doc_parser_health = health_status.get("document_parser")
+    video_health = health_status.get("video_understanding")
+    speech_health = health_status.get("speech_recognition")
+
     return [
         {
             "name": "outline_generation",
@@ -61,30 +70,60 @@ def _default_capabilities() -> list[dict]:
         },
         {
             "name": "document_parser",
-            "status": "available",
-            "providers": ["local"],
-            "default_provider": "local",
-            "fallback_chain": [],
+            "status": (
+                doc_parser_health.status.value if doc_parser_health else "unavailable"
+            ),
+            "providers": [doc_parser_health.provider] if doc_parser_health else [],
+            "default_provider": (
+                doc_parser_health.provider if doc_parser_health else None
+            ),
+            "fallback_chain": (
+                [doc_parser_health.fallback_target]
+                if (
+                    doc_parser_health
+                    and doc_parser_health.fallback_used
+                    and doc_parser_health.fallback_target
+                )
+                else []
+            ),
             "operations": ["parse"],
-            "status_message": "MinerU/LlamaParse pending C2",
+            "status_message": (
+                doc_parser_health.user_message if doc_parser_health else None
+            ),
         },
         {
             "name": "video_understanding",
-            "status": "unavailable",
-            "providers": [],
-            "default_provider": None,
-            "fallback_chain": [],
-            "operations": [],
-            "status_message": "Pending C3",
+            "status": video_health.status.value if video_health else "unavailable",
+            "providers": [video_health.provider] if video_health else [],
+            "default_provider": video_health.provider if video_health else None,
+            "fallback_chain": (
+                [video_health.fallback_target]
+                if (
+                    video_health
+                    and video_health.fallback_used
+                    and video_health.fallback_target
+                )
+                else []
+            ),
+            "operations": ["understand"],
+            "status_message": video_health.user_message if video_health else None,
         },
         {
             "name": "speech_recognition",
-            "status": "unavailable",
-            "providers": [],
-            "default_provider": None,
-            "fallback_chain": [],
-            "operations": [],
-            "status_message": "Pending C3",
+            "status": speech_health.status.value if speech_health else "unavailable",
+            "providers": [speech_health.provider] if speech_health else [],
+            "default_provider": speech_health.provider if speech_health else None,
+            "fallback_chain": (
+                [speech_health.fallback_target]
+                if (
+                    speech_health
+                    and speech_health.fallback_used
+                    and speech_health.fallback_target
+                )
+                else []
+            ),
+            "operations": ["transcribe"],
+            "status_message": speech_health.user_message if speech_health else None,
         },
         {
             "name": "slide_regeneration",

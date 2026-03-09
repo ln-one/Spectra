@@ -1,5 +1,6 @@
 """Files API contract tests for C7/C8 scope."""
 
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -35,8 +36,14 @@ def _fake_upload(file_id=_FILE_ID, project_id=_PROJECT_ID, **kw):
         filename="a.pdf",
         filepath="uploads/a.pdf",
         fileType="pdf",
+        mimeType="application/pdf",
         size=3,
         status="parsing",
+        parseResult=json.dumps(
+            {"chunk_count": 1, "indexed_count": 1, "text_length": 12}
+        ),
+        errorMessage=None,
+        usageIntent=None,
         createdAt=_NOW,
         updatedAt=_NOW,
     )
@@ -69,7 +76,16 @@ def test_upload_file_success(client, monkeypatch, _as_user):
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
-    assert body["data"]["file"]["id"] == _FILE_ID
+    file_payload = body["data"]["file"]
+    assert file_payload["id"] == _FILE_ID
+    assert file_payload["file_type"] == "pdf"
+    assert file_payload["file_size"] == 3
+    assert file_payload["parse_result"]["chunk_count"] == 1
+    assert file_payload["parse_result"]["indexed_count"] == 1
+    assert file_payload["parse_result"]["text_length"] == 12
+    assert file_payload["parse_details"]["text_length"] == 12
+    assert "fileType" not in file_payload
+    assert "parseResult" not in file_payload
 
 
 def test_upload_file_invalid_idempotency_key_400(client, _as_user):

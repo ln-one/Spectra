@@ -1,0 +1,12 @@
+/api/v1/health/capabilities:
+  get:
+    summary: 获取能力健康状态
+    description: 返回 document_parser / video_understanding / speech_recognition 的能力状态。
+    tags: [Health]
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/health.yaml#/CapabilitiesHealthResponse'

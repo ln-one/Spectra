@@ -1,14 +1,15 @@
 """
-MinerU Provider — 基于 MinerU (Magic-PDF) 的文档解析骨架。
+MinerU Provider — 基于 MinerU (Magic-PDF) 的文档解析实现。
 
-当前为预留实现，真正集成将在下一阶段完成。
-需要安装 ``magic-pdf`` 包后方可使用。
 通过 ``DOCUMENT_PARSER=mineru`` 启用。
+需要安装 ``magic-pdf`` 包并配置相关依赖。
 """
 
 from __future__ import annotations
 
 import logging
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from .base import BaseParseProvider, ProviderNotAvailableError
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class MinerUProvider(BaseParseProvider):
-    """MinerU (Magic-PDF) 解析器 provider（预留骨架）。"""
+    """MinerU (Magic-PDF) 解析器 provider"""
 
     name = "mineru"
     supported_types = {"pdf"}
@@ -36,16 +37,51 @@ class MinerUProvider(BaseParseProvider):
         self, filepath: str, filename: str, file_type: str
     ) -> tuple[str, dict[str, Any]]:
         """
-        使用 MinerU 解析文件并返回 Markdown 文本。
+        使用 MinerU 解析 PDF 文件并返回 Markdown 文本。
 
-        当前为骨架实现，返回空文本以便上层走 fallback。
+        Returns:
+            (text, details) - 解析的文本和详情字典
         """
         details: dict[str, Any] = {"pages_extracted": 0, "text_length": 0}
-        # TODO: 下一阶段实现 MinerU 调用逻辑
-        # 1. 使用 magic_pdf 解析 PDF → 结构化 Markdown
-        # 2. 填充 pages_extracted / text_length
-        logger.warning(
-            "MinerU provider 尚未完成集成，文件 %s 将由上层 fallback 处理",
-            filename,
-        )
-        return "", details
+
+        try:
+            from magic_pdf.pipe.UNIPipe import UNIPipe
+            from magic_pdf.rw.DiskReaderWriter import DiskReaderWriter
+
+            # 创建临时输出目录
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+
+                # 读取 PDF 文件
+                pdf_bytes = Path(filepath).read_bytes()
+
+                # 初始化 writer
+                writer = DiskReaderWriter(str(temp_path))
+
+                # 创建 UNIPipe 实例并解析
+                pipe = UNIPipe(pdf_bytes, {"_pdf_type": ""}, writer)
+                pipe.pipe_classify()
+                pipe.pipe_parse()
+
+                # 获取 Markdown 结果
+                md_content = pipe.pipe_mk_markdown(str(temp_path), drop_mode="none")
+
+                if md_content:
+                    text = md_content
+                    details["text_length"] = len(text)
+                    # 尝试估算页数（基于分页符或内容长度）
+                    details["pages_extracted"] = text.count("\n---\n") + 1
+                    logger.info(
+                        "MinerU 成功解析文件 %s，提取 %d 字符",
+                        filename,
+                        details["text_length"],
+                    )
+                    return text, details
+                else:
+                    logger.warning("MinerU 解析文件 %s 返回空内容", filename)
+                    return "", details
+
+        except Exception as exc:
+            logger.error("MinerU 解析文件 %s 失败: %s", filename, exc, exc_info=True)
+            # 返回空文本，让上层 fallback 处理
+            return "", details

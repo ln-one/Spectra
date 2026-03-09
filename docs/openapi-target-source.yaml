@@ -97,6 +97,10 @@ paths:
   /api/v1/rag/similar:
     $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1similar'
 
+  # Health
+  /api/v1/health/capabilities:
+    $ref: './openapi/paths/health.yaml#/~1api~1v1~1health~1capabilities'
+
   # Project
   /api/v1/projects:
     $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects'

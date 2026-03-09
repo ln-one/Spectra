@@ -1,9 +1,8 @@
 """
-LlamaParse Provider — 基于 LlamaParse 云端 API 的文档解析骨架。
+LlamaParse Provider — 基于 LlamaParse 云端 API 的文档解析实现。
 
-当前为预留实现，真正集成将在下一阶段完成。
-需要安装 ``llama-parse`` 包并配置 ``LLAMAPARSE_API_KEY``。
 通过 ``DOCUMENT_PARSER=llamaparse`` 启用。
+需要安装 ``llama-parse`` 包并配置 ``LLAMAPARSE_API_KEY``。
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class LlamaParseProvider(BaseParseProvider):
-    """LlamaParse 云端解析器 provider（预留骨架）。"""
+    """LlamaParse 云端解析器 provider"""
 
     name = "llamaparse"
     supported_types = {"pdf", "word", "ppt"}
@@ -34,8 +33,8 @@ class LlamaParseProvider(BaseParseProvider):
             ) from exc
 
         # 检测 API Key
-        api_key = os.getenv("LLAMAPARSE_API_KEY", "")
-        if not api_key:
+        self.api_key = os.getenv("LLAMAPARSE_API_KEY", "")
+        if not self.api_key:
             raise ProviderNotAvailableError(
                 "LLAMAPARSE_API_KEY 未配置。请在 .env 中设置，"
                 "或将 DOCUMENT_PARSER 设为 local 使用本地轻量解析。"
@@ -47,14 +46,43 @@ class LlamaParseProvider(BaseParseProvider):
         """
         使用 LlamaParse 云端 API 解析文件。
 
-        当前为骨架实现，返回空文本以便上层走 fallback。
+        Returns:
+            (text, details) - 解析的文本和详情字典
         """
         details: dict[str, Any] = {"pages_extracted": 0, "text_length": 0}
-        # TODO: 下一阶段实现 LlamaParse 调用逻辑
-        # 1. 使用 llama_parse.LlamaParse 解析文件
-        # 2. 填充 pages_extracted / text_length
-        logger.warning(
-            "LlamaParse provider 尚未完成集成，文件 %s 将由上层 fallback 处理",
-            filename,
-        )
-        return "", details
+
+        try:
+            from llama_parse import LlamaParse
+
+            # 初始化 parser
+            parser = LlamaParse(
+                api_key=self.api_key,
+                result_type="markdown",
+                verbose=False,
+            )
+
+            # 解析文件
+            documents = parser.load_data(filepath)
+
+            if documents:
+                # 合并所有文档内容
+                text = "\n\n".join(doc.text for doc in documents)
+                details["text_length"] = len(text)
+                details["pages_extracted"] = len(documents)
+                logger.info(
+                    "LlamaParse 成功解析文件 %s，提取 %d 页，%d 字符",
+                    filename,
+                    details["pages_extracted"],
+                    details["text_length"],
+                )
+                return text, details
+            else:
+                logger.warning("LlamaParse 解析文件 %s 返回空内容", filename)
+                return "", details
+
+        except Exception as exc:
+            logger.error(
+                "LlamaParse 解析文件 %s 失败: %s", filename, exc, exc_info=True
+            )
+            # 返回空文本，让上层 fallback 处理
+            return "", details
