@@ -2,14 +2,13 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { TokenStorage } from "@/lib/auth";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import {
   ProjectHeader,
   StudioPanel,
-  StudioExpandedPanel,
   ChatPanel,
   SourcesPanel,
 } from "@/components/project";
@@ -43,11 +42,10 @@ export default function ProjectDetailPage() {
 
   const [studioWidth, setStudioWidth] = useState(25);
   const [chatWidth, setChatWidth] = useState(50);
-  const [sourcesWidth, setSourcesWidth] = useState(25);
 
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
-  const startWidthsRef = useRef({ studio: 0, chat: 0, sources: 0 });
+  const startWidthsRef = useRef({ studio: 0, chat: 0 });
 
   const isExpanded = layoutMode === "expanded";
 
@@ -79,7 +77,6 @@ export default function ProjectDetailPage() {
       startWidthsRef.current = {
         studio: studioWidth,
         chat: chatWidth,
-        sources: sourcesWidth,
       };
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -105,12 +102,7 @@ export default function ProjectDetailPage() {
             30,
             Math.min(60, startWidthsRef.current.chat + deltaPercent)
           );
-          const newSources = Math.max(
-            15,
-            Math.min(40, startWidthsRef.current.sources - deltaPercent)
-          );
           setChatWidth(newChat);
-          setSourcesWidth(newSources);
         }
       };
 
@@ -123,7 +115,7 @@ export default function ProjectDetailPage() {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [studioWidth, chatWidth, sourcesWidth]
+    [studioWidth, chatWidth]
   );
 
   if (isLoading) {
@@ -174,6 +166,7 @@ export default function ProjectDetailPage() {
   }
 
   const expandedStudioWidth = 70;
+  const sourcesWidth = 100 - studioWidth - chatWidth;
 
   return (
     <div className="h-screen flex flex-col bg-zinc-100 overflow-hidden relative">
@@ -208,29 +201,7 @@ export default function ProjectDetailPage() {
             }}
             transition={springConfig}
           >
-            <AnimatePresence mode="wait">
-              {isExpanded ? (
-                <motion.div
-                  key="expanded"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="h-full"
-                >
-                  <StudioExpandedPanel />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="normal"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="h-full"
-                >
-                  <StudioPanel onToolClick={handleToolClick} />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <StudioPanel onToolClick={handleToolClick} />
           </motion.div>
 
           {!isExpanded && (

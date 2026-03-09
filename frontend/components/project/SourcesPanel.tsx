@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileText, File, Trash2, Check, Loader2, FileVideo, Presentation, Image, FileType, Music, Archive, Code, FileSpreadsheet } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
@@ -101,16 +101,61 @@ function FileItem({
   isSelected,
   onToggle,
   onDelete,
+  isCompact,
 }: {
   file: UploadedFile;
   isSelected: boolean;
   onToggle: () => void;
   onDelete: () => void;
+  isCompact: boolean;
 }) {
   const fileType = getFileTypeFromExtension(file.filename);
   const config = FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
   const statusConfig = STATUS_CONFIG[file.status] || STATUS_CONFIG.uploading;
   const Icon = config.icon;
+
+  if (isCompact) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -8, scale: 0.96 }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        onClick={onToggle}
+        className={cn(
+          "group relative flex items-center justify-center p-2.5 rounded-xl cursor-pointer transition-all duration-200",
+          isSelected
+            ? "bg-white shadow-sm border-2 border-zinc-200"
+            : "bg-white hover:bg-zinc-50 shadow-sm hover:shadow-md border border-zinc-100"
+        )}
+        style={{ minHeight: "52px" }}
+      >
+        <div
+          className={cn(
+            "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105",
+            config.bgGradient
+          )}
+        >
+          <Icon className={cn(
+            "w-4 h-4 transition-colors",
+            config.color
+          )} />
+        </div>
+
+        {isSelected && (
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-900 flex items-center justify-center shadow-lg"
+          >
+            <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+          </motion.div>
+        )}
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -126,6 +171,7 @@ function FileItem({
           ? "bg-white shadow-sm border-2 border-zinc-200"
           : "bg-white hover:bg-zinc-50 shadow-sm hover:shadow-md border border-zinc-100"
       )}
+      style={{ minHeight: "52px" }}
     >
       <div
         className={cn(
@@ -139,18 +185,16 @@ function FileItem({
         )} />
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <p
-          className={cn(
-            "text-xs font-medium truncate transition-colors",
-            "text-zinc-800"
-          )}
+          className="text-xs font-medium transition-colors text-zinc-800 truncate"
+          title={file.filename}
         >
           {file.filename}
         </p>
 
         {file.status === "parsing" && file.parse_progress !== undefined && (
-          <div className="mt-1.5">
+          <div className="mt-1.5 w-full">
             <div className="h-1 rounded-full overflow-hidden bg-zinc-100">
               <motion.div
                 initial={{ width: 0 }}
@@ -163,26 +207,24 @@ function FileItem({
         )}
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0 ml-1">
         <div className={cn(
-          "w-2 h-2 rounded-full transition-all",
+          "w-2 h-2 rounded-full transition-all shrink-0",
           statusConfig.color,
           statusConfig.pulse && "animate-pulse"
         )} />
 
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="w-6 h-6 rounded-md bg-zinc-100 hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-colors"
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="w-6 h-6 rounded-md bg-zinc-100 hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-colors shrink-0"
+        >
+          <Trash2 className="w-3 h-3" />
+        </Button>
       </div>
 
       {isSelected && (
@@ -202,6 +244,30 @@ function FileItem({
 export function SourcesPanel({ projectId }: SourcesPanelProps) {
   const { files, selectedFileIds, isUploading, uploadFile, deleteFile, toggleFileSelection } = useProjectStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    const checkWidth = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.offsetWidth;
+        setIsCompact(width < 140);
+      }
+    };
+
+    checkWidth();
+    window.addEventListener("resize", checkWidth);
+
+    const resizeObserver = new ResizeObserver(checkWidth);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      window.removeEventListener("resize", checkWidth);
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   const handleFileSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -228,7 +294,7 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
   );
 
   return (
-    <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+    <div ref={containerRef} className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
         <CardHeader className="flex flex-row items-center justify-between px-4 border-b border-zinc-100 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
           <div className="flex flex-col justify-center shrink-0">
@@ -270,7 +336,7 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
 
         <CardContent className="p-0 h-[calc(100%-52px)]">
           <ScrollArea className="h-full">
-            <div className="min-h-full p-3">
+            <div className="min-h-full px-3 py-3">
               {files.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center py-16">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
@@ -280,7 +346,10 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                   <p className="text-xs text-zinc-400 mt-1">上传文件以开始使用</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className={cn(
+                  "space-y-2",
+                  isCompact && "flex flex-col gap-2 space-y-0"
+                )}>
                   <AnimatePresence mode="popLayout">
                     {files.map((file) => (
                       <FileItem
@@ -289,6 +358,7 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                         isSelected={selectedFileIds.includes(file.id)}
                         onToggle={() => toggleFileSelection(file.id)}
                         onDelete={() => handleDelete(file.id)}
+                        isCompact={isCompact}
                       />
                     ))}
                   </AnimatePresence>

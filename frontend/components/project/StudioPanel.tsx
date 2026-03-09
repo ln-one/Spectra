@@ -1,10 +1,11 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { FileText, Presentation, BookOpen, Brain, HelpCircle, FileEdit, Film, BookMarked, ChevronRight, Sparkles, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { useProjectStore, GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardDescription, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 
@@ -19,12 +20,77 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   handout: BookMarked,
 };
 
+const TOOL_TITLES: Record<string, string> = {
+  ppt: "PPT 课件生成",
+  word: "Word 文档生成",
+  mindmap: "思维导图生成",
+  outline: "课程大纲生成",
+  quiz: "测验题目生成",
+  summary: "内容摘要生成",
+  animation: "动画脚本生成",
+  handout: "讲义生成",
+};
+
+const TOOL_COLORS: Record<string, { primary: string; secondary: string; gradient: string; glow: string }> = {
+  ppt: {
+    primary: "#f97316",
+    secondary: "#fb923c",
+    gradient: "from-orange-500 to-amber-500",
+    glow: "rgba(249, 115, 22, 0.25)",
+  },
+  word: {
+    primary: "#3b82f6",
+    secondary: "#60a5fa",
+    gradient: "from-blue-500 to-sky-500",
+    glow: "rgba(59, 130, 246, 0.25)",
+  },
+  mindmap: {
+    primary: "#8b5cf6",
+    secondary: "#a78bfa",
+    gradient: "from-violet-500 to-purple-500",
+    glow: "rgba(139, 92, 246, 0.25)",
+  },
+  outline: {
+    primary: "#10b981",
+    secondary: "#34d399",
+    gradient: "from-emerald-500 to-teal-500",
+    glow: "rgba(16, 185, 129, 0.25)",
+  },
+  quiz: {
+    primary: "#ec4899",
+    secondary: "#f472b6",
+    gradient: "from-pink-500 to-rose-500",
+    glow: "rgba(236, 72, 153, 0.25)",
+  },
+  summary: {
+    primary: "#06b6d4",
+    secondary: "#22d3ee",
+    gradient: "from-cyan-500 to-sky-500",
+    glow: "rgba(6, 182, 212, 0.25)",
+  },
+  animation: {
+    primary: "#f43f5e",
+    secondary: "#fb7185",
+    gradient: "from-rose-500 to-red-500",
+    glow: "rgba(244, 63, 94, 0.25)",
+  },
+  handout: {
+    primary: "#84cc16",
+    secondary: "#a3e635",
+    gradient: "from-lime-500 to-green-500",
+    glow: "rgba(132, 204, 22, 0.25)",
+  },
+};
+
 interface StudioPanelProps {
   onToolClick?: (tool: GenerationTool) => void;
 }
 
 export function StudioPanel({ onToolClick }: StudioPanelProps) {
-  const { generationHistory, setLayoutMode, setExpandedTool } = useProjectStore();
+  const { layoutMode, expandedTool, generationHistory, setLayoutMode, setExpandedTool } = useProjectStore();
+  const [hoveredToolId, setHoveredToolId] = useState<string | null>(null);
+
+  const isExpanded = layoutMode === "expanded";
 
   const handleToolClick = (tool: GenerationTool) => {
     setLayoutMode("expanded");
@@ -32,88 +98,273 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     onToolClick?.(tool);
   };
 
+  const handleClose = () => {
+    setLayoutMode("normal");
+    setExpandedTool(null);
+    setHoveredToolId(null);
+  };
+
+  const currentTool = GENERATION_TOOLS.find(t => t.type === expandedTool);
+  const CurrentIcon = currentTool ? TOOL_ICONS[currentTool.id] : Sparkles;
+  const currentColor = currentTool ? TOOL_COLORS[currentTool.id] : TOOL_COLORS.ppt;
+
   return (
     <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
-        <CardHeader className="flex flex-row items-center justify-between px-4 border-b border-zinc-100 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
-          <div className="flex flex-col justify-center shrink-0">
-            <CardTitle className="text-sm font-semibold leading-tight">Studio</CardTitle>
-            <CardDescription className="text-xs text-zinc-500 leading-tight">AI 生成工具</CardDescription>
-          </div>
+        <CardHeader
+          className="flex flex-row items-center justify-between px-4 border-b border-zinc-100 space-y-0 py-0 shrink-0"
+          style={{ height: "52px" }}
+        >
+          <motion.div
+            className="flex flex-col justify-center shrink-0"
+            layout
+            transition={{ type: "spring", stiffness: 350, damping: 30 }}
+          >
+            <motion.div
+              layout
+              className="tracking-tight font-semibold leading-tight"
+              animate={{ fontSize: isExpanded ? "1rem" : "0.875rem" }}
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+            >
+              {isExpanded ? TOOL_TITLES[expandedTool || "ppt"] : "Studio"}
+            </motion.div>
+            <CardDescription className="text-xs text-zinc-500 leading-tight">
+              {isExpanded ? "配置生成参数" : "AI 生成工具"}
+            </CardDescription>
+          </motion.div>
+
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClose}
+                  className="text-xs text-zinc-500 hover:text-zinc-700 shrink-0"
+                >
+                  关闭
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </CardHeader>
 
         <CardContent className="p-0 h-[calc(100%-52px)]">
           <ScrollArea className="h-full">
-            <div className="grid grid-cols-2 gap-2 p-3 pb-2">
-              {GENERATION_TOOLS.map((tool, index) => {
-                const Icon = TOOL_ICONS[tool.id] || Sparkles;
-                return (
-                  <motion.div
-                    key={tool.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05, type: "spring", stiffness: 300, damping: 30 }}
-                  >
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleToolClick(tool)}
-                      className={cn(
-                        "group relative w-full h-auto flex-col items-center justify-center p-3",
-                        "bg-zinc-50 hover:bg-zinc-100 border border-transparent hover:border-zinc-200",
-                        "transition-all duration-200 rounded-xl"
-                      )}
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-white shadow-sm flex items-center justify-center mb-1.5 group-hover:shadow-md transition-shadow">
-                        <Icon className="w-4.5 h-4.5 text-zinc-700" />
-                      </div>
-                      <span className="text-[11px] font-medium text-zinc-700 text-center">{tool.name}</span>
-                      <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </Button>
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {generationHistory.length > 0 && (
-              <div className="px-3 pb-3 pt-2 border-t border-zinc-100">
-                <h3 className="text-xs font-medium text-zinc-500 mb-2">最近生成</h3>
-                <div className="space-y-1.5">
-                  <AnimatePresence>
-                    {generationHistory.slice(0, 5).map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 10 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="flex items-center gap-2.5 p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 cursor-pointer transition-colors"
+            <motion.div
+              layout
+              className="p-3 relative"
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+            >
+              <LayoutGroup>
+                <motion.div
+                  className="grid grid-cols-2 gap-2 pb-2"
+                  animate={{
+                    opacity: isExpanded ? 0 : 1,
+                    scale: isExpanded ? 0.95 : 1,
+                  }}
+                  transition={{ duration: 0.2 }}
+                  style={{ pointerEvents: isExpanded ? "none" : "auto" }}
+                >
+                  {GENERATION_TOOLS.map((tool) => {
+                    const Icon = TOOL_ICONS[tool.id] || Sparkles;
+                    const color = TOOL_COLORS[tool.id] || TOOL_COLORS.ppt;
+                    const isThisExpanded = isExpanded && expandedTool === tool.id;
+                    const isHovered = hoveredToolId === tool.id;
+                    return (
+                      <motion.button
+                        key={tool.id}
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{
+                          scale: isHovered && !isExpanded ? 1.02 : 1,
+                          opacity: 1,
+                          y: isHovered && !isExpanded ? -2 : 0
+                        }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 25,
+                        }}
+                        onClick={() => handleToolClick(tool)}
+                        onMouseEnter={() => !isExpanded && setHoveredToolId(tool.id)}
+                        onMouseLeave={() => setHoveredToolId(null)}
+                        className={cn(
+                          "group relative w-full h-auto flex flex-col items-center justify-center p-3",
+                          "bg-gradient-to-br from-zinc-50/90 to-zinc-100/60 backdrop-blur-sm",
+                          "border border-zinc-200/60",
+                          "rounded-xl cursor-pointer",
+                          "transition-shadow duration-200 ease-out"
+                        )}
+                        style={{
+                          boxShadow: isHovered && !isExpanded
+                            ? `0 8px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8)`
+                            : `0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8)`,
+                          borderColor: isHovered && !isExpanded ? 'rgba(161, 161, 170, 0.5)' : 'rgba(228, 228, 231, 0.6)',
+                        }}
                       >
-                        <div className="w-7 h-7 rounded-lg bg-white shadow-sm flex items-center justify-center">
-                          {item.status === "completed" ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                          ) : item.status === "failed" ? (
-                            <XCircle className="w-3.5 h-3.5 text-red-500" />
-                          ) : (
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            >
-                              <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                            </motion.div>
+                        <motion.div
+                          layoutId={`icon-${tool.id}`}
+                          className={cn(
+                            "rounded-xl flex items-center justify-center mb-1.5",
+                            "backdrop-blur-md border border-white/40"
                           )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-medium text-zinc-700 truncate">{item.title}</p>
-                          <p className="text-[10px] text-zinc-400">
-                            {new Date(item.createdAt).toLocaleDateString("zh-CN")}
-                          </p>
-                        </div>
+                          style={{
+                            width: 36,
+                            height: 36,
+                            background: `linear-gradient(135deg, ${color.glow}, transparent)`,
+                            boxShadow: `0 4px 12px ${color.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                            opacity: isThisExpanded ? 0 : 1,
+                          }}
+                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        >
+                          <Icon
+                            className="w-4.5 h-4.5"
+                            style={{ color: color.primary }}
+                          />
+                        </motion.div>
+                        <span className="text-[11px] font-medium text-zinc-700 text-center">
+                          {tool.name}
+                        </span>
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          whileHover={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2"
+                        >
+                          <ChevronRight
+                            className="w-3.5 h-3.5"
+                            style={{ color: color.primary }}
+                          />
+                        </motion.div>
+                        <motion.div
+                          className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+                          style={{
+                            background: `radial-gradient(circle at center, ${color.glow}, transparent 70%)`,
+                          }}
+                        />
+                      </motion.button>
+                    );
+                  })}
+                </motion.div>
+
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      key="expanded-content"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute inset-0 flex flex-col items-center justify-center py-8 pointer-events-auto"
+                      style={{ padding: "0 12px" }}
+                    >
+                      <motion.div
+                        layoutId={`icon-${expandedTool}`}
+                        className={cn(
+                          "rounded-2xl flex items-center justify-center mb-4",
+                          "backdrop-blur-md border border-white/40"
+                        )}
+                        style={{
+                          width: 64,
+                          height: 64,
+                          background: `linear-gradient(135deg, ${currentColor.glow}, transparent)`,
+                          boxShadow: `0 8px 24px ${currentColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                        }}
+                        transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                      >
+                        <CurrentIcon
+                          className="w-8 h-8"
+                          style={{ color: currentColor.primary }}
+                        />
                       </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </div>
-            )}
+                      <motion.p
+                        className="text-sm font-medium mb-1"
+                        style={{ color: currentColor.primary }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ delay: 0.05, duration: 0.15 }}
+                      >
+                        {TOOL_TITLES[expandedTool || "ppt"]}
+                      </motion.p>
+                      <motion.p
+                        className="text-xs text-zinc-400"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ delay: 0.1, duration: 0.15 }}
+                      >
+                        选择素材后开始生成
+                      </motion.p>
+                      <motion.div
+                        className="mt-6 p-4 rounded-xl bg-zinc-50/80 backdrop-blur-sm border border-zinc-100 w-full"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ delay: 0.15, duration: 0.15 }}
+                      >
+                        <p className="text-xs text-zinc-500 mb-2">操作提示</p>
+                        <p className="text-xs text-zinc-400">
+                          请在右侧 Sources 面板选择需要处理的文件，然后点击生成按钮开始创作
+                        </p>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </LayoutGroup>
+
+              {generationHistory.length > 0 && !isExpanded && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="pt-2 border-t border-zinc-100"
+                >
+                  <h3 className="text-xs font-medium text-zinc-500 mb-2">最近生成</h3>
+                  <div className="space-y-1.5">
+                    <AnimatePresence>
+                      {generationHistory.slice(0, 5).map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="flex items-center gap-2.5 p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 cursor-pointer transition-colors"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-white shadow-sm flex items-center justify-center">
+                            {item.status === "completed" ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : item.status === "failed" ? (
+                              <XCircle className="w-3.5 h-3.5 text-red-500" />
+                            ) : (
+                              <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                              >
+                                <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                              </motion.div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-medium text-zinc-700 truncate">{item.title}</p>
+                            <p className="text-[10px] text-zinc-400">
+                              {new Date(item.createdAt).toLocaleDateString("zh-CN")}
+                            </p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
           </ScrollArea>
         </CardContent>
       </Card>
@@ -121,48 +372,4 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   );
 }
 
-export function StudioExpandedPanel() {
-  const { expandedTool, setLayoutMode, setExpandedTool } = useProjectStore();
-
-  const handleClose = () => {
-    setLayoutMode("normal");
-    setExpandedTool(null);
-  };
-
-  return (
-    <Card className="h-full rounded-2xl shadow-2xl border border-white/60 bg-white/98 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]" style={{ transform: "translateZ(0)" }}>
-      <CardHeader className="flex flex-row items-center justify-between px-5 border-b border-zinc-100 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
-        <div className="flex flex-col justify-center shrink-0">
-          <CardTitle className="text-base font-semibold leading-tight">
-            {expandedTool === "ppt" && "PPT 课件生成"}
-            {expandedTool === "word" && "Word 文档生成"}
-            {expandedTool === "mindmap" && "思维导图生成"}
-            {expandedTool === "outline" && "课程大纲生成"}
-            {expandedTool === "quiz" && "测验题目生成"}
-            {expandedTool === "summary" && "内容摘要生成"}
-            {expandedTool === "animation" && "动画脚本生成"}
-            {expandedTool === "handout" && "讲义生成"}
-          </CardTitle>
-          <CardDescription className="text-xs text-zinc-500 leading-tight">配置生成参数</CardDescription>
-        </div>
-        <Button variant="ghost" size="sm" onClick={handleClose} className="text-xs text-zinc-500 hover:text-zinc-700 shrink-0">
-          关闭
-        </Button>
-      </CardHeader>
-
-      <CardContent className="p-5 h-[calc(100%-52px)]">
-        <ScrollArea className="h-full">
-          <div className="space-y-5">
-            <div className="text-center py-10">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center mx-auto mb-3">
-                <Sparkles className="w-7 h-7 text-zinc-400" />
-              </div>
-              <p className="text-sm text-zinc-500">选择素材后开始生成</p>
-              <p className="text-xs text-zinc-400 mt-1">请在右侧 Sources 面板选择文件</p>
-            </div>
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
-  );
-}
+export { StudioPanel as StudioExpandedPanel };
