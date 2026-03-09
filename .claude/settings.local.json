@@ -13,7 +13,10 @@
       "Bash(gh pr:*)",
       "Bash(npm run:*)",
       "Bash(ls:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git show:*)",
+      "Bash(git log:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
