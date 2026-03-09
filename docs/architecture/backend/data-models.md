@@ -233,6 +233,10 @@ model GenerationSession {
  lastCursor            String?
  clientSessionId       String?
  fallbacksJson         String?  // JSON：ExternalFallbackInfo[]
+ outlineVersions       OutlineVersion[]
+ events                SessionEvent[]
+ tasks                 GenerationTask[]
+ conversations         Conversation[]
  createdAt             DateTime @default(now())
  updatedAt             DateTime @updatedAt
 
