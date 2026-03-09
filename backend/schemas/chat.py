@@ -6,6 +6,17 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class SourceReference(BaseModel):
+    """来源引用（用于 citations 字段）。"""
+
+    chunk_id: str = Field(..., description="分块 ID")
+    source_type: str = Field(..., description="来源类型：document/video/ai_generated")
+    filename: str = Field(..., description="原始文件名")
+    page_number: Optional[int] = Field(None, description="页码（文档场景）")
+    timestamp: Optional[float] = Field(None, description="时间戳秒数（视频/语音场景）")
+    score: Optional[float] = Field(None, description="相似度得分")
+
+
 class Message(BaseModel):
     """Single conversation message."""
 
@@ -13,12 +24,23 @@ class Message(BaseModel):
     role: str = Field(..., description="角色 (user/assistant/system)")
     content: str = Field(..., description="消息内容")
     timestamp: datetime = Field(..., description="时间戳")
+    citations: Optional[list[SourceReference]] = Field(
+        None,
+        description="assistant 回复关联的来源引用（RAG 命中时填充）",
+    )
 
 
 class SendMessageRequest(BaseModel):
     """Request payload for sending chat messages."""
 
     project_id: str = Field(..., description="项目 ID")
+    session_id: Optional[str] = Field(
+        None,
+        description=(
+            "会话级上下文隔离 ID（推荐）。提供时服务端按 session 范围检索历史与资料，"
+            "避免同一 project 下多个生成流程相互污染。"
+        ),
+    )
     content: str = Field(..., min_length=1, max_length=10000, description="消息内容")
     history: Optional[list[Message]] = Field(None, description="对话历史")
 

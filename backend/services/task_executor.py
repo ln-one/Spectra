@@ -1,4 +1,4 @@
-"""
+﻿"""
 RQ 任务执行器
 
 执行课件生成任务，包含错误处理和状态更新。
@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import time
+import uuid
 from typing import Optional
 
 from rq import get_current_job
@@ -21,6 +22,65 @@ RETRYABLE_ERRORS = (
     TimeoutError,
     OSError,  # 包含网络和文件系统临时错误
 )
+
+
+async def _sync_session_terminal_state(
+    db_service,
+    task_id: str,
+    session_id: Optional[str],
+    state: str,
+    state_reason: str,
+    output_urls: Optional[dict] = None,
+    error_message: Optional[str] = None,
+    retryable: bool = False,
+) -> None:
+    """Keep session terminal state aligned with task terminal state."""
+    if not session_id:
+        return
+
+    cursor = str(uuid.uuid4())
+    if state == "SUCCESS":
+        session_data = {
+            "state": "SUCCESS",
+            "pptUrl": (output_urls or {}).get("pptx"),
+            "wordUrl": (output_urls or {}).get("docx"),
+            "progress": 100,
+            "errorCode": None,
+            "errorMessage": None,
+            "errorRetryable": False,
+            "resumable": True,
+        }
+        payload = {"task_id": task_id, "output_urls": output_urls or {}}
+    else:
+        session_data = {
+            "state": "FAILED",
+            "errorCode": "TASK_EXECUTION_FAILED",
+            "errorMessage": error_message,
+            "errorRetryable": retryable,
+            "resumable": True,
+        }
+        payload = {"task_id": task_id, "error": error_message, "retryable": retryable}
+
+    await db_service.db.generationsession.update(
+        where={"id": session_id},
+        data=session_data,
+    )
+    await db_service.db.sessionevent.create(
+        data={
+            "sessionId": session_id,
+            "eventType": "state.changed",
+            "state": state,
+            "stateReason": state_reason,
+            "progress": 100 if state == "SUCCESS" else None,
+            "cursor": cursor,
+            "payload": json.dumps(payload),
+            "schemaVersion": 1,
+        }
+    )
+    await db_service.db.generationsession.update(
+        where={"id": session_id},
+        data={"lastCursor": cursor},
+    )
 
 
 def run_generation_task(
@@ -74,6 +134,7 @@ async def execute_generation_task(
     start_time = time.time()
     db_service = DatabaseService()
     db_connected = False
+    session_id: Optional[str] = None
 
     try:
         # RQ 在任务执行时会创建/关闭事件循环，数据库连接必须在当前循环中建立
@@ -96,6 +157,8 @@ async def execute_generation_task(
             status="processing",
             progress=10,
         )
+        task_record = await db_service.get_generation_task(task_id)
+        session_id = getattr(task_record, "sessionId", None)
 
         # 调用 AI Service 获取课件内容
         from services.ai import ai_service
@@ -105,8 +168,12 @@ async def execute_generation_task(
             f"Calling AI service to generate courseware content for task {task_id}"
         )
 
-        # 构建用户需求
-        user_requirements = await _build_user_requirements(db_service, project_id)
+        # 构建用户需求（C5：project_id + session_id 隔离）
+        user_requirements = await _build_user_requirements(
+            db_service,
+            project_id,
+            session_id=session_id,
+        )
 
         # 生成课件内容
         courseware_content = await ai_service.generate_courseware_content(
@@ -162,6 +229,35 @@ async def execute_generation_task(
             output_urls=json.dumps(output_urls),
         )
 
+        # C6: 成功时同步 Session 终态
+        try:
+            await _sync_session_terminal_state(
+                db_service=db_service,
+                task_id=task_id,
+                session_id=session_id,
+                state="SUCCESS",
+                state_reason="task_completed",
+                output_urls=output_urls,
+            )
+            if session_id:
+                logger.info(
+                    "session_state_updated_to_success",
+                    extra={
+                        "session_id": session_id,
+                        "task_id": task_id,
+                        "timestamp": time.time(),
+                    },
+                )
+        except Exception as sync_err:
+            logger.error(
+                "failed_to_sync_session_success_state task_id=%s session_id=%s "
+                "error=%s",
+                task_id,
+                session_id,
+                sync_err,
+                exc_info=True,
+            )
+
         logger.info(
             "generation_task_completed",
             extra={
@@ -174,7 +270,6 @@ async def execute_generation_task(
         )
 
     except RETRYABLE_ERRORS as e:
-        # 可重试错误：记录日志，增加重试计数，抛出异常触发 RQ 重试
         logger.warning(
             f"Retryable error in task {task_id}: {type(e).__name__}: {str(e)}",
             extra={
@@ -186,17 +281,53 @@ async def execute_generation_task(
             },
         )
 
-        # 增加重试计数
         try:
             await db_service.increment_task_retry_count(task_id)
         except Exception as db_error:
             logger.error(f"Failed to increment retry count: {db_error}")
 
-        # 重新抛出异常以触发 RQ 重试机制
+        retries_left = 0
+        try:
+            current_job = get_current_job()
+            retries_left = current_job.retries_left if current_job else 0
+        except Exception as job_err:
+            logger.error(
+                "Could not determine retries_left for task %s: %s",
+                task_id,
+                job_err,
+            )
+
+        if retries_left <= 0:
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            await db_service.update_generation_task_status(
+                task_id=task_id,
+                status="failed",
+                error_message=error_msg,
+            )
+            try:
+                await _sync_session_terminal_state(
+                    db_service=db_service,
+                    task_id=task_id,
+                    session_id=session_id,
+                    state="FAILED",
+                    state_reason="task_failed_retry_exhausted",
+                    error_message=error_msg,
+                    retryable=True,
+                )
+            except Exception as sync_err:
+                logger.error(
+                    "failed_to_sync_session_failed_state task_id=%s session_id=%s "
+                    "error=%s",
+                    task_id,
+                    session_id,
+                    sync_err,
+                    exc_info=True,
+                )
+
         raise
 
     except (ValueError, KeyError, TypeError) as e:
-        # 不可重试错误（参数/数据错误）：记录日志，标记为 failed
+        # 不可重试错误（参数/数据错误）
         logger.error(
             f"Permanent error in task {task_id}: {type(e).__name__}: {str(e)}",
             extra={
@@ -209,12 +340,29 @@ async def execute_generation_task(
             exc_info=True,
         )
 
-        # 更新任务状态为 failed，不重试
         await db_service.update_generation_task_status(
             task_id=task_id,
             status="failed",
             error_message=f"{type(e).__name__}: {str(e)}",
         )
+        try:
+            await _sync_session_terminal_state(
+                db_service=db_service,
+                task_id=task_id,
+                session_id=session_id,
+                state="FAILED",
+                state_reason="task_failed_permanent_error",
+                error_message=f"{type(e).__name__}: {str(e)}",
+                retryable=False,
+            )
+        except Exception as sync_err:
+            logger.error(
+                "failed_to_sync_session_failed_state task_id=%s session_id=%s error=%s",
+                task_id,
+                session_id,
+                sync_err,
+                exc_info=True,
+            )
 
         # 不抛出异常，避免触发重试
 
@@ -232,7 +380,6 @@ async def execute_generation_task(
             exc_info=True,
         )
 
-        # 检查当前 RQ job 是否还有重试次数，避免在重试期间将状态标记为 failed
         retries_left = 0
         try:
             current_job = get_current_job()
@@ -244,19 +391,35 @@ async def execute_generation_task(
             )
 
         if retries_left > 0:
-            # 还有重试次数：增加重试计数，重新抛出以触发 RQ 重试，不标记为 failed
             try:
                 await db_service.increment_task_retry_count(task_id)
             except Exception as db_error:
                 logger.error(f"Failed to increment retry count: {db_error}")
             raise
 
-        # 重试次数已耗尽：标记为 failed
         await db_service.update_generation_task_status(
             task_id=task_id,
             status="failed",
             error_message=f"{type(e).__name__}: {str(e)}",
         )
+        try:
+            await _sync_session_terminal_state(
+                db_service=db_service,
+                task_id=task_id,
+                session_id=session_id,
+                state="FAILED",
+                state_reason="task_failed_unknown_error",
+                error_message=f"{type(e).__name__}: {str(e)}",
+                retryable=True,
+            )
+        except Exception as sync_err:
+            logger.error(
+                "failed_to_sync_session_failed_state task_id=%s session_id=%s error=%s",
+                task_id,
+                session_id,
+                sync_err,
+                exc_info=True,
+            )
 
         raise
 
@@ -273,7 +436,101 @@ async def execute_generation_task(
                 logger.warning(f"Failed to disconnect database in task {task_id}: {e}")
 
 
-async def _build_user_requirements(db_service, project_id: str) -> str:
+# ===========================================================================
+# C1: RAG 索引任务（RQ 可恢复队列入口）
+# ===========================================================================
+
+
+def run_rag_indexing_task(
+    file_id: str,
+    project_id: str,
+    session_id: Optional[str] = None,
+):
+    """
+    同步包装函数，供 RQ worker 调用 RAG 索引任务。
+    """
+    asyncio.run(
+        execute_rag_indexing_task(
+            file_id=file_id,
+            project_id=project_id,
+            session_id=session_id,
+        )
+    )
+
+
+async def execute_rag_indexing_task(
+    file_id: str,
+    project_id: str,
+    session_id: Optional[str] = None,
+):
+    """
+    执行 RAG 索引任务。
+
+    Args:
+        file_id: Upload 记录 ID
+        project_id: 项目 ID
+        session_id: 会话 ID（C5 数据隔离可选）
+    """
+    from services.database import DatabaseService
+    from services.rag_indexing_service import index_upload_file_for_rag
+
+    db = DatabaseService()
+    db_connected = False
+    try:
+        await asyncio.wait_for(db.connect(), timeout=10)
+        db_connected = True
+
+        upload = await db.get_file(file_id)
+        if not upload:
+            logger.error("rag_indexing_task: file not found: %s", file_id)
+            return
+
+        await db.update_upload_status(upload.id, status="parsing")
+        parse_result = await index_upload_file_for_rag(
+            upload=upload,
+            project_id=project_id,
+            session_id=session_id,
+            chunk_size=500,
+            chunk_overlap=50,
+            reindex=False,
+        )
+        await db.update_upload_status(
+            upload.id,
+            status="ready",
+            parse_result=parse_result,
+            error_message=None,
+        )
+        logger.info(
+            "rag_indexing_task_completed",
+            extra={"file_id": file_id, "project_id": project_id},
+        )
+    except Exception as e:
+        logger.error(
+            "rag_indexing_task_failed: file_id=%s error=%s",
+            file_id,
+            e,
+            exc_info=True,
+        )
+        try:
+            await db.update_upload_status(
+                file_id, status="failed", error_message=str(e)
+            )
+        except Exception:
+            pass
+        raise
+    finally:
+        if db_connected:
+            try:
+                await asyncio.wait_for(db.disconnect(), timeout=5)
+            except Exception:
+                pass
+
+
+async def _build_user_requirements(
+    db_service,
+    project_id: str,
+    session_id: Optional[str] = None,
+) -> str:
     """
     构建用户需求文本
 
@@ -288,8 +545,12 @@ async def _build_user_requirements(db_service, project_id: str) -> str:
     if not project:
         return "生成课件"
 
-    # 获取最近的聊天消息
-    messages = await db_service.get_messages(project_id, limit=10)
+    # 获取最近的聊天消息（C5: project_id + session_id 隔离）
+    messages = await db_service.get_recent_conversation_messages(
+        project_id=project_id,
+        limit=10,
+        session_id=session_id,
+    )
 
     # 过滤出用户消息
     user_messages = [msg for msg in messages if msg.role == "user"]
@@ -302,7 +563,7 @@ async def _build_user_requirements(db_service, project_id: str) -> str:
 
     if user_messages:
         requirements_parts.append("\n用户需求：")
-        for msg in reversed(user_messages[-3:]):  # 最近3条用户消息
+        for msg in reversed(user_messages[-3:]):
             requirements_parts.append(f"- {msg.content}")
 
     return "\n".join(requirements_parts)

@@ -5,7 +5,7 @@ RAG Indexing Service
 """
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from services.chunking import split_text
 from services.database import db_service
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 async def index_upload_file_for_rag(
     upload: Any,
     project_id: str,
+    session_id: Optional[str] = None,
     chunk_size: int = 500,
     chunk_overlap: int = 50,
     reindex: bool = False,
@@ -78,14 +79,18 @@ async def index_upload_file_for_rag(
         )
         await db_service.delete_parsed_chunks(upload.id)
 
+    base_metadata = {
+        "filename": upload.filename,
+        "source_type": upload.fileType,
+    }
+    if session_id:
+        base_metadata["session_id"] = session_id
+
     chunk_payloads = [
         {
             "chunk_index": idx,
             "content": chunk,
-            "metadata": {
-                "filename": upload.filename,
-                "source_type": upload.fileType,
-            },
+            "metadata": dict(base_metadata),
         }
         for idx, chunk in enumerate(chunks)
     ]
