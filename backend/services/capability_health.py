@@ -80,7 +80,7 @@ def check_document_parser_health() -> CapabilityStatus:
 
             status = CapabilityStatus(
                 capability=CapabilityType.DOCUMENT_PARSER,
-                provider=parser_name,
+                provider="local",
                 status=CapabilityStatusEnum.DEGRADED,
                 fallback_used=True,
                 fallback_target="local",

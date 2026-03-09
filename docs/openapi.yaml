@@ -1139,7 +1139,7 @@ components:
               description: 服务端追踪 ID，用于日志排障
         message:
           type: string
-          description: 根级错误摘要，通常为”请求失败”或业务级失败说明
+          description: 根级错误摘要，通常为“请求失败”或业务级失败说明
     LoginRequest:
       type: object
       required:
@@ -1385,7 +1385,8 @@ components:
               $ref: '#/components/schemas/Message'
               description: 自动创建的消息对象
             capability_status:
-              $ref: '#/components/schemas/CapabilityStatus'
+              allOf:
+                - $ref: '#/components/schemas/CapabilityStatus'
               description: 语音识别能力状态（含降级信息）
             suggestions:
               type: array
@@ -1499,7 +1500,8 @@ components:
               type: integer
               description: 入库索引片段数量
             capability_status:
-              $ref: '#/components/schemas/CapabilityStatus'
+              allOf:
+                - $ref: '#/components/schemas/CapabilityStatus'
               description: 解析能力状态（含降级信息）
             segments:
               type: array

@@ -63,7 +63,7 @@ def extract_text_for_rag(
     从文件中提取可用于 RAG 的文本及解析详情。
 
     Returns:
-        (text, parse_details) - parse_details 包含 capability_status 字段
+        (text, parse_details) - parse_details 可能包含 capability_status 字段
     """
     details: dict[str, Any] = {}
 
@@ -78,7 +78,10 @@ def extract_text_for_rag(
         from services.video_service import create_video_sources, process_video
 
         segments, capability_status = process_video(filepath, filename)
-        sources = [src.model_dump() for src in create_video_sources(segments, filename)]
+        sources = [
+            src.model_dump(mode="json")
+            for src in create_video_sources(segments, filename)
+        ]
         lines: list[str] = []
         for seg in segments:
             content = str(seg.get("content", "")).strip()
@@ -94,7 +97,7 @@ def extract_text_for_rag(
         )
         details["segments"] = segments
         details["sources"] = sources
-        details["capability_status"] = capability_status.model_dump()
+        details["capability_status"] = capability_status.model_dump(mode="json")
         details["text_length"] = len(text)
         return text, details
 
@@ -138,7 +141,7 @@ def extract_text_for_rag(
                 status=CapabilityStatusEnum.AVAILABLE,
                 fallback_used=False,
                 trace_id=trace_id,
-            ).model_dump()
+            ).model_dump(mode="json")
             details.update(parse_details)
             details["capability_status"] = capability_status
             return text, details
@@ -152,7 +155,7 @@ def extract_text_for_rag(
                 status=CapabilityStatusEnum.AVAILABLE,
                 fallback_used=False,
                 trace_id=trace_id,
-            ).model_dump()
+            ).model_dump(mode="json")
             details.update(parse_details)
             details["capability_status"] = capability_status
             return "", details
@@ -229,7 +232,7 @@ def extract_text_for_rag(
                         reason_code=reason_code,
                         user_message=user_message,
                         trace_id=trace_id,
-                    ).model_dump()
+                    ).model_dump(mode="json")
 
                     details.update(parse_details)
                     details["capability_status"] = capability_status
@@ -269,7 +272,7 @@ def extract_text_for_rag(
             reason_code=ReasonCode.EMPTY_OUTPUT,
             user_message=f"文件 {filename} 解析失败，请检查文件格式或稍后重试。",
             trace_id=trace_id,
-        ).model_dump()
+        ).model_dump(mode="json")
 
         details["capability_status"] = capability_status
         # 返回空文本，但保留 capability_status 供上层处理

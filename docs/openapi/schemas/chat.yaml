@@ -111,7 +111,8 @@ VoiceMessageResponse:
           $ref: '#/Message'
           description: 自动创建的消息对象
         capability_status:
-          $ref: './common.yaml#/CapabilityStatus'
+          allOf:
+            - $ref: './common.yaml#/CapabilityStatus'
           description: 语音识别能力状态（含降级信息）
         suggestions:
           type: array

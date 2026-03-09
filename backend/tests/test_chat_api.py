@@ -1,4 +1,4 @@
-﻿"""Chat API endpoint tests (PR-34 compatible C5)."""
+"""Chat API endpoint tests (PR-34 compatible C5)."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace

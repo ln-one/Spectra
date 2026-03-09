@@ -72,6 +72,17 @@ def _to_message(conv) -> dict:
         ).model_dump(mode="json")
 
 
+def _dump_capability_status(capability_status) -> dict:
+    """Serialize capability status to JSON-safe dict with mock compatibility."""
+    model_dump = getattr(capability_status, "model_dump", None)
+    if callable(model_dump):
+        try:
+            return model_dump(mode="json")
+        except TypeError:
+            return model_dump()
+    return jsonable_encoder(capability_status)
+
+
 @router.post("/messages")
 async def send_message(
     body: SendMessageRequest,
@@ -317,13 +328,13 @@ async def voice_message(
                     "source": "voice",
                     "filename": audio.filename,
                     "idempotency_key": key_str,
-                    "capability_status": capability_status.model_dump(),
+                    "capability_status": _dump_capability_status(capability_status),
                 }
                 if key_str
                 else {
                     "source": "voice",
                     "filename": audio.filename,
-                    "capability_status": capability_status.model_dump(),
+                    "capability_status": _dump_capability_status(capability_status),
                 }
             ),
             session_id=session_id,
@@ -345,7 +356,7 @@ async def voice_message(
                 "confidence": confidence,
                 "duration": round(duration, 2),
                 "message": _to_message(assistant_msg),
-                "capability_status": capability_status.model_dump(),
+                "capability_status": _dump_capability_status(capability_status),
                 "suggestions": ["补充教学目标", "补充参考资料", "开始生成课件"],
             },
             message="语音识别成功",

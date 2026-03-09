@@ -56,7 +56,8 @@ UploadedFile:
           type: integer
           description: 入库索引片段数量
         capability_status:
-          $ref: './common.yaml#/CapabilityStatus'
+          allOf:
+            - $ref: './common.yaml#/CapabilityStatus'
           description: 解析能力状态（含降级信息）
         segments:
           type: array

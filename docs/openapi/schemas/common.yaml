@@ -40,7 +40,7 @@ ErrorResponse:
           description: 服务端追踪 ID，用于日志排障
     message:
       type: string
-      description: 根级错误摘要，通常为”请求失败”或业务级失败说明
+      description: 根级错误摘要，通常为“请求失败”或业务级失败说明
 
 CapabilityStatus:
   type: object
