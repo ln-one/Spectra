@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { FileText, Presentation, BookOpen, Brain, HelpCircle, FileEdit, Film, BookMarked, ChevronRight, Sparkles, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { FileText, Presentation, BookOpen, Brain, HelpCircle, FileEdit, Film, BookMarked, Sparkles, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { useProjectStore, GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardDescription, CardContent } from "@/components/ui/card";
@@ -112,7 +112,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
         <CardHeader
-          className="flex flex-row items-center justify-between px-4 border-b border-zinc-100 space-y-0 py-0 shrink-0"
+          className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
           style={{ height: "52px" }}
         >
           <motion.div
@@ -232,17 +232,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                           {tool.name}
                         </span>
                         <motion.div
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          whileHover={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2"
-                        >
-                          <ChevronRight
-                            className="w-3.5 h-3.5"
-                            style={{ color: color.primary }}
-                          />
-                        </motion.div>
-                        <motion.div
                           className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
                           style={{
                             background: `radial-gradient(circle at center, ${color.glow}, transparent 70%)`,
@@ -261,13 +250,13 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute inset-0 flex flex-col items-center justify-center py-8 pointer-events-auto"
+                      className="absolute inset-0 flex flex-col items-center pt-6 pointer-events-auto"
                       style={{ padding: "0 12px" }}
                     >
                       <motion.div
                         layoutId={`icon-${expandedTool}`}
                         className={cn(
-                          "rounded-2xl flex items-center justify-center mb-4",
+                          "rounded-2xl flex items-center justify-center mb-3",
                           "backdrop-blur-md border border-white/40"
                         )}
                         style={{
@@ -284,7 +273,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         />
                       </motion.div>
                       <motion.p
-                        className="text-sm font-medium mb-1"
+                        className="text-sm font-medium mb-0.5"
                         style={{ color: currentColor.primary }}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -294,7 +283,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         {TOOL_TITLES[expandedTool || "ppt"]}
                       </motion.p>
                       <motion.p
-                        className="text-xs text-zinc-400"
+                        className="text-xs text-zinc-400 mb-4"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
@@ -303,7 +292,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         选择素材后开始生成
                       </motion.p>
                       <motion.div
-                        className="mt-6 p-4 rounded-xl bg-zinc-50/80 backdrop-blur-sm border border-zinc-100 w-full"
+                        className="p-4 rounded-xl bg-zinc-50/80 backdrop-blur-sm border border-zinc-100 w-full"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}

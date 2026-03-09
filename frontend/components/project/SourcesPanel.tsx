@@ -166,7 +166,7 @@ function FileItem({
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onClick={onToggle}
       className={cn(
-        "group relative flex items-center gap-2 p-2.5 rounded-xl cursor-pointer transition-all duration-200",
+        "group relative grid grid-cols-[32px_1fr_auto] items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all duration-200 w-full max-w-full overflow-hidden",
         isSelected
           ? "bg-white shadow-sm border-2 border-zinc-200"
           : "bg-white hover:bg-zinc-50 shadow-sm hover:shadow-md border border-zinc-100"
@@ -175,7 +175,7 @@ function FileItem({
     >
       <div
         className={cn(
-          "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105",
+          "w-8 h-8 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-105",
           config.bgGradient
         )}
       >
@@ -185,7 +185,7 @@ function FileItem({
         )} />
       </div>
 
-      <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="min-w-0 flex flex-col justify-center">
         <p
           className="text-xs font-medium transition-colors text-zinc-800 truncate"
           title={file.filename}
@@ -194,7 +194,7 @@ function FileItem({
         </p>
 
         {file.status === "parsing" && file.parse_progress !== undefined && (
-          <div className="mt-1.5 w-full">
+          <div className="mt-1.5 w-full overflow-hidden">
             <div className="h-1 rounded-full overflow-hidden bg-zinc-100">
               <motion.div
                 initial={{ width: 0 }}
@@ -207,7 +207,7 @@ function FileItem({
         )}
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0 ml-1">
+      <div className="flex items-center gap-1.5 pl-1.5 border-l border-zinc-50">
         <div className={cn(
           "w-2 h-2 rounded-full transition-all shrink-0",
           statusConfig.color,
@@ -221,7 +221,7 @@ function FileItem({
             e.stopPropagation();
             onDelete();
           }}
-          className="w-6 h-6 rounded-md bg-zinc-100 hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-colors shrink-0"
+          className="w-6 h-6 rounded-md bg-zinc-50 hover:bg-red-50 text-zinc-400 hover:text-red-500 transition-colors shrink-0"
         >
           <Trash2 className="w-3 h-3" />
         </Button>
@@ -276,7 +276,7 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
 
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
-        await uploadFile(projectId, file);
+        await uploadFile(file, projectId);
       }
 
       if (fileInputRef.current) {
@@ -288,13 +288,13 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
 
   const handleDelete = useCallback(
     async (fileId: string) => {
-      await deleteFile(projectId, fileId);
+      await deleteFile(fileId);
     },
     [projectId, deleteFile]
   );
 
   return (
-    <div ref={containerRef} className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+    <div ref={containerRef} className="h-full w-full bg-transparent overflow-hidden" style={{ transform: "translateZ(0)" }}>
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
         <CardHeader className="flex flex-row items-center justify-between px-4 border-b border-zinc-100 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
           <div className="flex flex-col justify-center shrink-0">
@@ -334,9 +334,9 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
           </label>
         </CardHeader>
 
-        <CardContent className="p-0 h-[calc(100%-52px)]">
-          <ScrollArea className="h-full">
-            <div className="min-h-full px-3 py-3">
+        <CardContent className="p-0 h-[calc(100%-52px)] overflow-hidden">
+          <ScrollArea className="h-full w-full">
+            <div className="min-h-full px-3 py-3 w-full max-w-full overflow-hidden">
               {files.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center py-16">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
@@ -347,8 +347,8 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                 </div>
               ) : (
                 <div className={cn(
-                  "space-y-2",
-                  isCompact && "flex flex-col gap-2 space-y-0"
+                  "grid grid-cols-1 gap-2 w-full max-w-full",
+                  isCompact && "flex flex-col gap-2"
                 )}>
                   <AnimatePresence mode="popLayout">
                     {files.map((file) => (
