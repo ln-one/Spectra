@@ -62,10 +62,10 @@
 
 ### 3.4 预览
 
-- `GET /preview/{task_or_project_id}`
-- `POST /preview/{task_or_project_id}/modify`
-- `GET /preview/{task_or_project_id}/slides/{slide_id}`
-- `POST /preview/{task_or_project_id}/export`
+- `GET /preview/{task_id}`
+- `POST /preview/{task_id}/modify`
+- `GET /preview/{task_id}/slides/{slide_id}`
+- `POST /preview/{task_id}/export`
 
 说明：
 
