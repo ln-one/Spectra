@@ -66,9 +66,10 @@ model Project {
   status      String   @default("draft")  // draft/in_progress/completed
   
   // 关联关系
-  conversations   Conversation[]
-  uploads         Upload[]
-  generationTasks GenerationTask[]
+  conversations      Conversation[]
+  uploads            Upload[]
+  generationTasks    GenerationTask[]
+  generationSessions GenerationSession[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -83,13 +84,18 @@ model Conversation {
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   
+  // session 作用域隔离（C5：同 project 下多 session 不串数据）
+  sessionId   String?
+  session     GenerationSession? @relation(fields: [sessionId], references: [id])
+  
   role        String   // user/assistant/system
   content     String   // 消息内容
-  metadata    String?  // JSON：意图标签、追问类型、关键词等
+  metadata    String?  // JSON：意图标签、追问类型、关键词等、citations
   
   createdAt   DateTime @default(now())
   
   @@index([projectId, createdAt])
+  @@index([projectId, sessionId, createdAt])
 }
 
 /// 上传文件模型 - 存储文件元信息和解析状态
@@ -143,6 +149,10 @@ model GenerationTask {
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   
+  // session 关联（C1：任务显式关联 session，兼容旧任务可为空）
+  sessionId   String?
+  session     GenerationSession? @relation(fields: [sessionId], references: [id])
+  
   taskType    String   // ppt/word/both
   status      String   @default("pending")  // pending/processing/completed/failed
   progress    Int      @default(0)          // 0-100
@@ -161,6 +171,7 @@ model GenerationTask {
   
   @@index([projectId, status])
   @@index([rqJobId])
+  @@index([sessionId])
 }
 
 // ============================================
@@ -174,4 +185,101 @@ model Course {
   chapters  String   // JSON stored as text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// Session-First 会话生成模型（C6）
+// ============================================
+
+/// 生成会话 - 可中断、可恢复的课件生成主上下文
+model GenerationSession {
+  id              String   @id @default(uuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId          String
+
+  // 生成状态（9态状态机）
+  state           String   @default("IDLE")
+  // IDLE/CONFIGURING/ANALYZING/DRAFTING_OUTLINE/AWAITING_OUTLINE_CONFIRM/
+  // GENERATING_CONTENT/RENDERING/SUCCESS/FAILED
+  stateReason     String?  // 状态附加说明（灰度/未知状态）
+
+  // 输出配置
+  outputType      String   // ppt/word/both
+  options         String?  // JSON: GenerationOptions
+  progress        Int      @default(0)
+
+  // 大纲版本控制
+  currentOutlineVersion Int @default(1)
+
+  // 渲染版本（并发控制）
+  renderVersion   Int      @default(0)
+
+  // 生成结果
+  pptUrl          String?
+  wordUrl         String?
+
+  // 错误信息
+  errorCode       String?
+  errorMessage    String?
+  errorRetryable  Boolean  @default(false)
+
+  // 可恢复性
+  resumable       Boolean  @default(false)
+  lastCursor      String?  // 最后一个事件游标，用于断线续传
+
+  // 客户端会话 ID（断线重连用）
+  clientSessionId String?
+
+  // 能力降级记录（JSON 数组）
+  fallbacksJson   String?  // JSON: ExternalFallbackInfo[]
+
+  // 关联关系
+  outlineVersions OutlineVersion[]
+  events          SessionEvent[]
+  tasks           GenerationTask[]
+  conversations   Conversation[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([projectId, state])
+  @@index([userId, state])
+  @@index([clientSessionId])
+}
+
+/// 大纲版本 - 每次用户或 AI 修改大纲时追加一条
+model OutlineVersion {
+  id            String   @id @default(uuid())
+  sessionId     String
+  session       GenerationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  version       Int      // 版本号，从 1 开始递增
+  outlineData   String   // JSON: OutlineDocument
+  changeReason  String?  // 本次变更原因
+
+  createdAt     DateTime @default(now())
+
+  @@unique([sessionId, version])
+  @@index([sessionId, version])
+}
+
+/// 会话事件 - 追加不可变的事件流（SSE 事件源）
+model SessionEvent {
+  id            String   @id @default(uuid())
+  sessionId     String
+  session       GenerationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  eventType     String   // GenerationEventType 枚举
+  state         String   // 事件发生时的 GenerationState
+  stateReason   String?
+  progress      Int?
+  cursor        String   @unique  // 事件游标（用于 SSE 断线续传）
+  payload       String?  // JSON: 事件业务数据
+  schemaVersion Int      @default(1)
+
+  createdAt     DateTime @default(now())
+
+  @@index([sessionId, cursor])
+  @@index([sessionId, createdAt])
 }

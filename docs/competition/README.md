@@ -6,18 +6,18 @@
 
 ## 入口
 
-- [执行摘要](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/00-executive-summary.md)
-- [前言与项目综述](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/01-overview.md)
-- [可行性分析](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/02-feasibility.md)
-- [业务与需求分析](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/03-requirements-analysis.md)
-- [系统架构设计](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/04-architecture.md)
-- [关键技术实现](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/05-key-technologies.md)
-- [项目测试与效果评估](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/06-testing-evaluation.md)
-- [组织管理与商业价值](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/07-organization-business.md)
-- [题目要求覆盖说明](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/08-requirements-coverage.md)
-- [提交版主稿结构建议](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/09-submission-manuscript.md)
-- [提交主稿入口](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/10-submission-master.md)
-- [合并稿草案](/Users/ln1/.codex/worktrees/cd88/Spectra/docs/competition/11-final-submission-draft.md)
+- [执行摘要](./00-executive-summary.md)
+- [前言与项目综述](./01-overview.md)
+- [可行性分析](./02-feasibility.md)
+- [业务与需求分析](./03-requirements-analysis.md)
+- [系统架构设计](./04-architecture.md)
+- [关键技术实现](./05-key-technologies.md)
+- [项目测试与效果评估](./06-testing-evaluation.md)
+- [组织管理与商业价值](./07-organization-business.md)
+- [题目要求覆盖说明](./08-requirements-coverage.md)
+- [提交版主稿结构建议](./09-submission-manuscript.md)
+- [提交主稿入口](./10-submission-master.md)
+- [合并稿草案](./11-final-submission-draft.md)
 
 ## 维护清单
 

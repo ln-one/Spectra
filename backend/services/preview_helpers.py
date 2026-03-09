@@ -10,13 +10,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from schemas.preview import (
-    LessonPlan,
-    Slide,
-    SlidePlan,
-    SourceReference,
-    SourceType,
-)
+from schemas.preview import LessonPlan, Slide, SlidePlan, SourceReference, SourceType
 from services.database import db_service
 
 logger = logging.getLogger(__name__)

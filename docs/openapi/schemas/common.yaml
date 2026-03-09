@@ -1,17 +1,21 @@
 SimpleSuccessResponse:
   type: object
-  required: [success, message]
+  required: [success, data, message]
   properties:
     success:
       type: boolean
       example: true
+    data:
+      type: object
+      additionalProperties: true
+      description: 成功响应载荷。部分接口可能返回空对象。
     message:
       type: string
       example: "操作成功"
 
 ErrorResponse:
   type: object
-  required: [success, error]
+  required: [success, error, message]
   properties:
     success:
       type: boolean
@@ -34,3 +38,6 @@ ErrorResponse:
         trace_id:
           type: string
           description: 服务端追踪 ID，用于日志排障
+    message:
+      type: string
+      description: 根级错误摘要，通常为“请求失败”或业务级失败说明

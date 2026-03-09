@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Optional
 from uuid import UUID
@@ -39,12 +40,36 @@ async def _verify_project_ownership(project_id: str, user_id: str):
 
 def _to_message(conv) -> dict:
     """Convert Prisma Conversation record to API message payload."""
-    return Message(
-        id=conv.id,
-        role=conv.role,
-        content=conv.content,
-        timestamp=conv.createdAt,
-    ).model_dump(mode="json")
+    metadata = getattr(conv, "metadata", None)
+    parsed_metadata = {}
+    if isinstance(metadata, str):
+        try:
+            parsed_metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            parsed_metadata = {}
+    elif isinstance(metadata, dict):
+        parsed_metadata = metadata
+
+    citations = parsed_metadata.get("citations")
+    if not isinstance(citations, list):
+        citations = None
+
+    try:
+        return Message(
+            id=conv.id,
+            role=conv.role,
+            content=conv.content,
+            timestamp=conv.createdAt,
+            citations=citations,
+        ).model_dump(mode="json")
+    except Exception:
+        # Backward compatible fallback for malformed historical metadata.
+        return Message(
+            id=conv.id,
+            role=conv.role,
+            content=conv.content,
+            timestamp=conv.createdAt,
+        ).model_dump(mode="json")
 
 
 @router.post("/messages")
@@ -53,33 +78,95 @@ async def send_message(
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
-    """Save user message, generate assistant response, return assistant message."""
+    """Save user message, generate assistant response, return assistant message.
+
+    C5: 当 session_id 存在时，RAG 检索按 project_id + session_id 过滤，
+    实现同 project 多 session 资料不互串。
+    """
     try:
         project = await _verify_project_ownership(body.project_id, user_id)
         key_str = str(idempotency_key) if idempotency_key else None
         cache_key = (
-            f"chat:messages:{user_id}:{body.project_id}:{key_str}" if key_str else None
+            f"chat:messages:{user_id}:{body.project_id}:{body.session_id}:{key_str}"
+            if key_str
+            else None
         )
         if cache_key:
             cached_response = await db_service.get_idempotency_response(cache_key)
             if cached_response:
                 return cached_response
 
+        session_id = body.session_id  # 可为 None（兼容旧调用）
+
         await db_service.create_conversation_message(
             project_id=body.project_id,
             role="user",
             content=body.content,
-            metadata={"idempotency_key": key_str} if key_str else None,
+            metadata={
+                **({"idempotency_key": key_str} if key_str else {}),
+                **({"session_id": session_id} if session_id else {}),
+            }
+            or None,
+            session_id=session_id,
         )
+
+        # C5: RAG 检索（按 project_id + session_id 隔离）
+        rag_context = ""
+        citations = []
+        rag_hit = False
+        try:
+            from services.rag_service import rag_service as _rag
+
+            rag_results = await _rag.search(
+                project_id=body.project_id,
+                query=body.content,
+                top_k=5,
+                score_threshold=0.3,
+                session_id=session_id,
+            )
+            if rag_results:
+                rag_hit = True
+                rag_context = "\n\n".join(
+                    [
+                        f"[资料片段 {i+1}]: {r.content}"
+                        for i, r in enumerate(rag_results)
+                    ]
+                )
+                citations = [
+                    {
+                        "chunk_id": r.source.chunk_id,
+                        "source_type": r.source.source_type,
+                        "filename": r.source.filename,
+                        "page_number": r.source.page_number,
+                        "score": r.score,
+                    }
+                    for r in rag_results
+                ]
+        except Exception as rag_exc:
+            logger.warning("RAG search failed, continuing without context: %s", rag_exc)
 
         recent_messages = await db_service.get_recent_conversation_messages(
             project_id=body.project_id,
             limit=10,
+            session_id=session_id,
         )
         context = "\n".join([f"{m.role}: {m.content}" for m in recent_messages[-6:]])
+
+        # 构造包含 RAG 资料的 prompt
+        rag_section = (
+            f"\n\n已上传的参考资料片段（优先基于此回答）：\n{rag_context}"
+            if rag_context
+            else ""
+        )
+        no_rag_hint = (
+            "\n\n（未在已上传资料中找到相关内容，将基于通用知识回答。）"
+            if not rag_hit and session_id
+            else ""
+        )
         prompt = (
             "你是教学课件助手。请基于上下文给出简洁、有操作性的下一步建议。\n\n"
-            f"项目: {project.name}\n"
+            f"项目: {project.name}"
+            f"{rag_section}{no_rag_hint}\n\n"
             f"上下文:\n{context}\n\n"
             f"用户新消息: {body.content}"
         )
@@ -87,15 +174,30 @@ async def send_message(
         assistant_content = (
             ai_result.get("content") or "我已收到你的需求，我们继续完善课件内容。"
         )
+
+        # 将 citations 存入 metadata
         assistant_msg = await db_service.create_conversation_message(
             project_id=body.project_id,
             role="assistant",
             content=assistant_content,
+            metadata=(
+                {"citations": citations, "rag_hit": rag_hit, "session_id": session_id}
+                if (citations or session_id)
+                else None
+            ),
+            session_id=session_id,
         )
+
+        # 构建回复 message（含 citations 字段）
+        msg_dict = _to_message(assistant_msg)
+        if citations:
+            msg_dict["citations"] = citations
 
         response_payload = success_response(
             data={
-                "message": _to_message(assistant_msg),
+                "session_id": session_id,
+                "message": msg_dict,
+                "rag_hit": rag_hit,
                 "suggestions": ["继续细化教学目标", "补充重点难点", "开始生成课件"],
             },
             message="消息发送成功",
@@ -121,6 +223,7 @@ async def get_messages(
     project_id: str = Query(...),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    session_id: Optional[str] = Query(None),
     user_id: str = Depends(get_current_user),
 ):
     """Get paginated conversation history for a project."""
@@ -131,6 +234,7 @@ async def get_messages(
             project_id=project_id,
             page=page,
             limit=limit,
+            session_id=session_id,
         )
 
         return success_response(
@@ -156,6 +260,7 @@ async def get_messages(
 async def voice_message(
     audio: UploadFile = File(...),
     project_id: str = Form(...),
+    session_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -186,6 +291,7 @@ async def voice_message(
                 if key_str
                 else {"source": "voice", "filename": audio.filename}
             ),
+            session_id=session_id,
         )
         assistant_msg = await db_service.create_conversation_message(
             project_id=project_id,
@@ -194,6 +300,7 @@ async def voice_message(
                 "收到语音需求。你可以继续补充年级、课时和重点难点，"
                 "我会据此生成课件。"
             ),
+            session_id=session_id,
         )
 
         response_payload = success_response(

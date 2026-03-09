@@ -12,6 +12,7 @@ from fastapi import (
     Form,
     Header,
     HTTPException,
+    Request,
     UploadFile,
     status,
 )
@@ -101,14 +102,19 @@ async def _verify_project_access(project_id: str, user_id: str):
     return project
 
 
-async def _index_upload_for_rag(upload, project_id: str):
-    """解析上传文件并建立 RAG 索引。"""
+async def _index_upload_for_rag(
+    upload,
+    project_id: str,
+    session_id: Optional[str] = None,
+):
+    """解析上传文件并建立 RAG 索引（BackgroundTasks 降级路径）。"""
     await db_service.update_upload_status(upload.id, status="parsing")
 
     try:
         parse_result = await index_upload_file_for_rag(
             upload=upload,
             project_id=project_id,
+            session_id=session_id,
             chunk_size=500,
             chunk_overlap=50,
             reindex=False,
@@ -130,6 +136,36 @@ async def _index_upload_for_rag(upload, project_id: str):
             status="failed",
             error_message=str(e),
         )
+
+
+def _dispatch_rag_indexing(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    upload,
+    project_id: str,
+    session_id: Optional[str],
+) -> None:
+    """
+    C1：优先将 RAG 索引任务投递到 RQ 可恢复队列；
+    队列不可用时降级到进程内 BackgroundTasks。
+    """
+    task_queue_service = getattr(request.app.state, "task_queue_service", None)
+    if task_queue_service is not None:
+        try:
+            task_queue_service.enqueue_rag_indexing_task(
+                file_id=upload.id,
+                project_id=project_id,
+                session_id=session_id,
+            )
+            return
+        except Exception as enqueue_err:
+            logger.warning(
+                "Failed to enqueue RAG indexing task, falling back to"
+                " BackgroundTasks: file_id=%s error=%s",
+                upload.id,
+                enqueue_err,
+            )
+    background_tasks.add_task(_index_upload_for_rag, upload, project_id, session_id)
 
 
 async def _save_and_record_upload(file: UploadFile, project_id: str):
@@ -159,9 +195,11 @@ def _validate_upload_file(filename: str):
 
 @router.post("")
 async def upload_file(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     project_id: str = Form(...),
+    session_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -170,7 +208,9 @@ async def upload_file(
         upload = await _save_and_record_upload(file, project_id)
         await db_service.update_upload_status(upload.id, status="parsing")
         latest = await db_service.get_file(upload.id)
-        background_tasks.add_task(_index_upload_for_rag, latest, project_id)
+        _dispatch_rag_indexing(
+            request, background_tasks, latest, project_id, session_id
+        )
 
         logger.info(
             "file_uploaded",
@@ -179,6 +219,7 @@ async def upload_file(
                 "project_id": project_id,
                 "file_id": upload.id,
                 "upload_filename": file.filename,
+                "session_id": session_id,
                 "idempotency_key": bool(idempotency_key),
             },
         )
@@ -199,9 +240,11 @@ async def upload_file(
 
 @router.post("/batch")
 async def batch_upload_files(
+    request: Request,
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     project_id: str = Form(...),
+    session_id: Optional[str] = Form(None),
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -215,7 +258,9 @@ async def batch_upload_files(
                 upload = await _save_and_record_upload(file, project_id)
                 await db_service.update_upload_status(upload.id, status="parsing")
                 latest = await db_service.get_file(upload.id)
-                background_tasks.add_task(_index_upload_for_rag, latest, project_id)
+                _dispatch_rag_indexing(
+                    request, background_tasks, latest, project_id, session_id
+                )
                 uploaded_files.append(latest)
             except Exception as e:
                 failed.append({"filename": file.filename, "error": str(e)})
@@ -227,6 +272,7 @@ async def batch_upload_files(
                 "project_id": project_id,
                 "success_count": len(uploaded_files),
                 "failed_count": len(failed),
+                "session_id": session_id,
                 "idempotency_key": bool(idempotency_key),
             },
         )
