@@ -5,7 +5,7 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { FileText, Presentation, BookOpen, Brain, HelpCircle, FileEdit, Film, BookMarked, Sparkles, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { useProjectStore, GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
-import { Card, CardHeader, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { GenerationConfigPanel } from "./GenerationConfigPanel";
@@ -88,7 +88,15 @@ interface StudioPanelProps {
 }
 
 export function StudioPanel({ onToolClick }: StudioPanelProps) {
-  const { layoutMode, expandedTool, generationHistory, setLayoutMode, setExpandedTool } = useProjectStore();
+  const {
+    project,
+    layoutMode,
+    expandedTool,
+    generationHistory,
+    setLayoutMode,
+    setExpandedTool,
+    startGeneration
+  } = useProjectStore();
   const [hoveredToolId, setHoveredToolId] = useState<string | null>(null);
 
   const isExpanded = layoutMode === "expanded";
@@ -116,23 +124,42 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0 relative"
           style={{ height: "52px" }}
         >
-          <motion.div
-            className="flex flex-col justify-center shrink-0"
-            layout
-            transition={{ type: "spring", stiffness: 350, damping: 30 }}
-          >
-            <motion.div
-              layout
-              className="tracking-tight font-semibold leading-tight"
-              animate={{ fontSize: isExpanded ? "1rem" : "0.875rem" }}
-              transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            >
-              {isExpanded ? TOOL_TITLES[expandedTool || "ppt"] : "Studio"}
-            </motion.div>
-            <CardDescription className="text-xs text-zinc-500 leading-tight">
-              {isExpanded ? "配置生成参数" : "AI 生成工具"}
-            </CardDescription>
-          </motion.div>
+          <div className="flex flex-col justify-center shrink-0 h-full overflow-hidden">
+            <LayoutGroup>
+              <motion.div
+                className="flex flex-col justify-center"
+                layout
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              >
+                <motion.div
+                  layout
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                >
+                  <CardTitle className="text-sm font-semibold leading-tight">
+                    <motion.span
+                      layout
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    >
+                      {isExpanded ? TOOL_TITLES[expandedTool || "ppt"] : "Studio"}
+                    </motion.span>
+                  </CardTitle>
+                </motion.div>
+                <motion.div
+                  layout
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                >
+                  <CardDescription className="text-xs text-zinc-500 leading-tight">
+                    <motion.span
+                      layout
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    >
+                      {isExpanded ? "配置生成参数" : "AI 生成工具"}
+                    </motion.span>
+                  </CardDescription>
+                </motion.div>
+              </motion.div>
+            </LayoutGroup>
+          </div>
 
           <AnimatePresence>
             {isExpanded && (
@@ -158,11 +185,12 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
             <motion.div
               layoutId={`icon-${expandedTool}`}
               className={cn(
-                "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50",
+                "absolute left-1/2 -translate-x-1/2 z-50",
                 "rounded-xl flex items-center justify-center",
                 "backdrop-blur-md border border-white/40"
               )}
               style={{
+                top: "8px",
                 width: 36,
                 height: 36,
                 background: `linear-gradient(135deg, ${currentColor.glow}, transparent)`,
@@ -284,14 +312,30 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ delay: 0.05, duration: 0.15 }}
-                        className="w-full flex-1 min-h-0"
+                        className="w-full h-full"
                       >
                         {expandedTool === "ppt" ? (
-                          <div className="bg-zinc-50/90 backdrop-blur-sm border border-zinc-200/60 rounded-xl p-3 h-full overflow-y-auto">
+                          <div className="h-full">
                             <GenerationConfigPanel
                               variant="compact"
                               onGenerate={(config) => {
-                                console.log("Generate config:", config);
+                                const tool = GENERATION_TOOLS.find(t => t.type === expandedTool);
+                                if (project && tool) {
+                                  startGeneration(project.id, tool, {
+                                    template: "default",
+                                    show_page_number: true,
+                                    include_animations: false,
+                                    include_games: false,
+                                    use_text_to_image: false,
+                                    pages: parseInt(config.pageCount) || 15,
+                                    audience: config.audience === "higher" || config.audience === "enterprise"
+                                      ? "professional"
+                                      : config.audience === "k12"
+                                        ? "beginner"
+                                        : "intermediate",
+                                    system_prompt_tone: config.prompt,
+                                  });
+                                }
                               }}
                             />
                           </div>

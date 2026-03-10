@@ -124,7 +124,7 @@ function FileItem({
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
         onClick={onToggle}
         className={cn(
-          "group relative flex items-center justify-center p-2.5 rounded-xl cursor-pointer transition-all duration-200",
+          "group relative flex items-center justify-center p-2.5 rounded-xl cursor-pointer transition-all duration-200 overflow-visible",
           isSelected
             ? "bg-white shadow-sm border-2 border-zinc-200"
             : "bg-white hover:bg-zinc-50 shadow-sm hover:shadow-md border border-zinc-100"
@@ -166,7 +166,7 @@ function FileItem({
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       onClick={onToggle}
       className={cn(
-        "group relative grid grid-cols-[32px_1fr_auto] items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all duration-200 w-full max-w-full overflow-hidden",
+        "group relative grid grid-cols-[32px_1fr_auto] items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all duration-200 w-full max-w-full overflow-visible",
         isSelected
           ? "bg-white shadow-sm border-2 border-zinc-200"
           : "bg-white hover:bg-zinc-50 shadow-sm hover:shadow-md border border-zinc-100"
@@ -294,9 +294,9 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
   );
 
   return (
-    <div ref={containerRef} className="h-full w-full bg-transparent overflow-hidden" style={{ transform: "translateZ(0)" }}>
-      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
-        <CardHeader className="flex flex-row items-center justify-between px-4 border-b border-zinc-100 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
+    <div ref={containerRef} className="h-full w-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl will-change-[box-shadow,transform]">
+        <CardHeader className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
           <div className="flex flex-col justify-center shrink-0">
             <CardTitle className="text-sm font-semibold leading-tight">Sources</CardTitle>
             <CardDescription className="text-xs text-zinc-500 leading-tight">

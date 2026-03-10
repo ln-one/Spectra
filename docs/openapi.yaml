@@ -2335,6 +2335,8 @@ components:
           type: boolean
         data:
           type: object
+          required:
+            - project
           properties:
             project:
               $ref: '#/components/schemas/Project'

@@ -2836,7 +2836,7 @@ export interface components {
     ProjectResponse: {
       success: boolean;
       data: {
-        project?: components["schemas"]["Project"];
+        project: components["schemas"]["Project"];
       };
       message: string;
     };

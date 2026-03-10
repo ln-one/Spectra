@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { components } from "@/lib/types/api";
-import { projectsApi, filesApi, chatApi, generateApi } from "@/lib/api";
+import { projectsApi, filesApi, chatApi, generateApi, ragApi } from "@/lib/api";
 import { ApiError, getErrorMessage } from "@/lib/api/errors";
 
 type Project = components["schemas"]["Project"];
@@ -37,7 +37,7 @@ export interface GenerationHistory {
   id: string;
   toolId: string;
   toolName: string;
-  status: "completed" | "failed" | "processing";
+  status: "completed" | "failed" | "processing" | "pending";
   createdAt: string;
   title: string;
 }
@@ -67,7 +67,9 @@ interface ProjectState {
   toggleFileSelection: (fileId: string) => void;
   sendMessage: (projectId: string, content: string) => Promise<void>;
   startGeneration: (projectId: string, tool: GenerationTool, options?: GenerationOptions) => Promise<void>;
+  updateOutline: (sessionId: string, outline: OutlineDocument) => Promise<void>;
   confirmOutline: (sessionId: string) => Promise<void>;
+  updateProjectName: (name: string) => Promise<void>;
   setLayoutMode: (mode: LayoutMode) => void;
   setExpandedTool: (tool: ExpandedTool) => void;
   clearLastFailedInput: () => void;
@@ -108,7 +110,30 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   fetchFiles: async (projectId: string) => {
     try {
       const response = await filesApi.getProjectFiles(projectId);
-      set({ files: response?.data?.files ?? [] });
+      if (response?.data?.files) {
+        const currentFiles = get().files;
+        set({ files: response.data.files });
+
+        let hasPending = false;
+        response.data.files.forEach((file) => {
+          if (file.status === "ready") {
+            const oldFile = currentFiles.find((f) => f.id === file.id);
+            if (oldFile && oldFile.status !== "ready") {
+              // Automatically index file for RAG when it becomes ready
+              ragApi.indexFile({ file_id: file.id }).catch(console.error);
+            }
+          } else if (file.status === "parsing" || file.status === "uploading") {
+            hasPending = true;
+          }
+        });
+
+        // 轮询检查解析状态
+        if (hasPending) {
+          setTimeout(() => {
+            get().fetchFiles(projectId);
+          }, 3000);
+        }
+      }
     } catch (error) {
       console.error("Failed to fetch files:", error);
     }
@@ -194,7 +219,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     try {
       const response = await generateApi.createSession({
         project_id: projectId,
-        output_type: tool.type === "mindmap" || tool.type === "outline" ? "ppt" : tool.type,
+        output_type: (tool.type === "ppt" || tool.type === "mindmap" || tool.type === "outline" || tool.type === "animation") ? "ppt" : "word",
         options,
       });
 
@@ -232,6 +257,21 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }
   },
 
+  updateOutline: async (sessionId: string, outline: OutlineDocument) => {
+    const session = get().generationSession;
+    const baseVersion = session?.outline?.version ?? 1;
+    try {
+      await generateApi.updateOutline(sessionId, { 
+        base_version: baseVersion,
+        outline 
+      });
+      const sessionResponse = await generateApi.getSession(sessionId);
+      set({ generationSession: sessionResponse?.data ?? null });
+    } catch (error) {
+      set({ error: { code: "UPDATE_OUTLINE_FAILED", message: getErrorMessage(error) } });
+    }
+  },
+
   confirmOutline: async (sessionId: string) => {
     try {
       await generateApi.confirmOutline(sessionId, { continue_from_retrieval: true });
@@ -239,6 +279,32 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       set({ generationSession: sessionResponse?.data ?? null });
     } catch (error) {
       set({ error: { code: "CONFIRM_OUTLINE_FAILED", message: getErrorMessage(error) } });
+    }
+  },
+
+  updateProjectName: async (name: string) => {
+    const { project } = get();
+    if (!project) return;
+    
+    // 乐观更新
+    const oldName = project.name;
+    set((state) => ({
+      project: state.project ? { ...state.project, name } : null,
+    }));
+
+    try {
+      await projectsApi.updateProject(project.id, {
+        name,
+        description: project.description,
+        grade_level: project.grade_level,
+      });
+    } catch (error) {
+      console.error("Failed to update project name:", error);
+      // 回滚
+      set((state) => ({
+        project: state.project ? { ...state.project, name: oldName } : null,
+        error: { code: "UPDATE_PROJECT_FAILED", message: getErrorMessage(error) },
+      }));
     }
   },
 

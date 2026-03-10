@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Share2, Settings, Sparkles, User } from "lucide-react";
+import { Plus, Share2, Settings, Sparkles, User, Check, X } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -17,7 +19,42 @@ import {
 
 export function ProjectHeader() {
   const { user, logout } = useAuthStore();
-  const { project } = useProjectStore();
+  const { project, updateProjectName } = useProjectStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleStartEdit = () => {
+    setEditValue(project?.name ?? "");
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (editValue.trim() && editValue !== project?.name) {
+      updateProjectName(editValue.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditValue("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSaveEdit();
+    } else if (e.key === "Escape") {
+      handleCancelEdit();
+    }
+  };
 
   return (
     <motion.header
@@ -34,9 +71,52 @@ export function ProjectHeader() {
           <span className="font-semibold text-zinc-900">Spectra</span>
         </Link>
         <div className="h-6 w-px bg-gray-200" />
-        <h1 className="text-sm font-medium text-zinc-600 truncate max-w-[200px]">
-          {project?.name ?? "加载中..."}
-        </h1>
+
+        {isEditing ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-2"
+          >
+            <Input
+              ref={inputRef}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="h-8 w-[200px] text-base font-medium bg-white border-zinc-300 focus:border-zinc-500 focus:ring-zinc-200"
+              placeholder="输入项目名称"
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleSaveEdit}
+              className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            >
+              <Check className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleCancelEdit}
+              className="h-8 w-8 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </motion.div>
+        ) : (
+          <button
+            onClick={handleStartEdit}
+            className="group flex items-center gap-1.5 px-2 py-1 -ml-2 rounded-lg hover:bg-zinc-100 transition-colors"
+            title="点击编辑项目名称"
+          >
+            <h1 className="text-lg font-semibold text-zinc-800 truncate max-w-[200px]">
+              {project?.name ?? "加载中..."}
+            </h1>
+            <span className="text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">
+              编辑
+            </span>
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
