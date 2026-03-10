@@ -26,12 +26,17 @@ class DialogueMemoryMetrics:
     failed_notice_ids: list[str]
 
     def summary(self) -> str:
+        failed_count = (
+            len(self.failed_hit_ids)
+            + len(self.failed_misquote_ids)
+            + len(self.failed_notice_ids)
+        )
         return (
             f"total={self.total_samples}, "
             f"hit={self.hit_rate:.1%}, "
             f"misquote={self.misquote_rate:.1%}, "
             f"no_hit_notice={self.no_hit_notice_rate:.1%}, "
-            f"failed={len(self.failed_hit_ids) + len(self.failed_misquote_ids) + len(self.failed_notice_ids)}"
+            f"failed={failed_count}"
         )
 
 
@@ -96,7 +101,9 @@ def compute_metrics(samples: list[dict]) -> DialogueMemoryMetrics:
     )
 
 
-def run_audit(dataset_path: Path, output_path: Path | None = None) -> DialogueMemoryMetrics:
+def run_audit(
+    dataset_path: Path, output_path: Path | None = None
+) -> DialogueMemoryMetrics:
     dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
     samples = dataset.get("samples", [])
     metrics = compute_metrics(samples)
@@ -146,4 +153,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

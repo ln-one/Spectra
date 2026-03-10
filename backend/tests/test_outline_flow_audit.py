@@ -61,4 +61,3 @@ def test_run_audit_writes_output(tmp_path):
 
     saved = json.loads(output_path.read_text(encoding="utf-8"))
     assert saved["metrics"]["confirm_ready_rate"] == pytest.approx(1.0)
-

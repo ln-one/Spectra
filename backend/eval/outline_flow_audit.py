@@ -95,7 +95,9 @@ def compute_metrics(samples: list[dict]) -> OutlineFlowMetrics:
     )
 
 
-def run_audit(dataset_path: Path, output_path: Path | None = None) -> OutlineFlowMetrics:
+def run_audit(
+    dataset_path: Path, output_path: Path | None = None
+) -> OutlineFlowMetrics:
     dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
     samples = dataset.get("samples", [])
     metrics = compute_metrics(samples)
@@ -145,4 +147,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
