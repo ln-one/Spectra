@@ -1,0 +1,32 @@
+{
+  "samples": [
+    {
+      "id": "dm-001",
+      "project_id": "proj-demo",
+      "query": "牛顿第二定律的公式是什么？",
+      "expected_source_ids": ["chunk-n2-1"],
+      "used_source_ids": ["chunk-n2-1"],
+      "has_no_hit_notice": false,
+      "assistant_answer": "根据资料，牛顿第二定律常写作 F=ma。"
+    },
+    {
+      "id": "dm-002",
+      "project_id": "proj-demo",
+      "query": "资料里有没有提到光合作用暗反应？",
+      "expected_source_ids": [],
+      "used_source_ids": [],
+      "has_no_hit_notice": true,
+      "assistant_answer": "当前资料未命中该知识点，请补充相关资料后再试。"
+    },
+    {
+      "id": "dm-003",
+      "project_id": "proj-demo",
+      "query": "动量守恒适用条件是什么？",
+      "expected_source_ids": ["chunk-momentum-1"],
+      "used_source_ids": ["chunk-n2-1"],
+      "has_no_hit_notice": false,
+      "assistant_answer": "资料提到动量守恒。"
+    }
+  ]
+}
+

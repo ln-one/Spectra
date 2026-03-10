@@ -103,3 +103,19 @@ cd backend
 - `coverage_rate`：输出是否具备来源
 - `readability_rate`：来源字段是否可读可定位（chunk_id/source_type/filename/page|timestamp）
 - `relevance_rate`：输出文本与来源文本关键词重合
+
+## D6 对话资料记忆质量评测
+
+```bash
+cd backend
+
+# 运行资料记忆对话评测
+.venv-wsl/bin/python eval/dialogue_memory_audit.py \
+  --dataset eval/dialogue_memory_samples.json \
+  --output eval/results/dialogue_memory_latest.json
+```
+
+评测指标：
+- `hit_rate`：有资料问题中，回答是否命中期望来源
+- `misquote_rate`：回答引用错误来源的比例
+- `no_hit_notice_rate`：无可用资料时是否明确提示“未命中资料”
