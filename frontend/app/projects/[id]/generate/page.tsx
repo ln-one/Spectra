@@ -17,6 +17,8 @@ import remarkGfm from 'remark-gfm';
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
 import { previewApi } from "@/lib/api/preview";
+import { generateApi } from "@/lib/api/generate";
+import { ApiError } from "@/lib/api/client";
 import { components } from "@/lib/types/api";
 
 type Slide = components["schemas"]["Slide"];
@@ -78,16 +80,23 @@ export default function GeneratePreviewPage() {
 
   const [slides, setSlides] = useState<Slide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [previewBlockedReason, setPreviewBlockedReason] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const slidesRef = useRef<HTMLDivElement>(null);
 
-  const { generationSession, generationHistory } = useProjectStore();
+  const { generationSession, generationHistory, fetchGenerationHistory } = useProjectStore();
 
   const sessionIdFromQuery = searchParams?.get("session") || null;
   const activeSessionId = sessionIdFromQuery ||
     generationSession?.session.session_id ||
     (generationHistory.length > 0 ? generationHistory[0].id : null);
+
+  useEffect(() => {
+    if (projectId) {
+      fetchGenerationHistory(projectId);
+    }
+  }, [projectId, fetchGenerationHistory]);
 
   // Hook into events
   const { isConnected, events } = useGenerationEvents({
@@ -102,12 +111,27 @@ export default function GeneratePreviewPage() {
       return;
     }
     try {
+      setPreviewBlockedReason(null);
       const response = await previewApi.getSessionPreview(activeSessionId);
       if (response.success && response.data.slides) {
         setSlides(response.data.slides.sort((a, b) => a.index - b.index));
       }
     } catch (error) {
-      console.error("Failed to load slides preview:", error);
+      if (error instanceof ApiError && error.message.includes("不支持预览")) {
+        try {
+          const sessionResp = await generateApi.getSession(activeSessionId);
+          const state = sessionResp?.data?.session?.state;
+          if (state === "AWAITING_OUTLINE_CONFIRM") {
+            setPreviewBlockedReason("当前会话仍在大纲确认阶段，请先确认大纲后再进入预览。");
+          } else {
+            setPreviewBlockedReason(error.message);
+          }
+        } catch {
+          setPreviewBlockedReason(error.message);
+        }
+      } else {
+        console.error("Failed to load slides preview:", error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -258,10 +282,23 @@ export default function GeneratePreviewPage() {
               <p className="text-sm text-muted-foreground animate-pulse">正在加载课件内容...</p>
             </div>
           ) : slides.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full opacity-70">
-              <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
-              <p className="text-sm text-muted-foreground">暂无幻灯片数据，请先生成。</p>
-            </div>
+            previewBlockedReason ? (
+              <div className="flex flex-col items-center justify-center h-full opacity-90">
+                <ImageIcon className="w-12 h-12 text-muted-foreground/40 mb-4" />
+                <p className="text-sm text-muted-foreground mb-3">{previewBlockedReason}</p>
+                <Button
+                  onClick={() => router.push(`/projects/${projectId}`)}
+                  className="rounded-full"
+                >
+                  返回项目并继续生成
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full opacity-70">
+                <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                <p className="text-sm text-muted-foreground">暂无幻灯片数据，请先生成。</p>
+              </div>
+            )
           ) : (
             <div className="max-w-4xl mx-auto w-full pb-32" ref={slidesRef}>
               <AnimatePresence>

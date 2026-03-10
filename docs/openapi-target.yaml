@@ -414,6 +414,31 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
   /api/v1/generate/sessions:
+    get:
+      summary: 获取生成会话列表
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationSessionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       summary: 创建生成会话
       description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
@@ -2770,8 +2795,52 @@ components:
           properties:
             session:
               $ref: '#/components/schemas/SessionRef'
-            latest_event:
-              $ref: '#/components/schemas/GenerationEvent'
+
+    GenerationSessionListItem:
+      type: object
+      required:
+        - session_id
+        - project_id
+        - output_type
+        - state
+        - created_at
+        - updated_at
+      properties:
+        session_id:
+          type: string
+        project_id:
+          type: string
+        output_type:
+          type: string
+          enum: [ppt, word, both]
+        state:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    GenerationSessionListResponse:
+      type: object
+      required: [success, data, message]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            sessions:
+              type: array
+              items:
+                $ref: '#/components/schemas/GenerationSessionListItem'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
         message:
           type: string
     RegenerateSlideRequest:

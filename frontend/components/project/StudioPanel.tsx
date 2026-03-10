@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { FileText, Presentation, BookOpen, Brain, HelpCircle, FileEdit, Film, BookMarked, Sparkles, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { useProjectStore, GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
@@ -88,6 +89,7 @@ interface StudioPanelProps {
 }
 
 export function StudioPanel({ onToolClick }: StudioPanelProps) {
+  const router = useRouter();
   const {
     project,
     layoutMode,
@@ -327,7 +329,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                     include_animations: false,
                                     include_games: false,
                                     use_text_to_image: false,
-                                    pages: parseInt(config.pageCount) || 15,
+                                    pages: Number(config.pageCount) || 15,
                                     audience: config.audience === "higher" || config.audience === "enterprise"
                                       ? "professional"
                                       : config.audience === "k12"
@@ -375,6 +377,14 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                           exit={{ opacity: 0, x: 10 }}
                           transition={{ delay: index * 0.05 }}
                           className="flex items-center gap-2.5 p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 cursor-pointer transition-colors"
+                          onClick={() => {
+                            if (!project) return;
+                            if (item.sessionState === "AWAITING_OUTLINE_CONFIRM") {
+                              router.push(`/projects/${project.id}`);
+                              return;
+                            }
+                            router.push(`/projects/${project.id}/generate?session=${item.id}`);
+                          }}
                         >
                           <div className="w-7 h-7 rounded-lg bg-white shadow-sm flex items-center justify-center">
                             {item.status === "completed" ? (

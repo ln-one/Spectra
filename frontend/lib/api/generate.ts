@@ -24,6 +24,7 @@ export type RegenerateSlideResponse = components["schemas"]["RegenerateSlideResp
 export type GenerationSessionCommandRequest = components["schemas"]["GenerationSessionCommandRequest"];
 export type GenerationSessionCommandResponse = components["schemas"]["GenerationSessionCommandResponse"];
 export type GenerationCapabilitiesResponse = components["schemas"]["GenerationCapabilitiesResponse"];
+export type GenerationSessionListResponse = components["schemas"]["GenerationSessionListResponse"];
 
 export const generateApi = {
   // ─── Session 生命周期 ───
@@ -38,6 +39,16 @@ export const generateApi = {
 
   async getSession(sessionId: string): Promise<GenerationSessionResponse> {
     return request<GenerationSessionResponse>(`/generate/sessions/${sessionId}`, {
+      method: "GET",
+    });
+  },
+
+  async listSessions(params: { project_id: string; page?: number; limit?: number }): Promise<GenerationSessionListResponse> {
+    const query = new URLSearchParams();
+    query.set("project_id", params.project_id);
+    if (params.page) query.set("page", String(params.page));
+    if (params.limit) query.set("limit", String(params.limit));
+    return request<GenerationSessionListResponse>(`/generate/sessions?${query.toString()}`, {
       method: "GET",
     });
   },

@@ -36,6 +36,7 @@ export default function ProjectDetailPage() {
     fetchProject,
     fetchFiles,
     fetchMessages,
+    fetchGenerationHistory,
     startGeneration,
     reset,
   } = useProjectStore();
@@ -59,11 +60,12 @@ export default function ProjectDetailPage() {
     fetchProject(projectId);
     fetchFiles(projectId);
     fetchMessages(projectId);
+    fetchGenerationHistory(projectId);
 
     return () => {
       reset();
     };
-  }, [projectId, router, fetchProject, fetchFiles, fetchMessages, reset]);
+  }, [projectId, router, fetchProject, fetchFiles, fetchMessages, fetchGenerationHistory, reset]);
 
   const handleToolClick = async (tool: GenerationTool) => {
     await startGeneration(projectId, tool);

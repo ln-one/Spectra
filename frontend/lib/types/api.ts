@@ -618,7 +618,35 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** 获取生成会话列表 */
+        get: {
+            parameters: {
+                query: {
+                    project_id: string;
+                    /** @description 页码（从1开始） */
+                    page?: components["parameters"]["PageParam"];
+                    /** @description 每页数量 */
+                    limit?: components["parameters"]["LimitParam"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GenerationSessionListResponse"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
         put?: never;
         /**
          * 创建生成会话
@@ -2762,7 +2790,26 @@ export interface components {
             success: boolean;
             data: {
                 session?: components["schemas"]["SessionRef"];
-                latest_event?: components["schemas"]["GenerationEvent"];
+            };
+        };
+        GenerationSessionListItem: {
+            session_id: string;
+            project_id: string;
+            /** @enum {string} */
+            output_type: "ppt" | "word" | "both";
+            state: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        GenerationSessionListResponse: {
+            success: boolean;
+            data: {
+                sessions?: components["schemas"]["GenerationSessionListItem"][];
+                total?: number;
+                page?: number;
+                limit?: number;
             };
             message: string;
         };

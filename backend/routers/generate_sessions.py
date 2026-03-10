@@ -37,6 +37,65 @@ CONTRACT_VERSION = "2026-03"
 
 
 # ============================================================
+# 0. GET /generate/sessions — 会话列表（项目内历史）
+# ============================================================
+@router.get("/sessions")
+async def list_sessions(
+    project_id: str = Query(..., description="项目 ID"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    user_id: str = Depends(get_current_user),
+):
+    """返回项目内生成会话列表（按更新时间倒序）。"""
+    try:
+        project = await db_service.get_project(project_id)
+        if not project or project.userId != user_id:
+            raise ForbiddenException(message="无权访问此项目")
+
+        skip = (page - 1) * limit
+        sessions = await db_service.db.generationsession.find_many(
+            where={"projectId": project_id},
+            skip=skip,
+            take=limit,
+            order={"updatedAt": "desc"},
+        )
+        total = await db_service.db.generationsession.count(
+            where={"projectId": project_id}
+        )
+
+        payload = [
+            {
+                "session_id": s.id,
+                "project_id": s.projectId,
+                "output_type": s.outputType,
+                "state": s.state,
+                "created_at": s.createdAt,
+                "updated_at": s.updatedAt,
+            }
+            for s in sessions
+        ]
+
+        return success_response(
+            data={
+                "sessions": payload,
+                "total": total,
+                "page": page,
+                "limit": limit,
+            },
+            message="获取生成会话列表成功",
+        )
+    except APIException:
+        raise
+    except Exception as exc:
+        logger.error("List sessions failed: %s", exc, exc_info=True)
+        raise APIException(
+            message="获取生成会话列表失败",
+            error_code=ErrorCode.INTERNAL_ERROR,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+# ============================================================
 # 辅助：获取 service 实例（使用共享 db_service.db）
 # ============================================================
 
