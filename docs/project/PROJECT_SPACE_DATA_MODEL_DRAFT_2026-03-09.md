@@ -1,16 +1,17 @@
 # Project-Space 最小数据模型草案
 
 > 日期：2026-03-09
-> 目标：在不推翻现有 `Project / GenerationSession / Upload / GenerationTask` 主干的前提下，补足“引用、个人学习空间、候选变更、轻量版本”所需的最小数据模型。
+> 目标：在不推翻现有 `Project / GenerationSession / Upload / GenerationTask` 主干的前提下，补足“库本体、引用、个人学习空间、候选变更、轻量版本”所需的最小数据模型。
 
 ## 1. 设计原则
 
-本草案遵循四个原则：
+本草案遵循五个原则：
 
 1. 不推翻现有 `Project` 主对象。
 2. 优先增量扩展，而不是大规模改名。
-3. 先满足产品规则，再考虑复杂版本控制。
-4. 先支撑比赛叙事和下一阶段实现，不一次性做重型协作系统。
+3. 对外以“库”统一产品语义，对内保留 `Project` 实现命名。
+4. 先满足产品规则，再考虑复杂版本控制。
+5. 先支撑比赛叙事和下一阶段实现，不一次性做重型协作系统。
 
 ## 2. 现有主干保留
 
@@ -213,23 +214,23 @@ ProjectMember
 1. 这样可以把“可见/可引用/可协作/可管理”拆开。
 2. 角色只是默认权限模板，不应替代细粒度能力位。
 
-## 5. 学生学习空间的最小实现
+## 5. 个人学习空间的最小实现
 
-学生学习空间不需要单独建一套新对象，本质上仍然是 `Project`。
+个人学习空间不需要单独建一套新对象，本质上仍然是 `Project`。也就是说，“库”是产品对象，`Project` 是实现对象。
 
 只需要给 `Project` 增补少量字段即可：
 
 ```text
 Project
 + kind                     // course / study / collaboration
-+ sourceProjectId          // 若是从教师空间衍生而来，可记录来源
++ sourceProjectId          // 若是从上游空间衍生而来，可记录来源（教师空间为常见示例）
 + defaultReferenceMode     // follow / pinned / none
 + currentVersionId
 ```
 
 说明：
 
-1. 教师课程空间和学生学习空间都是 `Project`
+1. 上游课程空间与下游学习空间都是 `Project`（教师/学生为常见示例）
 2. 差别主要由 `kind` 和权限决定
 3. 这样复用现有模型最多，代码最稳
 
@@ -245,6 +246,8 @@ Project
 + sourceProjectId
 + visibility
 + isReferenceable
++ isCollaborative
++ defaultReferenceMode
 ```
 
 ### 6.2 GenerationTask
@@ -268,16 +271,16 @@ Project
 
 ## 7. 典型查询怎么落
 
-## 7.1 学生查看教师空间
+## 7.1 下游用户查看上游空间
 
 查询：
 
-1. 找到教师 `project`
+1. 找到上游 `project`（常见为教师空间）
 2. 校验 `ProjectMember.canView`
 3. 读取 `currentVersionId`
 4. 基于当前版本按需生成 `Artifact`
 
-## 7.2 学生创建自己的学习空间
+## 7.2 下游用户创建自己的学习空间
 
 写入：
 
@@ -337,4 +340,4 @@ Project
 4. `Artifact`
 5. `CandidateChange`
 
-这样既能承接当前比赛叙事，也能为下一阶段真正实现“课程空间 / 学习空间 / 引用复用 / 协作审核”提供清晰路径。
+这样既能承接当前比赛叙事，也能为下一阶段真正实现“库 / 课程空间 / 学习空间 / 引用复用 / 协作审核”提供清晰路径。

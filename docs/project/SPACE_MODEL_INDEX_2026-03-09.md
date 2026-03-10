@@ -1,6 +1,15 @@
 # 空间模型文档索引
 
-本索引用于集中管理 2026-03-09 这一轮围绕 `project/session/reference/artifact` 演进形成的三份内部文档。
+本索引用于集中管理 2026-03-09 这一轮围绕“库模型 + `project/session/reference/artifact` 演进”形成的内部文档。
+
+## 0. 库模型规则稿
+
+[LIBRARY_MODEL_RULES_DRAFT_2026-03-09.md](./LIBRARY_MODEL_RULES_DRAFT_2026-03-09.md)
+
+用途：
+
+1. 将当前已定型的“库”产品模型压缩成一份统一规则稿。
+2. 供竞赛文档、产品方案、数据模型和 API 设计统一引用。
 
 ## 1. 概念与演进主稿
 
@@ -40,7 +49,8 @@
 
 ## 5. 建议阅读顺序
 
-1. 先读 `BRAINSTORM_DISCUSSION_GUIDE_2026-03-09.md`
-2. 再读 `PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md`
-3. 最后读 `PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md`
-4. 若要进入实现讨论，再读 `PROJECT_SPACE_API_DRAFT_2026-03-09.md`
+1. 先读 `LIBRARY_MODEL_RULES_DRAFT_2026-03-09.md`
+2. 再读 `BRAINSTORM_DISCUSSION_GUIDE_2026-03-09.md`
+3. 再读 `PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md`
+4. 然后读 `PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md`
+5. 若要进入实现讨论，再读 `PROJECT_SPACE_API_DRAFT_2026-03-09.md`
