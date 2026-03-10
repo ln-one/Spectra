@@ -1,0 +1,44 @@
+{
+  "samples": [
+    {
+      "id": "of-001",
+      "min_sections": 3,
+      "draft_outline": {
+        "sections": ["导入", "核心概念", "课堂练习"]
+      },
+      "draft_score": 0.68,
+      "rewrite_score": 0.81,
+      "confirm_outline": {
+        "sections": ["导入", "核心概念", "案例分析", "课堂练习"]
+      },
+      "confirm_ready": true
+    },
+    {
+      "id": "of-002",
+      "min_sections": 3,
+      "draft_outline": {
+        "sections": ["导入"]
+      },
+      "draft_score": 0.55,
+      "rewrite_score": 0.52,
+      "confirm_outline": {
+        "sections": ["导入", "总结"]
+      },
+      "confirm_ready": false
+    },
+    {
+      "id": "of-003",
+      "min_sections": 3,
+      "draft_outline": {
+        "sections": ["复习", "新授", "练习"]
+      },
+      "draft_score": 0.62,
+      "rewrite_score": 0.70,
+      "confirm_outline": {
+        "sections": ["复习", "新授", "探究", "练习"]
+      },
+      "confirm_ready": true
+    }
+  ]
+}
+
