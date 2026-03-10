@@ -170,8 +170,19 @@ function MarkdownContent({ content, isUser }: { content: string; isUser: boolean
   );
 }
 
-function MessageBubble({ message, index }: { message: Message; index: number }) {
+function splitContentAndSources(content: string): { body: string } {
+  const marker = "\n\n来源：";
+  const idx = content.indexOf(marker);
+  if (idx === -1) {
+    return { body: content };
+  }
+  return { body: content.slice(0, idx).trim() };
+}
+
+function MessageBubble({ message, index, projectId }: { message: Message; index: number; projectId: string }) {
   const isUser = message.role === "user";
+  const { focusSourceByChunk } = useProjectStore();
+  const { body } = splitContentAndSources(message.content);
 
   return (
     <motion.div
@@ -218,7 +229,25 @@ function MessageBubble({ message, index }: { message: Message; index: number }) 
           {isUser ? (
             <span className="whitespace-pre-wrap">{message.content}</span>
           ) : (
-            <MarkdownContent content={message.content} isUser={isUser} />
+            <div className="relative">
+              <MarkdownContent content={body} isUser={isUser} />
+              {message.citations && message.citations.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {message.citations.map((citation, i) => (
+                    <button
+                      key={`${citation.chunk_id}-${i}`}
+                      onClick={() => focusSourceByChunk(citation.chunk_id, projectId)}
+                      className="text-[10px] leading-none text-zinc-500 hover:text-zinc-900 transition-colors"
+                      aria-label={`引用 ${i + 1}`}
+                    >
+                      <sup className="px-1 py-0.5 rounded bg-zinc-100 border border-zinc-200">
+                        {i + 1}
+                      </sup>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </motion.div>
 
@@ -230,7 +259,12 @@ function MessageBubble({ message, index }: { message: Message; index: number }) 
             className="flex flex-wrap gap-1.5 mt-1"
           >
             {message.citations.map((citation, i) => (
-              <CitationBadge key={`${citation.chunk_id}-${i}`} citation={citation} />
+              <CitationBadge
+                key={`${citation.chunk_id}-${i}`}
+                citation={citation}
+                index={i}
+                onClick={() => focusSourceByChunk(citation.chunk_id, projectId)}
+              />
             ))}
           </motion.div>
         )}
@@ -246,12 +280,22 @@ function MessageBubble({ message, index }: { message: Message; index: number }) 
   );
 }
 
-function CitationBadge({ citation }: { citation: SourceReference }) {
+function CitationBadge({
+  citation,
+  index,
+  onClick,
+}: {
+  citation: SourceReference;
+  index: number;
+  onClick: () => void;
+}) {
   return (
     <Badge
       variant="outline"
+      onClick={onClick}
       className="gap-1.5 px-2.5 py-1 text-[10px] font-medium cursor-pointer hover:bg-zinc-50 hover:border-zinc-300 transition-colors shadow-sm"
     >
+      <span className="text-[10px] font-semibold text-zinc-700">{index + 1}</span>
       <ExternalLink className="w-3 h-3" />
       <span className="truncate max-w-[100px]">{citation.filename}</span>
       {citation.page_number && (
@@ -377,7 +421,12 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               <div className="space-y-4 py-4">
                 <AnimatePresence mode="popLayout">
                   {messages.map((message, index) => (
-                    <MessageBubble key={message.id} message={message} index={index} />
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      index={index}
+                      projectId={projectId}
+                    />
                   ))}
                 </AnimatePresence>
                 <div ref={messagesEndRef} />

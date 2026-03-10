@@ -306,7 +306,8 @@ async def send_message(
             project_line = f"{project_line}\n{selected_files_hint}"
 
         prompt = (
-            "你是教学课件助手。请基于上下文给出简洁、有操作性的下一步建议。\n\n"
+            "你是教学课件助手。请基于上下文给出简洁、有操作性的下一步建议。"
+            "如果引用资料，请在相关句末用 [1][2] 这样的序号标注。\n\n"
             f"{project_line}"
             f"{rag_section}{no_rag_hint}\n\n"
             f"上下文:\n{context}\n\n"

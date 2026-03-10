@@ -25,8 +25,9 @@ export const ragApi = {
   /**
    * 查看来源详情
    */
-  async getSourceDetail(chunkId: string): Promise<SourceDetailResponse> {
-    return request<SourceDetailResponse>(`/rag/sources/${chunkId}`, {
+  async getSourceDetail(chunkId: string, projectId?: string): Promise<SourceDetailResponse> {
+    const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
+    return request<SourceDetailResponse>(`/rag/sources/${chunkId}${query}`, {
       method: "GET",
     });
   },

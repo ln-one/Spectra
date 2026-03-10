@@ -10,6 +10,8 @@ type Message = components["schemas"]["Message"];
 type OutlineDocument = components["schemas"]["OutlineDocument"];
 type GenerationOptions = components["schemas"]["GenerationOptions"];
 type SessionStatePayload = components["schemas"]["SessionStatePayload"];
+type SourceDetailResponse = components["schemas"]["SourceDetailResponse"];
+type SourceDetail = SourceDetailResponse["data"];
 
 export type LayoutMode = "normal" | "expanded";
 export type ExpandedTool = "ppt" | "word" | "mindmap" | "outline" | "quiz" | "summary" | "animation" | "handout" | null;
@@ -50,6 +52,7 @@ interface ProjectState {
   generationSession: SessionStatePayload | null;
   generationHistory: GenerationHistory[];
   lastFailedInput: string | null;
+  activeSourceDetail: SourceDetail | null;
 
   layoutMode: LayoutMode;
   expandedTool: ExpandedTool;
@@ -66,6 +69,8 @@ interface ProjectState {
   deleteFile: (fileId: string) => Promise<void>;
   toggleFileSelection: (fileId: string) => void;
   sendMessage: (projectId: string, content: string) => Promise<void>;
+  focusSourceByChunk: (chunkId: string, projectId: string) => Promise<void>;
+  clearActiveSource: () => void;
   startGeneration: (projectId: string, tool: GenerationTool, options?: GenerationOptions) => Promise<void>;
   updateOutline: (sessionId: string, outline: OutlineDocument) => Promise<void>;
   confirmOutline: (sessionId: string) => Promise<void>;
@@ -84,6 +89,7 @@ const initialState = {
   generationSession: null,
   generationHistory: [],
   lastFailedInput: null as string | null,
+  activeSourceDetail: null as SourceDetail | null,
   layoutMode: "normal" as LayoutMode,
   expandedTool: null as ExpandedTool,
   isLoading: false,
@@ -249,6 +255,33 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       set({ isSending: false });
     }
   },
+
+  focusSourceByChunk: async (chunkId: string, projectId: string) => {
+    try {
+      const response = await ragApi.getSourceDetail(chunkId, projectId);
+      const detail = response?.data ?? null;
+      set({ activeSourceDetail: detail });
+      const fileId = detail?.file_info?.id;
+      if (fileId) {
+        set((state) => ({
+          selectedFileIds: state.selectedFileIds.includes(fileId)
+            ? state.selectedFileIds
+            : [...state.selectedFileIds, fileId],
+        }));
+      } else {
+        await get().fetchFiles(projectId);
+      }
+    } catch (error) {
+      const message = getErrorMessage(error);
+      toast({
+        title: "获取来源详情失败",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  },
+
+  clearActiveSource: () => set({ activeSourceDetail: null }),
 
   startGeneration: async (projectId: string, tool: GenerationTool, options?: GenerationOptions) => {
     try {

@@ -21,6 +21,24 @@ router = APIRouter(prefix="/rag", tags=["RAG"])
 logger = logging.getLogger(__name__)
 
 
+def _serialize_upload(upload) -> dict:
+    return {
+        "id": getattr(upload, "id", None),
+        "filename": getattr(upload, "filename", None),
+        "file_type": getattr(upload, "fileType", None),
+        "mime_type": getattr(upload, "mimeType", None),
+        "file_size": getattr(upload, "size", None),
+        "status": getattr(upload, "status", None),
+        "parse_progress": None,
+        "parse_details": None,
+        "parse_error": getattr(upload, "errorMessage", None),
+        "usage_intent": getattr(upload, "usageIntent", None),
+        "parse_result": None,
+        "created_at": getattr(upload, "createdAt", None),
+        "updated_at": getattr(upload, "updatedAt", None),
+    }
+
+
 @router.post("/search")
 async def search_knowledge_base(
     request: RAGSearchRequest,
@@ -70,7 +88,22 @@ async def get_source_detail(
         if not detail:
             raise NotFoundException(message=f"分块不存在: {chunk_id}")
 
-        return success_response(data=detail.model_dump(), message="获取来源详情成功")
+        file_info = None
+        try:
+            parsed = await db_service.db.parsedchunk.find_unique(
+                where={"id": chunk_id},
+                include={"upload": True},
+            )
+            if parsed and parsed.upload:
+                file_info = _serialize_upload(parsed.upload)
+        except Exception as file_err:
+            logger.warning("Failed to load file info for chunk %s: %s", chunk_id, file_err)
+
+        payload = detail.model_dump()
+        if file_info:
+            payload["file_info"] = file_info
+
+        return success_response(data=payload, message="获取来源详情成功")
     except APIException:
         raise
     except Exception as e:
