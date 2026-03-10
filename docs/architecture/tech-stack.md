@@ -17,7 +17,7 @@
 | 数据库访问 | Prisma Client Python（async） | prisma 0.15.0 | `backend/prisma/schema.prisma`, `backend/services/database.py` |
 | 关系型数据库 | SQLite（当前默认） | 文件库 | `backend/prisma/schema.prisma`, `backend/.env.example` |
 | LLM 调用 | LiteLLM + DashScope(Qwen) | litellm 1.81.13 | `backend/services/ai.py`, `backend/requirements.txt` |
-| Embedding | DashScope text-embedding-v2 + 本地回退 | 1536 维默认 | `backend/services/embedding_service.py` |
+| Embedding | DashScope qwen3-vl-embedding + 本地回退 | 1536 维默认 | `backend/services/embedding_service.py` |
 | 向量库 | ChromaDB（本地持久化） | embedded 模式 | `backend/services/vector_service.py` |
 | 文档解析 | pypdf / python-docx / python-pptx（轻量解析） | MVP 实装 | `backend/services/file_parser.py`, `backend/requirements.txt` |
 | 课件导出 | Marp CLI（PPTX）+ Pandoc（DOCX） | 外部 CLI 工具 | `backend/services/generation/marp_generator.py`, `backend/services/generation/pandoc_generator.py` |

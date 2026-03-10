@@ -262,7 +262,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 DASHSCOPE_API_KEY="your-dashscope-key"
 LLAMAPARSE_API_KEY="your-llamaparse-key"
 OPENAI_API_KEY="your-openai-key"
-DEFAULT_MODEL="qwen-plus"
+DEFAULT_MODEL="qwen3.5-plus"
 
 # Document parser provider: local | mineru | llamaparse (默认 local)
 # 详见 services/parsers/README.md 及 ADR-005

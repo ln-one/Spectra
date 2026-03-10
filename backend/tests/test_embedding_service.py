@@ -14,7 +14,7 @@ from services.embedding_service import EmbeddingService
 @pytest.fixture
 def dashscope_svc():
     """DashScope 模式的 EmbeddingService"""
-    return EmbeddingService(model="text-embedding-v2")
+    return EmbeddingService(model="qwen3-vl-embedding")
 
 
 @pytest.fixture

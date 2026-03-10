@@ -42,7 +42,7 @@ class AIService(CoursewareAIMixin):
     """Service for AI operations using LiteLLM"""
 
     def __init__(self):
-        self.default_model = os.getenv("DEFAULT_MODEL", "qwen-plus")
+        self.default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
         self.allow_ai_stub = os.getenv("ALLOW_AI_STUB", "false").lower() == "true"
 
     async def generate(

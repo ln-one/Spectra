@@ -22,7 +22,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 # AI/LLM Configuration
 # =============================================================================
 DASHSCOPE_API_KEY="sk-your-dashscope-api-key"
-DEFAULT_MODEL="qwen-plus"
+DEFAULT_MODEL="qwen3.5-plus"
 
 LLAMAPARSE_API_KEY="llx-your-llamaparse-api-key"
 OPENAI_API_KEY="sk-your-openai-api-key"
@@ -36,7 +36,7 @@ CHROMA_HOST="localhost"
 CHROMA_PORT="8001"
 CHROMA_PERSIST_DIR="./chroma_data"
 
-EMBEDDING_MODEL="text-embedding-v2"
+EMBEDDING_MODEL="qwen3-vl-embedding"
 EMBEDDING_DIMENSION=1536
 
 # =============================================================================
@@ -82,7 +82,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 小时
 # =============================================================================
 DASHSCOPE_API_KEY="sk-your-production-dashscope-api-key"
 LLAMAPARSE_API_KEY="llx-your-production-llamaparse-api-key"
-DEFAULT_MODEL="qwen-plus"
+DEFAULT_MODEL="qwen3.5-plus"
 
 # Document parser provider (see ADR-005)
 # 生产环境推荐 local（当前可用）；mineru（完全离线，待集成完成后再启用）
