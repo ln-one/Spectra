@@ -130,7 +130,7 @@ npm run validate:openapi
 
 ```bash
 cd frontend
-npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
+npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
 ```
 
 ### 步骤 6：实现后端

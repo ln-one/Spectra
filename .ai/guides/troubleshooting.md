@@ -298,7 +298,7 @@ Error: Failed to generate types
 **解决方案**：
 1. 运行 `npm run bundle:openapi`
 2. 运行 `npm run validate:openapi`
-3. 检查 `docs/openapi.yaml` 是否存在
+3. 检查 `docs/openapi-target.yaml` 是否存在
 
 ---
 

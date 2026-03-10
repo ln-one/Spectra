@@ -4,7 +4,7 @@
  已采纳 (2026-02-25)
 
 ## 背景
-原 `docs/openapi.yaml` 文件达到 1296 行，存在以下问题：
+原 `docs/openapi-target.yaml` 文件达到 1296 行，存在以下问题：
 - AI 工具难以读取和理解（token 限制）
 - 人工维护困难，定位接口耗时
 - 团队协作时容易产生合并冲突
@@ -15,8 +15,8 @@
 
 ```
 docs/
-├── openapi.yaml # 打包后的单文件（自动生成）
-├── openapi-source.yaml # 主入口文件（70行）
+├── openapi-target.yaml # 打包后的单文件（自动生成）
+├── openapi-target-source.yaml # 主入口文件（70行）
 └── openapi/
  ├── paths/ # 7个路径文件
  ├── schemas/ # 8个模型文件
@@ -26,7 +26,7 @@ docs/
 ### 工作流程
 1. **开发时**：编辑 `docs/openapi/` 下的小文件（50-150行）
 2. **打包**：运行 `npm run bundle:openapi` 生成单文件
-3. **使用**：FastAPI/Swagger UI 读取打包后的 `openapi.yaml`
+3. **使用**：FastAPI/Swagger UI 读取打包后的 `openapi-target.yaml`
 
 ## 优势
 - 每个文件 50-150 行，AI 和人都易读
@@ -56,7 +56,7 @@ docs/
 **之前**：
 ```bash
 # AI 读取 1296 行的大文件
-cat docs/openapi.yaml
+cat docs/openapi-target.yaml
 ```
 
 **现在**：
@@ -96,11 +96,11 @@ npm run watch:openapi
 ### 添加新接口
 1. 在 `paths/{模块}.yaml` 添加路径
 2. 在 `schemas/{模块}.yaml` 添加模型
-3. 在 `openapi-source.yaml` 添加引用
+3. 在 `openapi-target-source.yaml` 添加引用
 4. 运行打包命令
 
 ## 注意事项
-- 不要直接编辑 `docs/openapi.yaml`（自动生成）
+- 不要直接编辑 `docs/openapi-target.yaml`（自动生成）
 - 修改后必须运行打包命令
 - AI 应读取 `docs/openapi/` 下的文件，而非打包后的大文件
 - 提交代码前确保已打包

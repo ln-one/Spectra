@@ -5,7 +5,7 @@
 ## 编辑原则
 
 - 日常编辑 `docs/openapi/` 下模块文件
-- 不直接手改 `docs/openapi.yaml`（由构建生成）
+- 不直接手改 `docs/openapi-target.yaml`（由构建生成）
 
 ## 最小工作流
 
@@ -20,8 +20,8 @@ npm run validate:openapi
 - `docs/openapi/paths/`：接口路径定义
 - `docs/openapi/schemas/`：数据模型定义
 - `docs/openapi/components/`：公共组件
-- `docs/openapi-source.yaml`：聚合入口
-- `docs/openapi.yaml`：打包产物
+- `docs/openapi-target-source.yaml`：聚合入口
+- `docs/openapi-target.yaml`：打包产物
 
 ## 验收标准
 

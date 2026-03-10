@@ -11,7 +11,7 @@
 ### 解决方案
 
 #### 1. Contract-First (契约优先)
-**做法**: 先定义 `openapi.yaml`，再生成类型，最后写代码。
+**做法**: 先定义 `openapi-target.yaml`，再生成类型，最后写代码。
 
 **好处**:
 - 前后端基于同一契约并行开发
@@ -20,7 +20,7 @@
 
 #### 2. SSOT (Single Source of Truth)
 **做法**: 每个领域只有一个权威来源。
-- API 契约: `openapi.yaml`
+- API 契约: `openapi-target.yaml`
 - 代码规范: `docs/standards/`
 
 **好处**:
@@ -52,7 +52,7 @@ graph TB
 ## 规则层级
 
 ```
-1. docs/openapi.yaml (API 契约)
+1. docs/openapi-target.yaml (API 契约)
 2. docs/standards/ (代码规范)
 3. .cursorrules (根目录) (全局规约)
 4. 子目录 .cursorrules (团队自定义)

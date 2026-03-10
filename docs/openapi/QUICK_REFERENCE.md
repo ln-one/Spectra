@@ -4,7 +4,7 @@
 
 **AI 和开发者应该**：
 - 读取 `docs/openapi/{paths|schemas}/{模块}.yaml`（50-150行）
-- 避免读取 `docs/openapi.yaml`（1266行，自动生成）
+- 避免读取 `docs/openapi-target.yaml`（1266行，自动生成）
 
 ## 常用命令
 
@@ -47,12 +47,12 @@ $ref: '../components/parameters.yaml#/PageParam'
 
 ```
 编辑模块文件 → 运行打包 → FastAPI 读取 → Swagger UI 展示
- (50行) (1秒) (openapi.yaml) (完美兼容)
+ (50行) (1秒) (openapi-target.yaml) (完美兼容)
 ```
 
 ## 注意事项
 
-1. 不要直接编辑 `../openapi.yaml`
+1. 不要直接编辑 `../openapi-target.yaml`
 2. 修改后必须运行 `npm run bundle:openapi`
 3. 提交代码前确保已打包
 4. AI 应读取模块文件，不是打包文件
