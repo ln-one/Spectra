@@ -119,3 +119,19 @@ cd backend
 - `hit_rate`：有资料问题中，回答是否命中期望来源
 - `misquote_rate`：回答引用错误来源的比例
 - `no_hit_notice_rate`：无可用资料时是否明确提示“未命中资料”
+
+## D7 大纲流质量评测
+
+```bash
+cd backend
+
+# 运行大纲流质量评测（初稿 -> 重写 -> 确认）
+.venv-wsl/bin/python eval/outline_flow_audit.py \
+  --dataset eval/outline_flow_samples.json \
+  --output eval/results/outline_flow_latest.json
+```
+
+评测指标：
+- `draft_structure_pass_rate`：初稿结构完整率
+- `rewrite_improvement_rate`：重写后质量提升率
+- `confirm_ready_rate`：确认阶段可进入生成比例
