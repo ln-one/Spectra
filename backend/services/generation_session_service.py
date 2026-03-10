@@ -22,6 +22,7 @@ from services.state_transition_guard import (
     state_transition_guard,
 )
 from services.task_recovery import TaskRecoveryService
+from services.ai import ai_service
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,71 @@ _SESSION_TO_TASK_TYPE = {
     "pptx": "pptx",
     "docx": "docx",
 }
+
+
+def _build_outline_requirements(
+    project,
+    options: Optional[dict],
+) -> str:
+    """Build outline requirements text from project info + generation options."""
+    parts = []
+    if project:
+        if getattr(project, "name", None):
+            parts.append(f"项目名称：{project.name}")
+        if getattr(project, "description", None):
+            parts.append(f"项目描述：{project.description}")
+
+    if options:
+        if options.get("system_prompt_tone"):
+            parts.append(f"用户需求：{options['system_prompt_tone']}")
+        if options.get("pages"):
+            parts.append(f"目标页数：{options['pages']}")
+        if options.get("audience"):
+            parts.append(f"目标受众：{options['audience']}")
+        if options.get("target_duration_minutes"):
+            parts.append(f"目标时长：{options['target_duration_minutes']} 分钟")
+
+    return "\n".join(parts).strip() or "生成课件大纲"
+
+
+def _courseware_outline_to_document(outline, target_pages: Optional[int] = None) -> dict:
+    """Map CoursewareOutline to OutlineDocument schema."""
+    nodes = []
+    order = 1
+    for section in outline.sections:
+        count = section.slide_count or 1
+        for idx in range(count):
+            title = section.title if count == 1 else f"{section.title}（{idx + 1}）"
+            nodes.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "order": order,
+                    "title": title,
+                    "key_points": list(section.key_points or []),
+                    "estimated_minutes": None,
+                }
+            )
+            order += 1
+
+    # Optional padding to roughly match target pages
+    if target_pages and len(nodes) < target_pages:
+        while len(nodes) < target_pages:
+            nodes.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "order": order,
+                    "title": f"补充内容 {order}",
+                    "key_points": [],
+                    "estimated_minutes": None,
+                }
+            )
+            order += 1
+
+    return {
+        "version": 1,
+        "nodes": nodes,
+        "summary": getattr(outline, "summary", None),
+    }
 
 
 # ============================================================
@@ -189,7 +255,7 @@ class GenerationSessionService:
                 "outputType": output_type,
                 "options": json.dumps(options) if options else None,
                 "clientSessionId": client_session_id,
-                "state": "IDLE",
+                "state": "DRAFTING_OUTLINE",
                 "renderVersion": 0,
                 "currentOutlineVersion": 1,
                 "resumable": True,
@@ -200,13 +266,65 @@ class GenerationSessionService:
         await self._append_event(
             session_id=session.id,
             event_type="state.changed",
-            state="IDLE",
+            state="DRAFTING_OUTLINE",
             progress=0,
             payload={"reason": "session_created"},
         )
 
+        # 生成初始大纲（同步生成，失败时走 fallback）
+        outline_doc = None
+        try:
+            project = await self._db.project.find_unique(where={"id": project_id})
+            requirement_text = _build_outline_requirements(project, options)
+            template_style = (
+                (options or {}).get("template") or "default"
+            )
+            outline = await ai_service.generate_outline(
+                project_id=project_id,
+                user_requirements=requirement_text,
+                template_style=template_style,
+            )
+            outline_doc = _courseware_outline_to_document(
+                outline,
+                target_pages=(options or {}).get("pages"),
+            )
+        except Exception as outline_exc:
+            logger.warning(
+                "Failed to draft outline, fallback to empty outline: %s",
+                outline_exc,
+                exc_info=True,
+            )
+            outline_doc = {"version": 1, "nodes": [], "summary": None}
+
+        if outline_doc is not None:
+            await self._db.outlineversion.create(
+                data={
+                    "sessionId": session.id,
+                    "version": 1,
+                    "outlineData": json.dumps(outline_doc),
+                    "changeReason": "drafted_on_session_create",
+                }
+            )
+            await self._db.generationsession.update(
+                where={"id": session.id},
+                data={
+                    "state": "AWAITING_OUTLINE_CONFIRM",
+                    "stateReason": "outline_drafted",
+                    "currentOutlineVersion": 1,
+                },
+            )
+            await self._append_event(
+                session_id=session.id,
+                event_type="outline.updated",
+                state="AWAITING_OUTLINE_CONFIRM",
+                payload={"version": 1, "change_reason": "drafted_on_session_create"},
+            )
+
         logger.info("Session created: %s for project %s", session.id, project_id)
-        return self._to_session_ref(session)
+        updated_session = await self._db.generationsession.find_unique(
+            where={"id": session.id}
+        )
+        return self._to_session_ref(updated_session or session)
 
     # ----------------------------------------------------------
     # 2. 查询会话快照

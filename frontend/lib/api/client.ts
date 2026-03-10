@@ -154,10 +154,21 @@ export async function request<T>(
   // 添加契约版本头
   requestHeaders["X-Contract-Version"] = DEFAULT_CONTRACT_VERSION;
 
-  const response = await fetch(getApiUrl(path), {
-    ...fetchOptions,
-    headers: requestHeaders,
-  });
+  let response: Response;
+  try {
+    response = await fetch(getApiUrl(path), {
+      ...fetchOptions,
+      headers: requestHeaders,
+    });
+  } catch (networkError) {
+    throw new ApiError(
+      "NETWORK_ERROR",
+      "无法连接到服务器，请检查网络连接或确认后端服务是否运行",
+      0,
+      { originalError: networkError instanceof Error ? networkError.message : String(networkError) },
+      true
+    );
+  }
 
   if (response.status === 401) {
     if (!_retry && !path.startsWith("/auth/")) {
@@ -169,35 +180,50 @@ export async function request<T>(
     handleAuthError();
     throw new ApiError(
       "UNAUTHORIZED",
-      "Authentication required. Please login.",
+      "登录已过期，请重新登录",
       401
     );
   }
 
-  const data = await response.json();
+  let data: Record<string, unknown>;
+  try {
+    data = await response.json();
+  } catch {
+    throw new ApiError(
+      "PARSE_ERROR",
+      `服务器响应解析失败 (${response.status})`,
+      response.status,
+      { statusText: response.statusText },
+      false
+    );
+  }
 
   // 409 冲突：状态或版本冲突，明确提示用户
   if (response.status === 409) {
     throw new ApiError(
-      data.error?.code || "CONFLICT",
-      data.error?.message || "操作冲突：当前状态或版本已变更，请刷新后重试",
+      (data.error as Record<string, unknown>)?.code as string || "CONFLICT",
+      (data.error as Record<string, unknown>)?.message as string || "操作冲突：当前状态或版本已变更，请刷新后重试",
       409,
-      data.error?.details,
+      (data.error as Record<string, unknown>)?.details as Record<string, unknown>,
       false,
-      data.error?.trace_id
+      (data.error as Record<string, unknown>)?.trace_id as string
     );
   }
 
   if (!response.ok) {
+    const errorObj = data.error as Record<string, unknown> | undefined;
+    const errorCode = errorObj?.code as string || "UNKNOWN_ERROR";
+    const errorMessage = errorObj?.message as string || (data.message as string) || `请求失败 (${response.status})`;
+
     throw new ApiError(
-      data.error?.code || "UNKNOWN_ERROR",
-      data.error?.message || data.message || "Request failed",
+      errorCode,
+      errorMessage,
       response.status,
-      data.error?.details,
-      data.error?.retryable,
-      data.error?.trace_id
+      errorObj?.details as Record<string, unknown>,
+      errorObj?.retryable as boolean,
+      errorObj?.trace_id as string
     );
   }
 
-  return data;
+  return data as T;
 }

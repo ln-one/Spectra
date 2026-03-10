@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ArrowLeft, Play, Share2, Edit3, Layout, Image as ImageIcon, 
+import {
+  ArrowLeft, Play, Share2, Edit3, Layout, Image as ImageIcon,
   Sparkles, Check, Loader2, Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ type Slide = components["schemas"]["Slide"];
 
 const SlideCard = ({ slide, isActive }: { slide: Slide; isActive: boolean }) => {
   return (
-    <div 
+    <div
       id={slide.id || `slide-${slide.index}`}
       data-index={slide.index}
       className={cn(
@@ -38,27 +38,27 @@ const SlideCard = ({ slide, isActive }: { slide: Slide; isActive: boolean }) => 
           {slide.title}
         </h2>
       )}
-      
+
       <div className="flex-1 prose prose-lg dark:prose-invert max-w-none text-muted-foreground prose-h1:text-foreground prose-h2:text-foreground prose-h3:text-foreground prose-strong:text-foreground">
         {slide.content ? (
-           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-             {slide.content}
-           </ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {slide.content}
+          </ReactMarkdown>
         ) : (
           <div className="flex items-center justify-center h-full opacity-50">
             <Loader2 className="w-8 h-8 animate-spin" />
           </div>
         )}
       </div>
-      
+
       {/* Sources tags if any */}
       {slide.sources && slide.sources.length > 0 && (
         <div className="mt-8 pt-4 border-t flex flex-wrap gap-2">
           {slide.sources.map((source, idx) => (
-             <span key={idx} className="text-xs bg-muted/60 text-muted-foreground px-2 py-1 rounded-full border flex items-center gap-1">
-               📖 {source.filename}
-               {source.page_number && ` (P${source.page_number})`}
-             </span>
+            <span key={idx} className="text-xs bg-muted/60 text-muted-foreground px-2 py-1 rounded-full border flex items-center gap-1">
+              📖 {source.filename}
+              {source.page_number && ` (P${source.page_number})`}
+            </span>
           ))}
         </div>
       )}
@@ -69,12 +69,13 @@ const SlideCard = ({ slide, isActive }: { slide: Slide; isActive: boolean }) => 
 export default function GeneratePreviewPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
-  
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [projectTitle, setProjectTitle] = useState("生成结果");
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
-  
+
   const [slides, setSlides] = useState<Slide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -82,15 +83,18 @@ export default function GeneratePreviewPage() {
   const slidesRef = useRef<HTMLDivElement>(null);
 
   const { generationSession, generationHistory } = useProjectStore();
-  
-  const activeSessionId = generationSession?.session.session_id || 
-                         (generationHistory.length > 0 ? generationHistory[0].sessionId : null);
+
+  const sessionIdFromQuery = searchParams?.get("session") || null;
+  const activeSessionId = sessionIdFromQuery ||
+    generationSession?.session.session_id ||
+    (generationHistory.length > 0 ? generationHistory[0].id : null);
 
   // Hook into events
-  const { isConnected, latestEvent } = useGenerationEvents(
-    activeSessionId || '', 
-    { enabled: !!activeSessionId }
-  );
+  const { isConnected, events } = useGenerationEvents({
+    sessionId: activeSessionId || null,
+  });
+
+  const latestEvent = events.length > 0 ? events[events.length - 1] : null;
 
   const loadSlides = useCallback(async () => {
     if (!activeSessionId) {
@@ -100,7 +104,7 @@ export default function GeneratePreviewPage() {
     try {
       const response = await previewApi.getSessionPreview(activeSessionId);
       if (response.success && response.data.slides) {
-        setSlides(response.data.slides.sort((a,b) => a.index - b.index));
+        setSlides(response.data.slides.sort((a, b) => a.index - b.index));
       }
     } catch (error) {
       console.error("Failed to load slides preview:", error);
@@ -122,7 +126,7 @@ export default function GeneratePreviewPage() {
         if (idx !== -1) {
           const newSlides = [...prev];
           newSlides[idx] = { ...newSlides[idx], ...updatedSlide };
-          return newSlides.sort((a,b) => a.index - b.index);
+          return newSlides.sort((a, b) => a.index - b.index);
         } else {
           return [...prev, updatedSlide].sort((a, b) => a.index - b.index);
         }
@@ -135,13 +139,13 @@ export default function GeneratePreviewPage() {
   // Scroll Spy Logic
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     // Using IntersectionObserver directly on the container children
     const handleScroll = () => {
       if (!containerRef.current) return;
       const slideElements = containerRef.current.querySelectorAll('.slide-card');
       let currentActiveIndex = activeSlideIndex;
-      
+
       // Simple offset calculation
       const containerTop = containerRef.current.scrollTop;
       const containerCenter = containerTop + containerRef.current.clientHeight * 0.4;
@@ -150,7 +154,7 @@ export default function GeneratePreviewPage() {
         const htmlEl = el as HTMLElement;
         const top = htmlEl.offsetTop;
         const bottom = top + htmlEl.offsetHeight;
-        
+
         if (containerCenter >= top && containerCenter <= bottom) {
           const idxStr = htmlEl.getAttribute('data-index');
           if (idxStr) {
@@ -158,15 +162,15 @@ export default function GeneratePreviewPage() {
           }
         }
       });
-      
+
       if (currentActiveIndex !== activeSlideIndex) {
         setActiveSlideIndex(currentActiveIndex);
       }
     };
-    
+
     const container = containerRef.current;
     container.addEventListener('scroll', handleScroll, { passive: true });
-    
+
     // Call once initially to set the first slide if needed
     handleScroll();
 
@@ -184,19 +188,19 @@ export default function GeneratePreviewPage() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="h-screen flex flex-col overflow-hidden bg-background text-foreground font-sans selection:bg-primary/20">
-        
+
         {/* 1. 顶部固定导航栏 (Fixed Header) */}
         <header className="h-14 flex items-center justify-between px-4 md:px-6 border-b bg-background/95 backdrop-blur z-50 shrink-0">
           <div className="flex items-center gap-2 md:gap-4">
             <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            
+
             {/* 标题原位编辑 */}
             <div className="relative flex items-center">
               {isEditingTitle ? (
                 <div className="flex items-center gap-1">
-                  <Input 
+                  <Input
                     value={projectTitle}
                     onChange={(e) => setProjectTitle(e.target.value)}
                     className="h-8 max-w-[200px] text-sm font-semibold border-primary/30 focus-visible:ring-1 focus-visible:ring-primary"
@@ -209,7 +213,7 @@ export default function GeneratePreviewPage() {
                   </Button>
                 </div>
               ) : (
-                <div 
+                <div
                   className="px-3 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors group flex items-center gap-2"
                   onClick={() => setIsEditingTitle(true)}
                 >
@@ -218,7 +222,7 @@ export default function GeneratePreviewPage() {
                 </div>
               )}
             </div>
-            
+
             {isConnected && (
               <div className="ml-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -244,20 +248,20 @@ export default function GeneratePreviewPage() {
         </header>
 
         {/* 2. 核心阅读区 (Main Scrolling Canvas) */}
-        <main 
+        <main
           ref={containerRef}
           className="flex-1 overflow-y-auto bg-muted/20 relative scroll-smooth overflow-x-hidden p-4 md:p-8"
         >
           {isLoading ? (
-             <div className="flex flex-col items-center justify-center h-full opacity-70">
-               <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-               <p className="text-sm text-muted-foreground animate-pulse">正在加载课件内容...</p>
-             </div>
+            <div className="flex flex-col items-center justify-center h-full opacity-70">
+              <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+              <p className="text-sm text-muted-foreground animate-pulse">正在加载课件内容...</p>
+            </div>
           ) : slides.length === 0 ? (
-             <div className="flex flex-col items-center justify-center h-full opacity-70">
-               <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
-               <p className="text-sm text-muted-foreground">暂无幻灯片数据，请先生成。</p>
-             </div>
+            <div className="flex flex-col items-center justify-center h-full opacity-70">
+              <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
+              <p className="text-sm text-muted-foreground">暂无幻灯片数据，请先生成。</p>
+            </div>
           ) : (
             <div className="max-w-4xl mx-auto w-full pb-32" ref={slidesRef}>
               <AnimatePresence>
@@ -277,7 +281,7 @@ export default function GeneratePreviewPage() {
         </main>
 
         {/* 3. 右侧悬浮工具栏 (Floating Toolbar) */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.6, duration: 0.4 }}
@@ -292,7 +296,7 @@ export default function GeneratePreviewPage() {
               </TooltipTrigger>
               <TooltipContent side="left">编辑内容</TooltipContent>
             </Tooltip>
-            
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10 transition-colors">
@@ -326,7 +330,7 @@ export default function GeneratePreviewPage() {
 
         {/* 4. 底部缩略图导航栏 (Bottom Filmstrip) */}
         {slides.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.5, type: "spring", damping: 25 }}
@@ -341,22 +345,22 @@ export default function GeneratePreviewPage() {
                     onClick={() => scrollToSlide(slide.index)}
                     className={cn(
                       "relative group h-14 shrink-0 transition-all duration-300 rounded-xl overflow-hidden border-2 text-left flex flex-col justify-end p-2.5",
-                      isActive 
-                        ? "w-36 border-primary bg-primary/10 shadow-sm" 
+                      isActive
+                        ? "w-36 border-primary bg-primary/10 shadow-sm"
                         : "w-20 border-border/50 bg-muted/50 hover:border-primary/40 hover:bg-muted focus:outline-none"
                     )}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent pointer-events-none" />
-                    
+
                     <span className={cn(
                       "text-[10px] font-bold z-10 truncate absolute top-1.5 left-2 bg-background/60 backdrop-blur rounded px-1.5",
                       isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                     )}>
                       {slide.index}
                     </span>
-                    
+
                     {isActive && (
-                      <motion.span 
+                      <motion.span
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="text-xs font-semibold z-10 truncate text-foreground leading-tight mt-auto block drop-shadow-sm"

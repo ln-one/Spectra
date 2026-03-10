@@ -106,8 +106,8 @@ export function useGenerationEvents(
         onEventRef.current?.(parsed);
 
         // 保存 cursor 用于断线续传
-        if (parsed.event_id) {
-          cursorRef.current = parsed.event_id;
+        if (parsed.cursor) {
+          cursorRef.current = parsed.cursor;
         }
       } catch (err) {
         console.error("[SSE] Failed to parse event data:", err);

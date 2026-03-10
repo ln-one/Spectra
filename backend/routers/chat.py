@@ -1,7 +1,9 @@
 import json
 import logging
+import os
+from datetime import datetime, timezone
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
@@ -14,6 +16,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import Message, SendMessageRequest
@@ -21,7 +24,7 @@ from services import db_service
 from services.ai import ai_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ErrorCode, ForbiddenException
-from utils.responses import success_response
+from utils.responses import error_response, success_response
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = logging.getLogger(__name__)
@@ -83,6 +86,37 @@ def _dump_capability_status(capability_status) -> dict:
     return jsonable_encoder(capability_status)
 
 
+def _append_citation_markers(content: str, citations: list[dict]) -> str:
+    """Append inline citation markers and a source list to the assistant content."""
+    if not citations:
+        return content
+    if "来源：" in content or "來源：" in content:
+        return content
+
+    seen = set()
+    ordered = []
+    for item in citations:
+        filename = item.get("filename")
+        page_number = item.get("page_number")
+        key = (filename, page_number)
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(item)
+
+    if not ordered:
+        return content
+
+    lines = []
+    for idx, item in enumerate(ordered, start=1):
+        filename = item.get("filename") or "未知文件"
+        page_number = item.get("page_number")
+        page_suffix = f" (P{page_number})" if page_number else ""
+        lines.append(f"[{idx}] {filename}{page_suffix}")
+
+    return f"{content}\n\n来源：\n" + "\n".join(lines)
+
+
 @router.post("/messages")
 async def send_message(
     body: SendMessageRequest,
@@ -125,8 +159,26 @@ async def send_message(
         rag_context = ""
         citations = []
         rag_hit = False
+        selected_files_hint = ""
         try:
             from services.rag_service import rag_service as _rag
+
+            rag_filters = None
+            if body.rag_source_ids:
+                rag_filters = {"file_ids": body.rag_source_ids}
+                try:
+                    selected_uploads = await db_service.db.upload.find_many(
+                        where={
+                            "projectId": body.project_id,
+                            "id": {"in": body.rag_source_ids},
+                        },
+                        select={"filename": True, "status": True},
+                    )
+                    if selected_uploads:
+                        names = [f"{u.filename}({u.status})" for u in selected_uploads]
+                        selected_files_hint = "已选资料（含解析状态）： " + "，".join(names)
+                except Exception as file_err:
+                    logger.warning("Failed to load selected uploads: %s", file_err)
 
             rag_results = await _rag.search(
                 project_id=body.project_id,
@@ -134,6 +186,7 @@ async def send_message(
                 top_k=5,
                 score_threshold=0.3,
                 session_id=session_id,
+                filters=rag_filters,
             )
             if rag_results:
                 rag_hit = True
@@ -174,19 +227,30 @@ async def send_message(
             if not rag_hit and session_id
             else ""
         )
+        project_line = f"项目: {project.name}"
+        if selected_files_hint:
+            project_line = f"{project_line}\n{selected_files_hint}"
+
         prompt = (
             "你是教学课件助手。请基于上下文给出简洁、有操作性的下一步建议。\n\n"
-            f"项目: {project.name}"
+            f"{project_line}"
             f"{rag_section}{no_rag_hint}\n\n"
             f"上下文:\n{context}\n\n"
             f"用户新消息: {body.content}"
         )
-        ai_result = await ai_service.generate(prompt=prompt, max_tokens=500)
-        assistant_content = (
-            ai_result.get("content") or "我已收到你的需求，我们继续完善课件内容。"
-        )
+        try:
+            ai_result = await ai_service.generate(prompt=prompt, max_tokens=500)
+            assistant_content = (
+                ai_result.get("content") or "我已收到你的需求，我们继续完善课件内容。"
+            )
+        except Exception as ai_exc:
+            logger.error("AI generation failed in chat: %s", ai_exc, exc_info=True)
+            assistant_content = (
+                "AI 服务暂时不可用，我已收到你的需求。你可以先补充更多细节，我会在恢复后继续帮你完善。"
+            )
 
         # 将 citations 存入 metadata
+        assistant_content = _append_citation_markers(assistant_content, citations)
         assistant_msg = await db_service.create_conversation_message(
             project_id=body.project_id,
             role="assistant",
@@ -223,9 +287,21 @@ async def send_message(
         raise
     except Exception as exc:
         logger.error(f"Send message failed: {exc}", exc_info=True)
-        raise HTTPException(
+        debug_mode = os.getenv("DEBUG", "false").lower() == "true"
+        details = None
+        if debug_mode:
+            details = {
+                "exception_type": type(exc).__name__,
+                "exception_message": str(exc),
+            }
+
+        return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="发送消息失败",
+            content=error_response(
+                code="INTERNAL_ERROR",
+                message="发送消息失败",
+                details=details,
+            ),
         )
 
 

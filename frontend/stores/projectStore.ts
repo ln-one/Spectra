@@ -2,11 +2,11 @@ import { create } from "zustand";
 import type { components } from "@/lib/types/api";
 import { projectsApi, filesApi, chatApi, generateApi, ragApi } from "@/lib/api";
 import { ApiError, getErrorMessage } from "@/lib/api/errors";
+import { toast } from "@/hooks/use-toast";
 
 type Project = components["schemas"]["Project"];
 type UploadedFile = components["schemas"]["UploadedFile"];
 type Message = components["schemas"]["Message"];
-type GenerationState = components["schemas"]["GenerationState"];
 type OutlineDocument = components["schemas"]["OutlineDocument"];
 type GenerationOptions = components["schemas"]["GenerationOptions"];
 type SessionStatePayload = components["schemas"]["SessionStatePayload"];
@@ -101,7 +101,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const response = await projectsApi.getProject(projectId);
       set({ project: response?.data?.project ?? null });
     } catch (error) {
-      set({ error: { code: "FETCH_PROJECT_FAILED", message: getErrorMessage(error) } });
+      const message = getErrorMessage(error);
+      set({ error: { code: "FETCH_PROJECT_FAILED", message } });
+      toast({
+        title: "获取项目失败",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       set({ isLoading: false });
     }
@@ -135,7 +141,12 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         }
       }
     } catch (error) {
-      console.error("Failed to fetch files:", error);
+      const message = getErrorMessage(error);
+      toast({
+        title: "获取文件列表失败",
+        description: message,
+        variant: "destructive",
+      });
     }
   },
 
@@ -144,7 +155,12 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const response = await chatApi.getMessages({ project_id: projectId, limit: 50 });
       set({ messages: response?.data?.messages ?? [] });
     } catch (error) {
-      console.error("Failed to fetch messages:", error);
+      const message = getErrorMessage(error);
+      toast({
+        title: "获取消息失败",
+        description: message,
+        variant: "destructive",
+      });
     }
   },
 
@@ -154,7 +170,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       await filesApi.uploadFile(file, projectId);
       await get().fetchFiles(projectId);
     } catch (error) {
-      set({ error: { code: "UPLOAD_FAILED", message: getErrorMessage(error) } });
+      const message = getErrorMessage(error);
+      set({ error: { code: "UPLOAD_FAILED", message } });
+      toast({
+        title: "文件上传失败",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       set({ isUploading: false });
     }
@@ -168,7 +190,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         selectedFileIds: state.selectedFileIds.filter((id) => id !== fileId),
       }));
     } catch (error) {
-      set({ error: { code: "DELETE_FILE_FAILED", message: getErrorMessage(error) } });
+      const message = getErrorMessage(error);
+      set({ error: { code: "DELETE_FILE_FAILED", message } });
+      toast({
+        title: "删除文件失败",
+        description: message,
+        variant: "destructive",
+      });
     }
   },
 
@@ -193,9 +221,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       };
       set((state) => ({ messages: [...state.messages, userMessage] }));
 
+      const { selectedFileIds } = get();
       const response = await chatApi.sendMessage({
         project_id: projectId,
         content,
+        rag_source_ids: selectedFileIds.length > 0 ? selectedFileIds : undefined,
       });
 
       if (response?.data?.message) {
@@ -204,12 +234,17 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         }));
       }
     } catch (error) {
-      // 回滚乐观更新：移除临时消息，并保留用户输入
+      const message = getErrorMessage(error);
       set((state) => ({
         messages: state.messages.filter((m) => m.id !== tempId),
         lastFailedInput: content,
-        error: { code: "SEND_MESSAGE_FAILED", message: getErrorMessage(error) },
+        error: { code: "SEND_MESSAGE_FAILED", message },
       }));
+      toast({
+        title: "发送消息失败",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       set({ isSending: false });
     }
@@ -217,10 +252,14 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   startGeneration: async (projectId: string, tool: GenerationTool, options?: GenerationOptions) => {
     try {
+      const { selectedFileIds } = get();
       const response = await generateApi.createSession({
         project_id: projectId,
         output_type: (tool.type === "ppt" || tool.type === "mindmap" || tool.type === "outline" || tool.type === "animation") ? "ppt" : "word",
-        options,
+        options: {
+          ...(options || {}),
+          rag_source_ids: selectedFileIds.length > 0 ? selectedFileIds : undefined,
+        },
       });
 
       if (response?.data?.session) {
@@ -242,18 +281,29 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           const sessionResponse = await generateApi.getSession(sessionId);
           set({ generationSession: sessionResponse?.data ?? null });
         } catch (sessionError) {
-          // 会话创建成功但获取快照失败，标记历史为失败
+          const message = getErrorMessage(sessionError);
           set((state) => ({
             generationSession: null,
             generationHistory: state.generationHistory.map((h) =>
               h.id === sessionId ? { ...h, status: "failed" as const } : h
             ),
-            error: { code: "SESSION_FETCH_FAILED", message: getErrorMessage(sessionError) },
+            error: { code: "SESSION_FETCH_FAILED", message },
           }));
+          toast({
+            title: "获取会话状态失败",
+            description: message,
+            variant: "destructive",
+          });
         }
       }
     } catch (error) {
-      set({ error: { code: "GENERATION_FAILED", message: getErrorMessage(error) } });
+      const message = getErrorMessage(error);
+      set({ error: { code: "GENERATION_FAILED", message } });
+      toast({
+        title: "创建生成任务失败",
+        description: message,
+        variant: "destructive",
+      });
     }
   },
 
@@ -261,14 +311,20 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     const session = get().generationSession;
     const baseVersion = session?.outline?.version ?? 1;
     try {
-      await generateApi.updateOutline(sessionId, { 
+      await generateApi.updateOutline(sessionId, {
         base_version: baseVersion,
-        outline 
+        outline
       });
       const sessionResponse = await generateApi.getSession(sessionId);
       set({ generationSession: sessionResponse?.data ?? null });
     } catch (error) {
-      set({ error: { code: "UPDATE_OUTLINE_FAILED", message: getErrorMessage(error) } });
+      const message = getErrorMessage(error);
+      set({ error: { code: "UPDATE_OUTLINE_FAILED", message } });
+      toast({
+        title: "更新大纲失败",
+        description: message,
+        variant: "destructive",
+      });
     }
   },
 
@@ -278,15 +334,20 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const sessionResponse = await generateApi.getSession(sessionId);
       set({ generationSession: sessionResponse?.data ?? null });
     } catch (error) {
-      set({ error: { code: "CONFIRM_OUTLINE_FAILED", message: getErrorMessage(error) } });
+      const message = getErrorMessage(error);
+      set({ error: { code: "CONFIRM_OUTLINE_FAILED", message } });
+      toast({
+        title: "确认大纲失败",
+        description: message,
+        variant: "destructive",
+      });
     }
   },
 
   updateProjectName: async (name: string) => {
     const { project } = get();
     if (!project) return;
-    
-    // 乐观更新
+
     const oldName = project.name;
     set((state) => ({
       project: state.project ? { ...state.project, name } : null,
@@ -299,12 +360,16 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         grade_level: project.grade_level,
       });
     } catch (error) {
-      console.error("Failed to update project name:", error);
-      // 回滚
+      const message = getErrorMessage(error);
       set((state) => ({
         project: state.project ? { ...state.project, name: oldName } : null,
-        error: { code: "UPDATE_PROJECT_FAILED", message: getErrorMessage(error) },
+        error: { code: "UPDATE_PROJECT_FAILED", message },
       }));
+      toast({
+        title: "更新项目名称失败",
+        description: message,
+        variant: "destructive",
+      });
     }
   },
 

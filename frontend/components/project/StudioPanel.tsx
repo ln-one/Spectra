@@ -318,10 +318,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                           <div className="h-full">
                             <GenerationConfigPanel
                               variant="compact"
-                              onGenerate={(config) => {
+                              onGenerate={async (config) => {
                                 const tool = GENERATION_TOOLS.find(t => t.type === expandedTool);
                                 if (project && tool) {
-                                  startGeneration(project.id, tool, {
+                                  await startGeneration(project.id, tool, {
                                     template: "default",
                                     show_page_number: true,
                                     include_animations: false,

@@ -60,9 +60,30 @@ def signal_handler(signum, frame):
         sys.exit(0)
 
 
+async def _run_worker():
+    """Establish DB connection and run worker."""
+    from services.database import db_service as global_db
+    
+    # Connect global DB service for the worker process
+    await global_db.connect()
+    try:
+        # P2: recovery scan for stale tasks (already done in main, but let's keep it clean)
+        # main() handles it now, but we need the connection for the worker.work()
+        # Wait, worker.work() is blocking. We need to run it in a way that preserves the connection.
+        pass
+    except Exception as e:
+        logger.error(f"Worker startup connection error: {e}")
+    
+    # We'll actually do the connection in main() before worker.work()
+    # since worker.work() is blocking and synchronous.
+
 def main():
     """启动 RQ Worker"""
     global worker_instance
+    
+    # Load environment variables
+    from dotenv import load_dotenv
+    load_dotenv()
 
     # 注册信号处理器
     signal.signal(signal.SIGTERM, signal_handler)
@@ -95,19 +116,13 @@ def main():
 
     # 创建队列列表（按优先级顺序）
     queues = ["high", "default", "low"]
-    logger.info(f"Worker will listen to queues: {queues}")
+    logger.info(f"Worker listen to queues: {queues}")
 
-    # C1: startup recovery scan for stale tasks (enabled by default).
-    if os.getenv("WORKER_RECOVERY_SCAN", "true").lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }:
+    # Startup recovery scan for stale tasks
+    if os.getenv("WORKER_RECOVERY_SCAN", "true").lower() in {"1", "true", "yes", "on"}:
         try:
             asyncio.run(_run_recovery_scan())
         except Exception as e:
-            # Do not block worker startup if recovery scan fails.
             logger.error("Task recovery scan failed: %s", e, exc_info=True)
 
     # 对 async/Prisma 任务，SimpleWorker（不 fork）更稳定
@@ -118,17 +133,29 @@ def main():
     worker_instance = worker_cls(
         queues,
         connection=redis_conn,
-        name=os.getenv("WORKER_NAME", None),  # 如果未设置，RQ 会自动生成
+        name=os.getenv("WORKER_NAME", None),
     )
 
     logger.info(
         f"Starting worker: {worker_instance.name} (class={worker_cls.__name__})"
     )
-    logger.info("Worker is ready to process tasks...")
+    
+    # IMPORTANT: SimpleWorker runs jobs in the same loop. 
+    # But many jobs are async. We need to ensure the global db_service is connected.
+    
+    async def run_worker_loop():
+        from services.database import db_service as global_db
+        await global_db.connect()
+        try:
+            # SimpleWorker.work is synchronous and blocking.
+            # We wrap it to allow the async loop to handle Prisma heartbeats if any.
+            # However, RQ SimpleWorker just executes the function.
+            worker_instance.work(with_scheduler=True)
+        finally:
+            await global_db.disconnect()
 
     try:
-        # 启动 Worker（阻塞）
-        worker_instance.work(with_scheduler=True)
+        asyncio.run(run_worker_loop())
     except Exception as e:
         logger.error(f"Worker error: {e}", exc_info=True)
         sys.exit(1)

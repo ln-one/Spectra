@@ -84,13 +84,19 @@ app = FastAPI(
 # --- Middleware (order matters: outermost first) ---
 
 # CORS must be outermost so preflight responses include correct headers
-cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+raw_origins = os.getenv(
+    "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+).split(",")
+clean_origins = [o.strip() for o in raw_origins if o.strip() and o.strip() != "*"]
+allow_all_origins = any(o.strip() == "*" for o in raw_origins) or not clean_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in cors_origins],
-    allow_credentials=False,  # Disabled for security when using wildcard origins
+    allow_origins=["*"] if allow_all_origins else clean_origins,
+    allow_credentials=not allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
 
 # Request-ID & access-log middleware

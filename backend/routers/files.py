@@ -41,17 +41,35 @@ class BatchDeleteRequest(BaseModel):
 
 
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(100 * 1024 * 1024)))
-ALLOWED_EXTENSIONS = {
+_DEFAULT_EXTENSIONS = {
+    "pdf",
+    "docx",
+    "doc",
+    "pptx",
+    "ppt",
+    "txt",
+    "md",
+    "csv",
+    "mp4",
+    "mov",
+    "avi",
+    "webm",
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "mp3",
+    "wav",
+    "m4a",
+    "ogg",
+}
+_EXTRA_EXTENSIONS = {
     ext.strip().lower().lstrip(".")
-    for ext in os.getenv(
-        "ALLOWED_EXTENSIONS",
-        (
-            ".pdf,.docx,.doc,.pptx,.ppt,.txt,.md,.csv,"
-            ".mp4,.mov,.avi,.webm,.jpg,.jpeg,.png,.gif,.webp"
-        ),
-    ).split(",")
+    for ext in os.getenv("ALLOWED_EXTENSIONS", "").split(",")
     if ext.strip()
 }
+ALLOWED_EXTENSIONS = _DEFAULT_EXTENSIONS | _EXTRA_EXTENSIONS
 
 
 def _resolve_file_type(filename: str, mime_type: Optional[str] = None) -> str:
@@ -153,12 +171,20 @@ def _dispatch_rag_indexing(
     task_queue_service = getattr(request.app.state, "task_queue_service", None)
     if task_queue_service is not None:
         try:
-            task_queue_service.enqueue_rag_indexing_task(
-                file_id=upload.id,
-                project_id=project_id,
-                session_id=session_id,
-            )
-            return
+            queue_info = task_queue_service.get_queue_info()
+            workers = (queue_info.get("workers") or {}).get("count", 0)
+            if workers <= 0:
+                logger.warning(
+                    "No RQ workers detected, fallback to BackgroundTasks: file_id=%s",
+                    upload.id,
+                )
+            else:
+                task_queue_service.enqueue_rag_indexing_task(
+                    file_id=upload.id,
+                    project_id=project_id,
+                    session_id=session_id,
+                )
+                return
         except Exception as enqueue_err:
             logger.warning(
                 "Failed to enqueue RAG indexing task, falling back to"

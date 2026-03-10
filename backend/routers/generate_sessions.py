@@ -20,12 +20,13 @@ from fastapi.responses import StreamingResponse
 
 from services.database import db_service
 from services.generation_session_service import ConflictError, GenerationSessionService
-from utils.dependencies import get_current_user
+from utils.dependencies import get_current_user, get_current_user_optional
 from utils.exceptions import (
     APIException,
     ErrorCode,
     ForbiddenException,
     NotFoundException,
+    UnauthorizedException,
 )
 from utils.responses import success_response
 
@@ -211,9 +212,17 @@ async def get_session_events(
     session_id: str,
     cursor: Optional[str] = Query(None, description="断线续传游标"),
     accept: Optional[str] = Query("text/event-stream"),
-    user_id: str = Depends(get_current_user),
+    token: Optional[str] = Query(None, description="SSE token (when Authorization header is unavailable)"),
+    user_id: Optional[str] = Depends(get_current_user_optional),
 ):
     """获取生成事件流，支持 SSE（默认）或短轮询（accept=application/json）。"""
+    if not user_id:
+        if token:
+            from services.auth_service import auth_service
+
+            user_id = auth_service.verify_token(token)
+        if not user_id:
+            raise UnauthorizedException(message="缺少认证信息")
     svc = _get_session_service()
 
     # 权限预检
@@ -638,21 +647,40 @@ async def get_session_preview(
     )
     task = tasks[0] if tasks else None
 
+    slides = []
+    lesson_plan = None
+    if task:
+        try:
+            from services.preview_helpers import (
+                build_lesson_plan,
+                build_slides,
+                get_or_generate_content,
+            )
+
+            project = await db_service.get_project(snapshot["session"]["project_id"])
+            if not project:
+                raise ValueError("project not found for preview")
+            content = await get_or_generate_content(task, project)
+            slide_models = build_slides(task.id, content["markdown_content"])
+            slides = [s.model_dump() for s in slide_models]
+            lesson_plan = build_lesson_plan(
+                slide_models,
+                content.get("lesson_plan_markdown", ""),
+            ).model_dump()
+        except Exception as preview_err:
+            logger.warning(
+                "Session preview content generation failed, using fallback: %s",
+                preview_err,
+                exc_info=True,
+            )
+
     return success_response(
         data={
             "session_id": session_id,
-            "state": session_state,
-            "ppt_url": (
-                snapshot.get("result", {}).get("ppt_url")
-                if snapshot.get("result")
-                else None
-            ),
-            "word_url": (
-                snapshot.get("result", {}).get("word_url")
-                if snapshot.get("result")
-                else None
-            ),
             "task_id": task.id if task else None,
+            "render_version": snapshot["session"].get("render_version") or 1,
+            "slides": slides,
+            "lesson_plan": lesson_plan,
         },
         message="预览获取成功",
     )

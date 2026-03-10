@@ -38,11 +38,24 @@ class VectorService:
     def client(self) -> chromadb.ClientAPI:
         """懒加载 ChromaDB 客户端"""
         if self._client is None:
-            self._client = chromadb.PersistentClient(path=self._persist_dir)
-            logger.info(
-                "ChromaDB client initialized",
-                extra={"persist_dir": self._persist_dir},
-            )
+            chroma_host = os.getenv("CHROMA_HOST")
+            chroma_port = os.getenv("CHROMA_PORT", "8000")
+            
+            if chroma_host:
+                self._client = chromadb.HttpClient(
+                    host=chroma_host,
+                    port=chroma_port
+                )
+                logger.info(
+                    "ChromaDB HttpClient initialized (server mode)",
+                    extra={"host": chroma_host, "port": chroma_port},
+                )
+            else:
+                self._client = chromadb.PersistentClient(path=self._persist_dir)
+                logger.info(
+                    "ChromaDB PersistentClient initialized (local mode)",
+                    extra={"persist_dir": self._persist_dir},
+                )
         return self._client
 
     def get_or_create_collection(self, project_id: str) -> Collection:

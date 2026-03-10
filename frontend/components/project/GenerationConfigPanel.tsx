@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { OutlineEditorPanel } from "./OutlineEditorPanel";
+import { useProjectStore } from "@/stores/projectStore";
 
 const CONTENT_TYPES = [
   {
@@ -126,7 +127,7 @@ const itemVariants = {
 interface GenerationConfigPanelProps {
   variant?: "default" | "compact";
   onBack?: () => void;
-  onGenerate?: (config: GenerationConfig) => void;
+  onGenerate?: (config: GenerationConfig) => Promise<void> | void;
 }
 
 export interface GenerationConfig {
@@ -155,13 +156,21 @@ export function GenerationConfigPanel({
   const [showOutlineEditor, setShowOutlineEditor] = useState(false);
   const [generatedConfig, setGeneratedConfig] = useState<GenerationConfig | null>(null);
   const [sessionId, setSessionId] = useState<string>("");
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const { generationSession } = useProjectStore();
+
+  useEffect(() => {
+    if (generationSession?.session?.session_id) {
+      setSessionId(generationSession.session.session_id);
+    }
+  }, [generationSession?.session?.session_id]);
 
   const shufflePrompts = useCallback(() => {
     const shuffled = [...INSPIRATION_PROMPTS].sort(() => Math.random() - 0.5);
     setPrompts(shuffled.slice(0, 6));
   }, []);
 
-  const handleGenerate = useCallback(() => {
+  const handleGenerate = useCallback(async () => {
     const config: GenerationConfig = {
       contentType: selectedType,
       pageCount,
@@ -170,8 +179,13 @@ export function GenerationConfigPanel({
       prompt,
     };
     setGeneratedConfig(config);
-    setShowOutlineEditor(true);
-    onGenerate?.(config);
+    setIsCreatingSession(true);
+    try {
+      await onGenerate?.(config);
+      setShowOutlineEditor(true);
+    } finally {
+      setIsCreatingSession(false);
+    }
   }, [selectedType, pageCount, audience, language, prompt, onGenerate]);
 
   const handleBackFromOutline = useCallback(() => {
@@ -181,11 +195,11 @@ export function GenerationConfigPanel({
   const handleConfirmOutline = useCallback(() => { }, []);
 
   const handleGoToPreview = useCallback(() => {
-    if (projectId) {
-      const newSessionId = `session-${Date.now()}`;
-      router.push(`/projects/${projectId}/generate?session=${newSessionId}`);
+    const activeSessionId = sessionId || generationSession?.session?.session_id;
+    if (projectId && activeSessionId) {
+      router.push(`/projects/${projectId}/generate?session=${activeSessionId}`);
     }
-  }, [projectId, router]);
+  }, [projectId, router, sessionId, generationSession?.session?.session_id]);
 
   const selectedTypeConfig = CONTENT_TYPES.find((t) => t.id === selectedType);
 
@@ -340,20 +354,20 @@ export function GenerationConfigPanel({
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.2 }}
                 >
-                  <Button
-                    size="sm"
-                    onClick={handleGenerate}
-                    disabled={!prompt.trim()}
-                    className={cn(
-                      "h-8 px-4 text-xs font-medium border-0 shadow-md transition-all",
-                      prompt.trim()
+                    <Button
+                      size="sm"
+                      onClick={handleGenerate}
+                      disabled={!prompt.trim() || isCreatingSession}
+                      className={cn(
+                        "h-8 px-4 text-xs font-medium border-0 shadow-md transition-all",
+                        prompt.trim()
                         ? `bg-gradient-to-r ${selectedTypeConfig?.gradient || "from-orange-500 to-amber-500"} hover:shadow-lg hover:scale-105`
                         : "bg-zinc-200 text-zinc-400"
-                    )}
-                  >
-                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                    生成
-                  </Button>
+                      )}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                      {isCreatingSession ? "创建中" : "生成"}
+                    </Button>
                 </motion.div>
               </div>
             </motion.div>
@@ -629,7 +643,7 @@ export function GenerationConfigPanel({
               <Button
                 size="sm"
                 onClick={handleGenerate}
-                disabled={!prompt.trim()}
+                disabled={!prompt.trim() || isCreatingSession}
                 className={cn(
                   "h-9 px-5 text-xs font-medium border-0 shadow-lg transition-all",
                   prompt.trim()
@@ -638,7 +652,7 @@ export function GenerationConfigPanel({
                 )}
               >
                 <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                开始生成
+                {isCreatingSession ? "创建中" : "开始生成"}
                 <ChevronRight className="w-3.5 h-3.5 ml-1" />
               </Button>
             </div>
