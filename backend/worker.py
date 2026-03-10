@@ -9,6 +9,7 @@ import logging
 import os
 import signal
 import sys
+from pathlib import Path
 
 from redis import Redis
 from rq import SimpleWorker, Worker
@@ -83,7 +84,8 @@ def main():
     
     # Load environment variables
     from dotenv import load_dotenv
-    load_dotenv()
+    base_dir = Path(__file__).resolve().parent
+    load_dotenv(dotenv_path=base_dir / ".env", override=False)
 
     # 注册信号处理器
     signal.signal(signal.SIGTERM, signal_handler)

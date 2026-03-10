@@ -1,6 +1,7 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, Request, status
@@ -8,6 +9,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prisma.errors import PrismaError
+
+# Load environment variables (force backend/.env, independent of startup cwd)
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
 from routers import (
     auth_router,
@@ -28,9 +33,6 @@ from utils.exceptions import APIException
 from utils.logger import setup_logging
 from utils.middleware import RequestContextFilter, RequestIDMiddleware
 from utils.responses import error_response
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging from environment
 log_level = os.getenv("LOG_LEVEL", "INFO")

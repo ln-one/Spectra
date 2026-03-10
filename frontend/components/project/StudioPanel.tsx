@@ -323,6 +323,12 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               onGenerate={async (config) => {
                                 const tool = GENERATION_TOOLS.find(t => t.type === expandedTool);
                                 if (project && tool) {
+                                  const styleToneMap: Record<string, string> = {
+                                    structured: "严谨、逻辑清晰、层次分明",
+                                    story: "叙事化、生动、循序渐进",
+                                    problem: "问题驱动、启发式、强调思考",
+                                    workshop: "实操导向、案例化、可落地",
+                                  };
                                   await startGeneration(project.id, tool, {
                                     template: "default",
                                     show_page_number: true,
@@ -330,12 +336,13 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                     include_games: false,
                                     use_text_to_image: false,
                                     pages: Number(config.pageCount) || 15,
-                                    audience: config.audience === "higher" || config.audience === "enterprise"
-                                      ? "professional"
-                                      : config.audience === "k12"
-                                        ? "beginner"
-                                        : "intermediate",
-                                    system_prompt_tone: config.prompt,
+                                    audience: "intermediate",
+                                    system_prompt_tone: [
+                                      config.prompt,
+                                      `【大纲风格】${styleToneMap[config.outlineStyle] || "逻辑清晰"}`,
+                                      "【页面比例】16:9",
+                                      "请在每页中给出明确教学目标与讲解节奏。",
+                                    ].join("\n"),
                                   });
                                 }
                               }}

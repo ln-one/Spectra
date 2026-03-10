@@ -37,7 +37,6 @@ export default function ProjectDetailPage() {
     fetchFiles,
     fetchMessages,
     fetchGenerationHistory,
-    startGeneration,
     reset,
   } = useProjectStore();
 
@@ -67,8 +66,9 @@ export default function ProjectDetailPage() {
     };
   }, [projectId, router, fetchProject, fetchFiles, fetchMessages, fetchGenerationHistory, reset]);
 
-  const handleToolClick = async (tool: GenerationTool) => {
-    await startGeneration(projectId, tool);
+  const handleToolClick = async (_tool: GenerationTool) => {
+    // 会话创建应仅发生在配置面板点击“开始生成”时，避免重复历史记录
+    return;
   };
 
   const handleMouseDown = useCallback(

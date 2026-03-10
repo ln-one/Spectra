@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import uuid
 from typing import Optional
 
@@ -124,12 +125,15 @@ def _default_capabilities() -> list[dict]:
     video_health = health_status.get("video_understanding")
     speech_health = health_status.get("speech_recognition")
 
+    llm_provider = os.getenv("DEFAULT_MODEL", "qwen-plus")
+    llm_provider = llm_provider.replace("dashscope/", "")
+
     return [
         {
             "name": "outline_generation",
             "status": "available",
-            "providers": ["qwen-plus"],
-            "default_provider": "qwen-plus",
+            "providers": [llm_provider],
+            "default_provider": llm_provider,
             "fallback_chain": [],
             "operations": ["draft", "redraft", "confirm"],
             "status_message": None,
@@ -194,8 +198,8 @@ def _default_capabilities() -> list[dict]:
         {
             "name": "slide_regeneration",
             "status": "available",
-            "providers": ["qwen-plus"],
-            "default_provider": "qwen-plus",
+            "providers": [llm_provider],
+            "default_provider": llm_provider,
             "fallback_chain": [],
             "operations": ["regenerate"],
             "status_message": None,

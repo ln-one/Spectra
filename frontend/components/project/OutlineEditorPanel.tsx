@@ -21,6 +21,7 @@ import {
   MoreHorizontal,
   Copy,
   Eye,
+  Monitor,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,12 @@ const DETAIL_LEVELS = [
   { value: "standard", label: "标准", desc: "适中展开", icon: "📊" },
   { value: "detailed", label: "详细", desc: "深度讲解", icon: "📚" },
 ];
+
+const ASPECT_RATIO_OPTIONS = [
+  { value: "16:9", label: "16:9", description: "??" },
+  { value: "4:3", label: "4:3", description: "??" },
+  { value: "1:1", label: "1:1", description: "??" },
+] as const;
 
 const PROGRESS_STAGES = [
   { progress: 10, text: "正在分析大纲结构...", icon: "🔍" },
@@ -185,6 +192,7 @@ export function OutlineEditorPanel({
   const [detailLevel, setDetailLevel] = useState<"brief" | "standard" | "detailed">("standard");
   const [visualTheme, setVisualTheme] = useState("tech-blue");
   const [imageStyle, setImageStyle] = useState("flat");
+  const [aspectRatio, setAspectRatio] = useState<(typeof ASPECT_RATIO_OPTIONS)[number]["value"]>("16:9");
   const [keywordInput, setKeywordInput] = useState("");
   const [keywords, setKeywords] = useState<string[]>(["互动", "动画演示"]);
   const [showSettings, setShowSettings] = useState(false);
@@ -293,15 +301,26 @@ export function OutlineEditorPanel({
     if (!sessionId) return;
     setIsGenerating(true);
     setProgress(5);
-    setProgressText("准备开始生成...");
+    setProgressText("Aspect RatioAspect Ratio??..");
 
     try {
+      await updateOutline(sessionId, {
+        version: generationSession?.outline?.version || 1,
+        nodes: slides.map((s) => ({
+          id: s.id,
+          order: s.order,
+          title: s.title,
+          key_points: s.keyPoints,
+          estimated_minutes: s.estimatedMinutes,
+        })),
+        summary: `aspect_ratio=${aspectRatio}; detail_level=${detailLevel}; image_style=${imageStyle}`,
+      });
       await confirmOutline(sessionId);
     } catch (error) {
       console.error("Failed to confirm outline:", error);
       setIsGenerating(false);
     }
-  }, [sessionId, confirmOutline]);
+  }, [sessionId, confirmOutline, updateOutline, generationSession?.outline?.version, slides, aspectRatio, detailLevel, imageStyle]);
 
   const handleGoToPreview = useCallback(() => {
     onPreview?.();
@@ -359,7 +378,7 @@ export function OutlineEditorPanel({
                       "p-2.5 rounded-xl border transition-all cursor-pointer group",
                       "bg-white/80 border-zinc-200/60 backdrop-blur-sm",
                       "hover:shadow-md hover:-translate-y-0.5 hover:border-zinc-300",
-                      activeSlideId === slide.id && "border-l-2 border-l-violet-500 bg-violet-50/80 shadow-sm"
+                      activeSlideId === slide.id && "border-l-2 border-l-zinc-700 bg-zinc-100 shadow-sm"
                     )}
                     onClick={() => setActiveSlideId(slide.id)}
                   >
@@ -426,7 +445,7 @@ export function OutlineEditorPanel({
                 <ToggleGroupItem
                   key={level.value}
                   value={level.value}
-                  className="h-7 px-2.5 text-xs data-[state=on]:bg-violet-100 data-[state=on]:text-violet-700 data-[state=on]:border-violet-200 border border-transparent hover:bg-zinc-100"
+                  className="h-7 px-2.5 text-xs data-[state=on]:bg-zinc-900 data-[state=on]:text-zinc-50 data-[state=on]:border-zinc-800 border border-transparent hover:bg-zinc-100"
                 >
                   <span className="mr-1">{level.icon}</span>
                   {level.label}
@@ -459,7 +478,7 @@ export function OutlineEditorPanel({
               >
                 <Button
                   onClick={handleStartGeneration}
-                  className="w-full h-9 bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:opacity-90 text-white text-xs font-medium shadow-md hover:shadow-lg transition-all"
+                  className="w-full h-9 border border-zinc-800 bg-zinc-900 text-zinc-50 text-xs font-medium shadow-sm transition-all hover:bg-zinc-800"
                 >
                   <Sparkles className="w-3.5 h-3.5 mr-1.5" />
                   开始生成
@@ -480,7 +499,7 @@ export function OutlineEditorPanel({
                   <motion.div
                     className="absolute inset-y-0 left-0 rounded-full"
                     style={{
-                      background: "linear-gradient(90deg, #8b5cf6, #a855f7, #ec4899, #8b5cf6)",
+                      background: "linear-gradient(90deg, #18181b, #3f3f46, #71717a, #18181b)",
                       backgroundSize: "200% 100%",
                     }}
                     initial={{ width: 0 }}
@@ -497,7 +516,7 @@ export function OutlineEditorPanel({
                 <p className="text-xs text-zinc-500 text-center">{progressText}</p>
                 <Button
                   onClick={handleGoToPreview}
-                  className="w-full h-9 bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:opacity-90 text-white text-xs font-medium animate-pulse shadow-md"
+                  className="w-full h-9 border border-zinc-800 bg-zinc-900 text-zinc-50 text-xs font-medium shadow-sm hover:bg-zinc-800"
                 >
                   <Play className="w-3.5 h-3.5 mr-1.5" />
                   进入预览
@@ -511,12 +530,12 @@ export function OutlineEditorPanel({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex flex-col font-sans">
+    <div className="h-full bg-gradient-to-br from-zinc-50 via-white to-zinc-100 flex flex-col font-sans overflow-hidden">
       <motion.nav
         variants={itemVariants}
         initial="hidden"
         animate="visible"
-        className="h-14 px-6 flex items-center justify-between w-full border-b border-zinc-200/60 bg-white/80 backdrop-blur-md sticky top-0 z-50"
+        className="h-14 px-4 lg:px-6 flex items-center justify-between w-full border-b border-zinc-200/70 bg-white/90 backdrop-blur-md shrink-0"
       >
         <div className="flex items-center gap-4">
           <Button
@@ -554,12 +573,12 @@ export function OutlineEditorPanel({
         </div>
       </motion.nav>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="flex-1 p-6 lg:p-8 overflow-y-auto"
+          className="order-2 lg:order-1 flex-1 p-4 lg:p-8 overflow-y-auto min-h-0"
         >
           <motion.div variants={itemVariants} className="flex items-center justify-between mb-6">
             <div>
@@ -597,7 +616,7 @@ export function OutlineEditorPanel({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mb-6 p-4 bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl border border-violet-100"
+                className="mb-6 p-4 bg-zinc-50 rounded-2xl border border-zinc-200"
               >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
@@ -615,7 +634,7 @@ export function OutlineEditorPanel({
                         <ToggleGroupItem
                           key={level.value}
                           value={level.value}
-                          className="flex-1 h-9 text-xs data-[state=on]:bg-violet-600 data-[state=on]:text-white border border-zinc-200 hover:bg-zinc-100"
+                          className="flex-1 h-9 text-xs data-[state=on]:bg-zinc-900 data-[state=on]:text-zinc-50 border border-zinc-200 hover:bg-zinc-100"
                         >
                           {level.label}
                         </ToggleGroupItem>
@@ -680,12 +699,12 @@ export function OutlineEditorPanel({
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-violet-100 text-violet-700"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-zinc-100 text-zinc-700"
                       >
                         {keyword}
                         <button
                           onClick={() => handleRemoveKeyword(keyword)}
-                          className="hover:text-violet-900"
+                          className="hover:text-zinc-900"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -727,7 +746,7 @@ export function OutlineEditorPanel({
                   className={cn(
                     "bg-white border rounded-2xl p-5 shadow-sm transition-all duration-200 group",
                     "hover:shadow-lg hover:-translate-y-0.5",
-                    activeSlideId === slide.id && "border-l-4 border-l-violet-500 shadow-md",
+                    activeSlideId === slide.id && "border-l-4 border-l-zinc-700 shadow-md",
                     isGenerating && "opacity-60 pointer-events-none"
                   )}
                   onClick={() => !isGenerating && setActiveSlideId(slide.id)}
@@ -767,7 +786,7 @@ export function OutlineEditorPanel({
                             })
                           }
                           placeholder="每行一个知识点..."
-                          className="min-h-[80px] text-sm bg-zinc-50/50 border-zinc-200 focus:border-violet-300 focus:ring-violet-200"
+                          className="min-h-[80px] text-sm bg-zinc-50/50 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-200"
                           disabled={isGenerating}
                         />
                       </div>
@@ -837,13 +856,36 @@ export function OutlineEditorPanel({
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="w-80 border-l border-zinc-200/60 bg-white/50 backdrop-blur-sm p-6 flex flex-col gap-4"
+          className="order-1 lg:order-2 w-full lg:w-80 max-h-[42vh] lg:max-h-none overflow-y-auto border-b lg:border-b-0 lg:border-l border-zinc-200/70 bg-white/75 backdrop-blur-sm p-4 lg:p-6 flex flex-col gap-4 shrink-0"
         >
           <motion.div variants={itemVariants} className="space-y-3">
             <h3 className="text-sm font-semibold text-zinc-700 flex items-center gap-2">
               <Settings2 className="w-4 h-4" />
               生成配置
             </h3>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-zinc-500 flex items-center gap-1.5">
+                <Monitor className="w-3.5 h-3.5" />
+                Aspect Ratio
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {ASPECT_RATIO_OPTIONS.map((ratio) => (
+                  <button
+                    key={ratio.value}
+                    onClick={() => setAspectRatio(ratio.value)}
+                    className={cn(
+                      "rounded-lg border px-2 py-1.5 text-xs transition-all",
+                      aspectRatio === ratio.value
+                        ? "border-zinc-700 bg-zinc-900 text-white"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+                    )}
+                  >
+                    {ratio.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="space-y-2">
               <label className="text-xs font-medium text-zinc-500">内容详细程度</label>
@@ -857,7 +899,7 @@ export function OutlineEditorPanel({
                   <ToggleGroupItem
                     key={level.value}
                     value={level.value}
-                    className="flex-1 h-8 text-xs data-[state=on]:bg-violet-600 data-[state=on]:text-white border border-zinc-200"
+                    className="flex-1 h-8 text-xs data-[state=on]:bg-zinc-900 data-[state=on]:text-zinc-50 border border-zinc-200"
                   >
                     {level.label}
                   </ToggleGroupItem>
@@ -916,12 +958,12 @@ export function OutlineEditorPanel({
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-violet-100 text-violet-700"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-zinc-100 text-zinc-700"
                 >
                   {keyword}
                   <button
                     onClick={() => handleRemoveKeyword(keyword)}
-                    className="hover:text-violet-900"
+                    className="hover:text-zinc-900"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -963,6 +1005,14 @@ export function OutlineEditorPanel({
               <span className="font-medium text-zinc-700">{slides.length} 页</span>
             </div>
 
+            <div className="flex items-center justify-between text-xs text-zinc-500">
+              <span className="flex items-center gap-1">
+                <Monitor className="w-3 h-3" />
+                Aspect Ratio
+              </span>
+              <span className="font-medium text-zinc-700">{aspectRatio}</span>
+            </div>
+
             <AnimatePresence mode="wait">
               {!isGenerating ? (
                 <motion.div
@@ -974,7 +1024,7 @@ export function OutlineEditorPanel({
                 >
                   <Button
                     onClick={handleStartGeneration}
-                    className="w-full h-11 bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:opacity-90 text-white text-sm font-medium shadow-lg hover:shadow-xl transition-all"
+                    className="w-full h-11 border border-zinc-800 bg-zinc-900 text-zinc-50 text-sm font-medium shadow-sm transition-all hover:bg-zinc-800"
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
                     开始生成课件
@@ -995,7 +1045,7 @@ export function OutlineEditorPanel({
                     <motion.div
                       className="absolute inset-y-0 left-0 rounded-full"
                       style={{
-                        background: "linear-gradient(90deg, #8b5cf6, #a855f7, #ec4899, #8b5cf6)",
+                        background: "linear-gradient(90deg, #18181b, #3f3f46, #71717a, #18181b)",
                         backgroundSize: "200% 100%",
                       }}
                       initial={{ width: 0 }}
@@ -1012,7 +1062,7 @@ export function OutlineEditorPanel({
                   <p className="text-xs text-zinc-500 text-center">{progressText}</p>
                   <Button
                     onClick={handleGoToPreview}
-                    className="w-full h-11 bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:opacity-90 text-white text-sm font-medium animate-pulse shadow-lg"
+                    className="w-full h-11 border border-zinc-800 bg-zinc-900 text-zinc-50 text-sm font-medium shadow-sm hover:bg-zinc-800"
                   >
                     <Play className="w-4 h-4 mr-2" />
                     进入动态预览
