@@ -86,9 +86,9 @@ def compute_metrics(samples: list[dict]) -> DialogueMemoryMetrics:
             misquote_count += 1
             failed_misquote_ids.append(sample_id)
 
-    hit_rate = hit_pass / hit_total if hit_total > 0 else 1.0
+    hit_rate = hit_pass / hit_total if hit_total > 0 else 0.0
     misquote_rate = misquote_count / misquote_total if misquote_total > 0 else 0.0
-    no_hit_notice_rate = no_hit_notice_pass / no_hit_total if no_hit_total > 0 else 1.0
+    no_hit_notice_rate = no_hit_notice_pass / no_hit_total if no_hit_total > 0 else 0.0
 
     return DialogueMemoryMetrics(
         total_samples=len(samples),
