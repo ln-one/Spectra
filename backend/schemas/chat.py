@@ -43,6 +43,10 @@ class SendMessageRequest(BaseModel):
     )
     content: str = Field(..., min_length=1, max_length=10000, description="消息内容")
     history: Optional[list[Message]] = Field(None, description="对话历史")
+    rag_source_ids: Optional[list[str]] = Field(
+        None,
+        description="限定 RAG 检索范围的文件 ID 列表（空列表/None 表示不限）",
+    )
 
 
 class SendMessageResponse(BaseModel):

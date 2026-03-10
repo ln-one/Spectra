@@ -71,7 +71,7 @@ const FILE_TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string;
 };
 
 const STATUS_CONFIG: Record<string, { color: string; pulse?: boolean }> = {
-  uploading: { color: "bg-blue-400", pulse: true },
+  uploading: { color: "bg-amber-400", pulse: true },
   parsing: { color: "bg-amber-400", pulse: true },
   ready: { color: "bg-emerald-400" },
   failed: { color: "bg-red-400" },
@@ -191,6 +191,20 @@ function FileItem({
           title={file.filename}
         >
           {file.filename}
+        </p>
+
+        <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
+          {file.status === "ready" && file.parse_result?.indexed_count !== undefined
+            ? `已索引 ${file.parse_result.indexed_count} 段`
+            : file.status === "ready"
+              ? "已完成解析"
+              : file.status === "parsing"
+                ? "解析中"
+                : file.status === "uploading"
+                  ? "上传中"
+                  : file.parse_error
+                    ? `失败：${file.parse_error}`
+                    : "解析失败"}
         </p>
 
         {file.status === "parsing" && file.parse_progress !== undefined && (

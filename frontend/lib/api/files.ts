@@ -43,18 +43,42 @@ function parseUploadErrorMessage(raw: string, fallback: string): string {
 }
 
 function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
+  const parseResultRaw =
+    raw.parse_result ?? raw.parseResult ?? raw.parse_results ?? undefined;
+  let parsedResult: UploadedFile["parse_result"] | undefined;
+  if (typeof parseResultRaw === "string") {
+    try {
+      parsedResult = JSON.parse(parseResultRaw) as UploadedFile["parse_result"];
+    } catch {
+      parsedResult = undefined;
+    }
+  } else if (typeof parseResultRaw === "object" && parseResultRaw !== null) {
+    parsedResult = parseResultRaw as UploadedFile["parse_result"];
+  }
+
   return {
     id: String(raw.id || ""),
     filename: String(raw.filename || ""),
-    file_type: String(raw.file_type || "pdf") as UploadedFile["file_type"],
-    mime_type: String(raw.mime_type || ""),
-    file_size: Number(raw.file_size || 0),
+    file_type: String(
+      raw.file_type || raw.fileType || "pdf"
+    ) as UploadedFile["file_type"],
+    mime_type: String(raw.mime_type || raw.mimeType || ""),
+    file_size: Number(
+      (raw.file_size ?? raw.fileSize ?? 0) as number | string
+    ),
     status: String(raw.status || "ready") as UploadedFile["status"],
-    parse_progress: Number(raw.parse_progress || 100),
-    parse_details: (raw.parse_details || {}) as UploadedFile["parse_details"],
-    usage_intent: (raw.usage_intent || undefined) as string | undefined,
-    created_at: String(raw.created_at || new Date().toISOString()),
-    updated_at: String(raw.updated_at || new Date().toISOString()),
+    parse_progress: Number(
+      (raw.parse_progress ?? raw.parseProgress ?? 100) as number | string
+    ),
+    parse_details: (raw.parse_details ||
+      raw.parseDetails ||
+      {}) as UploadedFile["parse_details"],
+    parse_result: parsedResult,
+    usage_intent: (raw.usage_intent || raw.usageIntent || undefined) as
+      | string
+      | undefined,
+    created_at: String(raw.created_at || raw.createdAt || new Date().toISOString()),
+    updated_at: String(raw.updated_at || raw.updatedAt || new Date().toISOString()),
   };
 }
 

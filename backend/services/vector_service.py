@@ -9,6 +9,7 @@ import os
 from typing import Optional
 
 import chromadb
+import socket
 from chromadb.api.models.Collection import Collection
 from chromadb.errors import NotFoundError
 
@@ -42,14 +43,31 @@ class VectorService:
             chroma_port = os.getenv("CHROMA_PORT", "8000")
             
             if chroma_host:
-                self._client = chromadb.HttpClient(
-                    host=chroma_host,
-                    port=chroma_port
-                )
-                logger.info(
-                    "ChromaDB HttpClient initialized (server mode)",
-                    extra={"host": chroma_host, "port": chroma_port},
-                )
+                # 先做一次快速连通性检查，避免服务未启动导致请求卡死
+                try:
+                    socket.create_connection(
+                        (chroma_host, int(chroma_port)), timeout=0.5
+                    ).close()
+                    self._client = chromadb.HttpClient(
+                        host=chroma_host,
+                        port=chroma_port,
+                    )
+                    logger.info(
+                        "ChromaDB HttpClient initialized (server mode)",
+                        extra={"host": chroma_host, "port": chroma_port},
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "ChromaDB server unreachable, fallback to local PersistentClient: %s",
+                        exc,
+                    )
+                    self._client = chromadb.PersistentClient(
+                        path=self._persist_dir
+                    )
+                    logger.info(
+                        "ChromaDB PersistentClient initialized (local mode)",
+                        extra={"persist_dir": self._persist_dir},
+                    )
             else:
                 self._client = chromadb.PersistentClient(path=self._persist_dir)
                 logger.info(

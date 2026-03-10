@@ -22,6 +22,7 @@ async def index_upload_file_for_rag(
     chunk_size: int = 500,
     chunk_overlap: int = 50,
     reindex: bool = False,
+    db=None,
 ) -> dict:
     """
     解析并索引单个上传文件，返回索引摘要。
@@ -68,6 +69,8 @@ async def index_upload_file_for_rag(
     if not chunks:
         chunks = [text]
 
+    db = db or db_service
+
     if reindex:
         logger.info(
             "reindex_requested: upload_id=%s project_id=%s",
@@ -77,7 +80,7 @@ async def index_upload_file_for_rag(
         await rag_service.delete_upload_index(
             project_id=project_id, upload_id=upload.id
         )
-        await db_service.delete_parsed_chunks(upload.id)
+        await db.delete_parsed_chunks(upload.id)
 
     base_metadata = {
         "filename": upload.filename,
@@ -95,7 +98,7 @@ async def index_upload_file_for_rag(
         for idx, chunk in enumerate(chunks)
     ]
 
-    db_chunks = await db_service.create_parsed_chunks(
+    db_chunks = await db.create_parsed_chunks(
         upload_id=upload.id,
         source_type=upload.fileType,
         chunks=chunk_payloads,

@@ -1757,6 +1757,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Message'
+        rag_source_ids:
+          type: array
+          items:
+            type: string
+          description: 限定 RAG 检索范围的文件 ID 列表（空列表/未传表示不限）
     SendMessageResponse:
       type: object
       required:

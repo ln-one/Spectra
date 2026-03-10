@@ -117,6 +117,79 @@ def _append_citation_markers(content: str, citations: list[dict]) -> str:
     return f"{content}\n\n来源：\n" + "\n".join(lines)
 
 
+def _normalize_chapter_token(token: str) -> str:
+    return token.replace(" ", "")
+
+
+def _chinese_to_arabic(ch: str) -> Optional[int]:
+    mapping = {
+        "一": 1,
+        "二": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+        "十": 10,
+    }
+    return mapping.get(ch)
+
+
+def _extract_chapter_tokens(query: str) -> list[str]:
+    tokens: list[str] = []
+    if not query:
+        return tokens
+    # Match patterns like "第2章" or "第二章"
+    import re
+
+    for match in re.findall(r"第\\s*([0-9]+)\\s*章", query):
+        tokens.append(f"第{match}章")
+
+    for match in re.findall(r"第\\s*([一二三四五六七八九十])\\s*章", query):
+        tokens.append(f"第{match}章")
+        arabic = _chinese_to_arabic(match)
+        if arabic is not None:
+            tokens.append(f"第{arabic}章")
+
+    # 去重保持顺序
+    seen = set()
+    ordered = []
+    for t in tokens:
+        t = _normalize_chapter_token(t)
+        if t in seen:
+            continue
+        seen.add(t)
+        ordered.append(t)
+    return ordered
+
+
+def _rerank_by_chapter(query: str, rag_results: list):
+    tokens = _extract_chapter_tokens(query)
+    if not tokens or not rag_results:
+        return rag_results
+
+    scored = []
+    for r in rag_results:
+        content = str(getattr(r, "content", "") or "")
+        filename = str(getattr(getattr(r, "source", None), "filename", "") or "")
+        match_score = 0
+        for t in tokens:
+            if t in content:
+                match_score += 2
+            if t in filename:
+                match_score += 1
+        scored.append((match_score, r))
+
+    has_match = any(score > 0 for score, _ in scored)
+    if not has_match:
+        return rag_results
+
+    scored.sort(key=lambda x: (x[0], getattr(x[1], "score", 0)), reverse=True)
+    return [r for _, r in scored]
+
+
 @router.post("/messages")
 async def send_message(
     body: SendMessageRequest,
@@ -188,6 +261,7 @@ async def send_message(
                 session_id=session_id,
                 filters=rag_filters,
             )
+            rag_results = _rerank_by_chapter(body.content, rag_results)
             if rag_results:
                 rag_hit = True
                 rag_context = "\n\n".join(

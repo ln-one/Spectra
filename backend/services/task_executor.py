@@ -493,6 +493,7 @@ async def execute_rag_indexing_task(
             chunk_size=500,
             chunk_overlap=50,
             reindex=False,
+            db=db,
         )
         await db.update_upload_status(
             upload.id,

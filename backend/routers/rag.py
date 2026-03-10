@@ -101,6 +101,7 @@ async def index_file(
         chunk_size=request.chunk_size,
         chunk_overlap=request.chunk_overlap,
         reindex=True,
+        db=db_service,
     )
     await db_service.update_upload_status(
         upload.id,
