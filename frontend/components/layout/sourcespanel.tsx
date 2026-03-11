@@ -131,7 +131,9 @@ export function SourcesPanel({
               className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-6 text-center cursor-pointer hover:bg-accent/40 transition-colors"
             >
               <Upload className="mb-2 h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">Drop files here or click to upload</span>
+              <span className="text-sm">
+                Drop files here or click to upload
+              </span>
               <span className="mt-1 text-xs text-muted-foreground">
                 Supports multiple files
               </span>
