@@ -4,6 +4,8 @@
     description: |
       兼容旧版的一次性创建接口。新流程推荐使用 /generate/sessions 系列接口，
       支持阶段式中断、事件流推送与局部重绘。
+      已弃用，预计 2026-06-30 后移除。
+    deprecated: true
     tags: [Generate]
     security:
       - BearerAuth: []
@@ -33,6 +35,10 @@
 /api/v1/generate/tasks/{task_id}/status:
   get:
     summary: 查询生成状态
+    description: |
+      已弃用，建议迁移到 /api/v1/generate/sessions/{session_id}。
+      预计 2026-06-30 后移除。
+    deprecated: true
     tags: [Generate]
     security:
       - BearerAuth: []
@@ -59,6 +65,10 @@
 /api/v1/generate/tasks/{task_id}/download:
   get:
     summary: 下载生成的课件文件
+    description: |
+      已弃用，建议迁移到 /api/v1/generate/sessions/{session_id}/preview/export。
+      预计 2026-06-30 后移除。
+    deprecated: true
     tags: [Generate]
     security:
       - BearerAuth: []
@@ -97,6 +107,10 @@
 /api/v1/generate/tasks/{task_id}/versions:
   get:
     summary: 获取任务的所有版本
+    description: |
+      已弃用，建议迁移到 /api/v1/generate/sessions/{session_id}。
+      预计 2026-06-30 后移除。
+    deprecated: true
     tags: [Generate]
     security:
       - BearerAuth: []

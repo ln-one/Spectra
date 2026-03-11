@@ -11,7 +11,7 @@ from html import escape as html_escape
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 
 from schemas.preview import (
@@ -31,7 +31,9 @@ from services.preview_helpers import (
     save_preview_content,
 )
 from utils.dependencies import get_current_user
+from utils.deprecation import apply_deprecation_headers, log_deprecated_call
 from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.legacy_guard import assert_legacy_enabled
 from utils.responses import success_response
 
 router = APIRouter(prefix="/preview", tags=["Preview"])
@@ -104,9 +106,25 @@ def _build_legacy_lesson_plan(slides: list[dict]) -> dict:
 
 
 @router.get("/{task_id}")
-async def get_preview(task_id: str, user_id: str = Depends(get_current_user)):
+async def get_preview(
+    task_id: str,
+    request: Request,
+    response: Response,
+    user_id: str = Depends(get_current_user),
+):
     """获取课件预览（slides + lesson_plan）"""
     try:
+        assert_legacy_enabled()
+        apply_deprecation_headers(
+            response,
+            replacement="/api/v1/generate/sessions/{session_id}/preview",
+        )
+        log_deprecated_call(
+            logger,
+            request,
+            user_id,
+            replacement="/api/v1/generate/sessions/{session_id}/preview",
+        )
         task, project = await _resolve_task(task_id, user_id)
         use_fallback = False
         try:
@@ -148,11 +166,24 @@ async def get_preview(task_id: str, user_id: str = Depends(get_current_user)):
 async def modify_preview(
     task_id: str,
     body: ModifyRequest,
+    request: Request,
+    response: Response,
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
     """提交修改指令，差异化重新生成目标 slides"""
     try:
+        assert_legacy_enabled()
+        apply_deprecation_headers(
+            response,
+            replacement="/api/v1/generate/sessions/{session_id}/preview/modify",
+        )
+        log_deprecated_call(
+            logger,
+            request,
+            user_id,
+            replacement="/api/v1/generate/sessions/{session_id}/preview/modify",
+        )
         task, project = await _resolve_task(task_id, user_id)
         key_str = str(idempotency_key) if idempotency_key else None
         cache_key = f"preview:modify:{user_id}:{task.id}:{key_str}" if key_str else None
@@ -216,10 +247,23 @@ async def modify_preview(
 async def get_slide_detail(
     task_id: str,
     slide_id: str,
+    request: Request,
+    response: Response,
     user_id: str = Depends(get_current_user),
 ):
     """获取单个幻灯片详情"""
     try:
+        assert_legacy_enabled()
+        apply_deprecation_headers(
+            response,
+            replacement="/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}",
+        )
+        log_deprecated_call(
+            logger,
+            request,
+            user_id,
+            replacement="/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}",
+        )
         task, project = await _resolve_task(task_id, user_id)
         use_fallback = False
         try:
@@ -307,10 +351,23 @@ async def get_slide_detail(
 async def export_preview(
     task_id: str,
     body: ExportRequest,
+    request: Request,
+    response: Response,
     user_id: str = Depends(get_current_user),
 ):
     """导出预览内容（json/markdown/html）"""
     try:
+        assert_legacy_enabled()
+        apply_deprecation_headers(
+            response,
+            replacement="/api/v1/generate/sessions/{session_id}/preview/export",
+        )
+        log_deprecated_call(
+            logger,
+            request,
+            user_id,
+            replacement="/api/v1/generate/sessions/{session_id}/preview/export",
+        )
         task, project = await _resolve_task(task_id, user_id)
         use_fallback = False
         try:

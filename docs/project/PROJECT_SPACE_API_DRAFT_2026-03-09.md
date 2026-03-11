@@ -46,9 +46,9 @@
 4. `visibility` 为私有时，默认黑盒可见性
 5. 公开库默认透明可见
 
-## 3. 建议保留的现有接口
+## 3. 建议保留的现有接口（对齐当前实现）
 
-以下现有接口建议保留，并逐步补强字段：
+以下现有接口建议保留，并逐步补强字段。列表已与当前 OpenAPI 对齐（`docs/openapi-source.yaml`）。
 
 ### 3.1 项目
 
@@ -57,32 +57,50 @@
 - `GET /api/v1/projects/{project_id}`
 - `PUT /api/v1/projects/{project_id}`
 - `DELETE /api/v1/projects/{project_id}`
+- `GET /api/v1/projects/{project_id}/files`
+- `GET /api/v1/projects/{project_id}/statistics`
+- `GET /api/v1/projects/search`
 
 ### 3.2 文件
 
 - `POST /api/v1/files`
 - `POST /api/v1/files/batch`
+- `DELETE /api/v1/files/batch`
 - `PATCH /api/v1/files/{file_id}/intent`
 - `DELETE /api/v1/files/{file_id}`
 
 ### 3.3 生成
 
-- `POST /api/v1/generate/courseware`
-- `GET /api/v1/generate/tasks/{task_id}/status`
-- `GET /api/v1/generate/tasks/{task_id}/versions`
-- `GET /api/v1/generate/tasks/{task_id}/download`
+- `POST /api/v1/generate/courseware`（旧任务流）
+- `GET /api/v1/generate/tasks/{task_id}/status`（旧任务流）
+- `GET /api/v1/generate/tasks/{task_id}/versions`（旧任务流）
+- `GET /api/v1/generate/tasks/{task_id}/download`（旧任务流）
+- `POST /api/v1/generate/sessions`（session-first 主链路）
+- `GET /api/v1/generate/sessions/{session_id}`
+- `GET /api/v1/generate/sessions/{session_id}/events`
+- `POST /api/v1/generate/sessions/{session_id}/commands`
+- `PUT /api/v1/generate/sessions/{session_id}/outline`
+- `POST /api/v1/generate/sessions/{session_id}/confirm`
+- `POST /api/v1/generate/sessions/{session_id}/outline/redraft`
+- `POST /api/v1/generate/sessions/{session_id}/resume`
+- `POST /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate`
+- `GET /api/v1/generate/capabilities`
 
 ### 3.4 预览
 
-- `GET /api/v1/preview/{task_or_project_id}`
-- `POST /api/v1/preview/{task_or_project_id}/modify`
-- `GET /api/v1/preview/{task_or_project_id}/slides/{slide_id}`
-- `POST /api/v1/preview/{task_or_project_id}/export`
-
+- `GET /api/v1/preview/{task_id}`（旧任务流）
+- `POST /api/v1/preview/{task_id}/modify`（旧任务流）
+- `GET /api/v1/preview/{task_id}/slides/{slide_id}`（旧任务流）
+- `POST /api/v1/preview/{task_id}/export`（旧任务流）
+- `GET /api/v1/generate/sessions/{session_id}/preview`（session-first）
+- `POST /api/v1/generate/sessions/{session_id}/preview/modify`
+- `GET /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}`
+- `POST /api/v1/generate/sessions/{session_id}/preview/export`
+ 
 说明：
 
-1. 这些接口可继续承担兼容层职责。
-2. 新功能应优先围绕 `project + generation-session` 的现有主语义补接口。
+1. 旧任务流接口继续承担兼容层职责。
+2. 新功能应优先围绕 `project + generation-session` 的主语义补接口。
 3. 旧接口内部可逐步适配到新的资源模型。
 
 ## 4. 项目接口扩展

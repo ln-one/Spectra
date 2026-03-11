@@ -4,14 +4,16 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from starlette.concurrency import run_in_threadpool
 
 from schemas.generation import GenerateRequest
 from services.database import db_service
 from utils.dependencies import get_current_user
+from utils.deprecation import apply_deprecation_headers, log_deprecated_call
 from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.legacy_guard import assert_legacy_enabled
 from utils.responses import success_response
 
 router = APIRouter(prefix="/generate", tags=["Generate"])
@@ -160,6 +162,7 @@ async def _build_user_requirements(project_id: str) -> str:
 async def generate_courseware(
     http_request: Request,
     request: GenerateRequest,
+    response: Response,
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -181,6 +184,17 @@ async def generate_courseware(
         HTTPException: 项目不存在或无权限访问时抛出
     """
     try:
+        assert_legacy_enabled()
+        apply_deprecation_headers(
+            response,
+            replacement="/api/v1/generate/sessions",
+        )
+        log_deprecated_call(
+            logger,
+            http_request,
+            user_id,
+            replacement="/api/v1/generate/sessions",
+        )
         # 验证项目归属
         project = await db_service.get_project(request.project_id)
         if not project:
@@ -314,6 +328,7 @@ async def generate_courseware(
 async def get_generation_status(
     task_id: str,
     http_request: Request,
+    response: Response,
     user_id: str = Depends(get_current_user),
 ):
     """
@@ -333,6 +348,17 @@ async def get_generation_status(
         HTTPException: 任务不存在或无权限访问时抛出
     """
     try:
+        assert_legacy_enabled()
+        apply_deprecation_headers(
+            response,
+            replacement="/api/v1/generate/sessions/{session_id}",
+        )
+        log_deprecated_call(
+            logger,
+            http_request,
+            user_id,
+            replacement="/api/v1/generate/sessions/{session_id}",
+        )
         # 获取任务
         task = await db_service.get_generation_task(task_id)
         if not task:
@@ -426,6 +452,8 @@ async def get_generation_status(
 @router.get("/tasks/{task_id}/versions")
 async def get_task_versions(
     task_id: str,
+    http_request: Request,
+    response: Response,
     user_id: str = Depends(get_current_user),
 ):
     """
@@ -444,6 +472,17 @@ async def get_task_versions(
         HTTPException: 任务不存在或无权限时抛出
     """
     try:
+        assert_legacy_enabled()
+        apply_deprecation_headers(
+            response,
+            replacement="/api/v1/generate/sessions/{session_id}",
+        )
+        log_deprecated_call(
+            logger,
+            http_request,
+            user_id,
+            replacement="/api/v1/generate/sessions/{session_id}",
+        )
         task = await db_service.get_generation_task(task_id)
         if not task:
             raise NotFoundException(

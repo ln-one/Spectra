@@ -9,11 +9,12 @@ import re
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
 
 from services.database import db_service
 from utils.dependencies import get_current_user
+from utils.deprecation import apply_deprecation_headers, log_deprecated_call
 from utils.exceptions import (
     APIException,
     ForbiddenException,
@@ -22,6 +23,7 @@ from utils.exceptions import (
 )
 from utils.file_utils import safe_path_join, validate_file_exists
 from utils.filename_utils import safe_filename_for_header
+from utils.legacy_guard import assert_legacy_enabled
 
 router = APIRouter(prefix="/generate/tasks", tags=["Generate"])
 logger = logging.getLogger(__name__)
@@ -31,6 +33,7 @@ logger = logging.getLogger(__name__)
 async def download_courseware(
     task_id: str,
     file_type: Literal["ppt", "word"] = Query(...),
+    request: Request,
     user_id: str = Depends(get_current_user),
 ):
     """
@@ -45,6 +48,13 @@ async def download_courseware(
         FileResponse: 课件文件
     """
     try:
+        assert_legacy_enabled()
+        log_deprecated_call(
+            logger,
+            request,
+            user_id,
+            replacement="/api/v1/generate/sessions/{session_id}/preview/export",
+        )
         # 获取任务并验证权限
         task = await db_service.get_generation_task(task_id)
         if not task:
@@ -99,9 +109,14 @@ async def download_courseware(
             extra={"user_id": user_id, "task_id": task_id, "file_type": file_type},
         )
 
-        return FileResponse(
+        response = FileResponse(
             path=str(file_path), media_type=media_type, filename=filename
         )
+        apply_deprecation_headers(
+            response,
+            replacement="/api/v1/generate/sessions/{session_id}/preview/export",
+        )
+        return response
 
     except APIException:
         raise

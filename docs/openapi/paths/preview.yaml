@@ -1,7 +1,10 @@
 /api/v1/preview/{task_id}:
   get:
     summary: 获取课件预览
-    description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview）
+    description: |
+      兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview）。
+      已弃用，预计 2026-06-30 后移除。
+    deprecated: true
     tags: [Preview]
     security:
       - BearerAuth: []
@@ -28,7 +31,10 @@
 /api/v1/preview/{task_id}/modify:
   post:
     summary: 提交修改指令
-    description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview/modify）
+    description: |
+      兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview/modify）。
+      已弃用，预计 2026-06-30 后移除。
+    deprecated: true
     tags: [Preview]
     security:
       - BearerAuth: []
@@ -64,7 +70,10 @@
 /api/v1/preview/{task_id}/slides/{slide_id}:
   get:
     summary: 获取单个幻灯片详情
-    description: 查看特定幻灯片的详细内容和来源（兼容旧任务流）
+    description: |
+      查看特定幻灯片的详细内容和来源（兼容旧任务流）。
+      已弃用，预计 2026-06-30 后移除。
+    deprecated: true
     tags: [Preview]
     security:
       - BearerAuth: []
@@ -96,7 +105,10 @@
 /api/v1/preview/{task_id}/export:
   post:
     summary: 导出预览内容
-    description: 将预览内容导出为指定格式（兼容旧任务流）
+    description: |
+      将预览内容导出为指定格式（兼容旧任务流）。
+      已弃用，预计 2026-06-30 后移除。
+    deprecated: true
     tags: [Preview]
     security:
       - BearerAuth: []
