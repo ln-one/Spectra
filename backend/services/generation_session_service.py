@@ -125,8 +125,8 @@ def _default_capabilities() -> list[dict]:
     video_health = health_status.get("video_understanding")
     speech_health = health_status.get("speech_recognition")
 
-    llm_provider = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
-    llm_provider = llm_provider.replace("dashscope/", "")
+    default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
+    llm_provider = default_model.split("/", 1)[0] if "/" in default_model else default_model
 
     return [
         {

@@ -260,8 +260,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 # AI/LLM
 DASHSCOPE_API_KEY="your-dashscope-key"
+MINIMAX_API_KEY="your-minimax-key"
+# Optional: MINIMAX_API_BASE="https://api.minimax.io/v1"
 LLAMAPARSE_API_KEY="your-llamaparse-key"
 OPENAI_API_KEY="your-openai-key"
+# Qwen: qwen3.5-plus (auto -> dashscope/qwen3.5-plus)
+# MiniMax: minimax/MiniMax-M2.1 (or MiniMax-M2.1)
 DEFAULT_MODEL="qwen3.5-plus"
 
 # Document parser provider: local | mineru | llamaparse (默认 local)

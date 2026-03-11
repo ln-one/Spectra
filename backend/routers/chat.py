@@ -320,6 +320,8 @@ async def send_message(
             )
         except Exception as ai_exc:
             logger.error("AI generation failed in chat: %s", ai_exc, exc_info=True)
+            if os.getenv("DEBUG", "false").lower() in {"1", "true", "yes", "on"}:
+                logger.warning("[DEV] AI error detail: %s", ai_exc)
             assistant_content = (
                 "AI 服务暂时不可用，我已收到你的需求。你可以先补充更多细节，我会在恢复后继续帮你完善。"
             )
