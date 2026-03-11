@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { FileUploadDropzone } from "@/components/FileUploadDropzone";
 import {
   Upload,
   FileText,
@@ -127,7 +126,29 @@ export function SourcesPanel({
               <Upload className="h-4 w-4" />
               上传文件
             </h4>
-            <FileUploadDropzone onUpload={handleUpload} />
+            <label
+              htmlFor="legacy-sources-upload"
+              className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-6 text-center cursor-pointer hover:bg-accent/40 transition-colors"
+            >
+              <Upload className="mb-2 h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Drop files here or click to upload</span>
+              <span className="mt-1 text-xs text-muted-foreground">
+                Supports multiple files
+              </span>
+            </label>
+            <input
+              id="legacy-sources-upload"
+              type="file"
+              multiple
+              className="hidden"
+              onChange={async (e) => {
+                const selectedFiles = e.target.files
+                  ? Array.from(e.target.files)
+                  : [];
+                await handleUpload(selectedFiles);
+                e.currentTarget.value = "";
+              }}
+            />
           </div>
 
           <Separator />
