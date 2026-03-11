@@ -65,12 +65,42 @@ interface SlideCard {
 }
 
 const VISUAL_THEMES = [
-  { id: "tech-blue", name: "科技蓝", color: "#3b82f6", gradient: "from-blue-500 to-cyan-500" },
-  { id: "academic", name: "学术极简", color: "#6b7280", gradient: "from-gray-500 to-slate-600" },
-  { id: "rainbow", name: "活泼彩虹", color: "#ec4899", gradient: "from-pink-500 to-purple-500" },
-  { id: "nature", name: "自然绿", color: "#10b981", gradient: "from-emerald-500 to-teal-500" },
-  { id: "sunset", name: "日落橙", color: "#f97316", gradient: "from-orange-500 to-amber-500" },
-  { id: "ocean", name: "深海蓝", color: "#0ea5e9", gradient: "from-sky-500 to-blue-600" },
+  {
+    id: "tech-blue",
+    name: "科技蓝",
+    color: "#3b82f6",
+    gradient: "from-blue-500 to-cyan-500",
+  },
+  {
+    id: "academic",
+    name: "学术极简",
+    color: "#6b7280",
+    gradient: "from-gray-500 to-slate-600",
+  },
+  {
+    id: "rainbow",
+    name: "活泼彩虹",
+    color: "#ec4899",
+    gradient: "from-pink-500 to-purple-500",
+  },
+  {
+    id: "nature",
+    name: "自然绿",
+    color: "#10b981",
+    gradient: "from-emerald-500 to-teal-500",
+  },
+  {
+    id: "sunset",
+    name: "日落橙",
+    color: "#f97316",
+    gradient: "from-orange-500 to-amber-500",
+  },
+  {
+    id: "ocean",
+    name: "深海蓝",
+    color: "#0ea5e9",
+    gradient: "from-sky-500 to-blue-600",
+  },
 ];
 
 const IMAGE_STYLES = [
@@ -93,7 +123,7 @@ const ASPECT_RATIO_OPTIONS = [
   { value: "1:1", label: "1:1", description: "??" },
 ] as const;
 
-const PROGRESS_STAGES = [
+const _PROGRESS_STAGES = [
   { progress: 10, text: "正在分析大纲结构...", icon: "🔍" },
   { progress: 25, text: "正在生成幻灯片框架...", icon: "📐" },
   { progress: 40, text: "正在渲染幻灯片内容...", icon: "🎨" },
@@ -121,7 +151,7 @@ const itemVariants = {
     y: 0,
     scale: 1,
     transition: {
-      type: "spring" as any,
+      type: "spring" as const,
       stiffness: 350,
       damping: 28,
     },
@@ -133,7 +163,7 @@ const slideCardVariants = {
   visible: {
     opacity: 1,
     x: 0,
-    transition: { type: "spring" as any, stiffness: 300, damping: 30 },
+    transition: { type: "spring" as const, stiffness: 300, damping: 30 },
   },
   exit: {
     opacity: 0,
@@ -158,15 +188,12 @@ export function OutlineEditorPanel({
   topic = "课程大纲",
   isBootstrapping = false,
   onBack,
-  onConfirm,
+  onConfirm: _onConfirm,
   onPreview,
 }: OutlineEditorPanelProps) {
-  const { 
-    generationSession, 
-    updateOutline, 
-    confirmOutline 
-  } = useProjectStore();
-  
+  const { generationSession, updateOutline, confirmOutline } =
+    useProjectStore();
+
   const sessionId = generationSession?.session?.session_id || "";
   const initialNodes = generationSession?.outline?.nodes || [];
   const expectedPages = Number(generationSession?.options?.pages || 0);
@@ -201,7 +228,9 @@ export function OutlineEditorPanel({
     }));
 
     setActiveSlideId((prev) =>
-      prev && mappedSlides.some((slide) => slide.id === prev) ? prev : mappedSlides[0]?.id || ""
+      prev && mappedSlides.some((slide) => slide.id === prev)
+        ? prev
+        : mappedSlides[0]?.id || ""
     );
     setSlides(mappedSlides);
   }, [sessionId, initialNodes, expectedPages]);
@@ -211,10 +240,13 @@ export function OutlineEditorPanel({
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
   const [generationFailed, setGenerationFailed] = useState<string | null>(null);
-  const [detailLevel, setDetailLevel] = useState<"brief" | "standard" | "detailed">("standard");
+  const [detailLevel, setDetailLevel] = useState<
+    "brief" | "standard" | "detailed"
+  >("standard");
   const [visualTheme, setVisualTheme] = useState("tech-blue");
   const [imageStyle, setImageStyle] = useState("flat");
-  const [aspectRatio, setAspectRatio] = useState<(typeof ASPECT_RATIO_OPTIONS)[number]["value"]>("16:9");
+  const [aspectRatio, setAspectRatio] =
+    useState<(typeof ASPECT_RATIO_OPTIONS)[number]["value"]>("16:9");
   const [keywordInput, setKeywordInput] = useState("");
   const [keywords, setKeywords] = useState<string[]>(["互动", "动画演示"]);
   const [showSettings, setShowSettings] = useState(false);
@@ -232,7 +264,7 @@ export function OutlineEditorPanel({
     const newSlides = [...slides, newSlide];
     setSlides(newSlides);
     setActiveSlideId(newSlide.id);
-    
+
     setTimeout(() => {
       scrollAreaRef.current?.scrollTo({
         top: scrollAreaRef.current.scrollHeight,
@@ -241,41 +273,52 @@ export function OutlineEditorPanel({
     }, 100);
   }, [slides, isGenerating, isOutlineHydrating]);
 
-  const handleDeleteSlide = useCallback((id: string) => {
-    if (isGenerating || isOutlineHydrating) return;
-    const newSlides = slides
-      .filter((s) => s.id !== id)
-      .map((s, index) => ({ ...s, order: index + 1 }));
-    setSlides(newSlides);
+  const handleDeleteSlide = useCallback(
+    (id: string) => {
+      if (isGenerating || isOutlineHydrating) return;
+      const newSlides = slides
+        .filter((s) => s.id !== id)
+        .map((s, index) => ({ ...s, order: index + 1 }));
+      setSlides(newSlides);
 
-    setActiveSlideId((prev) => {
-      if (prev === id && newSlides.length > 0) {
-        const index = slides.findIndex((s) => s.id === id);
-        const newIndex = Math.min(index, newSlides.length - 1);
-        return newSlides[newIndex]?.id || "";
-      }
-      return prev;
-    });
-  }, [slides, isGenerating, isOutlineHydrating]);
+      setActiveSlideId((prev) => {
+        if (prev === id && newSlides.length > 0) {
+          const index = slides.findIndex((s) => s.id === id);
+          const newIndex = Math.min(index, newSlides.length - 1);
+          return newSlides[newIndex]?.id || "";
+        }
+        return prev;
+      });
+    },
+    [slides, isGenerating, isOutlineHydrating]
+  );
 
-  const handleDuplicateSlide = useCallback((slide: SlideCard) => {
-    if (isGenerating || isOutlineHydrating) return;
-    const newSlide: SlideCard = {
-      ...slide,
-      id: `slide-${Date.now()}`,
-      order: slides.length + 1,
-      title: `${slide.title} (副本)`,
-    };
-    const newSlides = [...slides, newSlide];
-    setSlides(newSlides);
-    setActiveSlideId(newSlide.id);
-  }, [slides, isGenerating, isOutlineHydrating]);
+  const handleDuplicateSlide = useCallback(
+    (slide: SlideCard) => {
+      if (isGenerating || isOutlineHydrating) return;
+      const newSlide: SlideCard = {
+        ...slide,
+        id: `slide-${Date.now()}`,
+        order: slides.length + 1,
+        title: `${slide.title} (副本)`,
+      };
+      const newSlides = [...slides, newSlide];
+      setSlides(newSlides);
+      setActiveSlideId(newSlide.id);
+    },
+    [slides, isGenerating, isOutlineHydrating]
+  );
 
-  const handleUpdateSlide = useCallback((id: string, updates: Partial<SlideCard>) => {
-    if (isGenerating || isOutlineHydrating) return;
-    const newSlides = slides.map((s) => (s.id === id ? { ...s, ...updates } : s));
-    setSlides(newSlides);
-  }, [slides, isGenerating, isOutlineHydrating]);
+  const handleUpdateSlide = useCallback(
+    (id: string, updates: Partial<SlideCard>) => {
+      if (isGenerating || isOutlineHydrating) return;
+      const newSlides = slides.map((s) =>
+        s.id === id ? { ...s, ...updates } : s
+      );
+      setSlides(newSlides);
+    },
+    [slides, isGenerating, isOutlineHydrating]
+  );
 
   const handleAddKeyword = useCallback(() => {
     if (keywordInput.trim() && !keywords.includes(keywordInput.trim())) {
@@ -284,13 +327,20 @@ export function OutlineEditorPanel({
     }
   }, [keywordInput, keywords]);
 
-  const handleRemoveKeyword = useCallback((keyword: string) => {
-    setKeywords(keywords.filter((k) => k !== keyword));
-  }, [keywords]);
+  const handleRemoveKeyword = useCallback(
+    (keyword: string) => {
+      setKeywords(keywords.filter((k) => k !== keyword));
+    },
+    [keywords]
+  );
 
   const handleStartGeneration = useCallback(async () => {
     if (!sessionId) return;
-    if (sessionState === "GENERATING_CONTENT" || sessionState === "RENDERING" || sessionState === "SUCCESS") {
+    if (
+      sessionState === "GENERATING_CONTENT" ||
+      sessionState === "RENDERING" ||
+      sessionState === "SUCCESS"
+    ) {
       onPreview?.();
       return;
     }
@@ -299,7 +349,9 @@ export function OutlineEditorPanel({
       return;
     }
     if (expectedPages > 0 && slides.length < expectedPages) {
-      setGenerationFailed(`大纲尚未生成完成：${slides.length}/${expectedPages} 页`);
+      setGenerationFailed(
+        `大纲尚未生成完成：${slides.length}/${expectedPages} 页`
+      );
       return;
     }
     setIsGenerating(true);
@@ -327,7 +379,8 @@ export function OutlineEditorPanel({
     } catch (error) {
       console.error("Failed to confirm outline:", error);
       setIsGenerating(false);
-      const message = error instanceof Error ? error.message : "启动生成失败，请稍后重试";
+      const message =
+        error instanceof Error ? error.message : "启动生成失败，请稍后重试";
       const lower = message.toLowerCase();
       if (
         message.includes("执行中的任务") ||
@@ -359,7 +412,10 @@ export function OutlineEditorPanel({
     onPreview?.();
   }, [onPreview]);
 
-  const totalEstimatedMinutes = slides.reduce((sum, s) => sum + (s.estimatedMinutes || 0), 0);
+  const totalEstimatedMinutes = slides.reduce(
+    (sum, s) => sum + (s.estimatedMinutes || 0),
+    0
+  );
   const estimatedTokens = slides.length * 150 + keywords.length * 20;
   const outlineIncomplete = expectedPages > 0 && slides.length < expectedPages;
 
@@ -371,7 +427,10 @@ export function OutlineEditorPanel({
         animate="visible"
         className="flex flex-col gap-3 h-full"
       >
-        <motion.div variants={itemVariants} className="flex items-center justify-between">
+        <motion.div
+          variants={itemVariants}
+          className="flex items-center justify-between"
+        >
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -412,7 +471,8 @@ export function OutlineEditorPanel({
                       "p-2.5 rounded-xl border transition-all cursor-pointer group",
                       "bg-white/80 border-zinc-200/60 backdrop-blur-sm",
                       "hover:shadow-md hover:-translate-y-0.5 hover:border-zinc-300",
-                      activeSlideId === slide.id && "border-l-2 border-l-zinc-700 bg-zinc-100 shadow-sm"
+                      activeSlideId === slide.id &&
+                        "border-l-2 border-l-zinc-700 bg-zinc-100 shadow-sm"
                     )}
                     onClick={() => setActiveSlideId(slide.id)}
                   >
@@ -468,12 +528,19 @@ export function OutlineEditorPanel({
           </ScrollArea>
         </motion.div>
 
-        <motion.div variants={itemVariants} className="space-y-2 pt-2 border-t border-zinc-200/60">
+        <motion.div
+          variants={itemVariants}
+          className="space-y-2 pt-2 border-t border-zinc-200/60"
+        >
           {isOutlineHydrating && (
-            <p className="text-[11px] text-zinc-500 text-center">大纲加载中，请稍候...</p>
+            <p className="text-[11px] text-zinc-500 text-center">
+              大纲加载中，请稍候...
+            </p>
           )}
           {generationFailed && (
-            <p className="text-[11px] text-red-500 text-center">{generationFailed}</p>
+            <p className="text-[11px] text-red-500 text-center">
+              {generationFailed}
+            </p>
           )}
           {outlineIncomplete && (
             <p className="text-[11px] text-zinc-500 text-center">
@@ -484,7 +551,9 @@ export function OutlineEditorPanel({
             <ToggleGroup
               type="single"
               value={detailLevel}
-              onValueChange={(v) => v && setDetailLevel(v as "brief" | "standard" | "detailed")}
+              onValueChange={(v) =>
+                v && setDetailLevel(v as "brief" | "standard" | "detailed")
+              }
               className="flex gap-1"
             >
               {DETAIL_LEVELS.map((level) => (
@@ -505,7 +574,11 @@ export function OutlineEditorPanel({
               </SelectTrigger>
               <SelectContent className="bg-white shadow-lg">
                 {IMAGE_STYLES.map((style) => (
-                  <SelectItem key={style.value} value={style.value} className="text-xs">
+                  <SelectItem
+                    key={style.value}
+                    value={style.value}
+                    className="text-xs"
+                  >
                     <span className="mr-1">{style.icon}</span>
                     {style.label}
                   </SelectItem>
@@ -531,7 +604,8 @@ export function OutlineEditorPanel({
                   开始生成
                 </Button>
                 <p className="text-[10px] text-zinc-400 text-center mt-1.5">
-                  预计 {totalEstimatedMinutes} 分钟 · 约 {estimatedTokens} tokens
+                  预计 {totalEstimatedMinutes} 分钟 · 约 {estimatedTokens}{" "}
+                  tokens
                 </p>
               </motion.div>
             ) : (
@@ -546,7 +620,8 @@ export function OutlineEditorPanel({
                   <motion.div
                     className="absolute inset-y-0 left-0 rounded-full"
                     style={{
-                      background: "linear-gradient(90deg, #18181b, #3f3f46, #71717a, #18181b)",
+                      background:
+                        "linear-gradient(90deg, #18181b, #3f3f46, #71717a, #18181b)",
                       backgroundSize: "200% 100%",
                     }}
                     initial={{ width: 0 }}
@@ -556,11 +631,17 @@ export function OutlineEditorPanel({
                     }}
                     transition={{
                       width: { duration: 0.4, ease: "easeOut" },
-                      backgroundPosition: { duration: 1.5, repeat: Infinity, ease: "linear" },
+                      backgroundPosition: {
+                        duration: 1.5,
+                        repeat: Infinity,
+                        ease: "linear",
+                      },
                     }}
                   />
                 </div>
-                <p className="text-xs text-zinc-500 text-center">{progressText}</p>
+                <p className="text-xs text-zinc-500 text-center">
+                  {progressText}
+                </p>
                 <Button
                   onClick={handleGoToPreview}
                   className="w-full h-9 border border-zinc-800 bg-zinc-900 text-zinc-50 text-xs font-medium shadow-sm hover:bg-zinc-800"
@@ -596,7 +677,10 @@ export function OutlineEditorPanel({
           </Button>
           <div className="h-4 w-px bg-zinc-200" />
           <span className="text-sm font-medium text-zinc-700">{topic}</span>
-          <Badge variant="secondary" className="bg-violet-100 text-violet-700 border-violet-200 text-[10px]">
+          <Badge
+            variant="secondary"
+            className="bg-violet-100 text-violet-700 border-violet-200 text-[10px]"
+          >
             {slides.length} 页
           </Badge>
         </div>
@@ -627,7 +711,10 @@ export function OutlineEditorPanel({
           animate="visible"
           className="order-2 lg:order-1 flex-1 p-4 lg:p-8 h-full overflow-y-auto min-h-0"
         >
-          <motion.div variants={itemVariants} className="flex items-center justify-between mb-6">
+          <motion.div
+            variants={itemVariants}
+            className="flex items-center justify-between mb-6"
+          >
             <div>
               <h2 className="text-xl font-semibold text-zinc-800">大纲共创</h2>
               <p className="text-sm text-zinc-500 mt-1">
@@ -674,7 +761,10 @@ export function OutlineEditorPanel({
                     <ToggleGroup
                       type="single"
                       value={detailLevel}
-                      onValueChange={(v) => v && setDetailLevel(v as "brief" | "standard" | "detailed")}
+                      onValueChange={(v) =>
+                        v &&
+                        setDetailLevel(v as "brief" | "standard" | "detailed")
+                      }
                       className="flex gap-1"
                     >
                       {DETAIL_LEVELS.map((level) => (
@@ -761,7 +851,9 @@ export function OutlineEditorPanel({
                       <Input
                         value={keywordInput}
                         onChange={(e) => setKeywordInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleAddKeyword()}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleAddKeyword()
+                        }
                         placeholder="添加关键词..."
                         className="h-7 w-24 text-xs bg-white border-zinc-200"
                       />
@@ -803,7 +895,8 @@ export function OutlineEditorPanel({
                   className={cn(
                     "bg-white border rounded-2xl p-5 shadow-sm transition-all duration-200 group",
                     "hover:shadow-lg hover:-translate-y-0.5",
-                    activeSlideId === slide.id && "border-l-4 border-l-zinc-700 shadow-md",
+                    activeSlideId === slide.id &&
+                      "border-l-4 border-l-zinc-700 shadow-md",
                     isGenerating && "opacity-60 pointer-events-none"
                   )}
                   onClick={() => !isGenerating && setActiveSlideId(slide.id)}
@@ -824,7 +917,9 @@ export function OutlineEditorPanel({
                     <div className="flex-1 space-y-3 min-w-0">
                       <Input
                         value={slide.title}
-                        onChange={(e) => handleUpdateSlide(slide.id, { title: e.target.value })}
+                        onChange={(e) =>
+                          handleUpdateSlide(slide.id, { title: e.target.value })
+                        }
                         placeholder="输入幻灯片标题..."
                         className="text-base font-medium border-0 bg-transparent p-0 focus-visible:ring-0 shadow-none"
                         disabled={isGenerating || isOutlineHydrating}
@@ -839,7 +934,9 @@ export function OutlineEditorPanel({
                           value={slide.keyPoints.join("\n")}
                           onChange={(e) =>
                             handleUpdateSlide(slide.id, {
-                              keyPoints: e.target.value.split("\n").filter(Boolean),
+                              keyPoints: e.target.value
+                                .split("\n")
+                                .filter(Boolean),
                             })
                           }
                           placeholder="每行一个知识点..."
@@ -872,7 +969,9 @@ export function OutlineEditorPanel({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem onClick={() => handleDuplicateSlide(slide)}>
+                          <DropdownMenuItem
+                            onClick={() => handleDuplicateSlide(slide)}
+                          >
                             <Copy className="w-4 h-4 mr-2" />
                             复制幻灯片
                           </DropdownMenuItem>
@@ -883,7 +982,11 @@ export function OutlineEditorPanel({
                               handleDeleteSlide(slide.id);
                             }}
                             className="text-red-600 focus:text-red-600"
-                            disabled={slides.length <= 1 || isGenerating || isOutlineHydrating}
+                            disabled={
+                              slides.length <= 1 ||
+                              isGenerating ||
+                              isOutlineHydrating
+                            }
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
                             删除
@@ -945,11 +1048,15 @@ export function OutlineEditorPanel({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-500">内容详细程度</label>
+              <label className="text-xs font-medium text-zinc-500">
+                内容详细程度
+              </label>
               <ToggleGroup
                 type="single"
                 value={detailLevel}
-                onValueChange={(v) => v && setDetailLevel(v as "brief" | "standard" | "detailed")}
+                onValueChange={(v) =>
+                  v && setDetailLevel(v as "brief" | "standard" | "detailed")
+                }
                 className="flex gap-1"
               >
                 {DETAIL_LEVELS.map((level) => (
@@ -965,7 +1072,9 @@ export function OutlineEditorPanel({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-500">视觉主题</label>
+              <label className="text-xs font-medium text-zinc-500">
+                视觉主题
+              </label>
               <div className="grid grid-cols-2 gap-1.5">
                 {VISUAL_THEMES.map((theme) => (
                   <button
@@ -985,7 +1094,9 @@ export function OutlineEditorPanel({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-500">配图风格</label>
+              <label className="text-xs font-medium text-zinc-500">
+                配图风格
+              </label>
               <Select value={imageStyle} onValueChange={setImageStyle}>
                 <SelectTrigger className="w-full h-9 bg-white border-zinc-200">
                   <SelectValue />
@@ -1046,7 +1157,10 @@ export function OutlineEditorPanel({
             </div>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="space-y-3 pt-4 border-t border-zinc-200/60">
+          <motion.div
+            variants={itemVariants}
+            className="space-y-3 pt-4 border-t border-zinc-200/60"
+          >
             {isOutlineHydrating && (
               <p className="text-xs text-zinc-500">大纲加载中，请稍候...</p>
             )}
@@ -1054,21 +1168,27 @@ export function OutlineEditorPanel({
               <p className="text-xs text-red-500">{generationFailed}</p>
             )}
             {outlineIncomplete && (
-              <p className="text-xs text-zinc-500">大纲生成中：{slides.length}/{expectedPages} 页</p>
+              <p className="text-xs text-zinc-500">
+                大纲生成中：{slides.length}/{expectedPages} 页
+              </p>
             )}
             <div className="flex items-center justify-between text-xs text-zinc-500">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 预计时长
               </span>
-              <span className="font-medium text-zinc-700">{totalEstimatedMinutes} 分钟</span>
+              <span className="font-medium text-zinc-700">
+                {totalEstimatedMinutes} 分钟
+              </span>
             </div>
             <div className="flex items-center justify-between text-xs text-zinc-500">
               <span className="flex items-center gap-1">
                 <Layers className="w-3 h-3" />
                 幻灯片数量
               </span>
-              <span className="font-medium text-zinc-700">{slides.length} 页</span>
+              <span className="font-medium text-zinc-700">
+                {slides.length} 页
+              </span>
             </div>
 
             <div className="flex items-center justify-between text-xs text-zinc-500">
@@ -1112,7 +1232,8 @@ export function OutlineEditorPanel({
                     <motion.div
                       className="absolute inset-y-0 left-0 rounded-full"
                       style={{
-                        background: "linear-gradient(90deg, #18181b, #3f3f46, #71717a, #18181b)",
+                        background:
+                          "linear-gradient(90deg, #18181b, #3f3f46, #71717a, #18181b)",
                         backgroundSize: "200% 100%",
                       }}
                       initial={{ width: 0 }}
@@ -1122,11 +1243,17 @@ export function OutlineEditorPanel({
                       }}
                       transition={{
                         width: { duration: 0.4, ease: "easeOut" },
-                        backgroundPosition: { duration: 1.5, repeat: Infinity, ease: "linear" },
+                        backgroundPosition: {
+                          duration: 1.5,
+                          repeat: Infinity,
+                          ease: "linear",
+                        },
                       }}
                     />
                   </div>
-                  <p className="text-xs text-zinc-500 text-center">{progressText}</p>
+                  <p className="text-xs text-zinc-500 text-center">
+                    {progressText}
+                  </p>
                   <Button
                     onClick={handleGoToPreview}
                     className="w-full h-11 border border-zinc-800 bg-zinc-900 text-zinc-50 text-sm font-medium shadow-sm hover:bg-zinc-800"

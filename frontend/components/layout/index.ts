@@ -1,4 +1,3 @@
-export { ThreeColumnLayout, PanelControl } from "./ThreeColumnLayout";
-export { StudioPanel } from "./StudioPanel";
-export { ConversationPanel } from "./ConversationPanel";
-export { SourcesPanel } from "./SourcesPanel";
+export { StudioPanel } from "./studiopanel";
+export { ConversationPanel } from "./conversationpanel";
+export { SourcesPanel } from "./sourcespanel";

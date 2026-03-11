@@ -9,7 +9,8 @@ import type { components } from "../types/api";
 
 export type RAGSearchRequest = components["schemas"]["RAGSearchRequest"];
 export type RAGSearchResponse = components["schemas"]["RAGSearchResponse"];
-export type SourceDetailResponse = components["schemas"]["SourceDetailResponse"];
+export type SourceDetailResponse =
+  components["schemas"]["SourceDetailResponse"];
 
 export const ragApi = {
   /**
@@ -25,8 +26,13 @@ export const ragApi = {
   /**
    * 查看来源详情
    */
-  async getSourceDetail(chunkId: string, projectId?: string): Promise<SourceDetailResponse> {
-    const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
+  async getSourceDetail(
+    chunkId: string,
+    projectId?: string
+  ): Promise<SourceDetailResponse> {
+    const query = projectId
+      ? `?project_id=${encodeURIComponent(projectId)}`
+      : "";
     return request<SourceDetailResponse>(`/rag/sources/${chunkId}${query}`, {
       method: "GET",
     });
@@ -39,7 +45,10 @@ export const ragApi = {
     file_id: string;
     chunk_size?: number;
     chunk_overlap?: number;
-  }): Promise<{ success: boolean; data: { index_task_id: string; status: string } }> {
+  }): Promise<{
+    success: boolean;
+    data: { index_task_id: string; status: string };
+  }> {
     return request("/rag/index", {
       method: "POST",
       body: JSON.stringify(data),

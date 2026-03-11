@@ -14,25 +14,90 @@ type SourceDetailResponse = components["schemas"]["SourceDetailResponse"];
 type SourceDetail = SourceDetailResponse["data"];
 
 export type LayoutMode = "normal" | "expanded";
-export type ExpandedTool = "ppt" | "word" | "mindmap" | "outline" | "quiz" | "summary" | "animation" | "handout" | null;
+export type ExpandedTool =
+  | "ppt"
+  | "word"
+  | "mindmap"
+  | "outline"
+  | "quiz"
+  | "summary"
+  | "animation"
+  | "handout"
+  | null;
 
 export interface GenerationTool {
   id: string;
   name: string;
   description: string;
   icon: string;
-  type: "ppt" | "word" | "mindmap" | "outline" | "quiz" | "summary" | "animation" | "handout";
+  type:
+    | "ppt"
+    | "word"
+    | "mindmap"
+    | "outline"
+    | "quiz"
+    | "summary"
+    | "animation"
+    | "handout";
 }
 
 export const GENERATION_TOOLS: GenerationTool[] = [
-  { id: "ppt", name: "PPT 课件", description: "生成演示文稿", icon: "📊", type: "ppt" },
-  { id: "word", name: "Word 文档", description: "生成文档资料", icon: "📄", type: "word" },
-  { id: "mindmap", name: "思维导图", description: "生成知识图谱", icon: "🧠", type: "mindmap" },
-  { id: "outline", name: "课程大纲", description: "生成课程大纲", icon: "📋", type: "outline" },
-  { id: "quiz", name: "测验题库", description: "生成测验题目", icon: "❓", type: "quiz" },
-  { id: "summary", name: "内容摘要", description: "生成内容摘要", icon: "📝", type: "summary" },
-  { id: "animation", name: "动画素材", description: "生成动画资源", icon: "🎬", type: "animation" },
-  { id: "handout", name: "讲义资料", description: "生成讲义文档", icon: "📖", type: "handout" },
+  {
+    id: "ppt",
+    name: "PPT 课件",
+    description: "生成演示文稿",
+    icon: "📊",
+    type: "ppt",
+  },
+  {
+    id: "word",
+    name: "Word 文档",
+    description: "生成文档资料",
+    icon: "📄",
+    type: "word",
+  },
+  {
+    id: "mindmap",
+    name: "思维导图",
+    description: "生成知识图谱",
+    icon: "🧠",
+    type: "mindmap",
+  },
+  {
+    id: "outline",
+    name: "课程大纲",
+    description: "生成课程大纲",
+    icon: "📋",
+    type: "outline",
+  },
+  {
+    id: "quiz",
+    name: "测验题库",
+    description: "生成测验题目",
+    icon: "❓",
+    type: "quiz",
+  },
+  {
+    id: "summary",
+    name: "内容摘要",
+    description: "生成内容摘要",
+    icon: "📝",
+    type: "summary",
+  },
+  {
+    id: "animation",
+    name: "动画素材",
+    description: "生成动画资源",
+    icon: "🎬",
+    type: "animation",
+  },
+  {
+    id: "handout",
+    name: "讲义资料",
+    description: "生成讲义文档",
+    icon: "📖",
+    type: "handout",
+  },
 ];
 
 export interface GenerationHistory {
@@ -73,7 +138,11 @@ interface ProjectState {
   sendMessage: (projectId: string, content: string) => Promise<void>;
   focusSourceByChunk: (chunkId: string, projectId: string) => Promise<void>;
   clearActiveSource: () => void;
-  startGeneration: (projectId: string, tool: GenerationTool, options?: GenerationOptions) => Promise<void>;
+  startGeneration: (
+    projectId: string,
+    tool: GenerationTool,
+    options?: GenerationOptions
+  ) => Promise<void>;
   fetchGenerationHistory: (projectId: string) => Promise<void>;
   updateOutline: (sessionId: string, outline: OutlineDocument) => Promise<void>;
   confirmOutline: (sessionId: string) => Promise<void>;
@@ -163,7 +232,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   fetchMessages: async (projectId: string) => {
     set({ isMessagesLoading: true });
     try {
-      const response = await chatApi.getMessages({ project_id: projectId, limit: 50 });
+      const response = await chatApi.getMessages({
+        project_id: projectId,
+        limit: 50,
+      });
       set({ messages: response?.data?.messages ?? [] });
     } catch (error) {
       const message = getErrorMessage(error);
@@ -236,12 +308,17 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const response = await chatApi.sendMessage({
         project_id: projectId,
         content,
-        rag_source_ids: selectedFileIds.length > 0 ? selectedFileIds : undefined,
+        rag_source_ids:
+          selectedFileIds.length > 0 ? selectedFileIds : undefined,
       });
 
       if (response?.data?.message) {
         set((state) => ({
-          messages: [...state.messages.slice(0, -1), userMessage, response.data!.message!],
+          messages: [
+            ...state.messages.slice(0, -1),
+            userMessage,
+            response.data!.message!,
+          ],
         }));
       }
     } catch (error) {
@@ -290,7 +367,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   clearActiveSource: () => set({ activeSourceDetail: null }),
 
-  startGeneration: async (projectId: string, tool: GenerationTool, options?: GenerationOptions) => {
+  startGeneration: async (
+    projectId: string,
+    tool: GenerationTool,
+    options?: GenerationOptions
+  ) => {
     try {
       const { selectedFileIds } = get();
       const normalizedOptions: GenerationOptions = {
@@ -303,10 +384,17 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       };
       const response = await generateApi.createSession({
         project_id: projectId,
-        output_type: (tool.type === "ppt" || tool.type === "mindmap" || tool.type === "outline" || tool.type === "animation") ? "ppt" : "word",
+        output_type:
+          tool.type === "ppt" ||
+          tool.type === "mindmap" ||
+          tool.type === "outline" ||
+          tool.type === "animation"
+            ? "ppt"
+            : "word",
         options: {
           ...normalizedOptions,
-          rag_source_ids: selectedFileIds.length > 0 ? selectedFileIds : undefined,
+          rag_source_ids:
+            selectedFileIds.length > 0 ? selectedFileIds : undefined,
         },
       });
 
@@ -358,7 +446,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   fetchGenerationHistory: async (projectId: string) => {
     try {
-      const response = await generateApi.listSessions({ project_id: projectId, limit: 20 });
+      const response = await generateApi.listSessions({
+        project_id: projectId,
+        limit: 20,
+      });
       const sessions = response?.data?.sessions ?? [];
       const history: GenerationHistory[] = sessions.map((s) => {
         let status: GenerationHistory["status"] = "processing";
@@ -400,7 +491,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     try {
       await generateApi.updateOutline(sessionId, {
         base_version: baseVersion,
-        outline
+        outline,
       });
       const sessionResponse = await generateApi.getSession(sessionId);
       set({ generationSession: sessionResponse?.data ?? null });
@@ -418,7 +509,9 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   confirmOutline: async (sessionId: string) => {
     try {
-      await generateApi.confirmOutline(sessionId, { continue_from_retrieval: true });
+      await generateApi.confirmOutline(sessionId, {
+        continue_from_retrieval: true,
+      });
       const sessionResponse = await generateApi.getSession(sessionId);
       set({ generationSession: sessionResponse?.data ?? null });
     } catch (error) {

@@ -2,14 +2,30 @@
 
 import { useRef, useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, User, Loader2, ExternalLink, Copy, Check, Sparkles } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Loader2,
+  ExternalLink,
+  Copy,
+  Check,
+  Sparkles,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,7 +79,8 @@ function CodeBlock({
         }}
         codeTagProps={{
           style: {
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+            fontFamily:
+              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
           },
         }}
       >
@@ -73,7 +90,13 @@ function CodeBlock({
   );
 }
 
-function MarkdownContent({ content, isUser }: { content: string; isUser: boolean }) {
+function MarkdownContent({
+  content,
+  isUser,
+}: {
+  content: string;
+  isUser: boolean;
+}) {
   const components = useMemo(
     () => ({
       code: ({
@@ -97,9 +120,7 @@ function MarkdownContent({ content, isUser }: { content: string; isUser: boolean
           <code
             className={cn(
               "px-1.5 py-0.5 rounded text-[13px] font-mono",
-              isUser
-                ? "bg-zinc-800 text-zinc-100"
-                : "bg-zinc-200 text-zinc-800"
+              isUser ? "bg-zinc-800 text-zinc-100" : "bg-zinc-200 text-zinc-800"
             )}
             {...props}
           >
@@ -111,10 +132,14 @@ function MarkdownContent({ content, isUser }: { content: string; isUser: boolean
         <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
       ),
       ul: ({ children }: { children?: React.ReactNode }) => (
-        <ul className="list-disc list-outside ml-4 mb-2 space-y-1">{children}</ul>
+        <ul className="list-disc list-outside ml-4 mb-2 space-y-1">
+          {children}
+        </ul>
       ),
       ol: ({ children }: { children?: React.ReactNode }) => (
-        <ol className="list-decimal list-outside ml-4 mb-2 space-y-1">{children}</ol>
+        <ol className="list-decimal list-outside ml-4 mb-2 space-y-1">
+          {children}
+        </ol>
       ),
       li: ({ children }: { children?: React.ReactNode }) => (
         <li className="text-sm leading-relaxed">{children}</li>
@@ -153,7 +178,9 @@ function MarkdownContent({ content, isUser }: { content: string; isUser: boolean
           rel="noopener noreferrer"
           className={cn(
             "underline underline-offset-2",
-            isUser ? "text-zinc-200 hover:text-white" : "text-blue-600 hover:text-blue-800"
+            isUser
+              ? "text-zinc-200 hover:text-white"
+              : "text-blue-600 hover:text-blue-800"
           )}
         >
           {children}
@@ -179,7 +206,15 @@ function splitContentAndSources(content: string): { body: string } {
   return { body: content.slice(0, idx).trim() };
 }
 
-function MessageBubble({ message, index, projectId }: { message: Message; index: number; projectId: string }) {
+function MessageBubble({
+  message,
+  index,
+  projectId,
+}: {
+  message: Message;
+  index: number;
+  projectId: string;
+}) {
   const isUser = message.role === "user";
   const { focusSourceByChunk } = useProjectStore();
   const { body } = splitContentAndSources(message.content);
@@ -199,7 +234,12 @@ function MessageBubble({ message, index, projectId }: { message: Message; index:
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        transition={{ delay: index * 0.03 + 0.1, type: "spring", stiffness: 500, damping: 30 }}
+        transition={{
+          delay: index * 0.03 + 0.1,
+          type: "spring",
+          stiffness: 500,
+          damping: 30,
+        }}
         className={cn(
           "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
           isUser
@@ -214,7 +254,12 @@ function MessageBubble({ message, index, projectId }: { message: Message; index:
         )}
       </motion.div>
 
-      <div className={cn("flex flex-col gap-1.5 max-w-[80%]", isUser ? "items-end" : "items-start")}>
+      <div
+        className={cn(
+          "flex flex-col gap-1.5 max-w-[80%]",
+          isUser ? "items-end" : "items-start"
+        )}
+      >
         <motion.div
           initial={{ opacity: 0, x: isUser ? 10 : -10 }}
           animate={{ opacity: 1, x: 0 }}
@@ -236,7 +281,9 @@ function MessageBubble({ message, index, projectId }: { message: Message; index:
                   {message.citations.map((citation, i) => (
                     <button
                       key={`${citation.chunk_id}-${i}`}
-                      onClick={() => focusSourceByChunk(citation.chunk_id, projectId)}
+                      onClick={() =>
+                        focusSourceByChunk(citation.chunk_id, projectId)
+                      }
                       className="text-[10px] leading-none text-zinc-500 hover:text-zinc-900 transition-colors"
                       aria-label={`引用 ${i + 1}`}
                     >
@@ -295,11 +342,15 @@ function CitationBadge({
       onClick={onClick}
       className="gap-1.5 px-2.5 py-1 text-[10px] font-medium cursor-pointer hover:bg-zinc-50 hover:border-zinc-300 transition-colors shadow-sm"
     >
-      <span className="text-[10px] font-semibold text-zinc-700">{index + 1}</span>
+      <span className="text-[10px] font-semibold text-zinc-700">
+        {index + 1}
+      </span>
       <ExternalLink className="w-3 h-3" />
       <span className="truncate max-w-[100px]">{citation.filename}</span>
       {citation.page_number && (
-        <span className="text-zinc-400 font-normal">P{citation.page_number}</span>
+        <span className="text-zinc-400 font-normal">
+          P{citation.page_number}
+        </span>
       )}
     </Badge>
   );
@@ -312,7 +363,14 @@ const SUGGESTIONS = [
 ];
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
-  const { messages, isMessagesLoading, isSending, sendMessage, lastFailedInput, clearLastFailedInput } = useProjectStore();
+  const {
+    messages,
+    isMessagesLoading,
+    isSending,
+    sendMessage,
+    lastFailedInput,
+    clearLastFailedInput,
+  } = useProjectStore();
   const [input, setInput] = useState("");
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -338,7 +396,8 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     return () => clearTimeout(timer);
   }, [isMessagesLoading]);
 
-  const showLoading = isMessagesLoading && !loadingTimedOut && messages.length === 0;
+  const showLoading =
+    isMessagesLoading && !loadingTimedOut && messages.length === 0;
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
@@ -360,14 +419,19 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   };
 
   return (
-    <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+    <div
+      className="h-full bg-transparent"
+      style={{ transform: "translateZ(0)" }}
+    >
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
         <CardHeader
           className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
           style={{ height: "52px" }}
         >
           <div className="flex flex-col justify-center shrink-0 h-full overflow-hidden">
-            <CardTitle className="text-sm font-semibold leading-tight">Chat</CardTitle>
+            <CardTitle className="text-sm font-semibold leading-tight">
+              Chat
+            </CardTitle>
             <CardDescription className="text-xs text-zinc-500 leading-tight">
               AI 助手对话
             </CardDescription>
@@ -527,4 +591,3 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     </div>
   );
 }
-

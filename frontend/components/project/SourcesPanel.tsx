@@ -2,71 +2,98 @@
 
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, File, Trash2, Check, Loader2, FileVideo, Presentation, Image, FileType, Music, Archive, Code, FileSpreadsheet, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import {
+  Upload,
+  FileText,
+  File,
+  Trash2,
+  Check,
+  Loader2,
+  FileVideo,
+  Presentation,
+  Image,
+  FileType,
+  Music,
+  Archive,
+  Code,
+  FileSpreadsheet,
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/types/api";
 
 type UploadedFile = components["schemas"]["UploadedFile"];
 
-const FILE_TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; bgGradient: string }> = {
+const FILE_TYPE_CONFIG: Record<
+  string,
+  { icon: React.ElementType; color: string; bgGradient: string }
+> = {
   pdf: {
     icon: FileText,
     color: "text-rose-500",
-    bgGradient: "bg-gradient-to-br from-rose-50 to-red-50"
+    bgGradient: "bg-gradient-to-br from-rose-50 to-red-50",
   },
   word: {
     icon: FileType,
     color: "text-blue-500",
-    bgGradient: "bg-gradient-to-br from-blue-50 to-indigo-50"
+    bgGradient: "bg-gradient-to-br from-blue-50 to-indigo-50",
   },
   video: {
     icon: FileVideo,
     color: "text-purple-500",
-    bgGradient: "bg-gradient-to-br from-purple-50 to-violet-50"
+    bgGradient: "bg-gradient-to-br from-purple-50 to-violet-50",
   },
   image: {
     icon: Image,
     color: "text-emerald-500",
-    bgGradient: "bg-gradient-to-br from-emerald-50 to-teal-50"
+    bgGradient: "bg-gradient-to-br from-emerald-50 to-teal-50",
   },
   ppt: {
     icon: Presentation,
     color: "text-orange-500",
-    bgGradient: "bg-gradient-to-br from-orange-50 to-amber-50"
+    bgGradient: "bg-gradient-to-br from-orange-50 to-amber-50",
   },
   txt: {
     icon: FileText,
     color: "text-slate-500",
-    bgGradient: "bg-gradient-to-br from-slate-50 to-gray-50"
+    bgGradient: "bg-gradient-to-br from-slate-50 to-gray-50",
   },
   excel: {
     icon: FileSpreadsheet,
     color: "text-green-500",
-    bgGradient: "bg-gradient-to-br from-green-50 to-emerald-50"
+    bgGradient: "bg-gradient-to-br from-green-50 to-emerald-50",
   },
   audio: {
     icon: Music,
     color: "text-pink-500",
-    bgGradient: "bg-gradient-to-br from-pink-50 to-rose-50"
+    bgGradient: "bg-gradient-to-br from-pink-50 to-rose-50",
   },
   archive: {
     icon: Archive,
     color: "text-yellow-600",
-    bgGradient: "bg-gradient-to-br from-yellow-50 to-orange-50"
+    bgGradient: "bg-gradient-to-br from-yellow-50 to-orange-50",
   },
   code: {
     icon: Code,
     color: "text-cyan-500",
-    bgGradient: "bg-gradient-to-br from-cyan-50 to-blue-50"
+    bgGradient: "bg-gradient-to-br from-cyan-50 to-blue-50",
   },
   other: {
     icon: File,
     color: "text-zinc-400",
-    bgGradient: "bg-gradient-to-br from-zinc-50 to-zinc-100"
+    bgGradient: "bg-gradient-to-br from-zinc-50 to-zinc-100",
   },
 };
 
@@ -81,13 +108,33 @@ function getFileTypeFromExtension(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase() || "";
   if (ext === "pdf") return "pdf";
   if (["doc", "docx"].includes(ext)) return "word";
-  if (["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv"].includes(ext)) return "video";
-  if (["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"].includes(ext)) return "image";
+  if (["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv"].includes(ext))
+    return "video";
+  if (["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico"].includes(ext))
+    return "image";
   if (["ppt", "pptx"].includes(ext)) return "ppt";
   if (["xls", "xlsx", "csv"].includes(ext)) return "excel";
   if (["mp3", "wav", "flac", "aac", "ogg", "m4a"].includes(ext)) return "audio";
   if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) return "archive";
-  if (["js", "ts", "jsx", "tsx", "py", "java", "cpp", "c", "go", "rs", "rb", "php", "swift", "kt"].includes(ext)) return "code";
+  if (
+    [
+      "js",
+      "ts",
+      "jsx",
+      "tsx",
+      "py",
+      "java",
+      "cpp",
+      "c",
+      "go",
+      "rs",
+      "rb",
+      "php",
+      "swift",
+      "kt",
+    ].includes(ext)
+  )
+    return "code";
   if (ext === "txt") return "txt";
   return "other";
 }
@@ -117,7 +164,10 @@ function FileItem({
     chunk_id?: string;
     content?: string;
     source?: { page_number?: number | null };
-    context?: { previous_chunk?: string | null; next_chunk?: string | null } | null;
+    context?: {
+      previous_chunk?: string | null;
+      next_chunk?: string | null;
+    } | null;
   } | null;
   isExpanded: boolean;
   onToggleExpand: () => void;
@@ -150,10 +200,7 @@ function FileItem({
             config.bgGradient
           )}
         >
-          <Icon className={cn(
-            "w-4 h-4 transition-colors",
-            config.color
-          )} />
+          <Icon className={cn("w-4 h-4 transition-colors", config.color)} />
         </div>
 
         {isSelected && (
@@ -201,10 +248,7 @@ function FileItem({
           config.bgGradient
         )}
       >
-        <Icon className={cn(
-          "w-4 h-4 transition-colors",
-          config.color
-        )} />
+        <Icon className={cn("w-4 h-4 transition-colors", config.color)} />
       </div>
 
       <div className="min-w-0 flex flex-col justify-center">
@@ -216,7 +260,8 @@ function FileItem({
         </p>
 
         <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
-          {file.status === "ready" && file.parse_result?.indexed_count !== undefined
+          {file.status === "ready" &&
+          file.parse_result?.indexed_count !== undefined
             ? `已索引 ${file.parse_result.indexed_count} 段`
             : file.status === "ready"
               ? "已完成解析"
@@ -244,11 +289,13 @@ function FileItem({
       </div>
 
       <div className="flex items-center gap-1.5 pl-1.5 border-l border-zinc-50">
-        <div className={cn(
-          "w-2 h-2 rounded-full transition-all shrink-0",
-          statusConfig.color,
-          statusConfig.pulse && "animate-pulse"
-        )} />
+        <div
+          className={cn(
+            "w-2 h-2 rounded-full transition-all shrink-0",
+            statusConfig.color,
+            statusConfig.pulse && "animate-pulse"
+          )}
+        />
 
         <Button
           variant="ghost"
@@ -305,7 +352,8 @@ function FileItem({
               <span>文件解析摘要</span>
             </div>
             <div className="mt-1 text-zinc-700">
-              {file.status === "ready" && file.parse_result?.indexed_count !== undefined
+              {file.status === "ready" &&
+              file.parse_result?.indexed_count !== undefined
                 ? `已索引 ${file.parse_result.indexed_count} 段`
                 : file.status === "ready"
                   ? "已完成解析"
@@ -340,7 +388,8 @@ function FileItem({
             <div className="whitespace-pre-wrap text-zinc-800">
               {focusDetail.content}
             </div>
-            {focusDetail.context?.previous_chunk || focusDetail.context?.next_chunk ? (
+            {focusDetail.context?.previous_chunk ||
+            focusDetail.context?.next_chunk ? (
               <div className="mt-2 border-t border-zinc-200 pt-2 text-[10px] text-zinc-500">
                 {focusDetail.context?.previous_chunk ? (
                   <div className="mb-1">
@@ -374,7 +423,9 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fileRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
-  const [focusView, setFocusView] = useState<"current" | "prev" | "next">("current");
+  const [focusView, setFocusView] = useState<"current" | "prev" | "next">(
+    "current"
+  );
   const [isCompact, setIsCompact] = useState(false);
 
   useEffect(() => {
@@ -413,7 +464,10 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
 
   useEffect(() => {
     if (focusedFileId && fileRefs.current[focusedFileId]) {
-      fileRefs.current[focusedFileId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+      fileRefs.current[focusedFileId]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }
   }, [focusedFileId]);
 
@@ -453,11 +507,20 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
   );
 
   return (
-    <div ref={containerRef} className="h-full w-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+    <div
+      ref={containerRef}
+      className="h-full w-full bg-transparent"
+      style={{ transform: "translateZ(0)" }}
+    >
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl will-change-[box-shadow,transform]">
-        <CardHeader className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0" style={{ height: "52px" }}>
+        <CardHeader
+          className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
+          style={{ height: "52px" }}
+        >
           <div className="flex flex-col justify-center shrink-0">
-            <CardTitle className="text-sm font-semibold leading-tight">Sources</CardTitle>
+            <CardTitle className="text-sm font-semibold leading-tight">
+              Sources
+            </CardTitle>
             <CardDescription className="text-xs text-zinc-500 leading-tight">
               {files.length} 个文件 · {selectedFileIds.length} 已选
             </CardDescription>
@@ -496,7 +559,9 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
         <CardContent className="p-0 h-[calc(100%-52px)] overflow-hidden">
           <ScrollArea className="h-full w-full">
             <div className="min-h-full px-3 py-3 w-full max-w-full overflow-hidden">
-              {activeSourceDetail && activeSourceDetail.file_info && focusedExpanded ? (
+              {activeSourceDetail &&
+              activeSourceDetail.file_info &&
+              focusedExpanded ? (
                 <motion.div
                   layout
                   initial={{ opacity: 0, y: 10 }}
@@ -528,7 +593,8 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                     {focusView === "current"
                       ? activeSourceDetail.content
                       : focusView === "prev"
-                        ? activeSourceDetail.context?.previous_chunk || "暂无上文"
+                        ? activeSourceDetail.context?.previous_chunk ||
+                          "暂无上文"
                         : activeSourceDetail.context?.next_chunk || "暂无下文"}
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-[10px]">
@@ -557,10 +623,13 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                       下文
                     </Button>
                   </div>
-                  {activeSourceDetail.context?.previous_chunk || activeSourceDetail.context?.next_chunk ? (
+                  {activeSourceDetail.context?.previous_chunk ||
+                  activeSourceDetail.context?.next_chunk ? (
                     <div className="mt-2 text-[10px] text-zinc-500 border-t border-zinc-200 pt-2">
                       {activeSourceDetail.context?.previous_chunk ? (
-                        <div className="mb-1">上文：{activeSourceDetail.context.previous_chunk}</div>
+                        <div className="mb-1">
+                          上文：{activeSourceDetail.context.previous_chunk}
+                        </div>
                       ) : null}
                       {activeSourceDetail.context?.next_chunk ? (
                         <div>下文：{activeSourceDetail.context.next_chunk}</div>
@@ -575,13 +644,17 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                     <File className="w-7 h-7 text-zinc-300" />
                   </div>
                   <p className="text-sm font-medium text-zinc-700">暂无文件</p>
-                  <p className="text-xs text-zinc-400 mt-1">上传文件以开始使用</p>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    上传文件以开始使用
+                  </p>
                 </div>
               ) : (
-                <div className={cn(
-                  "grid grid-cols-1 gap-2 w-full max-w-full",
-                  isCompact && "flex flex-col gap-2"
-                )}>
+                <div
+                  className={cn(
+                    "grid grid-cols-1 gap-2 w-full max-w-full",
+                    isCompact && "flex flex-col gap-2"
+                  )}
+                >
                   <AnimatePresence mode="popLayout">
                     {files.map((file) => (
                       <div
@@ -597,7 +670,9 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                           onDelete={() => handleDelete(file.id)}
                           isCompact={isCompact}
                           isFocused={focusedFileId === file.id}
-                          focusDetail={focusedFileId === file.id ? focusPayload : null}
+                          focusDetail={
+                            focusedFileId === file.id ? focusPayload : null
+                          }
                           isExpanded={!!expandedIds[file.id]}
                           onToggleExpand={() => toggleExpand(file.id)}
                         />

@@ -157,6 +157,12 @@ paths:
           schema:
             type: string
           description: 项目 ID。当前实现按 project 维度隔离对话上下文。
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 可选会话 ID。提供后按 project_id + session_id 作用域读取历史。
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/LimitParam'
       responses:
@@ -197,6 +203,9 @@ paths:
                 project_id:
                   type: string
                   description: 项目 ID
+                session_id:
+                  type: string
+                  description: 可选会话 ID。提供后按 project_id + session_id 作用域处理语音对话。
       responses:
         '200':
           description: 成功
@@ -234,6 +243,9 @@ paths:
                   format: binary
                 project_id:
                   type: string
+                session_id:
+                  type: string
+                  description: 可选会话 ID。提供后，索引与检索按 project_id + session_id 隔离。
       responses:
         '200':
           description: 上传成功
@@ -335,6 +347,9 @@ paths:
                   description: 多个文件
                 project_id:
                   type: string
+                session_id:
+                  type: string
+                  description: 可选会话 ID。提供后，批量上传索引按 project_id + session_id 隔离。
       responses:
         '200':
           description: 批量上传成功
@@ -414,31 +429,6 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
   /api/v1/generate/sessions:
-    get:
-      summary: 获取生成会话列表
-      tags:
-        - Generate
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: project_id
-          in: query
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/LimitParam'
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenerationSessionListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
     post:
       summary: 创建生成会话
       description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
@@ -1311,6 +1301,19 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /api/v1/health/capabilities:
+    get:
+      summary: 获取能力健康状态
+      description: 返回 document_parser / video_understanding / speech_recognition 的能力状态。
+      tags:
+        - Health
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilitiesHealthResponse'
   /api/v1/projects:
     post:
       summary: 创建项目
@@ -1748,7 +1751,7 @@ components:
           properties:
             session_id:
               type: string
-              description: 查询时的会话范围（可选字段，当前实现可能为空）
+              description: 查询时的会话范围（可选）
             messages:
               type: array
               items:
@@ -1771,9 +1774,7 @@ components:
           type: string
         session_id:
           type: string
-          description: |
-            会话级上下文隔离 ID（预留字段）。当前后端实现仍以 project 作用域为主，
-            在 session-first 链路完全落地前该字段可能被忽略。
+          description: 会话级上下文隔离 ID。提供后按 project_id + session_id 过滤历史与资料。
         content:
           type: string
           minLength: 1
@@ -1801,7 +1802,7 @@ components:
           properties:
             session_id:
               type: string
-              description: 本次回复绑定的会话 ID（可选，session-first 实现完成后稳定返回）
+              description: 本次回复绑定的会话 ID（可选）
             message:
               $ref: '#/components/schemas/Message'
             suggestions:
@@ -1810,6 +1811,55 @@ components:
                 type: string
         message:
           type: string
+    CapabilityStatus:
+      type: object
+      description: 能力执行状态与降级信息（统一字段，适用于解析/视频/语音）
+      required:
+        - capability
+        - provider
+        - status
+        - fallback_used
+      properties:
+        capability:
+          type: string
+          enum:
+            - document_parser
+            - video_understanding
+            - speech_recognition
+          description: 能力标识
+        provider:
+          type: string
+          description: 实际执行的 provider（如 MinerU、Qwen-VL、Faster-Whisper、local_parser）
+        status:
+          type: string
+          enum:
+            - available
+            - degraded
+            - unavailable
+          description: 能力状态
+        fallback_used:
+          type: boolean
+          description: 是否发生降级
+        fallback_target:
+          type: string
+          description: 降级目标 provider（仅当 fallback_used=true 时有值）
+        reason_code:
+          type: string
+          enum:
+            - PROVIDER_TIMEOUT
+            - PROVIDER_RATE_LIMITED
+            - PROVIDER_UNAVAILABLE
+            - INVALID_INPUT_FORMAT
+            - UNSUPPORTED_FILE_TYPE
+            - EMPTY_OUTPUT
+            - INTERNAL_ERROR
+          description: 失败或降级原因码
+        user_message:
+          type: string
+          description: 可直接展示给用户的提示语
+        trace_id:
+          type: string
+          description: 链路追踪 ID
     VoiceMessageResponse:
       type: object
       required:
@@ -1824,7 +1874,7 @@ components:
           properties:
             session_id:
               type: string
-              description: 本次语音对话绑定的会话 ID（可选，当前实现可能为空）
+              description: 本次语音对话绑定的会话 ID（可选）
             text:
               type: string
               description: 识别的文本内容
@@ -1841,6 +1891,10 @@ components:
             message:
               $ref: '#/components/schemas/Message'
               description: 自动创建的消息对象
+            capability_status:
+              allOf:
+                - $ref: '#/components/schemas/CapabilityStatus'
+              description: 语音识别能力状态（含降级信息）
             suggestions:
               type: array
               items:
@@ -1848,6 +1902,38 @@ components:
               description: AI 建议
         message:
           type: string
+    common_SourceReference:
+      type: object
+      description: 内容来源引用（用于溯源）
+      required:
+        - chunk_id
+        - source_type
+        - filename
+      properties:
+        chunk_id:
+          type: string
+          description: 片段唯一标识
+        source_type:
+          type: string
+          enum:
+            - document
+            - video
+            - audio
+            - ai_generated
+          description: 来源类型
+        filename:
+          type: string
+          description: 源文件名
+        page_number:
+          type: integer
+          description: 页码（文档场景）
+        timestamp:
+          type: number
+          format: float
+          description: 时间戳（视频/音频场景，单位秒）
+        content_preview:
+          type: string
+          description: 内容预览片段
     UploadedFile:
       type: object
       required:
@@ -1913,6 +1999,27 @@ components:
         parse_result:
           type: object
           description: 解析结果摘要
+          properties:
+            chunk_count:
+              type: integer
+              description: 切分片段数量
+            indexed_count:
+              type: integer
+              description: 入库索引片段数量
+            capability_status:
+              allOf:
+                - $ref: '#/components/schemas/CapabilityStatus'
+              description: 解析能力状态（含降级信息）
+            segments:
+              type: array
+              description: 视频解析片段（video 场景）
+              items:
+                type: object
+            sources:
+              type: array
+              description: 来源引用（video 场景）
+              items:
+                $ref: '#/components/schemas/common_SourceReference'
         created_at:
           type: string
           format: date-time
@@ -2288,7 +2395,7 @@ components:
             type: string
         notes:
           type: string
-    CapabilityStatus:
+    generate-capabilities_CapabilityStatus:
       type: string
       enum:
         - available
@@ -2311,7 +2418,7 @@ components:
             - slide_regeneration
             - event_stream
         status:
-          $ref: '#/components/schemas/CapabilityStatus'
+          $ref: '#/components/schemas/generate-capabilities_CapabilityStatus'
         providers:
           type: array
           items:
@@ -2795,52 +2902,8 @@ components:
           properties:
             session:
               $ref: '#/components/schemas/SessionRef'
-
-    GenerationSessionListItem:
-      type: object
-      required:
-        - session_id
-        - project_id
-        - output_type
-        - state
-        - created_at
-        - updated_at
-      properties:
-        session_id:
-          type: string
-        project_id:
-          type: string
-        output_type:
-          type: string
-          enum: [ppt, word, both]
-        state:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-
-    GenerationSessionListResponse:
-      type: object
-      required: [success, data, message]
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            sessions:
-              type: array
-              items:
-                $ref: '#/components/schemas/GenerationSessionListItem'
-            total:
-              type: integer
-            page:
-              type: integer
-            limit:
-              type: integer
+            latest_event:
+              $ref: '#/components/schemas/GenerationEvent'
         message:
           type: string
     RegenerateSlideRequest:
@@ -3424,6 +3487,26 @@ components:
               $ref: '#/components/schemas/UploadedFile'
         message:
           type: string
+    CapabilitiesHealthResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            document_parser:
+              $ref: '#/components/schemas/CapabilityStatus'
+            video_understanding:
+              $ref: '#/components/schemas/CapabilityStatus'
+            speech_recognition:
+              $ref: '#/components/schemas/CapabilityStatus'
+        message:
+          type: string
     Project:
       type: object
       required:
@@ -3509,6 +3592,8 @@ components:
           type: boolean
         data:
           type: object
+          required:
+            - project
           properties:
             project:
               $ref: '#/components/schemas/Project'

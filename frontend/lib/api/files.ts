@@ -63,9 +63,7 @@ function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
       raw.file_type || raw.fileType || "pdf"
     ) as UploadedFile["file_type"],
     mime_type: String(raw.mime_type || raw.mimeType || ""),
-    file_size: Number(
-      (raw.file_size ?? raw.fileSize ?? 0) as number | string
-    ),
+    file_size: Number((raw.file_size ?? raw.fileSize ?? 0) as number | string),
     status: String(raw.status || "ready") as UploadedFile["status"],
     parse_progress: Number(
       (raw.parse_progress ?? raw.parseProgress ?? 100) as number | string
@@ -77,8 +75,12 @@ function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
     usage_intent: (raw.usage_intent || raw.usageIntent || undefined) as
       | string
       | undefined,
-    created_at: String(raw.created_at || raw.createdAt || new Date().toISOString()),
-    updated_at: String(raw.updated_at || raw.updatedAt || new Date().toISOString()),
+    created_at: String(
+      raw.created_at || raw.createdAt || new Date().toISOString()
+    ),
+    updated_at: String(
+      raw.updated_at || raw.updatedAt || new Date().toISOString()
+    ),
   };
 }
 
@@ -92,7 +94,9 @@ export const filesApi = {
     onProgress?: (progress: number) => void
   ): Promise<UploadResponse> {
     if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`);
+      throw new Error(
+        `文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`
+      );
     }
     return new Promise((resolve, reject) => {
       const formData = new FormData();
@@ -222,7 +226,9 @@ export const filesApi = {
     // 校验每个文件大小
     for (const file of files) {
       if (file.size > MAX_FILE_SIZE) {
-        throw new Error(`文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`);
+        throw new Error(
+          `文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`
+        );
       }
     }
 

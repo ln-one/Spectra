@@ -9,13 +9,7 @@ const ResizablePanelGroup = ({
   className,
   ...props
 }: React.ComponentProps<typeof Group>) => (
-  <Group
-    className={cn(
-      "h-full w-full",
-      className
-    )}
-    {...props}
-  />
+  <Group className={cn("h-full w-full", className)} {...props} />
 );
 
 const ResizablePanel = Panel;

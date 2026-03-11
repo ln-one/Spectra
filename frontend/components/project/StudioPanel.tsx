@@ -3,10 +3,33 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { FileText, Presentation, BookOpen, Brain, HelpCircle, FileEdit, Film, BookMarked, Sparkles, Clock, CheckCircle2, XCircle } from "lucide-react";
-import { useProjectStore, GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
+import {
+  FileText,
+  Presentation,
+  BookOpen,
+  Brain,
+  HelpCircle,
+  FileEdit,
+  Film,
+  BookMarked,
+  Sparkles,
+  Clock,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
+import {
+  useProjectStore,
+  GENERATION_TOOLS,
+  type GenerationTool,
+} from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { GenerationConfigPanel } from "./GenerationConfigPanel";
@@ -33,7 +56,10 @@ const TOOL_TITLES: Record<string, string> = {
   handout: "讲义生成",
 };
 
-const TOOL_COLORS: Record<string, { primary: string; secondary: string; gradient: string; glow: string }> = {
+const TOOL_COLORS: Record<
+  string,
+  { primary: string; secondary: string; gradient: string; glow: string }
+> = {
   ppt: {
     primary: "#f97316",
     secondary: "#fb923c",
@@ -97,7 +123,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     generationHistory,
     setLayoutMode,
     setExpandedTool,
-    startGeneration
+    startGeneration,
   } = useProjectStore();
   const [hoveredToolId, setHoveredToolId] = useState<string | null>(null);
 
@@ -115,12 +141,17 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     setHoveredToolId(null);
   };
 
-  const currentTool = GENERATION_TOOLS.find(t => t.type === expandedTool);
+  const currentTool = GENERATION_TOOLS.find((t) => t.type === expandedTool);
   const CurrentIcon = currentTool ? TOOL_ICONS[currentTool.id] : Sparkles;
-  const currentColor = currentTool ? TOOL_COLORS[currentTool.id] : TOOL_COLORS.ppt;
+  const currentColor = currentTool
+    ? TOOL_COLORS[currentTool.id]
+    : TOOL_COLORS.ppt;
 
   return (
-    <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+    <div
+      className="h-full bg-transparent"
+      style={{ transform: "translateZ(0)" }}
+    >
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
         <CardHeader
           className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0 relative"
@@ -140,9 +171,15 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                   <CardTitle className="text-sm font-semibold leading-tight">
                     <motion.span
                       layout
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 30,
+                      }}
                     >
-                      {isExpanded ? TOOL_TITLES[expandedTool || "ppt"] : "Studio"}
+                      {isExpanded
+                        ? TOOL_TITLES[expandedTool || "ppt"]
+                        : "Studio"}
                     </motion.span>
                   </CardTitle>
                 </motion.div>
@@ -153,7 +190,11 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                   <CardDescription className="text-xs text-zinc-500 leading-tight">
                     <motion.span
                       layout
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 30,
+                      }}
                     >
                       {isExpanded ? "配置生成参数" : "AI 生成工具"}
                     </motion.span>
@@ -217,7 +258,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                 "absolute inset-0",
                 isExpanded ? "pointer-events-none" : "pointer-events-auto"
               )}
-              animate={{ opacity: isExpanded ? 0 : 1, scale: isExpanded ? 0.985 : 1 }}
+              animate={{
+                opacity: isExpanded ? 0 : 1,
+                scale: isExpanded ? 0.985 : 1,
+              }}
               transition={{ duration: 0.2 }}
             >
               <ScrollArea className="h-full">
@@ -238,7 +282,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                           animate={{
                             scale: isHovered && !isExpanded ? 1.02 : 1,
                             opacity: 1,
-                            y: isHovered && !isExpanded ? -2 : 0
+                            y: isHovered && !isExpanded ? -2 : 0,
                           }}
                           whileTap={{ scale: 0.98 }}
                           transition={{
@@ -247,7 +291,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                             damping: 25,
                           }}
                           onClick={() => handleToolClick(tool)}
-                          onMouseEnter={() => !isExpanded && setHoveredToolId(tool.id)}
+                          onMouseEnter={() =>
+                            !isExpanded && setHoveredToolId(tool.id)
+                          }
                           onMouseLeave={() => setHoveredToolId(null)}
                           className={cn(
                             "group relative w-full h-auto flex flex-col items-center justify-center p-3",
@@ -257,10 +303,14 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                             "transition-shadow duration-200 ease-out"
                           )}
                           style={{
-                            boxShadow: isHovered && !isExpanded
-                              ? `0 8px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8)`
-                              : `0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8)`,
-                            borderColor: isHovered && !isExpanded ? "rgba(161, 161, 170, 0.5)" : "rgba(228, 228, 231, 0.6)",
+                            boxShadow:
+                              isHovered && !isExpanded
+                                ? `0 8px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8)`
+                                : `0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8)`,
+                            borderColor:
+                              isHovered && !isExpanded
+                                ? "rgba(161, 161, 170, 0.5)"
+                                : "rgba(228, 228, 231, 0.6)",
                           }}
                         >
                           <motion.div
@@ -275,7 +325,11 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               background: `linear-gradient(135deg, ${color.glow}, transparent)`,
                               boxShadow: `0 4px 12px ${color.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
                             }}
-                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 400,
+                              damping: 25,
+                            }}
                           >
                             <Icon
                               className="w-4.5 h-4.5"
@@ -303,7 +357,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       exit={{ opacity: 0 }}
                       className="pt-2 border-t border-zinc-100"
                     >
-                      <h3 className="text-xs font-medium text-zinc-500 mb-2">最近生成</h3>
+                      <h3 className="text-xs font-medium text-zinc-500 mb-2">
+                        最近生成
+                      </h3>
                       <div className="space-y-1.5">
                         <AnimatePresence>
                           {generationHistory.slice(0, 5).map((item, index) => (
@@ -316,11 +372,16 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               className="flex items-center gap-2.5 p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 cursor-pointer transition-colors"
                               onClick={() => {
                                 if (!project) return;
-                                if (item.sessionState === "AWAITING_OUTLINE_CONFIRM") {
+                                if (
+                                  item.sessionState ===
+                                  "AWAITING_OUTLINE_CONFIRM"
+                                ) {
                                   router.push(`/projects/${project.id}`);
                                   return;
                                 }
-                                router.push(`/projects/${project.id}/generate?session=${item.id}`);
+                                router.push(
+                                  `/projects/${project.id}/generate?session=${item.id}`
+                                );
                               }}
                             >
                               <div className="w-7 h-7 rounded-lg bg-white shadow-sm flex items-center justify-center">
@@ -331,16 +392,24 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                 ) : (
                                   <motion.div
                                     animate={{ rotate: 360 }}
-                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                    transition={{
+                                      duration: 1,
+                                      repeat: Infinity,
+                                      ease: "linear",
+                                    }}
                                   >
                                     <Clock className="w-3.5 h-3.5 text-zinc-400" />
                                   </motion.div>
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-medium text-zinc-700 truncate">{item.title}</p>
+                                <p className="text-[11px] font-medium text-zinc-700 truncate">
+                                  {item.title}
+                                </p>
                                 <p className="text-[10px] text-zinc-400">
-                                  {new Date(item.createdAt).toLocaleDateString("zh-CN")}
+                                  {new Date(item.createdAt).toLocaleDateString(
+                                    "zh-CN"
+                                  )}
                                 </p>
                               </div>
                             </motion.div>
@@ -375,7 +444,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         <GenerationConfigPanel
                           variant="compact"
                           onGenerate={async (config) => {
-                            const tool = GENERATION_TOOLS.find(t => t.type === expandedTool);
+                            const tool = GENERATION_TOOLS.find(
+                              (t) => t.type === expandedTool
+                            );
                             if (project && tool) {
                               const styleToneMap: Record<string, string> = {
                                 structured: "严谨、逻辑清晰、层次分明",
@@ -408,7 +479,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-100 to-zinc-200 flex items-center justify-center mb-3">
                           <Sparkles className="w-6 h-6 text-zinc-400" />
                         </div>
-                        <p className="text-sm font-medium text-zinc-600 mb-1">功能开发中</p>
+                        <p className="text-sm font-medium text-zinc-600 mb-1">
+                          功能开发中
+                        </p>
                         <p className="text-xs text-zinc-400 text-center">
                           {TOOL_TITLES[expandedTool]}功能即将上线
                         </p>

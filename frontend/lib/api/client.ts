@@ -165,7 +165,12 @@ export async function request<T>(
       "NETWORK_ERROR",
       "无法连接到服务器，请检查网络连接或确认后端服务是否运行",
       0,
-      { originalError: networkError instanceof Error ? networkError.message : String(networkError) },
+      {
+        originalError:
+          networkError instanceof Error
+            ? networkError.message
+            : String(networkError),
+      },
       true
     );
   }
@@ -178,11 +183,7 @@ export async function request<T>(
       }
     }
     handleAuthError();
-    throw new ApiError(
-      "UNAUTHORIZED",
-      "登录已过期，请重新登录",
-      401
-    );
+    throw new ApiError("UNAUTHORIZED", "登录已过期，请重新登录", 401);
   }
 
   let data: Record<string, unknown>;
@@ -201,10 +202,14 @@ export async function request<T>(
   // 409 冲突：状态或版本冲突，明确提示用户
   if (response.status === 409) {
     throw new ApiError(
-      (data.error as Record<string, unknown>)?.code as string || "CONFLICT",
-      (data.error as Record<string, unknown>)?.message as string || "操作冲突：当前状态或版本已变更，请刷新后重试",
+      ((data.error as Record<string, unknown>)?.code as string) || "CONFLICT",
+      ((data.error as Record<string, unknown>)?.message as string) ||
+        "操作冲突：当前状态或版本已变更，请刷新后重试",
       409,
-      (data.error as Record<string, unknown>)?.details as Record<string, unknown>,
+      (data.error as Record<string, unknown>)?.details as Record<
+        string,
+        unknown
+      >,
       false,
       (data.error as Record<string, unknown>)?.trace_id as string
     );
@@ -212,8 +217,11 @@ export async function request<T>(
 
   if (!response.ok) {
     const errorObj = data.error as Record<string, unknown> | undefined;
-    const errorCode = errorObj?.code as string || "UNKNOWN_ERROR";
-    const errorMessage = errorObj?.message as string || (data.message as string) || `请求失败 (${response.status})`;
+    const errorCode = (errorObj?.code as string) || "UNKNOWN_ERROR";
+    const errorMessage =
+      (errorObj?.message as string) ||
+      (data.message as string) ||
+      `请求失败 (${response.status})`;
 
     throw new ApiError(
       errorCode,

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2, Sparkles, FileText } from "lucide-react";
+import { Send, Loader2, Sparkles } from "lucide-react";
 
 type ViewMode = "chat" | "generate" | "preview";
 
@@ -25,7 +25,7 @@ interface ConversationPanelProps {
 }
 
 export function ConversationPanel({
-  projectId,
+  projectId: _projectId,
   currentMode = "chat",
   isGenerating = false,
   generationProgress = 0,
@@ -68,7 +68,8 @@ export function ConversationPanel({
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "收到您的需求！您可以通过左侧工具栏选择「生成课件」来创建您的教学内容。",
+        content:
+          "收到您的需求！您可以通过左侧工具栏选择「生成课件」来创建您的教学内容。",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
@@ -96,8 +97,8 @@ export function ConversationPanel({
             {currentMode === "chat"
               ? "与 AI 助手讨论您的教学需求"
               : currentMode === "generate"
-              ? "配置并生成您的课件"
-              : "查看和下载生成的课件"}
+                ? "配置并生成您的课件"
+                : "查看和下载生成的课件"}
           </p>
         </div>
         {currentMode === "chat" && (
@@ -162,7 +163,9 @@ export function ConversationPanel({
                       : "bg-muted"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">
+                    {message.content}
+                  </p>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {message.timestamp.toLocaleTimeString("zh-CN", {

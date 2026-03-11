@@ -64,7 +64,15 @@ export default function ProjectDetailPage() {
     return () => {
       reset();
     };
-  }, [projectId, router, fetchProject, fetchFiles, fetchMessages, fetchGenerationHistory, reset]);
+  }, [
+    projectId,
+    router,
+    fetchProject,
+    fetchFiles,
+    fetchMessages,
+    fetchGenerationHistory,
+    reset,
+  ]);
 
   const handleToolClick = async (_tool: GenerationTool) => {
     // 会话创建应仅发生在配置面板点击“开始生成”时，避免重复历史记录
@@ -269,9 +277,7 @@ export default function ProjectDetailPage() {
               left: isExpanded
                 ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2}px)`
                 : `calc(${studioWidth + chatWidth}% + ${PANEL_GAP / 2}px)`,
-              top: isExpanded
-                ? `calc(50% + ${PANEL_GAP / 2}px)`
-                : PAGE_GAP,
+              top: isExpanded ? `calc(50% + ${PANEL_GAP / 2}px)` : PAGE_GAP,
               width: isExpanded
                 ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(${sourcesWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,

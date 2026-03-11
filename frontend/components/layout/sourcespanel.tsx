@@ -36,14 +36,14 @@ interface SourcesPanelProps {
 }
 
 export function SourcesPanel({
-  projectId,
+  projectId: _projectId,
   files = [],
   onFileUpload,
   onFileDelete,
   onFileSelect,
 }: SourcesPanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
+  const [_isUploading, setIsUploading] = useState(false);
 
   const filteredFiles = files.filter((file) =>
     file.filename.toLowerCase().includes(searchQuery.toLowerCase())
@@ -173,9 +173,7 @@ export function SourcesPanel({
                   >
                     {/* 选择框 */}
                     <button
-                      onClick={() =>
-                        onFileSelect?.(file.id, !file.selected)
-                      }
+                      onClick={() => onFileSelect?.(file.id, !file.selected)}
                       className="shrink-0"
                     >
                       {file.selected ? (
@@ -188,8 +186,7 @@ export function SourcesPanel({
                     {/* 文件信息 */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">
-                        {getFileIcon(file.file_type)}
-                        {" "}{file.filename}
+                        {getFileIcon(file.file_type)} {file.filename}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatFileSize(file.file_size)} · {file.file_type}

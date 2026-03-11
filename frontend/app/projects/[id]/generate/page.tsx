@@ -4,15 +4,28 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, Play, Share2, Edit3, Layout, Image as ImageIcon,
-  Sparkles, Check, Loader2, Download
+  ArrowLeft,
+  Play,
+  Share2,
+  Edit3,
+  Layout,
+  Image as ImageIcon,
+  Sparkles,
+  Check,
+  Loader2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
@@ -25,14 +38,22 @@ type Slide = components["schemas"]["Slide"];
 
 // --- Components ---
 
-const SlideCard = ({ slide, isActive }: { slide: Slide; isActive: boolean }) => {
+const SlideCard = ({
+  slide,
+  isActive,
+}: {
+  slide: Slide;
+  isActive: boolean;
+}) => {
   return (
     <div
       id={slide.id || `slide-${slide.index}`}
       data-index={slide.index}
       className={cn(
         "slide-card bg-card border rounded-2xl p-8 md:p-12 mb-12 shadow-sm transition-all duration-300 w-full min-h-[400px] flex flex-col",
-        isActive ? "ring-2 ring-primary/20 shadow-md translate-x-1" : "hover:shadow-md hover:-translate-y-1"
+        isActive
+          ? "ring-2 ring-primary/20 shadow-md translate-x-1"
+          : "hover:shadow-md hover:-translate-y-1"
       )}
     >
       {slide.title && (
@@ -57,7 +78,10 @@ const SlideCard = ({ slide, isActive }: { slide: Slide; isActive: boolean }) => 
       {slide.sources && slide.sources.length > 0 && (
         <div className="mt-8 pt-4 border-t flex flex-wrap gap-2">
           {slide.sources.map((source, idx) => (
-            <span key={idx} className="text-xs bg-muted/60 text-muted-foreground px-2 py-1 rounded-full border flex items-center gap-1">
+            <span
+              key={idx}
+              className="text-xs bg-muted/60 text-muted-foreground px-2 py-1 rounded-full border flex items-center gap-1"
+            >
               📖 {source.filename}
               {source.page_number && ` (P${source.page_number})`}
             </span>
@@ -72,7 +96,12 @@ export default function GeneratePreviewPage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const projectId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
+  const projectId =
+    typeof params.id === "string"
+      ? params.id
+      : Array.isArray(params.id)
+        ? params.id[0]
+        : "";
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [projectTitle, setProjectTitle] = useState("生成结果");
@@ -80,15 +109,19 @@ export default function GeneratePreviewPage() {
 
   const [slides, setSlides] = useState<Slide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [previewBlockedReason, setPreviewBlockedReason] = useState<string | null>(null);
+  const [previewBlockedReason, setPreviewBlockedReason] = useState<
+    string | null
+  >(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const slidesRef = useRef<HTMLDivElement>(null);
 
-  const { generationSession, generationHistory, fetchGenerationHistory } = useProjectStore();
+  const { generationSession, generationHistory, fetchGenerationHistory } =
+    useProjectStore();
 
   const sessionIdFromQuery = searchParams?.get("session") || null;
-  const activeSessionId = sessionIdFromQuery ||
+  const activeSessionId =
+    sessionIdFromQuery ||
     generationSession?.session.session_id ||
     (generationHistory.length > 0 ? generationHistory[0].id : null);
 
@@ -106,9 +139,7 @@ export default function GeneratePreviewPage() {
   const latestEvent = events.length > 0 ? events[events.length - 1] : null;
   const isSessionGenerating =
     latestEvent?.state === "GENERATING_CONTENT" ||
-    latestEvent?.state === "RENDERING" ||
-    latestEvent?.event_type === "task.created" ||
-    latestEvent?.event_type === "task.dispatched";
+    latestEvent?.state === "RENDERING";
 
   const loadSlides = useCallback(async () => {
     if (!activeSessionId) {
@@ -127,7 +158,9 @@ export default function GeneratePreviewPage() {
           const sessionResp = await generateApi.getSession(activeSessionId);
           const state = sessionResp?.data?.session?.state;
           if (state === "AWAITING_OUTLINE_CONFIRM") {
-            setPreviewBlockedReason("当前会话仍在大纲确认阶段，请先确认大纲后再进入预览。");
+            setPreviewBlockedReason(
+              "当前会话仍在大纲确认阶段，请先确认大纲后再进入预览。"
+            );
           } else {
             setPreviewBlockedReason(error.message);
           }
@@ -148,10 +181,16 @@ export default function GeneratePreviewPage() {
 
   // Handle SSE updates
   useEffect(() => {
-    if (latestEvent?.event_type === "slide.updated" && latestEvent.payload?.slide) {
+    if (
+      latestEvent?.event_type === "slide.updated" &&
+      latestEvent.payload?.slide
+    ) {
       const updatedSlide = latestEvent.payload.slide as Slide;
-      setSlides(prev => {
-        const idx = prev.findIndex(s => (s.id && s.id === updatedSlide.id) || s.index === updatedSlide.index);
+      setSlides((prev) => {
+        const idx = prev.findIndex(
+          (s) =>
+            (s.id && s.id === updatedSlide.id) || s.index === updatedSlide.index
+        );
         if (idx !== -1) {
           const newSlides = [...prev];
           newSlides[idx] = { ...newSlides[idx], ...updatedSlide };
@@ -160,7 +199,10 @@ export default function GeneratePreviewPage() {
           return [...prev, updatedSlide].sort((a, b) => a.index - b.index);
         }
       });
-    } else if (latestEvent?.event_type === "task.completed" || latestEvent?.state === "SUCCESS") {
+    } else if (
+      latestEvent?.event_type === "task.completed" ||
+      latestEvent?.state === "SUCCESS"
+    ) {
       loadSlides();
     }
   }, [latestEvent, loadSlides]);
@@ -172,12 +214,14 @@ export default function GeneratePreviewPage() {
     // Using IntersectionObserver directly on the container children
     const handleScroll = () => {
       if (!containerRef.current) return;
-      const slideElements = containerRef.current.querySelectorAll('.slide-card');
+      const slideElements =
+        containerRef.current.querySelectorAll(".slide-card");
       let currentActiveIndex = activeSlideIndex;
 
       // Simple offset calculation
       const containerTop = containerRef.current.scrollTop;
-      const containerCenter = containerTop + containerRef.current.clientHeight * 0.4;
+      const containerCenter =
+        containerTop + containerRef.current.clientHeight * 0.4;
 
       slideElements.forEach((el) => {
         const htmlEl = el as HTMLElement;
@@ -185,7 +229,7 @@ export default function GeneratePreviewPage() {
         const bottom = top + htmlEl.offsetHeight;
 
         if (containerCenter >= top && containerCenter <= bottom) {
-          const idxStr = htmlEl.getAttribute('data-index');
+          const idxStr = htmlEl.getAttribute("data-index");
           if (idxStr) {
             currentActiveIndex = parseInt(idxStr, 10);
           }
@@ -198,30 +242,34 @@ export default function GeneratePreviewPage() {
     };
 
     const container = containerRef.current;
-    container.addEventListener('scroll', handleScroll, { passive: true });
+    container.addEventListener("scroll", handleScroll, { passive: true });
 
     // Call once initially to set the first slide if needed
     handleScroll();
 
-    return () => container.removeEventListener('scroll', handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
   }, [activeSlideIndex, slides]);
 
   // Smooth Scroll to Slide
   const scrollToSlide = useCallback((index: number) => {
     const slideElement = document.querySelector(`[data-index="${index}"]`);
     if (slideElement) {
-      slideElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      slideElement.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, []);
 
   return (
     <TooltipProvider delayDuration={300}>
       <div className="h-screen flex flex-col overflow-hidden bg-background text-foreground font-sans selection:bg-primary/20">
-
         {/* 1. 顶部固定导航栏 (Fixed Header) */}
         <header className="h-14 flex items-center justify-between px-4 md:px-6 border-b bg-background/95 backdrop-blur z-50 shrink-0">
           <div className="flex items-center gap-2 md:gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.back()}
+              className="rounded-full"
+            >
               <ArrowLeft className="w-4 h-4" />
             </Button>
 
@@ -234,10 +282,17 @@ export default function GeneratePreviewPage() {
                     onChange={(e) => setProjectTitle(e.target.value)}
                     className="h-8 max-w-[200px] text-sm font-semibold border-primary/30 focus-visible:ring-1 focus-visible:ring-primary"
                     autoFocus
-                    onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && setIsEditingTitle(false)
+                    }
                     onBlur={() => setIsEditingTitle(false)}
                   />
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => setIsEditingTitle(false)}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                    onClick={() => setIsEditingTitle(false)}
+                  >
                     <Check className="w-4 h-4" />
                   </Button>
                 </div>
@@ -246,7 +301,9 @@ export default function GeneratePreviewPage() {
                   className="px-3 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer transition-colors group flex items-center gap-2"
                   onClick={() => setIsEditingTitle(true)}
                 >
-                  <span className="text-sm font-semibold truncate max-w-[200px] md:max-w-xs">{projectTitle}</span>
+                  <span className="text-sm font-semibold truncate max-w-[200px] md:max-w-xs">
+                    {projectTitle}
+                  </span>
                   <Edit3 className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               )}
@@ -255,21 +312,34 @@ export default function GeneratePreviewPage() {
             {isConnected && (
               <div className="ml-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                <span className="text-[10px] uppercase font-bold text-primary tracking-wider">实时同步</span>
+                <span className="text-[10px] uppercase font-bold text-primary tracking-wider">
+                  实时同步
+                </span>
               </div>
             )}
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
-            <Button variant="outline" size="sm" className="hidden sm:flex rounded-full h-9">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:flex rounded-full h-9"
+            >
               <Download className="w-4 h-4 mr-2" />
               导出
             </Button>
-            <Button variant="outline" size="sm" className="hidden sm:flex rounded-full h-9">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:flex rounded-full h-9"
+            >
               <Share2 className="w-4 h-4 mr-2" />
               分享
             </Button>
-            <Button size="sm" className="rounded-full h-9 bg-foreground text-background hover:bg-foreground/90 transition-transform active:scale-95">
+            <Button
+              size="sm"
+              className="rounded-full h-9 bg-foreground text-background hover:bg-foreground/90 transition-transform active:scale-95"
+            >
               <Play className="w-4 h-4 mr-2 fill-current" />
               演示
             </Button>
@@ -284,13 +354,17 @@ export default function GeneratePreviewPage() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full opacity-70">
               <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-              <p className="text-sm text-muted-foreground animate-pulse">正在加载课件内容...</p>
+              <p className="text-sm text-muted-foreground animate-pulse">
+                正在加载课件内容...
+              </p>
             </div>
           ) : slides.length === 0 ? (
             previewBlockedReason ? (
               <div className="flex flex-col items-center justify-center h-full opacity-90">
                 <ImageIcon className="w-12 h-12 text-muted-foreground/40 mb-4" />
-                <p className="text-sm text-muted-foreground mb-3">{previewBlockedReason}</p>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {previewBlockedReason}
+                </p>
                 <Button
                   onClick={() => router.push(`/projects/${projectId}`)}
                   className="rounded-full"
@@ -298,18 +372,20 @@ export default function GeneratePreviewPage() {
                   返回项目并继续生成
                 </Button>
               </div>
+            ) : isSessionGenerating ? (
+              <div className="flex flex-col items-center justify-center h-full opacity-80">
+                <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+                <p className="text-sm text-muted-foreground">
+                  正在按大纲生成课件，请稍候...
+                </p>
+              </div>
             ) : (
-              isSessionGenerating ? (
-                <div className="flex flex-col items-center justify-center h-full opacity-80">
-                  <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-                  <p className="text-sm text-muted-foreground">正在按大纲生成课件，请稍候...</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full opacity-70">
-                  <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-sm text-muted-foreground">暂无幻灯片数据，请先生成。</p>
-                </div>
-              )
+              <div className="flex flex-col items-center justify-center h-full opacity-70">
+                <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                <p className="text-sm text-muted-foreground">
+                  暂无幻灯片数据，请先生成。
+                </p>
+              </div>
             )
           ) : (
             <div className="max-w-4xl mx-auto w-full pb-32" ref={slidesRef}>
@@ -319,9 +395,16 @@ export default function GeneratePreviewPage() {
                     key={slide.id || `s-${i}`}
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.05 }}
+                    transition={{
+                      duration: 0.4,
+                      ease: "easeOut",
+                      delay: i * 0.05,
+                    }}
                   >
-                    <SlideCard slide={slide} isActive={activeSlideIndex === slide.index} />
+                    <SlideCard
+                      slide={slide}
+                      isActive={activeSlideIndex === slide.index}
+                    />
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -339,7 +422,11 @@ export default function GeneratePreviewPage() {
           <div className="bg-card/90 border shadow-xl rounded-full flex flex-col p-1.5 gap-1.5 backdrop-blur-xl">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10 transition-colors">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10 transition-colors"
+                >
                   <Edit3 className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
@@ -348,7 +435,11 @@ export default function GeneratePreviewPage() {
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10 transition-colors">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10 transition-colors"
+                >
                   <Layout className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
@@ -357,7 +448,11 @@ export default function GeneratePreviewPage() {
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10 transition-colors">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10 transition-colors"
+                >
                   <ImageIcon className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
@@ -368,11 +463,20 @@ export default function GeneratePreviewPage() {
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full text-violet-500 hover:text-violet-600 hover:bg-violet-50 w-10 h-10 transition-colors shadow-inner">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-violet-500 hover:text-violet-600 hover:bg-violet-50 w-10 h-10 transition-colors shadow-inner"
+                >
                   <Sparkles className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="left" className="bg-violet-600 text-white border-violet-700">AI 智能润色</TooltipContent>
+              <TooltipContent
+                side="left"
+                className="bg-violet-600 text-white border-violet-700"
+              >
+                AI 智能润色
+              </TooltipContent>
             </Tooltip>
           </div>
         </motion.div>
@@ -382,7 +486,12 @@ export default function GeneratePreviewPage() {
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5, type: "spring", damping: 25 }}
+            transition={{
+              delay: 0.4,
+              duration: 0.5,
+              type: "spring",
+              damping: 25,
+            }}
             className="fixed bottom-0 left-0 w-full h-24 bg-background/85 backdrop-blur-md border-t z-40 flex items-center justify-center px-4"
           >
             <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide py-3 px-4 max-w-full">
@@ -401,10 +510,14 @@ export default function GeneratePreviewPage() {
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent pointer-events-none" />
 
-                    <span className={cn(
-                      "text-[10px] font-bold z-10 truncate absolute top-1.5 left-2 bg-background/60 backdrop-blur rounded px-1.5",
-                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                    )}>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold z-10 truncate absolute top-1.5 left-2 bg-background/60 backdrop-blur rounded px-1.5",
+                        isActive
+                          ? "text-primary"
+                          : "text-muted-foreground group-hover:text-foreground"
+                      )}
+                    >
                       {slide.index}
                     </span>
 
@@ -423,7 +536,6 @@ export default function GeneratePreviewPage() {
             </div>
           </motion.div>
         )}
-
       </div>
     </TooltipProvider>
   );

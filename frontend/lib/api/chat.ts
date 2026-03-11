@@ -1,4 +1,9 @@
-import { request, getApiUrl, generateIdempotencyKey, DEFAULT_CONTRACT_VERSION } from "./client";
+import {
+  request,
+  getApiUrl,
+  generateIdempotencyKey,
+  DEFAULT_CONTRACT_VERSION,
+} from "./client";
 import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
@@ -7,7 +12,8 @@ export type SourceReference = components["schemas"]["SourceReference"];
 export type GetMessagesResponse = components["schemas"]["GetMessagesResponse"];
 export type SendMessageRequest = components["schemas"]["SendMessageRequest"];
 export type SendMessageResponse = components["schemas"]["SendMessageResponse"];
-export type VoiceMessageResponse = components["schemas"]["VoiceMessageResponse"];
+export type VoiceMessageResponse =
+  components["schemas"]["VoiceMessageResponse"];
 
 export const chatApi = {
   async getMessages(params: {
@@ -22,9 +28,12 @@ export const chatApi = {
     if (params.page) queryParams.set("page", String(params.page));
     if (params.limit) queryParams.set("limit", String(params.limit));
 
-    return request<GetMessagesResponse>(`/chat/messages?${queryParams.toString()}`, {
-      method: "GET",
-    });
+    return request<GetMessagesResponse>(
+      `/chat/messages?${queryParams.toString()}`,
+      {
+        method: "GET",
+      }
+    );
   },
 
   async sendMessage(data: SendMessageRequest): Promise<SendMessageResponse> {
@@ -67,7 +76,11 @@ export const chatApi = {
         } else {
           try {
             const parsed = JSON.parse(xhr.responseText);
-            reject(new Error(parsed?.error?.message || parsed?.message || "语音消息发送失败"));
+            reject(
+              new Error(
+                parsed?.error?.message || parsed?.message || "语音消息发送失败"
+              )
+            );
           } catch {
             reject(new Error("语音消息发送失败"));
           }

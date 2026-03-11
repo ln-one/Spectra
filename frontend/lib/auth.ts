@@ -159,7 +159,10 @@ function toUser(userInfo: UserInfo): User {
     email: userInfo.email,
     username: userInfo.username,
     fullName: userInfo.fullName || (raw.full_name as string | undefined),
-    createdAt: userInfo.createdAt || (raw.created_at as string) || new Date().toISOString(),
+    createdAt:
+      userInfo.createdAt ||
+      (raw.created_at as string) ||
+      new Date().toISOString(),
   };
 }
 

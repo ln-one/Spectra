@@ -28,7 +28,6 @@ import { OutlineEditorPanel } from "./OutlineEditorPanel";
 
 const PAGE_PRESETS = [8, 12, 16, 20, 24];
 
-
 const OUTLINE_STYLES = [
   {
     id: "structured",
@@ -112,11 +111,13 @@ export function GenerationConfigPanel({
   const params = useParams();
   const projectId = params.id as string;
 
-  const { project, files, selectedFileIds, generationSession } = useProjectStore();
+  const { project, files, selectedFileIds, generationSession } =
+    useProjectStore();
 
   const [prompt, setPrompt] = useState("");
   const [pageCount, setPageCount] = useState<number>(12);
-  const [outlineStyle, setOutlineStyle] = useState<GenerationConfig["outlineStyle"]>("structured");
+  const [outlineStyle, setOutlineStyle] =
+    useState<GenerationConfig["outlineStyle"]>("structured");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
@@ -137,7 +138,9 @@ export function GenerationConfigPanel({
     if (!projectId) return;
     setLoadingSuggestions(true);
     try {
-      const readyFiles = files.filter((f) => f.status === "ready").map((f) => f.id);
+      const readyFiles = files
+        .filter((f) => f.status === "ready")
+        .map((f) => f.id);
       const filters =
         selectedFileIds.length > 0
           ? { file_ids: selectedFileIds }
@@ -163,7 +166,8 @@ export function GenerationConfigPanel({
       const mergedText = chunks.map((item) => item.content).join(" ");
       const keywords = extractKeywords(mergedText);
       const topic =
-        keywords.slice(0, 3).join(" / ") || (prompt.trim() ? prompt.trim().slice(0, 20) : "核心知识");
+        keywords.slice(0, 3).join(" / ") ||
+        (prompt.trim() ? prompt.trim().slice(0, 20) : "核心知识");
 
       const candidates = [
         `围绕「${seed}」，生成 ${pageCount} 页 ${defaultAspectRatio} 比例PPT大纲，采用“先问题后结论”的讲解节奏，重点覆盖：${topic}。`,
@@ -186,7 +190,15 @@ export function GenerationConfigPanel({
     } finally {
       setLoadingSuggestions(false);
     }
-  }, [projectId, files, selectedFileIds, prompt, project?.name, pageCount, defaultAspectRatio]);
+  }, [
+    projectId,
+    files,
+    selectedFileIds,
+    prompt,
+    project?.name,
+    pageCount,
+    defaultAspectRatio,
+  ]);
 
   useEffect(() => {
     void generateSuggestionBatch();
@@ -203,7 +215,8 @@ export function GenerationConfigPanel({
         outlineStyle,
       });
 
-      const sessionIdFromStore = useProjectStore.getState().generationSession?.session?.session_id;
+      const sessionIdFromStore =
+        useProjectStore.getState().generationSession?.session?.session_id;
       if (!sessionIdFromStore) {
         throw new Error("generation session was not created");
       }
@@ -214,7 +227,8 @@ export function GenerationConfigPanel({
       let outlineReady = false;
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const sessionResponse = await generateApi.getSession(sessionIdFromStore);
+        const sessionResponse =
+          await generateApi.getSession(sessionIdFromStore);
         const latestSession = sessionResponse?.data ?? null;
         const state = latestSession?.session?.state;
         const currentPages = latestSession?.outline?.nodes?.length || 0;
@@ -228,8 +242,14 @@ export function GenerationConfigPanel({
           outlineReady = true;
           break;
         }
-        if (state === "GENERATING_CONTENT" || state === "RENDERING" || state === "SUCCESS") {
-          router.push(`/projects/${projectId}/generate?session=${sessionIdFromStore}`);
+        if (
+          state === "GENERATING_CONTENT" ||
+          state === "RENDERING" ||
+          state === "SUCCESS"
+        ) {
+          router.push(
+            `/projects/${projectId}/generate?session=${sessionIdFromStore}`
+          );
           return;
         }
         if (state === "FAILED") {
@@ -254,7 +274,8 @@ export function GenerationConfigPanel({
       }
       setShowOutlineEditor(true);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "创建会话失败，请稍后重试";
+      const message =
+        error instanceof Error ? error.message : "创建会话失败，请稍后重试";
       toast({
         title: "生成流程启动失败",
         description: message,
@@ -286,7 +307,10 @@ export function GenerationConfigPanel({
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Wand2 className="w-4 h-4 text-zinc-700" />
                   生成前配置
-                  <Badge variant="secondary" className="ml-auto bg-zinc-100 text-zinc-700">
+                  <Badge
+                    variant="secondary"
+                    className="ml-auto bg-zinc-100 text-zinc-700"
+                  >
                     Step 1 / 2
                   </Badge>
                 </CardTitle>
@@ -294,8 +318,12 @@ export function GenerationConfigPanel({
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium text-zinc-600">提示词</label>
-                    <span className="text-[11px] text-zinc-400">{prompt.length}/1200</span>
+                    <label className="text-xs font-medium text-zinc-600">
+                      提示词
+                    </label>
+                    <span className="text-[11px] text-zinc-400">
+                      {prompt.length}/1200
+                    </span>
                   </div>
                   <Textarea
                     value={prompt}
@@ -322,7 +350,10 @@ export function GenerationConfigPanel({
                     disabled={loadingSuggestions}
                   >
                     <RefreshCw
-                      className={cn("w-3.5 h-3.5 mr-1", loadingSuggestions && "animate-spin")}
+                      className={cn(
+                        "w-3.5 h-3.5 mr-1",
+                        loadingSuggestions && "animate-spin"
+                      )}
                     />
                     换一批
                   </Button>
@@ -399,8 +430,12 @@ export function GenerationConfigPanel({
                             : "border-zinc-200 bg-zinc-50/70 hover:border-zinc-300"
                         )}
                       >
-                        <p className="text-xs font-medium text-zinc-800">{style.name}</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">{style.desc}</p>
+                        <p className="text-xs font-medium text-zinc-800">
+                          {style.name}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">
+                          {style.desc}
+                        </p>
                       </motion.button>
                     ))}
                   </div>

@@ -43,7 +43,9 @@ export function StudioPanel({
   onModeChange,
 }: StudioPanelProps) {
   const router = useRouter();
-  const [expandedSection, setExpandedSection] = useState<string | null>("tools");
+  const [expandedSection, setExpandedSection] = useState<string | null>(
+    "tools"
+  );
 
   // 工具列表
   const tools: ToolItem[] = [

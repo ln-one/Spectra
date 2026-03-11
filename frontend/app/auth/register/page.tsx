@@ -50,7 +50,12 @@ function RegisterForm() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await registerUser(data.email, data.password, data.username, data.fullName);
+      await registerUser(
+        data.email,
+        data.password,
+        data.username,
+        data.fullName
+      );
       toast({
         title: "注册成功",
         description: "正在跳转到项目页面...",

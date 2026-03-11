@@ -149,7 +149,9 @@ export function ProjectHeader() {
             <button className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 transition-colors">
               <Avatar className="w-7 h-7">
                 <AvatarFallback className="bg-zinc-200 text-zinc-600 text-xs font-medium">
-                  {user?.username?.[0]?.toUpperCase() ?? <User className="w-4 h-4" />}
+                  {user?.username?.[0]?.toUpperCase() ?? (
+                    <User className="w-4 h-4" />
+                  )}
                 </AvatarFallback>
               </Avatar>
             </button>
