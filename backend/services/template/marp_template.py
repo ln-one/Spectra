@@ -95,7 +95,11 @@ def _strip_existing_marp_frontmatter(markdown_content: str) -> str:
     content = (markdown_content or "").strip()
     # 清掉模型偶发泄漏的 marker，避免被渲染成独立首页。
     content = re.sub(
-        r"(?im)^\s*(?:=+\s*)?(PPT_CONTENT_START|PPT_CONTENT_END|LESSON_PLAN_START|LESSON_PLAN_END)(?:\s*=+)?\s*$",
+        (
+            r"(?im)^\s*(?:=+\s*)?"
+            r"(PPT_CONTENT_START|PPT_CONTENT_END|LESSON_PLAN_START|LESSON_PLAN_END)"
+            r"(?:\s*=+)?\s*$"
+        ),
         "",
         content,
     ).strip()

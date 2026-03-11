@@ -1,9 +1,8 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import (
     APIRouter,

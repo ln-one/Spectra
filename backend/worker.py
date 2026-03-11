@@ -68,9 +68,9 @@ async def _run_worker():
     # Connect global DB service for the worker process
     await global_db.connect()
     try:
-        # P2: recovery scan for stale tasks (already done in main, but let's keep it clean)
-        # main() handles it now, but we need the connection for the worker.work()
-        # Wait, worker.work() is blocking. We need to run it in a way that preserves the connection.
+        # main() now runs stale-task recovery before worker start.
+        # Keep DB connection logic near worker.work() initialization.
+        # worker.work() is blocking, so this helper stays as a placeholder.
         pass
     except Exception as e:
         logger.error(f"Worker startup connection error: {e}")

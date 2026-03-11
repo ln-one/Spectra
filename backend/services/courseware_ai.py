@@ -409,7 +409,10 @@ Constraints:
 
         if not ppt_content:
             logger.warning("PPT content is empty, using fallback")
-            ppt_content = f"# {title}\n\nCourseware is being prepared...\n\n---\n\n# Summary\n\nThank you"
+            ppt_content = (
+                f"# {title}\n\nCourseware is being prepared...\n\n---\n\n"
+                "# Summary\n\nThank you"
+            )
 
         if not lesson_plan:
             logger.warning("Lesson plan is empty, using fallback")
@@ -452,13 +455,21 @@ Constraints:
         if not content:
             return ""
         cleaned = re.sub(
-            r"(?im)^\s*(?:=+\s*)?(PPT_CONTENT_START|PPT_CONTENT_END|LESSON_PLAN_START|LESSON_PLAN_END)(?:\s*=+)?\s*$",
+            (
+                r"(?im)^\s*(?:=+\s*)?"
+                r"(PPT_CONTENT_START|PPT_CONTENT_END|LESSON_PLAN_START|LESSON_PLAN_END)"
+                r"(?:\s*=+)?\s*$"
+            ),
             "",
             content,
         )
         # Also remove stray inline marker tokens if model leaks them into text.
         cleaned = re.sub(
-            r"(?i)(?:=+\s*)?(PPT_CONTENT_START|PPT_CONTENT_END|LESSON_PLAN_START|LESSON_PLAN_END)(?:\s*=+)?",
+            (
+                r"(?i)(?:=+\s*)?"
+                r"(PPT_CONTENT_START|PPT_CONTENT_END|LESSON_PLAN_START|LESSON_PLAN_END)"
+                r"(?:\s*=+)?"
+            ),
             "",
             cleaned,
         )
@@ -582,25 +593,42 @@ Constraints:
             title=title,
             markdown_content=(
                 f"# {title}\n\nWelcome\n\n---\n\n"
-                f"# Learning Objectives\n\n- Understand core concepts\n- Master basic methods\n"
+                "# Learning Objectives\n\n"
+                "- Understand core concepts\n"
+                "- Master basic methods\n"
                 f"- Apply knowledge in practice\n\n---\n\n"
-                f"# Core Content\n\n## Key concept introduction\n\nContent...\n\n---\n\n"
+                "# Core Content\n\n"
+                "## Key concept introduction\n\n"
+                "Content...\n\n---\n\n"
                 f"# Practice\n\nHands-on activity\n\n---\n\n"
-                f"# Summary\n\n- Key takeaways\n- Homework\n- Next lesson preview\n"
+                "# Summary\n\n"
+                "- Key takeaways\n"
+                "- Homework\n"
+                "- Next lesson preview\n"
             ),
             lesson_plan_markdown=(
                 f"# Teaching Objectives\n\n"
                 f"- Knowledge: understand the basics of {title}\n"
                 f"- Skills: apply methods related to {title}\n"
                 f"- Attitude: build learning motivation\n\n"
-                f"# Key Points\n\n- Core concept understanding\n- Method application\n\n"
-                f"# Difficult Points\n\n- Deep understanding\n- Flexible application\n\n"
+                "# Key Points\n\n"
+                "- Core concept understanding\n"
+                "- Method application\n\n"
+                "# Difficult Points\n\n"
+                "- Deep understanding\n"
+                "- Flexible application\n\n"
                 f"# Teaching Process\n\n"
                 f"## Introduction (5 min)\n\nMotivate learners and set context.\n\n"
                 f"## Teaching (25 min)\n\nExplain core content.\n\n"
                 f"## Practice (10 min)\n\nStudents complete exercises.\n\n"
                 f"## Summary (5 min)\n\nReview and assign homework.\n\n"
-                f"# Board Plan\n\n```\n{title}\n├─ Concept\n├─ Method\n└─ Application\n```\n\n"
-                f"# Homework\n\n1. Review class content\n2. Complete exercises\n3. Preview next lesson\n"
+                f"# Board Plan\n\n```\n{title}\n"
+                "├─ Concept\n"
+                "├─ Method\n"
+                "└─ Application\n```\n\n"
+                "# Homework\n\n"
+                "1. Review class content\n"
+                "2. Complete exercises\n"
+                "3. Preview next lesson\n"
             ),
         )

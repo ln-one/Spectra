@@ -80,14 +80,16 @@ class PromptService:
         if rag_context:
             rag_section = (
                 "\nThe following references are retrieved from project materials. "
-                "Prioritize higher relevance references and cite source index when helpful:\n\n"
+                "Prioritize higher relevance references and cite source index "
+                "when helpful:\n\n"
                 f"{_format_rag_context(rag_context)}\n\n"
             )
 
         if outline_mode:
             if outline_slide_count and outline_slide_count > 0:
                 ppt_constraints = (
-                    f"1. Generate exactly {outline_slide_count} slides; no extra intro/summary slides.\n"
+                    f"1. Generate exactly {outline_slide_count} slides; "
+                    "no extra intro/summary slides.\n"
                     "2. Follow confirmed outline order strictly.\n"
                     "3. Every slide title must match corresponding outline title.\n"
                     "4. Do not include Marp frontmatter in PPT block.\n"
@@ -126,7 +128,8 @@ Output format:
 (Marp markdown slides)
 Rules:
 {ppt_constraints}
-Never include marker tokens (PPT_CONTENT_START/END, LESSON_PLAN_START/END) in slide body.
+  Never include marker tokens
+  (PPT_CONTENT_START/END, LESSON_PLAN_START/END) in slide body.
 ===PPT_CONTENT_END===
 
 ===LESSON_PLAN_START===
@@ -209,7 +212,8 @@ Requirements:
 Intent: {intent}
 User message: {user_message}
 
-Respond clearly and professionally in educational context, in Simplified Chinese by default."""
+Respond clearly and professionally in educational context,
+in Simplified Chinese by default."""
 
 
 prompt_service = PromptService()

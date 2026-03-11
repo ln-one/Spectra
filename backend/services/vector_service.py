@@ -58,7 +58,10 @@ class VectorService:
                     )
                 except Exception as exc:
                     logger.warning(
-                        "ChromaDB server unreachable, fallback to local PersistentClient: %s",
+                        (
+                            "ChromaDB server unreachable, "
+                            "fallback to local PersistentClient: %s"
+                        ),
                         exc,
                     )
                     self._client = chromadb.PersistentClient(path=self._persist_dir)
