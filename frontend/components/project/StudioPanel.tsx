@@ -392,6 +392,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                 pages: Number(config.pageCount) || 15,
                                 audience: "intermediate",
                                 system_prompt_tone: [
+                                  `[outline_style=${config.outlineStyle}]`,
                                   config.prompt,
                                   `【大纲风格】${styleToneMap[config.outlineStyle] || "逻辑清晰"}`,
                                   "【页面比例】16:9",
