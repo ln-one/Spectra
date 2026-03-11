@@ -5,23 +5,23 @@
 
 ## 1. 当前 MVP 已落地技术
 
-| 层级 | 当前实现（MVP） | 版本/形态 | 代码依据 |
-|---|---|---|---|
-| 前端框架 | Next.js + React + TypeScript | Next.js 15.5.10, React 18, TS 5.x | `frontend/package.json` |
-| 样式与组件 | Tailwind CSS + Radix + Shadcn 风格组件 | Tailwind 3.4.1 | `frontend/package.json`, `frontend/components/ui/` |
-| 前端状态管理 | Zustand（业务状态为主） | Zustand 5.x | `frontend/stores/*.ts` |
-| 前端表单校验 | React Hook Form + Zod | RHF 7.x, Zod 4.x | `frontend/app/auth/*`, `frontend/package.json` |
-| 前端请求层 | Fetch API 封装 | 自研 wrapper | `frontend/lib/api/client.ts` |
-| 动效 | Framer Motion（局部使用） | 12.x | `frontend/components/FileList.tsx`, `frontend/components/FileUploadDropzone.tsx` |
-| 后端框架 | FastAPI + Pydantic v2 + Uvicorn | FastAPI 0.129.0, Pydantic 2.12.5 | `backend/requirements.txt`, `backend/main.py` |
-| 数据库访问 | Prisma Client Python（async） | prisma 0.15.0 | `backend/prisma/schema.prisma`, `backend/services/database.py` |
-| 关系型数据库 | SQLite（当前默认） | 文件库 | `backend/prisma/schema.prisma`, `backend/.env.example` |
-| LLM 调用 | LiteLLM + DashScope(Qwen) | litellm 1.81.13 | `backend/services/ai.py`, `backend/requirements.txt` |
-| Embedding | DashScope text-embedding-v2 + 本地回退 | 1536 维默认 | `backend/services/embedding_service.py` |
-| 向量库 | ChromaDB（本地持久化） | embedded 模式 | `backend/services/vector_service.py` |
-| 文档解析 | pypdf / python-docx / python-pptx（轻量解析） | MVP 实装 | `backend/services/file_parser.py`, `backend/requirements.txt` |
-| 课件导出 | Marp CLI（PPTX）+ Pandoc（DOCX） | 外部 CLI 工具 | `backend/services/generation/marp_generator.py`, `backend/services/generation/pandoc_generator.py` |
-| 测试与质量 | pytest / Jest / ESLint / Prettier / Black / isort / flake8 | 已集成 | `backend/requirements-dev.txt`, `frontend/package.json`, `backend/pyproject.toml` |
+| 层级        | 当前实现（MVP）                                                  | 版本/形态                             | 代码依据                                                                                               |
+| --------- | ---------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 前端框架      | Next.js + React + TypeScript                               | Next.js 15.5.10, React 18, TS 5.x | `frontend/package.json`                                                                            |
+| 样式与组件     | Tailwind CSS + Radix + Shadcn 风格组件                         | Tailwind 3.4.1                    | `frontend/package.json`, `frontend/components/ui/`                                                 |
+| 前端状态管理    | Zustand（业务状态为主）                                            | Zustand 5.x                       | `frontend/stores/*.ts`                                                                             |
+| 前端表单校验    | React Hook Form + Zod                                      | RHF 7.x, Zod 4.x                  | `frontend/app/auth/*`, `frontend/package.json`                                                     |
+| 前端请求层     | Fetch API 封装                                               | 自研 wrapper                        | `frontend/lib/api/client.ts`                                                                       |
+| 动效        | Framer Motion（局部使用）                                        | 12.x                              | `frontend/components/FileList.tsx`, `frontend/components/FileUploadDropzone.tsx`                   |
+| 后端框架      | FastAPI + Pydantic v2 + Uvicorn                            | FastAPI 0.129.0, Pydantic 2.12.5  | `backend/requirements.txt`, `backend/main.py`                                                      |
+| 数据库访问     | Prisma Client Python（async）                                | prisma 0.15.0                     | `backend/prisma/schema.prisma`, `backend/services/database.py`                                     |
+| 关系型数据库    | SQLite（当前默认）                                               | 文件库                               | `backend/prisma/schema.prisma`, `backend/.env.example`                                             |
+| LLM 调用    | LiteLLM + DashScope(Qwen)                                  | litellm 1.81.13                   | `backend/services/ai.py`, `backend/requirements.txt`                                               |
+| Embedding | DashScope text-embedding-v2 + 本地回退                         | 1536 维默认                          | `backend/services/embedding_service.py`                                                            |
+| 向量库       | ChromaDB（本地持久化）                                            | embedded 模式                       | `backend/services/vector_service.py`                                                               |
+| 文档解析      | pypdf / python-docx / python-pptx（轻量解析）                    | MVP 实装                            | `backend/services/file_parser.py`, `backend/requirements.txt`                                      |
+| 课件导出      | Marp CLI（PPTX）+ Pandoc（DOCX）                               | 外部 CLI 工具                         | `backend/services/generation/marp_generator.py`, `backend/services/generation/pandoc_generator.py` |
+| 测试与质量     | pytest / Jest / ESLint / Prettier / Black / isort / flake8 | 已集成                               | `backend/requirements-dev.txt`, `frontend/package.json`, `backend/pyproject.toml`                  |
 
 ## 2. 规划与现状差异（必须明确）
 

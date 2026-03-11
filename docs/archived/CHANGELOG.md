@@ -82,7 +82,7 @@ npm run sync:openapi
 ### 相关文档
 
 - [使用指南](../OPENAPI_GUIDE.md)
-- [快速参考](./QUICK_REFERENCE.md)
+- [快速参考](QUICK_REFERENCE.md)
 - [后端工作流程](../../backend/OPENAPI_WORKFLOW.md)
 - [后端同步说明](../BACKEND_OPENAPI_SYNC.md)
 - [架构决策](../decisions/ADR-003-openapi-modularization.md)

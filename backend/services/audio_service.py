@@ -1,7 +1,7 @@
 """
 Audio Service — 语音识别能力封装（基于 Faster-Whisper）。
 
-对齐 D3_WHISPER_SPEC_V1.md 规范。
+对齐 docs/openapi 语音识别相关契约；历史规范见 docs/archived/D3_WHISPER_SPEC_V1.md。
 """
 
 import logging
