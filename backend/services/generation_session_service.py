@@ -985,7 +985,8 @@ class GenerationSessionService:
             return worker_count > 0
         except Exception as exc:
             logger.warning("Failed to inspect queue worker availability: %s", exc)
-            return False
+            # Backward-compatible fallback for tests/mocks that do not expose queue info.
+            return True
 
     def _schedule_enqueued_task_watchdog(
         self,

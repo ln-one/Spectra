@@ -51,25 +51,26 @@ class CoursewareAIMixin:
             template_style, STYLE_REQUIREMENTS["default"]
         )
 
-        prompt = f"""You are an expert instructional designer.
-Create a structured courseware outline based on the requirement below.
+        prompt = f"""你是资深学科教学设计师。
+请基于以下需求生成结构化课件大纲。
 {rag_hint}
-Teaching requirement: {user_requirements}
-Template style: {template_style} - {style_desc}
+参考内容请结合用户资料合理吸收。
+教学需求：{user_requirements}
+模板风格：{template_style} - {style_desc}
 
-Return JSON only:
+仅返回 JSON：
 {{
-  "title": "Courseware title",
+  "title": "课件标题",
   "sections": [
-    {{"title": "Section title", "key_points": ["Point A", "Point B"], "slide_count": 2}}
+    {{"title": "章节标题", "key_points": ["要点A", "要点B"], "slide_count": 2}}
   ],
-  "summary": "One-line summary"
+  "summary": "一句话总结"
 }}
 
-Constraints:
-1. 3-8 sections and cover full teaching flow (intro -> teaching -> practice -> summary).
-2. Each section has 2-5 key points.
-3. Total slides should usually be 10-20.
+约束：
+1. 章节数 3-8，完整覆盖教学流程（导入 -> 讲授 -> 练习 -> 总结）。
+2. 每章 2-5 个关键要点。
+3. 总页数通常控制在 10-20 页。
 """
         try:
             response = await self.generate(prompt=prompt, max_tokens=1500)
@@ -103,28 +104,28 @@ Constraints:
             title=user_requirements[:50],
             sections=[
                 OutlineSection(
-                    title="Introduction",
-                    key_points=["Topic introduction", "Learning motivation"],
+                    title="导入",
+                    key_points=["主题引入", "学习动机"],
                     slide_count=2,
                 ),
                 OutlineSection(
-                    title="Core Concepts",
-                    key_points=["Key concepts", "Worked examples"],
+                    title="核心概念",
+                    key_points=["关键概念", "示例讲解"],
                     slide_count=5,
                 ),
                 OutlineSection(
-                    title="Practice and Discussion",
-                    key_points=["In-class practice", "Group discussion"],
+                    title="练习与讨论",
+                    key_points=["课堂练习", "小组讨论"],
                     slide_count=3,
                 ),
                 OutlineSection(
-                    title="Summary",
-                    key_points=["Key takeaways", "Homework"],
+                    title="总结",
+                    key_points=["要点回顾", "作业布置"],
                     slide_count=2,
                 ),
             ],
             total_slides=14,
-            summary="Fallback teaching outline",
+            summary="基础教学大纲",
         )
 
     @staticmethod
@@ -417,8 +418,8 @@ Constraints:
         if not lesson_plan:
             logger.warning("Lesson plan is empty, using fallback")
             lesson_plan = (
-                f"# Teaching Objectives\n\n- Complete instruction for {title}\n"
-                f"# Teaching Process\n\n## Teaching Stage\n\nContent..."
+                f"# 教学目标\n\n- 完成《{title}》教学设计\n"
+                f"# 教学过程\n\n## 教学环节\n\n内容待补充"
             )
 
         return CoursewareContent(
@@ -570,7 +571,7 @@ Constraints:
     def _heuristic_split_sections(content: str) -> tuple[str, str]:
         """Heuristic split when explicit marker blocks are missing."""
         lesson_heading = re.search(
-            r"^\s*#\s*(教学目标|教案|Lesson Plan)\b.*$",
+            r"^\s*#\s*(????|??|Lesson Plan)\b.*$",
             content,
             re.MULTILINE | re.IGNORECASE,
         )
@@ -587,48 +588,52 @@ Constraints:
 
     def _get_fallback_courseware(self, user_requirements: str) -> CoursewareContent:
         """Fallback courseware content when AI generation fails."""
-        title = user_requirements[:50] if user_requirements else "Courseware"
+        title = user_requirements[:50] if user_requirements else "????"
 
         return CoursewareContent(
             title=title,
             markdown_content=(
-                f"# {title}\n\nWelcome\n\n---\n\n"
-                "# Learning Objectives\n\n"
-                "- Understand core concepts\n"
-                "- Master basic methods\n"
-                f"- Apply knowledge in practice\n\n---\n\n"
-                "# Core Content\n\n"
-                "## Key concept introduction\n\n"
-                "Content...\n\n---\n\n"
-                f"# Practice\n\nHands-on activity\n\n---\n\n"
-                "# Summary\n\n"
-                "- Key takeaways\n"
-                "- Homework\n"
-                "- Next lesson preview\n"
+                f"# {title}\n\n????\n\n---\n\n"
+                "# ????\n\n"
+                "- ??????\n"
+                "- ??????\n"
+                "- ??????\n\n---\n\n"
+                "# ????\n\n"
+                "## ??????\n\n"
+                "????????\n\n---\n\n"
+                "# ????\n\n????????\n\n---\n\n"
+                "# ????\n\n"
+                "- ????\n"
+                "- ????\n"
+                "- ????\n"
             ),
             lesson_plan_markdown=(
-                f"# Teaching Objectives\n\n"
-                f"- Knowledge: understand the basics of {title}\n"
-                f"- Skills: apply methods related to {title}\n"
-                f"- Attitude: build learning motivation\n\n"
-                "# Key Points\n\n"
-                "- Core concept understanding\n"
-                "- Method application\n\n"
-                "# Difficult Points\n\n"
-                "- Deep understanding\n"
-                "- Flexible application\n\n"
-                f"# Teaching Process\n\n"
-                f"## Introduction (5 min)\n\nMotivate learners and set context.\n\n"
-                f"## Teaching (25 min)\n\nExplain core content.\n\n"
-                f"## Practice (10 min)\n\nStudents complete exercises.\n\n"
-                f"## Summary (5 min)\n\nReview and assign homework.\n\n"
-                f"# Board Plan\n\n```\n{title}\n"
-                "├─ Concept\n"
-                "├─ Method\n"
-                "└─ Application\n```\n\n"
-                "# Homework\n\n"
-                "1. Review class content\n"
-                "2. Complete exercises\n"
-                "3. Preview next lesson\n"
+                f"# ????\n\n"
+                f"- ??????? {title} ?????\n"
+                f"- ?????????????????\n"
+                f"- ???????????????\n\n"
+                "# ????\n\n"
+                "- ??????\n"
+                "- ??????\n\n"
+                "# ????\n\n"
+                "- ?????????\n"
+                "- ?????\n\n"
+                "# ????\n\n"
+                "## ???5???\n\n"
+                "??????????\n\n"
+                "## ???25???\n\n"
+                "????????????\n\n"
+                "## ???10???\n\n"
+                "????????\n\n"
+                "## ???5???\n\n"
+                "??????????\n\n"
+                f"# ????\n\n```\n{title}\n"
+                "?? ????\n"
+                "?? ????\n"
+                "?? ????\n```\n\n"
+                "# ????\n\n"
+                "1. ??????\n"
+                "2. ??????\n"
+                "3. ?????\n"
             ),
         )
