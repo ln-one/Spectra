@@ -97,7 +97,9 @@ async def get_source_detail(
             if parsed and parsed.upload:
                 file_info = _serialize_upload(parsed.upload)
         except Exception as file_err:
-            logger.warning("Failed to load file info for chunk %s: %s", chunk_id, file_err)
+            logger.warning(
+                "Failed to load file info for chunk %s: %s", chunk_id, file_err
+            )
 
         payload = detail.model_dump()
         if file_info:

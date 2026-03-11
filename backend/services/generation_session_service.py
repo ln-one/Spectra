@@ -18,13 +18,13 @@ import uuid
 from typing import Optional
 
 from prisma import Prisma
+from services.ai import ai_service
 from services.state_transition_guard import (
     StateTransitionGuard,
     TransitionResult,
     state_transition_guard,
 )
 from services.task_recovery import TaskRecoveryService
-from services.ai import ai_service
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,9 @@ def _build_outline_requirements(
     return "\n".join(parts).strip() or "生成课件大纲"
 
 
-def _courseware_outline_to_document(outline, target_pages: Optional[int] = None) -> dict:
+def _courseware_outline_to_document(
+    outline, target_pages: Optional[int] = None
+) -> dict:
     """Map CoursewareOutline to OutlineDocument schema."""
     nodes = []
     order = 1
@@ -184,7 +186,9 @@ def _default_capabilities() -> list[dict]:
     speech_health = health_status.get("speech_recognition")
 
     default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
-    llm_provider = default_model.split("/", 1)[0] if "/" in default_model else default_model
+    llm_provider = (
+        default_model.split("/", 1)[0] if "/" in default_model else default_model
+    )
 
     return [
         {
@@ -338,9 +342,7 @@ class GenerationSessionService:
         try:
             project = await self._db.project.find_unique(where={"id": project_id})
             requirement_text = _build_outline_requirements(project, options)
-            template_style = (
-                (options or {}).get("template") or "default"
-            )
+            template_style = (options or {}).get("template") or "default"
             outline = await ai_service.generate_outline(
                 project_id=project_id,
                 user_requirements=requirement_text,

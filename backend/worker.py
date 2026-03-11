@@ -64,7 +64,7 @@ def signal_handler(signum, frame):
 async def _run_worker():
     """Establish DB connection and run worker."""
     from services.database import db_service as global_db
-    
+
     # Connect global DB service for the worker process
     await global_db.connect()
     try:
@@ -74,16 +74,18 @@ async def _run_worker():
         pass
     except Exception as e:
         logger.error(f"Worker startup connection error: {e}")
-    
+
     # We'll actually do the connection in main() before worker.work()
     # since worker.work() is blocking and synchronous.
+
 
 def main():
     """启动 RQ Worker"""
     global worker_instance
-    
+
     # Load environment variables
     from dotenv import load_dotenv
+
     base_dir = Path(__file__).resolve().parent
     load_dotenv(dotenv_path=base_dir / ".env", override=False)
 
@@ -141,12 +143,13 @@ def main():
     logger.info(
         f"Starting worker: {worker_instance.name} (class={worker_cls.__name__})"
     )
-    
-    # IMPORTANT: SimpleWorker runs jobs in the same loop. 
+
+    # IMPORTANT: SimpleWorker runs jobs in the same loop.
     # But many jobs are async. We need to ensure the global db_service is connected.
-    
+
     async def run_worker_loop():
         from services.database import db_service as global_db
+
         await global_db.connect()
         try:
             # SimpleWorker.work is synchronous and blocking.

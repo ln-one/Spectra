@@ -16,8 +16,8 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 from schemas.chat import Message, SendMessageRequest
 from services import db_service
@@ -249,7 +249,9 @@ async def send_message(
                     )
                     if selected_uploads:
                         names = [f"{u.filename}({u.status})" for u in selected_uploads]
-                        selected_files_hint = "已选资料（含解析状态）： " + "，".join(names)
+                        selected_files_hint = "已选资料（含解析状态）： " + "，".join(
+                            names
+                        )
                 except Exception as file_err:
                     logger.warning("Failed to load selected uploads: %s", file_err)
 
@@ -322,9 +324,7 @@ async def send_message(
             logger.error("AI generation failed in chat: %s", ai_exc, exc_info=True)
             if os.getenv("DEBUG", "false").lower() in {"1", "true", "yes", "on"}:
                 logger.warning("[DEV] AI error detail: %s", ai_exc)
-            assistant_content = (
-                "AI 服务暂时不可用，我已收到你的需求。你可以先补充更多细节，我会在恢复后继续帮你完善。"
-            )
+            assistant_content = "AI 服务暂时不可用，我已收到你的需求。你可以先补充更多细节，我会在恢复后继续帮你完善。"
 
         # 将 citations 存入 metadata
         assistant_content = _append_citation_markers(assistant_content, citations)

@@ -271,7 +271,9 @@ async def get_session_events(
     session_id: str,
     cursor: Optional[str] = Query(None, description="断线续传游标"),
     accept: Optional[str] = Query("text/event-stream"),
-    token: Optional[str] = Query(None, description="SSE token (when Authorization header is unavailable)"),
+    token: Optional[str] = Query(
+        None, description="SSE token (when Authorization header is unavailable)"
+    ),
     user_id: Optional[str] = Depends(get_current_user_optional),
 ):
     """获取生成事件流，支持 SSE（默认）或短轮询（accept=application/json）。"""

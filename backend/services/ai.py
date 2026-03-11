@@ -33,7 +33,9 @@ def _resolve_model_name(model: str) -> str:
 
     LiteLLM 要求 DashScope 模型使用 'dashscope/' 前缀。
     """
-    if model.startswith(("qwen-", "qwen2", "qwen3")) and not model.startswith("dashscope/"):
+    if model.startswith(("qwen-", "qwen2", "qwen3")) and not model.startswith(
+        "dashscope/"
+    ):
         return f"dashscope/{model}"
     # MiniMax provider (LiteLLM): normalize common aliases / casing
     minimax_aliases = {

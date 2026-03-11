@@ -1,5 +1,6 @@
-import chromadb
 import os
+
+import chromadb
 
 # Simulate .env settings
 os.environ["CHROMA_HOST"] = "localhost"
@@ -12,7 +13,7 @@ try:
     client = chromadb.PersistentClient(path=persist_dir)
     hb = client.heartbeat()
     print(f"Heartbeat: {hb}")
-    
+
     collection = client.get_or_create_collection(name="test_collection")
     print(f"Collection count: {collection.count()}")
     print("Success!")

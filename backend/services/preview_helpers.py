@@ -75,7 +75,9 @@ async def get_or_generate_content(task, project) -> dict:
                 outline_document = json.loads(latest_outline.outlineData)
                 outline_version = latest_outline.version
             except json.JSONDecodeError:
-                logger.warning("Failed to decode outlineData for session %s", session_id)
+                logger.warning(
+                    "Failed to decode outlineData for session %s", session_id
+                )
 
     courseware = await ai_service.generate_courseware_content(
         project_id=project.id,

@@ -1,7 +1,9 @@
-import chromadb
-import time
 import multiprocessing
 import os
+import time
+
+import chromadb
+
 
 def run_client(name):
     print(f"Process {name} starting...")
@@ -14,6 +16,7 @@ def run_client(name):
             time.sleep(1)
     except Exception as e:
         print(f"Process {name} failed: {e}")
+
 
 if __name__ == "__main__":
     if not os.path.exists("./chroma_data_test"):

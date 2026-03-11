@@ -554,6 +554,7 @@ Constraints:
             body = f"# {expected_title}\n\n- 内容待补充"
 
         return body.strip()
+
     @staticmethod
     def _heuristic_split_sections(content: str) -> tuple[str, str]:
         """Heuristic split when explicit marker blocks are missing."""
@@ -603,5 +604,3 @@ Constraints:
                 f"# Homework\n\n1. Review class content\n2. Complete exercises\n3. Preview next lesson\n"
             ),
         )
-
-

@@ -208,7 +208,9 @@ async def execute_generation_task(
                 },
             )
         except Exception as cache_err:
-            logger.warning("Failed to save preview cache for task %s: %s", task_id, cache_err)
+            logger.warning(
+                "Failed to save preview cache for task %s: %s", task_id, cache_err
+            )
 
         await db_service.update_generation_task_status(task_id, "processing", 30)
 

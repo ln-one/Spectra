@@ -30,9 +30,9 @@ router = APIRouter(prefix="/files", tags=["Files"])
 logger = logging.getLogger(__name__)
 
 _DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
-_SYNC_RAG_INDEXING = os.getenv(
-    "SYNC_RAG_INDEXING", "true" if _DEBUG_MODE else "false"
-).lower() == "true"
+_SYNC_RAG_INDEXING = (
+    os.getenv("SYNC_RAG_INDEXING", "true" if _DEBUG_MODE else "false").lower() == "true"
+)
 
 
 class UpdateFileIntentRequest(BaseModel):
