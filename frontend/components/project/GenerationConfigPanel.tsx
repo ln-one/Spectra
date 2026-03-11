@@ -15,6 +15,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { ragApi } from "@/lib/api/rag";
+import { generateApi } from "@/lib/api/generate";
 import { useProjectStore } from "@/stores/projectStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +97,11 @@ function extractKeywords(input: string): string[] {
     .filter((w) => w.length >= 2 && w.length <= 12)
     .slice(0, 8);
 }
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 export function GenerationConfigPanel({
   variant = "default",
@@ -187,6 +193,7 @@ export function GenerationConfigPanel({
 
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
+    setShowOutlineEditor(false);
     setIsCreatingSession(true);
     try {
       await onGenerate?.({
@@ -194,7 +201,40 @@ export function GenerationConfigPanel({
         pageCount,
         outlineStyle,
       });
+
+      const sessionIdFromStore = useProjectStore.getState().generationSession?.session?.session_id;
+      if (!sessionIdFromStore) {
+        throw new Error("generation session was not created");
+      }
+
+      // 暂不支持大纲流式返回：等待后端进入待确认状态后再进入编辑器
+      const maxAttempts = 60;
+      const intervalMs = 2000;
+      let outlineReady = false;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const sessionResponse = await generateApi.getSession(sessionIdFromStore);
+        const latestSession = sessionResponse?.data ?? null;
+        const state = latestSession?.session?.state;
+        useProjectStore.setState({ generationSession: latestSession });
+
+        if (state === "AWAITING_OUTLINE_CONFIRM") {
+          outlineReady = true;
+          break;
+        }
+        if (state === "FAILED") {
+          break;
+        }
+
+        await wait(intervalMs);
+      }
+
+      if (!outlineReady) {
+        return;
+      }
       setShowOutlineEditor(true);
+    } catch {
+      setShowOutlineEditor(false);
     } finally {
       setIsCreatingSession(false);
     }
@@ -206,8 +246,8 @@ export function GenerationConfigPanel({
   }, [projectId, router, sessionId]);
 
   return (
-    <div className="relative h-full">
-      <ScrollArea className="h-full pr-2">
+    <div className="relative h-full min-h-0">
+      <ScrollArea className="h-full min-h-0 pr-2">
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -385,6 +425,7 @@ export function GenerationConfigPanel({
             <OutlineEditorPanel
               variant="default"
               topic={prompt}
+              isBootstrapping={isCreatingSession && !sessionId}
               onBack={() => setShowOutlineEditor(false)}
               onConfirm={() => {}}
               onPreview={handleGoToPreview}

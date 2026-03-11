@@ -147,6 +147,7 @@ const slideCardVariants = {
 interface OutlineEditorPanelProps {
   variant?: "default" | "compact";
   topic?: string;
+  isBootstrapping?: boolean;
   initialOutline?: OutlineDocument;
   onBack?: () => void;
   onConfirm?: (outline: OutlineDocument, config: OutlineEditorConfig) => void;
@@ -156,6 +157,7 @@ interface OutlineEditorPanelProps {
 export function OutlineEditorPanel({
   variant = "default",
   topic = "课程大纲",
+  isBootstrapping = false,
   onBack,
   onConfirm,
   onPreview,
@@ -171,19 +173,37 @@ export function OutlineEditorPanel({
 
   const [slides, setSlides] = useState<SlideCard[]>([]);
 
-  // Initialize slides from generationSession once it's available
+  // Initialize slides from generationSession once it's available.
+  // Render progressively to provide a "drafting appears one by one" experience.
   useEffect(() => {
-    if (initialNodes.length > 0 && slides.length === 0) {
-      setSlides(initialNodes.map((node) => ({
-        id: node.id,
-        order: node.order,
-        title: node.title,
-        keyPoints: node.key_points || [],
-        estimatedMinutes: node.estimated_minutes,
-      })));
-      setActiveSlideId(initialNodes[0].id);
-    }
-  }, [initialNodes, slides.length]);
+    if (initialNodes.length === 0) return;
+
+    const mappedSlides = initialNodes.map((node) => ({
+      id: node.id,
+      order: node.order,
+      title: node.title,
+      keyPoints: node.key_points || [],
+      estimatedMinutes: node.estimated_minutes,
+    }));
+
+    setActiveSlideId(mappedSlides[0].id);
+    setSlides([]);
+
+    let cursor = 0;
+    const timer = setInterval(() => {
+      setSlides((prev) => {
+        if (cursor >= mappedSlides.length) return prev;
+        const next = [...prev, mappedSlides[cursor]];
+        cursor += 1;
+        return next;
+      });
+      if (cursor >= mappedSlides.length) {
+        clearInterval(timer);
+      }
+    }, 180);
+
+    return () => clearInterval(timer);
+  }, [initialNodes]);
 
   const [activeSlideId, setActiveSlideId] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -578,7 +598,7 @@ export function OutlineEditorPanel({
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="order-2 lg:order-1 flex-1 p-4 lg:p-8 overflow-y-auto min-h-0"
+          className="order-2 lg:order-1 flex-1 p-4 lg:p-8 h-full overflow-y-auto min-h-0"
         >
           <motion.div variants={itemVariants} className="flex items-center justify-between mb-6">
             <div>
@@ -734,6 +754,16 @@ export function OutlineEditorPanel({
           </AnimatePresence>
 
           <div className="space-y-3">
+            {isBootstrapping && slides.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-zinc-200 bg-white/90 p-4 text-sm text-zinc-600 flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                正在生成大纲，马上进入可编辑状态...
+              </motion.div>
+            )}
             <AnimatePresence mode="popLayout">
               {slides.map((slide, index) => (
                 <motion.div
@@ -856,7 +886,7 @@ export function OutlineEditorPanel({
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="order-1 lg:order-2 w-full lg:w-80 max-h-[42vh] lg:max-h-none overflow-y-auto border-b lg:border-b-0 lg:border-l border-zinc-200/70 bg-white/75 backdrop-blur-sm p-4 lg:p-6 flex flex-col gap-4 shrink-0"
+          className="order-1 lg:order-2 w-full lg:w-80 max-h-[42vh] lg:max-h-none lg:h-full lg:min-h-0 overflow-y-auto border-b lg:border-b-0 lg:border-l border-zinc-200/70 bg-white/75 backdrop-blur-sm p-4 lg:p-6 flex flex-col gap-4 shrink-0"
         >
           <motion.div variants={itemVariants} className="space-y-3">
             <h3 className="text-sm font-semibold text-zinc-700 flex items-center gap-2">
@@ -989,7 +1019,7 @@ export function OutlineEditorPanel({
             </div>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="mt-auto space-y-3 pt-4 border-t border-zinc-200/60">
+          <motion.div variants={itemVariants} className="space-y-3 pt-4 border-t border-zinc-200/60">
             <div className="flex items-center justify-between text-xs text-zinc-500">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />

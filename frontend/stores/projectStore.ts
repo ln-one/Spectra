@@ -59,6 +59,7 @@ interface ProjectState {
   expandedTool: ExpandedTool;
 
   isLoading: boolean;
+  isMessagesLoading: boolean;
   isSending: boolean;
   isUploading: boolean;
   error: ApiError | null;
@@ -95,6 +96,7 @@ const initialState = {
   layoutMode: "normal" as LayoutMode,
   expandedTool: null as ExpandedTool,
   isLoading: false,
+  isMessagesLoading: false,
   isSending: false,
   isUploading: false,
   error: null,
@@ -159,6 +161,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   },
 
   fetchMessages: async (projectId: string) => {
+    set({ isMessagesLoading: true });
     try {
       const response = await chatApi.getMessages({ project_id: projectId, limit: 50 });
       set({ messages: response?.data?.messages ?? [] });
@@ -280,6 +283,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         description: message,
         variant: "destructive",
       });
+    } finally {
+      set({ isMessagesLoading: false });
     }
   },
 

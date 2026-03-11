@@ -312,8 +312,9 @@ const SUGGESTIONS = [
 ];
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
-  const { messages, isSending, sendMessage, lastFailedInput, clearLastFailedInput } = useProjectStore();
+  const { messages, isMessagesLoading, isSending, sendMessage, lastFailedInput, clearLastFailedInput } = useProjectStore();
   const [input, setInput] = useState("");
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -327,6 +328,17 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
       clearLastFailedInput();
     }
   }, [lastFailedInput, clearLastFailedInput]);
+
+  useEffect(() => {
+    if (!isMessagesLoading) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setLoadingTimedOut(true), 1800);
+    return () => clearTimeout(timer);
+  }, [isMessagesLoading]);
+
+  const showLoading = isMessagesLoading && !loadingTimedOut && messages.length === 0;
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
@@ -351,10 +363,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
         <CardHeader
-          className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0 relative"
+          className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
           style={{ height: "52px" }}
         >
-          <div className="flex flex-col justify-center shrink-0 h-full">
+          <div className="flex flex-col justify-center shrink-0 h-full overflow-hidden">
             <CardTitle className="text-sm font-semibold leading-tight">Chat</CardTitle>
             <CardDescription className="text-xs text-zinc-500 leading-tight">
               AI 助手对话
@@ -374,64 +386,107 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
 
         <CardContent className="p-0 h-[calc(100%-132px)]">
           <ScrollArea className="h-full px-4">
-            {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center py-8">
+            <AnimatePresence mode="wait">
+              {showLoading ? (
                 <motion.div
-                  initial={{ scale: 0, rotate: -10 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="w-14 h-14 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 flex items-center justify-center mb-4 shadow-sm"
+                  key="chat-loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className="h-full py-4"
                 >
-                  <Sparkles className="w-7 h-7 text-zinc-500" />
+                  <div className="space-y-4">
+                    {[0, 1, 2, 3].map((idx) => (
+                      <div
+                        key={idx}
+                        className={cn(
+                          "flex gap-3",
+                          idx % 2 === 0 ? "justify-start" : "justify-end"
+                        )}
+                      >
+                        <div className="w-8 h-8 rounded-xl bg-zinc-100 animate-pulse shrink-0" />
+                        <div className="space-y-2 w-[75%]">
+                          <div className="h-3 rounded bg-zinc-100 animate-pulse" />
+                          <div className="h-3 w-4/5 rounded bg-zinc-100 animate-pulse" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
-                <motion.p
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="text-sm font-semibold text-zinc-700"
-                >
-                  开始对话
-                </motion.p>
-                <motion.p
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 }}
-                  className="text-xs text-zinc-500 mt-1 mb-4"
-                >
-                  向 AI 助手提问关于项目的问题
-                </motion.p>
+              ) : messages.length === 0 ? (
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
+                  key="chat-empty"
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="flex flex-wrap gap-2 justify-center max-w-[280px]"
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full flex flex-col items-center justify-center text-center py-8"
                 >
-                  {SUGGESTIONS.map((suggestion, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleSuggestionClick(suggestion)}
-                      className="px-3 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-full transition-colors"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+                  <motion.div
+                    initial={{ scale: 0, rotate: -10 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className="w-14 h-14 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 flex items-center justify-center mb-4 shadow-sm"
+                  >
+                    <Sparkles className="w-7 h-7 text-zinc-500" />
+                  </motion.div>
+                  <motion.p
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="text-sm font-semibold text-zinc-700"
+                  >
+                    开始对话
+                  </motion.p>
+                  <motion.p
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="text-xs text-zinc-500 mt-1 mb-4"
+                  >
+                    向 AI 助手提问关于项目的问题
+                  </motion.p>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex flex-wrap gap-2 justify-center max-w-[280px]"
+                  >
+                    {SUGGESTIONS.map((suggestion, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className="px-3 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-full transition-colors"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </motion.div>
                 </motion.div>
-              </div>
-            ) : (
-              <div className="space-y-4 py-4">
-                <AnimatePresence mode="popLayout">
-                  {messages.map((message, index) => (
-                    <MessageBubble
-                      key={message.id}
-                      message={message}
-                      index={index}
-                      projectId={projectId}
-                    />
-                  ))}
-                </AnimatePresence>
-                <div ref={messagesEndRef} />
-              </div>
-            )}
+              ) : (
+                <motion.div
+                  key="chat-messages"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4 py-4"
+                >
+                  <AnimatePresence mode="popLayout">
+                    {messages.map((message, index) => (
+                      <MessageBubble
+                        key={message.id}
+                        message={message}
+                        index={index}
+                        projectId={projectId}
+                      />
+                    ))}
+                  </AnimatePresence>
+                  <div ref={messagesEndRef} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </ScrollArea>
         </CardContent>
 
@@ -472,3 +527,4 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     </div>
   );
 }
+
