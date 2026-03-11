@@ -110,6 +110,12 @@ const TOOL_COLORS: Record<
   },
 };
 
+const ICON_LAYOUT_TRANSITION = {
+  type: "tween" as const,
+  duration: 0.2,
+  ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+};
+
 interface StudioPanelProps {
   onToolClick?: (tool: GenerationTool) => void;
 }
@@ -225,29 +231,28 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           </AnimatePresence>
 
           {isExpanded && expandedTool && (
-            <motion.div
-              layoutId={`icon-${expandedTool}`}
-              className={cn(
-                "absolute left-1/2 -translate-x-1/2 z-50",
-                "rounded-xl flex items-center justify-center",
-                "backdrop-blur-md border border-white/40"
-              )}
-              style={{
-                top: "8px",
-                width: 36,
-                height: 36,
-                background: `linear-gradient(135deg, ${currentColor.glow}, transparent)`,
-                boxShadow: `0 4px 12px ${currentColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
-              }}
-              initial={{ scale: 1 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            >
-              <CurrentIcon
-                className="w-4.5 h-4.5"
-                style={{ color: currentColor.primary }}
-              />
-            </motion.div>
+            <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center">
+              <motion.div
+                layoutId={`icon-${expandedTool}`}
+                layout="position"
+                className={cn(
+                  "rounded-xl flex items-center justify-center",
+                  "backdrop-blur-md border border-white/40 transform-gpu will-change-transform [backface-visibility:hidden]"
+                )}
+                style={{
+                  width: 36,
+                  height: 36,
+                  background: `linear-gradient(135deg, ${currentColor.glow}, transparent)`,
+                  boxShadow: `0 4px 12px ${currentColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                }}
+                transition={{ layout: ICON_LAYOUT_TRANSITION }}
+              >
+                <CurrentIcon
+                  className="w-4.5 h-4.5"
+                  style={{ color: currentColor.primary }}
+                />
+              </motion.div>
+            </div>
           )}
         </CardHeader>
 
@@ -315,9 +320,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         >
                           <motion.div
                             layoutId={`icon-${tool.id}`}
+                            layout="position"
                             className={cn(
                               "rounded-xl flex items-center justify-center mb-1.5",
-                              "backdrop-blur-md border border-white/40"
+                              "backdrop-blur-md border border-white/40 transform-gpu will-change-transform [backface-visibility:hidden]"
                             )}
                             style={{
                               width: 36,
@@ -325,11 +331,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               background: `linear-gradient(135deg, ${color.glow}, transparent)`,
                               boxShadow: `0 4px 12px ${color.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
                             }}
-                            transition={{
-                              type: "spring",
-                              stiffness: 400,
-                              damping: 25,
-                            }}
+                            transition={{ layout: ICON_LAYOUT_TRANSITION }}
                           >
                             <Icon
                               className="w-4.5 h-4.5"

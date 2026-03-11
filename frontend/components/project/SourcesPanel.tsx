@@ -17,8 +17,6 @@ import {
   Archive,
   Code,
   FileSpreadsheet,
-  ChevronDown,
-  ChevronRight,
   Sparkles,
 } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
@@ -35,6 +33,9 @@ import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/types/api";
 
 type UploadedFile = components["schemas"]["UploadedFile"];
+const COMPACT_MODE_WIDTH = 140;
+const HEADER_COMPACT_HYSTERESIS = 18;
+const HEADER_FORCE_NORMAL_WIDTH = 260;
 
 const FILE_TYPE_CONFIG: Record<
   string,
@@ -139,6 +140,20 @@ function getFileTypeFromExtension(filename: string): string {
   return "other";
 }
 
+function getFileStatusText(file: UploadedFile): string {
+  if (
+    file.status === "ready" &&
+    file.parse_result?.indexed_count !== undefined
+  ) {
+    return `\u5df2\u7d22\u5f15 ${file.parse_result.indexed_count} \u6bb5`;
+  }
+  if (file.status === "ready") return "\u5df2\u5b8c\u6210\u89e3\u6790";
+  if (file.status === "parsing") return "\u89e3\u6790\u4e2d";
+  if (file.status === "uploading") return "\u4e0a\u4f20\u4e2d";
+  if (file.parse_error) return `\u5931\u8d25\uff1a${file.parse_error}`;
+  return "\u89e3\u6790\u5931\u8d25";
+}
+
 interface SourcesPanelProps {
   projectId: string;
 }
@@ -152,7 +167,7 @@ function FileItem({
   isFocused,
   focusDetail,
   isExpanded,
-  onToggleExpand,
+  onCollapse,
 }: {
   file: UploadedFile;
   isSelected: boolean;
@@ -170,7 +185,7 @@ function FileItem({
     } | null;
   } | null;
   isExpanded: boolean;
-  onToggleExpand: () => void;
+  onCollapse: () => void;
 }) {
   const fileType = getFileTypeFromExtension(file.filename);
   const config = FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
@@ -184,7 +199,10 @@ function FileItem({
         initial={{ opacity: 0, y: 8, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -8, scale: 0.96 }}
-        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        transition={{
+          layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+          duration: 0.12,
+        }}
         onClick={onToggle}
         className={cn(
           "group relative flex items-center justify-center p-2.5 rounded-xl cursor-pointer transition-all duration-200 overflow-visible",
@@ -223,7 +241,10 @@ function FileItem({
       initial={{ opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.96 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      transition={{
+        layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+        duration: 0.12,
+      }}
       onClick={onToggle}
       className={cn(
         "group relative grid grid-cols-[32px_1fr_auto] items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all duration-200 w-full max-w-full overflow-visible",
@@ -259,19 +280,24 @@ function FileItem({
           {file.filename}
         </p>
 
+        {isExpanded && (
+          <div className="mt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCollapse();
+              }}
+              className="h-5 px-2 text-[10px] rounded-md bg-zinc-50 hover:bg-zinc-100 text-zinc-500"
+            >
+              {"\u6536\u8d77"}
+            </Button>
+          </div>
+        )}
+
         <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
-          {file.status === "ready" &&
-          file.parse_result?.indexed_count !== undefined
-            ? `已索引 ${file.parse_result.indexed_count} 段`
-            : file.status === "ready"
-              ? "已完成解析"
-              : file.status === "parsing"
-                ? "解析中"
-                : file.status === "uploading"
-                  ? "上传中"
-                  : file.parse_error
-                    ? `失败：${file.parse_error}`
-                    : "解析失败"}
+          {getFileStatusText(file)}
         </p>
 
         {file.status === "parsing" && file.parse_progress !== undefined && (
@@ -296,22 +322,6 @@ function FileItem({
             statusConfig.pulse && "animate-pulse"
           )}
         />
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleExpand();
-          }}
-          className="w-6 h-6 rounded-md bg-zinc-50 hover:bg-zinc-100 text-zinc-500 transition-colors shrink-0"
-        >
-          {isExpanded ? (
-            <ChevronDown className="w-3 h-3" />
-          ) : (
-            <ChevronRight className="w-3 h-3" />
-          )}
-        </Button>
 
         <Button
           variant="ghost"
@@ -344,26 +354,15 @@ function FileItem({
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ type: "spring", stiffness: 260, damping: 24 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="col-span-3 mt-2 rounded-xl border border-zinc-100 bg-zinc-50 p-2.5 text-[11px] text-zinc-700 leading-relaxed shadow-inner"
           >
             <div className="flex items-center gap-2 text-[10px] text-zinc-500">
               <Sparkles className="w-3 h-3" />
-              <span>文件解析摘要</span>
+              <span>{"\u6587\u4ef6\u89e3\u6790\u6458\u8981"}</span>
             </div>
             <div className="mt-1 text-zinc-700">
-              {file.status === "ready" &&
-              file.parse_result?.indexed_count !== undefined
-                ? `已索引 ${file.parse_result.indexed_count} 段`
-                : file.status === "ready"
-                  ? "已完成解析"
-                  : file.status === "parsing"
-                    ? "解析中"
-                    : file.status === "uploading"
-                      ? "上传中"
-                      : file.parse_error
-                        ? `失败：${file.parse_error}`
-                        : "解析失败"}
+              {getFileStatusText(file)}
             </div>
           </motion.div>
         )}
@@ -376,13 +375,13 @@ function FileItem({
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ type: "spring", stiffness: 260, damping: 24 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
             className="col-span-3 mt-2 rounded-xl border border-zinc-100 bg-zinc-50 p-2.5 text-[11px] text-zinc-700 leading-relaxed shadow-inner"
           >
             <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
-              <span>引用片段</span>
+              <span>{"\u5f15\u7528\u7247\u6bb5"}</span>
               {focusDetail.source?.page_number ? (
-                <span>页码 P{focusDetail.source.page_number}</span>
+                <span>{"\u9875\u7801 P"}{focusDetail.source.page_number}</span>
               ) : null}
             </div>
             <div className="whitespace-pre-wrap text-zinc-800">
@@ -392,12 +391,10 @@ function FileItem({
             focusDetail.context?.next_chunk ? (
               <div className="mt-2 border-t border-zinc-200 pt-2 text-[10px] text-zinc-500">
                 {focusDetail.context?.previous_chunk ? (
-                  <div className="mb-1">
-                    上文：{focusDetail.context.previous_chunk}
-                  </div>
+                  <div className="mb-1">{"\u4e0a\u6587\uff1a"}{focusDetail.context.previous_chunk}</div>
                 ) : null}
                 {focusDetail.context?.next_chunk ? (
-                  <div>下文：{focusDetail.context.next_chunk}</div>
+                  <div>{"\u4e0b\u6587\uff1a"}{focusDetail.context.next_chunk}</div>
                 ) : null}
               </div>
             ) : null}
@@ -421,18 +418,53 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
   } = useProjectStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const headerInfoRef = useRef<HTMLDivElement>(null);
+  const uploadButtonRef = useRef<HTMLButtonElement>(null);
   const fileRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
-  const [focusView, setFocusView] = useState<"current" | "prev" | "next">(
-    "current"
-  );
   const [isCompact, setIsCompact] = useState(false);
+  const [isHeaderTight, setIsHeaderTight] = useState(false);
 
   useEffect(() => {
     const checkWidth = () => {
       if (containerRef.current) {
         const width = containerRef.current.offsetWidth;
-        setIsCompact(width < 140);
+        const nextCompact = width < COMPACT_MODE_WIDTH;
+        setIsCompact(nextCompact);
+
+        if (nextCompact) {
+          setIsHeaderTight(true);
+          return;
+        }
+
+        if (width >= HEADER_FORCE_NORMAL_WIDTH) {
+          setIsHeaderTight(false);
+          return;
+        }
+
+        if (headerInfoRef.current && uploadButtonRef.current) {
+          const horizontalPadding = 32; // px-4 on both sides
+          const gap = 8;
+          const measuredRequiredWidth =
+            headerInfoRef.current.scrollWidth +
+            uploadButtonRef.current.offsetWidth +
+            horizontalPadding +
+            gap;
+
+          setIsHeaderTight((prev) => {
+            const enterCompactThreshold = measuredRequiredWidth;
+            const exitCompactThreshold =
+              measuredRequiredWidth + HEADER_COMPACT_HYSTERESIS;
+
+            if (prev) {
+              return width < exitCompactThreshold;
+            }
+
+            return width < enterCompactThreshold;
+          });
+        } else {
+          setIsHeaderTight(false);
+        }
       }
     };
 
@@ -448,10 +480,9 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
       window.removeEventListener("resize", checkWidth);
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [files.length, selectedFileIds.length, isUploading]);
 
   const focusedFileId = activeSourceDetail?.file_info?.id;
-  const focusedExpanded = focusedFileId ? !!expandedIds[focusedFileId] : false;
   const focusPayload = useMemo(() => {
     if (!activeSourceDetail) return null;
     return {
@@ -469,18 +500,24 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
         block: "center",
       });
     }
-  }, [focusedFileId]);
+  }, [focusedFileId, activeSourceDetail?.chunk_id]);
 
   useEffect(() => {
-    if (focusedFileId) {
-      setExpandedIds((prev) => ({ ...prev, [focusedFileId]: true }));
-      setFocusView("current");
+    const targetId = activeSourceDetail?.file_info?.id;
+    if (targetId) {
+      setExpandedIds((prev) => ({ ...prev, [targetId]: true }));
     }
-  }, [focusedFileId]);
+  }, [activeSourceDetail?.file_info?.id, activeSourceDetail?.chunk_id]);
 
-  const toggleExpand = useCallback((fileId: string) => {
-    setExpandedIds((prev) => ({ ...prev, [fileId]: !prev[fileId] }));
-  }, []);
+  const collapseFile = useCallback(
+    (fileId: string) => {
+      setExpandedIds((prev) => ({ ...prev, [fileId]: false }));
+      if (focusedFileId === fileId) {
+        clearActiveSource();
+      }
+    },
+    [focusedFileId, clearActiveSource]
+  );
 
   const handleFileSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -506,6 +543,8 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
     [projectId, deleteFile]
   );
 
+  const isHeaderCompact = isCompact || isHeaderTight;
+
   return (
     <div
       ref={containerRef}
@@ -517,15 +556,20 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
           className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
           style={{ height: "52px" }}
         >
-          <div className="flex flex-col justify-center shrink-0">
+          <div
+            ref={headerInfoRef}
+            className="flex flex-col justify-center min-w-0 flex-1"
+          >
             <CardTitle className="text-sm font-semibold leading-tight">
-              Sources
+              {isHeaderCompact ? "S" : "Sources"}
             </CardTitle>
-            <CardDescription className="text-xs text-zinc-500 leading-tight">
-              {files.length} 个文件 · {selectedFileIds.length} 已选
+            <CardDescription className="text-xs text-zinc-500 leading-tight truncate">
+              {isHeaderCompact
+                ? `${files.length}/${selectedFileIds.length}`
+                : `${files.length} \u4e2a\u6587\u4ef6 \u00b7 ${selectedFileIds.length} \u5df2\u9009`}
             </CardDescription>
           </div>
-          <label className="relative shrink-0">
+          <label className="relative shrink-0 ml-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -536,10 +580,13 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
               className="hidden"
             />
             <Button
+              ref={uploadButtonRef}
               size="sm"
               disabled={isUploading}
+              aria-label={isUploading ? "\u4e0a\u4f20\u4e2d" : "\u4e0a\u4f20"}
               className={cn(
                 "gap-1.5 rounded-full text-[11px] h-7 transition-all",
+                isHeaderCompact && "w-7 px-0 justify-center",
                 isUploading
                   ? "bg-zinc-100 text-zinc-400"
                   : "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
@@ -551,7 +598,7 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
               ) : (
                 <Upload className="w-3 h-3" />
               )}
-              {isUploading ? "上传中" : "上传"}
+              {!isHeaderCompact && (isUploading ? "\u4e0a\u4f20\u4e2d" : "\u4e0a\u4f20")}
             </Button>
           </label>
         </CardHeader>
@@ -559,94 +606,13 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
         <CardContent className="p-0 h-[calc(100%-52px)] overflow-hidden">
           <ScrollArea className="h-full w-full">
             <div className="min-h-full px-3 py-3 w-full max-w-full overflow-hidden">
-              {activeSourceDetail &&
-              activeSourceDetail.file_info &&
-              focusedExpanded ? (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 26 }}
-                  className="mb-3 rounded-2xl border border-zinc-200 bg-white shadow-md p-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-semibold text-zinc-800">
-                        {activeSourceDetail.file_info.filename}
-                      </p>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">
-                        {activeSourceDetail.source?.page_number
-                          ? `页码 P${activeSourceDetail.source.page_number}`
-                          : "未提供页码"}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-[10px] h-6 px-2"
-                      onClick={clearActiveSource}
-                    >
-                      返回列表
-                    </Button>
-                  </div>
-                  <div className="mt-2 rounded-xl bg-zinc-50 border border-zinc-100 p-2 text-[11px] text-zinc-800 whitespace-pre-wrap leading-relaxed">
-                    {focusView === "current"
-                      ? activeSourceDetail.content
-                      : focusView === "prev"
-                        ? activeSourceDetail.context?.previous_chunk ||
-                          "暂无上文"
-                        : activeSourceDetail.context?.next_chunk || "暂无下文"}
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 text-[10px]">
-                    <Button
-                      variant={focusView === "prev" ? "default" : "outline"}
-                      size="sm"
-                      className="h-6 px-2 text-[10px]"
-                      onClick={() => setFocusView("prev")}
-                    >
-                      上文
-                    </Button>
-                    <Button
-                      variant={focusView === "current" ? "default" : "outline"}
-                      size="sm"
-                      className="h-6 px-2 text-[10px]"
-                      onClick={() => setFocusView("current")}
-                    >
-                      当前
-                    </Button>
-                    <Button
-                      variant={focusView === "next" ? "default" : "outline"}
-                      size="sm"
-                      className="h-6 px-2 text-[10px]"
-                      onClick={() => setFocusView("next")}
-                    >
-                      下文
-                    </Button>
-                  </div>
-                  {activeSourceDetail.context?.previous_chunk ||
-                  activeSourceDetail.context?.next_chunk ? (
-                    <div className="mt-2 text-[10px] text-zinc-500 border-t border-zinc-200 pt-2">
-                      {activeSourceDetail.context?.previous_chunk ? (
-                        <div className="mb-1">
-                          上文：{activeSourceDetail.context.previous_chunk}
-                        </div>
-                      ) : null}
-                      {activeSourceDetail.context?.next_chunk ? (
-                        <div>下文：{activeSourceDetail.context.next_chunk}</div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </motion.div>
-              ) : null}
               {files.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center py-16">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
                     <File className="w-7 h-7 text-zinc-300" />
                   </div>
-                  <p className="text-sm font-medium text-zinc-700">暂无文件</p>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    上传文件以开始使用
-                  </p>
+                  <p className="text-sm font-medium text-zinc-700">{"\u6682\u65e0\u6587\u4ef6"}</p>
+                  <p className="text-xs text-zinc-400 mt-1">{"\u4e0a\u4f20\u6587\u4ef6\u4ee5\u5f00\u59cb\u4f7f\u7528"}</p>
                 </div>
               ) : (
                 <div
@@ -674,7 +640,7 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                             focusedFileId === file.id ? focusPayload : null
                           }
                           isExpanded={!!expandedIds[file.id]}
-                          onToggleExpand={() => toggleExpand(file.id)}
+                          onCollapse={() => collapseFile(file.id)}
                         />
                       </div>
                     ))}

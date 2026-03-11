@@ -23,6 +23,7 @@ const springConfig = {
 
 const PAGE_GAP = 24;
 const PANEL_GAP = 12;
+const MIN_RESIZABLE_PANEL_WIDTH = 96;
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -42,10 +43,19 @@ export default function ProjectDetailPage() {
 
   const [studioWidth, setStudioWidth] = useState(25);
   const [chatWidth, setChatWidth] = useState(50);
+  const [expandedStudioWidth, setExpandedStudioWidth] = useState(70);
+  const [expandedChatHeight, setExpandedChatHeight] = useState(50);
 
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
-  const startWidthsRef = useRef({ studio: 0, chat: 0 });
+  const startYRef = useRef(0);
+  const panelAreaRef = useRef<HTMLDivElement | null>(null);
+  const startSizesRef = useRef({
+    studio: 0,
+    chat: 0,
+    expandedStudio: 0,
+    expandedChatHeight: 0,
+  });
 
   const isExpanded = layoutMode === "expanded";
 
@@ -75,44 +85,94 @@ export default function ProjectDetailPage() {
   ]);
 
   const handleToolClick = async (_tool: GenerationTool) => {
-    // 会话创建应仅发生在配置面板点击“开始生成”时，避免重复历史记录
+    // 会话创建仅在配置面板点击“开始生成”时触发，避免重复创建。
     return;
   };
 
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent, handle: "studio-chat" | "chat-sources") => {
+    (
+      e: React.MouseEvent,
+      handle:
+        | "studio-chat"
+        | "chat-sources"
+        | "expanded-studio-right"
+        | "expanded-chat-sources"
+    ) => {
       e.preventDefault();
       isDraggingRef.current = true;
       startXRef.current = e.clientX;
-      startWidthsRef.current = {
+      startYRef.current = e.clientY;
+      startSizesRef.current = {
         studio: studioWidth,
         chat: chatWidth,
+        expandedStudio: expandedStudioWidth,
+        expandedChatHeight: expandedChatHeight,
       };
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
         if (!isDraggingRef.current) return;
 
         const deltaX = moveEvent.clientX - startXRef.current;
-        const containerWidth = window.innerWidth - PAGE_GAP * 2;
+        const deltaY = moveEvent.clientY - startYRef.current;
+        const containerWidth =
+          panelAreaRef.current?.clientWidth ?? window.innerWidth - PAGE_GAP * 2;
+        const containerHeight =
+          panelAreaRef.current?.clientHeight ??
+          window.innerHeight - PAGE_GAP * 2;
         const deltaPercent = (deltaX / containerWidth) * 100;
+        const deltaYPercent = (deltaY / containerHeight) * 100;
 
         if (handle === "studio-chat") {
           const newStudio = Math.max(
             15,
-            Math.min(40, startWidthsRef.current.studio + deltaPercent)
+            Math.min(40, startSizesRef.current.studio + deltaPercent)
           );
           const newChat = Math.max(
             30,
-            Math.min(60, startWidthsRef.current.chat - deltaPercent)
+            Math.min(60, startSizesRef.current.chat - deltaPercent)
           );
           setStudioWidth(newStudio);
           setChatWidth(newChat);
-        } else {
+        } else if (handle === "chat-sources") {
+          const minSourcesPercent =
+            ((MIN_RESIZABLE_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) /
+              containerWidth) *
+            100;
+          const maxChatBySources = Math.min(
+            75,
+            100 - startSizesRef.current.studio - minSourcesPercent
+          );
           const newChat = Math.max(
             30,
-            Math.min(60, startWidthsRef.current.chat + deltaPercent)
+            Math.min(
+              Math.max(30, maxChatBySources),
+              startSizesRef.current.chat + deltaPercent
+            )
           );
           setChatWidth(newChat);
+        } else if (handle === "expanded-studio-right") {
+          const maxExpandedStudioByWidth =
+            100 -
+            ((MIN_RESIZABLE_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) /
+              containerWidth) *
+              100;
+          const newExpandedStudio = Math.max(
+            45,
+            Math.min(
+              Math.max(45, Math.min(92, maxExpandedStudioByWidth)),
+              startSizesRef.current.expandedStudio + deltaPercent
+            )
+          );
+          setExpandedStudioWidth(newExpandedStudio);
+        } else {
+          const newExpandedChatHeight = Math.max(
+            30,
+            Math.min(
+              70,
+              startSizesRef.current.expandedChatHeight + deltaYPercent
+            )
+          );
+          setExpandedChatHeight(newExpandedChatHeight);
         }
       };
 
@@ -125,7 +185,7 @@ export default function ProjectDetailPage() {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [studioWidth, chatWidth]
+    [studioWidth, chatWidth, expandedStudioWidth, expandedChatHeight]
   );
 
   if (isLoading) {
@@ -175,7 +235,6 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const expandedStudioWidth = 70;
   const sourcesWidth = 100 - studioWidth - chatWidth;
 
   return (
@@ -193,6 +252,7 @@ export default function ProjectDetailPage() {
 
       <div className="flex-1 min-h-0 relative" style={{ padding: PAGE_GAP }}>
         <motion.div
+          ref={panelAreaRef}
           className="absolute inset-0"
           style={{ padding: PAGE_GAP }}
           initial={false}
@@ -214,22 +274,27 @@ export default function ProjectDetailPage() {
             <StudioPanel onToolClick={handleToolClick} />
           </motion.div>
 
-          {!isExpanded && (
-            <motion.div
-              className="absolute cursor-col-resize z-10"
-              style={{
-                top: PAGE_GAP,
-                height: `calc(100% - ${PAGE_GAP * 2}px)`,
-              }}
-              initial={false}
-              animate={{
-                left: `calc(${studioWidth}% + ${PANEL_GAP / 2 - PANEL_GAP}px)`,
-                width: PANEL_GAP,
-              }}
-              transition={springConfig}
-              onMouseDown={(e) => handleMouseDown(e, "studio-chat")}
-            />
-          )}
+          <motion.div
+            className="absolute cursor-col-resize z-10"
+            style={{
+              top: PAGE_GAP,
+              height: `calc(100% - ${PAGE_GAP * 2}px)`,
+            }}
+            initial={false}
+            animate={{
+              left: isExpanded
+                ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2 - PANEL_GAP}px)`
+                : `calc(${studioWidth}% + ${PANEL_GAP / 2 - PANEL_GAP}px)`,
+              width: PANEL_GAP,
+            }}
+            transition={springConfig}
+            onMouseDown={(e) =>
+              handleMouseDown(
+                e,
+                isExpanded ? "expanded-studio-right" : "studio-chat"
+              )
+            }
+          />
 
           <motion.div
             layout
@@ -244,7 +309,7 @@ export default function ProjectDetailPage() {
                 ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(${chatWidth}% - ${PANEL_GAP}px)`,
               height: isExpanded
-                ? `calc(50% - ${PAGE_GAP + PANEL_GAP / 2}px)`
+                ? `calc(${expandedChatHeight}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(100% - ${PAGE_GAP * 2}px)`,
             }}
             transition={springConfig}
@@ -269,6 +334,23 @@ export default function ProjectDetailPage() {
             />
           )}
 
+          {isExpanded && (
+            <motion.div
+              className="absolute cursor-row-resize z-10"
+              style={{
+                left: `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2}px)`,
+              }}
+              initial={false}
+              animate={{
+                top: `calc(${expandedChatHeight}% + ${PANEL_GAP / 2 - PANEL_GAP}px)`,
+                width: `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
+                height: PANEL_GAP,
+              }}
+              transition={springConfig}
+              onMouseDown={(e) => handleMouseDown(e, "expanded-chat-sources")}
+            />
+          )}
+
           <motion.div
             layout
             className="absolute"
@@ -277,12 +359,14 @@ export default function ProjectDetailPage() {
               left: isExpanded
                 ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2}px)`
                 : `calc(${studioWidth + chatWidth}% + ${PANEL_GAP / 2}px)`,
-              top: isExpanded ? `calc(50% + ${PANEL_GAP / 2}px)` : PAGE_GAP,
+              top: isExpanded
+                ? `calc(${expandedChatHeight}% + ${PANEL_GAP / 2}px)`
+                : PAGE_GAP,
               width: isExpanded
                 ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(${sourcesWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
               height: isExpanded
-                ? `calc(50% - ${PAGE_GAP + PANEL_GAP / 2}px)`
+                ? `calc(${100 - expandedChatHeight}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(100% - ${PAGE_GAP * 2}px)`,
             }}
             transition={springConfig}
