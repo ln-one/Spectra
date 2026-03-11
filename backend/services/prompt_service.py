@@ -1,7 +1,7 @@
 """
-Prompt Service - Prompt 模板库
+Prompt Service
 
-集中管理所有 LLM prompt 模板，支持 RAG 上下文注入。
+Centralized prompt builders for courseware generation and chat workflows.
 """
 
 import logging
@@ -9,170 +9,152 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# RAG 上下文单条 chunk 最大字符数，超出截断（避免 prompt 过长）
 _RAG_CHUNK_MAX_CHARS = 600
 
 
 def _format_rag_context(rag_results: list[dict]) -> str:
-    """
-    将 RAG 检索结果格式化为 prompt 中的参考资料部分
-
-    优化点：
-    - 显示相似度分数，帮助 LLM 判断参考价值
-    - 截断过长 chunk，避免 prompt 超长
-    - 明确要求 LLM 引用来源编号
-    """
+    """Format retrieved chunks into a compact, source-aware prompt section."""
     if not rag_results:
         return ""
-    sections = []
-    for i, r in enumerate(rag_results, 1):
-        source = r.get("source", {})
-        filename = source.get("filename", "未知来源")
-        score = r.get("score", 0.0)
-        content = r.get("content", "")
-        # 截断过长 chunk
+
+    sections: list[str] = []
+    for i, item in enumerate(rag_results, 1):
+        source = item.get("source", {}) or {}
+        filename = source.get("filename", "unknown_source")
+        score = float(item.get("score", 0.0) or 0.0)
+        content = str(item.get("content", "") or "")
         if len(content) > _RAG_CHUNK_MAX_CHARS:
-            content = content[:_RAG_CHUNK_MAX_CHARS] + "…（内容已截断）"
-        sections.append(
-            f"[参考资料 {i}]（来源：{filename}，相关度：{score:.0%}）\n{content}"
-        )
+            content = content[:_RAG_CHUNK_MAX_CHARS] + "...(truncated)"
+        sections.append(f"[Ref {i}] ({filename}, relevance={score:.0%})\n{content}")
     return "\n\n".join(sections)
 
 
 STYLE_REQUIREMENTS = {
-    "default": "使用简洁清晰的排版，适合通用教学场景",
-    "gaia": "使用现代简约风格，注重视觉美感和留白",
-    "uncover": "使用动态展示风格，内容层层递进，适合演讲场景",
-    "academic": "使用学术风格，注重逻辑严谨和内容深度，适合学术报告",
+    "default": "Clean and readable educational layout.",
+    "gaia": "Modern minimalist design with strong visual hierarchy.",
+    "uncover": "Dynamic presentation style with progressive disclosure.",
+    "academic": "Formal academic style with rigorous structure.",
 }
 
-# 课件生成 few-shot 示例（精简版，避免 prompt 过长）
+
 COURSEWARE_FEW_SHOT = """
-示例输出（仅展示前两页）：
+Example output (truncated):
 
 ===PPT_CONTENT_START===
----
-marp: true
-theme: default
-paginate: true
----
-
-# 分数的加减法
-五年级数学 · 第三单元
+# Topic Title
+Subtitle
 
 ---
 
-# 学习目标
-
-- 理解同分母分数加减法的运算法则
-- 掌握异分母分数的通分方法
-- 能够正确计算分数加减法
-
+# Learning Objectives
+- Objective A
+- Objective B
 ===PPT_CONTENT_END===
 
 ===LESSON_PLAN_START===
-# 教学目标
-
-- 知识与技能：掌握分数加减法的运算法则
-- 过程与方法：通过实例探究，归纳运算规律
-- 情感态度：培养数学思维能力和合作学习意识
-
-# 教学重点
-
-- 同分母分数加减法的运算法则
-- 异分母分数的通分方法
-
-# 教学难点
-
-- 异分母分数加减法中最小公倍数的求解
-
-# 教学过程
-
-## 导入环节（5分钟）
-
-通过"分披萨"情境引入分数概念...
-
+# Teaching Objectives
+- Knowledge
+- Skills
+- Attitude
 ===LESSON_PLAN_END===
 """.strip()
 
 
 class PromptService:
-    """Prompt 模板管理服务"""
+    """Prompt template service."""
 
     def build_courseware_prompt(
         self,
         user_requirements: str,
         template_style: str = "default",
         rag_context: Optional[list[dict]] = None,
+        outline_mode: bool = False,
+        outline_slide_count: Optional[int] = None,
     ) -> str:
-        """构建课件生成 prompt（含 few-shot 示例和 RAG 上下文）"""
+        """Build prompt for courseware generation."""
         style_instruction = STYLE_REQUIREMENTS.get(
             template_style, STYLE_REQUIREMENTS["default"]
         )
+
         rag_section = ""
         if rag_context:
-            formatted = _format_rag_context(rag_context)
             rag_section = (
-                "\n以下是从用户上传资料中检索到的参考内容（按相关度排序）。"
-                "请在生成课件时优先引用高相关度资料，并在内容中注明来源编号（如「参考资料1」）：\n\n"
-                f"{formatted}\n\n"
+                "\nThe following references are retrieved from project materials. "
+                "Prioritize higher relevance references and cite source index when helpful:\n\n"
+                f"{_format_rag_context(rag_context)}\n\n"
             )
-        return f"""你是一位资深学科教学设计师，擅长将教学内容转化为结构清晰、\
-重点突出的课件。请为以下教学主题生成完整的课件内容。
-{rag_section}
-教学主题：{user_requirements}
-模板风格：{template_style} - {style_instruction}
 
-生成要求：
+        if outline_mode:
+            if outline_slide_count and outline_slide_count > 0:
+                ppt_constraints = (
+                    f"1. Generate exactly {outline_slide_count} slides; no extra intro/summary slides.\n"
+                    "2. Follow confirmed outline order strictly.\n"
+                    "3. Every slide title must match corresponding outline title.\n"
+                    "4. Do not include Marp frontmatter in PPT block.\n"
+                    "5. Use '---' to separate slides.\n"
+                    "6. Expand each slide by its key points (prefer 3-5 bullets).\n"
+                    f"7. Visual style: {style_instruction}"
+                )
+            else:
+                ppt_constraints = (
+                    "1. Follow confirmed outline order strictly.\n"
+                    "2. Every slide title must match corresponding outline title.\n"
+                    "3. Do not include Marp frontmatter in PPT block.\n"
+                    "4. Use '---' to separate slides.\n"
+                    "5. Expand each slide by its key points (prefer 3-5 bullets).\n"
+                    f"6. Visual style: {style_instruction}"
+                )
+        else:
+            ppt_constraints = (
+                "1. Do not include Marp frontmatter in PPT block.\n"
+                "2. Use '---' to separate slides.\n"
+                "3. Each slide contains one '# Title' and 3-5 bullets.\n"
+                "4. First slide is title slide; last slide is summary.\n"
+                f"5. Visual style: {style_instruction}"
+            )
+
+        return f"""You are an expert instructional designer.
+Generate complete courseware content for this requirement.
+{rag_section}
+Requirement: {user_requirements}
+Template style: {template_style} - {style_instruction}
+Language: Simplified Chinese unless user explicitly requests another language.
+
+Output format:
 
 ===PPT_CONTENT_START===
-（Marp 格式 PPT Markdown，10-15 页）
-
-规范：
-1. 首行必须包含 Marp frontmatter（marp: true, theme, paginate）
-2. 使用 --- 分隔每一页幻灯片
-3. 每页使用 # 一级标题，内容 3-5 个要点
-4. 第一页为标题页（含副标题），最后一页为总结回顾
-5. 使用教育领域专业术语（如"教学目标""核心素养""学科思维"）
-6. 风格要求：{style_instruction}
+(Marp markdown slides)
+Rules:
+{ppt_constraints}
+Never include marker tokens (PPT_CONTENT_START/END, LESSON_PLAN_START/END) in slide body.
 ===PPT_CONTENT_END===
 
 ===LESSON_PLAN_START===
-（详细教案 Markdown）
-
-规范：
-1. 教学目标分三维：知识与技能、过程与方法、情感态度与价值观
-2. 明确教学重点和难点
-3. 教学过程含：导入（5min）→ 讲授（20-25min）→ 练习（10min）→ 总结（5min）
-4. 每个环节标注时间分配和教学方法（讲授法/讨论法/探究法等）
-5. 包含板书设计和作业布置
+(Detailed lesson plan markdown)
+Rules:
+1. Include objectives, key points, difficult points.
+2. Include staged teaching process and timing.
+3. Include board plan and homework.
 ===LESSON_PLAN_END===
 
 {COURSEWARE_FEW_SHOT}
 
-请严格按照上述格式生成内容，确保包含所有标记。"""
+Return strictly with marker blocks above."""
 
     def build_intent_prompt(self, user_message: str) -> str:
-        """构建意图分类 prompt（含 few-shot 示例）"""
-        return f"""你是一个教学课件生成系统的意图分类器。请分析用户消息并返回 JSON。
+        """Build prompt for intent classification."""
+        return f"""You are an intent classifier for an education courseware assistant.
+User message: {user_message}
 
-用户消息："{user_message}"
+Intent candidates (pick one):
+- describe_requirement
+- ask_question
+- modify_courseware
+- confirm_generation
+- general_chat
 
-意图类型（只能选一个）：
-- describe_requirement: 用户在描述课件需求（主题、内容、风格等）
-- ask_question: 用户在提问（关于系统功能、课件内容等）
-- modify_courseware: 用户要求修改已生成的课件
-- confirm_generation: 用户确认开始生成课件
-- general_chat: 闲聊或无法归类的消息
-
-示例：
-用户："帮我做一个关于光合作用的PPT" → {{"intent": "describe_requirement", "confidence": 0.95}}
-用户："把第三页标题改成细胞分裂" → {{"intent": "modify_courseware", "confidence": 0.9}}
-用户："可以开始生成了" → {{"intent": "confirm_generation", "confidence": 0.9}}
-用户："这个系统支持导出PDF吗" → {{"intent": "ask_question", "confidence": 0.85}}
-
-请严格返回以下 JSON 格式，不要包含其他内容：
-{{"intent": "<意图类型>", "confidence": <0.0-1.0>}}"""
+Return JSON only:
+{{"intent":"<one_intent>","confidence":0.0}}"""
 
     def build_modify_prompt(
         self,
@@ -180,22 +162,24 @@ class PromptService:
         instruction: str,
         target_slides: Optional[list[str]] = None,
     ) -> str:
-        """构建课件修改 prompt"""
+        """Build prompt for modifying existing courseware."""
         target_info = ""
         if target_slides:
-            target_info = f"\n目标幻灯片编号：{', '.join(target_slides)}"
-        return f"""你是一位资深学科教学设计师。请根据修改指令对课件内容进行修改。
+            target_info = f"\nTarget slides: {', '.join(target_slides)}"
 
-当前课件内容：
+        return f"""You are an expert instructional designer.
+Modify the courseware content according to instruction.
+
+Current content:
 {current_content}
 
-修改指令：{instruction}{target_info}
+Instruction:
+{instruction}{target_info}
 
-要求：
-1. 只修改指令涉及的部分，保持其余内容不变
-2. 保持 Marp Markdown 格式（包括 frontmatter 和 --- 分隔符）
-3. 返回修改后的完整课件内容
-4. 确保修改后的内容在教学逻辑上连贯"""
+Requirements:
+1. Keep unchanged parts intact.
+2. Preserve Marp markdown format and separators.
+3. Return full modified markdown."""
 
     def build_chat_response_prompt(
         self,
@@ -204,35 +188,28 @@ class PromptService:
         rag_context: Optional[list[dict]] = None,
         conversation_history: Optional[list[dict]] = None,
     ) -> str:
-        """构建对话回复 prompt"""
+        """Build prompt for general chat responses."""
         rag_section = ""
         if rag_context:
-            formatted = _format_rag_context(rag_context)
             rag_section = (
-                f"\n参考资料（按相关度排序，回答时请引用来源编号）：\n{formatted}\n"
+                "\nReferences (sorted by relevance):\n"
+                f"{_format_rag_context(rag_context)}\n"
             )
 
         history_section = ""
         if conversation_history:
-            lines = []
+            lines: list[str] = []
             for msg in conversation_history[-5:]:
-                role = "用户" if msg.get("role") == "user" else "助手"
-                lines.append(f"{role}：{msg['content']}")
-            history_section = "\n对话历史：\n" + "\n".join(lines) + "\n"
+                role = "User" if msg.get("role") == "user" else "Assistant"
+                lines.append(f"{role}: {msg.get('content', '')}")
+            history_section = "\nConversation history:\n" + "\n".join(lines) + "\n"
 
-        return f"""你是 Spectra 智能课件生成系统的 AI 助手，\
-专注于教育领域的课件设计与教学方案制定。
+        return f"""You are Spectra AI assistant for educational courseware.
 {history_section}{rag_section}
-用户意图：{intent}
-用户消息：{user_message}
+Intent: {intent}
+User message: {user_message}
 
-请根据用户意图给出合适的回复：
-- 描述需求：帮助梳理教学目标、内容范围、学段适配
-- 提问：给出准确专业的回答
-- 修改课件：确认修改范围并执行
-- 确认生成：总结需求并开始生成
-回复要简洁专业，使用教育领域术语。"""
+Respond clearly and professionally in educational context, in Simplified Chinese by default."""
 
 
-# 全局实例
 prompt_service = PromptService()

@@ -48,15 +48,40 @@ async def get_or_generate_content(task, project) -> dict:
     if cached:
         return cached
 
+    task_status = getattr(task, "status", None)
+    if task_status in {"pending", "processing"}:
+        return {
+            "title": project.name or "Generating",
+            "markdown_content": "",
+            "lesson_plan_markdown": "",
+        }
+
     from services.ai import ai_service
 
     messages = await db_service.get_recent_conversation_messages(project.id, limit=5)
     user_msgs = [m.content for m in messages if m.role == "user"]
     user_requirements = "\n".join(user_msgs) if user_msgs else project.name
 
+    outline_document = None
+    outline_version = None
+    session_id = getattr(task, "sessionId", None)
+    if session_id:
+        latest_outline = await db_service.db.outlineversion.find_first(
+            where={"sessionId": session_id},
+            order={"version": "desc"},
+        )
+        if latest_outline and latest_outline.outlineData:
+            try:
+                outline_document = json.loads(latest_outline.outlineData)
+                outline_version = latest_outline.version
+            except json.JSONDecodeError:
+                logger.warning("Failed to decode outlineData for session %s", session_id)
+
     courseware = await ai_service.generate_courseware_content(
         project_id=project.id,
         user_requirements=user_requirements,
+        outline_document=outline_document,
+        outline_version=outline_version,
     )
     data = {
         "title": courseware.title,

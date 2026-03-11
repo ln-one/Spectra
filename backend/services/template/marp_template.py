@@ -93,12 +93,21 @@ def _strip_existing_marp_frontmatter(markdown_content: str) -> str:
     去掉 AI 输出中可能重复的 Marp frontmatter，避免渲染出空白首页。
     """
     content = (markdown_content or "").strip()
-    # 仅在文档开头匹配 frontmatter
-    fm_match = re.match(r"^\s*---\s*\n([\s\S]*?)\n---\s*\n?", content)
-    if not fm_match:
-        return content
+    # 清掉模型偶发泄漏的 marker，避免被渲染成独立首页。
+    content = re.sub(
+        r"(?im)^\s*(?:=+\s*)?(PPT_CONTENT_START|PPT_CONTENT_END|LESSON_PLAN_START|LESSON_PLAN_END)(?:\s*=+)?\s*$",
+        "",
+        content,
+    ).strip()
 
-    frontmatter_body = fm_match.group(1).lower()
-    if "marp:" in frontmatter_body:
-        return content[fm_match.end() :].lstrip()
+    # 连续剥离文档开头的 Marp frontmatter，避免重复注入导致空白页/错位页。
+    while True:
+        fm_match = re.match(r"^\s*---\s*\n([\s\S]*?)\n---\s*\n?", content)
+        if not fm_match:
+            break
+        frontmatter_body = fm_match.group(1).lower()
+        if "marp:" not in frontmatter_body:
+            break
+        content = content[fm_match.end() :].lstrip()
+
     return content

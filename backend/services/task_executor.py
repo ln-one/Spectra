@@ -194,6 +194,22 @@ async def execute_generation_task(
             outline_version=outline_version,
         )
 
+        # Persist generated markdown for preview APIs to avoid regenerating
+        # unrelated content during in-progress polling.
+        try:
+            from services.preview_helpers import save_preview_content
+
+            await save_preview_content(
+                task_id,
+                {
+                    "title": courseware_content.title,
+                    "markdown_content": courseware_content.markdown_content,
+                    "lesson_plan_markdown": courseware_content.lesson_plan_markdown,
+                },
+            )
+        except Exception as cache_err:
+            logger.warning("Failed to save preview cache for task %s: %s", task_id, cache_err)
+
         await db_service.update_generation_task_status(task_id, "processing", 30)
 
         # 调用 GenerationService 生成文件

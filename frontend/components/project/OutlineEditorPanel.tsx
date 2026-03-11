@@ -46,7 +46,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { components } from "@/lib/types/api";
 import { useProjectStore } from "@/stores/projectStore";
-import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 
 type OutlineDocument = components["schemas"]["OutlineDocument"];
 
@@ -221,35 +220,6 @@ export function OutlineEditorPanel({
   const [showSettings, setShowSettings] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // SSE for generation progress
-  const { events, error: eventsError } = useGenerationEvents({ 
-    sessionId: isGenerating ? sessionId : null 
-  });
-  const latestEvent = events[events.length - 1];
-
-  useEffect(() => {
-    if (latestEvent?.event_type === "progress.updated" && latestEvent.progress !== undefined) {
-      setProgress(latestEvent.progress * 100);
-      setProgressText(latestEvent.state_reason || "正在生成...");
-    } else if (latestEvent?.event_type === "task.completed" || latestEvent?.state === "SUCCESS") {
-      setProgress(100);
-      setProgressText("生成完成，正在进入预览...");
-      setIsGenerating(false);
-      onPreview?.();
-    } else if (latestEvent?.state === "FAILED" || latestEvent?.event_type === "task.failed") {
-      setIsGenerating(false);
-      setGenerationFailed(latestEvent?.state_reason || "生成失败，请重试");
-      setProgressText(latestEvent?.state_reason || "生成失败");
-    }
-  }, [latestEvent, onPreview]);
-
-  useEffect(() => {
-    if (!isGenerating || !eventsError) return;
-    setIsGenerating(false);
-    setGenerationFailed("实时进度连接异常，请稍后重试");
-    setProgressText("实时进度连接异常");
-  }, [eventsError, isGenerating]);
-
   const handleAddSlide = useCallback(() => {
     if (isGenerating || isOutlineHydrating) return;
     const newSlide: SlideCard = {
@@ -352,6 +322,8 @@ export function OutlineEditorPanel({
       await confirmOutline(sessionId);
       setProgress(15);
       setProgressText("任务已启动，可进入生成页查看实时进度");
+      setIsGenerating(false);
+      onPreview?.();
     } catch (error) {
       console.error("Failed to confirm outline:", error);
       setIsGenerating(false);

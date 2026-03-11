@@ -81,6 +81,7 @@ export function useGenerationEvents(
       eventSourceRef.current = null;
     }
     setIsConnected(false);
+    setError(null);
   }, []);
 
   const connect = useCallback(() => {
@@ -95,6 +96,7 @@ export function useGenerationEvents(
 
     es.onopen = () => {
       setIsConnected(true);
+      setError(null);
       retriesRef.current = 0;
       onOpenRef.current?.();
     };
@@ -119,10 +121,6 @@ export function useGenerationEvents(
       setIsConnected(false);
       onCloseRef.current?.();
 
-      const err = new Error("SSE connection lost");
-      setError(err);
-      onErrorRef.current?.(err);
-
       // 自动重连（指数退避）
       if (autoReconnect && retriesRef.current < maxRetries) {
         const delay = Math.min(1000 * 2 ** retriesRef.current, 30000);
@@ -130,7 +128,12 @@ export function useGenerationEvents(
         reconnectTimerRef.current = setTimeout(() => {
           connect();
         }, delay);
+        return;
       }
+
+      const err = new Error("SSE connection lost");
+      setError(err);
+      onErrorRef.current?.(err);
     };
   }, [sessionId, autoReconnect, maxRetries, cleanup]);
 
