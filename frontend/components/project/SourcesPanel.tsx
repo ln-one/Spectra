@@ -361,9 +361,7 @@ function FileItem({
               <Sparkles className="w-3 h-3" />
               <span>{"\u6587\u4ef6\u89e3\u6790\u6458\u8981"}</span>
             </div>
-            <div className="mt-1 text-zinc-700">
-              {getFileStatusText(file)}
-            </div>
+            <div className="mt-1 text-zinc-700">{getFileStatusText(file)}</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -381,7 +379,10 @@ function FileItem({
             <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
               <span>{"\u5f15\u7528\u7247\u6bb5"}</span>
               {focusDetail.source?.page_number ? (
-                <span>{"\u9875\u7801 P"}{focusDetail.source.page_number}</span>
+                <span>
+                  {"\u9875\u7801 P"}
+                  {focusDetail.source.page_number}
+                </span>
               ) : null}
             </div>
             <div className="whitespace-pre-wrap text-zinc-800">
@@ -391,10 +392,16 @@ function FileItem({
             focusDetail.context?.next_chunk ? (
               <div className="mt-2 border-t border-zinc-200 pt-2 text-[10px] text-zinc-500">
                 {focusDetail.context?.previous_chunk ? (
-                  <div className="mb-1">{"\u4e0a\u6587\uff1a"}{focusDetail.context.previous_chunk}</div>
+                  <div className="mb-1">
+                    {"\u4e0a\u6587\uff1a"}
+                    {focusDetail.context.previous_chunk}
+                  </div>
                 ) : null}
                 {focusDetail.context?.next_chunk ? (
-                  <div>{"\u4e0b\u6587\uff1a"}{focusDetail.context.next_chunk}</div>
+                  <div>
+                    {"\u4e0b\u6587\uff1a"}
+                    {focusDetail.context.next_chunk}
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -598,7 +605,8 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
               ) : (
                 <Upload className="w-3 h-3" />
               )}
-              {!isHeaderCompact && (isUploading ? "\u4e0a\u4f20\u4e2d" : "\u4e0a\u4f20")}
+              {!isHeaderCompact &&
+                (isUploading ? "\u4e0a\u4f20\u4e2d" : "\u4e0a\u4f20")}
             </Button>
           </label>
         </CardHeader>
@@ -611,8 +619,12 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
                     <File className="w-7 h-7 text-zinc-300" />
                   </div>
-                  <p className="text-sm font-medium text-zinc-700">{"\u6682\u65e0\u6587\u4ef6"}</p>
-                  <p className="text-xs text-zinc-400 mt-1">{"\u4e0a\u4f20\u6587\u4ef6\u4ee5\u5f00\u59cb\u4f7f\u7528"}</p>
+                  <p className="text-sm font-medium text-zinc-700">
+                    {"\u6682\u65e0\u6587\u4ef6"}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    {"\u4e0a\u4f20\u6587\u4ef6\u4ee5\u5f00\u59cb\u4f7f\u7528"}
+                  </p>
                 </div>
               ) : (
                 <div
