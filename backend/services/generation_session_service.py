@@ -502,18 +502,24 @@ class GenerationSessionService:
         if created_task_id:
             task_type = self._normalize_task_type(session.outputType)
             template_config = self._extract_template_config(session.options)
+            worker_available = self._is_queue_worker_available(task_queue_service)
 
-            if task_queue_service is None:
+            if task_queue_service is None or not worker_available:
+                fallback_reason = (
+                    "task_queue_unavailable_fallback_local_execution"
+                    if task_queue_service is None
+                    else "task_queue_no_worker_fallback_local_execution"
+                )
                 scheduled = await self._schedule_local_execution(
                     session_id=session_id,
                     task_id=created_task_id,
                     project_id=session.projectId,
                     task_type=task_type,
                     template_config=template_config,
-                    fallback_reason="task_queue_unavailable_fallback_local_execution",
+                    fallback_reason=fallback_reason,
                 )
                 if scheduled:
-                    warnings.append("task_queue_unavailable_fallback_local_execution")
+                    warnings.append(fallback_reason)
                 else:
                     await self._mark_dispatch_failed(
                         session_id=session_id,
@@ -543,6 +549,15 @@ class GenerationSessionService:
                         session_id,
                         created_task_id,
                         job.id,
+                    )
+                    self._schedule_enqueued_task_watchdog(
+                        session_id=session_id,
+                        task_id=created_task_id,
+                        project_id=session.projectId,
+                        task_type=task_type,
+                        template_config=template_config,
+                        rq_job_id=job.id,
+                        task_queue_service=task_queue_service,
                     )
                 except Exception as enqueue_err:
                     logger.warning(
@@ -779,6 +794,10 @@ class GenerationSessionService:
         task_type = self._normalize_task_type(session.outputType)
 
         # 创建 GenerationTask 并关联 session
+        input_payload = {"outline_version": session.currentOutlineVersion}
+        if options.get("template_config"):
+            input_payload["template_config"] = options.get("template_config")
+
         task = await self._db.generationtask.create(
             data={
                 "projectId": session.projectId,
@@ -786,11 +805,7 @@ class GenerationSessionService:
                 "taskType": task_type,
                 "status": "pending",
                 "progress": 0,
-                "inputData": (
-                    json.dumps({"template_config": options.get("template_config")})
-                    if options.get("template_config")
-                    else None
-                ),
+                "inputData": json.dumps(input_payload),
             }
         )
 
@@ -899,6 +914,71 @@ class GenerationSessionService:
         if normalized is None:
             raise ConflictError(f"不支持的 output_type: {output_type}")
         return normalized
+
+    @staticmethod
+    def _is_queue_worker_available(task_queue_service) -> bool:
+        if task_queue_service is None:
+            return False
+        try:
+            queue_info = task_queue_service.get_queue_info()
+            worker_count = int(((queue_info.get("workers") or {}).get("count") or 0))
+            return worker_count > 0
+        except Exception as exc:
+            logger.warning("Failed to inspect queue worker availability: %s", exc)
+            return False
+
+    def _schedule_enqueued_task_watchdog(
+        self,
+        session_id: str,
+        task_id: str,
+        project_id: str,
+        task_type: str,
+        template_config: Optional[dict],
+        rq_job_id: str,
+        task_queue_service,
+    ) -> None:
+        async def _watch() -> None:
+            await asyncio.sleep(2)
+            try:
+                job_status = await asyncio.to_thread(
+                    task_queue_service.get_job_status,
+                    rq_job_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Task watchdog failed to read RQ status: task=%s job=%s error=%s",
+                    task_id,
+                    rq_job_id,
+                    exc,
+                )
+                return
+
+            if not job_status or job_status.get("status") != "failed":
+                return
+
+            task = await self._db.generationtask.find_unique(where={"id": task_id})
+            if task is None or task.status != "pending":
+                return
+
+            exc_info = job_status.get("exc_info")
+            enqueue_error = exc_info if isinstance(exc_info, str) else str(exc_info)
+            scheduled = await self._schedule_local_execution(
+                session_id=session_id,
+                task_id=task_id,
+                project_id=project_id,
+                task_type=task_type,
+                template_config=template_config,
+                fallback_reason="rq_job_failed_fallback_local_execution",
+                enqueue_error=(enqueue_error or "")[:400],
+            )
+            if not scheduled:
+                await self._mark_dispatch_failed(
+                    session_id=session_id,
+                    task_id=task_id,
+                    error_message="RQ job failed and local fallback scheduling failed",
+                )
+
+        asyncio.create_task(_watch())
 
     async def _schedule_local_execution(
         self,

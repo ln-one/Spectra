@@ -691,7 +691,7 @@ async def get_session_preview(
         )
 
     session_state = snapshot["session"]["state"]
-    if session_state not in ("SUCCESS", "RENDERING"):
+    if session_state not in ("SUCCESS", "RENDERING", "GENERATING_CONTENT"):
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=ErrorCode.INVALID_INPUT,

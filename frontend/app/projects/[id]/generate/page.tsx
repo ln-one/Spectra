@@ -104,6 +104,11 @@ export default function GeneratePreviewPage() {
   });
 
   const latestEvent = events.length > 0 ? events[events.length - 1] : null;
+  const isSessionGenerating =
+    latestEvent?.state === "GENERATING_CONTENT" ||
+    latestEvent?.state === "RENDERING" ||
+    latestEvent?.event_type === "task.created" ||
+    latestEvent?.event_type === "task.dispatched";
 
   const loadSlides = useCallback(async () => {
     if (!activeSessionId) {
@@ -294,10 +299,17 @@ export default function GeneratePreviewPage() {
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full opacity-70">
-                <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                <p className="text-sm text-muted-foreground">暂无幻灯片数据，请先生成。</p>
-              </div>
+              isSessionGenerating ? (
+                <div className="flex flex-col items-center justify-center h-full opacity-80">
+                  <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+                  <p className="text-sm text-muted-foreground">正在按大纲生成课件，请稍候...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full opacity-70">
+                  <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                  <p className="text-sm text-muted-foreground">暂无幻灯片数据，请先生成。</p>
+                </div>
+              )
             )
           ) : (
             <div className="max-w-4xl mx-auto w-full pb-32" ref={slidesRef}>

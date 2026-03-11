@@ -412,6 +412,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         description: message,
         variant: "destructive",
       });
+      throw error;
     }
   },
 
@@ -428,6 +429,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         description: message,
         variant: "destructive",
       });
+      throw error;
     }
   },
 

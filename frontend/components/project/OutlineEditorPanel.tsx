@@ -170,13 +170,28 @@ export function OutlineEditorPanel({
   
   const sessionId = generationSession?.session?.session_id || "";
   const initialNodes = generationSession?.outline?.nodes || [];
+  const expectedPages = Number(generationSession?.options?.pages || 0);
+  const sessionState = generationSession?.session?.state || "";
 
   const [slides, setSlides] = useState<SlideCard[]>([]);
+  const [isOutlineHydrating, setIsOutlineHydrating] = useState(false);
 
-  // Initialize slides from generationSession once it's available.
-  // Render progressively to provide a "drafting appears one by one" experience.
+  // Keep local slides in sync with server outline data for current session.
   useEffect(() => {
-    if (initialNodes.length === 0) return;
+    if (!sessionId) {
+      setSlides([]);
+      setIsOutlineHydrating(false);
+      setActiveSlideId("");
+      return;
+    }
+
+    const ready = expectedPages <= 0 || initialNodes.length >= expectedPages;
+    setIsOutlineHydrating(!ready);
+    if (initialNodes.length === 0) {
+      setSlides([]);
+      setActiveSlideId("");
+      return;
+    }
 
     const mappedSlides = initialNodes.map((node) => ({
       id: node.id,
@@ -186,29 +201,17 @@ export function OutlineEditorPanel({
       estimatedMinutes: node.estimated_minutes,
     }));
 
-    setActiveSlideId(mappedSlides[0].id);
-    setSlides([]);
-
-    let cursor = 0;
-    const timer = setInterval(() => {
-      setSlides((prev) => {
-        if (cursor >= mappedSlides.length) return prev;
-        const next = [...prev, mappedSlides[cursor]];
-        cursor += 1;
-        return next;
-      });
-      if (cursor >= mappedSlides.length) {
-        clearInterval(timer);
-      }
-    }, 180);
-
-    return () => clearInterval(timer);
-  }, [initialNodes]);
+    setActiveSlideId((prev) =>
+      prev && mappedSlides.some((slide) => slide.id === prev) ? prev : mappedSlides[0]?.id || ""
+    );
+    setSlides(mappedSlides);
+  }, [sessionId, initialNodes, expectedPages]);
 
   const [activeSlideId, setActiveSlideId] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
+  const [generationFailed, setGenerationFailed] = useState<string | null>(null);
   const [detailLevel, setDetailLevel] = useState<"brief" | "standard" | "detailed">("standard");
   const [visualTheme, setVisualTheme] = useState("tech-blue");
   const [imageStyle, setImageStyle] = useState("flat");
@@ -219,7 +222,7 @@ export function OutlineEditorPanel({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // SSE for generation progress
-  const { events } = useGenerationEvents({ 
+  const { events, error: eventsError } = useGenerationEvents({ 
     sessionId: isGenerating ? sessionId : null 
   });
   const latestEvent = events[events.length - 1];
@@ -230,26 +233,25 @@ export function OutlineEditorPanel({
       setProgressText(latestEvent.state_reason || "正在生成...");
     } else if (latestEvent?.event_type === "task.completed" || latestEvent?.state === "SUCCESS") {
       setProgress(100);
-      setProgressText("生成完成！");
+      setProgressText("生成完成，正在进入预览...");
+      setIsGenerating(false);
+      onPreview?.();
+    } else if (latestEvent?.state === "FAILED" || latestEvent?.event_type === "task.failed") {
+      setIsGenerating(false);
+      setGenerationFailed(latestEvent?.state_reason || "生成失败，请重试");
+      setProgressText(latestEvent?.state_reason || "生成失败");
     }
-  }, [latestEvent]);
+  }, [latestEvent, onPreview]);
 
-  const handleSyncOutline = useCallback(async (currentSlides: SlideCard[]) => {
-    if (!sessionId) return;
-    const outline: OutlineDocument = {
-      version: generationSession?.outline?.version || 1,
-      nodes: currentSlides.map((s) => ({
-        id: s.id,
-        order: s.order,
-        title: s.title,
-        key_points: s.keyPoints,
-        estimated_minutes: s.estimatedMinutes,
-      })),
-    };
-    await updateOutline(sessionId, outline);
-  }, [sessionId, generationSession?.outline?.version, updateOutline]);
+  useEffect(() => {
+    if (!isGenerating || !eventsError) return;
+    setIsGenerating(false);
+    setGenerationFailed("实时进度连接异常，请稍后重试");
+    setProgressText("实时进度连接异常");
+  }, [eventsError, isGenerating]);
 
   const handleAddSlide = useCallback(() => {
+    if (isGenerating || isOutlineHydrating) return;
     const newSlide: SlideCard = {
       id: `slide-${Date.now()}`,
       order: slides.length + 1,
@@ -260,7 +262,6 @@ export function OutlineEditorPanel({
     const newSlides = [...slides, newSlide];
     setSlides(newSlides);
     setActiveSlideId(newSlide.id);
-    handleSyncOutline(newSlides);
     
     setTimeout(() => {
       scrollAreaRef.current?.scrollTo({
@@ -268,14 +269,14 @@ export function OutlineEditorPanel({
         behavior: "smooth",
       });
     }, 100);
-  }, [slides, handleSyncOutline]);
+  }, [slides, isGenerating, isOutlineHydrating]);
 
   const handleDeleteSlide = useCallback((id: string) => {
+    if (isGenerating || isOutlineHydrating) return;
     const newSlides = slides
       .filter((s) => s.id !== id)
       .map((s, index) => ({ ...s, order: index + 1 }));
     setSlides(newSlides);
-    handleSyncOutline(newSlides);
 
     setActiveSlideId((prev) => {
       if (prev === id && newSlides.length > 0) {
@@ -285,9 +286,10 @@ export function OutlineEditorPanel({
       }
       return prev;
     });
-  }, [slides, handleSyncOutline]);
+  }, [slides, isGenerating, isOutlineHydrating]);
 
   const handleDuplicateSlide = useCallback((slide: SlideCard) => {
+    if (isGenerating || isOutlineHydrating) return;
     const newSlide: SlideCard = {
       ...slide,
       id: `slide-${Date.now()}`,
@@ -297,14 +299,13 @@ export function OutlineEditorPanel({
     const newSlides = [...slides, newSlide];
     setSlides(newSlides);
     setActiveSlideId(newSlide.id);
-    handleSyncOutline(newSlides);
-  }, [slides, handleSyncOutline]);
+  }, [slides, isGenerating, isOutlineHydrating]);
 
   const handleUpdateSlide = useCallback((id: string, updates: Partial<SlideCard>) => {
+    if (isGenerating || isOutlineHydrating) return;
     const newSlides = slides.map((s) => (s.id === id ? { ...s, ...updates } : s));
     setSlides(newSlides);
-    handleSyncOutline(newSlides);
-  }, [slides, handleSyncOutline]);
+  }, [slides, isGenerating, isOutlineHydrating]);
 
   const handleAddKeyword = useCallback(() => {
     if (keywordInput.trim() && !keywords.includes(keywordInput.trim())) {
@@ -319,9 +320,22 @@ export function OutlineEditorPanel({
 
   const handleStartGeneration = useCallback(async () => {
     if (!sessionId) return;
+    if (sessionState === "GENERATING_CONTENT" || sessionState === "RENDERING" || sessionState === "SUCCESS") {
+      onPreview?.();
+      return;
+    }
+    if (isOutlineHydrating || slides.length === 0) {
+      setGenerationFailed("大纲仍在加载，请稍后再试");
+      return;
+    }
+    if (expectedPages > 0 && slides.length < expectedPages) {
+      setGenerationFailed(`大纲尚未生成完成：${slides.length}/${expectedPages} 页`);
+      return;
+    }
     setIsGenerating(true);
     setProgress(5);
-    setProgressText("Aspect RatioAspect Ratio??..");
+    setProgressText("正在创建生成任务...");
+    setGenerationFailed(null);
 
     try {
       await updateOutline(sessionId, {
@@ -336,11 +350,38 @@ export function OutlineEditorPanel({
         summary: `aspect_ratio=${aspectRatio}; detail_level=${detailLevel}; image_style=${imageStyle}`,
       });
       await confirmOutline(sessionId);
+      setProgress(15);
+      setProgressText("任务已启动，可进入生成页查看实时进度");
     } catch (error) {
       console.error("Failed to confirm outline:", error);
       setIsGenerating(false);
+      const message = error instanceof Error ? error.message : "启动生成失败，请稍后重试";
+      const lower = message.toLowerCase();
+      if (
+        message.includes("执行中的任务") ||
+        lower.includes("running task") ||
+        lower.includes("already")
+      ) {
+        setGenerationFailed("当前会话已有进行中的生成任务，正在进入实时生成页");
+        onPreview?.();
+        return;
+      }
+      setGenerationFailed(message);
     }
-  }, [sessionId, confirmOutline, updateOutline, generationSession?.outline?.version, slides, aspectRatio, detailLevel, imageStyle]);
+  }, [
+    sessionId,
+    sessionState,
+    confirmOutline,
+    updateOutline,
+    generationSession?.outline?.version,
+    slides,
+    expectedPages,
+    aspectRatio,
+    detailLevel,
+    imageStyle,
+    isOutlineHydrating,
+    onPreview,
+  ]);
 
   const handleGoToPreview = useCallback(() => {
     onPreview?.();
@@ -348,6 +389,7 @@ export function OutlineEditorPanel({
 
   const totalEstimatedMinutes = slides.reduce((sum, s) => sum + (s.estimatedMinutes || 0), 0);
   const estimatedTokens = slides.length * 150 + keywords.length * 20;
+  const outlineIncomplete = expectedPages > 0 && slides.length < expectedPages;
 
   if (variant === "compact") {
     return (
@@ -444,6 +486,7 @@ export function OutlineEditorPanel({
 
               <button
                 onClick={handleAddSlide}
+                disabled={isGenerating || isOutlineHydrating}
                 className="w-full p-2.5 rounded-xl border border-dashed border-zinc-300 text-xs text-zinc-400 hover:text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 transition-all flex items-center justify-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -454,6 +497,17 @@ export function OutlineEditorPanel({
         </motion.div>
 
         <motion.div variants={itemVariants} className="space-y-2 pt-2 border-t border-zinc-200/60">
+          {isOutlineHydrating && (
+            <p className="text-[11px] text-zinc-500 text-center">大纲加载中，请稍候...</p>
+          )}
+          {generationFailed && (
+            <p className="text-[11px] text-red-500 text-center">{generationFailed}</p>
+          )}
+          {outlineIncomplete && (
+            <p className="text-[11px] text-zinc-500 text-center">
+              大纲生成中：{slides.length}/{expectedPages} 页
+            </p>
+          )}
           <div className="flex gap-2">
             <ToggleGroup
               type="single"
@@ -498,6 +552,7 @@ export function OutlineEditorPanel({
               >
                 <Button
                   onClick={handleStartGeneration}
+                  disabled={isOutlineHydrating || outlineIncomplete}
                   className="w-full h-9 border border-zinc-800 bg-zinc-900 text-zinc-50 text-xs font-medium shadow-sm transition-all hover:bg-zinc-800"
                 >
                   <Sparkles className="w-3.5 h-3.5 mr-1.5" />
@@ -539,7 +594,7 @@ export function OutlineEditorPanel({
                   className="w-full h-9 border border-zinc-800 bg-zinc-900 text-zinc-50 text-xs font-medium shadow-sm hover:bg-zinc-800"
                 >
                   <Play className="w-3.5 h-3.5 mr-1.5" />
-                  进入预览
+                  进入实时生成页
                 </Button>
               </motion.div>
             )}
@@ -800,7 +855,7 @@ export function OutlineEditorPanel({
                         onChange={(e) => handleUpdateSlide(slide.id, { title: e.target.value })}
                         placeholder="输入幻灯片标题..."
                         className="text-base font-medium border-0 bg-transparent p-0 focus-visible:ring-0 shadow-none"
-                        disabled={isGenerating}
+                        disabled={isGenerating || isOutlineHydrating}
                       />
 
                       <div className="space-y-2">
@@ -817,7 +872,7 @@ export function OutlineEditorPanel({
                           }
                           placeholder="每行一个知识点..."
                           className="min-h-[80px] text-sm bg-zinc-50/50 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-200"
-                          disabled={isGenerating}
+                          disabled={isGenerating || isOutlineHydrating}
                         />
                       </div>
 
@@ -856,7 +911,7 @@ export function OutlineEditorPanel({
                               handleDeleteSlide(slide.id);
                             }}
                             className="text-red-600 focus:text-red-600"
-                            disabled={slides.length <= 1}
+                            disabled={slides.length <= 1 || isGenerating || isOutlineHydrating}
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
                             删除
@@ -873,7 +928,7 @@ export function OutlineEditorPanel({
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
               onClick={handleAddSlide}
-              disabled={isGenerating}
+              disabled={isGenerating || isOutlineHydrating}
               className="w-full p-4 rounded-2xl border-2 border-dashed border-zinc-200 text-sm text-zinc-400 hover:text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
@@ -1020,6 +1075,15 @@ export function OutlineEditorPanel({
           </motion.div>
 
           <motion.div variants={itemVariants} className="space-y-3 pt-4 border-t border-zinc-200/60">
+            {isOutlineHydrating && (
+              <p className="text-xs text-zinc-500">大纲加载中，请稍候...</p>
+            )}
+            {generationFailed && (
+              <p className="text-xs text-red-500">{generationFailed}</p>
+            )}
+            {outlineIncomplete && (
+              <p className="text-xs text-zinc-500">大纲生成中：{slides.length}/{expectedPages} 页</p>
+            )}
             <div className="flex items-center justify-between text-xs text-zinc-500">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
@@ -1054,6 +1118,7 @@ export function OutlineEditorPanel({
                 >
                   <Button
                     onClick={handleStartGeneration}
+                    disabled={isOutlineHydrating || outlineIncomplete}
                     className="w-full h-11 border border-zinc-800 bg-zinc-900 text-zinc-50 text-sm font-medium shadow-sm transition-all hover:bg-zinc-800"
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
@@ -1095,7 +1160,7 @@ export function OutlineEditorPanel({
                     className="w-full h-11 border border-zinc-800 bg-zinc-900 text-zinc-50 text-sm font-medium shadow-sm hover:bg-zinc-800"
                   >
                     <Play className="w-4 h-4 mr-2" />
-                    进入动态预览
+                    进入实时生成页
                   </Button>
                 </motion.div>
               )}

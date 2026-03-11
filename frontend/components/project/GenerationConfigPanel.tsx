@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { ragApi } from "@/lib/api/rag";
 import { generateApi } from "@/lib/api/generate";
 import { useProjectStore } from "@/stores/projectStore";
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -216,13 +217,27 @@ export function GenerationConfigPanel({
         const sessionResponse = await generateApi.getSession(sessionIdFromStore);
         const latestSession = sessionResponse?.data ?? null;
         const state = latestSession?.session?.state;
+        const currentPages = latestSession?.outline?.nodes?.length || 0;
+        const targetPages = Number(latestSession?.options?.pages || pageCount);
         useProjectStore.setState({ generationSession: latestSession });
 
-        if (state === "AWAITING_OUTLINE_CONFIRM") {
+        if (
+          state === "AWAITING_OUTLINE_CONFIRM" &&
+          (targetPages <= 0 || currentPages >= targetPages)
+        ) {
           outlineReady = true;
           break;
         }
+        if (state === "GENERATING_CONTENT" || state === "RENDERING" || state === "SUCCESS") {
+          router.push(`/projects/${projectId}/generate?session=${sessionIdFromStore}`);
+          return;
+        }
         if (state === "FAILED") {
+          toast({
+            title: "大纲生成失败",
+            description: latestSession?.session?.state_reason || "请稍后重试",
+            variant: "destructive",
+          });
           break;
         }
 
@@ -230,15 +245,26 @@ export function GenerationConfigPanel({
       }
 
       if (!outlineReady) {
+        toast({
+          title: "大纲尚未完整生成",
+          description: "当前会话还未达到目标页数，请稍后重试",
+          variant: "destructive",
+        });
         return;
       }
       setShowOutlineEditor(true);
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "创建会话失败，请稍后重试";
+      toast({
+        title: "生成流程启动失败",
+        description: message,
+        variant: "destructive",
+      });
       setShowOutlineEditor(false);
     } finally {
       setIsCreatingSession(false);
     }
-  }, [onGenerate, prompt, pageCount, outlineStyle]);
+  }, [onGenerate, prompt, pageCount, outlineStyle, router, projectId]);
 
   const handleGoToPreview = useCallback(() => {
     if (!projectId || !sessionId) return;

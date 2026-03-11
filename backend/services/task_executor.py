@@ -7,13 +7,15 @@ RQ 任务执行器
 import asyncio
 import json
 import logging
+import threading
 import time
 import uuid
-from typing import Optional
+from typing import Awaitable, Callable, Optional, TypeVar
 
 from rq import get_current_job
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
 # 定义可重试的错误类型
@@ -101,8 +103,8 @@ def run_generation_task(
         task_type: 任务类型（pptx/docx/both）
         template_config: 模板配置（可选）
     """
-    asyncio.run(
-        execute_generation_task(
+    _run_async_entrypoint(
+        lambda: execute_generation_task(
             task_id=task_id,
             project_id=project_id,
             task_type=task_type,
@@ -174,6 +176,10 @@ async def execute_generation_task(
             project_id,
             session_id=session_id,
         )
+        outline_document, outline_version = await _load_session_outline(
+            db_service,
+            session_id=session_id,
+        )
 
         # 生成课件内容
         courseware_content = await ai_service.generate_courseware_content(
@@ -184,6 +190,8 @@ async def execute_generation_task(
                 if template_config
                 else "default"
             ),
+            outline_document=outline_document,
+            outline_version=outline_version,
         )
 
         await db_service.update_generation_task_status(task_id, "processing", 30)
@@ -449,8 +457,8 @@ def run_rag_indexing_task(
     """
     同步包装函数，供 RQ worker 调用 RAG 索引任务。
     """
-    asyncio.run(
-        execute_rag_indexing_task(
+    _run_async_entrypoint(
+        lambda: execute_rag_indexing_task(
             file_id=file_id,
             project_id=project_id,
             session_id=session_id,
@@ -568,3 +576,59 @@ async def _build_user_requirements(
             requirements_parts.append(f"- {msg.content}")
 
     return "\n".join(requirements_parts)
+
+
+def _run_async_entrypoint(coro_factory: Callable[[], Awaitable[T]]) -> T:
+    """
+    Execute async entrypoint safely for both regular RQ worker and environments
+    where an event loop is already running.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro_factory())
+
+    result_box: dict[str, T] = {}
+    error_box: list[BaseException] = []
+
+    def _thread_target() -> None:
+        try:
+            result_box["value"] = asyncio.run(coro_factory())
+        except BaseException as exc:  # noqa: BLE001
+            error_box.append(exc)
+
+    runner = threading.Thread(target=_thread_target, name="rq-async-wrapper")
+    runner.start()
+    runner.join()
+
+    if error_box:
+        raise error_box[0]
+
+    return result_box["value"]
+
+
+async def _load_session_outline(
+    db_service,
+    session_id: Optional[str],
+) -> tuple[Optional[dict], Optional[int]]:
+    if not session_id:
+        return None, None
+
+    latest_outline = await db_service.db.outlineversion.find_first(
+        where={"sessionId": session_id},
+        order={"version": "desc"},
+    )
+    if not latest_outline:
+        return None, None
+
+    try:
+        outline_doc = json.loads(latest_outline.outlineData)
+    except (TypeError, json.JSONDecodeError):
+        logger.warning(
+            "Failed to decode outline data for session %s version %s",
+            session_id,
+            latest_outline.version,
+        )
+        return None, None
+
+    return outline_doc, latest_outline.version

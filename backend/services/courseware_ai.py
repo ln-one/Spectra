@@ -275,6 +275,8 @@ class CoursewareAIMixin:
         project_id: str,
         user_requirements: Optional[str] = None,
         template_style: str = "default",
+        outline_document: Optional[dict] = None,
+        outline_version: Optional[int] = None,
     ) -> CoursewareContent:
         """
         生成课件内容（PPT Markdown 和教案 Markdown）
@@ -293,8 +295,15 @@ class CoursewareAIMixin:
                     "project_id": project_id,
                     "requirements": user_requirements[:100],
                     "template_style": template_style,
+                    "outline_version": outline_version,
                 },
             )
+
+            if outline_document:
+                user_requirements = self._merge_requirements_with_outline(
+                    user_requirements=user_requirements,
+                    outline_document=outline_document,
+                )
 
             rag_context = await self._retrieve_rag_context(
                 project_id, user_requirements
@@ -334,6 +343,30 @@ class CoursewareAIMixin:
             if ALLOW_COURSEWARE_FALLBACK:
                 return self._get_fallback_courseware(user_requirements)
             raise
+
+    @staticmethod
+    def _merge_requirements_with_outline(
+        user_requirements: str,
+        outline_document: dict,
+    ) -> str:
+        nodes = (outline_document or {}).get("nodes") or []
+        if not nodes:
+            return user_requirements
+
+        sorted_nodes = sorted(nodes, key=lambda item: item.get("order", 0))
+        outline_lines = []
+        for node in sorted_nodes:
+            title = node.get("title", "未命名页面")
+            points = node.get("key_points") or []
+            key_points = "；".join(str(p) for p in points if p) or "无"
+            outline_lines.append(f"- 第{node.get('order', '?')}页：{title}（要点：{key_points}）")
+
+        outline_block = "\n".join(outline_lines)
+        return (
+            f"{user_requirements}\n\n"
+            "【已确认大纲】请严格按以下页面顺序生成课件内容，不要遗漏页面：\n"
+            f"{outline_block}"
+        )
 
     def _parse_courseware_response(
         self, content: str, user_requirements: str
