@@ -1,7 +1,7 @@
 # Project-Space 最小数据模型草案
 
 > 日期：2026-03-09
-> 目标：在不推翻现有 `Project / GenerationSession / Upload / GenerationTask` 主干的前提下，补足“库本体、引用、个人学习空间、候选变更、轻量版本”所需的最小数据模型。
+> 目标：在不推翻现有 `Project / GenerationSession / Upload / GenerationTask` 主干的前提下，补足“库本体、引用、个人空间（学习空间为示例）、候选变更、轻量版本”所需的最小数据模型。
 
 ## 1. 设计原则
 
@@ -25,7 +25,17 @@
 6. `GenerationTask`
 7. `GenerationSession`
 
-这些对象继续保留。下一阶段重点是扩展一类既有对象，并补四类新对象：
+这些对象继续保留。下一阶段重点是扩展一类既有对象，并补四类新对象。
+
+简单理解一下这些基础对象是什么：
+
+- `Project`：一个“空间/库”的实现对象（对外可以叫课程空间、个人空间，学习空间为示例）。
+- `GenerationSession`：一次独立的工作会话，隔离对话与草稿。
+- `GenerationTask`：一次生成任务的执行记录（异步任务）。
+- `Upload/ParsedChunk`：用户上传资料与解析后的知识切片。
+- `Conversation`：对话记录（后续迁移为按会话归档）。
+
+新增对象列表：
 
 1. `GenerationSession`（扩展）
 2. `ProjectReference`
@@ -37,14 +47,24 @@
 
 ### 3.1 GenerationSession（扩展）
 
-用途：
+用途（给不熟悉模型的人一条直觉）：
+
+把一次“对话+改稿”当成一个独立盒子。多个用户可以在同一个 `Project` 下开多个盒子，彼此草稿互不污染。
 
 1. 隔离同一 `project` 下的工作上下文
-2. 支撑教师多轮共创
-3. 支撑协作者独立会话
-4. 支撑学生个人临时生成过程
+2. 支撑多轮共创
+3. 支撑多成员独立会话
+4. 支撑个人临时生成过程
 
-建议字段：
+建议字段（每个字段的意图）：
+
+关键字段解释：
+
+- `status`：会话是否仍在活跃或已经合并/关闭。
+- `purpose`：可选字段。若不区分角色场景，可不使用。
+- `baseVersionId`：这次会话从哪个正式版本开始。若主库已前进，系统自动在最新版本上重放修改意图，生成新草稿以节省参与者时间。
+- `latestDraftId`：指向最近的草稿/预览结果。
+ - 草稿只保留固定份数用于回退，超过部分可清理。
 
 ```text
 GenerationSession
@@ -53,14 +73,14 @@ GenerationSession
 - ownerUserId
 - title
 - status                // active / archived / merged / closed
-- purpose               // authoring / collaboration / student-study / preview
+- purpose               // authoring / collaboration / study / preview
 - baseVersionId
 - latestDraftId
 - createdAt
 - updatedAt
 ```
 
-说明：
+说明（为什么要有这些字段）：
 
 1. `projectId` 仍是数据归属边界。
 2. `baseVersionId` 用于标识当前会话从哪个正式状态开始工作。
@@ -68,14 +88,24 @@ GenerationSession
 
 ### 3.2 ProjectReference
 
-用途：
+用途（引用关系 = “我这个空间依赖哪个上游空间”）：
+
+直觉：这是“我从谁那里继承知识”的关系记录，不是一次性复制。
 
 1. 支撑上游空间引用
 2. 支撑 `follow / pinned`
 3. 支撑主基底引用与辅助引用
 4. 支撑多引用冲突优先级
 
-建议字段：
+建议字段（字段含义）：
+
+关键字段解释：
+
+- `relationType`：`base` 是主骨架，`auxiliary` 是补充来源。
+- `mode`：`follow` 跟随上游最新合法状态，`pinned` 锁定某个版本。
+- `pinnedVersionId`：只在 `pinned` 时使用。
+- `priority`：多个辅助引用时的排序，数值越小越优先。
+- `status`：临时禁用某条引用，不删除历史。
 
 ```text
 ProjectReference
@@ -92,7 +122,7 @@ ProjectReference
 - updatedAt
 ```
 
-规则：
+规则（保证引用关系可控）：
 
 1. 每个项目最多一个 `relationType=base`
 2. 可有多个 `relationType=auxiliary`
@@ -100,14 +130,22 @@ ProjectReference
 
 ### 3.3 ProjectVersion
 
-用途：
+用途（正式状态版本 = “可被引用/导出的稳定快照”）：
+
+直觉：只有被确认“入库”的内容才形成版本，用来给引用和导出物做锚点。
 
 1. 记录正式项目状态
 2. 给导出物标记来源
 3. 支撑 `follow / pinned`
 4. 支撑“上游已更新”提醒
 
-建议字段：
+建议字段（字段含义）：
+
+关键字段解释：
+
+- `parentVersionId`：版本链，便于追溯变化。
+- `changeType`：记录变化来源，区分人工改动、合并、引用变化等。
+- `snapshotData`：先用轻量摘要，避免一次性做复杂 diff。
 
 ```text
 ProjectVersion
@@ -121,7 +159,7 @@ ProjectVersion
 - createdAt
 ```
 
-说明：
+说明（为什么不是每次都写版本）：
 
 1. 不是每次草稿变化都写一版。
 2. 只有正式入库的结构化变化才写入 `ProjectVersion`。
@@ -129,13 +167,21 @@ ProjectVersion
 
 ### 3.4 Artifact
 
-用途：
+用途（导出物/按需生成结果的统一记录）：
+
+直觉：任务只是“做”，`Artifact` 才是“做完的结果”。
 
 1. 统一表示导出物与按需生成结果
 2. 记录它来自哪个项目、哪个版本、哪个会话
 3. 区分正式导出与个人私有结果
 
-建议字段：
+建议字段（字段含义）：
+
+关键字段解释：
+
+- `basedOnVersionId`：结果是基于哪个正式版本生成的。
+- `visibility`：`private` 仅自己可见，`project-visible` 项目内可见，`shared` 对外可见。
+- `metadata`：保存页面数、来源引用摘要等轻量信息。
 
 ```text
 Artifact
@@ -152,7 +198,7 @@ Artifact
 - updatedAt
 ```
 
-说明：
+说明（为什么要把任务和结果拆开）：
 
 1. `GenerationTask` 可继续负责异步执行。
 2. `Artifact` 负责长期记录生成结果归属与来源。
@@ -160,13 +206,21 @@ Artifact
 
 ### 3.5 CandidateChange
 
-用途：
+用途（多人参与场景的“候选变更”，避免直接污染正式状态）：
 
-1. 支撑协作者提交候选变更
+直觉：所有参与者的改动先进入“候选箱”，由维护者决定是否合入正式版本。
+
+1. 支撑参与者提交候选变更
 2. 支撑维护者审核合入
-3. 避免协作者直接污染正式项目状态
+3. 避免参与者直接污染正式项目状态
 
-建议字段：
+建议字段（字段含义）：
+
+关键字段解释：
+
+- `baseVersionId`：基于哪个版本提出修改。
+- `payload`：变更内容的结构化摘要或补丁。
+- `status`：当前在提议/通过/驳回/被替代哪种状态。
 
 ```text
 CandidateChange
@@ -186,7 +240,7 @@ CandidateChange
 - updatedAt
 ```
 
-说明：
+说明（先轻量，再演进）：
 
 1. 初期不必做字段级 diff，可先存结构化变更摘要。
 2. `accepted` 后触发正式入库，并生成新的 `ProjectVersion`。
@@ -200,7 +254,6 @@ ProjectMember
 - id
 - projectId
 - userId
-- role                     // owner / manager / collaborator / viewer
 - canView
 - canReference
 - canCollaborate
@@ -209,39 +262,52 @@ ProjectMember
 - updatedAt
 ```
 
-说明：
+说明（权限能力位的含义）：
 
 1. 这样可以把“可见/可引用/可协作/可管理”拆开。
-2. 角色只是默认权限模板，不应替代细粒度能力位。
+2. 权限以能力位为准，不使用角色类型。
 
-## 5. 个人学习空间的最小实现
+## 5. 个人空间的最小实现
 
-个人学习空间不需要单独建一套新对象，本质上仍然是 `Project`。也就是说，“库”是产品对象，`Project` 是实现对象。
+个人空间不需要单独建一套新对象，本质上仍然是 `Project`。也就是说，“库”是产品对象，`Project` 是实现对象。
 
 只需要给 `Project` 增补少量字段即可：
 
 ```text
 Project
-+ kind                     // course / study / collaboration
-+ sourceProjectId          // 若是从上游空间衍生而来，可记录来源（教师空间为常见示例）
++ sourceProjectId          // 若是从上游空间衍生而来，可记录来源
 + defaultReferenceMode     // follow / pinned / none
 + currentVersionId
 ```
 
-说明：
+说明（为什么只加少量字段就够用）：
 
-1. 上游课程空间与下游学习空间都是 `Project`（教师/学生为常见示例）
-2. 差别主要由 `kind` 和权限决定
+1. 系统只承认“空间/库”这一种对象，不区分角色类型
+2. 差别主要由引用关系与权限能力位决定
 3. 这样复用现有模型最多，代码最稳
 
 ## 6. 现有表的最小扩展建议
 
 ### 6.1 Project
 
-建议新增：
+建议新增（这些字段的直观含义）：
+
+字段解释：
+
+- `visibility`：项目对外可见范围（私有/组织内/公开）。
+- `isReferenceable`：是否允许被其他项目引用。
+- `isCollaborative`：是否允许多人协作。
+- `defaultReferenceMode`：派生空间默认使用 `follow` 还是 `pinned`。
+
+默认策略（全局默认安全）：
+
+1. 新建库默认 `private`
+2. `isReferenceable=false`
+3. `isCollaborative=false`
+4. 默认黑盒可见性；公开库默认透明
+5. 用户点击“分享”时再显式开启可见/可引用/可协作
 
 ```text
-+ kind
 + currentVersionId
 + sourceProjectId
 + visibility
@@ -252,7 +318,7 @@ Project
 
 ### 6.2 GenerationTask
 
-建议新增：
+建议新增（任务与结果解耦）：
 
 ```text
 + sessionId
@@ -262,7 +328,7 @@ Project
 
 ### 6.3 Conversation
 
-建议迁移为：
+建议迁移为（让对话归属到会话）：
 
 ```text
 + sessionId
@@ -275,12 +341,12 @@ Project
 
 查询：
 
-1. 找到上游 `project`（常见为教师空间）
+1. 找到上游 `project`
 2. 校验 `ProjectMember.canView`
 3. 读取 `currentVersionId`
 4. 基于当前版本按需生成 `Artifact`
 
-## 7.2 下游用户创建自己的学习空间
+## 7.2 下游用户创建自己的个人空间
 
 写入：
 
@@ -288,11 +354,11 @@ Project
 2. 新增一条 `ProjectReference(mode=follow, relationType=base)`
 3. 初始化一个 `GenerationSession`
 
-## 7.3 协作者提交修改
+## 7.3 参与者提交修改
 
 写入：
 
-1. 协作者在自己的 `GenerationSession` 中生成结果
+1. 参与者在自己的 `GenerationSession` 中生成结果
 2. 保存一条 `CandidateChange`
 3. 维护者审核
 4. 通过后写入新的 `ProjectVersion`
@@ -316,7 +382,6 @@ Project
 ### P2
 
 1. `CandidateChange`
-2. `ProjectMember` 能力位拆分
 
 ## 9. 暂时不要做的部分
 
@@ -340,4 +405,4 @@ Project
 4. `Artifact`
 5. `CandidateChange`
 
-这样既能承接当前比赛叙事，也能为下一阶段真正实现“库 / 课程空间 / 学习空间 / 引用复用 / 协作审核”提供清晰路径。
+这样既能承接当前比赛叙事，也能为下一阶段真正实现“库 / 课程空间 / 个人空间（学习空间为示例） / 引用复用 / 协作审核”提供清晰路径。
