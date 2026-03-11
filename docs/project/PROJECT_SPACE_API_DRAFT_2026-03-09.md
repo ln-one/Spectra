@@ -19,7 +19,7 @@
 
 ## 2. 资源模型总览
 
-建议 API 资源分为六类：
+API 资源分为六类：
 
 1. `projects`
 2. `generation-sessions`
@@ -38,6 +38,14 @@
 - `candidate-change` 是参与者提交的候选变更
 - 结果返回包含引用与溯源信息（来源片段与文件位置）
 
+关系说明（避免混淆）：
+
+1. 一个 `Project` 下可有多个 `Session`。
+2. 一个 `Session` 可产出多个 `Artifact`。
+3. `Artifact` 归属 `Project`，并记录 `session_id` 以表示来源会话。
+4. 动作入口在 `Session`（生成/预览/导出），结果资源在 `Project`（Artifact 列表/详情）。
+5. 预览时通过 `artifact_id` 指定要展示的成果。
+
 默认值约定：
 
 1. 新建 `project` 默认为 `private`
@@ -46,9 +54,19 @@
 4. `visibility` 为私有时，默认黑盒可见性
 5. 公开库默认透明可见
 
-## 3. 建议保留的现有接口（对齐当前实现）
+## 2.1 会话与交互约束（落地约束）
 
-以下现有接口建议保留，并逐步补强字段。列表已与当前 OpenAPI 对齐（`docs/openapi-source.yaml`）。
+为保证多会话隔离且不改变现有三栏布局，明确以下约束：
+
+1. 同一 `Project` 下可有多个 `session`。
+2. 对话与生成流程必须绑定当前 `session_id`。
+3. 上传资料默认是 `project` 级共享（不要求 `session_id`）。
+4. 左下“历史成果”仅显示当前 `session` 的结果，并按类型分组展示（PPT/Word/导图等）。
+5. 预览仍在现有区域，但数据来源改为 `session_id`（调用会话级预览接口）。
+
+## 3. 保留的现有接口（对齐当前实现）
+
+以下现有接口保留，并逐步补强字段。列表已与当前 OpenAPI 对齐（`docs/openapi-source.yaml`）。
 
 ### 3.1 项目
 
@@ -109,18 +127,15 @@
 
 ### `GET /api/v1/projects/{project_id}`
 
-建议扩展返回字段：
+扩展返回字段：
 
 ```json
 {
   "project": {
     "id": "proj_xxx",
     "name": "高中物理·牛顿第二定律",
-    "kind": "course",
     "status": "active",
     "current_version_id": "ver_xxx",
-    "source_project_id": null,
-    "default_reference_mode": "none",
     "visibility": "private",
     "is_referenceable": false
   }
@@ -129,29 +144,25 @@
 
 ### `PUT /api/v1/projects/{project_id}`
 
-建议支持补充字段：
+支持补充字段：
 
-- `kind`
 - `visibility`
 - `is_referenceable`
-- `default_reference_mode`
 
 注意：
 
-1. `source_project_id` 不建议通过普通更新接口直接修改。
-2. 来源关系应通过 `references` 子资源维护。
+1. 来源关系应通过 `references` 子资源维护。
 
 ## 4.2 从已有项目创建新项目
 
 ### `POST /api/v1/projects`
 
-建议扩展入参：
+扩展入参：
 
 ```json
 {
   "name": "我的牛顿第二定律个人空间（学习空间示例）",
   "description": "个人复习空间（学生为常见示例）",
-  "kind": "study",
   "base_project_id": "proj_teacher_xxx",
   "reference_mode": "follow"
 }
@@ -183,8 +194,8 @@
 {
   "project_id": "proj_xxx",
   "title": "第一次生成会话",
-  "purpose": "authoring",
-  "base_version_id": "ver_xxx"
+  "base_version_id": "ver_xxx",
+  "output_type": "ppt"
 }
 ```
 
@@ -196,9 +207,9 @@
     "id": "sess_xxx",
     "project_id": "proj_xxx",
     "title": "第一次生成会话",
-    "purpose": "authoring",
     "status": "active",
-    "base_version_id": "ver_xxx"
+    "base_version_id": "ver_xxx",
+    "output_type": "ppt"
   }
 }
 ```
@@ -206,7 +217,9 @@
 说明：
 
 1. `project_id` 继续作为生成会话的归属边界。
-2. `purpose`、`base_version_id` 属于下一阶段建议补强字段。
+2. `base_version_id` 为核心字段，用于标识会话基于哪个正式版本开始。
+3. `output_type` 用于区分生成类型：`ppt` / `word` / `both`。
+4. 思维导图等轻量结果默认走 `POST /projects/{project_id}/artifacts`（`type=mindmap`），不进入主生成链路。
 
 ## 5.2 会话列表
 
@@ -215,7 +228,6 @@
 支持过滤：
 
 - `status`
-- `purpose`
 - `owner_user_id`
 
 ## 5.3 获取单个会话
@@ -231,18 +243,23 @@
 
 ## 5.4 会话级预览与导出
 
-建议与现有规划保持一致：
+与现有规划保持一致：
 
 - `GET /api/v1/generate/sessions/{session_id}/preview`
 - `POST /api/v1/generate/sessions/{session_id}/preview/modify`
 - `GET /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}`
 - `POST /api/v1/generate/sessions/{session_id}/preview/export`
 
-扩展建议：
+扩展：
 
 1. 返回 `based_on_version_id`
 2. 返回 `artifact_id`
 3. 冲突时统一返回 `409`
+
+补充说明（与多成果交互对齐）：
+
+1. 预览/修改/导出支持显式传入 `artifact_id`，用于用户从左下成果列表点选某一条进行预览。
+2. 未传 `artifact_id` 时，服务端可默认选择该 `session` 下的“当前成果”（实现策略由后端决定）。
 
 ## 6. Reference 接口
 
@@ -300,7 +317,7 @@
 - `project_id`
 - `target_project_id`
 
-如需变更目标，建议删除后重建。
+如需变更目标，删除后重建。
 
 ## 6.4 删除引用
 
@@ -373,8 +390,14 @@
 
 用途：
 
-1. 下游用户不创建自己的个人空间时，按需生成导图/摘要/练习
-2. 上游维护者在当前项目中生成额外结果
+1. 作为“轻量按需结果”入口（摘要/导图/练习等）
+2. 下游用户不创建个人空间时，按需生成私有结果
+3. 上游维护者在当前项目中生成额外结果（不影响库本体）
+
+说明（入口分工）：
+
+1. PPT/Word 等完整生成需走 `Session` 生成流（Gamma），由会话接口导出产生 `Artifact`。
+2. 本接口用于轻量按需结果，不承载完整课件生成主链路。
 
 请求示例：
 
@@ -383,14 +406,21 @@
   "session_id": "sess_xxx",
   "type": "mindmap",
   "based_on_version_id": "ver_xxx",
-  "visibility": "private"
+  "visibility": "private",
+  "mode": "create"
 }
 ```
 
 说明：
 
-1. 这类接口适合轻量按需生成。
+1. 该接口不会写回项目正式状态，仅产出 `Artifact` 结果记录。
 2. 若用户需要长期整理，应引导其创建自己的项目空间。
+3. `mode` 用于控制结果覆盖策略：
+   - `create`：新增一份成果（保留历史）。
+   - `replace`：覆盖当前同类型成果（更新“当前成果”指针）。
+4. 交互映射：
+   - 左上“生成”入口默认 `mode=create`（生成新成果）。
+   - 左下成果列表点选后“修改/再生成”默认 `mode=replace`（覆盖该成果）。
 
 ## 9. Candidate Change 接口
 
@@ -444,15 +474,15 @@
 2. `reject` 保留候选变更记录，不改正式状态。
 3. 若 `base_version_id` 已过期且不能自动重放，应返回 `409`。
 
-## 10. 分享与权限接口建议
+## 10. 分享与权限接口（Phase 3）
 
-若后续要正式支持“只读访问、不污染上游权威空间”，建议新增：
+为支持“只读访问、不污染上游权威空间”，Phase 3 新增：
 
 ### `GET /api/v1/projects/{project_id}/members`
 ### `POST /api/v1/projects/{project_id}/members`
 ### `PATCH /api/v1/projects/{project_id}/members/{member_id}`
 
-能力位建议拆成：
+能力位拆成：
 
 - `can_view`
 - `can_reference`
@@ -461,9 +491,9 @@
 
 这比只靠角色更可控。
 
-## 11. 错误语义建议
+## 11. 错误语义
 
-统一建议：
+统一语义：
 
 - `400` 参数非法
 - `403` 无权限

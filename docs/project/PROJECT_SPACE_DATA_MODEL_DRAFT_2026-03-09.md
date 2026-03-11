@@ -61,7 +61,6 @@
 关键字段解释：
 
 - `status`：会话是否仍在活跃或已经合并/关闭。
-- `purpose`：可选字段。若不区分角色场景，可不使用。
 - `baseVersionId`：这次会话从哪个正式版本开始。若主库已前进，系统自动在最新版本上重放修改意图，生成新草稿以节省参与者时间。
 - `latestDraftId`：指向最近的草稿/预览结果。
  - 草稿只保留固定份数用于回退，超过部分可清理。
@@ -73,7 +72,6 @@ GenerationSession
 - ownerUserId
 - title
 - status                // active / archived / merged / closed
-- purpose               // authoring / collaboration / study / preview
 - baseVersionId
 - latestDraftId
 - createdAt
@@ -84,7 +82,6 @@ GenerationSession
 
 1. `projectId` 仍是数据归属边界。
 2. `baseVersionId` 用于标识当前会话从哪个正式状态开始工作。
-3. `purpose` 只是业务辅助字段，不是权限本体。
 
 ### 3.2 ProjectReference
 
@@ -275,8 +272,6 @@ ProjectMember
 
 ```text
 Project
-+ sourceProjectId          // 若是从上游空间衍生而来，可记录来源
-+ defaultReferenceMode     // follow / pinned / none
 + currentVersionId
 ```
 
@@ -297,7 +292,6 @@ Project
 - `visibility`：项目对外可见范围（私有/组织内/公开）。
 - `isReferenceable`：是否允许被其他项目引用。
 - `isCollaborative`：是否允许多人协作。
-- `defaultReferenceMode`：派生空间默认使用 `follow` 还是 `pinned`。
 
 默认策略（全局默认安全）：
 
@@ -309,11 +303,9 @@ Project
 
 ```text
 + currentVersionId
-+ sourceProjectId
 + visibility
 + isReferenceable
 + isCollaborative
-+ defaultReferenceMode
 ```
 
 ### 6.2 GenerationTask
@@ -350,7 +342,7 @@ Project
 
 写入：
 
-1. 新建一个 `Project(kind=study)`
+1. 新建一个 `Project`
 2. 新增一条 `ProjectReference(mode=follow, relationType=base)`
 3. 初始化一个 `GenerationSession`
 
@@ -376,8 +368,7 @@ Project
 ### P1
 
 1. `ProjectReference`
-2. `Project.kind`
-3. `isReferenceable`
+2. `isReferenceable`
 
 ### P2
 
