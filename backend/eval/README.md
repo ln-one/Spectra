@@ -171,3 +171,20 @@ cd backend
 - `fallback_rate`：小模型失败或质量不达标后升级到大模型比例
 - `non_degradable_misroute_rate`：不可降级任务被错误路由到小模型比例
 - `gate_passed`：综合门禁结果（质量不显著退化、延迟/成本不退化、不可降级任务不误路由）
+
+## D-8.6 网络资源策略层质量评测
+
+```bash
+cd backend
+
+# 运行网络资源策略评测（网页/音频/视频标准化 + 筛选去重 + 可引用性）
+.venv-wsl/bin/python eval/network_resource_quality_audit.py \
+  --dataset eval/network_resource_samples.json \
+  --output eval/results/network_resource_latest.json
+```
+
+评测指标：
+- `normalization_rate`：输出是否标准化为可入库知识单元
+- `relevance_pass_rate`：排序后的高位结果是否与查询相关
+- `low_quality_reject_rate`：低质量/弱相关资源是否被过滤
+- `citation_ready_rate`：输出是否具备可直接引用字段（`chunk_id/source_type/filename/timestamp`）

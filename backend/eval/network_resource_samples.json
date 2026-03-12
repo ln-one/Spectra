@@ -1,0 +1,71 @@
+{
+  "samples": [
+    {
+      "id": "net-001-web",
+      "query": "牛顿第二定律 实验 教学",
+      "web_resources": [
+        {
+          "id": "web-1",
+          "title": "牛顿第二定律课堂实验设计",
+          "url": "https://example.com/newton?utm_source=test",
+          "content": "本文介绍牛顿第二定律在初中课堂中的实验设计，包含小车受力、加速度测量和课堂提问脚本。"
+        },
+        {
+          "id": "web-1-dup",
+          "title": "牛顿第二定律课堂实验设计",
+          "url": "https://example.com/newton",
+          "content": "本文介绍牛顿第二定律在初中课堂中的实验设计，包含小车受力、加速度测量和课堂提问脚本。"
+        },
+        {
+          "id": "spam-web-1",
+          "title": "广告",
+          "url": "https://spam.example.com/ad",
+          "content": "点我"
+        }
+      ],
+      "expected_reject_resource_ids": ["spam-web-1"]
+    },
+    {
+      "id": "net-002-audio",
+      "query": "课堂导入 提问",
+      "audio_id": "audio-001",
+      "audio_filename": "lesson_intro.wav",
+      "audio_segments": [
+        {
+          "start": 0.0,
+          "end": 9.2,
+          "text": "嗯 今天我们先做一个导入提问，然后请同学们预测实验结果。",
+          "confidence": 0.91
+        },
+        {
+          "start": 9.2,
+          "end": 12.0,
+          "text": "啊 那个",
+          "confidence": 0.2
+        }
+      ]
+    },
+    {
+      "id": "net-003-video",
+      "query": "细胞分裂 知识点",
+      "video_id": "video-001",
+      "video_filename": "cell_division.mp4",
+      "video_segments": [
+        {
+          "start": 12.0,
+          "end": 25.0,
+          "summary": "讲解细胞分裂的阶段变化和染色体行为。",
+          "key_points": ["有丝分裂四阶段", "染色体复制与分离"],
+          "confidence": 0.88
+        },
+        {
+          "start": 31.0,
+          "end": 40.0,
+          "summary": "",
+          "key_points": [],
+          "confidence": 0.3
+        }
+      ]
+    }
+  ]
+}
