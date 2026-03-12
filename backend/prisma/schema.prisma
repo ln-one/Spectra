@@ -68,7 +68,7 @@ model Project {
   // 空间权限与引用状态
   visibility        String   @default("private") // private/shared
   isReferenceable   Boolean  @default(false)
-  currentVersionId  String?
+  currentVersionId  String?  @unique
   currentVersion    ProjectVersion? @relation("ProjectCurrentVersion", fields: [currentVersionId], references: [id])
   
   // 关联关系
