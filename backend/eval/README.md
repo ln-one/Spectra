@@ -152,3 +152,22 @@ cd backend
 - `misquote_rate`：引用的 chunk_id 不在允许来源集合中的比例
 - `paragraph_relevance_rate`：带引用段落与来源文本的相关性通过率
 - `empty_citation_rate`：空引用（缺失 chunk_id）比例
+
+## D-8.5 模型路由质量门禁评测
+
+```bash
+cd backend
+
+# 运行模型路由质量门禁评测（质量/延迟/成本 + fallback）
+.venv-wsl/bin/python eval/router_quality_audit.py \
+  --dataset eval/router_quality_samples.json \
+  --output eval/results/router_quality_latest.json
+```
+
+评测指标：
+- `quality_delta`：路由后平均质量相对“全量大模型基线”的变化
+- `latency_reduction_rate`：路由后平均延迟下降比例
+- `cost_reduction_rate`：路由后平均成本下降比例
+- `fallback_rate`：小模型失败或质量不达标后升级到大模型比例
+- `non_degradable_misroute_rate`：不可降级任务被错误路由到小模型比例
+- `gate_passed`：综合门禁结果（质量不显著退化、延迟/成本不退化、不可降级任务不误路由）

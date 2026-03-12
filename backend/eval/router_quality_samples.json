@@ -1,0 +1,105 @@
+{
+  "large_model": "qwen-max",
+  "small_model": "qwen-turbo",
+  "thresholds": {
+    "default_quality_floor": 0.85,
+    "max_avg_quality_drop": 0.02,
+    "max_non_degradable_misroute_rate": 0.0
+  },
+  "samples": [
+    {
+      "id": "router-001",
+      "task": "intent_classification",
+      "prompt": "请判断这句话是提问还是生成需求。",
+      "has_rag_context": false,
+      "quality_large": 0.96,
+      "quality_small": 0.95,
+      "latency_large_ms": 840,
+      "latency_small_ms": 220,
+      "cost_large": 0.020,
+      "cost_small": 0.005,
+      "small_model_success": true
+    },
+    {
+      "id": "router-002",
+      "task": "outline_formatting",
+      "prompt": "把这个大纲整理成统一格式并补齐层级。",
+      "has_rag_context": false,
+      "quality_large": 0.94,
+      "quality_small": 0.91,
+      "latency_large_ms": 920,
+      "latency_small_ms": 280,
+      "cost_large": 0.024,
+      "cost_small": 0.006,
+      "small_model_success": true
+    },
+    {
+      "id": "router-003",
+      "task": "chat_response",
+      "prompt": "给一个开场活动建议。",
+      "has_rag_context": false,
+      "quality_large": 0.92,
+      "quality_small": 0.90,
+      "latency_large_ms": 900,
+      "latency_small_ms": 260,
+      "cost_large": 0.022,
+      "cost_small": 0.006,
+      "small_model_success": true
+    },
+    {
+      "id": "router-004",
+      "task": "short_text_polish",
+      "prompt": "把这句提示词润色一下。",
+      "has_rag_context": false,
+      "quality_large": 0.91,
+      "quality_small": 0.72,
+      "latency_large_ms": 700,
+      "latency_small_ms": 180,
+      "cost_large": 0.018,
+      "cost_small": 0.004,
+      "small_model_success": false
+    },
+    {
+      "id": "router-005",
+      "task": "rag_deep_summary",
+      "prompt": "基于资料做深度总结并指出教学重难点。",
+      "has_rag_context": true,
+      "quality_large": 0.95,
+      "quality_small": 0.79,
+      "latency_large_ms": 1380,
+      "latency_small_ms": 420,
+      "cost_large": 0.041,
+      "cost_small": 0.012,
+      "small_model_success": true,
+      "critical": true
+    },
+    {
+      "id": "router-006",
+      "task": "lesson_plan_reasoning",
+      "prompt": "根据目标和难点生成完整教案逻辑链。",
+      "has_rag_context": true,
+      "quality_large": 0.96,
+      "quality_small": 0.81,
+      "latency_large_ms": 1520,
+      "latency_small_ms": 460,
+      "cost_large": 0.045,
+      "cost_small": 0.014,
+      "small_model_success": true,
+      "critical": true
+    },
+    {
+      "id": "router-007",
+      "task": "preview_modification",
+      "prompt": "修改第 3 页内容并保持结构一致。",
+      "has_rag_context": true,
+      "quality_large": 0.95,
+      "quality_small": 0.78,
+      "latency_large_ms": 1280,
+      "latency_small_ms": 410,
+      "cost_large": 0.039,
+      "cost_small": 0.012,
+      "small_model_success": true,
+      "critical": true
+    }
+  ]
+}
