@@ -37,7 +37,7 @@ def _format_rag_context(rag_results: list[dict]) -> str:
             content = content[:_RAG_CHUNK_MAX_CHARS] + "...（已截断）"
         cite_hint = ""
         if chunk_id:
-            cite_hint = f"\n可用引用标签：<cite chunk_id=\"{chunk_id}\"></cite>"
+            cite_hint = f'\n可用引用标签：<cite chunk_id="{chunk_id}"></cite>'
         sections.append(
             f"参考资料 {i}（{filename}，相关度={score:.0%}）\n{content}{cite_hint}"
         )
@@ -49,7 +49,10 @@ def contains_mechanical_option_pattern(text: str) -> bool:
     if not text:
         return False
     compact = text.strip()
-    return any(re.search(pattern, compact, flags=re.IGNORECASE) for pattern in _MECHANICAL_OPTION_PATTERNS)
+    return any(
+        re.search(pattern, compact, flags=re.IGNORECASE)
+        for pattern in _MECHANICAL_OPTION_PATTERNS
+    )
 
 
 STYLE_REQUIREMENTS = {
@@ -230,7 +233,7 @@ Return JSON only:
             rag_section = (
                 "\n参考资料（按相关度排序）：\n"
                 f"{_format_rag_context(rag_context)}\n"
-                "若使用资料内容，请在对应句末插入 <cite chunk_id=\"...\"></cite> 标签。\n"
+                '若使用资料内容，请在对应句末插入 <cite chunk_id="..."></cite> 标签。\n'
             )
 
         history_section = ""

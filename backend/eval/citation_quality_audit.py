@@ -16,7 +16,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-
 _CITE_TAG_RE = re.compile(r"<cite\b([^>]*)></cite>", flags=re.IGNORECASE)
 _ATTR_RE = re.compile(r'([a-zA-Z_][a-zA-Z0-9_-]*)\s*=\s*"([^"]*)"')
 _TOKEN_RE = re.compile(r"[\u4e00-\u9fffA-Za-z0-9]{2,}")
@@ -82,7 +81,9 @@ def _extract_paragraph(markdown: str, start: int, end: int) -> str:
     return _CITE_TAG_RE.sub("", paragraph).strip()
 
 
-def compute_metrics(samples: list[dict], min_overlap_tokens: int = 1) -> CitationAuditMetrics:
+def compute_metrics(
+    samples: list[dict], min_overlap_tokens: int = 1
+) -> CitationAuditMetrics:
     if not samples:
         return CitationAuditMetrics(0, 0.0, 0.0, 0.0, 0.0, [], [], [], [])
 
@@ -133,7 +134,9 @@ def compute_metrics(samples: list[dict], min_overlap_tokens: int = 1) -> Citatio
                 if isinstance(c, dict) and c.get("chunk_id")
             }
         misquote_total += 1
-        has_misquote = any(chunk_id not in allowed_source_ids for chunk_id in valid_chunk_ids)
+        has_misquote = any(
+            chunk_id not in allowed_source_ids for chunk_id in valid_chunk_ids
+        )
         if has_misquote:
             misquote_count += 1
             failed_misquote_ids.append(sample_id)

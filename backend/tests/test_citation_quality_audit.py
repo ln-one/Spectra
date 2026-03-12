@@ -11,7 +11,7 @@ def test_compute_metrics_basic():
             "id": "pass",
             "expect_citation": True,
             "assistant_markdown": (
-                "牛顿第二定律是 F=ma。<cite chunk_id=\"chunk-1\"></cite>"
+                '牛顿第二定律是 F=ma。<cite chunk_id="chunk-1"></cite>'
             ),
             "allowed_source_ids": ["chunk-1"],
             "source_map": {"chunk-1": "牛顿第二定律公式是 F=ma"},
@@ -19,14 +19,14 @@ def test_compute_metrics_basic():
         {
             "id": "misquote",
             "expect_citation": True,
-            "assistant_markdown": "引用错误来源。<cite chunk_id=\"chunk-x\"></cite>",
+            "assistant_markdown": '引用错误来源。<cite chunk_id="chunk-x"></cite>',
             "allowed_source_ids": ["chunk-2"],
             "source_map": {"chunk-2": "正确来源文本"},
         },
         {
             "id": "empty",
             "expect_citation": True,
-            "assistant_markdown": "空引用。<cite filename=\"a.pdf\"></cite>",
+            "assistant_markdown": '空引用。<cite filename="a.pdf"></cite>',
             "allowed_source_ids": ["chunk-3"],
             "source_map": {"chunk-3": "空引用不应通过"},
         },
@@ -55,7 +55,7 @@ def test_run_audit_writes_output(tmp_path):
             {
                 "id": "s1",
                 "expect_citation": True,
-                "assistant_markdown": "定义可追溯。<cite chunk_id=\"chunk-1\"></cite>",
+                "assistant_markdown": '定义可追溯。<cite chunk_id="chunk-1"></cite>',
                 "allowed_source_ids": ["chunk-1"],
                 "source_map": {"chunk-1": "定义可追溯"},
             }
