@@ -135,3 +135,20 @@ cd backend
 - `draft_structure_pass_rate`：初稿结构完整率
 - `rewrite_improvement_rate`：重写后质量提升率
 - `confirm_ready_rate`：确认阶段可进入生成比例
+
+## D-8.3 引用标注质量评测
+
+```bash
+cd backend
+
+# 运行引用标注质量评测（Markdown + <cite> 协议）
+.venv-wsl/bin/python eval/citation_quality_audit.py \
+  --dataset eval/citation_audit_samples.json \
+  --output eval/results/citation_audit_latest.json
+```
+
+评测指标：
+- `citation_coverage_rate`：应引用样本中是否给出有效 `<cite chunk_id="..."></cite>`
+- `misquote_rate`：引用的 chunk_id 不在允许来源集合中的比例
+- `paragraph_relevance_rate`：带引用段落与来源文本的相关性通过率
+- `empty_citation_rate`：空引用（缺失 chunk_id）比例

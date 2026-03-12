@@ -1,0 +1,60 @@
+{
+  "samples": [
+    {
+      "id": "cite-pass-1",
+      "expect_citation": true,
+      "assistant_markdown": "牛顿第二定律可以先从生活例子切入，再引入 F=ma 的公式关系。<cite chunk_id=\"chunk-1\"></cite>\n\n接下来可安排一个小实验验证质量与加速度关系。",
+      "allowed_source_ids": ["chunk-1"],
+      "citations": [
+        {
+          "chunk_id": "chunk-1",
+          "source_type": "document",
+          "filename": "physics.pdf"
+        }
+      ],
+      "source_map": {
+        "chunk-1": "牛顿第二定律通常表达为 F=ma，可通过生活情境和实验引导理解。"
+      }
+    },
+    {
+      "id": "cite-misquote-1",
+      "expect_citation": true,
+      "assistant_markdown": "这个问题可以参考资料中的动量守恒章节。<cite chunk_id=\"chunk-x\"></cite>",
+      "allowed_source_ids": ["chunk-2"],
+      "citations": [
+        {
+          "chunk_id": "chunk-2",
+          "source_type": "document",
+          "filename": "momentum.pdf"
+        }
+      ],
+      "source_map": {
+        "chunk-2": "动量守恒适用于系统总外力为零的场景。"
+      }
+    },
+    {
+      "id": "cite-no-reference-needed",
+      "expect_citation": false,
+      "assistant_markdown": "这个问题先明确学段和课时，再决定内容深度。",
+      "allowed_source_ids": [],
+      "citations": [],
+      "source_map": {}
+    },
+    {
+      "id": "cite-empty-tag",
+      "expect_citation": true,
+      "assistant_markdown": "你可以先讲定义，再讲实验。<cite filename=\"bad\"></cite>",
+      "allowed_source_ids": ["chunk-3"],
+      "citations": [
+        {
+          "chunk_id": "chunk-3",
+          "source_type": "document",
+          "filename": "lesson.pdf"
+        }
+      ],
+      "source_map": {
+        "chunk-3": "教学流程通常先定义概念，再通过实验强化理解。"
+      }
+    }
+  ]
+}
