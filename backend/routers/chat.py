@@ -154,6 +154,72 @@ def _append_citation_markers(content: str, citations: list[dict]) -> str:
     return f"{content.rstrip()} {first_tag}"
 
 
+def _extract_cited_chunk_ids(content: str) -> list[str]:
+    """Extract chunk ids from inline <cite ...></cite> tags in content order."""
+    if not content:
+        return []
+    ids: list[str] = []
+    for match in re.finditer(r'<cite\s+[^>]*chunk_id="([^"]+)"[^>]*>(?:\s*</cite>)?', content):
+        chunk_id = (match.group(1) or "").strip()
+        if chunk_id:
+            ids.append(chunk_id)
+    return ids
+
+
+def _sanitize_cite_tags(content: str, citations: list[dict]) -> str:
+    """Drop cite tags that cannot be mapped to structured citations."""
+    if not content:
+        return content
+    valid_ids = {
+        str(item.get("chunk_id")).strip()
+        for item in citations
+        if isinstance(item, dict) and item.get("chunk_id")
+    }
+    if not valid_ids:
+        return re.sub(r"<cite\s+[^>]*>(?:\s*</cite>)?", "", content)
+
+    def _replace_invalid_tag(match: re.Match) -> str:
+        chunk_id = (match.group(1) or "").strip()
+        return match.group(0) if chunk_id in valid_ids else ""
+
+    return re.sub(
+        r'<cite\s+[^>]*chunk_id="([^"]+)"[^>]*>(?:\s*</cite>)?',
+        _replace_invalid_tag,
+        content,
+    )
+
+
+def _align_citations_with_content(content: str, citations: list[dict]) -> list[dict]:
+    """Keep citations[] aligned with inline cite tags in content."""
+    if not citations:
+        return []
+    chunk_order = _extract_cited_chunk_ids(content)
+    if not chunk_order:
+        return []
+
+    by_chunk_id: dict[str, dict] = {}
+    for item in citations:
+        if not isinstance(item, dict):
+            continue
+        chunk_id = item.get("chunk_id")
+        if not chunk_id:
+            continue
+        key = str(chunk_id).strip()
+        if key and key not in by_chunk_id:
+            by_chunk_id[key] = item
+
+    ordered: list[dict] = []
+    seen: set[str] = set()
+    for chunk_id in chunk_order:
+        if chunk_id in seen:
+            continue
+        seen.add(chunk_id)
+        item = by_chunk_id.get(chunk_id)
+        if item:
+            ordered.append(item)
+    return ordered
+
+
 def _normalize_chapter_token(token: str) -> str:
     return token.replace(" ", "")
 
@@ -364,6 +430,7 @@ async def send_message(
         prompt = prompt_service.build_chat_response_prompt(
             user_message=user_message_for_prompt,
             intent="general_chat",
+            session_id=session_id,
             rag_context=rag_payload,
             conversation_history=history_payload,
         )
@@ -399,6 +466,9 @@ async def send_message(
 
         # 将 citations 存入 metadata
         assistant_content = _append_citation_markers(assistant_content, citations)
+        assistant_content = _sanitize_cite_tags(assistant_content, citations)
+        assistant_content = _append_citation_markers(assistant_content, citations)
+        citations = _align_citations_with_content(assistant_content, citations)
         assistant_msg = await db_service.create_conversation_message(
             project_id=body.project_id,
             role="assistant",
@@ -474,6 +544,7 @@ async def get_messages(
 
         return success_response(
             data={
+                "session_id": session_id,
                 "messages": [_to_message(m) for m in messages],
                 "total": total,
                 "page": page,

@@ -95,9 +95,11 @@ class TestPromptService:
         prompt = self.svc.build_chat_response_prompt(
             user_message="继续",
             intent="ask_question",
+            session_id="s-001",
             conversation_history=history,
         )
         assert "之前的问题" in prompt
+        assert "session_id=s-001" in prompt
 
     def test_mechanical_option_detection_positive(self):
         text = "你可以选择 A/B/C 三种方式来完成。"

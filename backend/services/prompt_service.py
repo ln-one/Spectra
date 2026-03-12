@@ -220,6 +220,7 @@ Return JSON only:
         self,
         user_message: str,
         intent: str,
+        session_id: Optional[str] = None,
         rag_context: Optional[list[dict]] = None,
         conversation_history: Optional[list[dict]] = None,
     ) -> str:
@@ -239,9 +240,15 @@ Return JSON only:
                 role = "User" if msg.get("role") == "user" else "Assistant"
                 lines.append(f"{role}: {msg.get('content', '')}")
             history_section = "\nConversation history:\n" + "\n".join(lines) + "\n"
+        session_section = (
+            f"\n当前会话：session_id={session_id}\n"
+            "请仅基于该会话上下文进行回复与引用，不要混入其他会话信息。\n"
+            if session_id
+            else ""
+        )
 
         return f"""你是 Spectra 教学助教，请与老师自然共创，不要机械应答。
-{history_section}{rag_section}
+{history_section}{session_section}{rag_section}
 意图：{intent}
 用户问题：{user_message}
 
