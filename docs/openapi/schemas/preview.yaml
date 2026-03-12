@@ -13,6 +13,12 @@ PreviewResponse:
         task_id:
           type: string
           description: 兼容旧任务流的执行 ID
+        artifact_id:
+          type: string
+          description: 当前预览对应的成果 ID
+        based_on_version_id:
+          type: string
+          description: 当前预览基于的正式版本 ID
         render_version:
           type: integer
           minimum: 1
@@ -126,6 +132,9 @@ ModifySessionRequest:
   type: object
   required: [instruction]
   properties:
+    artifact_id:
+      type: string
+      description: 指定要修改的成果 ID（可选）
     instruction:
       type: string
       minLength: 1
@@ -162,6 +171,12 @@ ModifyResponse:
           type: integer
           minimum: 1
           description: 修改后最新渲染版本
+        artifact_id:
+          type: string
+          description: 修改任务对应的成果 ID
+        based_on_version_id:
+          type: string
+          description: 修改任务基于的正式版本 ID
     message:
       type: string
 
@@ -202,6 +217,9 @@ ExportRequest:
   type: object
   required: [format]
   properties:
+    artifact_id:
+      type: string
+      description: 指定要导出的成果 ID（可选）
     format:
       type: string
       enum: [json, markdown, html]
@@ -231,6 +249,12 @@ ExportResponse:
         task_id:
           type: string
           description: 兼容旧任务执行 ID
+        artifact_id:
+          type: string
+          description: 导出对应的成果 ID
+        based_on_version_id:
+          type: string
+          description: 导出基于的正式版本 ID
         content:
           type: string
           description: 导出的内容

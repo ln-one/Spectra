@@ -114,6 +114,10 @@ paths:
     $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1candidate-changes'
   /api/v1/projects/{project_id}/candidate-changes/{change_id}/review:
     $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1candidate-changes~1{change_id}~1review'
+  /api/v1/projects/{project_id}/members:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1members'
+  /api/v1/projects/{project_id}/members/{member_id}:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1members~1{member_id}'
 
 components:
   securitySchemes:

@@ -779,6 +779,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: artifact_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定预览的成果 ID（可选）
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
@@ -849,6 +855,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: artifact_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定来源成果 ID（可选）
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
@@ -1698,6 +1710,107 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/projects/{project_id}/members:
+    get:
+      summary: 获取项目成员列表
+      tags:
+        - Project
+        - Member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMembersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: 添加项目成员
+      tags:
+        - Project
+        - Member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/projects/{project_id}/members/{member_id}:
+    patch:
+      summary: 更新项目成员权限
+      tags:
+        - Project
+        - Member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     BearerAuth:
@@ -3243,6 +3356,12 @@ components:
             task_id:
               type: string
               description: 兼容旧任务流的执行 ID
+            artifact_id:
+              type: string
+              description: 当前预览对应的成果 ID
+            based_on_version_id:
+              type: string
+              description: 当前预览基于的正式版本 ID
             render_version:
               type: integer
               minimum: 1
@@ -3260,6 +3379,9 @@ components:
       required:
         - instruction
       properties:
+        artifact_id:
+          type: string
+          description: 指定要修改的成果 ID（可选）
         instruction:
           type: string
           minLength: 1
@@ -3302,6 +3424,12 @@ components:
               type: integer
               minimum: 1
               description: 修改后最新渲染版本
+            artifact_id:
+              type: string
+              description: 修改任务对应的成果 ID
+            based_on_version_id:
+              type: string
+              description: 修改任务基于的正式版本 ID
         message:
           type: string
     SlideDetailResponse:
@@ -3347,6 +3475,9 @@ components:
       required:
         - format
       properties:
+        artifact_id:
+          type: string
+          description: 指定要导出的成果 ID（可选）
         format:
           type: string
           enum:
@@ -3381,6 +3512,12 @@ components:
             task_id:
               type: string
               description: 兼容旧任务执行 ID
+            artifact_id:
+              type: string
+              description: 导出对应的成果 ID
+            based_on_version_id:
+              type: string
+              description: 导出基于的正式版本 ID
             content:
               type: string
               description: 导出的内容
@@ -4147,6 +4284,133 @@ components:
             - reject
         review_comment:
           type: string
+    ProjectMember:
+      type: object
+      required:
+        - id
+        - project_id
+        - user_id
+        - role
+        - permissions
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        user_id:
+          type: string
+        role:
+          type: string
+          enum:
+            - owner
+            - editor
+            - viewer
+        permissions:
+          type: object
+          properties:
+            can_view:
+              type: boolean
+            can_reference:
+              type: boolean
+            can_collaborate:
+              type: boolean
+            can_manage:
+              type: boolean
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        created_at:
+          type: string
+          format: date-time
+    ProjectMembersResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            members:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectMember'
+        message:
+          type: string
+    ProjectMemberRequest:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+        role:
+          type: string
+          enum:
+            - owner
+            - editor
+            - viewer
+        permissions:
+          type: object
+          properties:
+            can_view:
+              type: boolean
+            can_reference:
+              type: boolean
+            can_collaborate:
+              type: boolean
+            can_manage:
+              type: boolean
+    ProjectMemberResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - member
+          properties:
+            member:
+              $ref: '#/components/schemas/ProjectMember'
+        message:
+          type: string
+    ProjectMemberUpdateRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+            - owner
+            - editor
+            - viewer
+        permissions:
+          type: object
+          properties:
+            can_view:
+              type: boolean
+            can_reference:
+              type: boolean
+            can_collaborate:
+              type: boolean
+            can_manage:
+              type: boolean
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
   responses:
     BadRequest:
       description: 请求参数错误或验证失败

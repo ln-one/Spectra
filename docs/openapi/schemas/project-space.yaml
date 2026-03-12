@@ -329,3 +329,107 @@ CandidateChangesResponse:
             $ref: '#/CandidateChange'
     message:
       type: string
+
+ProjectMember:
+  type: object
+  required: [id, project_id, user_id, role, permissions, status, created_at]
+  properties:
+    id:
+      type: string
+    project_id:
+      type: string
+    user_id:
+      type: string
+    role:
+      type: string
+      enum: [owner, editor, viewer]
+    permissions:
+      type: object
+      properties:
+        can_view:
+          type: boolean
+        can_reference:
+          type: boolean
+        can_collaborate:
+          type: boolean
+        can_manage:
+          type: boolean
+    status:
+      type: string
+      enum: [active, disabled]
+    created_at:
+      type: string
+      format: date-time
+
+ProjectMemberRequest:
+  type: object
+  required: [user_id]
+  properties:
+    user_id:
+      type: string
+    role:
+      type: string
+      enum: [owner, editor, viewer]
+    permissions:
+      type: object
+      properties:
+        can_view:
+          type: boolean
+        can_reference:
+          type: boolean
+        can_collaborate:
+          type: boolean
+        can_manage:
+          type: boolean
+
+ProjectMemberUpdateRequest:
+  type: object
+  properties:
+    role:
+      type: string
+      enum: [owner, editor, viewer]
+    permissions:
+      type: object
+      properties:
+        can_view:
+          type: boolean
+        can_reference:
+          type: boolean
+        can_collaborate:
+          type: boolean
+        can_manage:
+          type: boolean
+    status:
+      type: string
+      enum: [active, disabled]
+
+ProjectMemberResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [member]
+      properties:
+        member:
+          $ref: '#/ProjectMember'
+    message:
+      type: string
+
+ProjectMembersResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/ProjectMember'
+    message:
+      type: string

@@ -401,3 +401,101 @@
         $ref: '../components/responses.yaml#/NotFound'
       '409':
         $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/projects/{project_id}/members:
+  get:
+    summary: 获取项目成员列表
+    tags: [Project, Member]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/project-space.yaml#/ProjectMembersResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+  post:
+    summary: 添加项目成员
+    tags: [Project, Member]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/project-space.yaml#/ProjectMemberRequest'
+    responses:
+      '200':
+        description: 创建成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/project-space.yaml#/ProjectMemberResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/projects/{project_id}/members/{member_id}:
+  patch:
+    summary: 更新项目成员权限
+    tags: [Project, Member]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: member_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/project-space.yaml#/ProjectMemberUpdateRequest'
+    responses:
+      '200':
+        description: 更新成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/project-space.yaml#/ProjectMemberResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
