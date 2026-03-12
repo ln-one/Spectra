@@ -11,7 +11,6 @@ from typing import Optional
 
 from fastapi import Request, Response
 
-
 _DEFAULT_SUNSET = os.getenv("DEPRECATED_API_SUNSET", "2026-06-30")
 
 

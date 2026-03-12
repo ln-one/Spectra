@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
 from services.database import db_service
@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 @router.get("/{task_id}/download")
 async def download_courseware(
     task_id: str,
-    file_type: Literal["ppt", "word"] = Query(...),
     request: Request,
+    file_type: Literal["ppt", "word"] = Query(...),
     user_id: str = Depends(get_current_user),
 ):
     """
@@ -118,6 +118,8 @@ async def download_courseware(
         )
         return response
 
+    except HTTPException:
+        raise
     except APIException:
         raise
     except Exception as e:

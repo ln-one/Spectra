@@ -155,6 +155,8 @@ async def get_preview(
             },
             message="获取预览成功",
         )
+    except HTTPException:
+        raise
     except APIException:
         raise
     except Exception as e:
@@ -236,6 +238,8 @@ async def modify_preview(
                 cache_key, jsonable_encoder(response_payload)
             )
         return response_payload
+    except HTTPException:
+        raise
     except APIException:
         raise
     except Exception as e:
@@ -254,15 +258,16 @@ async def get_slide_detail(
     """获取单个幻灯片详情"""
     try:
         assert_legacy_enabled()
+        replacement = "/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}"
         apply_deprecation_headers(
             response,
-            replacement="/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}",
+            replacement=replacement,
         )
         log_deprecated_call(
             logger,
             request,
             user_id,
-            replacement="/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}",
+            replacement=replacement,
         )
         task, project = await _resolve_task(task_id, user_id)
         use_fallback = False
@@ -337,6 +342,8 @@ async def get_slide_detail(
             related_slides=related,
         )
         return success_response(data=data.model_dump(), message="获取幻灯片详情成功")
+    except HTTPException:
+        raise
     except APIException:
         raise
     except Exception as e:
@@ -432,6 +439,8 @@ async def export_preview(
 
         data = ExportData(content=export_content, format=body.format.value)
         return success_response(data=data.model_dump(), message="导出成功")
+    except HTTPException:
+        raise
     except APIException:
         raise
     except Exception as e:

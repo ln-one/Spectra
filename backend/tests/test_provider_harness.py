@@ -1,8 +1,11 @@
 import json
 
+import pytest
+
 from eval.provider_harness import run_harness
 
 
+@pytest.mark.slow
 def test_run_harness_outputs_summary(tmp_path):
     sample_pool = {
         "samples": [

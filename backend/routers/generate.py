@@ -302,6 +302,8 @@ async def generate_courseware(
 
         return response_payload
 
+    except HTTPException:
+        raise
     except APIException as e:
         logger.error(
             f"Failed to generate courseware: {e.message}",
@@ -431,6 +433,8 @@ async def get_generation_status(
             message="获取生成状态成功",
         )
 
+    except HTTPException:
+        raise
     except APIException as e:
         logger.error(
             f"Failed to get generation status: {e.message}",
@@ -525,6 +529,8 @@ async def get_task_versions(
             message="获取版本列表成功",
         )
 
+    except HTTPException:
+        raise
     except APIException as e:
         logger.error(
             f"Failed to get task versions: {e.message}",
