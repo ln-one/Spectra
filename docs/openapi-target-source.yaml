@@ -87,15 +87,33 @@ paths:
 
   # Project
   /api/v1/projects:
-    $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects'
+    $ref: './openapi/paths/project-target.yaml#/~1api~1v1~1projects'
   /api/v1/projects/{project_id}:
-    $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1{project_id}'
+    $ref: './openapi/paths/project-target.yaml#/~1api~1v1~1projects~1{project_id}'
   /api/v1/projects/{project_id}/files:
     $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1{project_id}~1files'
   /api/v1/projects/{project_id}/statistics:
     $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1{project_id}~1statistics'
   /api/v1/projects/search:
     $ref: './openapi/paths/project.yaml#/~1api~1v1~1projects~1search'
+
+  # Project Space Extensions (Target)
+  /api/v1/projects/{project_id}/references:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1references'
+  /api/v1/projects/{project_id}/references/{reference_id}:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1references~1{reference_id}'
+  /api/v1/projects/{project_id}/versions:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1versions'
+  /api/v1/projects/{project_id}/versions/{version_id}:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1versions~1{version_id}'
+  /api/v1/projects/{project_id}/artifacts:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1artifacts'
+  /api/v1/projects/{project_id}/artifacts/{artifact_id}:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1artifacts~1{artifact_id}'
+  /api/v1/projects/{project_id}/candidate-changes:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1candidate-changes'
+  /api/v1/projects/{project_id}/candidate-changes/{change_id}/review:
+    $ref: './openapi/paths/project-space.yaml#/~1api~1v1~1projects~1{project_id}~1candidate-changes~1{change_id}~1review'
 
 components:
   securitySchemes:

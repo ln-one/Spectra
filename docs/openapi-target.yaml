@@ -1064,7 +1064,7 @@ paths:
                 $ref: '#/components/schemas/CapabilitiesHealthResponse'
   /api/v1/projects:
     post:
-      summary: 创建项目
+      summary: 创建项目（支持引用式创建）
       tags:
         - Project
       security:
@@ -1076,14 +1076,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectRequest'
+              $ref: '#/components/schemas/ProjectRequestTarget'
       responses:
         '200':
           description: 项目创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
+                $ref: '#/components/schemas/ProjectResponseTarget'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1103,7 +1103,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetProjectsResponse'
+                $ref: '#/components/schemas/GetProjectsResponseTarget'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/v1/projects/{project_id}:
@@ -1125,7 +1125,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
+                $ref: '#/components/schemas/ProjectResponseTarget'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1133,7 +1133,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     put:
-      summary: 修改项目信息
+      summary: 修改项目信息（可扩展可见性与引用权限）
       tags:
         - Project
       security:
@@ -1150,14 +1150,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectRequest'
+              $ref: '#/components/schemas/ProjectRequestTarget'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
+                $ref: '#/components/schemas/ProjectResponseTarget'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1282,6 +1282,422 @@ paths:
                 $ref: '#/components/schemas/GetProjectsResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /api/v1/projects/{project_id}/references:
+    post:
+      summary: 创建项目引用
+      tags:
+        - Project
+        - Reference
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectReferenceRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReferenceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      summary: 获取项目引用列表
+      tags:
+        - Project
+        - Reference
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReferencesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/projects/{project_id}/references/{reference_id}:
+    patch:
+      summary: 更新项目引用
+      tags:
+        - Project
+        - Reference
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reference_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectReferenceUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReferenceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      summary: 删除项目引用
+      tags:
+        - Project
+        - Reference
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reference_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleSuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/projects/{project_id}/versions:
+    get:
+      summary: 获取项目版本列表
+      tags:
+        - Project
+        - Version
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectVersionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/projects/{project_id}/versions/{version_id}:
+    get:
+      summary: 获取项目版本详情
+      tags:
+        - Project
+        - Version
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectVersionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/projects/{project_id}/artifacts:
+    get:
+      summary: 获取项目成果列表
+      tags:
+        - Project
+        - Artifact
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: visibility
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: owner_user_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: based_on_version_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: 创建轻量按需成果
+      tags:
+        - Project
+        - Artifact
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactCreateRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/projects/{project_id}/artifacts/{artifact_id}:
+    get:
+      summary: 获取成果详情
+      tags:
+        - Project
+        - Artifact
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: artifact_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/projects/{project_id}/candidate-changes:
+    post:
+      summary: 提交候选变更
+      tags:
+        - Project
+        - CandidateChange
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateChangeRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateChangeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      summary: 获取候选变更列表
+      tags:
+        - Project
+        - CandidateChange
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: proposer_user_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateChangesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/projects/{project_id}/candidate-changes/{change_id}/review:
+    post:
+      summary: 审核候选变更
+      tags:
+        - Project
+        - CandidateChange
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateChangeReviewRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateChangeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 components:
   securitySchemes:
     BearerAuth:
@@ -3131,7 +3547,22 @@ components:
         updated_at:
           type: string
           format: date-time
-    GetProjectsResponse:
+    ProjectTarget:
+      allOf:
+        - $ref: '#/components/schemas/Project'
+        - type: object
+          properties:
+            visibility:
+              type: string
+              enum:
+                - private
+                - shared
+            is_referenceable:
+              type: boolean
+            current_version_id:
+              type: string
+              nullable: true
+    GetProjectsResponseTarget:
       type: object
       required:
         - success
@@ -3146,7 +3577,7 @@ components:
             projects:
               type: array
               items:
-                $ref: '#/components/schemas/Project'
+                $ref: '#/components/schemas/ProjectTarget'
             total:
               type: integer
             page:
@@ -3171,7 +3602,27 @@ components:
           maxLength: 2000
         grade_level:
           type: string
-    ProjectResponse:
+    ProjectRequestTarget:
+      allOf:
+        - $ref: '#/components/schemas/ProjectRequest'
+        - type: object
+          properties:
+            base_project_id:
+              type: string
+              nullable: true
+            reference_mode:
+              type: string
+              enum:
+                - follow
+                - pinned
+            visibility:
+              type: string
+              enum:
+                - private
+                - shared
+            is_referenceable:
+              type: boolean
+    ProjectResponseTarget:
       type: object
       required:
         - success
@@ -3186,7 +3637,7 @@ components:
             - project
           properties:
             project:
-              $ref: '#/components/schemas/Project'
+              $ref: '#/components/schemas/ProjectTarget'
         message:
           type: string
     GetFilesResponse:
@@ -3250,6 +3701,451 @@ components:
               type: string
               format: date-time
         message:
+          type: string
+    GetProjectsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            projects:
+              type: array
+              items:
+                $ref: '#/components/schemas/Project'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+        message:
+          type: string
+    ProjectReference:
+      type: object
+      required:
+        - id
+        - project_id
+        - target_project_id
+        - relation_type
+        - mode
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        target_project_id:
+          type: string
+        relation_type:
+          type: string
+          enum:
+            - base
+            - auxiliary
+        mode:
+          type: string
+          enum:
+            - follow
+            - pinned
+        pinned_version_id:
+          type: string
+          nullable: true
+        priority:
+          type: integer
+          description: 辅助引用排序，数值越小优先级越高
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ProjectReferencesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            references:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectReference'
+        message:
+          type: string
+    ProjectReferenceRequest:
+      type: object
+      required:
+        - target_project_id
+        - relation_type
+        - mode
+      properties:
+        target_project_id:
+          type: string
+        relation_type:
+          type: string
+          enum:
+            - base
+            - auxiliary
+        mode:
+          type: string
+          enum:
+            - follow
+            - pinned
+        pinned_version_id:
+          type: string
+          nullable: true
+        priority:
+          type: integer
+    ProjectReferenceResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - reference
+          properties:
+            reference:
+              $ref: '#/components/schemas/ProjectReference'
+        message:
+          type: string
+    ProjectReferenceUpdateRequest:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum:
+            - follow
+            - pinned
+        pinned_version_id:
+          type: string
+          nullable: true
+        priority:
+          type: integer
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+    ProjectVersion:
+      type: object
+      required:
+        - id
+        - project_id
+        - summary
+        - change_type
+        - created_by
+        - created_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        parent_version_id:
+          type: string
+          nullable: true
+        summary:
+          type: string
+        change_type:
+          type: string
+          enum:
+            - author-update
+            - merge-change
+            - reference-change
+            - import
+        snapshot_data:
+          type: object
+          additionalProperties: true
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ProjectVersionsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            versions:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectVersion'
+        message:
+          type: string
+    ProjectVersionResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - version
+          properties:
+            version:
+              $ref: '#/components/schemas/ProjectVersion'
+        message:
+          type: string
+    Artifact:
+      type: object
+      required:
+        - id
+        - project_id
+        - type
+        - visibility
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        session_id:
+          type: string
+          nullable: true
+        based_on_version_id:
+          type: string
+          nullable: true
+        owner_user_id:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum:
+            - pptx
+            - docx
+            - mindmap
+            - summary
+            - exercise
+            - html
+            - gif
+            - mp4
+        visibility:
+          type: string
+          enum:
+            - private
+            - project-visible
+            - shared
+        storage_path:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ArtifactsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            artifacts:
+              type: array
+              items:
+                $ref: '#/components/schemas/Artifact'
+        message:
+          type: string
+    ArtifactCreateRequest:
+      type: object
+      required:
+        - type
+      properties:
+        session_id:
+          type: string
+          nullable: true
+        based_on_version_id:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum:
+            - mindmap
+            - summary
+            - exercise
+            - html
+            - gif
+            - mp4
+        visibility:
+          type: string
+          enum:
+            - private
+            - project-visible
+            - shared
+        mode:
+          type: string
+          enum:
+            - create
+            - replace
+    ArtifactResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - artifact
+          properties:
+            artifact:
+              $ref: '#/components/schemas/Artifact'
+        message:
+          type: string
+    CandidateChange:
+      type: object
+      required:
+        - id
+        - project_id
+        - status
+        - title
+        - summary
+        - proposer_user_id
+        - created_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        session_id:
+          type: string
+          nullable: true
+        base_version_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum:
+            - pending
+            - accepted
+            - rejected
+        proposer_user_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CandidateChangesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            changes:
+              type: array
+              items:
+                $ref: '#/components/schemas/CandidateChange'
+        message:
+          type: string
+    CandidateChangeRequest:
+      type: object
+      required:
+        - title
+      properties:
+        session_id:
+          type: string
+          nullable: true
+        base_version_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+    CandidateChangeResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - change
+          properties:
+            change:
+              $ref: '#/components/schemas/CandidateChange'
+        message:
+          type: string
+    CandidateChangeReviewRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum:
+            - accept
+            - reject
+        review_comment:
           type: string
   responses:
     BadRequest:

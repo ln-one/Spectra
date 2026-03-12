@@ -1,0 +1,331 @@
+ProjectReference:
+  type: object
+  required: [id, project_id, target_project_id, relation_type, mode, status, created_at, updated_at]
+  properties:
+    id:
+      type: string
+    project_id:
+      type: string
+    target_project_id:
+      type: string
+    relation_type:
+      type: string
+      enum: [base, auxiliary]
+    mode:
+      type: string
+      enum: [follow, pinned]
+    pinned_version_id:
+      type: string
+      nullable: true
+    priority:
+      type: integer
+      description: 辅助引用排序，数值越小优先级越高
+    status:
+      type: string
+      enum: [active, disabled]
+    created_by:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+ProjectReferenceRequest:
+  type: object
+  required: [target_project_id, relation_type, mode]
+  properties:
+    target_project_id:
+      type: string
+    relation_type:
+      type: string
+      enum: [base, auxiliary]
+    mode:
+      type: string
+      enum: [follow, pinned]
+    pinned_version_id:
+      type: string
+      nullable: true
+    priority:
+      type: integer
+
+ProjectReferenceUpdateRequest:
+  type: object
+  properties:
+    mode:
+      type: string
+      enum: [follow, pinned]
+    pinned_version_id:
+      type: string
+      nullable: true
+    priority:
+      type: integer
+    status:
+      type: string
+      enum: [active, disabled]
+
+ProjectReferenceResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [reference]
+      properties:
+        reference:
+          $ref: '#/ProjectReference'
+    message:
+      type: string
+
+ProjectReferencesResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        references:
+          type: array
+          items:
+            $ref: '#/ProjectReference'
+    message:
+      type: string
+
+ProjectVersion:
+  type: object
+  required: [id, project_id, summary, change_type, created_by, created_at]
+  properties:
+    id:
+      type: string
+    project_id:
+      type: string
+    parent_version_id:
+      type: string
+      nullable: true
+    summary:
+      type: string
+    change_type:
+      type: string
+      enum: [author-update, merge-change, reference-change, import]
+    snapshot_data:
+      type: object
+      additionalProperties: true
+    created_by:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+
+ProjectVersionsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: '#/ProjectVersion'
+    message:
+      type: string
+
+ProjectVersionResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [version]
+      properties:
+        version:
+          $ref: '#/ProjectVersion'
+    message:
+      type: string
+
+Artifact:
+  type: object
+  required: [id, project_id, type, visibility, created_at, updated_at]
+  properties:
+    id:
+      type: string
+    project_id:
+      type: string
+    session_id:
+      type: string
+      nullable: true
+    based_on_version_id:
+      type: string
+      nullable: true
+    owner_user_id:
+      type: string
+      nullable: true
+    type:
+      type: string
+      enum: [pptx, docx, mindmap, summary, exercise, html, gif, mp4]
+    visibility:
+      type: string
+      enum: [private, project-visible, shared]
+    storage_path:
+      type: string
+    metadata:
+      type: object
+      additionalProperties: true
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+ArtifactCreateRequest:
+  type: object
+  required: [type]
+  properties:
+    session_id:
+      type: string
+      nullable: true
+    based_on_version_id:
+      type: string
+      nullable: true
+    type:
+      type: string
+      enum: [mindmap, summary, exercise, html, gif, mp4]
+    visibility:
+      type: string
+      enum: [private, project-visible, shared]
+    mode:
+      type: string
+      enum: [create, replace]
+
+ArtifactResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [artifact]
+      properties:
+        artifact:
+          $ref: '#/Artifact'
+    message:
+      type: string
+
+ArtifactsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        artifacts:
+          type: array
+          items:
+            $ref: '#/Artifact'
+    message:
+      type: string
+
+CandidateChange:
+  type: object
+  required: [id, project_id, status, title, summary, proposer_user_id, created_at]
+  properties:
+    id:
+      type: string
+    project_id:
+      type: string
+    session_id:
+      type: string
+      nullable: true
+    base_version_id:
+      type: string
+      nullable: true
+    title:
+      type: string
+    summary:
+      type: string
+    payload:
+      type: object
+      additionalProperties: true
+    status:
+      type: string
+      enum: [pending, accepted, rejected]
+    proposer_user_id:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+CandidateChangeRequest:
+  type: object
+  required: [title]
+  properties:
+    session_id:
+      type: string
+      nullable: true
+    base_version_id:
+      type: string
+      nullable: true
+    title:
+      type: string
+    summary:
+      type: string
+    payload:
+      type: object
+      additionalProperties: true
+
+CandidateChangeReviewRequest:
+  type: object
+  required: [action]
+  properties:
+    action:
+      type: string
+      enum: [accept, reject]
+    review_comment:
+      type: string
+
+CandidateChangeResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [change]
+      properties:
+        change:
+          $ref: '#/CandidateChange'
+    message:
+      type: string
+
+CandidateChangesResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: '#/CandidateChange'
+    message:
+      type: string

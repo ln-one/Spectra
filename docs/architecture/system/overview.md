@@ -1,10 +1,10 @@
 # System Architecture Overview
 
-> 状态说明（2026-03-06）：本文档含“当前实现”和“目标架构（会话化）”。技术栈落地状态以 `../tech-stack.md` 为准。
+> 状态说明（2026-03-12）：本文档描述“当前实现 + 下一阶段演进方向”。技术栈落地状态以 `../tech-stack.md` 为准。
 
 ## 概述
 
-Spectra 是一个多模态 AI 互动式教学智能体，采用前后端分离架构，支持 NotebookLM 风格三栏工作台（资料/对话/大纲）、RAG 检索增强和 Gamma 风格大纲驱动课件生成。
+Spectra 是一个 **session-first** 的课件生产工作台：以 `Project` 作为空间/库的统一容器，以 `GenerationSession` 作为工作会话，围绕上传资料、RAG 检索、生成、预览修改与导出形成稳定主流程。下一阶段在不推翻现有主干的前提下，扩展到“可引用、可协作、可按需外化”的 Project-Space 模型（参考 `docs/project/*_2026-03-09.md`）。
 
 ## 系统架构图
 
@@ -16,9 +16,9 @@ flowchart TB
  end
 
  subgraph BE["Backend"]
- BERouter["API Routers (Session/Task Compatible)"]
+ BERouter["API Routers (Session-First)"]
  BEService["Service Layer"]
- BEModel["Prisma Models (Project/Session/Task)"]
+ BEModel["Prisma Models (Project / Session / Task)"]
  end
 
  subgraph Store["Storage"]
@@ -64,14 +64,31 @@ flowchart TB
 - **文档解析（规划中）**: MinerU / LlamaParse 可插拔
 - **视频理解（规划中）**: Qwen-VL API
 
+## 核心对象（当前 + 规划）
+
+当前主干：
+
+- `Project`：空间/库容器
+- `GenerationSession`：会话隔离与生成链路
+- `Upload / ParsedChunk`：资料与切片
+- `GenerationTask`：执行记录（兼容层）
+- `Conversation`：对话记录（会话归档）
+
+下一阶段：
+
+- `ProjectReference`：空间引用关系
+- `ProjectVersion`：正式版本锚点
+- `Artifact`：按需外化/导出结果
+- `CandidateChange`：候选变更与协作提交
+
 ## 架构主线（2026-03）
 
-- 产品主流程从 `task` 升级为 `session`（大纲先行、确认后生成）。
-- 前端主界面采用三栏信息架构，Gamma 生成作为 Studio 入口能力。
-- Marp/Pandoc 渲染层继续保留，作为会话流的导出执行阶段。
+- **已落地**：生成链路从 `task` 升级为 `session`（大纲先行、确认后生成），预览/导出走会话级路径。
+- **当前主语义**：`Project` 为空间/库容器，`GenerationSession` 为工作会话隔离。
+- **下一阶段**：在现有 `project + session` 上增量扩展 `reference / version / artifact / candidate-change`，形成 Project-Space 的引用与外化模型。
 
 ## 相关文档
 
-- [Data Flow](../../archived/architecture/system/data-flow.md) - 数据流设计（已归档）
 - [Security Architecture](./security-architecture.md) - 安全架构
 - [Deployment](../deployment.md) - 部署架构
+- [Project-Space 演进索引](../../project/SPACE_MODEL_INDEX_2026-03-09.md)

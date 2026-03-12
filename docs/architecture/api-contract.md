@@ -130,6 +130,21 @@ FastAPI 自动提供两种 API 文档界面：
 4. **类型安全**: 前后端使用生成的类型，避免手写
 5. **保持同步**: 实现必须与契约一致
 
+## Project-Space 演进契约（规划中）
+
+基于 2026-03-09 的 Project-Space 设计，下一阶段在 `/projects` 主干上扩展以下子资源：
+
+- `references`：项目引用关系（`follow` / `pinned`，主基底/辅助引用）
+- `versions`：正式版本锚点（可被引用/导出）
+- `artifacts`：导出/按需外化成果（记录来源会话与版本）
+- `candidate-changes`：候选变更提交与审核
+
+当前原则：
+
+1. 不新建平行资源体系，继续以 `/projects/*` 为主入口。
+2. 只增量扩展，不破坏 session-first 主流程。
+3. 对外产品叙事可称“库/课程空间/个人空间（学习空间为示例）”，内部仍保持 `project` 命名。
+
 ## 生成域契约（2026-03 架构调整）
 
 为支撑“前端导向设计文档”中的阶段式生成体验，生成域采用“命令 + 查询 + 事件”三类契约：
@@ -190,6 +205,5 @@ FastAPI 自动提供两种 API 文档界面：
 
 - [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
 - [OpenAPI 拆分决策](../decisions/ADR-003-openapi-modularization.md)
-- [后端 OpenAPI 同步指南](../archived/openapi/BACKEND_OPENAPI_SYNC.md)
-- [前端导向设计文档](./前端导向设计文档.md)
-- [契约优先架构调整说明](./contract-first-adjustment.md)
+- [Project-Space API 草案（2026-03-09）](../project/PROJECT_SPACE_API_DRAFT_2026-03-09.md)
+- [Project-Space 数据模型草案（2026-03-09）](../project/PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md)
