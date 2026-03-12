@@ -13,12 +13,15 @@ PreviewResponse:
         task_id:
           type: string
           description: 兼容旧任务流的执行 ID
+          nullable: true
         artifact_id:
           type: string
           description: 当前预览对应的成果 ID
+          nullable: true
         based_on_version_id:
           type: string
           description: 当前预览基于的正式版本 ID
+          nullable: true
         render_version:
           type: integer
           minimum: 1
@@ -174,9 +177,11 @@ ModifyResponse:
         artifact_id:
           type: string
           description: 修改任务对应的成果 ID
+          nullable: true
         based_on_version_id:
           type: string
           description: 修改任务基于的正式版本 ID
+          nullable: true
     message:
       type: string
 
@@ -249,12 +254,15 @@ ExportResponse:
         task_id:
           type: string
           description: 兼容旧任务执行 ID
+          nullable: true
         artifact_id:
           type: string
           description: 导出对应的成果 ID
+          nullable: true
         based_on_version_id:
           type: string
           description: 导出基于的正式版本 ID
+          nullable: true
         content:
           type: string
           description: 导出的内容

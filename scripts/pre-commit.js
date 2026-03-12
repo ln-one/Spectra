@@ -19,7 +19,10 @@ const runCommand = (command, cwd) => {
 const rootDir = path.join(__dirname, '..');
 const frontendDir = path.join(rootDir, 'frontend');
 const backendDir = path.join(rootDir, 'backend');
-const venvBinDir = path.join(rootDir, '.venv', 'bin');
+const venvBinDir =
+    process.platform === 'win32'
+        ? path.join(rootDir, '.venv', 'Scripts')
+        : path.join(rootDir, '.venv', 'bin');
 
 const resolveVenvTool = (name, fallback = name) => {
     const candidate = path.join(venvBinDir, name);

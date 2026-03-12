@@ -178,4 +178,3 @@ const response: AuthResponse = await authApi.register(data);
 - [API 契约设计](../architecture/api-contract.md)
 - [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
 - [后端 OpenAPI 同步](../archived/openapi/BACKEND_OPENAPI_SYNC.md)
-- [ADR-003: OpenAPI 模块化决策](../decisions/ADR-003-openapi-modularization.md)

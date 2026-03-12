@@ -28,7 +28,6 @@
 - `docs/OPENAPI_GUIDE.md` - 使用指南
 - `docs/openapi/README.md` - 目录说明
 - `docs/openapi/QUICK_REFERENCE.md` - 快速参考
-- `docs/decisions/ADR-003-openapi-modularization.md` - 架构决策
 - `backend/OPENAPI_WORKFLOW.md` - 后端工作流程
 - `docs/BACKEND_OPENAPI_SYNC.md` - 后端同步说明
 
@@ -85,7 +84,6 @@ npm run sync:openapi
 - [快速参考](QUICK_REFERENCE.md)
 - [后端工作流程](../../backend/OPENAPI_WORKFLOW.md)
 - [后端同步说明](../BACKEND_OPENAPI_SYNC.md)
-- [架构决策](../decisions/ADR-003-openapi-modularization.md)
 
 ### 优势
 

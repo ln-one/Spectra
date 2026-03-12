@@ -74,7 +74,6 @@ docs/
 │ ├── generate-session-core.yaml # 会话核心路径
 │ ├── generate-session-edit.yaml # 会话编辑路径
 │ ├── generate-session-command.yaml # 会话命令路径
-│ ├── generate-session-preview.yaml # 会话预览接口
  │ ├── rag.yaml # 知识库检索接口
  │ └── project.yaml # 项目管理接口
  │ ├── project-target.yaml # 项目管理（target 扩展）

@@ -87,7 +87,8 @@ class TestTaskExecutor:
                 -1
             ]
             assert final_call[1]["status"] == "completed"
-            assert final_call[1]["output_urls"] == "{}"
+            assert '"pptx"' in final_call[1]["output_urls"]
+            assert "/tmp/test.pptx" in final_call[1]["output_urls"]
 
             # 验证 AI 服务调用
             mock_ai_service.generate_courseware_content.assert_called_once()
@@ -120,7 +121,10 @@ class TestTaskExecutor:
             final_call = mock_db_service.update_generation_task_status.call_args_list[
                 -1
             ]
-            assert final_call[1]["output_urls"] == "{}"
+            assert '"pptx"' in final_call[1]["output_urls"]
+            assert '"docx"' in final_call[1]["output_urls"]
+            assert "/tmp/test.pptx" in final_call[1]["output_urls"]
+            assert "/tmp/test.docx" in final_call[1]["output_urls"]
 
     @pytest.mark.asyncio
     async def test_retryable_error_handling(

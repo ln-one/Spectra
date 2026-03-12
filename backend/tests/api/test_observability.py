@@ -102,5 +102,8 @@ class TestExceptionMapping:
 
     def test_validation_error_includes_request_id(self, client: TestClient, _as_user):
         """Pydantic validation error → 400 with request_id."""
-        # Session-first endpoints validate in their own tests.
-        assert True
+        resp = client.post("/api/v1/generate/sessions", json={})
+        assert resp.status_code == 400
+        body = resp.json()
+        details = body.get("error", {}).get("details", {})
+        assert "request_id" in details

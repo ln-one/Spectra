@@ -18,13 +18,13 @@
 
 删除或移除路由文件中的旧端点：
 
-- `/Users/ln1/Projects/Spectra/backend/routers/generate.py`
+- `backend/routers/generate.py`
   - `POST /api/v1/generate/courseware`
   - `GET /api/v1/generate/tasks/{task_id}/status`
   - `GET /api/v1/generate/tasks/{task_id}/versions`
-- `/Users/ln1/Projects/Spectra/backend/routers/download.py`
+- `backend/routers/download.py`
   - `GET /api/v1/generate/tasks/{task_id}/download`
-- `/Users/ln1/Projects/Spectra/backend/routers/preview.py`
+- `backend/routers/preview.py`
   - `GET /api/v1/preview/{task_id}`
   - `POST /api/v1/preview/{task_id}/modify`
   - `GET /api/v1/preview/{task_id}/slides/{slide_id}`
@@ -32,15 +32,15 @@
 
 同时删除相关依赖（若不再使用）：
 
-- `/Users/ln1/Projects/Spectra/backend/utils/deprecation.py`
-- `/Users/ln1/Projects/Spectra/backend/utils/legacy_guard.py`
+- `backend/utils/deprecation.py`
+- `backend/utils/legacy_guard.py`
 
 ## 4. 更新 OpenAPI 与文档
 
-- 从 `/Users/ln1/Projects/Spectra/docs/openapi/paths/generate-task.yaml` 删除旧路径
-- 从 `/Users/ln1/Projects/Spectra/docs/openapi/paths/generate-session-preview.yaml` 删除旧路径
+- 从 `docs/openapi/paths/generate-task.yaml` 删除旧路径
+- 从 `docs/openapi/paths/generate-session-preview.yaml` 删除旧路径
 - 重新打包 OpenAPI：`npm run bundle:openapi`
-- 更新 `/Users/ln1/Projects/Spectra/docs/project/PROJECT_SPACE_API_DRAFT_2026-03-09.md` 的兼容层说明
+- 更新 `docs/project/PROJECT_SPACE_API_DRAFT_2026-03-09.md` 的兼容层说明
 
 ## 5. 清理测试与前端调用（如存在）
 

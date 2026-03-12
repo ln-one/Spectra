@@ -779,6 +779,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: artifact_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定预览的成果 ID（可选）
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
@@ -849,6 +855,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: artifact_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定来源成果 ID（可选）
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
@@ -2827,6 +2839,15 @@ components:
             task_id:
               type: string
               description: 兼容旧任务流的执行 ID
+              nullable: true
+            artifact_id:
+              type: string
+              description: 当前预览对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 当前预览基于的正式版本 ID
+              nullable: true
             render_version:
               type: integer
               minimum: 1
@@ -2844,6 +2865,9 @@ components:
       required:
         - instruction
       properties:
+        artifact_id:
+          type: string
+          description: 指定要修改的成果 ID（可选）
         instruction:
           type: string
           minLength: 1
@@ -2886,6 +2910,14 @@ components:
               type: integer
               minimum: 1
               description: 修改后最新渲染版本
+            artifact_id:
+              type: string
+              description: 修改任务对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 修改任务基于的正式版本 ID
+              nullable: true
         message:
           type: string
     SlideDetailResponse:
@@ -2931,6 +2963,9 @@ components:
       required:
         - format
       properties:
+        artifact_id:
+          type: string
+          description: 指定要导出的成果 ID（可选）
         format:
           type: string
           enum:
@@ -2965,6 +3000,15 @@ components:
             task_id:
               type: string
               description: 兼容旧任务执行 ID
+              nullable: true
+            artifact_id:
+              type: string
+              description: 导出对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 导出基于的正式版本 ID
+              nullable: true
             content:
               type: string
               description: 导出的内容
