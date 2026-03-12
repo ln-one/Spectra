@@ -64,12 +64,24 @@ model Project {
   
   // 状态管理
   status      String   @default("draft")  // draft/in_progress/completed
+
+  // 空间权限与引用状态
+  visibility        String   @default("private") // private/shared
+  isReferenceable   Boolean  @default(false)
+  currentVersionId  String?
+  currentVersion    ProjectVersion? @relation("ProjectCurrentVersion", fields: [currentVersionId], references: [id])
   
   // 关联关系
   conversations      Conversation[]
   uploads            Upload[]
   generationTasks    GenerationTask[]
   generationSessions GenerationSession[]
+  references         ProjectReference[]
+  incomingReferences ProjectReference[] @relation("ProjectReferenceTarget")
+  versions           ProjectVersion[] @relation("ProjectVersions")
+  artifacts          Artifact[]
+  candidateChanges   CandidateChange[]
+  members            ProjectMember[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -172,6 +184,109 @@ model GenerationTask {
   @@index([projectId, status])
   @@index([rqJobId])
   @@index([sessionId])
+}
+
+/// 项目引用关系
+model ProjectReference {
+  id               String   @id @default(uuid())
+  projectId        String
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  targetProjectId  String
+  targetProject    Project  @relation("ProjectReferenceTarget", fields: [targetProjectId], references: [id], onDelete: Cascade)
+
+  relationType     String   // base/auxiliary
+  mode             String   // follow/pinned
+  pinnedVersionId  String?
+  priority         Int      @default(0)
+  status           String   @default("active") // active/disabled
+  createdBy        String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([projectId, relationType])
+  @@index([projectId, status])
+}
+
+/// 项目正式版本
+model ProjectVersion {
+  id              String   @id @default(uuid())
+  projectId       String
+  project         Project  @relation("ProjectVersions", fields: [projectId], references: [id], onDelete: Cascade)
+
+  parentVersionId String?
+  parentVersion   ProjectVersion? @relation("ProjectVersionParent", fields: [parentVersionId], references: [id])
+  childVersions   ProjectVersion[] @relation("ProjectVersionParent")
+
+  summary         String?
+  changeType      String   // author-update/merge-change/reference-change/import
+  snapshotData    String?  // JSON
+  createdBy       String?
+
+  createdAt       DateTime @default(now())
+}
+
+/// 项目成果（导出/按需外化）
+model Artifact {
+  id               String   @id @default(uuid())
+  projectId         String
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sessionId         String?
+  session           GenerationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  basedOnVersionId  String?
+  basedOnVersion    ProjectVersion? @relation(fields: [basedOnVersionId], references: [id], onDelete: SetNull)
+  ownerUserId       String?
+
+  type              String   // pptx/docx/mindmap/summary/exercise/html/gif/mp4
+  visibility        String   @default("private") // private/project-visible/shared
+  storagePath       String?
+  metadata          String?  // JSON
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([projectId, type])
+  @@index([projectId, visibility])
+}
+
+/// 候选变更
+model CandidateChange {
+  id             String   @id @default(uuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sessionId      String?
+  session        GenerationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  baseVersionId  String?
+  baseVersion    ProjectVersion? @relation(fields: [baseVersionId], references: [id], onDelete: SetNull)
+
+  title          String
+  summary        String?
+  payload        String?  // JSON
+  status         String   @default("pending") // pending/accepted/rejected
+  proposerUserId String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([projectId, status])
+}
+
+/// 项目成员与权限
+model ProjectMember {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String
+
+  role        String   @default("viewer") // owner/editor/viewer
+  permissions String?  // JSON: can_view/can_reference/can_collaborate/can_manage
+  status      String   @default("active") // active/disabled
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, userId])
+  @@index([projectId, status])
 }
 
 // ============================================
