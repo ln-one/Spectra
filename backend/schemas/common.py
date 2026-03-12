@@ -1,7 +1,7 @@
 """
 通用 Schema 定义 - 能力状态与降级信息。
 
-对齐 docs/openapi/schemas/common.yaml；历史对齐说明见 docs/archived/D_CONTRACT_V1.md。
+对齐 docs/openapi/schemas/common.yaml；历史对齐说明见 docs/archived/specs/D_CONTRACT_V1.md。
 """
 
 from enum import Enum
