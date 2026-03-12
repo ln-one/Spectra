@@ -7,7 +7,7 @@ import pytest
 
 from services import ai as ai_module
 from services.ai import AIService
-from services.model_router import ModelRouteTask, ModelRouter
+from services.model_router import ModelRouter, ModelRouteTask
 
 
 def _fake_completion_response(content: str = "ok", tokens: int = 12):

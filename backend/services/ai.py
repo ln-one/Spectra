@@ -17,7 +17,7 @@ from litellm import acompletion
 
 from schemas.intent import IntentClassification, IntentType, ModifyIntent, ModifyType
 from services.courseware_ai import CoursewareAIMixin
-from services.model_router import ModelRouteTask, ModelRouter
+from services.model_router import ModelRouter, ModelRouteTask
 
 logger = logging.getLogger(__name__)
 
