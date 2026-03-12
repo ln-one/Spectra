@@ -72,6 +72,6 @@ flowchart TB
 
 ## 相关文档
 
-- [Data Flow](./data-flow.md) - 数据流设计
+- [Data Flow](../../archived/architecture/system/data-flow.md) - 数据流设计（已归档）
 - [Security Architecture](./security-architecture.md) - 安全架构
 - [Deployment](../deployment.md) - 部署架构

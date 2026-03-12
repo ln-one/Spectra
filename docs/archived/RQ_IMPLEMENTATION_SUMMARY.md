@@ -110,7 +110,7 @@ RQ_FAILURE_TTL=604800
 
 ## 验收标准
 
-对照 NEXT_STAGE_ACTIONS.md 的 2.3 异步任务可靠性升级:
+对照 docs/archived/plans/NEXT_STAGE_ACTIONS.md 的 2.3 异步任务可靠性升级:
 
 要做什么:
 - 升级为可恢复的队列任务 (完成)

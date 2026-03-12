@@ -2,7 +2,7 @@
 
 > 日期：2026-03-09
 > 适用范围：在既有 `project + session` 主干上，演进到可引用、可协作、可按需派生的通用空间模型。
-> 前提假设：`docs/project/NEXT_STAGE_ACTIONS.md` 与 `docs/project/SESSION_FIRST_MIGRATION_GUIDE_2026-03-06.md` 中规划的目标 API 已完成。
+> 前提假设：`docs/archived/plans/NEXT_STAGE_ACTIONS.md` 与 `docs/archived/plans/SESSION_FIRST_MIGRATION_GUIDE_2026-03-06.md` 中规划的目标 API 已完成。
 
 ## 1. 文档目的
 

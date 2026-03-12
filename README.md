@@ -86,7 +86,7 @@ Spectra/ # Monorepo root
 │ │ │ ├── chat.yaml # Chat endpoints
 │ │ │ ├── files.yaml # File endpoints
 │ │ │ ├── generate.yaml # Generation endpoints
-│ │ │ ├── preview.yaml # Preview endpoints
+│ │ │ ├── generate-session-preview.yaml # Preview endpoints
 │ │ │ ├── project.yaml # Project endpoints
 │ │ │ └── rag.yaml # RAG endpoints
 │ │ ├── schemas/ # Data model definitions (by module)

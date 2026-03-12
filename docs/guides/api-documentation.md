@@ -47,7 +47,7 @@ docs/openapi/
 ├── paths/ # API 路径定义
 │ ├── auth.yaml # 认证相关接口
 │ ├── files.yaml # 文件管理接口
-│ ├── generate.yaml # 课件生成接口
+│ ├── generate-session.yaml # 课件生成接口索引
 │ └── project.yaml # 项目管理接口
 ├── schemas/ # 数据模型定义
 │ ├── auth.yaml

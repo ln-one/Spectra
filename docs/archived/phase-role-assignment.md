@@ -167,5 +167,5 @@
 
 - A1/A2 交付：`docs/project/A1_A2_ARCHITECT_DELIVERABLES_2026-03-06.md`
 - A3 交付：`docs/project/A3_RELEASE_GATES_CHECKLIST_2026-03-06.md`
-- A4 交付：架构模型与数据流修订（`docs/architecture/backend/data-models.md`、`docs/architecture/system/data-flow.md`、`docs/architecture/system/overview.md`）
-- 执行指导：`docs/project/SESSION_FIRST_MIGRATION_GUIDE_2026-03-06.md`
+- A4 交付：架构模型与数据流修订（`docs/archived/architecture/backend/data-models.md`、`docs/archived/architecture/system/data-flow.md`、`docs/architecture/system/overview.md`）
+- 执行指导：`docs/archived/plans/SESSION_FIRST_MIGRATION_GUIDE_2026-03-06.md`

@@ -38,7 +38,7 @@
 ## 4. 更新 OpenAPI 与文档
 
 - 从 `/Users/ln1/Projects/Spectra/docs/openapi/paths/generate-task.yaml` 删除旧路径
-- 从 `/Users/ln1/Projects/Spectra/docs/openapi/paths/preview.yaml` 删除旧路径
+- 从 `/Users/ln1/Projects/Spectra/docs/openapi/paths/generate-session-preview.yaml` 删除旧路径
 - 重新打包 OpenAPI：`npm run bundle:openapi`
 - 更新 `/Users/ln1/Projects/Spectra/docs/project/PROJECT_SPACE_API_DRAFT_2026-03-09.md` 的兼容层说明
 

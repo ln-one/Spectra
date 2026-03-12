@@ -41,35 +41,35 @@ paths:
 
   # Generate
   /api/v1/generate/sessions:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions'
   /api/v1/generate/sessions/{session_id}:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}'
   /api/v1/generate/sessions/{session_id}/events:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1events'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1events'
   /api/v1/generate/sessions/{session_id}/outline:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline'
   /api/v1/generate/sessions/{session_id}/commands:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
   /api/v1/generate/sessions/{session_id}/confirm:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1confirm'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1confirm'
   /api/v1/generate/sessions/{session_id}/outline/redraft:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline~1redraft'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline~1redraft'
   /api/v1/generate/sessions/{session_id}/resume:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1resume'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1resume'
   /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1slides~1{slide_id}~1regenerate'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1slides~1{slide_id}~1regenerate'
   /api/v1/generate/capabilities:
-    $ref: './openapi/paths/generate.yaml#/~1api~1v1~1generate~1capabilities'
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1capabilities'
 
   # Preview
   /api/v1/generate/sessions/{session_id}/preview:
-    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview'
+    $ref: './openapi/paths/generate-session-preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview'
   /api/v1/generate/sessions/{session_id}/preview/modify:
-    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview~1modify'
+    $ref: './openapi/paths/generate-session-preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview~1modify'
   /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}:
-    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview~1slides~1{slide_id}'
+    $ref: './openapi/paths/generate-session-preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview~1slides~1{slide_id}'
   /api/v1/generate/sessions/{session_id}/preview/export:
-    $ref: './openapi/paths/preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview~1export'
+    $ref: './openapi/paths/generate-session-preview.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1preview~1export'
 
   # RAG
   /api/v1/rag/search:

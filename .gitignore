@@ -70,3 +70,4 @@ generated/
 backend/temp/
 temp/
 backend/chroma_data/
+chroma_data/

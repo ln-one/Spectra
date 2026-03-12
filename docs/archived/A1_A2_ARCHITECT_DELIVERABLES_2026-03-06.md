@@ -13,8 +13,8 @@
 
 ## A4 架构产出索引（2026-03-06）
 
-1. 数据模型修订（会话化目标模型）：`docs/architecture/backend/data-models.md`
-2. 数据流修订（NotebookLM 三栏 + Gamma 会话流）：`docs/architecture/system/data-flow.md`
+1. 数据模型修订（会话化目标模型）：`docs/archived/architecture/backend/data-models.md`
+2. 数据流修订（NotebookLM 三栏 + Gamma 会话流）：`docs/archived/architecture/system/data-flow.md`
 3. 系统概览修订（会话化主线）：`docs/architecture/system/overview.md`
 
 补充口径（2026-03-09）：

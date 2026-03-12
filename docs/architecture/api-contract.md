@@ -17,7 +17,8 @@ docs/openapi/
 ├── paths/ # API 路径定义（按模块拆分）
 │ ├── auth.yaml
 │ ├── files.yaml
-│ ├── generate.yaml
+│ ├── generate-session.yaml
+│ ├── generate-session-preview.yaml
 │ └── project.yaml
 ├── schemas/ # 数据模型定义
 │ ├── auth.yaml

@@ -33,12 +33,12 @@
 | 认证 | `paths/auth.yaml` | `schemas/auth.yaml` |
 | 聊天 | `paths/chat.yaml` | `schemas/chat.yaml` |
 | 文件 | `paths/files.yaml` | `schemas/files.yaml` |
-| 生成 | `paths/generate.yaml` | `schemas/generate.yaml` |
-| 预览 | `paths/preview.yaml` | `schemas/preview.yaml` |
+| 生成 | `paths/generate-session.yaml` | `schemas/generate.yaml` |
+| 预览 | `paths/generate-session-preview.yaml` | `schemas/preview.yaml` |
 | 项目 | `paths/project.yaml` | `schemas/project.yaml` |
 | RAG | `paths/rag.yaml` | `schemas/rag.yaml` |
 
-> `generate` 模块采用二级拆分：`generate.yaml` 为索引入口，具体定义在 `generate-*.yaml` 子文件中。
+> `generate` 模块采用二级拆分：`generate-session.yaml` 为索引入口，具体定义在 `generate-session-*.yaml` 子文件中。
 
 ### 完整工作流程
 
@@ -63,8 +63,12 @@ docs/
  │ ├── auth.yaml # 认证相关接口
  │ ├── chat.yaml # 对话接口
  │ ├── files.yaml # 文件上传接口
- │ ├── generate.yaml # 课件生成接口
- │ ├── preview.yaml # 预览和修改接口
+│ ├── generate-session.yaml # 课件生成接口索引
+│ ├── generate-session-core.yaml # 会话核心路径
+│ ├── generate-session-edit.yaml # 会话编辑路径
+│ ├── generate-session-command.yaml # 会话命令路径
+│ ├── generate-session-preview.yaml # 会话预览路径
+ │ ├── generate-session-preview.yaml # 预览和修改接口
  │ ├── rag.yaml # 知识库检索接口
  │ └── project.yaml # 项目管理接口
  ├── schemas/ # 数据模型定义
@@ -72,7 +76,7 @@ docs/
  │ ├── auth.yaml # 认证相关模型
  │ ├── chat.yaml # 对话相关模型
  │ ├── files.yaml # 文件相关模型
- │ ├── generate.yaml # 生成相关模型
+│ ├── generate.yaml # 生成相关模型
  │ ├── preview.yaml # 预览相关模型
  │ ├── rag.yaml # RAG 相关模型
  │ └── project.yaml # 项目相关模型
