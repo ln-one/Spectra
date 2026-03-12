@@ -17,6 +17,7 @@ from litellm import acompletion
 
 from schemas.intent import IntentClassification, IntentType, ModifyIntent, ModifyType
 from services.courseware_ai import CoursewareAIMixin
+from services.model_router import ModelRouteTask, ModelRouter
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +64,20 @@ class AIService(CoursewareAIMixin):
 
     def __init__(self):
         self.default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
+        self.large_model = os.getenv("LARGE_MODEL", self.default_model)
+        self.small_model = os.getenv("SMALL_MODEL", self.default_model)
+        self.model_router = ModelRouter(
+            heavy_model=self.large_model,
+            light_model=self.small_model,
+        )
         self.allow_ai_stub = os.getenv("ALLOW_AI_STUB", "false").lower() == "true"
 
     async def generate(
         self,
         prompt: str,
         model: Optional[str] = None,
+        route_task: Optional[str] = None,
+        has_rag_context: bool = False,
         max_tokens: Optional[int] = 500,
     ) -> dict:
         """
@@ -82,14 +91,29 @@ class AIService(CoursewareAIMixin):
         Returns:
             dict with 'content', 'model', and 'tokens_used'
         """
-        requested_model = model or self.default_model
+        route_decision = None
+        requested_model = model
+        if not requested_model:
+            if route_task:
+                route_decision = self.model_router.route(
+                    route_task,
+                    prompt=prompt,
+                    has_rag_context=has_rag_context,
+                )
+                requested_model = route_decision.selected_model
+            else:
+                requested_model = self.default_model
         resolved_model = requested_model
         try:
             resolved_model = _resolve_model_name(requested_model)
             logger.info(
-                "AI generate invoked: requested_model=%s resolved_model=%s",
+                (
+                    "AI generate invoked:"
+                    " requested_model=%s resolved_model=%s route_task=%s"
+                ),
                 requested_model,
                 resolved_model,
+                route_task,
             )
             response = await acompletion(
                 model=resolved_model,
@@ -106,6 +130,7 @@ class AIService(CoursewareAIMixin):
                 "content": content,
                 "model": resolved_model,
                 "tokens_used": tokens_used,
+                "route": route_decision.to_dict() if route_decision else None,
             }
         except Exception as e:
             logger.warning(f"AI generation failed: {str(e)}", exc_info=True)
@@ -114,6 +139,7 @@ class AIService(CoursewareAIMixin):
                     "content": f"AI stub response for prompt: {prompt[:50]}...",
                     "model": resolved_model,
                     "tokens_used": 0,
+                    "route": route_decision.to_dict() if route_decision else None,
                 }
             raise
 
@@ -127,7 +153,11 @@ class AIService(CoursewareAIMixin):
 
         try:
             prompt = prompt_service.build_intent_prompt(user_message)
-            response = await self.generate(prompt=prompt, max_tokens=200)
+            response = await self.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.INTENT_CLASSIFICATION.value,
+                max_tokens=200,
+            )
             content = response["content"].strip()
 
             parsed = json.loads(content)
@@ -250,7 +280,11 @@ class AIService(CoursewareAIMixin):
                 "- global: 全局修改（改主题、改整体风格）\n\n"
                 "严格返回 JSON，不要包含其他内容。"
             )
-            response = await self.generate(prompt=prompt, max_tokens=200)
+            response = await self.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.INTENT_CLASSIFICATION.value,
+                max_tokens=200,
+            )
             content = response["content"].strip()
             parsed = json.loads(content)
 

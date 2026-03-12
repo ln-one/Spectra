@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from schemas.chat import Message, SendMessageRequest
 from services import db_service
 from services.ai import ai_service
+from services.model_router import ModelRouteTask
 from services.prompt_service import (
     contains_mechanical_option_pattern,
     prompt_service,
@@ -106,7 +107,9 @@ def _normalize_markdown_paragraphs(content: str) -> str:
     """Ensure long single-block response is split into markdown paragraphs."""
     if not content or "\n\n" in content:
         return content
-    sentences = [s.strip() for s in re.split(r"(?<=[。！？!?])\s*", content) if s.strip()]
+    sentences = [
+        s.strip() for s in re.split(r"(?<=[。！？!?])\s*", content) if s.strip()
+    ]
     if len(sentences) < 3:
         return content
     paragraphs: list[str] = []
@@ -159,7 +162,9 @@ def _extract_cited_chunk_ids(content: str) -> list[str]:
     if not content:
         return []
     ids: list[str] = []
-    for match in re.finditer(r'<cite\s+[^>]*chunk_id="([^"]+)"[^>]*>(?:\s*</cite>)?', content):
+    for match in re.finditer(
+        r'<cite\s+[^>]*chunk_id="([^"]+)"[^>]*>(?:\s*</cite>)?', content
+    ):
         chunk_id = (match.group(1) or "").strip()
         if chunk_id:
             ids.append(chunk_id)
@@ -423,8 +428,8 @@ async def send_message(
             message_hints.append("未命中项目资料，请优先提示用户补充可检索素材。")
         user_message_for_prompt = body.content
         if message_hints:
-            user_message_for_prompt = (
-                f"{body.content}\n\n系统提示：\n" + "\n".join(message_hints)
+            user_message_for_prompt = f"{body.content}\n\n系统提示：\n" + "\n".join(
+                message_hints
             )
 
         prompt = prompt_service.build_chat_response_prompt(
@@ -436,7 +441,12 @@ async def send_message(
         )
         prompt = f"项目：{project.name}\n{prompt}"
         try:
-            ai_result = await ai_service.generate(prompt=prompt, max_tokens=500)
+            ai_result = await ai_service.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.CHAT_RESPONSE.value,
+                has_rag_context=rag_hit,
+                max_tokens=500,
+            )
             assistant_content = (
                 ai_result.get("content") or "我已收到你的需求，我们继续完善课件内容。"
             )
@@ -452,7 +462,9 @@ async def send_message(
                     f"{assistant_content}"
                 )
                 rewrite_result = await ai_service.generate(
-                    prompt=rewrite_prompt, max_tokens=500
+                    prompt=rewrite_prompt,
+                    route_task=ModelRouteTask.SHORT_TEXT_POLISH.value,
+                    max_tokens=500,
                 )
                 rewritten_content = (rewrite_result.get("content") or "").strip()
                 if rewritten_content:
