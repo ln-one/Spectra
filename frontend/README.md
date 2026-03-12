@@ -141,7 +141,8 @@ The frontend communicates with the backend API at `/api/v1`:
 - Authentication: `/api/v1/auth/*`
 - Projects: `/api/v1/projects`
 - Files: `/api/v1/files`
-- Generation: `/api/v1/generate/*`
+- Generation (Session-First): `/api/v1/generate/sessions*`
+- Preview (Session-First): `/api/v1/generate/sessions/{session_id}/preview*`
 - Chat: `/api/v1/chat/*`
 
 See `lib/api.ts` for the complete API client implementation.

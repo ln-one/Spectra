@@ -138,7 +138,6 @@ FastAPI 自动提供两种 API 文档界面：
  - `POST /api/v1/generate/sessions/{session_id}/commands`：唯一写入口（更新大纲/重写/确认/重绘/恢复）
 - **Query（读取）**：
  - `GET /api/v1/generate/sessions/{session_id}`：会话快照
- - `GET /api/v1/generate/tasks/{task_id}/status`：兼容旧轮询状态接口
 - **Event（推送）**：
  - `GET /api/v1/generate/sessions/{session_id}/events`：SSE 事件流
 
@@ -151,12 +150,10 @@ FastAPI 自动提供两种 API 文档界面：
 - `FAILED` 必须返回 `error.code`、`error.message`、`retryable`。
 - 会话类接口优先返回 `session_id`，`task_id` 作为兼容字段保留。
 
-### 与旧契约兼容策略
+### 与旧契约兼容策略（已完成迁移）
 
-- 保留 `/api/v1/generate/courseware` 与 `/tasks/{task_id}/status`，避免一次性破坏现有调用。
-- 保留 `/outline`、`/confirm`、`/resume`、`/regenerate` 作为兼容别名，并标记 `deprecated`。
-- 新增字段时保持向后兼容：旧客户端可继续识别 `status`，新客户端消费 `state + events`。
-- 统一将 `Idempotency-Key` 用于写操作接口，保证重试安全。
+- 旧的 `/api/v1/generate/*` 任务接口与 `/api/v1/preview/*` 已移除。
+- 全量采用 `session-first` 路径作为唯一主入口。
 
 ### 可扩展性与低返工约束（新增）
 
@@ -182,8 +179,7 @@ FastAPI 自动提供两种 API 文档界面：
  - `POST /api/v1/chat/messages`、`POST /api/v1/chat/voice` 支持 `session_id`；
  - 当携带 `session_id` 时，服务端必须优先按会话隔离历史、资料和引用来源。
 2. **Preview/Export 作用域**：
- - 新增 `/api/v1/generate/sessions/{session_id}/preview*` 会话级接口作为主路径；
- - 旧 `/api/v1/preview/{task_id}*` 保留兼容，不再作为新功能基线。
+ - 使用 `/api/v1/generate/sessions/{session_id}/preview*` 会话级接口作为唯一主路径。
 3. **版本与并发**：
  - 预览修改/导出支持 `base_render_version` / `expected_render_version`，冲突返回 `409`。
 4. **前端一致性**：

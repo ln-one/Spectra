@@ -304,8 +304,8 @@ All API endpoints are prefixed with `/api/v1`:
 - **Projects**: `/api/v1/projects` - Project CRUD operations
 - **Files**: `/api/v1/files` - File upload and management
 - **Chat**: `/api/v1/chat/*` - Conversational interface
-- **Generation**: `/api/v1/generate/*` - AI courseware generation
-- **Preview**: `/api/v1/preview/*` - Preview and modification
+- **Generation (Session-First)**: `/api/v1/generate/sessions*` - AI courseware generation
+- **Preview (Session-First)**: `/api/v1/generate/sessions/{session_id}/preview*` - Preview and modification
 - **RAG**: `/api/v1/rag/*` - Knowledge base search
 
 See [OpenAPI Specification](./docs/openapi.yaml) for complete API documentation (auto-generated from modular files in `docs/openapi/`).
