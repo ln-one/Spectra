@@ -190,6 +190,6 @@ FastAPI 自动提供两种 API 文档界面：
 
 - [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
 - [OpenAPI 拆分决策](../decisions/ADR-003-openapi-modularization.md)
-- [后端 OpenAPI 同步指南](../BACKEND_OPENAPI_SYNC.md)
+- [后端 OpenAPI 同步指南](../archived/openapi/BACKEND_OPENAPI_SYNC.md)
 - [前端导向设计文档](./前端导向设计文档.md)
 - [契约优先架构调整说明](./contract-first-adjustment.md)
