@@ -8,12 +8,11 @@ RAG Service - 检索增强生成服务
 import logging
 from typing import Optional
 
-from chromadb.api.models.Collection import Collection
 from pydantic import BaseModel
 
 from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
 from services.embedding_service import EmbeddingService, embedding_service
-from services.vector_service import VectorService, vector_service
+from services.vector_service import Collection, VectorService, vector_service
 
 logger = logging.getLogger(__name__)
 
