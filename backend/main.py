@@ -14,10 +14,10 @@ from prisma.errors import PrismaError
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
-from routers import (  # noqa: E402
+from routers import courses_router  # noqa: E402
+from routers import (
     auth_router,
     chat_router,
-    courses_router,
     files_router,
     generate_sessions_router,
     health_router,
@@ -28,7 +28,8 @@ from services import db_service  # noqa: E402
 from services.redis_manager import RedisConnectionManager  # noqa: E402
 from utils.exceptions import APIException  # noqa: E402
 from utils.logger import setup_logging  # noqa: E402
-from utils.middleware import RequestContextFilter, RequestIDMiddleware  # noqa: E402
+from utils.middleware import RequestContextFilter  # noqa: E402
+from utils.middleware import RequestIDMiddleware
 from utils.responses import error_response  # noqa: E402
 
 # Configure logging from environment
