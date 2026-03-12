@@ -397,6 +397,46 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
   /api/v1/generate/sessions:
+    get:
+      summary: 获取生成会话列表
+      description: 返回项目内生成会话列表（按更新时间倒序）
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationSessionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       summary: 创建生成会话
       description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
@@ -2408,6 +2448,74 @@ components:
         - ppt
         - word
         - both
+    GenerationState:
+      type: string
+      enum:
+        - IDLE
+        - CONFIGURING
+        - ANALYZING
+        - DRAFTING_OUTLINE
+        - AWAITING_OUTLINE_CONFIRM
+        - GENERATING_CONTENT
+        - RENDERING
+        - SUCCESS
+        - FAILED
+    GenerationSessionListItem:
+      type: object
+      required:
+        - session_id
+        - project_id
+        - output_type
+        - state
+        - created_at
+        - updated_at
+      properties:
+        session_id:
+          type: string
+        project_id:
+          type: string
+        output_type:
+          $ref: '#/components/schemas/GenerationSessionMode'
+        state:
+          $ref: '#/components/schemas/GenerationState'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    GenerationSessionListResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - sessions
+            - total
+            - page
+            - limit
+          properties:
+            sessions:
+              type: array
+              items:
+                $ref: '#/components/schemas/GenerationSessionListItem'
+            total:
+              type: integer
+              minimum: 0
+            page:
+              type: integer
+              minimum: 1
+            limit:
+              type: integer
+              minimum: 1
+        message:
+          type: string
     CoursewareStylePreset:
       type: string
       enum:
@@ -2503,18 +2611,6 @@ components:
           $ref: '#/components/schemas/GenerationOptions'
         client_session_id:
           type: string
-    GenerationState:
-      type: string
-      enum:
-        - IDLE
-        - CONFIGURING
-        - ANALYZING
-        - DRAFTING_OUTLINE
-        - AWAITING_OUTLINE_CONFIRM
-        - GENERATING_CONTENT
-        - RENDERING
-        - SUCCESS
-        - FAILED
     GenerateTaskStatus:
       type: string
       enum:

@@ -574,7 +574,39 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * 获取生成会话列表
+     * @description 返回项目内生成会话列表（按更新时间倒序）
+     */
+    get: {
+      parameters: {
+        query: {
+          project_id: string;
+          page?: number;
+          limit?: number;
+        };
+        header?: {
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GenerationSessionListResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
     put?: never;
     /**
      * 创建生成会话
@@ -2151,6 +2183,37 @@ export interface components {
     /** @enum {string} */
     GenerationSessionMode: "ppt" | "word" | "both";
     /** @enum {string} */
+    GenerationState:
+      | "IDLE"
+      | "CONFIGURING"
+      | "ANALYZING"
+      | "DRAFTING_OUTLINE"
+      | "AWAITING_OUTLINE_CONFIRM"
+      | "GENERATING_CONTENT"
+      | "RENDERING"
+      | "SUCCESS"
+      | "FAILED";
+    GenerationSessionListItem: {
+      session_id: string;
+      project_id: string;
+      output_type: components["schemas"]["GenerationSessionMode"];
+      state: components["schemas"]["GenerationState"];
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    GenerationSessionListResponse: {
+      success: boolean;
+      data: {
+        sessions: components["schemas"]["GenerationSessionListItem"][];
+        total: number;
+        page: number;
+        limit: number;
+      };
+      message: string;
+    };
+    /** @enum {string} */
     CoursewareStylePreset: "academic" | "vibrant" | "dark_tech" | "custom";
     /** @enum {string} */
     GenerationAudience: "beginner" | "intermediate" | "professional";
@@ -2211,17 +2274,6 @@ export interface components {
       options?: components["schemas"]["GenerationOptions"];
       client_session_id?: string;
     };
-    /** @enum {string} */
-    GenerationState:
-      | "IDLE"
-      | "CONFIGURING"
-      | "ANALYZING"
-      | "DRAFTING_OUTLINE"
-      | "AWAITING_OUTLINE_CONFIRM"
-      | "GENERATING_CONTENT"
-      | "RENDERING"
-      | "SUCCESS"
-      | "FAILED";
     /** @enum {string} */
     GenerateTaskStatus: "pending" | "processing" | "completed" | "failed";
     SessionRef: {
