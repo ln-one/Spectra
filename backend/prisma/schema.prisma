@@ -213,6 +213,7 @@ model ProjectVersion {
   id              String   @id @default(uuid())
   projectId       String
   project         Project  @relation("ProjectVersions", fields: [projectId], references: [id], onDelete: Cascade)
+  currentForProject Project? @relation("ProjectCurrentVersion")
 
   parentVersionId String?
   parentVersion   ProjectVersion? @relation("ProjectVersionParent", fields: [parentVersionId], references: [id])
@@ -224,6 +225,9 @@ model ProjectVersion {
   createdBy       String?
 
   createdAt       DateTime @default(now())
+
+  artifacts       Artifact[]
+  candidateChanges CandidateChange[]
 }
 
 /// 项目成果（导出/按需外化）
@@ -354,6 +358,8 @@ model GenerationSession {
   events          SessionEvent[]
   tasks           GenerationTask[]
   conversations   Conversation[]
+  artifacts       Artifact[]
+  candidateChanges CandidateChange[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
