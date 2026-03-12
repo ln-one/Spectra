@@ -61,7 +61,7 @@ inclusion: always
 
 **重要**: OpenAPI 规范已拆分为模块化文件，AI 应参照拆分后的文件：
 
-- **不要读取** `docs/openapi.yaml` (1266行，自动生成的打包文件)
+- **不要读取** `docs/openapi-target.yaml` (1266行，自动生成的打包文件)
 - **应该读取** `docs/openapi/` 下的模块文件 (每个50-150行)
 
 ### 文件结构
@@ -123,7 +123,7 @@ Type: feat | fix | refactor | docs | style | test | chore
 
 ### API 相关任务示例
 - 修改认证接口 → 读取 `docs/openapi/paths/auth.yaml` + `docs/openapi/schemas/auth.yaml`
-- 添加新接口 → 在对应模块文件中添加，然后更新 `docs/openapi-source.yaml`
+- 添加新接口 → 在对应模块文件中添加，然后更新 `docs/openapi-target-source.yaml`
 - 查看数据模型 → 读取 `docs/openapi/schemas/{模块}.yaml`
 
 ## 工作流程

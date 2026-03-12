@@ -42,6 +42,7 @@ export const projectsApi = {
     return request<ProjectResponse>("/projects", {
       method: "POST",
       body: JSON.stringify(data),
+      autoIdempotency: true,
     });
   },
 
@@ -52,6 +53,7 @@ export const projectsApi = {
     return request<ProjectResponse>(`/projects/${projectId}`, {
       method: "PUT",
       body: JSON.stringify(data),
+      autoIdempotency: true,
     });
   },
 

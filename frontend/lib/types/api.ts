@@ -218,6 +218,7 @@ export interface paths {
     get: {
       parameters: {
         query: {
+          /** @description 项目 ID。当前实现按 project 维度隔离对话上下文。 */
           project_id: string;
           /** @description 页码（从1开始） */
           page?: components["parameters"]["PageParam"];
@@ -567,13 +568,19 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** 生成课件 */
+    /**
+     * 生成课件（兼容入口）
+     * @description 兼容旧版的一次性创建接口。新流程推荐使用 /generate/sessions 系列接口，
+     *     支持阶段式中断、事件流推送与局部重绘。
+     */
     post: {
       parameters: {
         query?: never;
         header?: {
           /** @description 幂等性密钥，用于防止重复请求。 */
           "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
         };
         path?: never;
         cookie?: never;
@@ -598,6 +605,560 @@ export interface paths {
         403: components["responses"]["Forbidden"];
       };
     };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取生成会话列表 */
+    get: {
+      parameters: {
+        query: {
+          project_id: string;
+          /** @description 页码（从1开始） */
+          page?: components["parameters"]["PageParam"];
+          /** @description 每页数量 */
+          limit?: components["parameters"]["LimitParam"];
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GenerationSessionListResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
+    put?: never;
+    /**
+     * 创建生成会话
+     * @description 创建可中断、可恢复的课件生成会话（契约优先主入口）
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["CreateGenerationSessionRequest"];
+        };
+      };
+      responses: {
+        /** @description 会话创建成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["CreateGenerationSessionResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 查询生成会话快照 */
+    get: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GenerationSessionResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取生成事件流（SSE）
+     * @description 默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
+     *     返回短轮询事件列表。
+     */
+    get: {
+      parameters: {
+        query?: {
+          /** @description 事件游标（用于断线续传） */
+          cursor?: string;
+          accept?: "text/event-stream" | "application/json";
+        };
+        header?: {
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "text/event-stream": string;
+            "application/json": components["schemas"]["GenerationEventListResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/outline": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * 更新大纲并回写会话
+     * @deprecated
+     * @description 兼容别名，等价于 command_type=UPDATE_OUTLINE
+     */
+    put: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["UpdateOutlineRequest"];
+        };
+      };
+      responses: {
+        /** @description 大纲更新成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["UpdateOutlineResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+        409: components["responses"]["Conflict"];
+      };
+    };
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/commands": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 执行会话命令（唯一写入口）
+     * @description 所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
+     *     服务层必须通过统一状态转换校验器（StateTransitionGuard）决定是否允许执行。
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["GenerationSessionCommandRequest"];
+        };
+      };
+      responses: {
+        /** @description 命令已执行或接受 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GenerationSessionCommandResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+        409: components["responses"]["Conflict"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 确认大纲并继续生成
+     * @deprecated
+     * @description 兼容别名，等价于 command_type=CONFIRM_OUTLINE
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: {
+        content: {
+          "application/json": components["schemas"]["ConfirmOutlineRequest"];
+        };
+      };
+      responses: {
+        /** @description 已进入内容生成 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["ConfirmOutlineResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+        409: components["responses"]["Conflict"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/outline/redraft": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 请求 AI 重写大纲
+     * @deprecated
+     * @description 兼容别名，等价于 command_type=REDRAFT_OUTLINE
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["RedraftOutlineRequest"];
+        };
+      };
+      responses: {
+        /** @description 已进入大纲重写阶段 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["RedraftOutlineResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+        409: components["responses"]["Conflict"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 恢复中断会话
+     * @deprecated
+     * @description 兼容别名，等价于 command_type=RESUME_SESSION
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: {
+        content: {
+          "application/json": components["schemas"]["ResumeSessionRequest"];
+        };
+      };
+      responses: {
+        /** @description 恢复成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["ResumeSessionResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+        409: components["responses"]["Conflict"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 局部重绘单页
+     * @deprecated
+     * @description 兼容别名，等价于 command_type=REGENERATE_SLIDE
+     */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+          slide_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["RegenerateSlideRequest"];
+        };
+      };
+      responses: {
+        /** @description 局部重绘成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["RegenerateSlideResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+        409: components["responses"]["Conflict"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/capabilities": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取生成域能力声明
+     * @description 返回服务端当前支持的契约版本、特性开关与弃用信息。
+     */
+    get: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["GenerationCapabilitiesResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -738,7 +1299,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** 获取课件预览 */
+    /**
+     * 获取课件预览
+     * @description 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview）
+     */
     get: {
       parameters: {
         query?: never;
@@ -781,7 +1345,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** 提交修改指令 */
+    /**
+     * 提交修改指令
+     * @description 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview/modify）
+     */
     post: {
       parameters: {
         query?: never;
@@ -830,7 +1397,7 @@ export interface paths {
     };
     /**
      * 获取单个幻灯片详情
-     * @description 查看特定幻灯片的详细内容和来源
+     * @description 查看特定幻灯片的详细内容和来源（兼容旧任务流）
      */
     get: {
       parameters: {
@@ -877,7 +1444,7 @@ export interface paths {
     put?: never;
     /**
      * 导出预览内容
-     * @description 将预览内容导出为指定格式
+     * @description 将预览内容导出为指定格式（兼容旧任务流）
      */
     post: {
       parameters: {
@@ -890,18 +1457,7 @@ export interface paths {
       };
       requestBody: {
         content: {
-          "application/json": {
-            /**
-             * @description 导出格式
-             * @enum {string}
-             */
-            format: "json" | "markdown" | "html";
-            /**
-             * @description 是否包含来源信息
-             * @default true
-             */
-            include_sources?: boolean;
-          };
+          "application/json": components["schemas"]["ExportRequest"];
         };
       };
       responses: {
@@ -911,19 +1467,202 @@ export interface paths {
             [name: string]: unknown;
           };
           content: {
-            "application/json": {
-              success?: boolean;
-              data?: {
-                /** @description 导出的内容 */
-                content?: string;
-                format?: string;
-              };
-            };
+            "application/json": components["schemas"]["ExportResponse"];
           };
         };
         401: components["responses"]["Unauthorized"];
         403: components["responses"]["Forbidden"];
         404: components["responses"]["NotFound"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取会话级课件预览 */
+    get: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["PreviewResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/preview/modify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 提交会话级预览修改 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 幂等性密钥，用于防止重复请求。 */
+          "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["ModifySessionRequest"];
+        };
+      };
+      responses: {
+        /** @description 修改任务已创建 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["ModifyResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+        409: components["responses"]["Conflict"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取会话级单页详情 */
+    get: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+          slide_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["SlideDetailResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+      };
+    };
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/preview/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 导出会话级预览内容 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: {
+          /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+          "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+        };
+        path: {
+          session_id: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["ExportRequest"];
+        };
+      };
+      responses: {
+        /** @description 导出成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["ExportResponse"];
+          };
+        };
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+        404: components["responses"]["NotFound"];
+        409: components["responses"]["Conflict"];
       };
     };
     delete?: never;
@@ -1492,7 +2231,17 @@ export interface components {
       error: {
         code: string;
         message: string;
+        /** @description 是否建议客户端重试 */
+        retryable?: boolean;
+        /** @description 结构化错误详情（例如字段错误、状态冲突上下文） */
+        details?: {
+          [key: string]: unknown;
+        };
+        /** @description 服务端追踪 ID，用于日志排障 */
+        trace_id?: string;
       };
+      /** @description 根级错误摘要，通常为“请求失败”或业务级失败说明 */
+      message: string;
     };
     LoginRequest: {
       /** Format: email */
@@ -1503,6 +2252,10 @@ export interface components {
     SimpleSuccessResponse: {
       /** @example true */
       success: boolean;
+      /** @description 成功响应载荷。部分接口可能返回空对象。 */
+      data: {
+        [key: string]: unknown;
+      };
       /** @example 操作成功 */
       message: string;
     };
@@ -1513,6 +2266,16 @@ export interface components {
       };
       message: string;
     };
+    SourceReference: {
+      /** @description 来源片段唯一标识，可用于查询来源详情 */
+      chunk_id: string;
+      /** @enum {string} */
+      source_type: "video" | "document" | "ai_generated";
+      filename: string;
+      page_number?: number;
+      timestamp?: string;
+      preview_text?: string;
+    };
     Message: {
       id: string;
       /** @enum {string} */
@@ -1520,10 +2283,14 @@ export interface components {
       content: string;
       /** Format: date-time */
       timestamp: string;
+      /** @description assistant 回复关联的来源引用（可选，建议尽量返回） */
+      citations?: components["schemas"]["SourceReference"][];
     };
     GetMessagesResponse: {
       success: boolean;
       data: {
+        /** @description 查询时的会话范围（可选字段，当前实现可能为空） */
+        session_id?: string;
         messages?: components["schemas"]["Message"][];
         total?: number;
         page?: number;
@@ -1533,12 +2300,21 @@ export interface components {
     };
     SendMessageRequest: {
       project_id: string;
+      /**
+       * @description 会话级上下文隔离 ID（预留字段）。当前后端实现仍以 project 作用域为主，
+       *     在 session-first 链路完全落地前该字段可能被忽略。
+       */
+      session_id?: string;
       content: string;
       history?: components["schemas"]["Message"][];
+      /** @description 限定 RAG 检索范围的文件 ID 列表（空列表/未传表示不限） */
+      rag_source_ids?: string[];
     };
     SendMessageResponse: {
       success: boolean;
       data: {
+        /** @description 本次回复绑定的会话 ID（可选，session-first 实现完成后稳定返回） */
+        session_id?: string;
         message?: components["schemas"]["Message"];
         suggestions?: string[];
       };
@@ -1547,6 +2323,8 @@ export interface components {
     VoiceMessageResponse: {
       success: boolean;
       data: {
+        /** @description 本次语音对话绑定的会话 ID（可选，当前实现可能为空） */
+        session_id?: string;
         /** @description 识别的文本内容 */
         text?: string;
         /**
@@ -1644,56 +2422,488 @@ export interface components {
       };
       message: string;
     };
+    /** @enum {string} */
+    GenerationSessionMode: "ppt" | "word" | "both";
+    /** @enum {string} */
+    CoursewareStylePreset: "academic" | "vibrant" | "dark_tech" | "custom";
+    /** @enum {string} */
+    GenerationAudience: "beginner" | "intermediate" | "professional";
+    GenerationOptions: {
+      /**
+       * @description PPT 模板风格
+       * @default default
+       * @enum {string}
+       */
+      template: "default" | "gaia" | "uncover" | "academic";
+      style_preset?: components["schemas"]["CoursewareStylePreset"];
+      /**
+       * @description 主题色（十六进制颜色代码）
+       * @example #4A90E2
+       */
+      theme_color?: string;
+      /**
+       * @description 是否显示页码
+       * @default true
+       */
+      show_page_number: boolean;
+      /** @description 页眉文本 */
+      header?: string;
+      /** @description 页脚文本 */
+      footer?: string;
+      /** @description 期望的页数 */
+      pages?: number;
+      audience?: components["schemas"]["GenerationAudience"];
+      target_duration_minutes?: number;
+      /**
+       * @description 是否生成动画创意
+       * @default false
+       */
+      include_animations: boolean;
+      /**
+       * @description 是否生成互动游戏
+       * @default false
+       */
+      include_games: boolean;
+      /**
+       * @description 动画输出格式（当 include_animations 为 true 时）
+       * @enum {string}
+       */
+      animation_format?: "gif" | "mp4" | "html5";
+      /**
+       * @description 是否启用自动配图
+       * @default false
+       */
+      use_text_to_image: boolean;
+      /** @description 用户输入的主基调 Prompt */
+      system_prompt_tone?: string;
+      /** @description 本次生成绑定的素材 ID 列表 */
+      rag_source_ids?: string[];
+    };
     GenerateRequest: {
       project_id: string;
-      /** @enum {string} */
-      type: "ppt" | "word" | "both";
-      options?: {
-        /**
-         * @description PPT 模板风格
-         * @default default
-         * @enum {string}
-         */
-        template: "default" | "gaia" | "uncover" | "academic";
-        /**
-         * @description 主题色（十六进制颜色代码）
-         * @example #4A90E2
-         */
-        theme_color?: string;
-        /**
-         * @description 是否显示页码
-         * @default true
-         */
-        show_page_number: boolean;
-        /** @description 页眉文本 */
-        header?: string;
-        /** @description 页脚文本 */
-        footer?: string;
-        /** @description 期望的页数 */
-        pages?: number;
-        /**
-         * @description 是否生成动画创意
-         * @default false
-         */
-        include_animations: boolean;
-        /**
-         * @description 是否生成互动游戏
-         * @default false
-         */
-        include_games: boolean;
-        /**
-         * @description 动画输出格式（当 include_animations 为 true 时）
-         * @enum {string}
-         */
-        animation_format?: "gif" | "mp4" | "html5";
-      };
+      type: components["schemas"]["GenerationSessionMode"];
+      options?: components["schemas"]["GenerationOptions"];
+      /**
+       * @description 兼容旧入口时可直接生成，推荐先走大纲确认
+       * @default draft_then_confirm
+       * @enum {string}
+       */
+      start_mode: "direct_generate" | "draft_then_confirm";
+      /** @description 客户端会话 ID，用于断线重连恢复 */
+      client_session_id?: string;
     };
+    /** @enum {string} */
+    GenerateTaskStatus: "pending" | "processing" | "completed" | "failed";
+    /** @enum {string} */
+    GenerationState:
+      | "IDLE"
+      | "CONFIGURING"
+      | "ANALYZING"
+      | "DRAFTING_OUTLINE"
+      | "AWAITING_OUTLINE_CONFIRM"
+      | "GENERATING_CONTENT"
+      | "RENDERING"
+      | "SUCCESS"
+      | "FAILED";
     GenerateResponse: {
       success: boolean;
       data: {
         task_id?: string;
-        /** @enum {string} */
-        status?: "pending" | "processing" | "completed" | "failed";
+        session_id?: string;
+        status?: components["schemas"]["GenerateTaskStatus"];
+        state?: components["schemas"]["GenerationState"];
+      };
+      message: string;
+    };
+    CreateGenerationSessionRequest: {
+      project_id: string;
+      output_type: components["schemas"]["GenerationSessionMode"];
+      options?: components["schemas"]["GenerationOptions"];
+      client_session_id?: string;
+    };
+    SessionRef: {
+      session_id: string;
+      project_id: string;
+      /** @description 兼容旧任务模型时可返回 */
+      task_id?: string;
+      state: components["schemas"]["GenerationState"];
+      /** @description 状态附加语义（用于未知状态或灰度状态说明） */
+      state_reason?: string;
+      status?: components["schemas"]["GenerateTaskStatus"];
+      /** @example 2026-03 */
+      contract_version: string;
+      /** @description 会话载荷结构版本 */
+      schema_version?: number;
+      progress?: number;
+      resumable?: boolean;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    CreateGenerationSessionResponse: {
+      success: boolean;
+      data: {
+        session: components["schemas"]["SessionRef"];
+      };
+      message: string;
+    };
+    OutlineNode: {
+      id: string;
+      order: number;
+      title: string;
+      key_points?: string[];
+      slide_hint?: string;
+      estimated_minutes?: number;
+    };
+    OutlineDocument: {
+      version: number;
+      nodes: components["schemas"]["OutlineNode"][];
+      summary?: string;
+    };
+    SessionContextSnapshot: {
+      retrieval_id?: string;
+      selected_source_ids?: string[];
+      notes?: string;
+    };
+    /** @enum {string} */
+    CapabilityStatus: "available" | "degraded" | "unavailable";
+    CapabilityDeclaration: {
+      /** @enum {string} */
+      name:
+        | "document_parser"
+        | "video_understanding"
+        | "speech_recognition"
+        | "outline_generation"
+        | "slide_regeneration"
+        | "event_stream";
+      status: components["schemas"]["CapabilityStatus"];
+      providers?: string[];
+      default_provider?: string;
+      fallback_chain?: string[];
+      operations: string[];
+      status_message?: string;
+    };
+    ExternalFallbackInfo: {
+      /** @enum {string} */
+      capability:
+        | "document_parser"
+        | "video_understanding"
+        | "speech_recognition";
+      /**
+       * @description 原始目标能力或供应商
+       * @example MinerU
+       */
+      provider?: string;
+      fallback_used: boolean;
+      /**
+       * @description 实际回退到的能力或供应商
+       * @example local_parser
+       */
+      fallback_target?: string;
+      /**
+       * @description 降级原因码（超时/限流/服务不可用等）
+       * @example PROVIDER_TIMEOUT
+       */
+      reason_code?: string;
+      /** @description 可直接展示给用户的降级提示语 */
+      user_message?: string;
+    };
+    SessionStatePayload: {
+      session: components["schemas"]["SessionRef"];
+      options?: components["schemas"]["GenerationOptions"];
+      outline?: components["schemas"]["OutlineDocument"];
+      context_snapshot?: components["schemas"]["SessionContextSnapshot"];
+      /** @description 服务端能力声明（状态、供应商、可用操作） */
+      capabilities?: components["schemas"]["CapabilityDeclaration"][];
+      /** @description 当前会话发生过的能力降级记录（按时间追加） */
+      fallbacks?: components["schemas"]["ExternalFallbackInfo"][];
+      /** @description 当前状态下允许的下一步动作（防止前后端状态错配） */
+      allowed_actions?: string[];
+      result?: {
+        ppt_url?: string;
+        word_url?: string;
+        version?: number;
+      };
+      error?: {
+        code?: string;
+        message?: string;
+        retryable?: boolean;
+        fallback?: components["schemas"]["ExternalFallbackInfo"];
+        /**
+         * @description 状态转换校验器名称
+         * @example StateTransitionGuard
+         */
+        transition_guard?: string;
+      };
+    };
+    GenerationSessionResponse: {
+      success: boolean;
+      data: components["schemas"]["SessionStatePayload"];
+      message: string;
+    };
+    /** @enum {string} */
+    GenerationEventType:
+      | "state.changed"
+      | "progress.updated"
+      | "outline.ready"
+      | "outline.updated"
+      | "slide.updated"
+      | "task.completed"
+      | "task.failed"
+      | "session.recovered";
+    GenerationEvent: {
+      event_id: string;
+      /** @default 1 */
+      event_schema_version: number;
+      event_type: components["schemas"]["GenerationEventType"];
+      state: components["schemas"]["GenerationState"];
+      state_reason?: string;
+      progress?: number;
+      /** Format: date-time */
+      timestamp: string;
+      /** @description 增量消费游标 */
+      cursor: string;
+      /** @description 事件附带的业务数据 */
+      payload?: Record<string, never>;
+    };
+    GenerationEventListResponse: {
+      success: boolean;
+      data: {
+        events?: components["schemas"]["GenerationEvent"][];
+      };
+      message: string;
+    };
+    UpdateOutlineRequest: {
+      /** @description 客户端编辑所基于的大纲版本（并发控制） */
+      base_version: number;
+      outline: components["schemas"]["OutlineDocument"];
+      change_reason?: string;
+    };
+    UpdateOutlineResponse: {
+      success: boolean;
+      data: {
+        session?: components["schemas"]["SessionRef"];
+        outline?: components["schemas"]["OutlineDocument"];
+      };
+      message: string;
+    };
+    UpdateOutlineCommand: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "UpdateOutlineCommand";
+      base_version: number;
+      outline: components["schemas"]["OutlineDocument"];
+      change_reason?: string;
+    };
+    RedraftOutlineCommand: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "RedraftOutlineCommand";
+      instruction: string;
+      base_version: number;
+    };
+    ConfirmOutlineCommand: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "ConfirmOutlineCommand";
+      /** @default true */
+      continue_from_retrieval: boolean;
+      expected_state?: components["schemas"]["GenerationState"];
+    };
+    /** @enum {string} */
+    StructuredPatchOperationType:
+      | "replace_text"
+      | "insert_block"
+      | "remove_block"
+      | "replace_image"
+      | "reorder_block";
+    StructuredSlidePatchOperation: {
+      op: components["schemas"]["StructuredPatchOperationType"];
+      /**
+       * @description 目标路径（JSON Pointer 风格）
+       * @example /slides/5/body/blocks/2
+       */
+      path: string;
+      /** @description 操作值（按 op 类型解释） */
+      value?: Record<string, never>;
+      /** @description 可选备注，便于审计与回放 */
+      note?: string;
+    };
+    StructuredSlidePatch: {
+      /** @default 1 */
+      schema_version: number;
+      operations: components["schemas"]["StructuredSlidePatchOperation"][];
+    };
+    RegenerateSlideCommand: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "RegenerateSlideCommand";
+      slide_id: string;
+      patch: components["schemas"]["StructuredSlidePatch"];
+      expected_render_version?: number;
+    };
+    ResumeSessionCommand: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "ResumeSessionCommand";
+      cursor?: string;
+      last_known_state?: components["schemas"]["GenerationState"];
+    };
+    GenerationCommandEnvelope:
+      | components["schemas"]["UpdateOutlineCommand"]
+      | components["schemas"]["RedraftOutlineCommand"]
+      | components["schemas"]["ConfirmOutlineCommand"]
+      | components["schemas"]["RegenerateSlideCommand"]
+      | components["schemas"]["ResumeSessionCommand"];
+    GenerationSessionCommandRequest: {
+      command: components["schemas"]["GenerationCommandEnvelope"];
+    };
+    /** @enum {string} */
+    GenerationCommandType:
+      | "UPDATE_OUTLINE"
+      | "REDRAFT_OUTLINE"
+      | "CONFIRM_OUTLINE"
+      | "REGENERATE_SLIDE"
+      | "RESUME_SESSION";
+    AppliedTransition: {
+      command_type: components["schemas"]["GenerationCommandType"];
+      from_state: components["schemas"]["GenerationState"];
+      to_state: components["schemas"]["GenerationState"];
+      /** @example StateTransitionGuard */
+      validated_by: string;
+    };
+    GenerationSessionCommandResponse: {
+      success: boolean;
+      data: {
+        command_id: string;
+        /** @default true */
+        accepted: boolean;
+        transition?: components["schemas"]["AppliedTransition"];
+        session: components["schemas"]["SessionRef"];
+        warnings?: string[];
+      };
+      message: string;
+    };
+    ConfirmOutlineRequest: {
+      /**
+       * @description 是否复用 ANALYZING 阶段上下文
+       * @default true
+       */
+      continue_from_retrieval: boolean;
+      /** @description 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM */
+      expected_state?: components["schemas"]["GenerationState"];
+    };
+    ConfirmOutlineResponse: {
+      success: boolean;
+      data: {
+        session?: components["schemas"]["SessionRef"];
+      };
+      message: string;
+    };
+    RedraftOutlineRequest: {
+      /** @description 用户要求重写大纲的指导语 */
+      instruction: string;
+      /** @description 当前确认页所见大纲版本 */
+      base_version: number;
+    };
+    RedraftOutlineResponse: {
+      success: boolean;
+      data: {
+        session?: components["schemas"]["SessionRef"];
+      };
+      message: string;
+    };
+    ResumeSessionRequest: {
+      /** @description 上次消费到的事件游标 */
+      cursor?: string;
+      last_known_state?: components["schemas"]["GenerationState"];
+    };
+    ResumeSessionResponse: {
+      success: boolean;
+      data: {
+        session?: components["schemas"]["SessionRef"];
+      };
+    };
+    GenerationSessionListItem: {
+      session_id: string;
+      project_id: string;
+      /** @enum {string} */
+      output_type: "ppt" | "word" | "both";
+      state: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    GenerationSessionListResponse: {
+      success: boolean;
+      data: {
+        sessions?: components["schemas"]["GenerationSessionListItem"][];
+        total?: number;
+        page?: number;
+        limit?: number;
+      };
+      message: string;
+    };
+    RegenerateSlideRequest: {
+      /** @description 可选自然语言补充说明，最终以结构化 patch 为准 */
+      instruction?: string;
+      slide_index?: number;
+      patch: components["schemas"]["StructuredSlidePatch"];
+      /** @description 防止并发覆盖的版本控制字段 */
+      expected_render_version?: number;
+    };
+    RegenerateSlideResponse: {
+      success: boolean;
+      data: {
+        session?: components["schemas"]["SessionRef"];
+        updated_slide?: {
+          slide_id?: string;
+          slide_index?: number;
+          content_markdown?: string;
+          sources?: components["schemas"]["SourceReference"][];
+          render_version?: number;
+        };
+      };
+      message: string;
+    };
+    StateTransitionRule: {
+      command_type: components["schemas"]["GenerationCommandType"];
+      from_state: components["schemas"]["GenerationState"];
+      to_state: components["schemas"]["GenerationState"];
+    };
+    StateMachineDeclaration: {
+      states: components["schemas"]["GenerationState"][];
+      terminal_states: components["schemas"]["GenerationState"][];
+      transitions: components["schemas"]["StateTransitionRule"][];
+    };
+    GenerationCapabilitiesResponse: {
+      success: boolean;
+      data: {
+        contract_versions: string[];
+        default_contract_version: string;
+        command_interface: {
+          /** @example /api/v1/generate/sessions/{session_id}/commands */
+          endpoint: string;
+          supported_commands: components["schemas"]["GenerationCommandType"][];
+        };
+        capabilities: components["schemas"]["CapabilityDeclaration"][];
+        state_machine: components["schemas"]["StateMachineDeclaration"];
+        deprecations?: {
+          api?: string;
+          /** Format: date-time */
+          sunset_at?: string;
+          replacement?: string;
+        }[];
       };
       message: string;
     };
@@ -1701,10 +2911,12 @@ export interface components {
       success: boolean;
       data: {
         task_id?: string;
-        /** @enum {string} */
-        status?: "pending" | "processing" | "completed" | "failed";
+        session_id?: string;
+        status?: components["schemas"]["GenerateTaskStatus"];
+        state?: components["schemas"]["GenerationState"];
         /** @description 生成进度百分比 */
         progress?: number;
+        outline?: components["schemas"]["OutlineDocument"];
         result?: {
           ppt_url?: string;
           word_url?: string;
@@ -1712,6 +2924,11 @@ export interface components {
           version?: number;
         };
         error?: string;
+        error_detail?: {
+          code?: string;
+          message?: string;
+          retryable?: boolean;
+        };
       };
       message: string;
     };
@@ -1735,21 +2952,12 @@ export interface components {
       };
       message: string;
     };
-    SourceReference: {
-      chunk_id: string;
-      /** @enum {string} */
-      source_type: "video" | "document" | "ai_generated";
-      filename: string;
-      page_number?: number;
-      timestamp?: string;
-      preview_text?: string;
-    };
     Slide: {
       id: string;
       index: number;
       title: string;
       content: string;
-      sources?: components["schemas"]["SourceReference"][];
+      sources: components["schemas"]["SourceReference"][];
       thumbnail_url?: string;
     };
     SlidePlan: {
@@ -1767,29 +2975,44 @@ export interface components {
     PreviewResponse: {
       success: boolean;
       data: {
+        /** @description 会话级预览上下文 ID（session-first 流程） */
+        session_id?: string;
+        /** @description 兼容旧任务流的执行 ID */
         task_id?: string;
+        /** @description 当前可预览渲染版本 */
+        render_version?: number;
         slides?: components["schemas"]["Slide"][];
         lesson_plan?: components["schemas"]["LessonPlan"];
       };
       message: string;
     };
     ModifyRequest: {
+      /** @description 兼容字段。仅在 task 路由下用于显式绑定会话。 */
+      session_id?: string;
       instruction: string;
       target_slides?: string[];
       context?: Record<string, never>;
+      /** @description 并发控制版本（防止覆盖更新） */
+      base_render_version?: number;
     };
     ModifyResponse: {
       success: boolean;
       data: {
+        /** @description 修改任务实际作用的会话 */
+        session_id?: string;
         modify_task_id?: string;
         /** @enum {string} */
         status?: "pending" | "processing" | "completed" | "failed";
+        /** @description 修改后最新渲染版本 */
+        render_version?: number;
       };
       message: string;
     };
     SlideDetailResponse: {
       success: boolean;
       data: {
+        /** @description 当前幻灯片详情所属会话 */
+        session_id?: string;
         slide?: components["schemas"]["Slide"];
         /** @description 该幻灯片对应的教学计划 */
         teaching_plan?: components["schemas"]["SlidePlan"];
@@ -1802,6 +3025,44 @@ export interface components {
         }[];
       };
       message: string;
+    };
+    ExportRequest: {
+      /**
+       * @description 导出格式
+       * @enum {string}
+       */
+      format: "json" | "markdown" | "html";
+      /**
+       * @description 是否包含来源信息
+       * @default true
+       */
+      include_sources: boolean;
+      /**
+       * @description 可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。
+       *     legacy 导出接口 `/api/v1/preview/{task_id}/export` 可忽略该字段。
+       */
+      expected_render_version?: number;
+    };
+    ExportResponse: {
+      success: boolean;
+      data: {
+        /** @description 导出时绑定的会话 ID */
+        session_id?: string;
+        /** @description 兼容旧任务执行 ID */
+        task_id?: string;
+        /** @description 导出的内容 */
+        content?: string;
+        format?: string;
+        render_version?: number;
+      };
+      message: string;
+    };
+    ModifySessionRequest: {
+      instruction: string;
+      target_slides?: string[];
+      context?: Record<string, never>;
+      /** @description 并发控制版本（防止覆盖更新） */
+      base_render_version?: number;
     };
     RAGSearchRequest: {
       project_id: string;
@@ -1966,6 +3227,8 @@ export interface components {
     LimitParam: number;
     /** @description 幂等性密钥，用于防止重复请求。 */
     IdempotencyKey: string;
+    /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+    ContractVersion: string;
   };
   requestBodies: never;
   headers: never;

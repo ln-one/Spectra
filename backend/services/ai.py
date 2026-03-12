@@ -9,8 +9,10 @@ import json
 import logging
 import os
 import re
+from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
 from litellm import acompletion
 
 from schemas.intent import IntentClassification, IntentType, ModifyIntent, ModifyType
@@ -18,10 +20,11 @@ from services.courseware_ai import CoursewareAIMixin
 
 logger = logging.getLogger(__name__)
 
+BASE_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
+
 # 默认模型从环境变量读取，支持 DashScope Qwen
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen-plus")
 # 是否允许在 LLM 调用失败时返回占位 stub 文本（默认 false，生产建议保持 false）
-ALLOW_AI_STUB = os.getenv("ALLOW_AI_STUB", "false").lower() == "true"
 
 
 def _resolve_model_name(model: str) -> str:
@@ -30,8 +33,28 @@ def _resolve_model_name(model: str) -> str:
 
     LiteLLM 要求 DashScope 模型使用 'dashscope/' 前缀。
     """
-    if model.startswith(("qwen-", "qwen2")) and not model.startswith("dashscope/"):
+    if model.startswith(("qwen-", "qwen2", "qwen3")) and not model.startswith(
+        "dashscope/"
+    ):
         return f"dashscope/{model}"
+    # MiniMax provider (LiteLLM): normalize common aliases / casing
+    minimax_aliases = {
+        "minimax-m2.5": "MiniMax-M2.5",
+        "minimax-m2.5-lightning": "MiniMax-M2.5-lightning",
+        "minimax-m2.1": "MiniMax-M2.1",
+        "minimax-m2.1-lightning": "MiniMax-M2.1-lightning",
+        "minimax-m2": "MiniMax-M2",
+    }
+    lowered = model.lower()
+    if lowered in minimax_aliases:
+        return f"minimax/{minimax_aliases[lowered]}"
+    if model.startswith("minimax/"):
+        _, suffix = model.split("/", 1)
+        canonical = minimax_aliases.get(suffix.lower())
+        if canonical:
+            return f"minimax/{canonical}"
+    if model.startswith(("MiniMax-", "minimax-")) and not model.startswith("minimax/"):
+        return f"minimax/{model}"
     return model
 
 
@@ -39,7 +62,8 @@ class AIService(CoursewareAIMixin):
     """Service for AI operations using LiteLLM"""
 
     def __init__(self):
-        self.default_model = DEFAULT_MODEL
+        self.default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
+        self.allow_ai_stub = os.getenv("ALLOW_AI_STUB", "false").lower() == "true"
 
     async def generate(
         self,
@@ -52,7 +76,7 @@ class AIService(CoursewareAIMixin):
 
         Args:
             prompt: The input prompt
-            model: The model to use (defaults to DEFAULT_MODEL)
+            model: The model to use (defaults to DEFAULT_MODEL env)
             max_tokens: Maximum tokens to generate
 
         Returns:
@@ -62,6 +86,11 @@ class AIService(CoursewareAIMixin):
         resolved_model = requested_model
         try:
             resolved_model = _resolve_model_name(requested_model)
+            logger.info(
+                "AI generate invoked: requested_model=%s resolved_model=%s",
+                requested_model,
+                resolved_model,
+            )
             response = await acompletion(
                 model=resolved_model,
                 messages=[{"role": "user", "content": prompt}],
@@ -80,7 +109,7 @@ class AIService(CoursewareAIMixin):
             }
         except Exception as e:
             logger.warning(f"AI generation failed: {str(e)}", exc_info=True)
-            if ALLOW_AI_STUB:
+            if self.allow_ai_stub:
                 return {
                     "content": f"AI stub response for prompt: {prompt[:50]}...",
                     "model": resolved_model,

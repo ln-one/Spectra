@@ -7,7 +7,12 @@
  * 更新内容: 增强文件解析状态字段
  */
 
-import { request, getApiUrl } from "./client";
+import {
+  request,
+  getApiUrl,
+  DEFAULT_CONTRACT_VERSION,
+  generateIdempotencyKey,
+} from "./client";
 import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
@@ -38,19 +43,35 @@ function parseUploadErrorMessage(raw: string, fallback: string): string {
 }
 
 function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
+  const parseResultRaw =
+    raw.parse_result ?? raw.parseResult ?? raw.parse_results ?? undefined;
+  let parsedResult: UploadedFile["parse_result"] | undefined;
+  if (typeof parseResultRaw === "string") {
+    try {
+      parsedResult = JSON.parse(parseResultRaw) as UploadedFile["parse_result"];
+    } catch {
+      parsedResult = undefined;
+    }
+  } else if (typeof parseResultRaw === "object" && parseResultRaw !== null) {
+    parsedResult = parseResultRaw as UploadedFile["parse_result"];
+  }
+
   return {
     id: String(raw.id || ""),
     filename: String(raw.filename || ""),
-    file_type: (raw.file_type ||
-      raw.fileType ||
-      "pdf") as UploadedFile["file_type"],
+    file_type: String(
+      raw.file_type || raw.fileType || "pdf"
+    ) as UploadedFile["file_type"],
     mime_type: String(raw.mime_type || raw.mimeType || ""),
-    file_size: Number(raw.file_size || raw.size || 0),
+    file_size: Number((raw.file_size ?? raw.fileSize ?? 0) as number | string),
     status: String(raw.status || "ready") as UploadedFile["status"],
-    parse_progress: Number(raw.parse_progress || raw.parseProgress || 100),
+    parse_progress: Number(
+      (raw.parse_progress ?? raw.parseProgress ?? 100) as number | string
+    ),
     parse_details: (raw.parse_details ||
-      raw.parseResult ||
+      raw.parseDetails ||
       {}) as UploadedFile["parse_details"],
+    parse_result: parsedResult,
     usage_intent: (raw.usage_intent || raw.usageIntent || undefined) as
       | string
       | undefined,
@@ -63,12 +84,20 @@ function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
   };
 }
 
+// OpenAPI 契约定义的最大文件大小: 100MB
+const MAX_FILE_SIZE = 104857600;
+
 export const filesApi = {
   async uploadFile(
     file: File,
     projectId: string,
     onProgress?: (progress: number) => void
   ): Promise<UploadResponse> {
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(
+        `文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`
+      );
+    }
     return new Promise((resolve, reject) => {
       const formData = new FormData();
       formData.append("file", file);
@@ -81,6 +110,13 @@ export const filesApi = {
       if (token) {
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       }
+
+      // 添加幂等键
+      const idempotencyKey = generateIdempotencyKey();
+      xhr.setRequestHeader("Idempotency-Key", idempotencyKey);
+
+      // 添加契约版本头
+      xhr.setRequestHeader("X-Contract-Version", DEFAULT_CONTRACT_VERSION);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable && onProgress) {
@@ -101,9 +137,21 @@ export const filesApi = {
             new Error(parseUploadErrorMessage(xhr.responseText, "上传失败"))
           );
         }
+        // 清理事件监听器
+        xhr.onprogress = null;
+        xhr.onload = null;
+        xhr.onerror = null;
+        xhr.upload.onprogress = null;
       };
 
-      xhr.onerror = () => reject(new Error("上传失败：网络异常"));
+      xhr.onerror = () => {
+        // 清理事件监听器
+        xhr.onprogress = null;
+        xhr.onload = null;
+        xhr.onerror = null;
+        xhr.upload.onprogress = null;
+        reject(new Error("上传失败：网络异常"));
+      };
       xhr.send(formData);
     });
   },
@@ -175,6 +223,15 @@ export const filesApi = {
     projectId: string,
     onProgress?: (progress: number) => void
   ): Promise<components["schemas"]["BatchUploadResponse"]> {
+    // 校验每个文件大小
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(
+          `文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`
+        );
+      }
+    }
+
     const formData = new FormData();
     files.forEach((file) => {
       formData.append("files", file);
@@ -190,6 +247,13 @@ export const filesApi = {
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
       }
 
+      // 添加幂等键
+      const idempotencyKey = generateIdempotencyKey();
+      xhr.setRequestHeader("Idempotency-Key", idempotencyKey);
+
+      // 添加契约版本头
+      xhr.setRequestHeader("X-Contract-Version", DEFAULT_CONTRACT_VERSION);
+
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable && onProgress) {
           const progress = Math.round((event.loaded / event.total) * 100);
@@ -199,15 +263,33 @@ export const filesApi = {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed?.data?.files && Array.isArray(parsed.data.files)) {
+            parsed.data.files = parsed.data.files.map(
+              (f: Record<string, unknown>) => normalizeFileFromServer(f)
+            );
+          }
+          resolve(parsed);
         } else {
           reject(
             new Error(parseUploadErrorMessage(xhr.responseText, "批量上传失败"))
           );
         }
+        // 清理事件监听器
+        xhr.onprogress = null;
+        xhr.onload = null;
+        xhr.onerror = null;
+        xhr.upload.onprogress = null;
       };
 
-      xhr.onerror = () => reject(new Error("批量上传失败：网络异常"));
+      xhr.onerror = () => {
+        // 清理事件监听器
+        xhr.onprogress = null;
+        xhr.onload = null;
+        xhr.onerror = null;
+        xhr.upload.onprogress = null;
+        reject(new Error("批量上传失败：网络异常"));
+      };
       xhr.send(formData);
     });
   },

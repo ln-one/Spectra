@@ -269,4 +269,4 @@ sequenceDiagram
 ## 相关文档
 
 - [Security Architecture](./security-architecture.md) - 安全架构
-- [API Specification](../../openapi.yaml) - API 定义
+- [API Specification](../../openapi-target.yaml) - API 定义

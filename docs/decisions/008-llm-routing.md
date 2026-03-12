@@ -41,7 +41,7 @@ from litellm import completion
 
 async def generate_outline(intent: TeachingIntent) -> CourseOutline:
  response = await completion(
- model="qwen/qwen-plus",
+ model="qwen/qwen3.5-plus",
  messages=[
  {"role": "system", "content": OUTLINE_SYSTEM_PROMPT},
  {"role": "user", "content": format_intent(intent)}
@@ -102,7 +102,7 @@ router = Router(
  {
  "model_name": "main",
  "litellm_params": {
- "model": "qwen/qwen-plus",
+ "model": "qwen/qwen3.5-plus",
  "api_key": os.getenv("DASHSCOPE_API_KEY"),
  },
  },

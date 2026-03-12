@@ -1,21 +1,27 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/auth/login", "/auth/register", "/auth"];
+// 前缀匹配的公开路径
+const publicPrefixes = ["/auth/login", "/auth/register", "/auth"];
+// 精确匹配的公开路径
+const publicExactPaths = ["/"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (publicPaths.some((path) => pathname.startsWith(path))) {
+  // 公开路径直接放行（前缀匹配 + 精确匹配）
+  if (
+    publicPrefixes.some((prefix) => pathname.startsWith(prefix)) ||
+    publicExactPaths.includes(pathname)
+  ) {
     return NextResponse.next();
   }
 
   const token = request.cookies.get("access_token")?.value;
 
+  // 未登录用户重定向到欢迎页
   if (!token) {
-    const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   const response = NextResponse.next();

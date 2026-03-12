@@ -29,8 +29,8 @@
 | AI 指南 | `.ai/guides/` | 任务驱动的操作指南 |
 
 ### 关键文件
-- `docs/openapi-source.yaml` - OpenAPI 主文件（引用模块）
-- `docs/openapi.yaml` - 打包后的完整规范（ 自动生成，不要直接读取）
+- `docs/openapi-target-source.yaml` - OpenAPI 主文件（引用模块）
+- `docs/openapi-target.yaml` - 打包后的完整规范（ 自动生成，不要直接读取）
 - `backend/main.py` - FastAPI 应用入口
 - `frontend/app/page.tsx` - Next.js 首页
 
@@ -88,13 +88,13 @@ pytest # 运行测试
 
 ** 重要**：
 - 读取 `docs/openapi/paths/{模块}.yaml` 和 `docs/openapi/schemas/{模块}.yaml`
-- 不要读取 `docs/openapi.yaml`（1200+ 行，自动生成）
+- 不要读取 `docs/openapi-target.yaml`（1200+ 行，自动生成）
 
 **工作流程**：
 1. 编辑模块文件（`docs/openapi/paths/` 或 `docs/openapi/schemas/`）
 2. 运行 `npm run bundle:openapi` 打包
 3. 运行 `npm run validate:openapi` 验证
-4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts`
+4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts`
 
 ### 文档编写
 **必读**：

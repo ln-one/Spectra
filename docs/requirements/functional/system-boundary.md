@@ -57,7 +57,7 @@
 | 文件存储（本地或对象存储） | 上传资料、生成产物读写 | 系统负责访问控制、生命周期与可下载性 |
 
 ## 接口边界（当前契约）
-以 `docs/openapi.yaml` 为准，当前边界内接口包括：
+以 `docs/openapi-target.yaml` 为准，当前边界内接口包括：
 
 - 项目域：`/api/v1/projects`、`/api/v1/projects/{project_id}`
 - 对话域：`/api/v1/chat/messages`

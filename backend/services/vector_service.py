@@ -6,6 +6,7 @@ Vector Service - ChromaDB 连接管理
 
 import logging
 import os
+import socket
 from typing import Optional
 
 import chromadb
@@ -38,11 +39,42 @@ class VectorService:
     def client(self) -> chromadb.ClientAPI:
         """懒加载 ChromaDB 客户端"""
         if self._client is None:
-            self._client = chromadb.PersistentClient(path=self._persist_dir)
-            logger.info(
-                "ChromaDB client initialized",
-                extra={"persist_dir": self._persist_dir},
-            )
+            chroma_host = os.getenv("CHROMA_HOST")
+            chroma_port = os.getenv("CHROMA_PORT", "8000")
+
+            if chroma_host:
+                # 先做一次快速连通性检查，避免服务未启动导致请求卡死
+                try:
+                    socket.create_connection(
+                        (chroma_host, int(chroma_port)), timeout=0.5
+                    ).close()
+                    self._client = chromadb.HttpClient(
+                        host=chroma_host,
+                        port=chroma_port,
+                    )
+                    logger.info(
+                        "ChromaDB HttpClient initialized (server mode)",
+                        extra={"host": chroma_host, "port": chroma_port},
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        (
+                            "ChromaDB server unreachable, "
+                            "fallback to local PersistentClient: %s"
+                        ),
+                        exc,
+                    )
+                    self._client = chromadb.PersistentClient(path=self._persist_dir)
+                    logger.info(
+                        "ChromaDB PersistentClient initialized (local mode)",
+                        extra={"persist_dir": self._persist_dir},
+                    )
+            else:
+                self._client = chromadb.PersistentClient(path=self._persist_dir)
+                logger.info(
+                    "ChromaDB PersistentClient initialized (local mode)",
+                    extra={"persist_dir": self._persist_dir},
+                )
         return self._client
 
     def get_or_create_collection(self, project_id: str) -> Collection:

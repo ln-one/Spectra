@@ -12,7 +12,7 @@
 ### Q: API 规范在哪里？
 **A**: 
 - **模块化文件**（推荐读取）：`docs/openapi/paths/` 和 `docs/openapi/schemas/`
-- **打包文件**（自动生成，不要直接读取）：`docs/openapi.yaml`
+- **打包文件**（自动生成，不要直接读取）：`docs/openapi-target.yaml`
 
 ### Q: 文档在哪里？
 **A**:
@@ -31,7 +31,7 @@
 ### Q: 我应该读取哪个 OpenAPI 文件？
 **A**: 
 - **应该读取**：`docs/openapi/paths/{模块}.yaml` 和 `docs/openapi/schemas/{模块}.yaml`
-- **不要读取**：`docs/openapi.yaml`（1200+ 行，自动生成的打包文件）
+- **不要读取**：`docs/openapi-target.yaml`（1200+ 行，自动生成的打包文件）
 
 **原因**：模块文件只有 50-150 行，更容易理解和修改。
 
@@ -40,7 +40,7 @@
 1. 编辑 `docs/openapi/paths/{模块}.yaml` 或 `docs/openapi/schemas/{模块}.yaml`
 2. 运行 `npm run bundle:openapi` 打包
 3. 运行 `npm run validate:openapi` 验证
-4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts`
+4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts`
 
 详细流程参考：`.ai/guides/api-workflow.md`
 

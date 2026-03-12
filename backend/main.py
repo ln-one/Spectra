@@ -1,6 +1,7 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, Request, status
@@ -9,7 +10,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prisma.errors import PrismaError
 
-from routers import (
+# Load environment variables (force backend/.env, independent of startup cwd)
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
+
+from routers import (  # noqa: E402
     auth_router,
     chat_router,
     courses_router,
@@ -22,15 +27,12 @@ from routers import (
     projects_router,
     rag_router,
 )
-from services import db_service
-from services.redis_manager import RedisConnectionManager
-from utils.exceptions import APIException
-from utils.logger import setup_logging
-from utils.middleware import RequestContextFilter, RequestIDMiddleware
-from utils.responses import error_response
-
-# Load environment variables
-load_dotenv()
+from services import db_service  # noqa: E402
+from services.redis_manager import RedisConnectionManager  # noqa: E402
+from utils.exceptions import APIException  # noqa: E402
+from utils.logger import setup_logging  # noqa: E402
+from utils.middleware import RequestContextFilter, RequestIDMiddleware  # noqa: E402
+from utils.responses import error_response  # noqa: E402
 
 # Configure logging from environment
 log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -84,13 +86,19 @@ app = FastAPI(
 # --- Middleware (order matters: outermost first) ---
 
 # CORS must be outermost so preflight responses include correct headers
-cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+raw_origins = os.getenv(
+    "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+).split(",")
+clean_origins = [o.strip() for o in raw_origins if o.strip() and o.strip() != "*"]
+allow_all_origins = any(o.strip() == "*" for o in raw_origins) or not clean_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in cors_origins],
-    allow_credentials=False,  # Disabled for security when using wildcard origins
+    allow_origins=["*"] if allow_all_origins else clean_origins,
+    allow_credentials=not allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
 
 # Request-ID & access-log middleware

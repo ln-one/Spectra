@@ -45,7 +45,7 @@ npm run validate:openapi
 npm run watch:openapi
 ```
 
-打包后的文件：`docs/openapi.yaml`（自动生成，不要手动编辑）
+打包后的文件：`docs/openapi-target.yaml`（自动生成，不要手动编辑）
 
 ## 工作流
 
@@ -61,10 +61,10 @@ npm run bundle:openapi
 npm run validate:openapi
 
 # 4. 前端生成类型（可选）
-cd frontend && npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
+cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
 
 # 5. 后端生成 Schema（可选）
-cd backend && datamodel-codegen --input ../docs/openapi.yaml --output schemas/generated.py
+cd backend && datamodel-codegen --input ../docs/openapi-target.yaml --output schemas/generated.py
 
 # 6. 前后端并行开发，基于契约
 ```
@@ -83,7 +83,7 @@ FastAPI 自动提供两种 API 文档界面：
 - **特点**: 美观的文档展示，适合阅读
 - **适用**: API 参考、文档查阅
 
-两种界面都基于同一个 OpenAPI 规范文件（`docs/openapi.yaml`）自动生成。
+两种界面都基于同一个 OpenAPI 规范文件（`docs/openapi-target.yaml`）自动生成。
 
 ## 响应格式 (统一)
 
@@ -125,7 +125,7 @@ FastAPI 自动提供两种 API 文档界面：
 
 1. **契约先行**: 先更新 `docs/openapi/` 模块文件，再写代码
 2. **模块化**: 按功能模块组织 OpenAPI 文档，避免单文件过大
-3. **自动打包**: 使用 Redocly CLI 自动打包，不要手动编辑 `docs/openapi.yaml`
+3. **自动打包**: 使用 Redocly CLI 自动打包，不要手动编辑 `docs/openapi-target.yaml`
 4. **类型安全**: 前后端使用生成的类型，避免手写
 5. **保持同步**: 实现必须与契约一致
 

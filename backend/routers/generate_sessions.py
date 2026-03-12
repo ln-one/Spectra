@@ -20,12 +20,13 @@ from fastapi.responses import StreamingResponse
 
 from services.database import db_service
 from services.generation_session_service import ConflictError, GenerationSessionService
-from utils.dependencies import get_current_user
+from utils.dependencies import get_current_user, get_current_user_optional
 from utils.exceptions import (
     APIException,
     ErrorCode,
     ForbiddenException,
     NotFoundException,
+    UnauthorizedException,
 )
 from utils.responses import success_response
 
@@ -33,6 +34,65 @@ router = APIRouter(prefix="/generate", tags=["Generate"])
 logger = logging.getLogger(__name__)
 
 CONTRACT_VERSION = "2026-03"
+
+
+# ============================================================
+# 0. GET /generate/sessions — 会话列表（项目内历史）
+# ============================================================
+@router.get("/sessions")
+async def list_sessions(
+    project_id: str = Query(..., description="项目 ID"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    user_id: str = Depends(get_current_user),
+):
+    """返回项目内生成会话列表（按更新时间倒序）。"""
+    try:
+        project = await db_service.get_project(project_id)
+        if not project or project.userId != user_id:
+            raise ForbiddenException(message="无权访问此项目")
+
+        skip = (page - 1) * limit
+        sessions = await db_service.db.generationsession.find_many(
+            where={"projectId": project_id},
+            skip=skip,
+            take=limit,
+            order={"updatedAt": "desc"},
+        )
+        total = await db_service.db.generationsession.count(
+            where={"projectId": project_id}
+        )
+
+        payload = [
+            {
+                "session_id": s.id,
+                "project_id": s.projectId,
+                "output_type": s.outputType,
+                "state": s.state,
+                "created_at": s.createdAt,
+                "updated_at": s.updatedAt,
+            }
+            for s in sessions
+        ]
+
+        return success_response(
+            data={
+                "sessions": payload,
+                "total": total,
+                "page": page,
+                "limit": limit,
+            },
+            message="获取生成会话列表成功",
+        )
+    except APIException:
+        raise
+    except Exception as exc:
+        logger.error("List sessions failed: %s", exc, exc_info=True)
+        raise APIException(
+            message="获取生成会话列表失败",
+            error_code=ErrorCode.INTERNAL_ERROR,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 # ============================================================
@@ -211,9 +271,19 @@ async def get_session_events(
     session_id: str,
     cursor: Optional[str] = Query(None, description="断线续传游标"),
     accept: Optional[str] = Query("text/event-stream"),
-    user_id: str = Depends(get_current_user),
+    token: Optional[str] = Query(
+        None, description="SSE token (when Authorization header is unavailable)"
+    ),
+    user_id: Optional[str] = Depends(get_current_user_optional),
 ):
     """获取生成事件流，支持 SSE（默认）或短轮询（accept=application/json）。"""
+    if not user_id:
+        if token:
+            from services.auth_service import auth_service
+
+            user_id = auth_service.verify_token(token)
+        if not user_id:
+            raise UnauthorizedException(message="缺少认证信息")
     svc = _get_session_service()
 
     # 权限预检
@@ -623,7 +693,7 @@ async def get_session_preview(
         )
 
     session_state = snapshot["session"]["state"]
-    if session_state not in ("SUCCESS", "RENDERING"):
+    if session_state not in ("SUCCESS", "RENDERING", "GENERATING_CONTENT"):
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=ErrorCode.INVALID_INPUT,
@@ -638,21 +708,40 @@ async def get_session_preview(
     )
     task = tasks[0] if tasks else None
 
+    slides = []
+    lesson_plan = None
+    if task:
+        try:
+            from services.preview_helpers import (
+                build_lesson_plan,
+                build_slides,
+                get_or_generate_content,
+            )
+
+            project = await db_service.get_project(snapshot["session"]["project_id"])
+            if not project:
+                raise ValueError("project not found for preview")
+            content = await get_or_generate_content(task, project)
+            slide_models = build_slides(task.id, content["markdown_content"])
+            slides = [s.model_dump() for s in slide_models]
+            lesson_plan = build_lesson_plan(
+                slide_models,
+                content.get("lesson_plan_markdown", ""),
+            ).model_dump()
+        except Exception as preview_err:
+            logger.warning(
+                "Session preview content generation failed, using fallback: %s",
+                preview_err,
+                exc_info=True,
+            )
+
     return success_response(
         data={
             "session_id": session_id,
-            "state": session_state,
-            "ppt_url": (
-                snapshot.get("result", {}).get("ppt_url")
-                if snapshot.get("result")
-                else None
-            ),
-            "word_url": (
-                snapshot.get("result", {}).get("word_url")
-                if snapshot.get("result")
-                else None
-            ),
             "task_id": task.id if task else None,
+            "render_version": snapshot["session"].get("render_version") or 1,
+            "slides": slides,
+            "lesson_plan": lesson_plan,
         },
         message="预览获取成功",
     )

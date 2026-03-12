@@ -11,13 +11,14 @@
 
 import { create } from "zustand";
 import { authService, TokenStorage, User } from "@/lib/auth";
+import { ApiError, getErrorMessage } from "@/lib/api/errors";
 
 export interface AuthState {
   // 状态
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  error: string | null;
+  error: ApiError | null;
 
   // 操作
   login: (email: string, password: string) => Promise<void>;
@@ -30,6 +31,7 @@ export interface AuthState {
   logout: () => void;
   checkAuth: () => Promise<void>;
   clearError: () => void;
+  setUser: (user: User | null) => void;
 }
 
 /**
@@ -72,8 +74,12 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
         isLoading: false,
       });
     } catch (error) {
+      const apiError: ApiError = {
+        code: "LOGIN_FAILED",
+        message: getErrorMessage(error),
+      };
       set({
-        error: error instanceof Error ? error.message : "登录失败",
+        error: apiError,
         isLoading: false,
       });
       throw error;
@@ -109,8 +115,12 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
         isLoading: false,
       });
     } catch (error) {
+      const apiError: ApiError = {
+        code: "REGISTER_FAILED",
+        message: getErrorMessage(error),
+      };
       set({
-        error: error instanceof Error ? error.message : "注册失败",
+        error: apiError,
         isLoading: false,
       });
       throw error;
@@ -166,5 +176,12 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
    */
   clearError: () => {
     set({ error: null });
+  },
+
+  /**
+   * 设置用户信息（用于 token 刷新后同步状态）
+   */
+  setUser: (user: User | null) => {
+    set({ user, isAuthenticated: !!user });
   },
 }));

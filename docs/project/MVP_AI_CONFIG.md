@@ -27,7 +27,7 @@ cp .env.example .env
 
 ```bash
 DASHSCOPE_API_KEY="your-api-key"
-DEFAULT_MODEL="qwen-plus"
+DEFAULT_MODEL="qwen3.5-plus"
 ALLOW_AI_STUB=false
 ```
 

@@ -162,7 +162,9 @@ jobs:
         working-directory: backend
         env:
           npm_config_registry: https://registry.npmmirror.com
-        run: prisma generate
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+        run: python -m prisma generate
       
       - name: Check code format
         working-directory: backend

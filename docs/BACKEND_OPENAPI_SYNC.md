@@ -8,7 +8,7 @@
 
 ## 单一事实源
 
-- 当前联调规范：`docs/openapi-source.yaml` -> `docs/openapi.yaml`
+- 当前联调规范：`docs/openapi-target-source.yaml` -> `docs/openapi-target.yaml`
 - 目标契约规范：`docs/openapi-target-source.yaml`
 - 运行时文档：FastAPI `/openapi.json` 与 `/docs`
 

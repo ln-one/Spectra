@@ -1,57 +1,110 @@
 /**
  * Preview API
  *
- * 基于 OpenAPI 契约的预览 API 封装
+ * 基于 OpenAPI 契约的预览 API 封装（session-level 优先）
  */
 
 import { request } from "./client";
 import type { components } from "../types/api";
 
 export type PreviewResponse = components["schemas"]["PreviewResponse"];
-export type ModifyRequest = components["schemas"]["ModifyRequest"];
 export type ModifyResponse = components["schemas"]["ModifyResponse"];
 export type SlideDetailResponse = components["schemas"]["SlideDetailResponse"];
 
-export interface ExportPreviewRequest {
-  format: "json" | "markdown" | "html";
-  include_sources?: boolean;
+// 以下类型在 generated types 中不存在，手动定义以匹配 OpenAPI 契约
+export interface ModifySessionRequest {
+  instruction: string;
+  target_slides?: string[];
+  context?: Record<string, unknown>;
+  base_render_version?: number;
 }
 
-export interface ExportPreviewResponse {
+export interface ExportRequest {
+  format: "json" | "markdown" | "html";
+  include_sources?: boolean;
+  expected_render_version?: number;
+}
+
+export interface ExportResponse {
   success: boolean;
-  data?: {
+  data: {
+    session_id?: string;
+    task_id?: string;
     content: string;
     format: string;
+    render_version?: number;
   };
+  message: string;
 }
 
 export const previewApi = {
-  async getPreview(taskId: string): Promise<PreviewResponse> {
+  // ─── Session-level 预览（主路径） ───
+
+  async getSessionPreview(sessionId: string): Promise<PreviewResponse> {
+    return request<PreviewResponse>(`/generate/sessions/${sessionId}/preview`, {
+      method: "GET",
+    });
+  },
+
+  async modifySessionPreview(
+    sessionId: string,
+    data: ModifySessionRequest
+  ): Promise<ModifyResponse> {
+    return request<ModifyResponse>(
+      `/generate/sessions/${sessionId}/preview/modify`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+        autoIdempotency: true,
+      }
+    );
+  },
+
+  async getSessionSlideDetail(
+    sessionId: string,
+    slideId: string
+  ): Promise<SlideDetailResponse> {
+    return request<SlideDetailResponse>(
+      `/generate/sessions/${sessionId}/preview/slides/${slideId}`,
+      {
+        method: "GET",
+      }
+    );
+  },
+
+  async exportSessionPreview(
+    sessionId: string,
+    data: ExportRequest
+  ): Promise<ExportResponse> {
+    return request<ExportResponse>(
+      `/generate/sessions/${sessionId}/preview/export`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  // ─── Legacy task-level 预览（兼容旧流程） ───
+
+  async getTaskPreview(taskId: string): Promise<PreviewResponse> {
     return request<PreviewResponse>(`/preview/${taskId}`, {
       method: "GET",
     });
   },
 
-  async modifyPreview(
+  async modifyTaskPreview(
     taskId: string,
-    data: ModifyRequest
+    data: components["schemas"]["ModifyRequest"]
   ): Promise<ModifyResponse> {
     return request<ModifyResponse>(`/preview/${taskId}/modify`, {
       method: "POST",
       body: JSON.stringify(data),
-      headers: {
-        "Idempotency-Key": crypto.randomUUID(),
-      },
+      autoIdempotency: true,
     });
   },
 
-  /**
-   * 获取单个幻灯片详情
-   * @param taskId 任务 ID
-   * @param slideId 幻灯片 ID
-   * @returns 幻灯片详情
-   */
-  async getSlideDetail(
+  async getTaskSlideDetail(
     taskId: string,
     slideId: string
   ): Promise<SlideDetailResponse> {
@@ -63,17 +116,11 @@ export const previewApi = {
     );
   },
 
-  /**
-   * 导出预览内容
-   * @param taskId 任务 ID
-   * @param data 导出选项
-   * @returns 导出的内容
-   */
-  async exportPreview(
+  async exportTaskPreview(
     taskId: string,
-    data: ExportPreviewRequest
-  ): Promise<ExportPreviewResponse> {
-    return request<ExportPreviewResponse>(`/preview/${taskId}/export`, {
+    data: ExportRequest
+  ): Promise<ExportResponse> {
+    return request<ExportResponse>(`/preview/${taskId}/export`, {
       method: "POST",
       body: JSON.stringify(data),
     });
