@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const runCommand = (command, cwd) => {
@@ -15,8 +16,22 @@ const runCommand = (command, cwd) => {
   }
 };
 
-const frontendDir = path.join(__dirname, '..', 'frontend');
-const backendDir = path.join(__dirname, '..', 'backend');
+const rootDir = path.join(__dirname, '..');
+const frontendDir = path.join(rootDir, 'frontend');
+const backendDir = path.join(rootDir, 'backend');
+const venvBinDir = path.join(rootDir, '.venv', 'bin');
+
+const resolveVenvTool = (name, fallback = name) => {
+  const candidate = path.join(venvBinDir, name);
+  if (fs.existsSync(candidate)) {
+    return candidate;
+  }
+  return fallback;
+};
+
+const blackCmd = resolveVenvTool('black');
+const isortCmd = resolveVenvTool('isort');
+const flake8Cmd = resolveVenvTool('flake8');
 
 console.log('🚀 Running quick pre-commit checks (no tests)...\n');
 
@@ -34,19 +49,19 @@ if (!runCommand('npm run lint', frontendDir)) process.exit(1);
 // Backend checks
 console.log('\n🐍 Backend checks...');
 console.log('  ├─ Auto-formatting (black)...');
-if (!runCommand('black .', backendDir)) {
+if (!runCommand(`${blackCmd} .`, backendDir)) {
   console.error('  ✗ Backend formatting (black) failed');
   process.exit(1);
 }
 
 console.log('  ├─ Auto-sorting imports (isort)...');
-if (!runCommand('isort .', backendDir)) {
+if (!runCommand(`${isortCmd} .`, backendDir)) {
   console.error('  ✗ Import sorting (isort) failed');
   process.exit(1);
 }
 
 console.log('  ├─ Linting (flake8)...');
-if (!runCommand('flake8 .', backendDir)) process.exit(1);
+if (!runCommand(`${flake8Cmd} .`, backendDir)) process.exit(1);
 
 console.log('\n✅ Quick checks passed! (tests skipped)');
 console.log('💡 Run full checks before push: npm run pre-commit:full');
