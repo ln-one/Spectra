@@ -29,7 +29,7 @@
 ## OpenAPI 理解
 
 - [ ] 我知道应该读取 `docs/openapi/paths/{模块}.yaml` 和 `docs/openapi/schemas/{模块}.yaml`
-- [ ] 我知道不应该读取 `docs/openapi.yaml`（1200+ 行，自动生成）
+- [ ] 我知道不应该读取 `docs/openapi-target.yaml`（1200+ 行，自动生成）
 - [ ] 我知道 OpenAPI 模块包括：auth, chat, files, generate, preview, project, rag
 - [ ] 我知道修改 OpenAPI 后需要运行 `npm run bundle:openapi`
 - [ ] 我知道如何验证 OpenAPI 规范（`npm run validate:openapi`）

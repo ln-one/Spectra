@@ -5,8 +5,8 @@
 ### 完成的工作
 
 #### 1. 文件拆分
-- 将 1296 行的 `openapi.yaml` 拆分为 18 个模块文件
-- 创建主入口文件 `openapi-source.yaml`（70行）
+- 将 1296 行的 `openapi-target.yaml` 拆分为 18 个模块文件
+- 创建主入口文件 `openapi-target-source.yaml`（70行）
 - 按功能模块组织：paths、schemas、components
 
 #### 2. 工具配置
@@ -74,7 +74,7 @@ npm run sync:openapi
 
 ### 重要变更
 
-1. **不要直接编辑** `docs/openapi.yaml`（自动生成）
+1. **不要直接编辑** `docs/openapi-target.yaml`（自动生成）
 2. **编辑模块文件** `docs/openapi/{paths|schemas}/{模块}.yaml`
 3. **修改后打包** `npm run bundle:openapi`
 4. **AI 应参照** 模块文件，而非打包文件

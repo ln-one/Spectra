@@ -29,6 +29,11 @@ from utils.responses import success_response
 router = APIRouter(prefix="/files", tags=["Files"])
 logger = logging.getLogger(__name__)
 
+_DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
+_SYNC_RAG_INDEXING = (
+    os.getenv("SYNC_RAG_INDEXING", "true" if _DEBUG_MODE else "false").lower() == "true"
+)
+
 
 class UpdateFileIntentRequest(BaseModel):
     """标注文件用途请求"""
@@ -41,17 +46,35 @@ class BatchDeleteRequest(BaseModel):
 
 
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(100 * 1024 * 1024)))
-ALLOWED_EXTENSIONS = {
+_DEFAULT_EXTENSIONS = {
+    "pdf",
+    "docx",
+    "doc",
+    "pptx",
+    "ppt",
+    "txt",
+    "md",
+    "csv",
+    "mp4",
+    "mov",
+    "avi",
+    "webm",
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "mp3",
+    "wav",
+    "m4a",
+    "ogg",
+}
+_EXTRA_EXTENSIONS = {
     ext.strip().lower().lstrip(".")
-    for ext in os.getenv(
-        "ALLOWED_EXTENSIONS",
-        (
-            ".pdf,.docx,.doc,.pptx,.ppt,.txt,.md,.csv,"
-            ".mp4,.mov,.avi,.webm,.jpg,.jpeg,.png,.gif,.webp"
-        ),
-    ).split(",")
+    for ext in os.getenv("ALLOWED_EXTENSIONS", "").split(",")
     if ext.strip()
 }
+ALLOWED_EXTENSIONS = _DEFAULT_EXTENSIONS | _EXTRA_EXTENSIONS
 
 
 def _resolve_file_type(filename: str, mime_type: Optional[str] = None) -> str:
@@ -119,6 +142,7 @@ async def _index_upload_for_rag(
             chunk_size=500,
             chunk_overlap=50,
             reindex=False,
+            db=db_service,
         )
         await db_service.update_upload_status(
             upload.id,
@@ -153,12 +177,20 @@ def _dispatch_rag_indexing(
     task_queue_service = getattr(request.app.state, "task_queue_service", None)
     if task_queue_service is not None:
         try:
-            task_queue_service.enqueue_rag_indexing_task(
-                file_id=upload.id,
-                project_id=project_id,
-                session_id=session_id,
-            )
-            return
+            queue_info = task_queue_service.get_queue_info()
+            workers = (queue_info.get("workers") or {}).get("count", 0)
+            if workers <= 0:
+                logger.warning(
+                    "No RQ workers detected, fallback to BackgroundTasks: file_id=%s",
+                    upload.id,
+                )
+            else:
+                task_queue_service.enqueue_rag_indexing_task(
+                    file_id=upload.id,
+                    project_id=project_id,
+                    session_id=session_id,
+                )
+                return
         except Exception as enqueue_err:
             logger.warning(
                 "Failed to enqueue RAG indexing task, falling back to"
@@ -268,9 +300,12 @@ async def upload_file(
         upload = await _save_and_record_upload(file, project_id)
         await db_service.update_upload_status(upload.id, status="parsing")
         latest = await db_service.get_file(upload.id)
-        _dispatch_rag_indexing(
-            request, background_tasks, latest, project_id, session_id
-        )
+        if _SYNC_RAG_INDEXING:
+            await _index_upload_for_rag(latest, project_id, session_id)
+        else:
+            _dispatch_rag_indexing(
+                request, background_tasks, latest, project_id, session_id
+            )
 
         logger.info(
             "file_uploaded",
@@ -321,9 +356,12 @@ async def batch_upload_files(
                 upload = await _save_and_record_upload(file, project_id)
                 await db_service.update_upload_status(upload.id, status="parsing")
                 latest = await db_service.get_file(upload.id)
-                _dispatch_rag_indexing(
-                    request, background_tasks, latest, project_id, session_id
-                )
+                if _SYNC_RAG_INDEXING:
+                    await _index_upload_for_rag(latest, project_id, session_id)
+                else:
+                    _dispatch_rag_indexing(
+                        request, background_tasks, latest, project_id, session_id
+                    )
                 uploaded_files.append(_serialize_upload(latest))
             except Exception as e:
                 failed.append({"filename": file.filename, "error": str(e)})

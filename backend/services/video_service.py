@@ -22,7 +22,7 @@ from schemas.common import (
 logger = logging.getLogger(__name__)
 
 # 环境变量配置
-QWEN_VL_MODEL = os.getenv("QWEN_VL_MODEL", "qwen-vl-max")
+QWEN_VL_MODEL = os.getenv("QWEN_VL_MODEL", "qwen3.5-plus")
 VIDEO_FRAME_INTERVAL = int(os.getenv("VIDEO_FRAME_INTERVAL", "30"))
 
 

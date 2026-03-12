@@ -16,12 +16,12 @@
 - `docs/openapi/schemas/{模块}.yaml` - 数据模型定义
 
  **不要读取**（1200+ 行，太大）：
-- `docs/openapi.yaml` - 自动生成的打包文件
+- `docs/openapi-target.yaml` - 自动生成的打包文件
 - `docs/openapi-target.yaml` - 自动生成的目标契约打包文件
 
 ### 哪份规范给谁用？
 
-- `docs/openapi-source.yaml` -> `docs/openapi.yaml`
+- `docs/openapi-target-source.yaml` -> `docs/openapi-target.yaml`
   当前可联调真相源。只包含后端已经实现、前端可以直接接入的接口。
 - `docs/openapi-target-source.yaml`
   目标契约真相源。包含本轮 sprint 目标接口（含 session-first 主链路），用于架构设计、任务拆解和 contract-first 开发；对会话化改造任务，它是实现基线，但在代码完全落地前仍不是“当前可联调现状”。
@@ -54,8 +54,8 @@
 
 ```
 docs/
-├── openapi.yaml # 打包后的单文件（当前可联调规范）
-├── openapi-source.yaml # 正式联调规范入口（只含已实现接口）
+├── openapi-target.yaml # 打包后的单文件（当前可联调规范）
+├── openapi-target-source.yaml # 正式联调规范入口（只含已实现接口）
 ├── openapi-target.yaml # 打包后的目标契约规范
 ├── openapi-target-source.yaml # 目标契约入口（含规划中的 session-first 接口）
 └── openapi/
@@ -123,7 +123,7 @@ npm run watch:openapi
 2. 在对应的 `schemas/*.yaml` 文件中添加数据模型
 3. 先判断接口属于“已实现”还是“目标契约”
 4. 在对应入口文件中添加路径引用：
-   - 已实现接口 -> `docs/openapi-source.yaml`
+   - 已实现接口 -> `docs/openapi-target-source.yaml`
    - 规划接口 -> `docs/openapi-target-source.yaml`
 5. 运行对应的打包命令
 
@@ -133,8 +133,8 @@ npm run watch:openapi
 
 ## 注意事项
 
-- **不要直接编辑** `docs/openapi.yaml`，它是自动生成的
-- `docs/openapi.yaml` 是当前可联调规范，不应混入未实现接口
+- **不要直接编辑** `docs/openapi-target.yaml`，它是自动生成的
+- `docs/openapi-target.yaml` 是当前可联调规范，不应混入未实现接口
 - 目标接口先进入 `docs/openapi-target-source.yaml`，待后端落地后再切入正式规范
 - 开发时编辑 `docs/openapi/` 下的文件
 - 提交代码前记得运行打包命令

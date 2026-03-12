@@ -62,7 +62,7 @@ docs/openapi/
 
 ### 打包后的文件
 
-完整的 OpenAPI 规范文件：`docs/openapi.yaml`
+完整的 OpenAPI 规范文件：`docs/openapi-target.yaml`
 
 **注意**: 此文件由 Redocly CLI 自动生成，不要手动编辑。
 
@@ -162,7 +162,7 @@ async def register(request: RegisterRequest):
 
 ```bash
 cd frontend
-npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
+npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
 ```
 
 ### 使用生成的类型

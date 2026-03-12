@@ -7,7 +7,12 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from services.generation_session_service import ConflictError, GenerationSessionService
+from services.generation_session_service import (
+    ConflictError,
+    GenerationSessionService,
+    _build_outline_requirements,
+    _extract_outline_style,
+)
 from services.state_transition_guard import TransitionResult
 
 
@@ -48,6 +53,32 @@ def _allow_confirm_transition():
         to_state="GENERATING_CONTENT",
         command_type="CONFIRM_OUTLINE",
     )
+
+
+def test_extract_outline_style_from_explicit_option():
+    style = _extract_outline_style({"outline_style": "problem"})
+    assert style == "problem"
+
+
+def test_extract_outline_style_from_system_prompt_token():
+    style = _extract_outline_style(
+        {"system_prompt_tone": "课程主题\n[outline_style=story]\n其它要求"}
+    )
+    assert style == "story"
+
+
+def test_build_outline_requirements_includes_style_hard_constraints():
+    project = SimpleNamespace(name="测试课程", description="测试描述")
+    text = _build_outline_requirements(
+        project,
+        {
+            "system_prompt_tone": "[outline_style=workshop]\n请强调课堂实践",
+            "pages": 12,
+        },
+    )
+    assert "大纲风格ID：workshop" in text
+    assert "大纲风格硬约束（必须遵循）" in text
+    assert "实操工作坊结构" in text
 
 
 @pytest.mark.asyncio

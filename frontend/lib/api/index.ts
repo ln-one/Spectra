@@ -1,9 +1,3 @@
-/**
- * API Module - Unified exports
- *
- * 所有 API 模块的统一导出
- */
-
 export * from "./client";
 export * from "./auth";
 export * from "./projects";
@@ -12,6 +6,7 @@ export * from "./chat";
 export * from "./generate";
 export * from "./preview";
 export * from "./rag";
+export * from "./health";
 
 export { authApi } from "./auth";
 export { projectsApi } from "./projects";
@@ -20,6 +15,7 @@ export { chatApi } from "./chat";
 export { generateApi } from "./generate";
 export { previewApi } from "./preview";
 export { ragApi } from "./rag";
+export { healthApi } from "./health";
 
 export type {
   LoginRequest,
@@ -44,20 +40,13 @@ export type {
 } from "./files";
 
 export type {
-  Message,
-  SendMessageRequest,
-  SendMessageResponse,
-  GetMessagesResponse,
-  VoiceMessageResponse,
-} from "./chat";
-
-export type {
-  GenerateRequest,
-  GenerateResponse,
-  GenerateStatusResponse,
-} from "./generate";
-
-export type { PreviewResponse, ModifyRequest, ModifyResponse } from "./preview";
+  PreviewResponse,
+  ModifySessionRequest,
+  ModifyResponse,
+  SlideDetailResponse,
+  ExportRequest,
+  ExportResponse,
+} from "./preview";
 
 export type {
   RAGSearchRequest,

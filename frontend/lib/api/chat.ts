@@ -1,67 +1,100 @@
-/**
- * Chat API
- *
- * 基于 OpenAPI 契约的对话 API 封装
- *
- * 更新日期: 2026-02-25
- * 更新内容: 添加语音输入接口支持
- */
-
-import { request } from "./client";
+import {
+  request,
+  getApiUrl,
+  generateIdempotencyKey,
+  DEFAULT_CONTRACT_VERSION,
+} from "./client";
+import { TokenStorage } from "../auth";
 import type { components } from "../types/api";
 
 export type Message = components["schemas"]["Message"];
+export type SourceReference = components["schemas"]["SourceReference"];
+export type GetMessagesResponse = components["schemas"]["GetMessagesResponse"];
 export type SendMessageRequest = components["schemas"]["SendMessageRequest"];
 export type SendMessageResponse = components["schemas"]["SendMessageResponse"];
-export type GetMessagesResponse = components["schemas"]["GetMessagesResponse"];
 export type VoiceMessageResponse =
   components["schemas"]["VoiceMessageResponse"];
 
 export const chatApi = {
+  async getMessages(params: {
+    project_id: string;
+    session_id?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<GetMessagesResponse> {
+    const queryParams = new URLSearchParams();
+    queryParams.set("project_id", params.project_id);
+    if (params.session_id) queryParams.set("session_id", params.session_id);
+    if (params.page) queryParams.set("page", String(params.page));
+    if (params.limit) queryParams.set("limit", String(params.limit));
+
+    return request<GetMessagesResponse>(
+      `/chat/messages?${queryParams.toString()}`,
+      {
+        method: "GET",
+      }
+    );
+  },
+
   async sendMessage(data: SendMessageRequest): Promise<SendMessageResponse> {
     return request<SendMessageResponse>("/chat/messages", {
       method: "POST",
       body: JSON.stringify(data),
-      headers: {
-        "Idempotency-Key": crypto.randomUUID(),
-      },
-    });
-  },
-
-  async getMessages(
-    projectId: string,
-    params?: { page?: number; limit?: number }
-  ): Promise<GetMessagesResponse> {
-    const queryParams = new URLSearchParams();
-    queryParams.set("project_id", projectId);
-    if (params?.page) queryParams.set("page", String(params.page));
-    if (params?.limit) queryParams.set("limit", String(params.limit));
-
-    return request<GetMessagesResponse>(`/chat/messages?${queryParams}`, {
-      method: "GET",
+      autoIdempotency: true,
     });
   },
 
   /**
    * 发送语音消息
-   * @param audio 音频文件
-   * @param projectId 项目 ID
-   * @returns 语音识别结果和消息
+   * 上传音频文件（wav/mp3/m4a/ogg），后端自动转文字并生成回复
    */
   async sendVoiceMessage(
     audio: File,
-    projectId: string
+    projectId: string,
+    sessionId?: string
   ): Promise<VoiceMessageResponse> {
-    const formData = new FormData();
-    formData.append("audio", audio);
-    formData.append("project_id", projectId);
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append("audio", audio);
+      formData.append("project_id", projectId);
+      if (sessionId) formData.append("session_id", sessionId);
 
-    return request<VoiceMessageResponse>("/chat/voice", {
-      method: "POST",
-      body: formData,
-      headers: {
-        "Idempotency-Key": crypto.randomUUID(),
-      },
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", getApiUrl("/chat/voice"));
+
+      const token = TokenStorage.getAccessToken();
+      if (token) {
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      }
+
+      xhr.setRequestHeader("Idempotency-Key", generateIdempotencyKey());
+      xhr.setRequestHeader("X-Contract-Version", DEFAULT_CONTRACT_VERSION);
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText));
+        } else {
+          try {
+            const parsed = JSON.parse(xhr.responseText);
+            reject(
+              new Error(
+                parsed?.error?.message || parsed?.message || "语音消息发送失败"
+              )
+            );
+          } catch {
+            reject(new Error("语音消息发送失败"));
+          }
+        }
+        xhr.onload = null;
+        xhr.onerror = null;
+      };
+
+      xhr.onerror = () => {
+        xhr.onload = null;
+        xhr.onerror = null;
+        reject(new Error("语音消息发送失败：网络异常"));
+      };
+      xhr.send(formData);
     });
   },
 };

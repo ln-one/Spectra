@@ -25,7 +25,7 @@
 | 项目 | `docs/openapi/paths/project.yaml` | `docs/openapi/schemas/project.yaml` |
 | RAG | `docs/openapi/paths/rag.yaml` | `docs/openapi/schemas/rag.yaml` |
 
-** 重要**：不要读取 `docs/openapi.yaml`（1200+ 行，自动生成）
+** 重要**：不要读取 `docs/openapi-target.yaml`（1200+ 行，自动生成）
 
 ---
 
@@ -91,7 +91,7 @@ components:
 ### 3. 打包和验证
 
 ```bash
-# 打包模块文件到 docs/openapi.yaml
+# 打包模块文件到 docs/openapi-target.yaml
 npm run bundle:openapi
 
 # 验证 OpenAPI 规范
@@ -112,7 +112,7 @@ npm run validate:openapi
 
 ```bash
 cd frontend
-npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
+npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
 ```
 
 **生成的类型**：
@@ -274,7 +274,7 @@ Error: Cannot generate types
 ```
 
 **解决方案**：
-- 确保 `docs/openapi.yaml` 已打包
+- 确保 `docs/openapi-target.yaml` 已打包
 - 确保 OpenAPI 规范有效
 - 重新运行 `npm run bundle:openapi`
 
@@ -333,7 +333,7 @@ npm run bundle:openapi
 npm run validate:openapi
 
 # 生成前端类型
-cd frontend && npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
+cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
 
 # 启动后端
 cd backend && uvicorn main:app --reload

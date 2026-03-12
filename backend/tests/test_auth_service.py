@@ -1,4 +1,4 @@
-﻿"""Unit tests for auth service and user database methods (Batch C2)."""
+"""Unit tests for auth service and user database methods (Batch C2)."""
 
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace

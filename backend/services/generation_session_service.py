@@ -12,10 +12,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import re
 import uuid
 from typing import Optional
 
 from prisma import Prisma
+from services.ai import ai_service
 from services.state_transition_guard import (
     StateTransitionGuard,
     TransitionResult,
@@ -41,6 +44,130 @@ _SESSION_TO_TASK_TYPE = {
     "docx": "docx",
 }
 
+_OUTLINE_STYLE_RULES = {
+    "structured": (
+        "采用“总-分-总”结构：导入总览 -> 分章节展开 -> 结语总结；"
+        "章节标题体现层级关系，优先使用概念递进。"
+    ),
+    "story": (
+        "采用叙事引导结构：情境引入 -> 冲突/问题出现 -> 知识揭示 -> 迁移应用；"
+        "每章保持故事线连续。"
+    ),
+    "problem": (
+        "采用问题驱动结构：每章以问题开场，随后给出分析路径、结论与小练习；"
+        "问题之间应形成问题链。"
+    ),
+    "workshop": (
+        "采用实操工作坊结构：任务目标 -> 操作步骤 -> 案例演示 -> 练习复盘；"
+        "强调可执行步骤与课堂活动。"
+    ),
+}
+
+
+def _extract_outline_style(options: Optional[dict]) -> Optional[str]:
+    """Extract outline style id from session options or prompt tone text."""
+    if not options:
+        return None
+
+    explicit = str(options.get("outline_style") or "").strip().lower()
+    if explicit in _OUTLINE_STYLE_RULES:
+        return explicit
+
+    tone = str(options.get("system_prompt_tone") or "")
+    if not tone:
+        return None
+
+    token_match = re.search(
+        r"\[\s*outline_style\s*=\s*(structured|story|problem|workshop)\s*\]",
+        tone,
+        re.IGNORECASE,
+    )
+    if token_match:
+        return token_match.group(1).lower()
+
+    if any(keyword in tone for keyword in ("总-分-总", "总分总", "层次分明")):
+        return "structured"
+    if any(keyword in tone for keyword in ("叙事", "故事", "情境引入")):
+        return "story"
+    if any(keyword in tone for keyword in ("问题驱动", "问题链", "启发式")):
+        return "problem"
+    if any(keyword in tone for keyword in ("实操", "工作坊", "案例化", "可落地")):
+        return "workshop"
+
+    return None
+
+
+def _build_outline_requirements(
+    project,
+    options: Optional[dict],
+) -> str:
+    """Build outline requirements text from project info + generation options."""
+    parts = []
+    if project:
+        if getattr(project, "name", None):
+            parts.append(f"项目名称：{project.name}")
+        if getattr(project, "description", None):
+            parts.append(f"项目描述：{project.description}")
+
+    if options:
+        if options.get("system_prompt_tone"):
+            parts.append(f"用户需求：{options['system_prompt_tone']}")
+        if options.get("pages"):
+            parts.append(f"目标页数：{options['pages']}")
+        if options.get("audience"):
+            parts.append(f"目标受众：{options['audience']}")
+        if options.get("target_duration_minutes"):
+            parts.append(f"目标时长：{options['target_duration_minutes']} 分钟")
+        outline_style = _extract_outline_style(options)
+        if outline_style:
+            parts.append(f"大纲风格ID：{outline_style}")
+            parts.append("大纲风格硬约束（必须遵循）：")
+            parts.append(_OUTLINE_STYLE_RULES[outline_style])
+
+    return "\n".join(parts).strip() or "生成课件大纲"
+
+
+def _courseware_outline_to_document(
+    outline, target_pages: Optional[int] = None
+) -> dict:
+    """Map CoursewareOutline to OutlineDocument schema."""
+    nodes = []
+    order = 1
+    for section in outline.sections:
+        count = section.slide_count or 1
+        for idx in range(count):
+            title = section.title if count == 1 else f"{section.title}（{idx + 1}）"
+            nodes.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "order": order,
+                    "title": title,
+                    "key_points": list(section.key_points or []),
+                    "estimated_minutes": None,
+                }
+            )
+            order += 1
+
+    # Optional padding to roughly match target pages
+    if target_pages and len(nodes) < target_pages:
+        while len(nodes) < target_pages:
+            nodes.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "order": order,
+                    "title": f"补充内容 {order}",
+                    "key_points": [],
+                    "estimated_minutes": None,
+                }
+            )
+            order += 1
+
+    return {
+        "version": 1,
+        "nodes": nodes,
+        "summary": getattr(outline, "summary", None),
+    }
+
 
 # ============================================================
 # 内部辅助：能力声明（集成 capability_health）
@@ -58,12 +185,17 @@ def _default_capabilities() -> list[dict]:
     video_health = health_status.get("video_understanding")
     speech_health = health_status.get("speech_recognition")
 
+    default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
+    llm_provider = (
+        default_model.split("/", 1)[0] if "/" in default_model else default_model
+    )
+
     return [
         {
             "name": "outline_generation",
             "status": "available",
-            "providers": ["qwen-plus"],
-            "default_provider": "qwen-plus",
+            "providers": [llm_provider],
+            "default_provider": llm_provider,
             "fallback_chain": [],
             "operations": ["draft", "redraft", "confirm"],
             "status_message": None,
@@ -128,8 +260,8 @@ def _default_capabilities() -> list[dict]:
         {
             "name": "slide_regeneration",
             "status": "available",
-            "providers": ["qwen-plus"],
-            "default_provider": "qwen-plus",
+            "providers": [llm_provider],
+            "default_provider": llm_provider,
             "fallback_chain": [],
             "operations": ["regenerate"],
             "status_message": None,
@@ -189,7 +321,7 @@ class GenerationSessionService:
                 "outputType": output_type,
                 "options": json.dumps(options) if options else None,
                 "clientSessionId": client_session_id,
-                "state": "IDLE",
+                "state": "DRAFTING_OUTLINE",
                 "renderVersion": 0,
                 "currentOutlineVersion": 1,
                 "resumable": True,
@@ -200,13 +332,63 @@ class GenerationSessionService:
         await self._append_event(
             session_id=session.id,
             event_type="state.changed",
-            state="IDLE",
+            state="DRAFTING_OUTLINE",
             progress=0,
             payload={"reason": "session_created"},
         )
 
+        # 生成初始大纲（同步生成，失败时走 fallback）
+        outline_doc = None
+        try:
+            project = await self._db.project.find_unique(where={"id": project_id})
+            requirement_text = _build_outline_requirements(project, options)
+            template_style = (options or {}).get("template") or "default"
+            outline = await ai_service.generate_outline(
+                project_id=project_id,
+                user_requirements=requirement_text,
+                template_style=template_style,
+            )
+            outline_doc = _courseware_outline_to_document(
+                outline,
+                target_pages=(options or {}).get("pages"),
+            )
+        except Exception as outline_exc:
+            logger.warning(
+                "Failed to draft outline, fallback to empty outline: %s",
+                outline_exc,
+                exc_info=True,
+            )
+            outline_doc = {"version": 1, "nodes": [], "summary": None}
+
+        if outline_doc is not None:
+            await self._db.outlineversion.create(
+                data={
+                    "sessionId": session.id,
+                    "version": 1,
+                    "outlineData": json.dumps(outline_doc),
+                    "changeReason": "drafted_on_session_create",
+                }
+            )
+            await self._db.generationsession.update(
+                where={"id": session.id},
+                data={
+                    "state": "AWAITING_OUTLINE_CONFIRM",
+                    "stateReason": "outline_drafted",
+                    "currentOutlineVersion": 1,
+                },
+            )
+            await self._append_event(
+                session_id=session.id,
+                event_type="outline.updated",
+                state="AWAITING_OUTLINE_CONFIRM",
+                payload={"version": 1, "change_reason": "drafted_on_session_create"},
+            )
+
         logger.info("Session created: %s for project %s", session.id, project_id)
-        return self._to_session_ref(session)
+        updated_session = await self._db.generationsession.find_unique(
+            where={"id": session.id}
+        )
+        return self._to_session_ref(updated_session or session)
 
     # ----------------------------------------------------------
     # 2. 查询会话快照
@@ -380,18 +562,24 @@ class GenerationSessionService:
         if created_task_id:
             task_type = self._normalize_task_type(session.outputType)
             template_config = self._extract_template_config(session.options)
+            worker_available = self._is_queue_worker_available(task_queue_service)
 
-            if task_queue_service is None:
+            if task_queue_service is None or not worker_available:
+                fallback_reason = (
+                    "task_queue_unavailable_fallback_local_execution"
+                    if task_queue_service is None
+                    else "task_queue_no_worker_fallback_local_execution"
+                )
                 scheduled = await self._schedule_local_execution(
                     session_id=session_id,
                     task_id=created_task_id,
                     project_id=session.projectId,
                     task_type=task_type,
                     template_config=template_config,
-                    fallback_reason="task_queue_unavailable_fallback_local_execution",
+                    fallback_reason=fallback_reason,
                 )
                 if scheduled:
-                    warnings.append("task_queue_unavailable_fallback_local_execution")
+                    warnings.append(fallback_reason)
                 else:
                     await self._mark_dispatch_failed(
                         session_id=session_id,
@@ -421,6 +609,15 @@ class GenerationSessionService:
                         session_id,
                         created_task_id,
                         job.id,
+                    )
+                    self._schedule_enqueued_task_watchdog(
+                        session_id=session_id,
+                        task_id=created_task_id,
+                        project_id=session.projectId,
+                        task_type=task_type,
+                        template_config=template_config,
+                        rq_job_id=job.id,
+                        task_queue_service=task_queue_service,
                     )
                 except Exception as enqueue_err:
                     logger.warning(
@@ -657,6 +854,10 @@ class GenerationSessionService:
         task_type = self._normalize_task_type(session.outputType)
 
         # 创建 GenerationTask 并关联 session
+        input_payload = {"outline_version": session.currentOutlineVersion}
+        if options.get("template_config"):
+            input_payload["template_config"] = options.get("template_config")
+
         task = await self._db.generationtask.create(
             data={
                 "projectId": session.projectId,
@@ -664,11 +865,7 @@ class GenerationSessionService:
                 "taskType": task_type,
                 "status": "pending",
                 "progress": 0,
-                "inputData": (
-                    json.dumps({"template_config": options.get("template_config")})
-                    if options.get("template_config")
-                    else None
-                ),
+                "inputData": json.dumps(input_payload),
             }
         )
 
@@ -777,6 +974,73 @@ class GenerationSessionService:
         if normalized is None:
             raise ConflictError(f"不支持的 output_type: {output_type}")
         return normalized
+
+    @staticmethod
+    def _is_queue_worker_available(task_queue_service) -> bool:
+        if task_queue_service is None:
+            return False
+        try:
+            queue_info = task_queue_service.get_queue_info()
+            worker_count = int(((queue_info.get("workers") or {}).get("count") or 0))
+            return worker_count > 0
+        except Exception as exc:
+            logger.warning("Failed to inspect queue worker availability: %s", exc)
+            # Backward-compatible fallback for tests/mocks
+            # that do not expose queue info.
+            return True
+
+    def _schedule_enqueued_task_watchdog(
+        self,
+        session_id: str,
+        task_id: str,
+        project_id: str,
+        task_type: str,
+        template_config: Optional[dict],
+        rq_job_id: str,
+        task_queue_service,
+    ) -> None:
+        async def _watch() -> None:
+            await asyncio.sleep(2)
+            try:
+                job_status = await asyncio.to_thread(
+                    task_queue_service.get_job_status,
+                    rq_job_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Task watchdog failed to read RQ status: task=%s job=%s error=%s",
+                    task_id,
+                    rq_job_id,
+                    exc,
+                )
+                return
+
+            if not job_status or job_status.get("status") != "failed":
+                return
+
+            task = await self._db.generationtask.find_unique(where={"id": task_id})
+            if task is None or task.status != "pending":
+                return
+
+            exc_info = job_status.get("exc_info")
+            enqueue_error = exc_info if isinstance(exc_info, str) else str(exc_info)
+            scheduled = await self._schedule_local_execution(
+                session_id=session_id,
+                task_id=task_id,
+                project_id=project_id,
+                task_type=task_type,
+                template_config=template_config,
+                fallback_reason="rq_job_failed_fallback_local_execution",
+                enqueue_error=(enqueue_error or "")[:400],
+            )
+            if not scheduled:
+                await self._mark_dispatch_failed(
+                    session_id=session_id,
+                    task_id=task_id,
+                    error_message="RQ job failed and local fallback scheduling failed",
+                )
+
+        asyncio.create_task(_watch())
 
     async def _schedule_local_execution(
         self,

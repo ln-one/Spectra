@@ -7,10 +7,19 @@ import { TokenStorage, authService } from "../auth";
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export const API_VERSION = "/api/v1";
+export const DEFAULT_CONTRACT_VERSION = "2026-03";
+
+export function generateIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
 
 export interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
   idempotencyKey?: string;
+  autoIdempotency?: boolean;
   headers?: Record<string, string>;
   _retry?: boolean;
 }
@@ -20,7 +29,9 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public status?: number,
-    public details?: Record<string, unknown>
+    public details?: Record<string, unknown>,
+    public retryable?: boolean,
+    public traceId?: string
   ) {
     super(message);
     this.name = "ApiError";
@@ -63,6 +74,8 @@ async function tryRefreshToken(): Promise<boolean> {
       const newToken = TokenStorage.getAccessToken();
       if (newToken) {
         onTokenRefreshed(newToken);
+        // 刷新成功后同步更新 authStore 用户状态
+        await syncUserAfterRefresh();
       }
     }
     return success;
@@ -74,6 +87,20 @@ async function tryRefreshToken(): Promise<boolean> {
     if (!refreshSuccess) {
       onTokenRefreshed("");
     }
+  }
+}
+
+/**
+ * Token 刷新成功后同步用户状态到 authStore
+ * 使用动态导入避免循环依赖
+ */
+async function syncUserAfterRefresh(): Promise<void> {
+  try {
+    const { useAuthStore } = await import("@/stores/authStore");
+    const user = await authService.getCurrentUser();
+    useAuthStore.getState().setUser(user);
+  } catch {
+    // 忽略错误，用户状态将在下次 checkAuth 时更新
   }
 }
 
@@ -94,6 +121,7 @@ export async function request<T>(
   const {
     requireAuth = true,
     idempotencyKey,
+    autoIdempotency = false,
     headers = {},
     _retry = false,
     ...fetchOptions
@@ -114,14 +142,38 @@ export async function request<T>(
     }
   }
 
-  if (idempotencyKey) {
-    requestHeaders["Idempotency-Key"] = idempotencyKey;
+  // 添加幂等键：优先使用传入的 idempotencyKey，否则在需要时自动生成
+  let finalIdempotencyKey = idempotencyKey;
+  if (!finalIdempotencyKey && autoIdempotency) {
+    finalIdempotencyKey = generateIdempotencyKey();
+  }
+  if (finalIdempotencyKey) {
+    requestHeaders["Idempotency-Key"] = finalIdempotencyKey;
   }
 
-  const response = await fetch(getApiUrl(path), {
-    ...fetchOptions,
-    headers: requestHeaders,
-  });
+  // 添加契约版本头
+  requestHeaders["X-Contract-Version"] = DEFAULT_CONTRACT_VERSION;
+
+  let response: Response;
+  try {
+    response = await fetch(getApiUrl(path), {
+      ...fetchOptions,
+      headers: requestHeaders,
+    });
+  } catch (networkError) {
+    throw new ApiError(
+      "NETWORK_ERROR",
+      "无法连接到服务器，请检查网络连接或确认后端服务是否运行",
+      0,
+      {
+        originalError:
+          networkError instanceof Error
+            ? networkError.message
+            : String(networkError),
+      },
+      true
+    );
+  }
 
   if (response.status === 401) {
     if (!_retry && !path.startsWith("/auth/")) {
@@ -131,23 +183,55 @@ export async function request<T>(
       }
     }
     handleAuthError();
+    throw new ApiError("UNAUTHORIZED", "登录已过期，请重新登录", 401);
+  }
+
+  let data: Record<string, unknown>;
+  try {
+    data = await response.json();
+  } catch {
     throw new ApiError(
-      "UNAUTHORIZED",
-      "Authentication required. Please login.",
-      401
+      "PARSE_ERROR",
+      `服务器响应解析失败 (${response.status})`,
+      response.status,
+      { statusText: response.statusText },
+      false
     );
   }
 
-  const data = await response.json();
+  // 409 冲突：状态或版本冲突，明确提示用户
+  if (response.status === 409) {
+    throw new ApiError(
+      ((data.error as Record<string, unknown>)?.code as string) || "CONFLICT",
+      ((data.error as Record<string, unknown>)?.message as string) ||
+        "操作冲突：当前状态或版本已变更，请刷新后重试",
+      409,
+      (data.error as Record<string, unknown>)?.details as Record<
+        string,
+        unknown
+      >,
+      false,
+      (data.error as Record<string, unknown>)?.trace_id as string
+    );
+  }
 
   if (!response.ok) {
+    const errorObj = data.error as Record<string, unknown> | undefined;
+    const errorCode = (errorObj?.code as string) || "UNKNOWN_ERROR";
+    const errorMessage =
+      (errorObj?.message as string) ||
+      (data.message as string) ||
+      `请求失败 (${response.status})`;
+
     throw new ApiError(
-      data.error?.code || "UNKNOWN_ERROR",
-      data.error?.message || data.message || "Request failed",
+      errorCode,
+      errorMessage,
       response.status,
-      data.error?.details
+      errorObj?.details as Record<string, unknown>,
+      errorObj?.retryable as boolean,
+      errorObj?.trace_id as string
     );
   }
 
-  return data;
+  return data as T;
 }

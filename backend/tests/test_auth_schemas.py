@@ -1,4 +1,4 @@
-﻿"""Tests for auth schemas (Batch C1)."""
+"""Tests for auth schemas (Batch C1)."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
