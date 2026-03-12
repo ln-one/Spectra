@@ -10,27 +10,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prisma.errors import PrismaError
 
-# Load environment variables (force backend/.env, independent of startup cwd)
-BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
-
-from routers import courses_router  # noqa: E402
 from routers import (
     auth_router,
     chat_router,
+    courses_router,
     files_router,
     generate_sessions_router,
     health_router,
     projects_router,
     rag_router,
 )
-from services import db_service  # noqa: E402
-from services.redis_manager import RedisConnectionManager  # noqa: E402
-from utils.exceptions import APIException  # noqa: E402
-from utils.logger import setup_logging  # noqa: E402
-from utils.middleware import RequestContextFilter  # noqa: E402
-from utils.middleware import RequestIDMiddleware
-from utils.responses import error_response  # noqa: E402
+from services import db_service
+from services.redis_manager import RedisConnectionManager
+from utils.exceptions import APIException
+from utils.logger import setup_logging
+from utils.middleware import RequestContextFilter, RequestIDMiddleware
+from utils.responses import error_response
+
+# Load environment variables (force backend/.env, independent of startup cwd)
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
 # Configure logging from environment
 log_level = os.getenv("LOG_LEVEL", "INFO")
