@@ -3,15 +3,21 @@
 [![CI](https://github.com/ln-one/Spectra/actions/workflows/ci.yml/badge.svg)](https://github.com/ln-one/Spectra/actions/workflows/ci.yml)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
-An AI-powered intelligent courseware generation system that helps educators quickly create high-quality multimodal teaching materials through natural conversation.
+Spectra is a session-first courseware workspace where project space, conversations, and generation sessions converge into a single production flow. It emphasizes contract-first APIs, iterative outline alignment, and a preview/edit loop to turn source materials into structured teaching assets.
 
-## 快速导航
+## Quick Navigation
 
-| 入门指南 | 开发规范 | 其他 |
+| Getting Started | Engineering Standards | Other |
 |---------|---------|------|
-| [快速开始](./docs/guides/getting-started.md) | [前端规范](./docs/standards/frontend.md) | [贡献指南](./docs/CONTRIBUTING.md) |
-| [Docker 配置](./docs/guides/docker-setup.md) | [后端规范](./docs/standards/backend.md) | [CI/CD](./docs/guides/ci-cd.md) |
-| [测试指南](./docs/guides/testing.md) | [Git 规范](./docs/standards/git.md) | [技术决策](./docs/decisions/) |
+| [Quick Start](./docs/guides/getting-started.md) | [Frontend Standards](./docs/standards/frontend.md) | [Contributing](./docs/CONTRIBUTING.md) |
+| [Docker Setup](./docs/guides/docker-setup.md) | [Backend Standards](./docs/standards/backend.md) | [CI/CD](./docs/guides/ci-cd.md) |
+| [Testing Guide](./docs/guides/testing.md) | [Git Standards](./docs/standards/git.md) | [Technical Decisions](./docs/decisions/) |
+
+## Current Narrative & Plan
+
+- **Primary plan for this phase**: Follow `docs/project/*_2026-03-09.md` (API, data model, project space evolution, etc.).
+- **Competition materials**: `docs/competition/` is actively maintained.
+- **Archived docs**: `docs/archived/` is historical material and **not maintained by default**.
 
 ## Project Structure
 
@@ -47,9 +53,8 @@ Spectra/ # Monorepo root
 │ │ ├── files.py # File upload/management
 │ │ ├── projects.py # Project CRUD operations
 │ │ ├── chat.py # Chat interface
-│ │ ├── preview.py # Preview generation
 │ │ ├── rag.py # RAG knowledge search
-│ │ └── generate.py # AI courseware generation
+│ │ └── generate_sessions.py # Session-first generation & preview
 │ ├── services/ # Business logic layer
 │ │ ├── db_service.py # Database operations
 │ │ ├── file_service.py # File handling
@@ -71,7 +76,7 @@ Spectra/ # Monorepo root
 │ ├── prisma/ # Prisma ORM
 │ │ ├── schema.prisma # Database schema definition
 │ │ └── migrations/ # Database migration files
-│ ├── tests/ # Pytest test files (188 tests)
+│ ├── tests/ # Pytest tests (organized by api/services/unit/...)
 │ ├── templates/ # Marp/Pandoc templates
 │ ├── themes/ # Presentation themes
 │ ├── .cursorrules # Backend-specific AI rules
@@ -85,8 +90,8 @@ Spectra/ # Monorepo root
 │ │ │ ├── auth.yaml # Authentication endpoints
 │ │ │ ├── chat.yaml # Chat endpoints
 │ │ │ ├── files.yaml # File endpoints
-│ │ │ ├── generate.yaml # Generation endpoints
-│ │ │ ├── preview.yaml # Preview endpoints
+│ │ │ ├── generate-session.yaml # Generation endpoints (session-first)
+│ │ │ ├── generate-session-preview.yaml # Preview endpoints (session-first)
 │ │ │ ├── project.yaml # Project endpoints
 │ │ │ └── rag.yaml # RAG endpoints
 │ │ ├── schemas/ # Data model definitions (by module)
@@ -104,10 +109,9 @@ Spectra/ # Monorepo root
 │ │ ├── system/ # System design
 │ │ └── deployment/ # Deployment guides
 │ ├── decisions/ # Architecture Decision Records (ADR)
-│ ├── requirements/ # Requirements documentation
-│ │ ├── functional/ # Functional requirements
-│ │ ├── ai/ # AI capabilities
-│ │ └── ux/ # UX requirements
+│ ├── competition/ # Competition materials (maintained)
+│ ├── project/ # Current plan & design drafts (2026-03-09)
+│ ├── archived/ # Archived docs (not actively maintained)
 │ ├── guides/ # Development guides
 │ │ ├── getting-started.md # Quick start guide
 │ │ ├── docker-setup.md # Docker setup
@@ -133,7 +137,7 @@ Spectra/ # Monorepo root
 │ ├── CONTEXT.md # Single entry point for AI (must-read)
 │ ├── FAQ.md # Frequently asked questions
 │ ├── self-check.md # AI understanding verification
-│ └── CHANGELOG.md # AI system change log
+│ └── archived/ # Archived AI docs
 │
 ├── .github/ # GitHub configuration
 │ ├── workflows/ # GitHub Actions CI/CD
@@ -172,7 +176,7 @@ Spectra/ # Monorepo root
 ├── docker-compose.yml # Docker Compose configuration
 ├── package.json # Root package.json (OpenAPI tools)
 ├── LICENSE # CC BY-NC 4.0 License
-├── SECURITY.md # Security policy
+├── docs/archived/ # Archived docs (not actively maintained)
 └── README.md # This file
 ```
 
@@ -256,7 +260,7 @@ python main.py
 
 Backend will be available at http://localhost:8000
 
-For OpenAPI development workflow, see [backend/OPENAPI_WORKFLOW.md](./backend/OPENAPI_WORKFLOW.md)
+For OpenAPI development workflow, see [docs/archived/backend/OPENAPI_WORKFLOW.md](./docs/archived/backend/OPENAPI_WORKFLOW.md)
 
 #### Frontend Setup
 
@@ -304,15 +308,15 @@ All API endpoints are prefixed with `/api/v1`:
 - **Projects**: `/api/v1/projects` - Project CRUD operations
 - **Files**: `/api/v1/files` - File upload and management
 - **Chat**: `/api/v1/chat/*` - Conversational interface
-- **Generation**: `/api/v1/generate/*` - AI courseware generation
-- **Preview**: `/api/v1/preview/*` - Preview and modification
+- **Generation (Session-First)**: `/api/v1/generate/sessions*` - AI courseware generation
+- **Preview (Session-First)**: `/api/v1/generate/sessions/{session_id}/preview*` - Preview and modification
 - **RAG**: `/api/v1/rag/*` - Knowledge base search
 
 See [OpenAPI Specification](./docs/openapi.yaml) for complete API documentation (auto-generated from modular files in `docs/openapi/`).
 
 ## AI Collaboration
 
-> **AI 快速开始**: 请先阅读 [`.ai/CONTEXT.md`](./.ai/CONTEXT.md) 获取完整项目上下文
+> **AI Quick Start**: Read [`.ai/CONTEXT.md`](./.ai/CONTEXT.md) for the full project context
 
 This project is optimized for AI-assisted development with a dedicated `.ai/` directory:
 

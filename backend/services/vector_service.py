@@ -7,11 +7,21 @@ Vector Service - ChromaDB 连接管理
 import logging
 import os
 import socket
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-import chromadb
-from chromadb.api.models.Collection import Collection
-from chromadb.errors import NotFoundError
+try:
+    import chromadb
+    from chromadb.api.models.Collection import Collection as ChromaCollection
+    from chromadb.errors import NotFoundError as ChromaNotFoundError
+
+    _CHROMA_AVAILABLE = True
+    _CHROMA_IMPORT_ERROR: Exception | None = None
+except Exception as exc:  # pragma: no cover - fallback for unsupported envs
+    chromadb = None  # type: ignore
+    ChromaCollection = object  # type: ignore
+    ChromaNotFoundError = Exception  # type: ignore
+    _CHROMA_AVAILABLE = False
+    _CHROMA_IMPORT_ERROR = exc
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +30,78 @@ CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
 
 # Collection 名称前缀
 COLLECTION_PREFIX = "spectra_project_"
+
+
+class InMemoryCollection:
+    """轻量内存 collection，用于无 ChromaDB 环境下的测试兜底。"""
+
+    def __init__(self) -> None:
+        self._docs: Dict[str, Tuple[str, Dict[str, Any], List[float]]] = {}
+
+    def upsert(
+        self,
+        ids: List[str],
+        embeddings: List[List[float]],
+        documents: List[str],
+        metadatas: List[Dict[str, Any]],
+    ) -> None:
+        for idx, doc_id in enumerate(ids):
+            self._docs[doc_id] = (documents[idx], metadatas[idx], embeddings[idx])
+
+    def count(self) -> int:
+        return len(self._docs)
+
+    def query(
+        self,
+        query_embeddings: List[List[float]],
+        n_results: int,
+        where: Optional[Dict[str, Any]] = None,
+        include: Optional[List[str]] = None,
+    ) -> Dict[str, List[List[Any]]]:
+        # 简单的相似度排序（余弦近似，避免依赖外部库）
+        def score(vec_a: List[float], vec_b: List[float]) -> float:
+            dot = sum(a * b for a, b in zip(vec_a, vec_b))
+            norm_a = sum(a * a for a in vec_a) ** 0.5
+            norm_b = sum(b * b for b in vec_b) ** 0.5
+            if norm_a == 0 or norm_b == 0:
+                return 0.0
+            return dot / (norm_a * norm_b)
+
+        def match_where(meta: Dict[str, Any]) -> bool:
+            if not where:
+                return True
+            if "$and" in where:
+                return all(match_where(cond) for cond in where["$and"])
+            for key, cond in where.items():
+                if "$eq" in cond and meta.get(key) != cond["$eq"]:
+                    return False
+                if "$in" in cond and meta.get(key) not in cond["$in"]:
+                    return False
+            return True
+
+        query_vec = query_embeddings[0]
+        scored = []
+        for doc_id, (doc, meta, emb) in self._docs.items():
+            if not match_where(meta):
+                continue
+            scored.append((score(query_vec, emb), doc_id, doc, meta))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        top = scored[:n_results]
+
+        ids = [[item[1] for item in top]]
+        documents = [[item[2] for item in top]]
+        metadatas = [[item[3] for item in top]]
+        distances = [[1.0 - item[0] for item in top]]
+        return {
+            "ids": ids,
+            "documents": documents,
+            "metadatas": metadatas,
+            "distances": distances,
+        }
+
+
+Collection = ChromaCollection if _CHROMA_AVAILABLE else InMemoryCollection
 
 
 class VectorService:
@@ -33,11 +115,17 @@ class VectorService:
             persist_dir: 持久化目录路径，默认从环境变量读取
         """
         self._persist_dir = persist_dir or CHROMA_PERSIST_DIR
-        self._client: Optional[chromadb.ClientAPI] = None
+        self._client: Optional[Any] = None
+        self._memory_collections: Dict[str, InMemoryCollection] = {}
 
     @property
     def client(self) -> chromadb.ClientAPI:
         """懒加载 ChromaDB 客户端"""
+        if not _CHROMA_AVAILABLE:
+            raise RuntimeError(
+                "ChromaDB is unavailable in this environment. "
+                "Install chromadb or use the in-memory fallback."
+            ) from _CHROMA_IMPORT_ERROR
         if self._client is None:
             chroma_host = os.getenv("CHROMA_HOST")
             chroma_port = os.getenv("CHROMA_PORT", "8000")
@@ -88,6 +176,12 @@ class VectorService:
             ChromaDB Collection 实例
         """
         name = f"{COLLECTION_PREFIX}{project_id}"
+        if not _CHROMA_AVAILABLE:
+            collection = self._memory_collections.get(name)
+            if collection is None:
+                collection = InMemoryCollection()
+                self._memory_collections[name] = collection
+            return collection
         collection = self.client.get_or_create_collection(
             name=name,
             metadata={"hnsw:space": "cosine"},
@@ -102,9 +196,11 @@ class VectorService:
         用于检索场景，避免仅因为查询而创建空 collection。
         """
         name = f"{COLLECTION_PREFIX}{project_id}"
+        if not _CHROMA_AVAILABLE:
+            return self._memory_collections.get(name)
         try:
             return self.client.get_collection(name=name)
-        except NotFoundError:
+        except ChromaNotFoundError:
             return None
 
     def delete_collection(self, project_id: str) -> bool:
@@ -118,11 +214,16 @@ class VectorService:
             是否删除成功
         """
         name = f"{COLLECTION_PREFIX}{project_id}"
+        if not _CHROMA_AVAILABLE:
+            if name in self._memory_collections:
+                del self._memory_collections[name]
+                return True
+            return False
         try:
             self.client.delete_collection(name=name)
             logger.info(f"Collection deleted: {name}")
             return True
-        except NotFoundError:
+        except ChromaNotFoundError:
             logger.warning(f"Collection not found: {name}")
             return False
         except Exception:

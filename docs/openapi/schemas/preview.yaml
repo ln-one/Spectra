@@ -13,6 +13,15 @@ PreviewResponse:
         task_id:
           type: string
           description: 兼容旧任务流的执行 ID
+          nullable: true
+        artifact_id:
+          type: string
+          description: 当前预览对应的成果 ID
+          nullable: true
+        based_on_version_id:
+          type: string
+          description: 当前预览基于的正式版本 ID
+          nullable: true
         render_version:
           type: integer
           minimum: 1
@@ -126,6 +135,9 @@ ModifySessionRequest:
   type: object
   required: [instruction]
   properties:
+    artifact_id:
+      type: string
+      description: 指定要修改的成果 ID（可选）
     instruction:
       type: string
       minLength: 1
@@ -162,6 +174,14 @@ ModifyResponse:
           type: integer
           minimum: 1
           description: 修改后最新渲染版本
+        artifact_id:
+          type: string
+          description: 修改任务对应的成果 ID
+          nullable: true
+        based_on_version_id:
+          type: string
+          description: 修改任务基于的正式版本 ID
+          nullable: true
     message:
       type: string
 
@@ -202,6 +222,9 @@ ExportRequest:
   type: object
   required: [format]
   properties:
+    artifact_id:
+      type: string
+      description: 指定要导出的成果 ID（可选）
     format:
       type: string
       enum: [json, markdown, html]
@@ -215,7 +238,6 @@ ExportRequest:
       minimum: 1
       description: |
         可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。
-        legacy 导出接口 `/api/v1/preview/{task_id}/export` 可忽略该字段。
 
 ExportResponse:
   type: object
@@ -232,6 +254,15 @@ ExportResponse:
         task_id:
           type: string
           description: 兼容旧任务执行 ID
+          nullable: true
+        artifact_id:
+          type: string
+          description: 导出对应的成果 ID
+          nullable: true
+        based_on_version_id:
+          type: string
+          description: 导出基于的正式版本 ID
+          nullable: true
         content:
           type: string
           description: 导出的内容

@@ -15,59 +15,11 @@
 
 #### A. `generate.ts` - 生成 API
 
-**新增功能**：
+**说明**：
 
-1. **文件下载接口** (P0 - 必须)
-
-```typescript
-async downloadCourseware(
- taskId: string,
- fileType: 'ppt' | 'word'
-): Promise<Blob> {
- // GET /api/v1/generate/tasks/{task_id}/download?file_type={type}
-}
-```
-
-2. **版本管理接口** (P1 - 可选)
-
-```typescript
-async getTaskVersions(taskId: string): Promise<VersionsResponse> {
- // GET /api/v1/generate/tasks/{task_id}/versions
-}
-```
-
-3. **增强的生成选项**
-
-```typescript
-interface GenerateRequest {
-  project_id: string;
-  type: "ppt" | "word" | "both";
-  options?: {
-    template?: "default" | "gaia" | "uncover" | "academic";
-    theme_color?: string; // 新增
-    show_page_number?: boolean; // 新增
-    header?: string; // 新增
-    footer?: string; // 新增
-    pages?: number;
-    include_animations?: boolean; // 新增
-    include_games?: boolean; // 新增
-    animation_format?: "gif" | "mp4" | "html5"; // 新增
-  };
-}
-```
-
-4. **路径变更**
-
-```typescript
-// 旧路径
-/generate/assttu /
-  { task_id } /
-  // 新路径
-  generate /
-  tasks /
-  { task_id } /
-  status;
-```
+- 旧的任务型接口（`/api/v1/generate/tasks/*`）已移除。
+- 统一使用 `session-first` 路径：`/api/v1/generate/sessions*`。
+- 本清单中与旧接口相关的 TODO 已失效，可忽略。
 
 #### B. `chat.ts` - 对话 API
 

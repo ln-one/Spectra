@@ -14,9 +14,8 @@
 | auth.py | /api/v1/auth | 认证（register, login, refresh, logout, me） | 部分实现 |
 | projects.py | /api/v1/projects | 项目 CRUD、统计、搜索 | 部分实现 |
 | files.py | /api/v1/files | 文件上传、批量操作、标注 | 部分实现 |
-| generate.py | /api/v1/generate | 课件生成、状态查询、下载、版本管理 | 部分实现 |
+| generate_sessions.py | /api/v1/generate/sessions | 会话生成、命令驱动、事件流、预览 | 部分实现 |
 | chat.py | /api/v1/chat | 对话交互、语音消息 | 待实现 |
-| preview.py | /api/v1/preview | 预览修改、幻灯片详情、导出 | 待实现 |
 | rag.py | /api/v1/rag | RAG 检索、索引、相似内容查找 | 待实现 |
 
 ## Router 实现模板
@@ -147,14 +146,18 @@ async def send_message(request: SendMessageRequest):
 | POST | /api/v1/files/batch | 批量上传文件 | 待实现 |
 | DELETE | /api/v1/files/batch | 批量删除文件 | 待实现 |
 
-### 生成模块 (generate.py)
+### 生成模块 (generate_sessions.py)
 
 | 方法 | 路径 | 功能 | 状态 |
 |------|------|------|------|
-| POST | /api/v1/generate/courseware | 生成课件 | 部分实现 |
-| GET | /api/v1/generate/tasks/{task_id}/status | 查询生成状态 | 部分实现 |
-| GET | /api/v1/generate/tasks/{task_id}/download | 下载生成的课件文件 | 部分实现 |
-| GET | /api/v1/generate/tasks/{task_id}/versions | 获取任务的所有版本 | 待实现 |
+| POST | /api/v1/generate/sessions | 创建会话 | 部分实现 |
+| GET | /api/v1/generate/sessions/{session_id} | 会话快照 | 部分实现 |
+| GET | /api/v1/generate/sessions/{session_id}/events | 事件流（SSE） | 部分实现 |
+| POST | /api/v1/generate/sessions/{session_id}/commands | 会话命令入口 | 部分实现 |
+| GET | /api/v1/generate/sessions/{session_id}/preview | 会话预览 | 部分实现 |
+| POST | /api/v1/generate/sessions/{session_id}/preview/modify | 修改预览 | 部分实现 |
+| GET | /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id} | 单页预览 | 部分实现 |
+| POST | /api/v1/generate/sessions/{session_id}/preview/export | 导出预览 | 部分实现 |
 
 ### 对话模块 (chat.py)
 
@@ -163,15 +166,6 @@ async def send_message(request: SendMessageRequest):
 | POST | /api/v1/chat/messages | 发送消息 | 待实现 |
 | GET | /api/v1/chat/messages | 获取对话历史 | 待实现 |
 | POST | /api/v1/chat/voice | 语音消息输入 | 待实现 |
-
-### 预览模块 (preview.py)
-
-| 方法 | 路径 | 功能 | 状态 |
-|------|------|------|------|
-| GET | /api/v1/preview/{task_id} | 获取课件预览 | 待实现 |
-| POST | /api/v1/preview/{task_id}/modify | 提交修改指令 | 待实现 |
-| GET | /api/v1/preview/{task_id}/slides/{slide_id} | 获取单个幻灯片详情 | 待实现 |
-| POST | /api/v1/preview/{task_id}/export | 导出预览内容 | 待实现 |
 
 ### RAG 模块 (rag.py)
 
@@ -258,7 +252,7 @@ async def create_project(request: ProjectRequest):
 4. **高内聚**：相关功能集中在同一 Router 中
 
 示例：
-- 生成的课件文件：`/api/v1/generate/tasks/{task_id}/download`
+- 生成预览导出：`/api/v1/generate/sessions/{session_id}/preview/export`
 - 原始参考文件：`/api/v1/files/{file_id}`
 - 项目文件列表：`/api/v1/projects/{project_id}/files`
 

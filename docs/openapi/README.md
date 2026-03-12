@@ -16,15 +16,21 @@
 - `docs/openapi/schemas/{模块}.yaml` - 数据模型定义
 
  **不要读取**（1200+ 行，太大）：
-- `docs/openapi-target.yaml` - 自动生成的打包文件
+- `docs/openapi.yaml` - 自动生成的打包文件（当前已实现）
 - `docs/openapi-target.yaml` - 自动生成的目标契约打包文件
 
 ### 哪份规范给谁用？
 
-- `docs/openapi-target-source.yaml` -> `docs/openapi-target.yaml`
+- `docs/openapi-source.yaml` -> `docs/openapi.yaml`
   当前可联调真相源。只包含后端已经实现、前端可以直接接入的接口。
-- `docs/openapi-target-source.yaml`
-  目标契约真相源。包含本轮 sprint 目标接口（含 session-first 主链路），用于架构设计、任务拆解和 contract-first 开发；对会话化改造任务，它是实现基线，但在代码完全落地前仍不是“当前可联调现状”。
+- `docs/openapi-target-source.yaml` -> `docs/openapi-target.yaml`
+  目标契约真相源。包含本轮 sprint 目标接口（含 session-first 主链路 + Project-Space 扩展），用于架构设计与任务拆解；在代码完全落地前不视为“当前可联调现状”。
+
+### 如何用 target 做开发拆分？
+
+1. **以 target 为任务边界**：每个新增子资源（`references/versions/artifacts/candidate-changes`）可单独成任务，互不阻塞。
+2. **先写契约再写实现**：先把目标接口写进 target，再落后端/前端代码，避免 API 对齐返工。
+3. **source 只反映现状**：接口落地后，再把已实现部分同步到 source，保证联调清晰。
 
 ### 快速索引
 
@@ -33,12 +39,13 @@
 | 认证 | `paths/auth.yaml` | `schemas/auth.yaml` |
 | 聊天 | `paths/chat.yaml` | `schemas/chat.yaml` |
 | 文件 | `paths/files.yaml` | `schemas/files.yaml` |
-| 生成 | `paths/generate.yaml` | `schemas/generate.yaml` |
-| 预览 | `paths/preview.yaml` | `schemas/preview.yaml` |
+| 生成 | `paths/generate-session.yaml` | `schemas/generate.yaml` |
+| 预览 | `paths/generate-session-preview.yaml` | `schemas/preview.yaml` |
 | 项目 | `paths/project.yaml` | `schemas/project.yaml` |
+| 项目空间扩展（仅 target） | `paths/project-space.yaml` | `schemas/project-space.yaml` |
 | RAG | `paths/rag.yaml` | `schemas/rag.yaml` |
 
-> `generate` 模块采用二级拆分：`generate.yaml` 为索引入口，具体定义在 `generate-*.yaml` 子文件中。
+> `generate` 模块采用二级拆分：`generate-session.yaml` 为索引入口，具体定义在 `generate-session-*.yaml` 子文件中。
 
 ### 完整工作流程
 
@@ -54,28 +61,34 @@
 
 ```
 docs/
-├── openapi-target.yaml # 打包后的单文件（当前可联调规范）
-├── openapi-target-source.yaml # 正式联调规范入口（只含已实现接口）
+├── openapi.yaml # 打包后的单文件（当前可联调规范）
+├── openapi-source.yaml # 当前可联调规范入口（只含已实现接口）
 ├── openapi-target.yaml # 打包后的目标契约规范
-├── openapi-target-source.yaml # 目标契约入口（含规划中的 session-first 接口）
+├── openapi-target-source.yaml # 目标契约入口（含规划中的扩展接口）
 └── openapi/
  ├── paths/ # API 路径定义
  │ ├── auth.yaml # 认证相关接口
  │ ├── chat.yaml # 对话接口
  │ ├── files.yaml # 文件上传接口
- │ ├── generate.yaml # 课件生成接口
- │ ├── preview.yaml # 预览和修改接口
+│ ├── generate-session.yaml # 课件生成接口索引
+│ ├── generate-session-core.yaml # 会话核心路径
+│ ├── generate-session-edit.yaml # 会话编辑路径
+│ ├── generate-session-command.yaml # 会话命令路径
  │ ├── rag.yaml # 知识库检索接口
  │ └── project.yaml # 项目管理接口
+ │ ├── project-target.yaml # 项目管理（target 扩展）
+ │ └── project-space.yaml # 项目空间扩展（references/versions/artifacts/changes）
  ├── schemas/ # 数据模型定义
  │ ├── common.yaml # 通用响应模型
  │ ├── auth.yaml # 认证相关模型
  │ ├── chat.yaml # 对话相关模型
  │ ├── files.yaml # 文件相关模型
- │ ├── generate.yaml # 生成相关模型
+│ ├── generate.yaml # 生成相关模型
  │ ├── preview.yaml # 预览相关模型
  │ ├── rag.yaml # RAG 相关模型
  │ └── project.yaml # 项目相关模型
+ │ ├── project-target.yaml # 项目扩展模型（target）
+ │ └── project-space.yaml # 项目空间扩展模型
  └── components/ # 可复用组件
  ├── parameters.yaml # 通用参数
  ├── responses.yaml # 通用响应

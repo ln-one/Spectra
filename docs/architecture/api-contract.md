@@ -17,7 +17,8 @@ docs/openapi/
 ├── paths/ # API 路径定义（按模块拆分）
 │ ├── auth.yaml
 │ ├── files.yaml
-│ ├── generate.yaml
+│ ├── generate-session.yaml
+│ ├── generate-session-preview.yaml
 │ └── project.yaml
 ├── schemas/ # 数据模型定义
 │ ├── auth.yaml
@@ -129,6 +130,21 @@ FastAPI 自动提供两种 API 文档界面：
 4. **类型安全**: 前后端使用生成的类型，避免手写
 5. **保持同步**: 实现必须与契约一致
 
+## Project-Space 演进契约（规划中）
+
+基于 2026-03-09 的 Project-Space 设计，下一阶段在 `/projects` 主干上扩展以下子资源：
+
+- `references`：项目引用关系（`follow` / `pinned`，主基底/辅助引用）
+- `versions`：正式版本锚点（可被引用/导出）
+- `artifacts`：导出/按需外化成果（记录来源会话与版本）
+- `candidate-changes`：候选变更提交与审核
+
+当前原则：
+
+1. 不新建平行资源体系，继续以 `/projects/*` 为主入口。
+2. 只增量扩展，不破坏 session-first 主流程。
+3. 对外产品叙事可称“库/课程空间/个人空间（学习空间为示例）”，内部仍保持 `project` 命名。
+
 ## 生成域契约（2026-03 架构调整）
 
 为支撑“前端导向设计文档”中的阶段式生成体验，生成域采用“命令 + 查询 + 事件”三类契约：
@@ -138,7 +154,6 @@ FastAPI 自动提供两种 API 文档界面：
  - `POST /api/v1/generate/sessions/{session_id}/commands`：唯一写入口（更新大纲/重写/确认/重绘/恢复）
 - **Query（读取）**：
  - `GET /api/v1/generate/sessions/{session_id}`：会话快照
- - `GET /api/v1/generate/tasks/{task_id}/status`：兼容旧轮询状态接口
 - **Event（推送）**：
  - `GET /api/v1/generate/sessions/{session_id}/events`：SSE 事件流
 
@@ -151,12 +166,10 @@ FastAPI 自动提供两种 API 文档界面：
 - `FAILED` 必须返回 `error.code`、`error.message`、`retryable`。
 - 会话类接口优先返回 `session_id`，`task_id` 作为兼容字段保留。
 
-### 与旧契约兼容策略
+### 与旧契约兼容策略（已完成迁移）
 
-- 保留 `/api/v1/generate/courseware` 与 `/tasks/{task_id}/status`，避免一次性破坏现有调用。
-- 保留 `/outline`、`/confirm`、`/resume`、`/regenerate` 作为兼容别名，并标记 `deprecated`。
-- 新增字段时保持向后兼容：旧客户端可继续识别 `status`，新客户端消费 `state + events`。
-- 统一将 `Idempotency-Key` 用于写操作接口，保证重试安全。
+- 旧的 `/api/v1/generate/*` 任务接口与 `/api/v1/preview/*` 已移除。
+- 全量采用 `session-first` 路径作为唯一主入口。
 
 ### 可扩展性与低返工约束（新增）
 
@@ -182,8 +195,7 @@ FastAPI 自动提供两种 API 文档界面：
  - `POST /api/v1/chat/messages`、`POST /api/v1/chat/voice` 支持 `session_id`；
  - 当携带 `session_id` 时，服务端必须优先按会话隔离历史、资料和引用来源。
 2. **Preview/Export 作用域**：
- - 新增 `/api/v1/generate/sessions/{session_id}/preview*` 会话级接口作为主路径；
- - 旧 `/api/v1/preview/{task_id}*` 保留兼容，不再作为新功能基线。
+ - 使用 `/api/v1/generate/sessions/{session_id}/preview*` 会话级接口作为唯一主路径。
 3. **版本与并发**：
  - 预览修改/导出支持 `base_render_version` / `expected_render_version`，冲突返回 `409`。
 4. **前端一致性**：
@@ -192,7 +204,5 @@ FastAPI 自动提供两种 API 文档界面：
 ## 相关文档
 
 - [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
-- [OpenAPI 拆分决策](../decisions/ADR-003-openapi-modularization.md)
-- [后端 OpenAPI 同步指南](../BACKEND_OPENAPI_SYNC.md)
-- [前端导向设计文档](./前端导向设计文档.md)
-- [契约优先架构调整说明](./contract-first-adjustment.md)
+- [Project-Space API 草案（2026-03-09）](../project/PROJECT_SPACE_API_DRAFT_2026-03-09.md)
+- [Project-Space 数据模型草案（2026-03-09）](../project/PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md)

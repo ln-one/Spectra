@@ -396,39 +396,47 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /api/v1/generate/courseware:
-    post:
-      summary: 生成课件（兼容入口）
-      description: |
-        兼容旧版的一次性创建接口。新流程推荐使用 /generate/sessions 系列接口，
-        支持阶段式中断、事件流推送与局部重绘。
+  /api/v1/generate/sessions:
+    get:
+      summary: 获取生成会话列表
+      description: 返回项目内生成会话列表（按更新时间倒序）
       tags:
         - Generate
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
         - $ref: '#/components/parameters/ContractVersion'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerateRequest'
       responses:
         '200':
-          description: 生成任务已创建
+          description: 成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenerateResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: '#/components/schemas/GenerationSessionListResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /api/v1/generate/sessions:
     post:
       summary: 创建生成会话
       description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
@@ -798,226 +806,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /api/v1/generate/tasks/{task_id}/status:
-    get:
-      summary: 查询生成状态
-      tags:
-        - Generate
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenerateStatusResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/v1/generate/tasks/{task_id}/download:
-    get:
-      summary: 下载生成的课件文件
-      tags:
-        - Generate
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: file_type
-          in: query
-          required: true
-          schema:
-            type: string
-            enum:
-              - ppt
-              - word
-          description: 要下载的文件类型
-      responses:
-        '200':
-          description: 文件下载成功
-          content:
-            application/vnd.openxmlformats-officedocument.presentationml.presentation:
-              schema:
-                type: string
-                format: binary
-            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
-              schema:
-                type: string
-                format: binary
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/v1/generate/tasks/{task_id}/versions:
-    get:
-      summary: 获取任务的所有版本
-      tags:
-        - Generate
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VersionsResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/v1/preview/{task_id}:
-    get:
-      summary: 获取课件预览
-      description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview）
-      tags:
-        - Preview
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PreviewResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/v1/preview/{task_id}/modify:
-    post:
-      summary: 提交修改指令
-      description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview/modify）
-      tags:
-        - Preview
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ModifyRequest'
-      responses:
-        '200':
-          description: 修改任务已创建
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ModifyResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/v1/preview/{task_id}/slides/{slide_id}:
-    get:
-      summary: 获取单个幻灯片详情
-      description: 查看特定幻灯片的详细内容和来源（兼容旧任务流）
-      tags:
-        - Preview
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: slide_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SlideDetailResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/v1/preview/{task_id}/export:
-    post:
-      summary: 导出预览内容
-      description: 将预览内容导出为指定格式（兼容旧任务流）
-      tags:
-        - Preview
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: task_id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ExportRequest'
-      responses:
-        '200':
-          description: 导出成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExportResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
   /api/v1/generate/sessions/{session_id}/preview:
     get:
       summary: 获取会话级课件预览
@@ -1031,6 +819,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: artifact_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定预览的成果 ID（可选）
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
@@ -1101,6 +895,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: artifact_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定来源成果 ID（可选）
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
@@ -1316,7 +1116,7 @@ paths:
                 $ref: '#/components/schemas/CapabilitiesHealthResponse'
   /api/v1/projects:
     post:
-      summary: 创建项目
+      summary: 创建项目（支持引用式创建）
       tags:
         - Project
       security:
@@ -1328,14 +1128,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectRequest'
+              $ref: '#/components/schemas/ProjectRequestTarget'
       responses:
         '200':
           description: 项目创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
+                $ref: '#/components/schemas/ProjectResponseTarget'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1355,7 +1155,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetProjectsResponse'
+                $ref: '#/components/schemas/GetProjectsResponseTarget'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/v1/projects/{project_id}:
@@ -1377,7 +1177,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
+                $ref: '#/components/schemas/ProjectResponseTarget'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1385,7 +1185,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     put:
-      summary: 修改项目信息
+      summary: 修改项目信息（可扩展可见性与引用权限）
       tags:
         - Project
       security:
@@ -1402,14 +1202,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProjectRequest'
+              $ref: '#/components/schemas/ProjectRequestTarget'
       responses:
         '200':
           description: 更新成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectResponse'
+                $ref: '#/components/schemas/ProjectResponseTarget'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1534,6 +1334,523 @@ paths:
                 $ref: '#/components/schemas/GetProjectsResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /api/v1/projects/{project_id}/references:
+    post:
+      summary: 创建项目引用
+      tags:
+        - Project
+        - Reference
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectReferenceRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReferenceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      summary: 获取项目引用列表
+      tags:
+        - Project
+        - Reference
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReferencesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/projects/{project_id}/references/{reference_id}:
+    patch:
+      summary: 更新项目引用
+      tags:
+        - Project
+        - Reference
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reference_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectReferenceUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReferenceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      summary: 删除项目引用
+      tags:
+        - Project
+        - Reference
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reference_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleSuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/projects/{project_id}/versions:
+    get:
+      summary: 获取项目版本列表
+      tags:
+        - Project
+        - Version
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectVersionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/projects/{project_id}/versions/{version_id}:
+    get:
+      summary: 获取项目版本详情
+      tags:
+        - Project
+        - Version
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectVersionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/projects/{project_id}/artifacts:
+    get:
+      summary: 获取项目成果列表
+      tags:
+        - Project
+        - Artifact
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: visibility
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: owner_user_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: based_on_version_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: 创建轻量按需成果
+      tags:
+        - Project
+        - Artifact
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactCreateRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/projects/{project_id}/artifacts/{artifact_id}:
+    get:
+      summary: 获取成果详情
+      tags:
+        - Project
+        - Artifact
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: artifact_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/projects/{project_id}/candidate-changes:
+    post:
+      summary: 提交候选变更
+      tags:
+        - Project
+        - CandidateChange
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateChangeRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateChangeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      summary: 获取候选变更列表
+      tags:
+        - Project
+        - CandidateChange
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: proposer_user_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateChangesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/projects/{project_id}/candidate-changes/{change_id}/review:
+    post:
+      summary: 审核候选变更
+      tags:
+        - Project
+        - CandidateChange
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateChangeReviewRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateChangeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/projects/{project_id}/members:
+    get:
+      summary: 获取项目成员列表
+      tags:
+        - Project
+        - Member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMembersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: 添加项目成员
+      tags:
+        - Project
+        - Member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/projects/{project_id}/members/{member_id}:
+    patch:
+      summary: 更新项目成员权限
+      tags:
+        - Project
+        - Member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     BearerAuth:
@@ -2131,6 +2448,74 @@ components:
         - ppt
         - word
         - both
+    GenerationState:
+      type: string
+      enum:
+        - IDLE
+        - CONFIGURING
+        - ANALYZING
+        - DRAFTING_OUTLINE
+        - AWAITING_OUTLINE_CONFIRM
+        - GENERATING_CONTENT
+        - RENDERING
+        - SUCCESS
+        - FAILED
+    GenerationSessionListItem:
+      type: object
+      required:
+        - session_id
+        - project_id
+        - output_type
+        - state
+        - created_at
+        - updated_at
+      properties:
+        session_id:
+          type: string
+        project_id:
+          type: string
+        output_type:
+          $ref: '#/components/schemas/GenerationSessionMode'
+        state:
+          $ref: '#/components/schemas/GenerationState'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    GenerationSessionListResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - sessions
+            - total
+            - page
+            - limit
+          properties:
+            sessions:
+              type: array
+              items:
+                $ref: '#/components/schemas/GenerationSessionListItem'
+            total:
+              type: integer
+              minimum: 0
+            page:
+              type: integer
+              minimum: 1
+            limit:
+              type: integer
+              minimum: 1
+        message:
+          type: string
     CoursewareStylePreset:
       type: string
       enum:
@@ -2212,69 +2597,6 @@ components:
           items:
             type: string
           description: 本次生成绑定的素材 ID 列表
-    GenerateRequest:
-      type: object
-      required:
-        - project_id
-        - type
-      properties:
-        project_id:
-          type: string
-        type:
-          $ref: '#/components/schemas/GenerationSessionMode'
-        options:
-          $ref: '#/components/schemas/GenerationOptions'
-        start_mode:
-          type: string
-          enum:
-            - direct_generate
-            - draft_then_confirm
-          default: draft_then_confirm
-          description: 兼容旧入口时可直接生成，推荐先走大纲确认
-        client_session_id:
-          type: string
-          description: 客户端会话 ID，用于断线重连恢复
-    GenerateTaskStatus:
-      type: string
-      enum:
-        - pending
-        - processing
-        - completed
-        - failed
-    GenerationState:
-      type: string
-      enum:
-        - IDLE
-        - CONFIGURING
-        - ANALYZING
-        - DRAFTING_OUTLINE
-        - AWAITING_OUTLINE_CONFIRM
-        - GENERATING_CONTENT
-        - RENDERING
-        - SUCCESS
-        - FAILED
-    GenerateResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            task_id:
-              type: string
-            session_id:
-              type: string
-            status:
-              $ref: '#/components/schemas/GenerateTaskStatus'
-            state:
-              $ref: '#/components/schemas/GenerationState'
-        message:
-          type: string
     CreateGenerationSessionRequest:
       type: object
       required:
@@ -2289,6 +2611,13 @@ components:
           $ref: '#/components/schemas/GenerationOptions'
         client_session_id:
           type: string
+    GenerateTaskStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - completed
+        - failed
     SessionRef:
       type: object
       required:
@@ -3045,97 +3374,6 @@ components:
                     type: string
         message:
           type: string
-    GenerateStatusResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            task_id:
-              type: string
-            session_id:
-              type: string
-            status:
-              $ref: '#/components/schemas/GenerateTaskStatus'
-            state:
-              $ref: '#/components/schemas/GenerationState'
-            progress:
-              type: integer
-              minimum: 0
-              maximum: 100
-              description: 生成进度百分比
-            outline:
-              $ref: '#/components/schemas/OutlineDocument'
-            result:
-              type: object
-              properties:
-                ppt_url:
-                  type: string
-                word_url:
-                  type: string
-                version:
-                  type: integer
-                  description: 当前版本号
-            error:
-              type: string
-            error_detail:
-              type: object
-              properties:
-                code:
-                  type: string
-                message:
-                  type: string
-                retryable:
-                  type: boolean
-        message:
-          type: string
-    VersionsResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            task_id:
-              type: string
-            versions:
-              type: array
-              items:
-                type: object
-                properties:
-                  version:
-                    type: integer
-                  created_at:
-                    type: string
-                    format: date-time
-                  status:
-                    type: string
-                    enum:
-                      - completed
-                      - failed
-                  file_urls:
-                    type: object
-                    properties:
-                      ppt_url:
-                        type: string
-                      word_url:
-                        type: string
-                  modification_note:
-                    type: string
-                    description: 修改说明
-        message:
-          type: string
     Slide:
       type: object
       required:
@@ -3214,6 +3452,15 @@ components:
             task_id:
               type: string
               description: 兼容旧任务流的执行 ID
+              nullable: true
+            artifact_id:
+              type: string
+              description: 当前预览对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 当前预览基于的正式版本 ID
+              nullable: true
             render_version:
               type: integer
               minimum: 1
@@ -3226,14 +3473,14 @@ components:
               $ref: '#/components/schemas/LessonPlan'
         message:
           type: string
-    ModifyRequest:
+    ModifySessionRequest:
       type: object
       required:
         - instruction
       properties:
-        session_id:
+        artifact_id:
           type: string
-          description: 兼容字段。仅在 task 路由下用于显式绑定会话。
+          description: 指定要修改的成果 ID（可选）
         instruction:
           type: string
           minLength: 1
@@ -3276,6 +3523,14 @@ components:
               type: integer
               minimum: 1
               description: 修改后最新渲染版本
+            artifact_id:
+              type: string
+              description: 修改任务对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 修改任务基于的正式版本 ID
+              nullable: true
         message:
           type: string
     SlideDetailResponse:
@@ -3321,6 +3576,9 @@ components:
       required:
         - format
       properties:
+        artifact_id:
+          type: string
+          description: 指定要导出的成果 ID（可选）
         format:
           type: string
           enum:
@@ -3337,7 +3595,6 @@ components:
           minimum: 1
           description: |
             可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。
-            legacy 导出接口 `/api/v1/preview/{task_id}/export` 可忽略该字段。
     ExportResponse:
       type: object
       required:
@@ -3356,6 +3613,15 @@ components:
             task_id:
               type: string
               description: 兼容旧任务执行 ID
+              nullable: true
+            artifact_id:
+              type: string
+              description: 导出对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 导出基于的正式版本 ID
+              nullable: true
             content:
               type: string
               description: 导出的内容
@@ -3366,25 +3632,6 @@ components:
               minimum: 1
         message:
           type: string
-    ModifySessionRequest:
-      type: object
-      required:
-        - instruction
-      properties:
-        instruction:
-          type: string
-          minLength: 1
-          maxLength: 2000
-        target_slides:
-          type: array
-          items:
-            type: string
-        context:
-          type: object
-        base_render_version:
-          type: integer
-          minimum: 1
-          description: 并发控制版本（防止覆盖更新）
     RAGSearchRequest:
       type: object
       required:
@@ -3541,7 +3788,22 @@ components:
         updated_at:
           type: string
           format: date-time
-    GetProjectsResponse:
+    ProjectTarget:
+      allOf:
+        - $ref: '#/components/schemas/Project'
+        - type: object
+          properties:
+            visibility:
+              type: string
+              enum:
+                - private
+                - shared
+            is_referenceable:
+              type: boolean
+            current_version_id:
+              type: string
+              nullable: true
+    GetProjectsResponseTarget:
       type: object
       required:
         - success
@@ -3556,7 +3818,7 @@ components:
             projects:
               type: array
               items:
-                $ref: '#/components/schemas/Project'
+                $ref: '#/components/schemas/ProjectTarget'
             total:
               type: integer
             page:
@@ -3581,7 +3843,27 @@ components:
           maxLength: 2000
         grade_level:
           type: string
-    ProjectResponse:
+    ProjectRequestTarget:
+      allOf:
+        - $ref: '#/components/schemas/ProjectRequest'
+        - type: object
+          properties:
+            base_project_id:
+              type: string
+              nullable: true
+            reference_mode:
+              type: string
+              enum:
+                - follow
+                - pinned
+            visibility:
+              type: string
+              enum:
+                - private
+                - shared
+            is_referenceable:
+              type: boolean
+    ProjectResponseTarget:
       type: object
       required:
         - success
@@ -3596,7 +3878,7 @@ components:
             - project
           properties:
             project:
-              $ref: '#/components/schemas/Project'
+              $ref: '#/components/schemas/ProjectTarget'
         message:
           type: string
     GetFilesResponse:
@@ -3661,6 +3943,578 @@ components:
               format: date-time
         message:
           type: string
+    GetProjectsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            projects:
+              type: array
+              items:
+                $ref: '#/components/schemas/Project'
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+        message:
+          type: string
+    ProjectReference:
+      type: object
+      required:
+        - id
+        - project_id
+        - target_project_id
+        - relation_type
+        - mode
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        target_project_id:
+          type: string
+        relation_type:
+          type: string
+          enum:
+            - base
+            - auxiliary
+        mode:
+          type: string
+          enum:
+            - follow
+            - pinned
+        pinned_version_id:
+          type: string
+          nullable: true
+        priority:
+          type: integer
+          description: 辅助引用排序，数值越小优先级越高
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ProjectReferencesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            references:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectReference'
+        message:
+          type: string
+    ProjectReferenceRequest:
+      type: object
+      required:
+        - target_project_id
+        - relation_type
+        - mode
+      properties:
+        target_project_id:
+          type: string
+        relation_type:
+          type: string
+          enum:
+            - base
+            - auxiliary
+        mode:
+          type: string
+          enum:
+            - follow
+            - pinned
+        pinned_version_id:
+          type: string
+          nullable: true
+        priority:
+          type: integer
+    ProjectReferenceResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - reference
+          properties:
+            reference:
+              $ref: '#/components/schemas/ProjectReference'
+        message:
+          type: string
+    ProjectReferenceUpdateRequest:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum:
+            - follow
+            - pinned
+        pinned_version_id:
+          type: string
+          nullable: true
+        priority:
+          type: integer
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+    ProjectVersion:
+      type: object
+      required:
+        - id
+        - project_id
+        - summary
+        - change_type
+        - created_by
+        - created_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        parent_version_id:
+          type: string
+          nullable: true
+        summary:
+          type: string
+        change_type:
+          type: string
+          enum:
+            - author-update
+            - merge-change
+            - reference-change
+            - import
+        snapshot_data:
+          type: object
+          additionalProperties: true
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ProjectVersionsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            versions:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectVersion'
+        message:
+          type: string
+    ProjectVersionResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - version
+          properties:
+            version:
+              $ref: '#/components/schemas/ProjectVersion'
+        message:
+          type: string
+    Artifact:
+      type: object
+      required:
+        - id
+        - project_id
+        - type
+        - visibility
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        session_id:
+          type: string
+          nullable: true
+        based_on_version_id:
+          type: string
+          nullable: true
+        owner_user_id:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum:
+            - pptx
+            - docx
+            - mindmap
+            - summary
+            - exercise
+            - html
+            - gif
+            - mp4
+        visibility:
+          type: string
+          enum:
+            - private
+            - project-visible
+            - shared
+        storage_path:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ArtifactsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            artifacts:
+              type: array
+              items:
+                $ref: '#/components/schemas/Artifact'
+        message:
+          type: string
+    ArtifactCreateRequest:
+      type: object
+      required:
+        - type
+      properties:
+        session_id:
+          type: string
+          nullable: true
+        based_on_version_id:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum:
+            - mindmap
+            - summary
+            - exercise
+            - html
+            - gif
+            - mp4
+        visibility:
+          type: string
+          enum:
+            - private
+            - project-visible
+            - shared
+        mode:
+          type: string
+          enum:
+            - create
+            - replace
+    ArtifactResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - artifact
+          properties:
+            artifact:
+              $ref: '#/components/schemas/Artifact'
+        message:
+          type: string
+    CandidateChange:
+      type: object
+      required:
+        - id
+        - project_id
+        - status
+        - title
+        - summary
+        - proposer_user_id
+        - created_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        session_id:
+          type: string
+          nullable: true
+        base_version_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum:
+            - pending
+            - accepted
+            - rejected
+        proposer_user_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CandidateChangesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            changes:
+              type: array
+              items:
+                $ref: '#/components/schemas/CandidateChange'
+        message:
+          type: string
+    CandidateChangeRequest:
+      type: object
+      required:
+        - title
+      properties:
+        session_id:
+          type: string
+          nullable: true
+        base_version_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+    CandidateChangeResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - change
+          properties:
+            change:
+              $ref: '#/components/schemas/CandidateChange'
+        message:
+          type: string
+    CandidateChangeReviewRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum:
+            - accept
+            - reject
+        review_comment:
+          type: string
+    ProjectMember:
+      type: object
+      required:
+        - id
+        - project_id
+        - user_id
+        - role
+        - permissions
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        user_id:
+          type: string
+        role:
+          type: string
+          enum:
+            - owner
+            - editor
+            - viewer
+        permissions:
+          type: object
+          properties:
+            can_view:
+              type: boolean
+            can_reference:
+              type: boolean
+            can_collaborate:
+              type: boolean
+            can_manage:
+              type: boolean
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        created_at:
+          type: string
+          format: date-time
+    ProjectMembersResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            members:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectMember'
+        message:
+          type: string
+    ProjectMemberRequest:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+        role:
+          type: string
+          enum:
+            - owner
+            - editor
+            - viewer
+        permissions:
+          type: object
+          properties:
+            can_view:
+              type: boolean
+            can_reference:
+              type: boolean
+            can_collaborate:
+              type: boolean
+            can_manage:
+              type: boolean
+    ProjectMemberResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - member
+          properties:
+            member:
+              $ref: '#/components/schemas/ProjectMember'
+        message:
+          type: string
+    ProjectMemberUpdateRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+            - owner
+            - editor
+            - viewer
+        permissions:
+          type: object
+          properties:
+            can_view:
+              type: boolean
+            can_reference:
+              type: boolean
+            can_collaborate:
+              type: boolean
+            can_manage:
+              type: boolean
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
   responses:
     BadRequest:
       description: 请求参数错误或验证失败

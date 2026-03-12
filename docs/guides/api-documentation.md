@@ -47,7 +47,7 @@ docs/openapi/
 ├── paths/ # API 路径定义
 │ ├── auth.yaml # 认证相关接口
 │ ├── files.yaml # 文件管理接口
-│ ├── generate.yaml # 课件生成接口
+│ ├── generate-session.yaml # 课件生成接口索引
 │ └── project.yaml # 项目管理接口
 ├── schemas/ # 数据模型定义
 │ ├── auth.yaml
@@ -177,5 +177,4 @@ const response: AuthResponse = await authApi.register(data);
 
 - [API 契约设计](../architecture/api-contract.md)
 - [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
-- [后端 OpenAPI 同步](../BACKEND_OPENAPI_SYNC.md)
-- [ADR-003: OpenAPI 模块化决策](../decisions/ADR-003-openapi-modularization.md)
+- [后端 OpenAPI 同步](../archived/openapi/BACKEND_OPENAPI_SYNC.md)

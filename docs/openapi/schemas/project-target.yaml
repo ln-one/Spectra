@@ -1,0 +1,67 @@
+ProjectTarget:
+  allOf:
+    - $ref: './project.yaml#/Project'
+    - type: object
+      properties:
+        visibility:
+          type: string
+          enum: [private, shared]
+        is_referenceable:
+          type: boolean
+        current_version_id:
+          type: string
+          nullable: true
+
+ProjectRequestTarget:
+  allOf:
+    - $ref: './project.yaml#/ProjectRequest'
+    - type: object
+      properties:
+        base_project_id:
+          type: string
+          nullable: true
+        reference_mode:
+          type: string
+          enum: [follow, pinned]
+        visibility:
+          type: string
+          enum: [private, shared]
+        is_referenceable:
+          type: boolean
+
+ProjectResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [project]
+      properties:
+        project:
+          $ref: '#/ProjectTarget'
+    message:
+      type: string
+
+GetProjectsResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/ProjectTarget'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+    message:
+      type: string

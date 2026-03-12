@@ -13,6 +13,8 @@ CreateGenerationSessionResponse:
   $ref: './generate-session-requests.yaml#/CreateGenerationSessionResponse'
 GenerationSessionResponse:
   $ref: './generate-session-requests.yaml#/GenerationSessionResponse'
+GenerationSessionListResponse:
+  $ref: './generate-session-requests.yaml#/GenerationSessionListResponse'
 UpdateOutlineRequest:
   $ref: './generate-session-requests.yaml#/UpdateOutlineRequest'
 UpdateOutlineResponse:

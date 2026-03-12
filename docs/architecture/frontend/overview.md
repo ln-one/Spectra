@@ -1,10 +1,10 @@
 # Frontend Architecture Overview
 
-> 状态说明（2026-03-02）：本文档与当前 `frontend/` 代码结构对齐。
+> 状态说明（2026-03-12）：本文档与当前 `frontend/` 代码结构对齐，并标注下一阶段演进方向。
 
 ## 概述
 
-前端基于 Next.js 15 App Router，承担认证、项目管理、聊天交互、文件上传、课件生成与预览相关页面。
+前端基于 Next.js 15 App Router，承担认证、项目管理、聊天交互、文件上传、**session-first** 生成与预览等页面。下一阶段将围绕 Project-Space 模型补齐“引用/版本/成果(artifact)/候选变更”相关视图与交互（具体见 `docs/project/*_2026-03-09.md`）。
 
 ## 技术栈（当前）
 
