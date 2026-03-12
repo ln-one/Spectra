@@ -233,9 +233,9 @@ async def main():
         print("\n下一步：")
         print("1. 启动 FastAPI 服务器: uvicorn main:app --reload")
         print("2. 访问 API 文档: http://localhost:8000/docs")
-        print("3. 测试 POST /api/v1/generate/courseware 端点")
-        print("4. 测试 GET /api/v1/generate/status/{task_id} 端点")
-        print("5. 测试 GET /api/v1/files/download/{task_id}/{file_type} 端点")
+        print("3. 测试 POST /api/v1/generate/sessions 端点")
+        print("4. 测试 GET /api/v1/generate/sessions/{session_id} 端点")
+        print("5. 测试 GET /api/v1/generate/sessions/{session_id}/preview 端点")
     else:
         print("✗ 部分测试失败，请检查错误信息")
         sys.exit(1)

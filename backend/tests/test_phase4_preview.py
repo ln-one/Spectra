@@ -12,7 +12,7 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from routers.preview import router as preview_router
+from routers.generate_sessions import router as generate_sessions_router
 from schemas.intent import ModifyIntent, ModifyType
 from schemas.outline import CoursewareOutline, OutlineSection
 from schemas.preview import (
@@ -427,30 +427,3 @@ class TestParseModifyIntent:
         assert isinstance(result, ModifyIntent)
         assert result.modify_type == ModifyType.CONTENT
         assert result.target_slides is None
-
-
-# ============================================================
-# Preview Router Validation
-# ============================================================
-
-
-class TestPreviewRouterValidation:
-    """preview router 请求体验证测试"""
-
-    def test_modify_preview_invalid_target_slides_returns_422(self):
-        app = FastAPI()
-        app.include_router(preview_router, prefix="/api/v1")
-        app.dependency_overrides[get_current_user] = lambda: "u-001"
-        try:
-            with TestClient(app) as client:
-                resp = client.post(
-                    "/api/v1/preview/task-123/modify",
-                    json={
-                        "instruction": "修改内容",
-                        "target_slides": ["abc"],
-                    },
-                )
-        finally:
-            app.dependency_overrides.pop(get_current_user, None)
-
-        assert resp.status_code == 422

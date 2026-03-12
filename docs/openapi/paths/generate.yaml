@@ -1,9 +1,6 @@
 # Generate 路径索引（拆分入口）
 # 说明：为符合文档复杂度阈值，本文件仅保留路径引用。
 
-/api/v1/generate/courseware:
-  $ref: './generate-task.yaml#/~1api~1v1~1generate~1courseware'
-
 /api/v1/generate/sessions:
   $ref: './generate-session.yaml#/~1api~1v1~1generate~1sessions'
 
@@ -33,12 +30,3 @@
 
 /api/v1/generate/capabilities:
   $ref: './generate-session.yaml#/~1api~1v1~1generate~1capabilities'
-
-/api/v1/generate/tasks/{task_id}/status:
-  $ref: './generate-task.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1status'
-
-/api/v1/generate/tasks/{task_id}/download:
-  $ref: './generate-task.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1download'
-
-/api/v1/generate/tasks/{task_id}/versions:
-  $ref: './generate-task.yaml#/~1api~1v1~1generate~1tasks~1{task_id}~1versions'

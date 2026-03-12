@@ -3,9 +3,9 @@ C12 – Contract regression: validate every member-C endpoint returns the
 standard ``{success, data|error, message}`` envelope and correct status codes.
 
 This file consolidates the "golden path + error path" contract assertions
-for **projects / files / generate / download / preview** routers so that a
-single ``pytest tests/test_contract_regression.py`` run proves C-scope
-API surface stability.
+for **projects / files** routers so that a single
+``pytest tests/test_contract_regression.py`` run proves C-scope API surface
+stability.
 """
 
 from datetime import datetime, timezone
@@ -22,7 +22,6 @@ from utils.dependencies import get_current_user
 _NOW = datetime.now(timezone.utc)
 _USER_ID = "u-c12"
 _PROJECT_ID = "p-c12"
-_TASK_ID = "t-c12"
 _FILE_ID = "f-c12"
 
 
@@ -44,22 +43,6 @@ def _proj(user_id=_USER_ID, **kw):
         userId=user_id,
         name="Regression",
         description="d",
-        createdAt=_NOW,
-        updatedAt=_NOW,
-    )
-    d.update(kw)
-    return SimpleNamespace(**d)
-
-
-def _task(**kw):
-    d = dict(
-        id=_TASK_ID,
-        projectId=_PROJECT_ID,
-        taskType="pptx",
-        status="completed",
-        progress=100,
-        outputUrls='{"pptx":"url"}',
-        errorMessage=None,
         createdAt=_NOW,
         updatedAt=_NOW,
     )
@@ -258,159 +241,6 @@ class TestFilesContract:
             401,
             False,
         )
-
-
-# ---------------------------------------------------------------
-# Generate contract
-# ---------------------------------------------------------------
-
-
-class TestGenerateContract:
-    def test_create_task_200(self, client, monkeypatch, auth):
-        from routers import generate as gen_router
-
-        _m(monkeypatch, db_service, "get_project", _proj())
-        _m(monkeypatch, db_service, "get_idempotency_response", None)
-        _m(monkeypatch, db_service, "create_generation_task", _task(status="pending"))
-        _m(monkeypatch, db_service, "save_idempotency_response", None)
-        monkeypatch.setattr(
-            gen_router, "process_generation_task", AsyncMock(return_value=None)
-        )
-        body = _assert_envelope(
-            client.post(
-                "/api/v1/generate/courseware",
-                json={"project_id": _PROJECT_ID, "type": "pptx"},
-            ),
-            200,
-            True,
-        )
-        assert "task_id" in body["data"]
-
-    def test_create_task_401(self, client):
-        _assert_envelope(
-            client.post(
-                "/api/v1/generate/courseware",
-                json={"project_id": _PROJECT_ID, "type": "pptx"},
-            ),
-            401,
-            False,
-        )
-
-    def test_create_task_404(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_project", None)
-        _assert_envelope(
-            client.post(
-                "/api/v1/generate/courseware",
-                json={"project_id": _PROJECT_ID, "type": "pptx"},
-            ),
-            404,
-            False,
-        )
-
-    def test_status_200(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", _task())
-        _m(monkeypatch, db_service, "get_project", _proj())
-        body = _assert_envelope(
-            client.get(f"/api/v1/generate/tasks/{_TASK_ID}/status"), 200, True
-        )
-        assert body["data"]["status"] == "completed"
-
-    def test_status_404(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", None)
-        _assert_envelope(
-            client.get(f"/api/v1/generate/tasks/{_TASK_ID}/status"), 404, False
-        )
-
-
-# ---------------------------------------------------------------
-# Download contract
-# ---------------------------------------------------------------
-
-
-class TestDownloadContract:
-    def test_download_404_task(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", None)
-        _assert_envelope(
-            client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=ppt"),
-            404,
-            False,
-        )
-
-    def test_download_403(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", _task())
-        _m(monkeypatch, db_service, "get_project", _proj(user_id="other"))
-        _assert_envelope(
-            client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=ppt"),
-            403,
-            False,
-        )
-
-    def test_download_400_not_completed(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", _task(status="pending"))
-        _m(monkeypatch, db_service, "get_project", _proj())
-        _assert_envelope(
-            client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=ppt"),
-            400,
-            False,
-        )
-
-    def test_download_401(self, client):
-        _assert_envelope(
-            client.get(f"/api/v1/generate/tasks/{_TASK_ID}/download?file_type=ppt"),
-            401,
-            False,
-        )
-
-
-# ---------------------------------------------------------------
-# Preview contract
-# ---------------------------------------------------------------
-
-
-class TestPreviewContract:
-    def test_preview_200(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", _task())
-        _m(monkeypatch, db_service, "get_project", _proj())
-        body = _assert_envelope(client.get(f"/api/v1/preview/{_TASK_ID}"), 200, True)
-        assert "slides" in body["data"]
-
-    def test_preview_404(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", None)
-        _m(monkeypatch, db_service, "get_project", None)
-        _assert_envelope(client.get("/api/v1/preview/nope"), 404, False)
-
-    def test_preview_403(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", _task())
-        _m(monkeypatch, db_service, "get_project", _proj(user_id="other"))
-        _assert_envelope(client.get(f"/api/v1/preview/{_TASK_ID}"), 403, False)
-
-    def test_preview_401(self, client):
-        _assert_envelope(client.get(f"/api/v1/preview/{_TASK_ID}"), 401, False)
-
-    def test_modify_200(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", _task())
-        _m(monkeypatch, db_service, "get_project", _proj())
-        _assert_envelope(
-            client.post(
-                f"/api/v1/preview/{_TASK_ID}/modify",
-                json={"instruction": "add summary"},
-            ),
-            200,
-            True,
-        )
-
-    def test_export_200(self, client, monkeypatch, auth):
-        _m(monkeypatch, db_service, "get_generation_task", _task())
-        _m(monkeypatch, db_service, "get_project", _proj())
-        body = _assert_envelope(
-            client.post(
-                f"/api/v1/preview/{_TASK_ID}/export",
-                json={"format": "json", "include_sources": True},
-            ),
-            200,
-            True,
-        )
-        assert body["data"]["format"] == "json"
 
 
 # ---------------------------------------------------------------

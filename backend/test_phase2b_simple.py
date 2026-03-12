@@ -191,22 +191,19 @@ def test_router_structure():
 
     try:
         from routers.files import router as files_router
-        from routers.generate import router as generate_router
+        from routers.generate_sessions import router as generate_sessions_router
 
-        # 检查 generate router 的路由
-        generate_routes = [route.path for route in generate_router.routes]
-        print(f"✓ Generate Router 路由: {generate_routes}")
+        # 检查 session-first router 的路由
+        generate_routes = [route.path for route in generate_sessions_router.routes]
+        print(f"✓ Generate Sessions Router 路由: {generate_routes}")
 
-        assert "/generate/courseware" in generate_routes
-        assert "/generate/status/{task_id}" in generate_routes
-        print("✓ Generate Router 包含必要的端点")
+        assert "/sessions" in generate_routes
+        assert "/sessions/{session_id}" in generate_routes
+        print("✓ Generate Sessions Router 包含必要的端点")
 
         # 检查 files router 的路由
         files_routes = [route.path for route in files_router.routes]
         print(f"✓ Files Router 路由: {files_routes}")
-
-        assert "/files/download/{task_id}/{file_type}" in files_routes
-        print("✓ Files Router 包含下载端点")
 
         return True
 

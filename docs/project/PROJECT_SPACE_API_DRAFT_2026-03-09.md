@@ -66,7 +66,7 @@ API 资源分为六类：
 
 ## 3. 保留的现有接口（对齐当前实现）
 
-以下现有接口保留，并逐步补强字段。列表已与当前 OpenAPI 对齐（`docs/openapi-source.yaml`）。
+以下现有接口保留，并逐步补强字段。列表已与当前 OpenAPI 对齐（`docs/openapi-source.yaml`），旧任务流接口已移除。
 
 ### 3.1 项目
 
@@ -89,10 +89,6 @@ API 资源分为六类：
 
 ### 3.3 生成
 
-- `POST /api/v1/generate/courseware`（旧任务流）
-- `GET /api/v1/generate/tasks/{task_id}/status`（旧任务流）
-- `GET /api/v1/generate/tasks/{task_id}/versions`（旧任务流）
-- `GET /api/v1/generate/tasks/{task_id}/download`（旧任务流）
 - `POST /api/v1/generate/sessions`（session-first 主链路）
 - `GET /api/v1/generate/sessions/{session_id}`
 - `GET /api/v1/generate/sessions/{session_id}/events`
@@ -106,10 +102,6 @@ API 资源分为六类：
 
 ### 3.4 预览
 
-- `GET /api/v1/preview/{task_id}`（旧任务流）
-- `POST /api/v1/preview/{task_id}/modify`（旧任务流）
-- `GET /api/v1/preview/{task_id}/slides/{slide_id}`（旧任务流）
-- `POST /api/v1/preview/{task_id}/export`（旧任务流）
 - `GET /api/v1/generate/sessions/{session_id}/preview`（session-first）
 - `POST /api/v1/generate/sessions/{session_id}/preview/modify`
 - `GET /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}`
@@ -117,9 +109,7 @@ API 资源分为六类：
  
 说明：
 
-1. 旧任务流接口继续承担兼容层职责。
-2. 新功能应优先围绕 `project + generation-session` 的主语义补接口。
-3. 旧接口内部可逐步适配到新的资源模型。
+1. 新功能应优先围绕 `project + generation-session` 的主语义补接口。
 
 ## 4. 项目接口扩展
 

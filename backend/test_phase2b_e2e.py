@@ -82,17 +82,11 @@ async def test_generation_flow(project_id: str):
 
     # 3. 完成任务
     print("\n3. 完成任务...")
-    import json
-
-    output_urls = {
-        "pptx": f"/api/v1/generate/tasks/{task.id}/download?file_type=ppt",
-        "docx": f"/api/v1/generate/tasks/{task.id}/download?file_type=word",
-    }
     task = await db_service.update_generation_task_status(
         task_id=task.id,
         status="completed",
         progress=100,
-        output_urls=json.dumps(output_urls),
+        output_urls=None,
     )
     print("✓ 任务完成")
     print(f"  状态: {task.status}")
@@ -118,40 +112,24 @@ async def print_api_test_commands(project_id: str, task_id: str):
     print("=" * 60)
 
     print("\n现在你可以在 Swagger UI 中测试了：")
-    print("\n1️⃣  测试创建任务 (POST /api/v1/generate/courseware)")
+    print("\n1️⃣  测试创建会话 (POST /api/v1/generate/sessions)")
     print("   使用这个 project_id:")
     print(f"   \033[92m{project_id}\033[0m")
 
-    print(f"\n2️⃣  测试查询状态 (GET /api/v1/generate/tasks/{{task_id}}/status)")
-    print("   使用这个 task_id:")
-    print(f"   \033[92m{task_id}\033[0m")
+    print("\n2️⃣  测试获取会话快照 (GET /api/v1/generate/sessions/{session_id})")
+    print("   session_id 可通过创建会话响应获取")
 
-    print(
-        f"\n3️⃣  测试文件下载 (GET /api/v1/generate/tasks/{{task_id}}/download?file_type=ppt|word)"
-    )
-    print("   使用这个 task_id:")
-    print(f"   \033[92m{task_id}\033[0m")
-    print("   file_type 选择: ppt 或 word")
+    print("\n3️⃣  测试会话级预览 (GET /api/v1/generate/sessions/{session_id}/preview)")
 
     print("\n" + "=" * 60)
     print("📋 完整的 curl 命令：")
     print("=" * 60)
 
-    print("\n# 创建任务")
-    print(f"""curl -X POST "http://localhost:8000/api/v1/generate/courseware" \\
-  -H "Content-Type: application/json" \\
-  -d '{{
-    "project_id": "{project_id}",
-    "type": "both",
-    "template_config": {{"style": "gaia"}}
-  }}'""")
-
-    print("\n# 查询状态")
-    print(f'curl "http://localhost:8000/api/v1/generate/tasks/{task_id}/status"')
-
-    print("\n# 下载文件")
+    print("\n# 创建会话")
     print(
-        f'curl -O "http://localhost:8000/api/v1/generate/tasks/{task_id}/download?file_type=ppt"'
+        f"""curl -X POST "http://localhost:8000/api/v1/generate/sessions" \\
+  -H "Content-Type: application/json" \\
+  -d '{{\n    \"project_id\": \"{project_id}\",\n    \"title\": \"测试会话\",\n    \"purpose\": \"authoring\"\n  }}'"""
     )
 
 

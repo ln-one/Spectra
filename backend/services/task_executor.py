@@ -230,9 +230,6 @@ async def execute_generation_task(
             pptx_path = await generation_service.generate_pptx(
                 courseware_content, task_id, tpl_config
             )
-            output_urls["pptx"] = (
-                f"/api/v1/generate/tasks/{task_id}/download?file_type=ppt"
-            )
             logger.info(f"PPTX generated: {pptx_path}")
             await db_service.update_generation_task_status(task_id, "processing", 60)
 
@@ -240,9 +237,6 @@ async def execute_generation_task(
             logger.info(f"Generating DOCX for task {task_id}")
             docx_path = await generation_service.generate_docx(
                 courseware_content, task_id, tpl_config
-            )
-            output_urls["docx"] = (
-                f"/api/v1/generate/tasks/{task_id}/download?file_type=word"
             )
             logger.info(f"DOCX generated: {docx_path}")
             await db_service.update_generation_task_status(task_id, "processing", 90)
