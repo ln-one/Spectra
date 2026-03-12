@@ -5,11 +5,20 @@ Centralized prompt builders for courseware generation and chat workflows.
 """
 
 import logging
+import re
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 _RAG_CHUNK_MAX_CHARS = 600
+
+_MECHANICAL_OPTION_PATTERNS = [
+    r"请选择\s*[A-Za-zＡ-Ｚａ-ｚ]([/\-、,，\s]*[A-Za-zＡ-Ｚａ-ｚ])+",
+    r"你可以选择\s*[A-Za-zＡ-Ｚａ-ｚ]([/\-、,，\s]*[A-Za-zＡ-Ｚａ-ｚ])+",
+    r"请选择以下[三3]种方式",
+    r"下面给你[三3]个选项",
+    r"[A-Za-zＡ-Ｚａ-ｚ][\s）\)]*[:：].*\n[A-Za-zＡ-Ｚａ-ｚ][\s）\)]*[:：]",
+]
 
 
 def _format_rag_context(rag_results: list[dict]) -> str:
@@ -27,6 +36,14 @@ def _format_rag_context(rag_results: list[dict]) -> str:
             content = content[:_RAG_CHUNK_MAX_CHARS] + "...（已截断）"
         sections.append(f"参考资料 {i}（{filename}，相关度={score:.0%}）\n{content}")
     return "\n\n".join(sections)
+
+
+def contains_mechanical_option_pattern(text: str) -> bool:
+    """Detect rigid option-list phrasing such as '请选择 A/B/C'."""
+    if not text:
+        return False
+    compact = text.strip()
+    return any(re.search(pattern, compact, flags=re.IGNORECASE) for pattern in _MECHANICAL_OPTION_PATTERNS)
 
 
 STYLE_REQUIREMENTS = {
@@ -57,6 +74,16 @@ COURSEWARE_FEW_SHOT = """
 - 技能目标
 - 情感目标
 ===LESSON_PLAN_END===
+""".strip()
+
+
+CHAT_NATURAL_FEW_SHOT = """
+示例（自然助教口吻）：
+用户：我在讲牛顿第二定律，开场怎么更抓学生注意力？
+助手：可以先用“同样用力，空车和满载车为什么加速不同”这个生活对比切入，再用 1 个简单实验把 F=ma 直观化。要不要先把开场 3 分钟的讲解脚本搭出来？
+
+用户：我还没想好互动环节。
+助手：先从一个低门槛互动开始就够了，比如让学生先预测结论再做验证。你现在更偏向“举手投票”还是“2 人小组快速讨论”？我可以按你的选择继续细化。
 """.strip()
 
 
@@ -207,13 +234,20 @@ Return JSON only:
                 lines.append(f"{role}: {msg.get('content', '')}")
             history_section = "\nConversation history:\n" + "\n".join(lines) + "\n"
 
-        return f"""你是 Spectra 教学课件助手。
+        return f"""你是 Spectra 教学助教，请与老师自然共创，不要机械应答。
 {history_section}{rag_section}
 意图：{intent}
 用户问题：{user_message}
 
-请结合教学场景，清晰、专业地回答。
-默认使用简体中文。"""
+回答要求：
+1. 严禁使用机械的 A/B/C 选项格式（例如“请选择 A/B/C”“以下三种方式”）。
+2. 优先用自然口吻给出 1-2 个具体教学切入点，而不是罗列模板化选项。
+3. 先帮助老师推进下一步，再用一句温和追问收束对话。
+4. 回复长度尽量精炼（通常 3-6 句），默认使用简体中文。
+
+{CHAT_NATURAL_FEW_SHOT}
+
+请直接给出可执行的助教式回复，不要输出解释你如何作答。"""
 
 
 prompt_service = PromptService()

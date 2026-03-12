@@ -2,7 +2,11 @@
 Prompt Service 测试
 """
 
-from services.prompt_service import PromptService, _format_rag_context
+from services.prompt_service import (
+    PromptService,
+    _format_rag_context,
+    contains_mechanical_option_pattern,
+)
 
 
 class TestFormatRagContext:
@@ -78,6 +82,8 @@ class TestPromptService:
         )
         assert "你好" in prompt
         assert "Spectra" in prompt
+        assert "严禁使用机械的 A/B/C 选项格式" in prompt
+        assert "自然助教口吻" in prompt
 
     def test_chat_response_with_history(self):
         history = [
@@ -90,6 +96,14 @@ class TestPromptService:
             conversation_history=history,
         )
         assert "之前的问题" in prompt
+
+    def test_mechanical_option_detection_positive(self):
+        text = "你可以选择 A/B/C 三种方式来完成。"
+        assert contains_mechanical_option_pattern(text) is True
+
+    def test_mechanical_option_detection_negative(self):
+        text = "先从生活例子切入，再做一个课堂小实验。"
+        assert contains_mechanical_option_pattern(text) is False
 
 
 class TestFormatRagContextOptimized:

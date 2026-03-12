@@ -21,6 +21,10 @@ from fastapi.responses import JSONResponse
 from schemas.chat import Message, SendMessageRequest
 from services import db_service
 from services.ai import ai_service
+from services.prompt_service import (
+    contains_mechanical_option_pattern,
+    prompt_service,
+)
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ErrorCode, ForbiddenException
 from utils.responses import error_response, success_response
@@ -228,7 +232,7 @@ async def send_message(
         )
 
         # C5: RAG 检索（按 project_id + session_id 隔离）
-        rag_context = ""
+        rag_results = []
         citations = []
         rag_hit = False
         selected_files_hint = ""
@@ -265,12 +269,6 @@ async def send_message(
             rag_results = _rerank_by_chapter(body.content, rag_results)
             if rag_results:
                 rag_hit = True
-                rag_context = "\n\n".join(
-                    [
-                        f"[资料片段 {i+1}]: {r.content}"
-                        for i, r in enumerate(rag_results)
-                    ]
-                )
                 citations = [
                     {
                         "chunk_id": r.source.chunk_id,
@@ -289,36 +287,75 @@ async def send_message(
             limit=10,
             session_id=session_id,
         )
-        context = "\n".join([f"{m.role}: {m.content}" for m in recent_messages[-6:]])
+        history_payload = [
+            {"role": msg.role, "content": msg.content} for msg in recent_messages[-6:]
+        ]
+        rag_payload = None
+        if rag_results:
+            rag_payload = []
+            for item in rag_results:
+                source_obj = getattr(item, "source", None)
+                source = {}
+                if source_obj is not None:
+                    for field in [
+                        "chunk_id",
+                        "source_type",
+                        "filename",
+                        "page_number",
+                        "timestamp",
+                        "preview_text",
+                    ]:
+                        value = getattr(source_obj, field, None)
+                        if value is not None:
+                            source[field] = value
+                rag_payload.append(
+                    {
+                        "content": getattr(item, "content", ""),
+                        "score": getattr(item, "score", 0.0),
+                        "source": source,
+                    }
+                )
 
-        # 构造包含 RAG 资料的 prompt
-        rag_section = (
-            f"\n\n已上传的参考资料片段（优先基于此回答）：\n{rag_context}"
-            if rag_context
-            else ""
-        )
-        no_rag_hint = (
-            "\n\n（未在已上传资料中找到相关内容，将基于通用知识回答。）"
-            if not rag_hit and session_id
-            else ""
-        )
-        project_line = f"项目: {project.name}"
+        message_hints = []
         if selected_files_hint:
-            project_line = f"{project_line}\n{selected_files_hint}"
+            message_hints.append(selected_files_hint)
+        if not rag_hit and session_id:
+            message_hints.append("未命中项目资料，请优先提示用户补充可检索素材。")
+        user_message_for_prompt = body.content
+        if message_hints:
+            user_message_for_prompt = (
+                f"{body.content}\n\n系统提示：\n" + "\n".join(message_hints)
+            )
 
-        prompt = (
-            "你是教学课件助手。请基于上下文给出简洁、有操作性的下一步建议。"
-            "如果引用资料，请在相关句末用 [1][2] 这样的序号标注。\n\n"
-            f"{project_line}"
-            f"{rag_section}{no_rag_hint}\n\n"
-            f"上下文:\n{context}\n\n"
-            f"用户新消息: {body.content}"
+        prompt = prompt_service.build_chat_response_prompt(
+            user_message=user_message_for_prompt,
+            intent="general_chat",
+            rag_context=rag_payload,
+            conversation_history=history_payload,
         )
+        prompt = f"项目：{project.name}\n{prompt}"
         try:
             ai_result = await ai_service.generate(prompt=prompt, max_tokens=500)
             assistant_content = (
                 ai_result.get("content") or "我已收到你的需求，我们继续完善课件内容。"
             )
+            if contains_mechanical_option_pattern(assistant_content):
+                logger.warning(
+                    "Mechanical option phrasing detected in assistant response; "
+                    "attempting soft rewrite"
+                )
+                rewrite_prompt = (
+                    "请将下面这段回复改写为自然、温和的助教口吻，"
+                    "保留原始信息，不要使用 A/B/C 选项式表达，"
+                    "给出 1-2 个具体可执行教学切入点：\n\n"
+                    f"{assistant_content}"
+                )
+                rewrite_result = await ai_service.generate(
+                    prompt=rewrite_prompt, max_tokens=500
+                )
+                rewritten_content = (rewrite_result.get("content") or "").strip()
+                if rewritten_content:
+                    assistant_content = rewritten_content
         except Exception as ai_exc:
             logger.error("AI generation failed in chat: %s", ai_exc, exc_info=True)
             if os.getenv("DEBUG", "false").lower() in {"1", "true", "yes", "on"}:

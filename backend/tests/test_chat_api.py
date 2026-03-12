@@ -73,6 +73,40 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert len(body["data"]["suggestions"]) == 3
 
 
+def test_send_message_rewrites_mechanical_option_reply(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        db_service,
+        "create_conversation_message",
+        AsyncMock(
+            side_effect=[
+                _fake_conv(role="user", conv_id="c-user"),
+                _fake_conv(role="assistant", content="rewritten reply", conv_id="c-ai"),
+            ]
+        ),
+    )
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+
+    generate_mock = AsyncMock(
+        side_effect=[
+            {"content": "你可以选择 A/B/C 三种方式来推进。"},
+            {"content": "先从一个生活化情境切入，再补一个可直接落地的小练习。"},
+        ]
+    )
+    monkeypatch.setattr(ai_service, "generate", generate_mock)
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["message"]["content"] == "rewritten reply"
+    assert generate_mock.await_count == 2
+
+
 def test_send_message_scopes_recent_messages_by_session(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     monkeypatch.setattr(
