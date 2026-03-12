@@ -19,13 +19,14 @@ class TestFormatRagContext:
         results = [
             {
                 "content": "光合作用的过程",
-                "source": {"filename": "bio.pdf"},
+                "source": {"filename": "bio.pdf", "chunk_id": "chunk-001"},
             }
         ]
         formatted = _format_rag_context(results)
         assert "参考资料 1" in formatted
         assert "bio.pdf" in formatted
         assert "光合作用的过程" in formatted
+        assert '<cite chunk_id="chunk-001"></cite>' in formatted
 
     def test_multiple_results(self):
         results = [
@@ -84,6 +85,7 @@ class TestPromptService:
         assert "Spectra" in prompt
         assert "严禁使用机械的 A/B/C 选项格式" in prompt
         assert "自然助教口吻" in prompt
+        assert "Markdown 自然分段" in prompt
 
     def test_chat_response_with_history(self):
         history = [
@@ -145,6 +147,12 @@ class TestFormatRagContextOptimized:
 
     def test_citation_instruction_in_chat_prompt(self):
         svc = PromptService()
-        rag = [{"content": "内容", "source": {"filename": "a.pdf"}, "score": 0.8}]
+        rag = [
+            {
+                "content": "内容",
+                "source": {"filename": "a.pdf", "chunk_id": "chunk-123"},
+                "score": 0.8,
+            }
+        ]
         prompt = svc.build_chat_response_prompt("问题", "ask_question", rag_context=rag)
-        assert "来源编号" in prompt
+        assert '<cite chunk_id="..."></cite>' in prompt

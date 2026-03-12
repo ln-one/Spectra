@@ -33,6 +33,26 @@ def _fake_conv(role="user", content="Hello AI", conv_id="c-001", **kw):
     return SimpleNamespace(**defaults)
 
 
+def _fake_rag_result(
+    content="资料内容",
+    chunk_id="chunk-1",
+    filename="notes.pdf",
+    score=0.92,
+):
+    return SimpleNamespace(
+        content=content,
+        score=score,
+        source=SimpleNamespace(
+            chunk_id=chunk_id,
+            source_type="document",
+            filename=filename,
+            page_number=2,
+            timestamp=None,
+            preview_text=None,
+        ),
+    )
+
+
 def _mock(mp, obj, attr, rv=None):
     mp.setattr(obj, attr, AsyncMock(return_value=rv))
 
@@ -136,6 +156,34 @@ def test_send_message_scopes_recent_messages_by_session(client, monkeypatch, _as
         limit=10,
         session_id="s-001",
     )
+
+
+def test_send_message_converts_numeric_marker_to_cite_tag(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+    _mock(monkeypatch, rag_service, "search", [_fake_rag_result()])
+    _mock(monkeypatch, ai_service, "generate", {"content": "根据资料可以这样讲。[1]"})
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+
+    saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
+    assert '<cite chunk_id="chunk-1"' in saved_assistant_content
+    assert "[1]" not in saved_assistant_content
 
 
 def test_send_message_idempotency_hit_returns_cached(client, monkeypatch, _as_user):

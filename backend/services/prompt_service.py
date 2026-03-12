@@ -29,12 +29,18 @@ def _format_rag_context(rag_results: list[dict]) -> str:
     sections: list[str] = []
     for i, item in enumerate(rag_results, 1):
         source = item.get("source", {}) or {}
+        chunk_id = source.get("chunk_id", "")
         filename = source.get("filename", "unknown_source")
         score = float(item.get("score", 0.0) or 0.0)
         content = str(item.get("content", "") or "")
         if len(content) > _RAG_CHUNK_MAX_CHARS:
             content = content[:_RAG_CHUNK_MAX_CHARS] + "...（已截断）"
-        sections.append(f"参考资料 {i}（{filename}，相关度={score:.0%}）\n{content}")
+        cite_hint = ""
+        if chunk_id:
+            cite_hint = f"\n可用引用标签：<cite chunk_id=\"{chunk_id}\"></cite>"
+        sections.append(
+            f"参考资料 {i}（{filename}，相关度={score:.0%}）\n{content}{cite_hint}"
+        )
     return "\n\n".join(sections)
 
 
@@ -80,7 +86,7 @@ COURSEWARE_FEW_SHOT = """
 CHAT_NATURAL_FEW_SHOT = """
 示例（自然助教口吻）：
 用户：我在讲牛顿第二定律，开场怎么更抓学生注意力？
-助手：可以先用“同样用力，空车和满载车为什么加速不同”这个生活对比切入，再用 1 个简单实验把 F=ma 直观化。要不要先把开场 3 分钟的讲解脚本搭出来？
+助手：可以先用“同样用力，空车和满载车为什么加速不同”这个生活对比切入，再用 1 个简单实验把 F=ma 直观化 <cite chunk_id="chunk-demo-1"></cite>。要不要先把开场 3 分钟的讲解脚本搭出来？
 
 用户：我还没想好互动环节。
 助手：先从一个低门槛互动开始就够了，比如让学生先预测结论再做验证。你现在更偏向“举手投票”还是“2 人小组快速讨论”？我可以按你的选择继续细化。
@@ -223,7 +229,7 @@ Return JSON only:
             rag_section = (
                 "\n参考资料（按相关度排序）：\n"
                 f"{_format_rag_context(rag_context)}\n"
-                "如引用资料请标注来源编号（如：[来源1]）。\n"
+                "若使用资料内容，请在对应句末插入 <cite chunk_id=\"...\"></cite> 标签。\n"
             )
 
         history_section = ""
@@ -244,6 +250,8 @@ Return JSON only:
 2. 优先用自然口吻给出 1-2 个具体教学切入点，而不是罗列模板化选项。
 3. 先帮助老师推进下一步，再用一句温和追问收束对话。
 4. 回复长度尽量精炼（通常 3-6 句），默认使用简体中文。
+5. 输出必须是 Markdown 自然分段；不同信息点请分成独立段落，不要整段堆叠。
+6. 使用资料时，必须在相关句末就近插入 `<cite chunk_id="..."></cite>`；未使用资料的句子不要强行加引用。
 
 {CHAT_NATURAL_FEW_SHOT}
 

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from typing import Optional
 from uuid import UUID
 
@@ -89,35 +90,68 @@ def _dump_capability_status(capability_status) -> dict:
     return jsonable_encoder(capability_status)
 
 
+def _build_cite_tag(item: dict) -> str:
+    """Build a compact cite tag from a structured citation payload."""
+    chunk_id = item.get("chunk_id")
+    if not chunk_id:
+        return ""
+    filename = item.get("filename")
+    attrs = [f'chunk_id="{chunk_id}"']
+    if filename:
+        attrs.append(f'filename="{filename}"')
+    return "<cite " + " ".join(attrs) + "></cite>"
+
+
+def _normalize_markdown_paragraphs(content: str) -> str:
+    """Ensure long single-block response is split into markdown paragraphs."""
+    if not content or "\n\n" in content:
+        return content
+    sentences = [s.strip() for s in re.split(r"(?<=[。！？!?])\s*", content) if s.strip()]
+    if len(sentences) < 3:
+        return content
+    paragraphs: list[str] = []
+    for i in range(0, len(sentences), 2):
+        chunk = " ".join(sentences[i : i + 2]).strip()
+        if chunk:
+            paragraphs.append(chunk)
+    if len(paragraphs) <= 1:
+        return content
+    return "\n\n".join(paragraphs)
+
+
 def _append_citation_markers(content: str, citations: list[dict]) -> str:
-    """Append inline citation markers and a source list to the assistant content."""
+    """Normalize citation markers to <cite ...></cite> protocol."""
     if not citations:
         return content
-    if "来源：" in content or "來源：" in content:
+    if "<cite " in content:
         return content
 
-    seen = set()
-    ordered = []
-    for item in citations:
-        filename = item.get("filename")
-        page_number = item.get("page_number")
-        key = (filename, page_number)
-        if key in seen:
-            continue
-        seen.add(key)
-        ordered.append(item)
+    # Backward-compatible conversion: [1] -> <cite chunk_id="..."></cite>
+    def _replace_numeric_marker(match: re.Match) -> str:
+        idx = int(match.group(1)) - 1
+        if idx < 0 or idx >= len(citations):
+            return match.group(0)
+        cite_tag = _build_cite_tag(citations[idx])
+        return cite_tag or match.group(0)
 
-    if not ordered:
+    converted = re.sub(r"\[(\d+)\]", _replace_numeric_marker, content)
+    if "<cite " in converted:
+        return converted
+
+    # If model omitted inline markers, attach first cite tag to the first paragraph.
+    first_tag = _build_cite_tag(citations[0])
+    if not first_tag:
         return content
+    lines = content.splitlines()
+    if not lines:
+        return content
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped and not stripped.startswith(("#", "-", "*", ">")):
+            lines[idx] = f"{line.rstrip()} {first_tag}"
+            return "\n".join(lines)
 
-    lines = []
-    for idx, item in enumerate(ordered, start=1):
-        filename = item.get("filename") or "未知文件"
-        page_number = item.get("page_number")
-        page_suffix = f" (P{page_number})" if page_number else ""
-        lines.append(f"[{idx}] {filename}{page_suffix}")
-
-    return f"{content}\n\n来源：\n" + "\n".join(lines)
+    return f"{content.rstrip()} {first_tag}"
 
 
 def _normalize_chapter_token(token: str) -> str:
@@ -356,6 +390,7 @@ async def send_message(
                 rewritten_content = (rewrite_result.get("content") or "").strip()
                 if rewritten_content:
                     assistant_content = rewritten_content
+            assistant_content = _normalize_markdown_paragraphs(assistant_content)
         except Exception as ai_exc:
             logger.error("AI generation failed in chat: %s", ai_exc, exc_info=True)
             if os.getenv("DEBUG", "false").lower() in {"1", "true", "yes", "on"}:
