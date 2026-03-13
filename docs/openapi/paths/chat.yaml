@@ -1,6 +1,7 @@
 /api/v1/chat/messages:
   post:
     summary: 发送消息
+    operationId: postChatMessages
     tags: [Chat]
     security:
       - BearerAuth: []
@@ -28,6 +29,7 @@
 
   get:
     summary: 获取对话历史
+    operationId: getChatMessages
     tags: [Chat]
     security:
       - BearerAuth: []
@@ -61,6 +63,7 @@
 /api/v1/chat/voice:
   post:
     summary: 语音消息输入
+    operationId: postChatVoice
     description: 上传语音文件，系统将自动识别并转换为文本消息
     tags: [Chat]
     security:

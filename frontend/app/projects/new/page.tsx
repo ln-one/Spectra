@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { projectsApi } from "@/lib/api";
+import { projectsApi } from "@/lib/sdk";
 import { Loader2, ArrowLeft } from "lucide-react";
 
 export default function NewProjectPage() {
@@ -10,6 +10,7 @@ export default function NewProjectPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
+    description: "",
     grade_level: "",
   });
 
@@ -20,7 +21,7 @@ export default function NewProjectPage() {
     try {
       const response = await projectsApi.createProject({
         name: formData.name,
-        description: "",
+        description: formData.description,
         grade_level: formData.grade_level,
       });
       const projectId = response?.data?.project?.id;
@@ -60,6 +61,22 @@ export default function NewProjectPage() {
               }
               required
               className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="description" className="text-sm">
+              项目描述 *
+            </label>
+            <textarea
+              id="description"
+              placeholder="例如：本项目用于生成初中二次函数教学课件与练习"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              required
+              className="w-full px-3 py-2 border rounded-md text-sm min-h-[96px]"
             />
           </div>
 

@@ -29,9 +29,9 @@ import remarkGfm from "remark-gfm";
 
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
-import { previewApi } from "@/lib/api/preview";
-import { generateApi } from "@/lib/api/generate";
-import { ApiError } from "@/lib/api/client";
+import { previewApi } from "@/lib/sdk/preview";
+import { generateApi } from "@/lib/sdk/generate";
+import { ApiError } from "@/lib/sdk/client";
 import { components } from "@/lib/types/api";
 
 type Slide = components["schemas"]["Slide"];

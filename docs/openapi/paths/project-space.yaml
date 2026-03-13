@@ -1,6 +1,7 @@
 /api/v1/projects/{project_id}/references:
   post:
     summary: 创建项目引用
+    operationId: postProjectsByProjectIdReferences
     tags: [Project, Reference]
     security:
       - BearerAuth: []
@@ -34,6 +35,7 @@
 
   get:
     summary: 获取项目引用列表
+    operationId: getProjectsByProjectIdReferences
     tags: [Project, Reference]
     security:
       - BearerAuth: []
@@ -58,6 +60,7 @@
 /api/v1/projects/{project_id}/references/{reference_id}:
   patch:
     summary: 更新项目引用
+    operationId: patchProjectsByProjectIdReferencesByReferenceId
     tags: [Project, Reference]
     security:
       - BearerAuth: []
@@ -98,6 +101,7 @@
 
   delete:
     summary: 删除项目引用
+    operationId: deleteProjectsByProjectIdReferencesByReferenceId
     tags: [Project, Reference]
     security:
       - BearerAuth: []
@@ -131,6 +135,7 @@
 /api/v1/projects/{project_id}/versions:
   get:
     summary: 获取项目版本列表
+    operationId: getProjectsByProjectIdVersions
     tags: [Project, Version]
     security:
       - BearerAuth: []
@@ -155,6 +160,7 @@
 /api/v1/projects/{project_id}/versions/{version_id}:
   get:
     summary: 获取项目版本详情
+    operationId: getProjectsByProjectIdVersionsByVersionId
     tags: [Project, Version]
     security:
       - BearerAuth: []
@@ -186,6 +192,7 @@
 /api/v1/projects/{project_id}/artifacts:
   get:
     summary: 获取项目成果列表
+    operationId: getProjectsByProjectIdArtifacts
     tags: [Project, Artifact]
     security:
       - BearerAuth: []
@@ -229,6 +236,7 @@
 
   post:
     summary: 创建轻量按需成果
+    operationId: postProjectsByProjectIdArtifacts
     tags: [Project, Artifact]
     security:
       - BearerAuth: []
@@ -261,6 +269,7 @@
 /api/v1/projects/{project_id}/artifacts/{artifact_id}:
   get:
     summary: 获取成果详情
+    operationId: getProjectsByProjectIdArtifactsByArtifactId
     tags: [Project, Artifact]
     security:
       - BearerAuth: []
@@ -292,6 +301,7 @@
 /api/v1/projects/{project_id}/candidate-changes:
   post:
     summary: 提交候选变更
+    operationId: postProjectsByProjectIdCandidateChanges
     tags: [Project, CandidateChange]
     security:
       - BearerAuth: []
@@ -325,6 +335,7 @@
 
   get:
     summary: 获取候选变更列表
+    operationId: getProjectsByProjectIdCandidateChanges
     tags: [Project, CandidateChange]
     security:
       - BearerAuth: []
@@ -364,6 +375,7 @@
 /api/v1/projects/{project_id}/candidate-changes/{change_id}/review:
   post:
     summary: 审核候选变更
+    operationId: postProjectsByProjectIdCandidateChangesByChangeIdReview
     tags: [Project, CandidateChange]
     security:
       - BearerAuth: []
@@ -405,6 +417,7 @@
 /api/v1/projects/{project_id}/members:
   get:
     summary: 获取项目成员列表
+    operationId: getProjectsByProjectIdMembers
     tags: [Project, Member]
     security:
       - BearerAuth: []
@@ -428,6 +441,7 @@
 
   post:
     summary: 添加项目成员
+    operationId: postProjectsByProjectIdMembers
     tags: [Project, Member]
     security:
       - BearerAuth: []
@@ -463,6 +477,7 @@
 /api/v1/projects/{project_id}/members/{member_id}:
   patch:
     summary: 更新项目成员权限
+    operationId: patchProjectsByProjectIdMembersByMemberId
     tags: [Project, Member]
     security:
       - BearerAuth: []

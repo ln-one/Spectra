@@ -32,3 +32,10 @@ Conflict:
     application/json:
       schema:
         $ref: '../schemas/common.yaml#/ErrorResponse'
+
+ServiceUnavailable:
+  description: 服务不可用
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ErrorResponse'

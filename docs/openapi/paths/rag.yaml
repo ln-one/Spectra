@@ -1,6 +1,7 @@
 /api/v1/rag/search:
   post:
     summary: 检索知识库
+    operationId: postRagSearch
     tags: [RAG]
     security:
       - BearerAuth: []
@@ -27,6 +28,7 @@
 /api/v1/rag/sources/{chunk_id}:
   get:
     summary: 查看来源详情
+    operationId: getRagSourcesByChunkId
     tags: [RAG]
     security:
       - BearerAuth: []
@@ -53,6 +55,7 @@
 /api/v1/rag/index:
   post:
     summary: 索引新文件到知识库
+    operationId: postRagIndex
     description: 将上传的文件添加到 RAG 知识库索引
     tags: [RAG]
     security:
@@ -104,6 +107,7 @@
 /api/v1/rag/similar:
   post:
     summary: 查找相似内容
+    operationId: postRagSimilar
     description: 基于给定文本查找知识库中的相似内容
     tags: [RAG]
     security:

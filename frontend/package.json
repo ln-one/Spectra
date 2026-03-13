@@ -11,7 +11,8 @@
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "sdk:generate": "openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -55,6 +56,7 @@
     "motion": "^12.35.2",
     "next": "15.5.10",
     "next-themes": "^0.4.6",
+    "openapi-fetch": "^0.17.0",
     "react": "^18",
     "react-day-picker": "^9.14.0",
     "react-dom": "^18",
@@ -85,6 +87,7 @@
     "eslint-config-next": "^0.2.4",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.2.0",
+    "openapi-typescript": "^7.13.0",
     "postcss": "^8",
     "prettier": "^3.2.5",
     "tailwindcss": "^3.4.1",

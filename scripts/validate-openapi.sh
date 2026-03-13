@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 echo "🔍 验证 OpenAPI 规范..."
 
 # 验证语法
-"${REPO_ROOT}/node_modules/.bin/redocly" lint "${REPO_ROOT}/docs/openapi.yaml"
+"${REPO_ROOT}/node_modules/.bin/redocly" lint --config "${REPO_ROOT}/.redocly.yaml" "${REPO_ROOT}/docs/openapi.yaml"
 
 if [ $? -eq 0 ]; then
     echo "✅ OpenAPI 规范验证通过"
