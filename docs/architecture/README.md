@@ -1,15 +1,16 @@
 # 架构文档说明
 
-> 更新时间：2026-03-02
+> 更新时间：2026-03-12
 
 ## 当前推荐阅读顺序
 
 1. [技术栈（MVP 对齐版）](./tech-stack.md)
-2. [契约优先架构调整说明](./contract-first-adjustment.md)
-3. [系统总览](./system/overview.md)
+2. [系统总览](./system/overview.md)
+3. [API 契约](./api-contract.md)
 4. [前端架构](./frontend/overview.md)
 5. [后端架构](./backend/overview.md)
 6. [部署说明](./deployment.md)
+7. [Project-Space 演进索引（2026-03-09）](../project/SPACE_MODEL_INDEX_2026-03-09.md)
 
 ## 文档定位
 
@@ -17,6 +18,7 @@
 - `system/`：跨前后端系统视角。
 - `frontend/`、`backend/`：分层设计与实现细节。
 - `deployment*`：本地与生产部署要点。
+- `docs/project/*_2026-03-09.md`：下一阶段的 Project-Space 演进主线（模型、API、数据草案）。
 
 ## 维护要求
 

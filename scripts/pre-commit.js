@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const runCommand = (command, cwd) => {
@@ -15,9 +16,26 @@ const runCommand = (command, cwd) => {
     }
 };
 
-const frontendDir = path.join(__dirname, '..', 'frontend');
-const backendDir = path.join(__dirname, '..', 'backend');
 const rootDir = path.join(__dirname, '..');
+const frontendDir = path.join(rootDir, 'frontend');
+const backendDir = path.join(rootDir, 'backend');
+const venvBinDir =
+    process.platform === 'win32'
+        ? path.join(rootDir, '.venv', 'Scripts')
+        : path.join(rootDir, '.venv', 'bin');
+
+const resolveVenvTool = (name, fallback = name) => {
+    const candidate = path.join(venvBinDir, name);
+    if (fs.existsSync(candidate)) {
+        return candidate;
+    }
+    return fallback;
+};
+
+const blackCmd = resolveVenvTool('black');
+const isortCmd = resolveVenvTool('isort');
+const flake8Cmd = resolveVenvTool('flake8');
+const pytestCmd = resolveVenvTool('pytest');
 
 console.log('🔍 Running pre-commit checks...\n');
 
@@ -39,20 +57,20 @@ if (!runCommand('npm test', frontendDir)) process.exit(1);
 // Backend checks
 console.log('\n🐍 Backend checks...');
 console.log('  ├─ Auto-formatting code (black)...');
-if (!runCommand('black .', backendDir)) process.exit(1);
+if (!runCommand(`${blackCmd} .`, backendDir)) process.exit(1);
 
 console.log('  ├─ Auto-sorting imports (isort)...');
-if (!runCommand('isort .', backendDir)) process.exit(1);
+if (!runCommand(`${isortCmd} .`, backendDir)) process.exit(1);
 
 // Add formatted files back to staging area
 console.log('  ├─ Adding formatted files to staging...');
 if (!runCommand('git add backend/', rootDir)) process.exit(1);
 
 console.log('  ├─ Linting (flake8)...');
-if (!runCommand('flake8 .', backendDir)) process.exit(1);
+if (!runCommand(`${flake8Cmd} .`, backendDir)) process.exit(1);
 
 console.log('  ├─ Running tests...');
-if (!runCommand('pytest -m "not integration and not slow"', backendDir)) process.exit(1);
+if (!runCommand(`${pytestCmd} -m "not integration and not slow"`, backendDir)) process.exit(1);
 
 // Check if any files were formatted during the hook execution and add them
 console.log('  ├─ Adding any remaining formatted files...');

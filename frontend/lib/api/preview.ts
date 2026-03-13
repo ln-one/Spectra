@@ -84,45 +84,4 @@ export const previewApi = {
       }
     );
   },
-
-  // ─── Legacy task-level 预览（兼容旧流程） ───
-
-  async getTaskPreview(taskId: string): Promise<PreviewResponse> {
-    return request<PreviewResponse>(`/preview/${taskId}`, {
-      method: "GET",
-    });
-  },
-
-  async modifyTaskPreview(
-    taskId: string,
-    data: components["schemas"]["ModifyRequest"]
-  ): Promise<ModifyResponse> {
-    return request<ModifyResponse>(`/preview/${taskId}/modify`, {
-      method: "POST",
-      body: JSON.stringify(data),
-      autoIdempotency: true,
-    });
-  },
-
-  async getTaskSlideDetail(
-    taskId: string,
-    slideId: string
-  ): Promise<SlideDetailResponse> {
-    return request<SlideDetailResponse>(
-      `/preview/${taskId}/slides/${slideId}`,
-      {
-        method: "GET",
-      }
-    );
-  },
-
-  async exportTaskPreview(
-    taskId: string,
-    data: ExportRequest
-  ): Promise<ExportResponse> {
-    return request<ExportResponse>(`/preview/${taskId}/export`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  },
 };

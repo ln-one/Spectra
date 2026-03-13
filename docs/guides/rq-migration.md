@@ -176,40 +176,46 @@ kill -TERM <worker_pid>
 
 ### 4. 验证升级
 
-#### 4.1 提交测试任务
+#### 4.1 创建测试会话
 
-使用 API 提交课件生成任务：
+使用 API 创建生成会话：
 ```bash
-curl -X POST http://localhost:8000/api/v1/generate/courseware \
+curl -X POST http://localhost:8000/api/v1/generate/sessions \
   -H "Content-Type: application/json" \
   -d '{
     "project_id": "test-project-id",
-    "type": "pptx"
+    "output_type": "pptx"
   }'
 ```
 
 响应示例：
 ```json
 {
-  "task_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "pending",
-  "message": "Task submitted successfully"
+  "success": true,
+  "data": {
+    "session_id": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "message": "ok"
 }
 ```
 
-#### 4.2 查询任务状态
+#### 4.2 查询会话状态
 
 ```bash
-curl http://localhost:8000/api/v1/generate/tasks/{task_id}/status
+curl http://localhost:8000/api/v1/generate/sessions/{session_id}
 ```
 
 响应示例：
 ```json
 {
-  "task_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "processing",
-  "progress": 50,
-  "created_at": "2024-01-15T10:00:00Z"
+  "success": true,
+  "data": {
+    "session_id": "550e8400-e29b-41d4-a716-446655440000",
+    "state": "GENERATING_CONTENT",
+    "allowed_actions": ["CONFIRM_OUTLINE", "REGENERATE_SLIDE"],
+    "updated_at": "2024-01-15T10:00:00Z"
+  },
+  "message": "ok"
 }
 ```
 
@@ -262,29 +268,11 @@ INFO - generation_task_completed - execution_time=120.5s
 
 ## API 兼容性
 
-### 保持不变的接口
+### 迁移结论（已完成）
 
-✅ **提交任务接口**：
-```
-POST /api/v1/generate/courseware
-```
-请求和响应格式完全不变。
-
-✅ **查询状态接口**：
-```
-GET /api/v1/generate/tasks/{task_id}/status
-```
-响应格式完全不变。
-
-✅ **下载文件接口**：
-```
-GET /api/v1/generate/tasks/{task_id}/download?file_type=ppt
-```
-完全不变。
-
-### 前端改动与兼容性
-
-本次迁移保持了 API 调用协议兼容，现有前端可以继续使用当前的 API 调用逻辑而无需强制修改；同时，本 PR 在生成页中增加了持久化/恢复 taskId 以及增强轮询恢复能力的可选前端逻辑，用于在页面刷新或异常中断后更好地恢复任务状态。
+- 旧任务型接口（`/api/v1/generate/courseware`、`/api/v1/generate/tasks/*`）已移除。
+- 统一使用 `session-first` 路径：`/api/v1/generate/sessions*`。
+- 前端与后端均已对齐新契约。
 
 ## 监控和运维
 
@@ -519,7 +507,7 @@ RQ 升级完成后，系统具备以下能力：
 ✅ **可重试性**：自动重试机制和指数退避策略  
 ✅ **可扩展性**：支持多 Worker 并行处理  
 ✅ **可监控性**：完善的任务状态追踪和队列监控  
-✅ **向后兼容**：API 接口保持不变，前端无需修改
+✅ **契约一致**：API 已完成 `session-first` 迁移，前后端已对齐
 
 如有问题，请参考：
 - [Backend README](../../backend/README.md)

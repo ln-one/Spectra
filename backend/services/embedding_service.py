@@ -8,6 +8,8 @@ import logging
 import os
 from typing import Optional
 
+import anyio
+
 logger = logging.getLogger(__name__)
 
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "qwen3-vl-embedding")
@@ -85,7 +87,7 @@ class EmbeddingService:
 
         if self._use_dashscope():
             return await self._embed_dashscope(texts)
-        return self._embed_local(texts)
+        return await self._embed_local(texts)
 
     async def _embed_dashscope(self, texts: list[str]) -> list[list[float]]:
         """使用 DashScope API 进行向量化"""
@@ -114,13 +116,17 @@ class EmbeddingService:
 
         except Exception as e:
             logger.warning(f"DashScope embedding failed, falling back to local: {e}")
-            return self._embed_local(texts)
+            return await self._embed_local(texts)
 
-    def _embed_local(self, texts: list[str]) -> list[list[float]]:
-        """使用本地 sentence-transformers 模型进行向量化"""
+    def _embed_local_sync(self, texts: list[str]) -> list[list[float]]:
+        """使用本地 sentence-transformers 模型进行向量化（同步）"""
         model = self._get_local_model()
         embeddings = model.encode(texts, convert_to_numpy=True)
         return [emb.tolist() for emb in embeddings]
+
+    async def _embed_local(self, texts: list[str]) -> list[list[float]]:
+        """使用本地 sentence-transformers 模型进行向量化（线程池，避免阻塞事件循环）"""
+        return await anyio.to_thread.run_sync(self._embed_local_sync, texts)
 
 
 # 全局实例

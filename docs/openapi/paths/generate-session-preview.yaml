@@ -1,0 +1,143 @@
+/api/v1/generate/sessions/{session_id}/preview:
+  get:
+    summary: 获取会话级课件预览
+    tags: [Preview]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: artifact_id
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 指定预览的成果 ID（可选）
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/preview.yaml#/PreviewResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/sessions/{session_id}/preview/modify:
+  post:
+    summary: 提交会话级预览修改
+    tags: [Preview]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/preview.yaml#/ModifySessionRequest'
+    responses:
+      '200':
+        description: 修改任务已创建
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/preview.yaml#/ModifyResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}:
+  get:
+    summary: 获取会话级单页详情
+    tags: [Preview]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: slide_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: artifact_id
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 指定来源成果 ID（可选）
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/preview.yaml#/SlideDetailResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/sessions/{session_id}/preview/export:
+  post:
+    summary: 导出会话级预览内容
+    tags: [Preview]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/preview.yaml#/ExportRequest'
+    responses:
+      '200':
+        description: 导出成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/preview.yaml#/ExportResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'

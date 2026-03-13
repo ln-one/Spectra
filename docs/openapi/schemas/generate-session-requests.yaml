@@ -37,6 +37,51 @@ GenerationSessionResponse:
     message:
       type: string
 
+GenerationSessionListItem:
+  type: object
+  required: [session_id, project_id, output_type, state, created_at, updated_at]
+  properties:
+    session_id:
+      type: string
+    project_id:
+      type: string
+    output_type:
+      $ref: './generate-core.yaml#/GenerationSessionMode'
+    state:
+      $ref: './generate-core.yaml#/GenerationState'
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+GenerationSessionListResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [sessions, total, page, limit]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/GenerationSessionListItem'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+    message:
+      type: string
+
 UpdateOutlineRequest:
   type: object
   required: [outline, base_version]

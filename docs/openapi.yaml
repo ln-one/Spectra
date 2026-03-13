@@ -396,12 +396,50 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /api/v1/generate/courseware:
+  /api/v1/generate/sessions:
+    get:
+      summary: 获取生成会话列表
+      description: 返回项目内生成会话列表（按更新时间倒序）
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationSessionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
-      summary: 生成课件（兼容入口）
-      description: |
-        兼容旧版的一次性创建接口。新流程推荐使用 /generate/sessions 系列接口，
-        支持阶段式中断、事件流推送与局部重绘。
+      summary: 创建生成会话
+      description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
       tags:
         - Generate
       security:
@@ -414,126 +452,380 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GenerateRequest'
+              $ref: '#/components/schemas/CreateGenerationSessionRequest'
       responses:
         '200':
-          description: 生成任务已创建
+          description: 会话创建成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenerateResponse'
+                $ref: '#/components/schemas/CreateGenerationSessionResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /api/v1/generate/tasks/{task_id}/status:
+  /api/v1/generate/sessions/{session_id}:
     get:
-      summary: 查询生成状态
+      summary: 查询生成会话快照
       tags:
         - Generate
       security:
         - BearerAuth: []
       parameters:
-        - name: task_id
+        - name: session_id
           in: path
           required: true
           schema:
             type: string
+        - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenerateStatusResponse'
+                $ref: '#/components/schemas/GenerationSessionResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/generate/tasks/{task_id}/download:
+  /api/v1/generate/sessions/{session_id}/events:
     get:
-      summary: 下载生成的课件文件
+      summary: 获取生成事件流（SSE）
+      description: |
+        默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
+        返回短轮询事件列表。
       tags:
         - Generate
       security:
         - BearerAuth: []
       parameters:
-        - name: task_id
+        - name: session_id
           in: path
           required: true
           schema:
             type: string
-        - name: file_type
+        - name: cursor
           in: query
-          required: true
+          required: false
+          schema:
+            type: string
+          description: 事件游标（用于断线续传）
+        - name: accept
+          in: query
+          required: false
           schema:
             type: string
             enum:
-              - ppt
-              - word
-          description: 要下载的文件类型
+              - text/event-stream
+              - application/json
+            default: text/event-stream
+        - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
-          description: 文件下载成功
+          description: 成功
           content:
-            application/vnd.openxmlformats-officedocument.presentationml.presentation:
+            text/event-stream:
               schema:
                 type: string
-                format: binary
-            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+                description: SSE stream，data 字段符合 GenerationEvent
+            application/json:
               schema:
-                type: string
-                format: binary
+                $ref: '#/components/schemas/GenerationEventListResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/generate/tasks/{task_id}/versions:
-    get:
-      summary: 获取任务的所有版本
+  /api/v1/generate/sessions/{session_id}/outline:
+    put:
+      summary: 更新大纲并回写会话
+      description: 兼容别名，等价于 command_type=UPDATE_OUTLINE
+      deprecated: true
       tags:
         - Generate
       security:
         - BearerAuth: []
       parameters:
-        - name: task_id
+        - name: session_id
           in: path
           required: true
           schema:
             type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOutlineRequest'
+      responses:
+        '200':
+          description: 大纲更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateOutlineResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/sessions/{session_id}/commands:
+    post:
+      summary: 执行会话命令（唯一写入口）
+      description: |
+        所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
+        服务层必须通过统一状态转换校验器（StateTransitionGuard）决定是否允许执行。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerationSessionCommandRequest'
+      responses:
+        '200':
+          description: 命令已执行或接受
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationSessionCommandResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/sessions/{session_id}/confirm:
+    post:
+      summary: 确认大纲并继续生成
+      description: 兼容别名，等价于 command_type=CONFIRM_OUTLINE
+      deprecated: true
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmOutlineRequest'
+      responses:
+        '200':
+          description: 已进入内容生成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmOutlineResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/sessions/{session_id}/outline/redraft:
+    post:
+      summary: 请求 AI 重写大纲
+      description: 兼容别名，等价于 command_type=REDRAFT_OUTLINE
+      deprecated: true
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedraftOutlineRequest'
+      responses:
+        '200':
+          description: 已进入大纲重写阶段
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedraftOutlineResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/sessions/{session_id}/resume:
+    post:
+      summary: 恢复中断会话
+      description: 兼容别名，等价于 command_type=RESUME_SESSION
+      deprecated: true
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumeSessionRequest'
+      responses:
+        '200':
+          description: 恢复成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
+    post:
+      summary: 局部重绘单页
+      description: 兼容别名，等价于 command_type=REGENERATE_SLIDE
+      deprecated: true
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: slide_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenerateSlideRequest'
+      responses:
+        '200':
+          description: 局部重绘成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegenerateSlideResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/capabilities:
+    get:
+      summary: 获取生成域能力声明
+      description: 返回服务端当前支持的契约版本、特性开关与弃用信息。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
           description: 成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VersionsResponse'
+                $ref: '#/components/schemas/GenerationCapabilitiesResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/v1/preview/{task_id}:
+  /api/v1/generate/sessions/{session_id}/preview:
     get:
-      summary: 获取课件预览
-      description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview）
+      summary: 获取会话级课件预览
       tags:
         - Preview
       security:
         - BearerAuth: []
       parameters:
-        - name: task_id
+        - name: session_id
           in: path
           required: true
           schema:
             type: string
+        - name: artifact_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定预览的成果 ID（可选）
+        - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
           description: 成功
@@ -547,27 +839,27 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/preview/{task_id}/modify:
+  /api/v1/generate/sessions/{session_id}/preview/modify:
     post:
-      summary: 提交修改指令
-      description: 兼容旧任务流（推荐迁移到 /api/v1/generate/sessions/{session_id}/preview/modify）
+      summary: 提交会话级预览修改
       tags:
         - Preview
       security:
         - BearerAuth: []
       parameters:
-        - name: task_id
+        - name: session_id
           in: path
           required: true
           schema:
             type: string
         - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ModifyRequest'
+              $ref: '#/components/schemas/ModifySessionRequest'
       responses:
         '200':
           description: 修改任务已创建
@@ -583,16 +875,17 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/preview/{task_id}/slides/{slide_id}:
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}:
     get:
-      summary: 获取单个幻灯片详情
-      description: 查看特定幻灯片的详细内容和来源（兼容旧任务流）
+      summary: 获取会话级单页详情
       tags:
         - Preview
       security:
         - BearerAuth: []
       parameters:
-        - name: task_id
+        - name: session_id
           in: path
           required: true
           schema:
@@ -602,6 +895,13 @@ paths:
           required: true
           schema:
             type: string
+        - name: artifact_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定来源成果 ID（可选）
+        - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
           description: 成功
@@ -615,20 +915,20 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/preview/{task_id}/export:
+  /api/v1/generate/sessions/{session_id}/preview/export:
     post:
-      summary: 导出预览内容
-      description: 将预览内容导出为指定格式（兼容旧任务流）
+      summary: 导出会话级预览内容
       tags:
         - Preview
       security:
         - BearerAuth: []
       parameters:
-        - name: task_id
+        - name: session_id
           in: path
           required: true
           schema:
             type: string
+        - $ref: '#/components/parameters/ContractVersion'
       requestBody:
         required: true
         content:
@@ -648,6 +948,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/rag/search:
     post:
       summary: 检索知识库
@@ -1281,6 +1583,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Message'
+        rag_source_ids:
+          type: array
+          items:
+            type: string
+          description: 限定 RAG 检索范围的文件 ID 列表（空列表/未传表示不限）
     SendMessageResponse:
       type: object
       required:
@@ -1624,6 +1931,74 @@ components:
         - ppt
         - word
         - both
+    GenerationState:
+      type: string
+      enum:
+        - IDLE
+        - CONFIGURING
+        - ANALYZING
+        - DRAFTING_OUTLINE
+        - AWAITING_OUTLINE_CONFIRM
+        - GENERATING_CONTENT
+        - RENDERING
+        - SUCCESS
+        - FAILED
+    GenerationSessionListItem:
+      type: object
+      required:
+        - session_id
+        - project_id
+        - output_type
+        - state
+        - created_at
+        - updated_at
+      properties:
+        session_id:
+          type: string
+        project_id:
+          type: string
+        output_type:
+          $ref: '#/components/schemas/GenerationSessionMode'
+        state:
+          $ref: '#/components/schemas/GenerationState'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    GenerationSessionListResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - sessions
+            - total
+            - page
+            - limit
+          properties:
+            sessions:
+              type: array
+              items:
+                $ref: '#/components/schemas/GenerationSessionListItem'
+            total:
+              type: integer
+              minimum: 0
+            page:
+              type: integer
+              minimum: 1
+            limit:
+              type: integer
+              minimum: 1
+        message:
+          type: string
     CoursewareStylePreset:
       type: string
       enum:
@@ -1705,28 +2080,20 @@ components:
           items:
             type: string
           description: 本次生成绑定的素材 ID 列表
-    GenerateRequest:
+    CreateGenerationSessionRequest:
       type: object
       required:
         - project_id
-        - type
+        - output_type
       properties:
         project_id:
           type: string
-        type:
+        output_type:
           $ref: '#/components/schemas/GenerationSessionMode'
         options:
           $ref: '#/components/schemas/GenerationOptions'
-        start_mode:
-          type: string
-          enum:
-            - direct_generate
-            - draft_then_confirm
-          default: draft_then_confirm
-          description: 兼容旧入口时可直接生成，推荐先走大纲确认
         client_session_id:
           type: string
-          description: 客户端会话 ID，用于断线重连恢复
     GenerateTaskStatus:
       type: string
       enum:
@@ -1734,19 +2101,45 @@ components:
         - processing
         - completed
         - failed
-    GenerationState:
-      type: string
-      enum:
-        - IDLE
-        - CONFIGURING
-        - ANALYZING
-        - DRAFTING_OUTLINE
-        - AWAITING_OUTLINE_CONFIRM
-        - GENERATING_CONTENT
-        - RENDERING
-        - SUCCESS
-        - FAILED
-    GenerateResponse:
+    SessionRef:
+      type: object
+      required:
+        - session_id
+        - project_id
+        - state
+        - contract_version
+      properties:
+        session_id:
+          type: string
+        project_id:
+          type: string
+        task_id:
+          type: string
+          description: 兼容旧任务模型时可返回
+        state:
+          $ref: '#/components/schemas/GenerationState'
+        state_reason:
+          type: string
+          description: 状态附加语义（用于未知状态或灰度状态说明）
+        status:
+          $ref: '#/components/schemas/GenerateTaskStatus'
+        contract_version:
+          type: string
+          example: 2026-03
+        schema_version:
+          type: integer
+          minimum: 1
+          description: 会话载荷结构版本
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        resumable:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+    CreateGenerationSessionResponse:
       type: object
       required:
         - success
@@ -1757,15 +2150,11 @@ components:
           type: boolean
         data:
           type: object
+          required:
+            - session
           properties:
-            task_id:
-              type: string
-            session_id:
-              type: string
-            status:
-              $ref: '#/components/schemas/GenerateTaskStatus'
-            state:
-              $ref: '#/components/schemas/GenerationState'
+            session:
+              $ref: '#/components/schemas/SessionRef'
         message:
           type: string
     OutlineNode:
@@ -1807,7 +2196,141 @@ components:
             $ref: '#/components/schemas/OutlineNode'
         summary:
           type: string
-    GenerateStatusResponse:
+    SessionContextSnapshot:
+      type: object
+      properties:
+        retrieval_id:
+          type: string
+        selected_source_ids:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+    generate-capabilities_CapabilityStatus:
+      type: string
+      enum:
+        - available
+        - degraded
+        - unavailable
+    CapabilityDeclaration:
+      type: object
+      required:
+        - name
+        - status
+        - operations
+      properties:
+        name:
+          type: string
+          enum:
+            - document_parser
+            - video_understanding
+            - speech_recognition
+            - outline_generation
+            - slide_regeneration
+            - event_stream
+        status:
+          $ref: '#/components/schemas/generate-capabilities_CapabilityStatus'
+        providers:
+          type: array
+          items:
+            type: string
+        default_provider:
+          type: string
+        fallback_chain:
+          type: array
+          items:
+            type: string
+        operations:
+          type: array
+          items:
+            type: string
+        status_message:
+          type: string
+    ExternalFallbackInfo:
+      type: object
+      required:
+        - capability
+        - fallback_used
+      properties:
+        capability:
+          type: string
+          enum:
+            - document_parser
+            - video_understanding
+            - speech_recognition
+        provider:
+          type: string
+          description: 原始目标能力或供应商
+          example: MinerU
+        fallback_used:
+          type: boolean
+        fallback_target:
+          type: string
+          description: 实际回退到的能力或供应商
+          example: local_parser
+        reason_code:
+          type: string
+          description: 降级原因码（超时/限流/服务不可用等）
+          example: PROVIDER_TIMEOUT
+        user_message:
+          type: string
+          description: 可直接展示给用户的降级提示语
+    SessionStatePayload:
+      type: object
+      required:
+        - session
+      properties:
+        session:
+          $ref: '#/components/schemas/SessionRef'
+        options:
+          $ref: '#/components/schemas/GenerationOptions'
+        outline:
+          $ref: '#/components/schemas/OutlineDocument'
+        context_snapshot:
+          $ref: '#/components/schemas/SessionContextSnapshot'
+        capabilities:
+          type: array
+          description: 服务端能力声明（状态、供应商、可用操作）
+          items:
+            $ref: '#/components/schemas/CapabilityDeclaration'
+        fallbacks:
+          type: array
+          description: 当前会话发生过的能力降级记录（按时间追加）
+          items:
+            $ref: '#/components/schemas/ExternalFallbackInfo'
+        allowed_actions:
+          type: array
+          description: 当前状态下允许的下一步动作（防止前后端状态错配）
+          items:
+            type: string
+            example: update_outline
+        result:
+          type: object
+          properties:
+            ppt_url:
+              type: string
+            word_url:
+              type: string
+            version:
+              type: integer
+              minimum: 1
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            retryable:
+              type: boolean
+            fallback:
+              $ref: '#/components/schemas/ExternalFallbackInfo'
+            transition_guard:
+              type: string
+              description: 状态转换校验器名称
+              example: StateTransitionGuard
+    GenerationSessionResponse:
       type: object
       required:
         - success
@@ -1817,47 +2340,55 @@ components:
         success:
           type: boolean
         data:
-          type: object
-          properties:
-            task_id:
-              type: string
-            session_id:
-              type: string
-            status:
-              $ref: '#/components/schemas/GenerateTaskStatus'
-            state:
-              $ref: '#/components/schemas/GenerationState'
-            progress:
-              type: integer
-              minimum: 0
-              maximum: 100
-              description: 生成进度百分比
-            outline:
-              $ref: '#/components/schemas/OutlineDocument'
-            result:
-              type: object
-              properties:
-                ppt_url:
-                  type: string
-                word_url:
-                  type: string
-                version:
-                  type: integer
-                  description: 当前版本号
-            error:
-              type: string
-            error_detail:
-              type: object
-              properties:
-                code:
-                  type: string
-                message:
-                  type: string
-                retryable:
-                  type: boolean
+          $ref: '#/components/schemas/SessionStatePayload'
         message:
           type: string
-    VersionsResponse:
+    GenerationEventType:
+      type: string
+      enum:
+        - state.changed
+        - progress.updated
+        - outline.ready
+        - outline.updated
+        - slide.updated
+        - task.completed
+        - task.failed
+        - session.recovered
+    GenerationEvent:
+      type: object
+      required:
+        - event_id
+        - event_type
+        - state
+        - timestamp
+        - cursor
+      properties:
+        event_id:
+          type: string
+        event_schema_version:
+          type: integer
+          minimum: 1
+          default: 1
+        event_type:
+          $ref: '#/components/schemas/GenerationEventType'
+        state:
+          $ref: '#/components/schemas/GenerationState'
+        state_reason:
+          type: string
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        timestamp:
+          type: string
+          format: date-time
+        cursor:
+          type: string
+          description: 增量消费游标
+        payload:
+          type: object
+          description: 事件附带的业务数据
+    GenerationEventListResponse:
       type: object
       required:
         - success
@@ -1869,33 +2400,461 @@ components:
         data:
           type: object
           properties:
-            task_id:
+            events:
+              type: array
+              items:
+                $ref: '#/components/schemas/GenerationEvent'
+        message:
+          type: string
+    UpdateOutlineRequest:
+      type: object
+      required:
+        - outline
+        - base_version
+      properties:
+        base_version:
+          type: integer
+          minimum: 1
+          description: 客户端编辑所基于的大纲版本（并发控制）
+        outline:
+          $ref: '#/components/schemas/OutlineDocument'
+        change_reason:
+          type: string
+          maxLength: 1000
+    UpdateOutlineResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            session:
+              $ref: '#/components/schemas/SessionRef'
+            outline:
+              $ref: '#/components/schemas/OutlineDocument'
+        message:
+          type: string
+    UpdateOutlineCommand:
+      type: object
+      required:
+        - command_type
+        - base_version
+        - outline
+      properties:
+        command_type:
+          type: string
+          enum:
+            - UPDATE_OUTLINE
+        base_version:
+          type: integer
+          minimum: 1
+        outline:
+          $ref: '#/components/schemas/OutlineDocument'
+        change_reason:
+          type: string
+          maxLength: 1000
+    RedraftOutlineCommand:
+      type: object
+      required:
+        - command_type
+        - instruction
+        - base_version
+      properties:
+        command_type:
+          type: string
+          enum:
+            - REDRAFT_OUTLINE
+        instruction:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        base_version:
+          type: integer
+          minimum: 1
+    ConfirmOutlineCommand:
+      type: object
+      required:
+        - command_type
+      properties:
+        command_type:
+          type: string
+          enum:
+            - CONFIRM_OUTLINE
+        continue_from_retrieval:
+          type: boolean
+          default: true
+        expected_state:
+          $ref: '#/components/schemas/GenerationState'
+    StructuredPatchOperationType:
+      type: string
+      enum:
+        - replace_text
+        - insert_block
+        - remove_block
+        - replace_image
+        - reorder_block
+    StructuredSlidePatchOperation:
+      type: object
+      required:
+        - op
+        - path
+      properties:
+        op:
+          $ref: '#/components/schemas/StructuredPatchOperationType'
+        path:
+          type: string
+          description: 目标路径（JSON Pointer 风格）
+          example: /slides/5/body/blocks/2
+        value:
+          type: object
+          description: 操作值（按 op 类型解释）
+        note:
+          type: string
+          description: 可选备注，便于审计与回放
+    StructuredSlidePatch:
+      type: object
+      required:
+        - schema_version
+        - operations
+      properties:
+        schema_version:
+          type: integer
+          minimum: 1
+          default: 1
+        operations:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/StructuredSlidePatchOperation'
+    RegenerateSlideCommand:
+      type: object
+      required:
+        - command_type
+        - slide_id
+        - patch
+      properties:
+        command_type:
+          type: string
+          enum:
+            - REGENERATE_SLIDE
+        slide_id:
+          type: string
+        patch:
+          $ref: '#/components/schemas/StructuredSlidePatch'
+        expected_render_version:
+          type: integer
+          minimum: 1
+    ResumeSessionCommand:
+      type: object
+      required:
+        - command_type
+      properties:
+        command_type:
+          type: string
+          enum:
+            - RESUME_SESSION
+        cursor:
+          type: string
+        last_known_state:
+          $ref: '#/components/schemas/GenerationState'
+    GenerationCommandEnvelope:
+      oneOf:
+        - $ref: '#/components/schemas/UpdateOutlineCommand'
+        - $ref: '#/components/schemas/RedraftOutlineCommand'
+        - $ref: '#/components/schemas/ConfirmOutlineCommand'
+        - $ref: '#/components/schemas/RegenerateSlideCommand'
+        - $ref: '#/components/schemas/ResumeSessionCommand'
+      discriminator:
+        propertyName: command_type
+    GenerationSessionCommandRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          $ref: '#/components/schemas/GenerationCommandEnvelope'
+    GenerationCommandType:
+      type: string
+      enum:
+        - UPDATE_OUTLINE
+        - REDRAFT_OUTLINE
+        - CONFIRM_OUTLINE
+        - REGENERATE_SLIDE
+        - RESUME_SESSION
+    AppliedTransition:
+      type: object
+      required:
+        - command_type
+        - from_state
+        - to_state
+        - validated_by
+      properties:
+        command_type:
+          $ref: '#/components/schemas/GenerationCommandType'
+        from_state:
+          $ref: '#/components/schemas/GenerationState'
+        to_state:
+          $ref: '#/components/schemas/GenerationState'
+        validated_by:
+          type: string
+          example: StateTransitionGuard
+    GenerationSessionCommandResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - command_id
+            - session
+          properties:
+            command_id:
               type: string
-            versions:
+            accepted:
+              type: boolean
+              default: true
+            transition:
+              $ref: '#/components/schemas/AppliedTransition'
+            session:
+              $ref: '#/components/schemas/SessionRef'
+            warnings:
+              type: array
+              items:
+                type: string
+        message:
+          type: string
+    ConfirmOutlineRequest:
+      type: object
+      properties:
+        continue_from_retrieval:
+          type: boolean
+          default: true
+          description: 是否复用 ANALYZING 阶段上下文
+        expected_state:
+          allOf:
+            - $ref: '#/components/schemas/GenerationState'
+          description: 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM
+    ConfirmOutlineResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            session:
+              $ref: '#/components/schemas/SessionRef'
+        message:
+          type: string
+    RedraftOutlineRequest:
+      type: object
+      required:
+        - instruction
+        - base_version
+      properties:
+        instruction:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: 用户要求重写大纲的指导语
+        base_version:
+          type: integer
+          minimum: 1
+          description: 当前确认页所见大纲版本
+    RedraftOutlineResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            session:
+              $ref: '#/components/schemas/SessionRef'
+        message:
+          type: string
+    ResumeSessionRequest:
+      type: object
+      properties:
+        cursor:
+          type: string
+          description: 上次消费到的事件游标
+        last_known_state:
+          $ref: '#/components/schemas/GenerationState'
+    ResumeSessionResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            session:
+              $ref: '#/components/schemas/SessionRef'
+            latest_event:
+              $ref: '#/components/schemas/GenerationEvent'
+        message:
+          type: string
+    RegenerateSlideRequest:
+      type: object
+      required:
+        - patch
+      properties:
+        instruction:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: 可选自然语言补充说明，最终以结构化 patch 为准
+        slide_index:
+          type: integer
+          minimum: 1
+        patch:
+          $ref: '#/components/schemas/StructuredSlidePatch'
+        expected_render_version:
+          type: integer
+          minimum: 1
+          description: 防止并发覆盖的版本控制字段
+    RegenerateSlideResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            session:
+              $ref: '#/components/schemas/SessionRef'
+            updated_slide:
+              type: object
+              properties:
+                slide_id:
+                  type: string
+                slide_index:
+                  type: integer
+                content_markdown:
+                  type: string
+                sources:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SourceReference'
+                render_version:
+                  type: integer
+        message:
+          type: string
+    StateTransitionRule:
+      type: object
+      required:
+        - command_type
+        - from_state
+        - to_state
+      properties:
+        command_type:
+          $ref: '#/components/schemas/GenerationCommandType'
+        from_state:
+          $ref: '#/components/schemas/GenerationState'
+        to_state:
+          $ref: '#/components/schemas/GenerationState'
+    StateMachineDeclaration:
+      type: object
+      required:
+        - states
+        - terminal_states
+        - transitions
+      properties:
+        states:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenerationState'
+        terminal_states:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenerationState'
+        transitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateTransitionRule'
+    GenerationCapabilitiesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - contract_versions
+            - default_contract_version
+            - capabilities
+            - state_machine
+            - command_interface
+          properties:
+            contract_versions:
+              type: array
+              items:
+                type: string
+            default_contract_version:
+              type: string
+            command_interface:
+              type: object
+              required:
+                - endpoint
+                - supported_commands
+              properties:
+                endpoint:
+                  type: string
+                  example: /api/v1/generate/sessions/{session_id}/commands
+                supported_commands:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/GenerationCommandType'
+            capabilities:
+              type: array
+              items:
+                $ref: '#/components/schemas/CapabilityDeclaration'
+            state_machine:
+              $ref: '#/components/schemas/StateMachineDeclaration'
+            deprecations:
               type: array
               items:
                 type: object
                 properties:
-                  version:
-                    type: integer
-                  created_at:
+                  api:
+                    type: string
+                  sunset_at:
                     type: string
                     format: date-time
-                  status:
+                  replacement:
                     type: string
-                    enum:
-                      - completed
-                      - failed
-                  file_urls:
-                    type: object
-                    properties:
-                      ppt_url:
-                        type: string
-                      word_url:
-                        type: string
-                  modification_note:
-                    type: string
-                    description: 修改说明
         message:
           type: string
     Slide:
@@ -1976,6 +2935,15 @@ components:
             task_id:
               type: string
               description: 兼容旧任务流的执行 ID
+              nullable: true
+            artifact_id:
+              type: string
+              description: 当前预览对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 当前预览基于的正式版本 ID
+              nullable: true
             render_version:
               type: integer
               minimum: 1
@@ -1988,14 +2956,14 @@ components:
               $ref: '#/components/schemas/LessonPlan'
         message:
           type: string
-    ModifyRequest:
+    ModifySessionRequest:
       type: object
       required:
         - instruction
       properties:
-        session_id:
+        artifact_id:
           type: string
-          description: 兼容字段。仅在 task 路由下用于显式绑定会话。
+          description: 指定要修改的成果 ID（可选）
         instruction:
           type: string
           minLength: 1
@@ -2038,6 +3006,14 @@ components:
               type: integer
               minimum: 1
               description: 修改后最新渲染版本
+            artifact_id:
+              type: string
+              description: 修改任务对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 修改任务基于的正式版本 ID
+              nullable: true
         message:
           type: string
     SlideDetailResponse:
@@ -2083,6 +3059,9 @@ components:
       required:
         - format
       properties:
+        artifact_id:
+          type: string
+          description: 指定要导出的成果 ID（可选）
         format:
           type: string
           enum:
@@ -2099,7 +3078,6 @@ components:
           minimum: 1
           description: |
             可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。
-            legacy 导出接口 `/api/v1/preview/{task_id}/export` 可忽略该字段。
     ExportResponse:
       type: object
       required:
@@ -2118,6 +3096,15 @@ components:
             task_id:
               type: string
               description: 兼容旧任务执行 ID
+              nullable: true
+            artifact_id:
+              type: string
+              description: 导出对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 导出基于的正式版本 ID
+              nullable: true
             content:
               type: string
               description: 导出的内容

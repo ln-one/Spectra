@@ -126,8 +126,8 @@ All API endpoints are prefixed with `/api/v1`.
 - `GET /api/v1/projects/{project_id}/files` - List project files
 
 ### AI Generation
-- `POST /api/v1/generate/courseware` - Generate courseware
-- `GET /api/v1/generate/status/{task_id}` - Check generation status
+- `POST /api/v1/generate/sessions` - Create generation session
+- `GET /api/v1/generate/sessions/{session_id}` - Get session snapshot
 
 ### Projects
 - `GET /api/v1/projects` - Get all projects
@@ -139,8 +139,8 @@ All API endpoints are prefixed with `/api/v1`.
 - `GET /api/v1/chat/messages` - Get chat history
 
 ### Preview
-- `GET /api/v1/preview/{task_id}` - Get preview
-- `POST /api/v1/preview/{task_id}/modify` - Modify preview
+- `GET /api/v1/generate/sessions/{session_id}/preview` - Get session preview
+- `POST /api/v1/generate/sessions/{session_id}/preview/modify` - Modify session preview
 
 ### RAG
 - `POST /api/v1/rag/search` - Search knowledge base
@@ -172,7 +172,7 @@ Once the server is running, visit:
 
 - **设计文档**: `../docs/openapi/` - 模块化的 API 设计（给开发者和 AI 看）
 - **自动生成**: FastAPI 自动生成 OpenAPI 规范（访问 `/openapi.json`）
-- **工作流程**: 参见 [OPENAPI_WORKFLOW.md](./OPENAPI_WORKFLOW.md)
+- **工作流程**: 参见 [docs/archived/backend/OPENAPI_WORKFLOW.md](../docs/archived/backend/OPENAPI_WORKFLOW.md)
 
 开发时应参照 `../docs/openapi/` 中的模块文件来实现接口，确保设计和实现保持一致。
 

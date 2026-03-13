@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -70,3 +71,4 @@ generated/
 backend/temp/
 temp/
 backend/chroma_data/
+chroma_data/

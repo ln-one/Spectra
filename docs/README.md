@@ -21,12 +21,17 @@
 - [开发指南](./guides/README.md)
 - [工程规范](./standards/README.md)
 
-## 4. 需求与背景
+## 4. 规划与比赛
 
+- [当前阶段计划（2026-03-09）](./project/PROJECT_SPACE_API_DRAFT_2026-03-09.md)
 - [项目原始需求](./project/requirements.md)
-- [需求分析目录](./requirements/README.md)
+- [比赛材料](./competition/)
 
-## 5. 文档状态定义
+## 5. 归档文档
+
+- [历史归档（不维护）](./archived/)
+
+## 6. 文档状态定义
 
 - `已落地`：代码中已实现。
 - `规划中`：有方案但未接入主流程。

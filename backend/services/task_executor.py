@@ -224,16 +224,19 @@ async def execute_generation_task(
             tpl_config = TemplateConfig()
 
         output_urls = {}
+        export_endpoint = (
+            f"/api/v1/generate/sessions/{session_id}/preview/export"
+            if session_id
+            else None
+        )
 
         if task_type in ["pptx", "both"]:
             logger.info(f"Generating PPTX for task {task_id}")
             pptx_path = await generation_service.generate_pptx(
                 courseware_content, task_id, tpl_config
             )
-            output_urls["pptx"] = (
-                f"/api/v1/generate/tasks/{task_id}/download?file_type=ppt"
-            )
             logger.info(f"PPTX generated: {pptx_path}")
+            output_urls["pptx"] = export_endpoint or pptx_path
             await db_service.update_generation_task_status(task_id, "processing", 60)
 
         if task_type in ["docx", "both"]:
@@ -241,10 +244,8 @@ async def execute_generation_task(
             docx_path = await generation_service.generate_docx(
                 courseware_content, task_id, tpl_config
             )
-            output_urls["docx"] = (
-                f"/api/v1/generate/tasks/{task_id}/download?file_type=word"
-            )
             logger.info(f"DOCX generated: {docx_path}")
+            output_urls["docx"] = export_endpoint or docx_path
             await db_service.update_generation_task_status(task_id, "processing", 90)
 
         # 更新任务状态为 completed

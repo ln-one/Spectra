@@ -18,7 +18,7 @@
 用途：
 
 1. 解释为什么现有 `project + session` 主干可以承接新的产品思路。
-2. 说明下一阶段如何演进到“课程空间/学习空间 + 引用 + 协作 + 按需外化”的模型。
+2. 说明下一阶段如何演进到“空间 + 引用 + 协作 + 按需外化”的模型（教学叙事仅作示例）。
 
 ## 2. 组内 brainstorm 讨论稿
 
@@ -54,3 +54,8 @@
 3. 再读 `PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md`
 4. 然后读 `PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md`
 5. 若要进入实现讨论，再读 `PROJECT_SPACE_API_DRAFT_2026-03-09.md`
+
+## 6. 2026-03-12 补充材料
+
+- [PROJECT_SPACE_GAP_REPORT_2026-03-12.md](./PROJECT_SPACE_GAP_REPORT_2026-03-12.md)
+- [PROJECT_SPACE_DATA_MODEL_ADDENDUM_2026-03-12.md](./PROJECT_SPACE_DATA_MODEL_ADDENDUM_2026-03-12.md)
