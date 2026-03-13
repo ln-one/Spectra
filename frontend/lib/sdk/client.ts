@@ -108,8 +108,10 @@ async function fetchWithAuth(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> {
-  const url = typeof input === "string" ? input : input.toString();
-  const headers = new Headers(init?.headers || {});
+  const baseRequest =
+    input instanceof Request ? input : new Request(input, init);
+  const url = baseRequest.url;
+  const headers = new Headers(baseRequest.headers);
 
   if (!headers.has("X-Contract-Version")) {
     headers.set("X-Contract-Version", DEFAULT_CONTRACT_VERSION);
@@ -122,7 +124,8 @@ async function fetchWithAuth(
     }
   }
 
-  const response = await fetch(url, { ...init, headers });
+  const authedRequest = new Request(baseRequest, { headers });
+  const response = await fetch(authedRequest);
   if (response.status === 401 && !shouldSkipAuth(url)) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
@@ -131,7 +134,8 @@ async function fetchWithAuth(
       if (newToken) {
         retryHeaders.set("Authorization", `Bearer ${newToken}`);
       }
-      return fetch(url, { ...init, headers: retryHeaders });
+      const retryRequest = new Request(baseRequest, { headers: retryHeaders });
+      return fetch(retryRequest);
     }
   }
   return response;
