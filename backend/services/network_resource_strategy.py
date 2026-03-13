@@ -209,7 +209,12 @@ def video_segments_to_units(
         confidence = float(segment.get("confidence", 0.0) or 0.0)
         if confidence < min_confidence:
             continue
-        summary = _normalize_whitespace(str(segment.get("summary", "") or ""))
+
+        # Accept both strategy-native shape (summary/key_points/start/end)
+        # and video_service shape (content/timestamp/chunk_id).
+        summary = _normalize_whitespace(
+            str(segment.get("summary", "") or segment.get("content", "") or "")
+        )
         key_points = [
             _normalize_whitespace(str(item))
             for item in (segment.get("key_points") or [])
@@ -217,7 +222,7 @@ def video_segments_to_units(
         ]
         if not summary and not key_points:
             continue
-        start_ts = float(segment.get("start", 0.0) or 0.0)
+        start_ts = float(segment.get("start", segment.get("timestamp", 0.0)) or 0.0)
         content = summary
         if key_points:
             content = (
@@ -225,7 +230,7 @@ def video_segments_to_units(
                 if summary
                 else "\n- ".join(f"- {p}" for p in key_points)
             )
-        chunk_id = f"vid-{video_id}-{idx}"
+        chunk_id = str(segment.get("chunk_id") or f"vid-{video_id}-{idx}")
         units.append(
             {
                 "chunk_id": chunk_id,
