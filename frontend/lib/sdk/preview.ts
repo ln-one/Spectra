@@ -48,7 +48,7 @@ export const previewApi = {
       "/api/v1/generate/sessions/{session_id}/preview/modify",
       {
         params: { path: { session_id: sessionId } },
-        body: data,
+        body: data as components["schemas"]["ModifySessionRequest"],
         headers,
       }
     );
