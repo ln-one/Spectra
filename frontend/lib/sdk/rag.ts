@@ -1,10 +1,12 @@
 import { sdkClient, unwrap } from "./client";
-import type { components } from "./types";
+import type { components, paths } from "./types";
 
 export type RAGSearchRequest = components["schemas"]["RAGSearchRequest"];
 export type RAGSearchResponse = components["schemas"]["RAGSearchResponse"];
 export type SourceDetailResponse =
   components["schemas"]["SourceDetailResponse"];
+export type RAGIndexResponse =
+  paths["/api/v1/rag/index"]["post"]["responses"][200]["content"]["application/json"];
 
 export const ragApi = {
   async search(data: RAGSearchRequest): Promise<RAGSearchResponse> {
@@ -27,14 +29,11 @@ export const ragApi = {
     file_id: string;
     chunk_size?: number;
     chunk_overlap?: number;
-  }): Promise<{
-    success: boolean;
-    data: { index_task_id: string; status: string };
-  }> {
+  }): Promise<RAGIndexResponse> {
     const result = await sdkClient.POST("/api/v1/rag/index", {
       body: data,
     });
-    return unwrap(result);
+    return unwrap<RAGIndexResponse>(result);
   },
 
   async findSimilar(data: {
