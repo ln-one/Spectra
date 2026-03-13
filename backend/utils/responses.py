@@ -59,13 +59,32 @@ def error_response(
     Create an error response
 
     Args:
-        code: Error code
-        message: Error message
-        details: Optional error details
-        root_message: Optional root-level message (defaults to "请求失败")
+        code: Error code.
+        message: Error message (human-readable description of the error).
+        details: Optional error details payload (e.g. field errors, debug info).
+        root_message: Optional root-level message returned as the top-level
+            ``message`` field (defaults to "请求失败").
+        retryable: Optional flag indicating whether the client can safely retry
+            this request. If ``None`` (the default), the ``"retryable"`` key is
+            omitted from the ``error`` object.
+        trace_id: Optional request/trace identifier used for correlation and
+            debugging. If not provided, the ``"trace_id"`` key is omitted from
+            the ``error`` object.
 
     Returns:
-        Standardized error response dict
+        Standardized error response dict with the following shape::
+            {
+                "success": False,
+                "error": {
+                    "code": <str>,
+                    "message": <str>,
+                    # Optional keys:
+                    "details": <dict>,     # present if ``details`` is provided
+                    "retryable": <bool>,   # present if ``retryable`` is not None
+                    "trace_id": <str>,     # present if ``trace_id`` is provided
+                },
+                "message": <str>,  # ``root_message`` or "请求失败" by default
+            }
 
     Example:
         >>> error_response("UNAUTHORIZED", "未登录或登录已过期")
@@ -87,6 +106,39 @@ def error_response(
             },
             "message": "查询失败"
         }
+        With custom root message and details::
+            >>> error_response(
+            ...     "NOT_FOUND",
+            ...     "资源不存在",
+            ...     details={"resource": "User", "id": "123"},
+            ...     root_message="查询失败",
+            ... )
+            {
+                "success": False,
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": "资源不存在",
+                    "details": {"resource": "User", "id": "123"}
+                },
+                "message": "查询失败"
+            }
+        With retryability hint and trace ID::
+            >>> error_response(
+            ...     "SERVICE_UNAVAILABLE",
+            ...     "服务暂时不可用，请稍后重试",
+            ...     retryable=True,
+            ...     trace_id="req-abc123",
+            ... )
+            {
+                "success": False,
+                "error": {
+                    "code": "SERVICE_UNAVAILABLE",
+                    "message": "服务暂时不可用，请稍后重试",
+                    "retryable": True,
+                    "trace_id": "req-abc123",
+                },
+                "message": "请求失败"
+            }
     """
     error_dict = {"code": code, "message": message}
     if details:

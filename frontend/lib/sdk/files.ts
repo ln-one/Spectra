@@ -115,11 +115,15 @@ export const filesApi = {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          const parsed = JSON.parse(xhr.responseText);
-          if (parsed?.data?.file) {
-            parsed.data.file = normalizeFileFromServer(parsed.data.file);
+          try {
+            const parsed = JSON.parse(xhr.responseText);
+            if (parsed?.data?.file) {
+              parsed.data.file = normalizeFileFromServer(parsed.data.file);
+            }
+            resolve(parsed);
+          } catch {
+            reject(new Error("上传失败：响应解析异常"));
           }
-          resolve(parsed);
         } else {
           reject(
             new Error(parseUploadErrorMessage(xhr.responseText, "上传失败"))
@@ -234,13 +238,17 @@ export const filesApi = {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          const parsed = JSON.parse(xhr.responseText);
-          if (parsed?.data?.files && Array.isArray(parsed.data.files)) {
-            parsed.data.files = parsed.data.files.map(
-              (f: Record<string, unknown>) => normalizeFileFromServer(f)
-            );
+          try {
+            const parsed = JSON.parse(xhr.responseText);
+            if (parsed?.data?.files && Array.isArray(parsed.data.files)) {
+              parsed.data.files = parsed.data.files.map(
+                (f: Record<string, unknown>) => normalizeFileFromServer(f)
+              );
+            }
+            resolve(parsed);
+          } catch {
+            reject(new Error("批量上传失败：响应解析异常"));
           }
-          resolve(parsed);
         } else {
           reject(
             new Error(parseUploadErrorMessage(xhr.responseText, "批量上传失败"))

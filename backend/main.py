@@ -279,8 +279,14 @@ async def health_check():
         "redis_required": redis_required,
     }
     if not overall_healthy and (db_required or redis_required):
+        error_payload = error_response(
+            "SERVICE_UNAVAILABLE",
+            "Service unavailable: one or more required dependencies are unhealthy.",
+            details={"health": payload},
+            retryable=True,
+        )
         return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=payload
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=error_payload
         )
     return payload
 

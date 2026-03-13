@@ -58,6 +58,8 @@ node scripts/validate-contract-target.js
 **OpenAPI**
 - Source/Target 打包与 lint
 - 实现 vs Target 对齐检查（需要后端已启动 `localhost:8000`）
+  - 可选跳过：`SKIP_CONTRACT_ALIGNMENT=1`（适合离线/仅前端改动场景）
+  - 未检测到后端时会自动跳过（避免阻塞 commit）
 
 ### Pre-push（每次 push）
 **Frontend**
@@ -70,6 +72,8 @@ node scripts/validate-contract-target.js
 **OpenAPI**
 - Source/Target 打包与 lint
 - 实现 vs Target 对齐检查（需要后端已启动 `localhost:8000`）
+  - 可选跳过：`SKIP_CONTRACT_ALIGNMENT=1`（适合离线/仅前端改动场景）
+  - 未检测到后端时会自动跳过（避免阻塞 push）
 
 ## 与 CI 保持一致
 

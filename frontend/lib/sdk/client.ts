@@ -27,8 +27,17 @@ export class ApiError extends Error {
   }
 }
 
+function normalizePath(input: string): string {
+  try {
+    return new URL(input, API_BASE_URL).pathname;
+  } catch {
+    return input;
+  }
+}
+
 function shouldSkipAuth(path: string): boolean {
-  return path.startsWith("/api/v1/auth/") || path.startsWith("/auth/");
+  const pathname = normalizePath(path);
+  return pathname.startsWith("/api/v1/auth/") || pathname.startsWith("/auth/");
 }
 
 let isRefreshing = false;

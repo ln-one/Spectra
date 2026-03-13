@@ -63,7 +63,11 @@ export const chatApi = {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error("语音消息发送失败：响应解析异常"));
+          }
         } else {
           try {
             const parsed = JSON.parse(xhr.responseText);
