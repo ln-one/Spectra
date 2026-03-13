@@ -72,11 +72,15 @@ export const previewApi = {
     sessionId: string,
     data: ExportRequest
   ): Promise<ExportResponse> {
+    const body: components["schemas"]["ExportRequest"] = {
+      ...data,
+      include_sources: data.include_sources ?? false,
+    };
     const result = await sdkClient.POST(
       "/api/v1/generate/sessions/{session_id}/preview/export",
       {
         params: { path: { session_id: sessionId } },
-        body: data,
+        body,
       }
     );
     return unwrap<ExportResponse>(result);
