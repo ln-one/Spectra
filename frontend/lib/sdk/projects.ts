@@ -4,7 +4,7 @@ import type { components } from "./types";
 export type Project = components["schemas"]["Project"];
 export type ProjectRequest = components["schemas"]["ProjectRequest"];
 export type GetProjectsResponse = components["schemas"]["GetProjectsResponse"];
-export type ProjectResponse = components["schemas"]["ProjectResponse"];
+export type ProjectResponse = components["schemas"]["ProjectResponseTarget"];
 export type ProjectStatisticsResponse =
   components["schemas"]["ProjectStatisticsResponse"];
 
