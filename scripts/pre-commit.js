@@ -82,8 +82,12 @@ console.log('  ├─ Bundle (target)...');
 if (!runCommand('npm run bundle:openapi:target', rootDir)) process.exit(1);
 console.log('  ├─ Lint (target)...');
 if (!runCommand('npm run validate:openapi:target', rootDir)) process.exit(1);
-console.log('  ├─ Contract alignment (requires backend on :8000)...');
-if (!runCommand('node scripts/validate-contract-target.js', rootDir)) process.exit(1);
+if (process.env.SKIP_CONTRACT_ALIGNMENT === '1') {
+  console.log('  ├─ Contract alignment skipped (SKIP_CONTRACT_ALIGNMENT=1)');
+} else {
+  console.log('  ├─ Contract alignment (requires backend on :8000)...');
+  if (!runCommand('node scripts/validate-contract-target.js', rootDir)) process.exit(1);
+}
 
 // Check if any files were formatted during the hook execution and add them
 console.log('  ├─ Adding any remaining formatted files...');

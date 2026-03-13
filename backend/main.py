@@ -271,13 +271,18 @@ async def health_check():
         redis_healthy or not redis_required
     )
 
-    return {
+    payload = {
         "status": "healthy" if overall_healthy else "degraded",
         "database": "connected" if db_healthy else "disconnected",
         "redis": "connected" if redis_healthy else "disconnected",
         "db_required": db_required,
         "redis_required": redis_required,
     }
+    if not overall_healthy and (db_required or redis_required):
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=payload
+        )
+    return payload
 
 
 if __name__ == "__main__":

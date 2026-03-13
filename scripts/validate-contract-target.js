@@ -14,30 +14,43 @@ try {
 const repoRoot = path.join(__dirname, '..');
 const targetPath = path.join(repoRoot, 'docs', 'openapi-target.yaml');
 
-const fetchJson = (url) =>
+const fetchJson = (url, timeoutMs = 3000) =>
   new Promise((resolve, reject) => {
-    http
-      .get(url, (res) => {
-        const { statusCode } = res;
-        if (statusCode !== 200) {
-          res.resume();
-          return reject(new Error(`HTTP ${statusCode}`));
+    const req = http.get(url, (res) => {
+      const { statusCode } = res;
+      if (statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`HTTP ${statusCode}`));
+      }
+      let raw = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        raw += chunk;
+      });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(raw));
+        } catch (e) {
+          reject(e);
         }
-        let raw = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk) => {
-          raw += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(raw));
-          } catch (e) {
-            reject(e);
-          }
-        });
-      })
-      .on('error', reject);
+      });
+    });
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`Timeout after ${timeoutMs}ms`));
+    });
+    req.on('error', reject);
   });
+
+const ALLOWED_METHODS = new Set([
+  'get',
+  'post',
+  'put',
+  'patch',
+  'delete',
+  'options',
+  'head',
+  'trace',
+]);
 
 const pathMethodSet = (spec) => {
   const pairs = new Set();
@@ -46,7 +59,9 @@ const pathMethodSet = (spec) => {
     if (!methods || typeof methods !== 'object') continue;
     for (const method of Object.keys(methods)) {
       if (method.startsWith('x-')) continue;
-      pairs.add(`${method.toLowerCase()} ${p}`);
+      const m = method.toLowerCase();
+      if (!ALLOWED_METHODS.has(m)) continue;
+      pairs.add(`${m} ${p}`);
     }
   }
   return pairs;

@@ -65,10 +65,14 @@ if (!runCommand('npm run validate:openapi:target', rootDir)) {
   console.error('\n❌ OpenAPI target lint failed!');
   process.exit(1);
 }
-console.log('  ├─ Contract alignment (requires backend on :8000)...');
-if (!runCommand('node scripts/validate-contract-target.js', rootDir)) {
-  console.error('\n❌ Contract alignment failed!');
-  process.exit(1);
+if (process.env.SKIP_CONTRACT_ALIGNMENT === '1') {
+  console.log('  ├─ Contract alignment skipped (SKIP_CONTRACT_ALIGNMENT=1)');
+} else {
+  console.log('  ├─ Contract alignment (requires backend on :8000)...');
+  if (!runCommand('node scripts/validate-contract-target.js', rootDir)) {
+    console.error('\n❌ Contract alignment failed!');
+    process.exit(1);
+  }
 }
 
 console.log('\n✅ All pre-push checks passed!');

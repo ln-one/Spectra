@@ -27,13 +27,14 @@ class DatabaseService:
             project_data: Project creation data
             user_id: User ID who owns the project
         """
-        project = await self.db.project.create(
-            data={
-                "name": project_data.name,
-                "description": project_data.description,
-                "userId": user_id,
-            }
-        )
+        data = {
+            "name": project_data.name,
+            "description": project_data.description,
+            "userId": user_id,
+        }
+        if getattr(project_data, "grade_level", None) is not None:
+            data["gradeLevel"] = project_data.grade_level
+        project = await self.db.project.create(data=data)
         return project
 
     async def get_project(self, project_id: str):
