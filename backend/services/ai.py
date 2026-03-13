@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -91,6 +92,11 @@ class AIService(CoursewareAIMixin):
         Returns:
             dict with 'content', 'model', and 'tokens_used'
         """
+        started_at = time.perf_counter()
+
+        def _elapsed_ms() -> float:
+            return round((time.perf_counter() - started_at) * 1000.0, 2)
+
         route_decision = None
         requested_model = model
         if not requested_model:
@@ -104,6 +110,13 @@ class AIService(CoursewareAIMixin):
             else:
                 requested_model = self.default_model
         resolved_model = requested_model
+        fallback_triggered = False
+        fallback_model = None
+
+        # 确定 fallback 模型
+        if route_decision:
+            fallback_model = route_decision.fallback_model
+
         try:
             resolved_model = _resolve_model_name(requested_model)
             logger.info(
@@ -125,21 +138,83 @@ class AIService(CoursewareAIMixin):
             tokens_used = (
                 response.usage.total_tokens if hasattr(response, "usage") else None
             )
+            latency_ms = _elapsed_ms()
+            route_info = route_decision.to_dict() if route_decision else None
+            if route_info is not None:
+                route_info["latency_ms"] = latency_ms
 
             return {
                 "content": content,
                 "model": resolved_model,
                 "tokens_used": tokens_used,
-                "route": route_decision.to_dict() if route_decision else None,
+                "route": route_info,
+                "fallback_triggered": fallback_triggered,
+                "latency_ms": latency_ms,
             }
         except Exception as e:
-            logger.warning(f"AI generation failed: {str(e)}", exc_info=True)
+            logger.warning(
+                f"AI generation failed with {resolved_model}: {str(e)}", exc_info=True
+            )
+
+            # 尝试 fallback 到更强模型
+            if fallback_model and fallback_model != requested_model:
+                try:
+                    fallback_resolved = _resolve_model_name(fallback_model)
+                    logger.info(
+                        "Attempting fallback: %s -> %s",
+                        resolved_model,
+                        fallback_resolved,
+                    )
+                    response = await acompletion(
+                        model=fallback_resolved,
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=max_tokens,
+                    )
+                    content = response.choices[0].message.content
+                    tokens_used = (
+                        response.usage.total_tokens
+                        if hasattr(response, "usage")
+                        else None
+                    )
+                    fallback_triggered = True
+
+                    # 更新 route_decision 记录 fallback
+                    route_info = route_decision.to_dict() if route_decision else {}
+                    route_info["fallback_triggered"] = True
+                    route_info["original_model"] = resolved_model
+                    route_info["failure_reason"] = str(e)
+                    route_info["latency_ms"] = _elapsed_ms()
+
+                    return {
+                        "content": content,
+                        "model": fallback_resolved,
+                        "tokens_used": tokens_used,
+                        "route": route_info,
+                        "fallback_triggered": fallback_triggered,
+                        "latency_ms": route_info["latency_ms"],
+                    }
+                except Exception as fallback_exc:
+                    logger.error(
+                        "Fallback to %s also failed: %s",
+                        fallback_model,
+                        fallback_exc,
+                        exc_info=True,
+                    )
+
+            # 如果没有 fallback 或 fallback 也失败，使用 stub 或抛出异常
             if self.allow_ai_stub:
+                latency_ms = _elapsed_ms()
+                route_info = route_decision.to_dict() if route_decision else None
+                if route_info is not None:
+                    route_info["failure_reason"] = str(e)
+                    route_info["latency_ms"] = latency_ms
                 return {
                     "content": f"AI stub response for prompt: {prompt[:50]}...",
                     "model": resolved_model,
                     "tokens_used": 0,
-                    "route": route_decision.to_dict() if route_decision else None,
+                    "route": route_info,
+                    "fallback_triggered": fallback_triggered,
+                    "latency_ms": latency_ms,
                 }
             raise
 

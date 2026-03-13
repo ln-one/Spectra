@@ -1,9 +1,10 @@
+import hashlib
 import json
 import logging
 import os
 import re
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
@@ -23,16 +24,17 @@ from schemas.chat import Message, SendMessageRequest
 from services import db_service
 from services.ai import ai_service
 from services.model_router import ModelRouteTask
-from services.prompt_service import (
-    contains_mechanical_option_pattern,
-    prompt_service,
-)
+from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ErrorCode, ForbiddenException
 from utils.responses import error_response, success_response
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = logging.getLogger(__name__)
+
+# Prompt 可观测版本号
+PROMPT_TEMPLATE_VERSION = "v1.0"
+FEW_SHOT_VERSION = "v1.0"
 
 
 async def _verify_project_ownership(project_id: str, user_id: str):
@@ -380,6 +382,7 @@ async def send_message(
                         "source_type": r.source.source_type,
                         "filename": r.source.filename,
                         "page_number": r.source.page_number,
+                        "timestamp": getattr(r.source, "timestamp", None),
                         "score": r.score,
                     }
                     for r in rag_results
@@ -440,6 +443,17 @@ async def send_message(
             conversation_history=history_payload,
         )
         prompt = f"项目：{project.name}\n{prompt}"
+
+        # 生成 request_id 用于追踪
+        request_id = str(uuid4())
+        prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
+        route_info = {}
+        selected_model = "unknown"
+        fallback_triggered = False
+        mechanical_pattern_hit = False
+        latency_ms = None
+        response_hash = ""
+
         try:
             ai_result = await ai_service.generate(
                 prompt=prompt,
@@ -450,7 +464,20 @@ async def send_message(
             assistant_content = (
                 ai_result.get("content") or "我已收到你的需求，我们继续完善课件内容。"
             )
-            if contains_mechanical_option_pattern(assistant_content):
+
+            # 收集路由决策信息
+            route_info = ai_result.get("route") or {}
+            selected_model = ai_result.get("model", "unknown")
+            fallback_triggered = ai_result.get("fallback_triggered", False)
+            latency_ms = ai_result.get("latency_ms")
+            response_hash = hashlib.sha256(
+                assistant_content.encode("utf-8")
+            ).hexdigest()[:16]
+            mechanical_pattern_hit = contains_mechanical_option_pattern(
+                assistant_content
+            )
+
+            if mechanical_pattern_hit:
                 logger.warning(
                     "Mechanical option phrasing detected in assistant response; "
                     "attempting soft rewrite"
@@ -477,18 +504,47 @@ async def send_message(
             assistant_content = "AI 服务暂时不可用，我已收到你的需求。你可以先补充更多细节，我会在恢复后继续帮你完善。"
 
         # 将 citations 存入 metadata
+        response_hash = (
+            response_hash
+            or hashlib.sha256(assistant_content.encode("utf-8")).hexdigest()[:16]
+        )
         assistant_content = _append_citation_markers(assistant_content, citations)
         assistant_content = _sanitize_cite_tags(assistant_content, citations)
         assistant_content = _append_citation_markers(assistant_content, citations)
         citations = _align_citations_with_content(assistant_content, citations)
+
+        # 构建可观测 metadata
+        observability_metadata = {
+            "request_id": request_id,
+            "prompt_template_version": PROMPT_TEMPLATE_VERSION,
+            "few_shot_version": FEW_SHOT_VERSION,
+            "route_task": ModelRouteTask.CHAT_RESPONSE.value,
+            "selected_model": selected_model,
+            "has_rag_context": rag_hit,
+            "prompt_hash": prompt_hash,
+            "response_hash": response_hash,
+            "mechanical_pattern_hit": mechanical_pattern_hit,
+            "fallback_triggered": fallback_triggered,
+            "latency_ms": latency_ms,
+        }
+        # 添加路由决策信息
+        if route_info:
+            observability_metadata["route_decision"] = route_info
+
+        # 合并所有 metadata
+        full_metadata = {
+            "citations": citations,
+            "rag_hit": rag_hit,
+            "session_id": session_id,
+            **observability_metadata,
+        }
+
         assistant_msg = await db_service.create_conversation_message(
             project_id=body.project_id,
             role="assistant",
             content=assistant_content,
             metadata=(
-                {"citations": citations, "rag_hit": rag_hit, "session_id": session_id}
-                if (citations or session_id)
-                else None
+                full_metadata if (citations or session_id) else observability_metadata
             ),
             session_id=session_id,
         )
@@ -504,6 +560,7 @@ async def send_message(
                 "message": msg_dict,
                 "rag_hit": rag_hit,
                 "suggestions": ["继续细化教学目标", "补充重点难点", "开始生成课件"],
+                "observability": observability_metadata,  # 添加可观测字段
             },
             message="消息发送成功",
         )
