@@ -4,6 +4,7 @@ import type { components } from "./types";
 export type PreviewResponse = components["schemas"]["PreviewResponse"];
 export type ModifyResponse = components["schemas"]["ModifyResponse"];
 export type SlideDetailResponse = components["schemas"]["SlideDetailResponse"];
+export type ExportResponse = components["schemas"]["ExportResponse"];
 
 export interface ModifySessionRequest {
   instruction: string;
@@ -16,18 +17,6 @@ export interface ExportRequest {
   format: "json" | "markdown" | "html";
   include_sources?: boolean;
   expected_render_version?: number;
-}
-
-export interface ExportResponse {
-  success: boolean;
-  data: {
-    session_id?: string;
-    task_id?: string;
-    content: string;
-    format: string;
-    render_version?: number;
-  };
-  message: string;
 }
 
 export const previewApi = {
