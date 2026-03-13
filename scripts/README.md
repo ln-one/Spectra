@@ -32,6 +32,13 @@ npm run pre-commit:quick
 
 # Push 前检查（构建 + Prisma）
 npm run pre-push
+
+# OpenAPI Target 打包与验证（跨平台）
+npm run bundle:openapi:target
+npm run validate:openapi:target
+
+# 实现 vs Target 对齐检查（需后端运行）
+node scripts/validate-contract-target.js
 ```
 
 ## 检查项目
@@ -48,6 +55,10 @@ npm run pre-push
 - Flake8 代码规范检查
 - Pytest 单元测试
 
+**OpenAPI**
+- Source/Target 打包与 lint
+- 实现 vs Target 对齐检查（需要后端已启动 `localhost:8000`）
+
 ### Pre-push（每次 push）
 **Frontend**
 - Next.js 构建检查
@@ -55,6 +66,10 @@ npm run pre-push
 **Backend**
 - Prisma schema 验证
 - Prisma client 生成
+
+**OpenAPI**
+- Source/Target 打包与 lint
+- 实现 vs Target 对齐检查（需要后端已启动 `localhost:8000`）
 
 ## 与 CI 保持一致
 

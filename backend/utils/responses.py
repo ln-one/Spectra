@@ -52,6 +52,8 @@ def error_response(
     message: str,
     details: Optional[Dict[str, Any]] = None,
     root_message: Optional[str] = None,
+    retryable: Optional[bool] = None,
+    trace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create an error response
@@ -89,6 +91,10 @@ def error_response(
     error_dict = {"code": code, "message": message}
     if details:
         error_dict["details"] = details
+    if retryable is not None:
+        error_dict["retryable"] = retryable
+    if trace_id:
+        error_dict["trace_id"] = trace_id
 
     return {
         "success": False,

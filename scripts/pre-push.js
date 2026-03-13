@@ -15,8 +15,9 @@ const runCommand = (command, cwd) => {
   }
 };
 
-const frontendDir = path.join(__dirname, '..', 'frontend');
-const backendDir = path.join(__dirname, '..', 'backend');
+const rootDir = path.join(__dirname, '..');
+const frontendDir = path.join(rootDir, 'frontend');
+const backendDir = path.join(rootDir, 'backend');
 
 console.log('🚀 Running pre-push checks (includes build)...\n');
 
@@ -39,6 +40,34 @@ if (!runCommand('prisma validate', backendDir)) {
 console.log('  ├─ Generating Prisma client...');
 if (!runCommand('prisma generate', backendDir)) {
   console.error('\n❌ Prisma client generation failed!');
+  process.exit(1);
+}
+
+// OpenAPI contract checks
+console.log('\n📄 OpenAPI checks...');
+console.log('  ├─ Bundle (source)...');
+if (!runCommand('npm run bundle:openapi', rootDir)) {
+  console.error('\n❌ OpenAPI bundle failed!');
+  process.exit(1);
+}
+console.log('  ├─ Lint (source)...');
+if (!runCommand('npm run validate:openapi', rootDir)) {
+  console.error('\n❌ OpenAPI lint failed!');
+  process.exit(1);
+}
+console.log('  ├─ Bundle (target)...');
+if (!runCommand('npm run bundle:openapi:target', rootDir)) {
+  console.error('\n❌ OpenAPI target bundle failed!');
+  process.exit(1);
+}
+console.log('  ├─ Lint (target)...');
+if (!runCommand('npm run validate:openapi:target', rootDir)) {
+  console.error('\n❌ OpenAPI target lint failed!');
+  process.exit(1);
+}
+console.log('  ├─ Contract alignment (requires backend on :8000)...');
+if (!runCommand('node scripts/validate-contract-target.js', rootDir)) {
+  console.error('\n❌ Contract alignment failed!');
   process.exit(1);
 }
 

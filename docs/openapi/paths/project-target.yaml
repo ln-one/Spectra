@@ -1,6 +1,7 @@
 /api/v1/projects:
   post:
     summary: 创建项目（支持引用式创建）
+    operationId: postProjects
     tags: [Project]
     security:
       - BearerAuth: []
@@ -26,6 +27,7 @@
 
   get:
     summary: 获取项目列表
+    operationId: getProjects
     tags: [Project]
     security:
       - BearerAuth: []
@@ -45,6 +47,7 @@
 /api/v1/projects/{project_id}:
   get:
     summary: 获取项目详情
+    operationId: getProjectsByProjectId
     tags: [Project]
     security:
       - BearerAuth: []
@@ -70,6 +73,7 @@
 
   put:
     summary: 修改项目信息（可扩展可见性与引用权限）
+    operationId: putProjectsByProjectId
     tags: [Project]
     security:
       - BearerAuth: []
@@ -104,6 +108,7 @@
 
   delete:
     summary: 删除项目
+    operationId: deleteProjectsByProjectId
     tags: [Project]
     security:
       - BearerAuth: []

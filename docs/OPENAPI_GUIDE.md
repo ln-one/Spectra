@@ -1,6 +1,7 @@
-# OpenAPI 使用指南
+	# OpenAPI 使用指南
 
 > 更新时间：2026-03-02
+
 
 ## 编辑原则
 
@@ -27,3 +28,21 @@ npm run validate:openapi
 
 - Swagger 页面可正常展示
 - 实际 API 请求响应与文档一致
+
+## Target 契约维护（规划与实现对齐）
+
+当更新目标契约时：
+
+```bash
+# 打包目标契约
+npm run bundle:openapi:target
+
+# 校验目标契约
+npm run validate:openapi:target
+```
+
+实现与 Target 的对齐检查（需后端运行）：
+
+```bash
+node scripts/validate-contract-target.js
+```

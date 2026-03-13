@@ -72,6 +72,19 @@ if (!runCommand(`${flake8Cmd} .`, backendDir)) process.exit(1);
 console.log('  ├─ Running tests...');
 if (!runCommand(`${pytestCmd} -m "not integration and not slow"`, backendDir)) process.exit(1);
 
+// OpenAPI checks (repo root)
+console.log('\n📄 OpenAPI checks...');
+console.log('  ├─ Bundle (source)...');
+if (!runCommand('npm run bundle:openapi', rootDir)) process.exit(1);
+console.log('  ├─ Lint (source)...');
+if (!runCommand('npm run validate:openapi', rootDir)) process.exit(1);
+console.log('  ├─ Bundle (target)...');
+if (!runCommand('npm run bundle:openapi:target', rootDir)) process.exit(1);
+console.log('  ├─ Lint (target)...');
+if (!runCommand('npm run validate:openapi:target', rootDir)) process.exit(1);
+console.log('  ├─ Contract alignment (requires backend on :8000)...');
+if (!runCommand('node scripts/validate-contract-target.js', rootDir)) process.exit(1);
+
 // Check if any files were formatted during the hook execution and add them
 console.log('  ├─ Adding any remaining formatted files...');
 if (!runCommand('git add .', rootDir)) process.exit(1);
