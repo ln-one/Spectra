@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { components } from "@/lib/types/api";
-import { projectsApi, filesApi, chatApi, generateApi, ragApi } from "@/lib/api";
-import { ApiError, getErrorMessage } from "@/lib/api/errors";
+import { projectsApi, filesApi, chatApi, generateApi, ragApi } from "@/lib/sdk";
+import { ApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 
 type Project = components["schemas"]["Project"];

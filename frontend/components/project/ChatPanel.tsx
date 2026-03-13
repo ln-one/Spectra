@@ -30,7 +30,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import type { Message, SourceReference } from "@/lib/api/chat";
+import type { Message, SourceReference } from "@/lib/sdk/chat";
 
 interface ChatPanelProps {
   projectId: string;

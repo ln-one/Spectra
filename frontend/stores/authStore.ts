@@ -11,7 +11,7 @@
 
 import { create } from "zustand";
 import { authService, TokenStorage, User } from "@/lib/auth";
-import { ApiError, getErrorMessage } from "@/lib/api/errors";
+import { ApiError, getErrorMessage } from "@/lib/sdk/errors";
 
 export interface AuthState {
   // 状态

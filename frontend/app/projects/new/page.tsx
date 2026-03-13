@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { projectsApi } from "@/lib/api";
+import { projectsApi } from "@/lib/sdk";
 import { Loader2, ArrowLeft } from "lucide-react";
 
 export default function NewProjectPage() {
