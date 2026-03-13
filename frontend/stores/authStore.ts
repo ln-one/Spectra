@@ -119,10 +119,10 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
         isLoading: false,
       });
     } catch (error) {
-      const apiError: ApiError = {
+      const apiError = createApiError({
         code: "REGISTER_FAILED",
         message: getErrorMessage(error),
-      };
+      });
       set({
         error: apiError,
         isLoading: false,
