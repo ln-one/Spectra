@@ -104,6 +104,10 @@ SourceReference:
       type: number
       format: float
       description: 时间戳（视频/音频场景，单位秒）
+    score:
+      type: number
+      format: float
+      description: 检索或重排得分（可选）
     content_preview:
       type: string
       description: 内容预览片段
