@@ -81,6 +81,22 @@ def test_video_segments_to_units_keeps_key_points():
     assert units[0]["citation"]["timestamp"] == 10.0
 
 
+def test_video_segments_to_units_accepts_video_service_shape():
+    segments = [
+        {
+            "timestamp": 12.5,
+            "content": "本段讲解受力分析与实验现象。",
+            "confidence": 0.82,
+            "chunk_id": "vid_raw_001",
+        }
+    ]
+    units = video_segments_to_units("v2", "physics.mp4", segments)
+    assert len(units) == 1
+    assert units[0]["chunk_id"] == "vid_raw_001"
+    assert "受力分析" in units[0]["content"]
+    assert units[0]["citation"]["timestamp"] == 12.5
+
+
 def test_rank_units_by_relevance():
     units = [
         {
