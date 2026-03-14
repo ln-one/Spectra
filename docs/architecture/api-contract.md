@@ -48,6 +48,13 @@ npm run watch:openapi
 
 打包后的文件：`docs/openapi-target.yaml`（自动生成，不要手动编辑）
 
+### 现状 vs 目标（Target）
+
+- `docs/openapi.yaml`：当前实现的接口规范（基于 `docs/openapi-source.yaml`）
+- `docs/openapi-target.yaml`：目标契约（基于 `docs/openapi-target-source.yaml`）
+- 规则：**实现必须被 Target 覆盖**（实现 ⊆ Target），避免“实现与规划对不上”。
+  - 例外：历史兼容接口（如 `/` 根路径）可在对齐校验脚本中登记为 legacy 排除项。
+
 ## 工作流
 
 ```bash

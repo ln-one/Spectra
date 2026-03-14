@@ -6,8 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
 
-from schemas import ProjectCreate
-from schemas.courses import ProjectUpdate
+from schemas import ProjectCreate, ProjectUpdate
 from services import db_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ForbiddenException, NotFoundException

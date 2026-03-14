@@ -5,7 +5,7 @@
  * 包含 TokenStorage 和 authService 两部分
  */
 
-import { authApi, type UserInfo } from "./api/auth";
+import { authApi, type UserInfo } from "./sdk/auth";
 
 export interface User {
   id: string;

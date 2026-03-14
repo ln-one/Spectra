@@ -2,7 +2,7 @@ import json
 from typing import Optional
 
 from prisma import Prisma
-from schemas.courses import CourseCreate, ProjectCreate
+from schemas.projects import ProjectCreate
 
 
 class DatabaseService:
@@ -19,27 +19,6 @@ class DatabaseService:
         """Disconnect from database"""
         await self.db.disconnect()
 
-    async def create_course(self, course_data: CourseCreate):
-        """Create a new course"""
-        chapters_json = json.dumps(
-            [chapter.model_dump() for chapter in course_data.chapters]
-        )
-        course = await self.db.course.create(
-            data={
-                "title": course_data.title,
-                "chapters": chapters_json,
-            }
-        )
-        return course
-
-    async def get_course(self, course_id: str):
-        """Get a course by ID"""
-        return await self.db.course.find_unique(where={"id": course_id})
-
-    async def get_all_courses(self):
-        """Get all courses"""
-        return await self.db.course.find_many()
-
     async def create_project(self, project_data: ProjectCreate, user_id: str):
         """
         Create a new project
@@ -48,13 +27,14 @@ class DatabaseService:
             project_data: Project creation data
             user_id: User ID who owns the project
         """
-        project = await self.db.project.create(
-            data={
-                "name": project_data.name,
-                "description": project_data.description,
-                "userId": user_id,
-            }
-        )
+        data = {
+            "name": project_data.name,
+            "description": project_data.description,
+            "userId": user_id,
+        }
+        if getattr(project_data, "grade_level", None) is not None:
+            data["gradeLevel"] = project_data.grade_level
+        project = await self.db.project.create(data=data)
         return project
 
     async def get_project(self, project_id: str):

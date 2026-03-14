@@ -6,8 +6,8 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { generateApi } from "@/lib/api/generate";
-import type { GenerationEvent } from "@/lib/api/generate";
+import { generateApi } from "@/lib/sdk/generate";
+import type { GenerationEvent } from "@/lib/sdk/generate";
 
 export interface UseGenerationEventsOptions {
   /** 会话 ID，为空时不连接 */

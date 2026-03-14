@@ -14,7 +14,6 @@ _ROUTER_MODULES = {
 __all__ = [
     "auth_router",
     "chat_router",
-    "courses_router",
     "files_router",
     "generate_sessions_router",
     "health_router",

@@ -17,7 +17,6 @@ load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 from routers import (  # noqa: E402
     auth_router,
     chat_router,
-    courses_router,
     files_router,
     generate_sessions_router,
     health_router,
@@ -112,7 +111,6 @@ api_v1_router.include_router(generate_sessions_router, tags=["Generate"])
 api_v1_router.include_router(health_router, tags=["Health"])
 api_v1_router.include_router(projects_router, tags=["Projects"])
 api_v1_router.include_router(rag_router, tags=["RAG"])
-api_v1_router.include_router(courses_router, tags=["Courses"])
 
 # Include the versioned API router
 app.include_router(api_v1_router)
@@ -139,6 +137,7 @@ async def api_exception_handler(request: Request, exc: APIException):
             code=exc.error_code.value,
             message=exc.message,
             details=details or None,
+            trace_id=rid,
         ),
     )
 
@@ -159,6 +158,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             code="VALIDATION_ERROR",
             message="请求参数验证失败",
             details=details,
+            retryable=False,
+            trace_id=rid,
         ),
     )
 
@@ -184,6 +185,8 @@ async def general_exception_handler(request: Request, exc: Exception):
                 code="SERVICE_UNAVAILABLE",
                 message="数据库服务暂不可用，请稍后重试",
                 details={"request_id": rid},
+                retryable=True,
+                trace_id=rid,
             ),
         )
 
@@ -200,6 +203,8 @@ async def general_exception_handler(request: Request, exc: Exception):
                 code="INVALID_INPUT",
                 message="请求参数错误",
                 details={"request_id": rid},
+                retryable=False,
+                trace_id=rid,
             ),
         )
 
@@ -216,6 +221,8 @@ async def general_exception_handler(request: Request, exc: Exception):
                 code="EXTERNAL_SERVICE_ERROR",
                 message="上游服务超时或不可达",
                 details={"request_id": rid},
+                retryable=True,
+                trace_id=rid,
             ),
         )
 
@@ -264,13 +271,24 @@ async def health_check():
         redis_healthy or not redis_required
     )
 
-    return {
+    payload = {
         "status": "healthy" if overall_healthy else "degraded",
         "database": "connected" if db_healthy else "disconnected",
         "redis": "connected" if redis_healthy else "disconnected",
         "db_required": db_required,
         "redis_required": redis_required,
     }
+    if not overall_healthy and (db_required or redis_required):
+        error_payload = error_response(
+            "SERVICE_UNAVAILABLE",
+            "Service unavailable: one or more required dependencies are unhealthy.",
+            details={"health": payload},
+            retryable=True,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=error_payload
+        )
+    return payload
 
 
 if __name__ == "__main__":

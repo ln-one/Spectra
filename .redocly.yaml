@@ -16,12 +16,3 @@ rules:
   no-ambiguous-paths: error  # 路径不能有歧义
   operation-summary: warn  # 建议添加 summary
   operation-description: off  # description 可选
-
-# 主题配置（用于生成文档）
-theme:
-  openapi:
-    generateCodeSamples:
-      languages:
-        - lang: curl
-        - lang: JavaScript
-        - lang: Python

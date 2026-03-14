@@ -7,8 +7,8 @@
     "bundle:openapi": "redocly bundle docs/openapi-source.yaml -o docs/openapi.yaml",
     "bundle:openapi:target": "redocly bundle docs/openapi-target-source.yaml -o docs/openapi-target.yaml",
     "watch:openapi": "nodemon --watch docs/openapi --ext yaml --exec npm run bundle:openapi",
-    "validate:openapi": "redocly lint docs/openapi.yaml",
-    "validate:openapi:target": "redocly lint docs/openapi-target.yaml",
+    "validate:openapi": "redocly lint --config .redocly.yaml docs/openapi.yaml",
+    "validate:openapi:target": "redocly lint --config .redocly.yaml docs/openapi-target.yaml",
     "sync:openapi": "./scripts/sync-openapi.sh",
     "pre-commit:full": "node scripts/pre-commit.js",
     "pre-commit:quick": "node scripts/pre-commit-quick.js",
@@ -18,6 +18,7 @@
   "devDependencies": {
     "@redocly/cli": "^2.19.2",
     "husky": "^9.0.0",
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "yaml": "^2.4.5"
   }
 }

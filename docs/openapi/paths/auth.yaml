@@ -1,6 +1,7 @@
 /api/v1/auth/register:
   post:
     summary: 用户注册
+    operationId: postAuthRegister
     tags: [Auth]
     security: []
     requestBody:
@@ -24,6 +25,7 @@
 /api/v1/auth/login:
   post:
     summary: 用户登录
+    operationId: postAuthLogin
     tags: [Auth]
     security: []
     requestBody:
@@ -47,6 +49,7 @@
 /api/v1/auth/refresh:
   post:
     summary: 刷新 Access Token
+    operationId: postAuthRefresh
     tags: [Auth]
     security: []
     requestBody:
@@ -75,6 +78,7 @@
 /api/v1/auth/logout:
   post:
     summary: 退出登录
+    operationId: postAuthLogout
     tags: [Auth]
     security:
       - BearerAuth: []
@@ -91,6 +95,7 @@
 /api/v1/auth/me:
   get:
     summary: 获取当前用户信息
+    operationId: getAuthMe
     tags: [Auth]
     security:
       - BearerAuth: []

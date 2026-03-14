@@ -1,6 +1,7 @@
 /api/v1/generate/sessions:
   get:
     summary: 获取生成会话列表
+    operationId: getGenerateSessions
     description: 返回项目内生成会话列表（按更新时间倒序）
     tags: [Generate]
     security:
@@ -40,6 +41,7 @@
         $ref: '../components/responses.yaml#/Forbidden'
   post:
     summary: 创建生成会话
+    operationId: postGenerateSessions
     description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
     tags: [Generate]
     security:
@@ -70,6 +72,7 @@
 /api/v1/generate/sessions/{session_id}:
   get:
     summary: 查询生成会话快照
+    operationId: getGenerateSessionsBySessionId
     tags: [Generate]
     security:
       - BearerAuth: []
@@ -97,6 +100,7 @@
 /api/v1/generate/sessions/{session_id}/events:
   get:
     summary: 获取生成事件流（SSE）
+    operationId: getGenerateSessionsBySessionIdEvents
     description: |
       默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
       返回短轮询事件列表。
@@ -144,6 +148,7 @@
 /api/v1/generate/sessions/{session_id}/resume:
   post:
     summary: 恢复中断会话
+    operationId: postGenerateSessionsBySessionIdResume
     description: 兼容别名，等价于 command_type=RESUME_SESSION
     deprecated: true
     tags: [Generate]
@@ -181,6 +186,7 @@
 /api/v1/generate/capabilities:
   get:
     summary: 获取生成域能力声明
+    operationId: getGenerateCapabilities
     description: 返回服务端当前支持的契约版本、特性开关与弃用信息。
     tags: [Generate]
     security:

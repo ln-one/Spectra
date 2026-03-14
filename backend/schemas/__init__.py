@@ -15,18 +15,8 @@ from .chat import (
     SendMessageResponse,
     VoiceMessageResponse,
 )
-from .courses import (
-    ChapterSchema,
-    CourseBase,
-    CourseCreate,
-    CourseResponse,
-    GenerateRequest,
-    GenerateResponse,
-    ProjectBase,
-    ProjectCreate,
-    ProjectResponse,
-    UploadResponse,
-)
+from .generation import GenerateRequest, GenerateResponse
+from .projects import ProjectBase, ProjectCreate, ProjectResponse, ProjectUpdate
 
 __all__ = [
     # Chat
@@ -44,15 +34,12 @@ __all__ = [
     "AuthResponse",
     "UserInfoData",
     "UserInfoResponse",
-    # Courses
-    "ChapterSchema",
-    "CourseBase",
-    "CourseCreate",
-    "CourseResponse",
+    # Projects
     "ProjectBase",
     "ProjectCreate",
+    "ProjectUpdate",
     "ProjectResponse",
-    "UploadResponse",
+    # Generation
     "GenerateRequest",
     "GenerateResponse",
 ]
