@@ -108,18 +108,36 @@ async def get_source_detail(
 ):
     """查看来源详情"""
     try:
+        resolved_project_id = project_id
+        parsed = None
+        if not resolved_project_id:
+            try:
+                parsed = await db_service.db.parsedchunk.find_unique(
+                    where={"id": chunk_id},
+                    include={"upload": True},
+                )
+                if parsed and parsed.upload:
+                    resolved_project_id = parsed.upload.projectId
+            except Exception as file_err:
+                logger.warning(
+                    "Failed to resolve project for chunk %s: %s",
+                    chunk_id,
+                    file_err,
+                )
+
         detail = await rag_service.get_chunk_detail(
-            chunk_id=chunk_id, project_id=project_id
+            chunk_id=chunk_id, project_id=resolved_project_id
         )
         if not detail:
             raise NotFoundException(message=f"分块不存在: {chunk_id}")
 
         file_info = None
         try:
-            parsed = await db_service.db.parsedchunk.find_unique(
-                where={"id": chunk_id},
-                include={"upload": True},
-            )
+            if parsed is None:
+                parsed = await db_service.db.parsedchunk.find_unique(
+                    where={"id": chunk_id},
+                    include={"upload": True},
+                )
             if parsed and parsed.upload:
                 file_info = _serialize_upload(parsed.upload)
         except Exception as file_err:

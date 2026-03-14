@@ -922,6 +922,13 @@ class GenerationSessionService:
                     session_id,
                     job.id,
                 )
+                self._schedule_outline_draft_watchdog(
+                    session_id=session_id,
+                    project_id=project_id,
+                    options=options,
+                    rq_job_id=job.id,
+                    task_queue_service=task_queue_service,
+                )
                 return
             except Exception as enqueue_err:
                 logger.warning(
@@ -948,6 +955,83 @@ class GenerationSessionService:
             "Outline draft task scheduled locally: session=%s",
             session_id,
         )
+
+    def _schedule_outline_draft_watchdog(
+        self,
+        session_id: str,
+        project_id: str,
+        options: Optional[dict],
+        rq_job_id: str,
+        task_queue_service,
+    ) -> None:
+        async def _watch() -> None:
+            delay_seconds = int(os.getenv("OUTLINE_DRAFT_WATCHDOG_SECONDS", "30"))
+            await asyncio.sleep(max(5, delay_seconds))
+
+            try:
+                job_status = await asyncio.to_thread(
+                    task_queue_service.get_job_status,
+                    rq_job_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Outline draft watchdog failed to read RQ status: "
+                    "session=%s job=%s error=%s",
+                    session_id,
+                    rq_job_id,
+                    exc,
+                )
+                return
+
+            status = (job_status or {}).get("status")
+            if status in {"started", "finished"}:
+                return
+
+            if status in {"queued", "scheduled", "deferred"}:
+                try:
+                    canceled = await asyncio.to_thread(
+                        task_queue_service.cancel_job,
+                        rq_job_id,
+                    )
+                except Exception:
+                    canceled = False
+
+                if not canceled:
+                    return
+
+            # 最后确认会话是否仍处于草拟状态，避免重复执行
+            session = await self._db.generationsession.find_unique(
+                where={"id": session_id},
+                select={"state": True, "currentOutlineVersion": True},
+            )
+            if not session:
+                return
+
+            state = session.get("state") if isinstance(session, dict) else session.state
+            current_outline_version = (
+                session.get("currentOutlineVersion")
+                if isinstance(session, dict)
+                else session.currentOutlineVersion
+            )
+            if state != "DRAFTING_OUTLINE" or (current_outline_version or 0) >= 1:
+                return
+
+            logger.warning(
+                "Outline draft watchdog fallback to local async execution: "
+                "session=%s job=%s status=%s",
+                session_id,
+                rq_job_id,
+                status or "unknown",
+            )
+            asyncio.create_task(
+                self._execute_outline_draft_local(
+                    session_id=session_id,
+                    project_id=project_id,
+                    options=options,
+                )
+            )
+
+        asyncio.create_task(_watch())
 
     async def _execute_outline_draft_local(
         self,
@@ -1217,12 +1301,13 @@ class GenerationSessionService:
             return False
         try:
             queue_info = task_queue_service.get_queue_info()
+            if not isinstance(queue_info, dict):
+                return True
             worker_count = int(((queue_info.get("workers") or {}).get("count") or 0))
             return worker_count > 0
         except Exception as exc:
             logger.warning("Failed to inspect queue worker availability: %s", exc)
-            # Backward-compatible fallback for tests/mocks
-            # that do not expose queue info.
+            # Fail open: assume workers are available and let enqueue handle failure.
             return True
 
     def _schedule_enqueued_task_watchdog(
