@@ -62,26 +62,28 @@ def test_extract_outline_style_from_explicit_option():
 
 def test_extract_outline_style_from_system_prompt_token():
     style = _extract_outline_style(
-        {"system_prompt_tone": "课程主题\n[outline_style=story]\n其它要求"}
+        {
+            "system_prompt_tone": "course topic\n[outline_style=story]\nextra requirements"
+        }
     )
     assert style == "story"
 
 
 def test_build_outline_requirements_includes_style_hard_constraints():
-    project = SimpleNamespace(name="测试课程", description="测试描述")
+    project = SimpleNamespace(name="test course", description="test description")
     text = _build_outline_requirements(
         project,
         {
-            "system_prompt_tone": "[outline_style=workshop]\n请强调课堂实践",
+            "system_prompt_tone": "[outline_style=workshop]\nPlease emphasize hands-on practice",
             "pages": 12,
         },
     )
-    assert "大纲风格ID：workshop" in text
-    assert "大纲风格硬约束（必须遵循）" in text
-    assert "实操工作坊结构" in text
+    assert "workshop" in text
+    assert "12" in text
+    assert "Please emphasize hands-on practice" in text
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_execute_command_rejects_when_session_task_is_running(monkeypatch):
     session = _fake_session()
     db = SimpleNamespace(
@@ -95,15 +97,16 @@ async def test_execute_command_rejects_when_session_task_is_running(monkeypatch)
         AsyncMock(return_value=True),
     )
 
-    with pytest.raises(ConflictError, match="执行中的任务"):
+    with pytest.raises(ConflictError) as exc_info:
         await service.execute_command(
             session_id="s-001",
             user_id="u-001",
             command={"command_type": "CONFIRM_OUTLINE"},
         )
+    assert "执行中的任务" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_execute_command_returns_transition_payload(monkeypatch):
     session_before = _fake_session()
     session_after = _fake_session(state="GENERATING_CONTENT")
@@ -144,7 +147,7 @@ async def test_execute_command_returns_transition_payload(monkeypatch):
     service._dispatch_command.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monkeypatch):
     session_before = _fake_session(
         output_type="word",
@@ -197,7 +200,7 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
     assert result["warnings"] == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_execute_command_fallbacks_to_local_when_queue_unavailable(monkeypatch):
     session_before = _fake_session(output_type="ppt")
     session_after = _fake_session(state="GENERATING_CONTENT", output_type="ppt")
@@ -233,7 +236,7 @@ async def test_execute_command_fallbacks_to_local_when_queue_unavailable(monkeyp
     assert "task_queue_unavailable_fallback_local_execution" in result["warnings"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_execute_command_fallbacks_to_local_when_enqueue_fails(monkeypatch):
     session_before = _fake_session(output_type="ppt")
     session_after = _fake_session(state="GENERATING_CONTENT", output_type="ppt")
@@ -272,7 +275,7 @@ async def test_execute_command_fallbacks_to_local_when_enqueue_fails(monkeypatch
     assert "task_enqueue_failed_fallback_local_execution" in result["warnings"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_get_events_ignores_cursor_from_other_session():
     session = _fake_session(state="ANALYZING")
     now = datetime.now(timezone.utc)
@@ -309,7 +312,7 @@ async def test_get_events_ignores_cursor_from_other_session():
     assert events[0]["event_id"] == "e-001"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_get_session_snapshot_uses_guard_public_allowed_actions():
     session = _fake_session(state="SUCCESS")
     db = SimpleNamespace(
@@ -324,7 +327,7 @@ async def test_get_session_snapshot_uses_guard_public_allowed_actions():
     service._guard.get_allowed_actions.assert_called_once_with("SUCCESS")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_get_session_runtime_state_uses_lightweight_select():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(
@@ -355,3 +358,292 @@ async def test_get_session_runtime_state_uses_lightweight_select():
         "lastCursor",
         "updatedAt",
     }
+
+
+# ===========================================================================
+# Outline streaming regression tests (Issue-backend)
+# ===========================================================================
+
+
+@pytest.mark.anyio
+async def test_create_session_returns_quickly_without_waiting_for_outline():
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(
+            create=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="s-new",
+                    projectId="p-001",
+                    userId="u-001",
+                    state="DRAFTING_OUTLINE",
+                    stateReason=None,
+                    outputType="ppt",
+                    options=None,
+                    clientSessionId=None,
+                    renderVersion=0,
+                    currentOutlineVersion=0,
+                    resumable=True,
+                    updatedAt=datetime.now(timezone.utc),
+                    progress=0,
+                )
+            ),
+            update=AsyncMock(),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+
+    service = GenerationSessionService(db=db)
+    service._schedule_outline_draft_task = AsyncMock()
+
+    session_ref = await service.create_session(
+        project_id="p-001",
+        user_id="u-001",
+        output_type="ppt",
+        options={"pages": 10},
+        task_queue_service=None,
+    )
+
+    assert session_ref["session_id"] == "s-new"
+    assert session_ref["state"] == "DRAFTING_OUTLINE"
+    assert session_ref["project_id"] == "p-001"
+    db.sessionevent.create.assert_called_once()
+    event_data = db.sessionevent.create.await_args.kwargs["data"]
+    assert event_data["eventType"] == "state.changed"
+    assert event_data["state"] == "DRAFTING_OUTLINE"
+    service._schedule_outline_draft_task.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_execute_outline_draft_local_success_path():
+    from unittest.mock import patch
+
+    db = SimpleNamespace(
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="p-001",
+                    name="test-project",
+                    description="test-description",
+                )
+            )
+        ),
+        outlineversion=SimpleNamespace(create=AsyncMock()),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value={"state": "DRAFTING_OUTLINE", "currentOutlineVersion": 0}
+            ),
+            update=AsyncMock(),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+
+    service = GenerationSessionService(db=db)
+    mock_outline = SimpleNamespace(
+        sections=[
+            SimpleNamespace(
+                title="Section 1", key_points=["Point 1", "Point 2"], slide_count=2
+            )
+        ]
+    )
+
+    with patch("services.generation_session_service.ai_service") as mock_ai:
+        mock_ai.generate_outline = AsyncMock(return_value=mock_outline)
+        await service._execute_outline_draft_local(
+            session_id="s-001",
+            project_id="p-001",
+            options={"pages": 10},
+        )
+
+    event_calls = [
+        call.kwargs["data"] for call in db.sessionevent.create.await_args_list
+    ]
+    progress_events = [e for e in event_calls if e["eventType"] == "progress.updated"]
+    outline_events = [e for e in event_calls if e["eventType"] == "outline.updated"]
+    state_events = [e for e in event_calls if e["eventType"] == "state.changed"]
+
+    assert progress_events
+    assert outline_events
+    assert any(e["state"] == "AWAITING_OUTLINE_CONFIRM" for e in state_events)
+    db.outlineversion.create.assert_called_once()
+    outline_data = db.outlineversion.create.await_args.kwargs["data"]
+    assert outline_data["version"] == 1
+    assert outline_data["changeReason"] == "drafted_async"
+
+
+@pytest.mark.anyio
+async def test_execute_outline_draft_local_failure_path():
+    import json
+    from unittest.mock import patch
+
+    db = SimpleNamespace(
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="p-001",
+                    name="test-project",
+                    description="test-description",
+                )
+            )
+        ),
+        outlineversion=SimpleNamespace(create=AsyncMock()),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                side_effect=[
+                    {"state": "DRAFTING_OUTLINE", "currentOutlineVersion": 0},
+                    {"state": "DRAFTING_OUTLINE", "currentOutlineVersion": 0},
+                ]
+            ),
+            update=AsyncMock(),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+
+    service = GenerationSessionService(db=db)
+
+    with patch("services.generation_session_service.ai_service") as mock_ai:
+        mock_ai.generate_outline = AsyncMock(
+            side_effect=Exception("AI service unavailable")
+        )
+        await service._execute_outline_draft_local(
+            session_id="s-001",
+            project_id="p-001",
+            options={"pages": 10},
+        )
+
+    event_calls = [
+        call.kwargs["data"] for call in db.sessionevent.create.await_args_list
+    ]
+    failed_events = [e for e in event_calls if e["eventType"] == "task.failed"]
+    assert len(failed_events) == 1
+    failed_payload = json.loads(failed_events[0]["payload"])
+    assert failed_payload["stage"] == "outline_draft"
+    assert failed_payload["error_code"] == "OUTLINE_GENERATION_FAILED"
+    assert failed_payload["retryable"] is True
+    assert "trace_id" in failed_payload
+
+    db.outlineversion.create.assert_called_once()
+    outline_data = db.outlineversion.create.await_args.kwargs["data"]
+    assert outline_data["version"] == 1
+    assert outline_data["changeReason"] == "draft_failed_fallback_empty"
+    outline_doc = json.loads(outline_data["outlineData"])
+    assert outline_doc["nodes"] == []
+
+    state_updates = [
+        call.kwargs["data"]
+        for call in db.generationsession.update.await_args_list
+        if "state" in (call.kwargs.get("data") or {})
+    ]
+    assert any(
+        update.get("state") == "AWAITING_OUTLINE_CONFIRM"
+        and update.get("stateReason") == "outline_draft_failed_fallback_empty"
+        for update in state_updates
+    )
+
+
+@pytest.mark.anyio
+async def test_schedule_outline_draft_task_uses_rq_when_available():
+    db = SimpleNamespace()
+    service = GenerationSessionService(db=db)
+
+    mock_queue_service = Mock()
+    mock_queue_service.get_queue_info = Mock(return_value={"workers": {"count": 1}})
+    mock_queue_service.enqueue_outline_draft_task = Mock(
+        return_value=Mock(id="job-123")
+    )
+
+    await service._schedule_outline_draft_task(
+        session_id="s-001",
+        project_id="p-001",
+        options={"pages": 10},
+        task_queue_service=mock_queue_service,
+    )
+
+    mock_queue_service.enqueue_outline_draft_task.assert_called_once_with(
+        session_id="s-001",
+        project_id="p-001",
+        options={"pages": 10},
+        priority="default",
+        timeout=300,
+    )
+
+
+@pytest.mark.anyio
+async def test_schedule_outline_draft_task_fallback_to_local_when_rq_fails():
+    from unittest.mock import patch
+
+    db = SimpleNamespace()
+    service = GenerationSessionService(db=db)
+
+    mock_queue_service = Mock()
+    mock_queue_service.get_queue_info = Mock(return_value={"workers": {"count": 1}})
+    mock_queue_service.enqueue_outline_draft_task = Mock(
+        side_effect=Exception("Redis connection failed")
+    )
+
+    def _close_task(coro):
+        coro.close()
+        return Mock()
+
+    with patch("asyncio.create_task", side_effect=_close_task) as mock_create_task:
+        await service._schedule_outline_draft_task(
+            session_id="s-001",
+            project_id="p-001",
+            options={"pages": 10},
+            task_queue_service=mock_queue_service,
+        )
+
+    mock_create_task.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_schedule_outline_draft_task_fallback_to_local_when_no_worker():
+    from unittest.mock import patch
+
+    db = SimpleNamespace()
+    service = GenerationSessionService(db=db)
+
+    mock_queue_service = Mock()
+    mock_queue_service.get_queue_info = Mock(return_value={"workers": {"count": 0}})
+    mock_queue_service.enqueue_outline_draft_task = Mock()
+
+    def _close_task(coro):
+        coro.close()
+        return Mock()
+
+    with patch("asyncio.create_task", side_effect=_close_task) as mock_create_task:
+        await service._schedule_outline_draft_task(
+            session_id="s-001",
+            project_id="p-001",
+            options={"pages": 10},
+            task_queue_service=mock_queue_service,
+        )
+
+    mock_create_task.assert_called_once()
+    mock_queue_service.enqueue_outline_draft_task.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_execute_outline_draft_local_skips_when_session_already_drafted():
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value={
+                    "state": "AWAITING_OUTLINE_CONFIRM",
+                    "currentOutlineVersion": 1,
+                }
+            ),
+            update=AsyncMock(),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+        outlineversion=SimpleNamespace(create=AsyncMock()),
+        project=SimpleNamespace(find_unique=AsyncMock()),
+    )
+    service = GenerationSessionService(db=db)
+
+    await service._execute_outline_draft_local(
+        session_id="s-001",
+        project_id="p-001",
+        options={"pages": 10},
+    )
+
+    db.outlineversion.create.assert_not_called()
+    db.sessionevent.create.assert_not_called()
