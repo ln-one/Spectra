@@ -162,6 +162,72 @@ class TaskQueueService:
         )
         return job
 
+    def enqueue_outline_draft_task(
+        self,
+        session_id: str,
+        project_id: str,
+        options: Optional[dict] = None,
+        priority: str = "default",
+        timeout: int = 300,
+    ) -> Job:
+        """
+        提交大纲草拟任务到队列
+
+        Args:
+            session_id: 会话 ID
+            project_id: 项目 ID
+            options: 生成选项（可选）
+            priority: 优先级（high/default/low）
+            timeout: 超时时间（秒），默认 300 秒
+
+        Returns:
+            Job: RQ Job 实例
+
+        Raises:
+            ValueError: 优先级参数无效或超时时间超出范围时抛出
+        """
+        if timeout < 30:
+            raise ValueError("Timeout must be at least 30 seconds")
+        if timeout > 600:
+            raise ValueError("Timeout cannot exceed 600 seconds (10 minutes)")
+
+        # Select queue based on priority
+        if priority == "high":
+            queue = self.high_queue
+        elif priority == "default":
+            queue = self.default_queue
+        elif priority == "low":
+            queue = self.low_queue
+        else:
+            raise ValueError(f"Invalid priority: {priority}")
+
+        # Import here to avoid circular dependency
+        from services.task_executor import run_outline_draft_task
+
+        # 配置重试策略：最多重试 2 次，间隔为 30秒、2分钟
+        retry_strategy = Retry(max=2, interval=[30, 120])
+
+        # Enqueue task
+        job = queue.enqueue(
+            run_outline_draft_task,
+            session_id=session_id,
+            project_id=project_id,
+            options=options,
+            job_timeout=timeout,
+            retry=retry_strategy,
+            result_ttl=int(os.getenv("RQ_RESULT_TTL", "86400")),  # 24 hours
+            failure_ttl=int(os.getenv("RQ_FAILURE_TTL", "604800")),  # 7 days
+        )
+
+        logger.info(
+            "Enqueued outline draft task: session_id=%s job_id=%s priority=%s",
+            session_id,
+            job.id,
+            priority,
+        )
+
+        return job
+
     def get_job_status(self, job_id: str) -> Optional[dict]:
         """
         获取任务状态
