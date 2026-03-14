@@ -128,8 +128,6 @@ def _append_citation_markers(content: str, citations: list[dict]) -> str:
     """Normalize citation markers to <cite ...></cite> protocol."""
     if not citations:
         return content
-    if "<cite " in content:
-        return content
 
     # Backward-compatible conversion: [1] -> <cite chunk_id="..."></cite>
     def _replace_numeric_marker(match: re.Match) -> str:
@@ -146,17 +144,17 @@ def _append_citation_markers(content: str, citations: list[dict]) -> str:
     # If model omitted inline markers, attach first cite tag to the first paragraph.
     first_tag = _build_cite_tag(citations[0])
     if not first_tag:
-        return content
-    lines = content.splitlines()
+        return converted
+    lines = converted.splitlines()
     if not lines:
-        return content
+        return converted
     for idx, line in enumerate(lines):
         stripped = line.strip()
         if stripped and not stripped.startswith(("#", "-", "*", ">")):
             lines[idx] = f"{line.rstrip()} {first_tag}"
             return "\n".join(lines)
 
-    return f"{content.rstrip()} {first_tag}"
+    return f"{converted.rstrip()} {first_tag}"
 
 
 def _extract_cited_chunk_ids(content: str) -> list[str]:

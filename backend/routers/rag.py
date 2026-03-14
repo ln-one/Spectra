@@ -7,7 +7,7 @@ RAG Router - 检索增强生成相关端点
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
 from services import db_service
@@ -244,7 +244,7 @@ async def web_search(
 
         if not raw_results:
             return success_response(
-                data={"results": [], "indexed": False},
+                data={"results": [], "indexed": 0 if auto_index else None},
                 message="未找到相关网络资源",
             )
 
@@ -296,9 +296,9 @@ async def web_search(
 @router.post("/audio-transcribe")
 async def transcribe_audio_endpoint(
     file: UploadFile = File(...),
-    project_id: str = "",
-    auto_index: bool = False,
-    language: str = "zh",
+    project_id: str = Form(""),
+    auto_index: bool = Form(False),
+    language: str = Form("zh"),
     user_id: str = Depends(get_current_user),
 ):
     """转录音频文件并可选自动入库
@@ -405,8 +405,8 @@ async def transcribe_audio_endpoint(
 @router.post("/video-analyze")
 async def analyze_video_endpoint(
     file: UploadFile = File(...),
-    project_id: str = "",
-    auto_index: bool = False,
+    project_id: str = Form(""),
+    auto_index: bool = Form(False),
     user_id: str = Depends(get_current_user),
 ):
     """分析视频文件并可选自动入库
