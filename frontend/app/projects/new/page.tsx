@@ -12,6 +12,10 @@ export default function NewProjectPage() {
     name: "",
     description: "",
     grade_level: "",
+    base_project_id: "",
+    reference_mode: "follow" as "follow" | "pinned",
+    visibility: "private" as "private" | "shared",
+    is_referenceable: false,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,6 +27,10 @@ export default function NewProjectPage() {
         name: formData.name,
         description: formData.description,
         grade_level: formData.grade_level,
+        base_project_id: formData.base_project_id || undefined,
+        reference_mode: formData.reference_mode,
+        visibility: formData.visibility,
+        is_referenceable: formData.is_referenceable,
       });
       const projectId = response?.data?.project?.id;
       if (projectId) {
@@ -99,6 +107,72 @@ export default function NewProjectPage() {
               <option value="高中">高中</option>
               <option value="大学">大学</option>
             </select>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="base_project_id" className="text-sm">
+              父项目 ID (可选)
+            </label>
+            <input
+              id="base_project_id"
+              placeholder="例如：proj_123"
+              value={formData.base_project_id}
+              onChange={(e) =>
+                setFormData({ ...formData, base_project_id: e.target.value })
+              }
+              className="w-full px-3 py-2 border rounded-md text-sm"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="reference_mode" className="text-sm">
+                引用模式
+              </label>
+              <select
+                id="reference_mode"
+                value={formData.reference_mode}
+                onChange={(e) =>
+                  setFormData({ ...formData, reference_mode: e.target.value as any })
+                }
+                className="w-full px-3 py-2 border rounded-md text-sm"
+              >
+                <option value="follow">跟随 (Follow)</option>
+                <option value="pinned">固定 (Pinned)</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="visibility" className="text-sm">
+                可见性
+              </label>
+              <select
+                id="visibility"
+                value={formData.visibility}
+                onChange={(e) =>
+                  setFormData({ ...formData, visibility: e.target.value as any })
+                }
+                className="w-full px-3 py-2 border rounded-md text-sm"
+              >
+                <option value="private">私有 (Private)</option>
+                <option value="shared">共享 (Shared)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 py-2">
+            <input
+              type="checkbox"
+              id="is_referenceable"
+              checked={formData.is_referenceable}
+              onChange={(e) =>
+                setFormData({ ...formData, is_referenceable: e.target.checked })
+              }
+              className="w-4 h-4"
+            />
+            <label htmlFor="is_referenceable" className="text-sm">
+              允许被其他项目引用
+            </label>
           </div>
 
           <div className="flex gap-3 pt-4">

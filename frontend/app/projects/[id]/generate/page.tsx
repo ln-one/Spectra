@@ -108,7 +108,11 @@ export default function GeneratePreviewPage() {
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
 
   const [slides, setSlides] = useState<Slide[]>([]);
+  const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [previewBlockedReason, setPreviewBlockedReason] = useState<
     string | null
   >(null);
@@ -151,6 +155,7 @@ export default function GeneratePreviewPage() {
       const response = await previewApi.getSessionPreview(activeSessionId);
       if (response.success && response.data.slides) {
         setSlides(response.data.slides.sort((a, b) => a.index - b.index));
+        setCurrentArtifactId(response.data.artifact_id ?? null);
       }
     } catch (error) {
       if (error instanceof ApiError && error.message.includes("不支持预览")) {
@@ -258,6 +263,31 @@ export default function GeneratePreviewPage() {
     }
   }, []);
 
+  const handleExport = useCallback(async () => {
+    if (!activeSessionId || isExporting) return;
+    try {
+      setIsExporting(true);
+      const response = await previewApi.exportSessionPreview(activeSessionId, {
+        artifact_id: currentArtifactId ?? undefined,
+        format: "html",
+        include_sources: true,
+      });
+      const content = response?.data?.content ?? "";
+      if (!content) return;
+      const blob = new Blob([content], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `preview-${activeSessionId.slice(0, 8)}.html`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export preview:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [activeSessionId, currentArtifactId, isExporting]);
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="h-screen flex flex-col overflow-hidden bg-background text-foreground font-sans selection:bg-primary/20">
@@ -324,9 +354,11 @@ export default function GeneratePreviewPage() {
               variant="outline"
               size="sm"
               className="hidden sm:flex rounded-full h-9"
+              onClick={handleExport}
+              disabled={!activeSessionId || isExporting}
             >
               <Download className="w-4 h-4 mr-2" />
-              导出
+              {isExporting ? "导出中" : "导出"}
             </Button>
             <Button
               variant="outline"

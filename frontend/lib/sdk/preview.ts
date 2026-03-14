@@ -6,18 +6,8 @@ export type ModifyResponse = components["schemas"]["ModifyResponse"];
 export type SlideDetailResponse = components["schemas"]["SlideDetailResponse"];
 export type ExportResponse = components["schemas"]["ExportResponse"];
 
-export interface ModifySessionRequest {
-  instruction: string;
-  target_slides?: string[];
-  context?: Record<string, unknown>;
-  base_render_version?: number;
-}
-
-export interface ExportRequest {
-  format: "json" | "markdown" | "html";
-  include_sources?: boolean;
-  expected_render_version?: number;
-}
+export type ModifySessionRequest = components["schemas"]["ModifySessionRequest"];
+export type ExportRequest = components["schemas"]["ExportRequest"];
 
 export const previewApi = {
   async getSessionPreview(sessionId: string): Promise<PreviewResponse> {
@@ -63,7 +53,7 @@ export const previewApi = {
   ): Promise<ExportResponse> {
     const body: components["schemas"]["ExportRequest"] = {
       ...data,
-      include_sources: data.include_sources ?? false,
+      include_sources: data.include_sources ?? true,
     };
     const result = await sdkClient.POST(
       "/api/v1/generate/sessions/{session_id}/preview/export",

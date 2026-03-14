@@ -1,12 +1,27 @@
+
 import { create } from "zustand";
 import type { components } from "@/lib/types/api";
-import { projectsApi, filesApi, chatApi, generateApi, ragApi } from "@/lib/sdk";
+import type { components as sdkComponents } from "@/lib/sdk/types";
+import {
+  projectsApi,
+  filesApi,
+  chatApi,
+  generateApi,
+  ragApi,
+  previewApi,
+  projectSpaceApi,
+} from "@/lib/sdk";
 import {
   ApiErrorShape,
   createApiError,
   getErrorMessage,
 } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
+import {
+  groupArtifactsByTool,
+  type ArtifactHistoryByTool,
+  type ArtifactHistoryItem,
+} from "@/lib/project-space/artifact-history";
 
 type Project = components["schemas"]["Project"];
 type UploadedFile = components["schemas"]["UploadedFile"];
@@ -16,6 +31,7 @@ type GenerationOptions = components["schemas"]["GenerationOptions"];
 type SessionStatePayload = components["schemas"]["SessionStatePayload"];
 type SourceDetailResponse = components["schemas"]["SourceDetailResponse"];
 type SourceDetail = SourceDetailResponse["data"];
+type Artifact = sdkComponents["schemas"]["Artifact"];
 
 export type LayoutMode = "normal" | "expanded";
 export type ExpandedTool =
@@ -121,6 +137,9 @@ interface ProjectState {
   selectedFileIds: string[];
   generationSession: SessionStatePayload | null;
   generationHistory: GenerationHistory[];
+  artifactHistoryByTool: ArtifactHistoryByTool;
+  currentSessionArtifacts: ArtifactHistoryItem[];
+  activeSessionId: string | null;
   lastFailedInput: string | null;
   activeSourceDetail: SourceDetail | null;
 
@@ -148,6 +167,12 @@ interface ProjectState {
     options?: GenerationOptions
   ) => Promise<void>;
   fetchGenerationHistory: (projectId: string) => Promise<void>;
+  fetchArtifactHistory: (
+    projectId: string,
+    sessionId?: string | null
+  ) => Promise<void>;
+  exportArtifact: (artifactId: string) => Promise<void>;
+  setActiveSessionId: (sessionId: string | null) => void;
   updateOutline: (sessionId: string, outline: OutlineDocument) => Promise<void>;
   confirmOutline: (sessionId: string) => Promise<void>;
   updateProjectName: (name: string) => Promise<void>;
@@ -164,6 +189,9 @@ const initialState = {
   selectedFileIds: [],
   generationSession: null,
   generationHistory: [],
+  artifactHistoryByTool: groupArtifactsByTool([]),
+  currentSessionArtifacts: [],
+  activeSessionId: null as string | null,
   lastFailedInput: null as string | null,
   activeSourceDetail: null as SourceDetail | null,
   layoutMode: "normal" as LayoutMode,
@@ -406,6 +434,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
       if (response?.data?.session) {
         const sessionId = response.data.session.session_id;
+        set({ activeSessionId: sessionId });
 
         const historyItem: GenerationHistory = {
           id: sessionId,
@@ -423,6 +452,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         try {
           const sessionResponse = await generateApi.getSession(sessionId);
           set({ generationSession: sessionResponse?.data ?? null });
+          await get().fetchArtifactHistory(projectId, sessionId);
         } catch (sessionError) {
           const message = getErrorMessage(sessionError);
           set((state) => ({
@@ -481,7 +511,12 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           title: tool?.name || "生成任务",
         };
       });
-      set({ generationHistory: history });
+      const activeSessionId =
+        get().activeSessionId ??
+        get().generationSession?.session?.session_id ??
+        (history.length > 0 ? history[0].id : null);
+      set({ generationHistory: history, activeSessionId });
+      await get().fetchArtifactHistory(projectId, activeSessionId);
     } catch (error) {
       const message = getErrorMessage(error);
       toast({
@@ -491,6 +526,113 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       });
     }
   },
+
+  fetchArtifactHistory: async (projectId: string, sessionId?: string | null) => {
+    try {
+      const response = await projectSpaceApi.getArtifacts(projectId);
+      const artifacts = ((response?.data?.artifacts ?? []) as Artifact[]) || [];
+      const effectiveSessionId =
+        sessionId ??
+        get().activeSessionId ??
+        get().generationSession?.session?.session_id ??
+        null;
+      const artifactHistoryByTool = groupArtifactsByTool(
+        artifacts,
+        effectiveSessionId
+      );
+      const currentSessionArtifacts = Object.values(artifactHistoryByTool)
+        .flat()
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      set({ artifactHistoryByTool, currentSessionArtifacts });
+    } catch (error) {
+      const message = getErrorMessage(error);
+      toast({
+        title: "获取成果历史失败",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  },
+
+  exportArtifact: async (artifactId: string) => {
+    const artifact = get().currentSessionArtifacts.find(
+      (item) => item.artifactId === artifactId
+    );
+    if (!artifact) {
+      toast({
+        title: "导出失败",
+        description: "未找到对应成果",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (artifact.storagePath) {
+      window.open(artifact.storagePath, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const sessionId =
+      artifact.sessionId ??
+      get().activeSessionId ??
+      get().generationSession?.session?.session_id ??
+      null;
+    if (!sessionId) {
+      toast({
+        title: "导出失败",
+        description: "缺少会话上下文，无法导出",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const format =
+        artifact.toolType === "summary" || artifact.toolType === "outline"
+          ? "markdown"
+          : "json";
+      const response = await previewApi.exportSessionPreview(sessionId, {
+        artifact_id: artifact.artifactId,
+        format,
+        include_sources: true,
+      });
+      const content = response?.data?.content ?? "";
+      if (!content) {
+        toast({
+          title: "导出失败",
+          description: "服务端未返回可下载内容",
+          variant: "destructive",
+        });
+        return;
+      }
+      const blob = new Blob([content], {
+        type: format === "markdown" ? "text/markdown;charset=utf-8" : "application/json;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const ext = format === "markdown" ? "md" : "json";
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${artifact.toolType}-${artifact.artifactId.slice(0, 8)}.${ext}`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({
+        title: "导出成功",
+        description: "文件已开始下载",
+      });
+    } catch (error) {
+      const message = getErrorMessage(error);
+      toast({
+        title: "导出失败",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  },
+
+  setActiveSessionId: (sessionId: string | null) => set({ activeSessionId: sessionId }),
   updateOutline: async (sessionId: string, outline: OutlineDocument) => {
     const session = get().generationSession;
     const baseVersion = session?.outline?.version ?? 1;

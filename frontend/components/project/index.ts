@@ -6,3 +6,4 @@ export { GenerationConfigPanel } from "./GenerationConfigPanel";
 export type { GenerationConfig } from "./GenerationConfigPanel";
 export { OutlineEditorPanel } from "./OutlineEditorPanel";
 export type { OutlineEditorConfig } from "./OutlineEditorPanel";
+export { LibraryWorkspace } from "./LibraryWorkspace";
