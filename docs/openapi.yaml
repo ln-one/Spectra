@@ -1,18 +1,18 @@
-openapi: 3.0.0
+﻿openapi: 3.0.0
 info:
   title: Spectra API
   version: 1.1.0
-  description: 多模态AI教学智能体 API - 当前可联调接口规范（仅包含已实现接口）
+  description: 澶氭ā鎬丄I鏁欏鏅鸿兘浣?API - 褰撳墠鍙仈璋冩帴鍙ｈ鑼冿紙浠呭寘鍚凡瀹炵幇鎺ュ彛锛?
   license:
     name: Proprietary
     url: http://localhost:8000/license
 servers:
   - url: http://localhost:8000
-    description: 开发环境
+    description: 寮€鍙戠幆澧?
 paths:
   /api/v1/auth/register:
     post:
-      summary: 用户注册
+      summary: 鐢ㄦ埛娉ㄥ唽
       operationId: postAuthRegister
       tags:
         - Auth
@@ -25,7 +25,7 @@ paths:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
         '200':
-          description: 注册成功
+          description: 娉ㄥ唽鎴愬姛
           content:
             application/json:
               schema:
@@ -36,7 +36,7 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/auth/login:
     post:
-      summary: 用户登录
+      summary: 鐢ㄦ埛鐧诲綍
       operationId: postAuthLogin
       tags:
         - Auth
@@ -49,7 +49,7 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: 登录成功
+          description: 鐧诲綍鎴愬姛
           content:
             application/json:
               schema:
@@ -60,7 +60,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /api/v1/auth/refresh:
     post:
-      summary: 刷新 Access Token
+      summary: 鍒锋柊 Access Token
       operationId: postAuthRefresh
       tags:
         - Auth
@@ -76,10 +76,10 @@ paths:
               properties:
                 refresh_token:
                   type: string
-                  description: 长期有效的刷新令牌
+                  description: 闀挎湡鏈夋晥鐨勫埛鏂颁护鐗?
       responses:
         '200':
-          description: 刷新成功
+          description: 鍒锋柊鎴愬姛
           content:
             application/json:
               schema:
@@ -90,7 +90,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /api/v1/auth/logout:
     post:
-      summary: 退出登录
+      summary: 閫€鍑虹櫥褰?
       operationId: postAuthLogout
       tags:
         - Auth
@@ -98,7 +98,7 @@ paths:
         - BearerAuth: []
       responses:
         '200':
-          description: 退出成功
+          description: 閫€鍑烘垚鍔?
           content:
             application/json:
               schema:
@@ -107,7 +107,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /api/v1/auth/me:
     get:
-      summary: 获取当前用户信息
+      summary: 鑾峰彇褰撳墠鐢ㄦ埛淇℃伅
       operationId: getAuthMe
       tags:
         - Auth
@@ -115,7 +115,7 @@ paths:
         - BearerAuth: []
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -124,7 +124,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /api/v1/chat/messages:
     post:
-      summary: 发送消息
+      summary: 鍙戦€佹秷鎭?
       operationId: postChatMessages
       tags:
         - Chat
@@ -140,7 +140,7 @@ paths:
               $ref: '#/components/schemas/SendMessageRequest'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -152,7 +152,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     get:
-      summary: 获取对话历史
+      summary: 鑾峰彇瀵硅瘽鍘嗗彶
       operationId: getChatMessages
       tags:
         - Chat
@@ -164,18 +164,18 @@ paths:
           required: true
           schema:
             type: string
-          description: 项目 ID。当前实现按 project 维度隔离对话上下文。
+          description: 椤圭洰 ID銆傚綋鍓嶅疄鐜版寜 project 缁村害闅旂瀵硅瘽涓婁笅鏂囥€?
         - name: session_id
           in: query
           required: false
           schema:
             type: string
-          description: 可选会话 ID。提供后按 project_id + session_id 作用域读取历史。
+          description: 鍙€変細璇?ID銆傛彁渚涘悗鎸?project_id + session_id 浣滅敤鍩熻鍙栧巻鍙层€?
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -186,9 +186,9 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/v1/chat/voice:
     post:
-      summary: 语音消息输入
+      summary: 璇煶娑堟伅杈撳叆
       operationId: postChatVoice
-      description: 上传语音文件，系统将自动识别并转换为文本消息
+      description: 涓婁紶璇煶鏂囦欢锛岀郴缁熷皢鑷姩璇嗗埆骞惰浆鎹负鏂囨湰娑堟伅
       tags:
         - Chat
       security:
@@ -208,16 +208,16 @@ paths:
                 audio:
                   type: string
                   format: binary
-                  description: 音频文件（支持 wav, mp3, m4a, ogg）
+                  description: 闊抽鏂囦欢锛堟敮鎸?wav, mp3, m4a, ogg锛?
                 project_id:
                   type: string
-                  description: 项目 ID
+                  description: 椤圭洰 ID
                 session_id:
                   type: string
-                  description: 可选会话 ID。提供后按 project_id + session_id 作用域处理语音对话。
+                  description: 鍙€変細璇?ID銆傛彁渚涘悗鎸?project_id + session_id 浣滅敤鍩熷鐞嗚闊冲璇濄€?
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -230,7 +230,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/v1/files:
     post:
-      summary: 上传参考文件
+      summary: 涓婁紶鍙傝€冩枃浠?
       operationId: postFiles
       tags:
         - Files
@@ -255,10 +255,10 @@ paths:
                   type: string
                 session_id:
                   type: string
-                  description: 可选会话 ID。提供后，索引与检索按 project_id + session_id 隔离。
+                  description: 鍙€変細璇?ID銆傛彁渚涘悗锛岀储寮曚笌妫€绱㈡寜 project_id + session_id 闅旂銆?
       responses:
         '200':
-          description: 上传成功
+          description: 涓婁紶鎴愬姛
           content:
             application/json:
               schema:
@@ -271,7 +271,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/v1/files/{file_id}:
     delete:
-      summary: 删除上传的文件
+      summary: 鍒犻櫎涓婁紶鐨勬枃浠?
       operationId: deleteFilesByFileId
       tags:
         - Files
@@ -285,7 +285,7 @@ paths:
             type: string
       responses:
         '200':
-          description: 删除成功
+          description: 鍒犻櫎鎴愬姛
           content:
             application/json:
               schema:
@@ -298,7 +298,7 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/files/{file_id}/intent:
     patch:
-      summary: 标注文件用途
+      summary: 鏍囨敞鏂囦欢鐢ㄩ€?
       operationId: patchFilesByFileIdIntent
       tags:
         - Files
@@ -318,7 +318,7 @@ paths:
               $ref: '#/components/schemas/UpdateFileIntentRequest'
       responses:
         '200':
-          description: 标注成功
+          description: 鏍囨敞鎴愬姛
           content:
             application/json:
               schema:
@@ -333,9 +333,9 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/files/batch:
     post:
-      summary: 批量上传文件
+      summary: 鎵归噺涓婁紶鏂囦欢
       operationId: postFilesBatch
-      description: 一次上传多个参考文件
+      description: 涓€娆′笂浼犲涓弬鑰冩枃浠?
       tags:
         - Files
       security:
@@ -357,15 +357,15 @@ paths:
                   items:
                     type: string
                     format: binary
-                  description: 多个文件
+                  description: 澶氫釜鏂囦欢
                 project_id:
                   type: string
                 session_id:
                   type: string
-                  description: 可选会话 ID。提供后，批量上传索引按 project_id + session_id 隔离。
+                  description: 鍙€変細璇?ID銆傛彁渚涘悗锛屾壒閲忎笂浼犵储寮曟寜 project_id + session_id 闅旂銆?
       responses:
         '200':
-          description: 批量上传成功
+          description: 鎵归噺涓婁紶鎴愬姛
           content:
             application/json:
               schema:
@@ -377,7 +377,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     delete:
-      summary: 批量删除文件
+      summary: 鎵归噺鍒犻櫎鏂囦欢
       operationId: deleteFilesBatch
       tags:
         - Files
@@ -396,10 +396,10 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: 要删除的文件 ID 列表
+                  description: 瑕佸垹闄ょ殑鏂囦欢 ID 鍒楄〃
       responses:
         '200':
-          description: 批量删除成功
+          description: 鎵归噺鍒犻櫎鎴愬姛
           content:
             application/json:
               schema:
@@ -412,9 +412,9 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/v1/generate/sessions:
     get:
-      summary: 获取生成会话列表
+      summary: 鑾峰彇鐢熸垚浼氳瘽鍒楄〃
       operationId: getGenerateSessions
-      description: 返回项目内生成会话列表（按更新时间倒序）
+      description: 杩斿洖椤圭洰鍐呯敓鎴愪細璇濆垪琛紙鎸夋洿鏂版椂闂村€掑簭锛?
       tags:
         - Generate
       security:
@@ -443,7 +443,7 @@ paths:
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -453,9 +453,9 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
-      summary: 创建生成会话
+      summary: 鍒涘缓鐢熸垚浼氳瘽
       operationId: postGenerateSessions
-      description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
+      description: 鍒涘缓鍙腑鏂€佸彲鎭㈠鐨勮浠剁敓鎴愪細璇濓紙濂戠害浼樺厛涓诲叆鍙ｏ級
       tags:
         - Generate
       security:
@@ -471,7 +471,7 @@ paths:
               $ref: '#/components/schemas/CreateGenerationSessionRequest'
       responses:
         '200':
-          description: 会话创建成功
+          description: 浼氳瘽鍒涘缓鎴愬姛
           content:
             application/json:
               schema:
@@ -484,7 +484,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/v1/generate/sessions/{session_id}:
     get:
-      summary: 查询生成会话快照
+      summary: 鏌ヨ鐢熸垚浼氳瘽蹇収
       operationId: getGenerateSessionsBySessionId
       tags:
         - Generate
@@ -499,7 +499,7 @@ paths:
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -512,11 +512,11 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/generate/sessions/{session_id}/events:
     get:
-      summary: 获取生成事件流（SSE）
+      summary: 鑾峰彇鐢熸垚浜嬩欢娴侊紙SSE锛?
       operationId: getGenerateSessionsBySessionIdEvents
       description: |
-        默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
-        返回短轮询事件列表。
+        榛樿杩斿洖 text/event-stream銆傚綋瀹㈡埛绔棤娉曚娇鐢?SSE 鏃讹紝鍙€氳繃 `accept=application/json`
+        杩斿洖鐭疆璇簨浠跺垪琛ㄣ€?
       tags:
         - Generate
       security:
@@ -532,7 +532,7 @@ paths:
           required: false
           schema:
             type: string
-          description: 事件游标（用于断线续传）
+          description: 浜嬩欢娓告爣锛堢敤浜庢柇绾跨画浼狅級
         - name: accept
           in: query
           required: false
@@ -545,12 +545,12 @@ paths:
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             text/event-stream:
               schema:
                 type: string
-                description: SSE stream，data 字段符合 GenerationEvent
+                description: SSE stream锛宒ata 瀛楁绗﹀悎 GenerationEvent
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerationEventListResponse'
@@ -562,9 +562,9 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/generate/sessions/{session_id}/outline:
     put:
-      summary: 更新大纲并回写会话
+      summary: 鏇存柊澶х翰骞跺洖鍐欎細璇?
       operationId: putGenerateSessionsBySessionIdOutline
-      description: 兼容别名，等价于 command_type=UPDATE_OUTLINE
+      description: 鍏煎鍒悕锛岀瓑浠蜂簬 command_type=UPDATE_OUTLINE
       deprecated: true
       tags:
         - Generate
@@ -586,7 +586,7 @@ paths:
               $ref: '#/components/schemas/UpdateOutlineRequest'
       responses:
         '200':
-          description: 大纲更新成功
+          description: 澶х翰鏇存柊鎴愬姛
           content:
             application/json:
               schema:
@@ -603,11 +603,11 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/commands:
     post:
-      summary: 执行会话命令（唯一写入口）
+      summary: 鎵ц浼氳瘽鍛戒护锛堝敮涓€鍐欏叆鍙ｏ級
       operationId: postGenerateSessionsBySessionIdCommands
       description: |
-        所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
-        服务层必须通过统一状态转换校验器（StateTransitionGuard）决定是否允许执行。
+        鎵€鏈変細寮曡捣鐘舵€佸彉鍖栨垨鍐呭鍙樺寲鐨勬搷浣滅粺涓€閫氳繃 Command 鎺ュ彛鎵ц銆?
+        鏈嶅姟灞傚繀椤婚€氳繃缁熶竴鐘舵€佽浆鎹㈡牎楠屽櫒锛圫tateTransitionGuard锛夊喅瀹氭槸鍚﹀厑璁告墽琛屻€?
       tags:
         - Generate
       security:
@@ -628,7 +628,7 @@ paths:
               $ref: '#/components/schemas/GenerationSessionCommandRequest'
       responses:
         '200':
-          description: 命令已执行或接受
+          description: 鍛戒护宸叉墽琛屾垨鎺ュ彈
           content:
             application/json:
               schema:
@@ -645,9 +645,9 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/confirm:
     post:
-      summary: 确认大纲并继续生成
+      summary: 纭澶х翰骞剁户缁敓鎴?
       operationId: postGenerateSessionsBySessionIdConfirm
-      description: 兼容别名，等价于 command_type=CONFIRM_OUTLINE
+      description: 鍏煎鍒悕锛岀瓑浠蜂簬 command_type=CONFIRM_OUTLINE
       deprecated: true
       tags:
         - Generate
@@ -669,7 +669,7 @@ paths:
               $ref: '#/components/schemas/ConfirmOutlineRequest'
       responses:
         '200':
-          description: 已进入内容生成
+          description: 宸茶繘鍏ュ唴瀹圭敓鎴?
           content:
             application/json:
               schema:
@@ -686,9 +686,9 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/outline/redraft:
     post:
-      summary: 请求 AI 重写大纲
+      summary: 璇锋眰 AI 閲嶅啓澶х翰
       operationId: postGenerateSessionsBySessionIdOutlineRedraft
-      description: 兼容别名，等价于 command_type=REDRAFT_OUTLINE
+      description: 鍏煎鍒悕锛岀瓑浠蜂簬 command_type=REDRAFT_OUTLINE
       deprecated: true
       tags:
         - Generate
@@ -710,7 +710,7 @@ paths:
               $ref: '#/components/schemas/RedraftOutlineRequest'
       responses:
         '200':
-          description: 已进入大纲重写阶段
+          description: 宸茶繘鍏ュぇ绾查噸鍐欓樁娈?
           content:
             application/json:
               schema:
@@ -727,9 +727,9 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/resume:
     post:
-      summary: 恢复中断会话
+      summary: 鎭㈠涓柇浼氳瘽
       operationId: postGenerateSessionsBySessionIdResume
-      description: 兼容别名，等价于 command_type=RESUME_SESSION
+      description: 鍏煎鍒悕锛岀瓑浠蜂簬 command_type=RESUME_SESSION
       deprecated: true
       tags:
         - Generate
@@ -750,7 +750,7 @@ paths:
               $ref: '#/components/schemas/ResumeSessionRequest'
       responses:
         '200':
-          description: 恢复成功
+          description: 鎭㈠鎴愬姛
           content:
             application/json:
               schema:
@@ -765,9 +765,9 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
     post:
-      summary: 局部重绘单页
+      summary: 灞€閮ㄩ噸缁樺崟椤?
       operationId: postGenerateSessionsBySessionIdSlidesBySlideIdRegenerate
-      description: 兼容别名，等价于 command_type=REGENERATE_SLIDE
+      description: 鍏煎鍒悕锛岀瓑浠蜂簬 command_type=REGENERATE_SLIDE
       deprecated: true
       tags:
         - Generate
@@ -794,7 +794,7 @@ paths:
               $ref: '#/components/schemas/RegenerateSlideRequest'
       responses:
         '200':
-          description: 局部重绘成功
+          description: 灞€閮ㄩ噸缁樻垚鍔?
           content:
             application/json:
               schema:
@@ -811,9 +811,9 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/generate/capabilities:
     get:
-      summary: 获取生成域能力声明
+      summary: 鑾峰彇鐢熸垚鍩熻兘鍔涘０鏄?
       operationId: getGenerateCapabilities
-      description: 返回服务端当前支持的契约版本、特性开关与弃用信息。
+      description: 杩斿洖鏈嶅姟绔綋鍓嶆敮鎸佺殑濂戠害鐗堟湰銆佺壒鎬у紑鍏充笌寮冪敤淇℃伅銆?
       tags:
         - Generate
       security:
@@ -822,7 +822,7 @@ paths:
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -833,7 +833,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/v1/generate/sessions/{session_id}/preview:
     get:
-      summary: 获取会话级课件预览
+      summary: 鑾峰彇浼氳瘽绾ц浠堕瑙?
       operationId: getGenerateSessionsBySessionIdPreview
       tags:
         - Preview
@@ -850,11 +850,11 @@ paths:
           required: false
           schema:
             type: string
-          description: 指定预览的成果 ID（可选）
+          description: 鎸囧畾棰勮鐨勬垚鏋?ID锛堝彲閫夛級
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -867,7 +867,7 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/generate/sessions/{session_id}/preview/modify:
     post:
-      summary: 提交会话级预览修改
+      summary: 鎻愪氦浼氳瘽绾ч瑙堜慨鏀?
       operationId: postGenerateSessionsBySessionIdPreviewModify
       tags:
         - Preview
@@ -889,7 +889,7 @@ paths:
               $ref: '#/components/schemas/ModifySessionRequest'
       responses:
         '200':
-          description: 修改任务已创建
+          description: 淇敼浠诲姟宸插垱寤?
           content:
             application/json:
               schema:
@@ -906,7 +906,7 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}:
     get:
-      summary: 获取会话级单页详情
+      summary: 鑾峰彇浼氳瘽绾у崟椤佃鎯?
       operationId: getGenerateSessionsBySessionIdPreviewSlidesBySlideId
       tags:
         - Preview
@@ -928,11 +928,11 @@ paths:
           required: false
           schema:
             type: string
-          description: 指定来源成果 ID（可选）
+          description: 鎸囧畾鏉ユ簮鎴愭灉 ID锛堝彲閫夛級
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -945,7 +945,7 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/generate/sessions/{session_id}/preview/export:
     post:
-      summary: 导出会话级预览内容
+      summary: 瀵煎嚭浼氳瘽绾ч瑙堝唴瀹?
       operationId: postGenerateSessionsBySessionIdPreviewExport
       tags:
         - Preview
@@ -966,7 +966,7 @@ paths:
               $ref: '#/components/schemas/ExportRequest'
       responses:
         '200':
-          description: 导出成功
+          description: 瀵煎嚭鎴愬姛
           content:
             application/json:
               schema:
@@ -981,7 +981,7 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/rag/search:
     post:
-      summary: 检索知识库
+      summary: 妫€绱㈢煡璇嗗簱
       operationId: postRagSearch
       tags:
         - RAG
@@ -995,7 +995,7 @@ paths:
               $ref: '#/components/schemas/RAGSearchRequest'
       responses:
         '200':
-          description: 检索成功
+          description: 妫€绱㈡垚鍔?
           content:
             application/json:
               schema:
@@ -1008,7 +1008,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/v1/rag/sources/{chunk_id}:
     get:
-      summary: 查看来源详情
+      summary: 鏌ョ湅鏉ユ簮璇︽儏
       operationId: getRagSourcesByChunkId
       tags:
         - RAG
@@ -1022,7 +1022,7 @@ paths:
             type: string
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -1035,9 +1035,9 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/rag/index:
     post:
-      summary: 索引新文件到知识库
+      summary: 绱㈠紩鏂版枃浠跺埌鐭ヨ瘑搴?
       operationId: postRagIndex
-      description: 将上传的文件添加到 RAG 知识库索引
+      description: 灏嗕笂浼犵殑鏂囦欢娣诲姞鍒?RAG 鐭ヨ瘑搴撶储寮?
       tags:
         - RAG
       security:
@@ -1053,18 +1053,18 @@ paths:
               properties:
                 file_id:
                   type: string
-                  description: 要索引的文件 ID
+                  description: 瑕佺储寮曠殑鏂囦欢 ID
                 chunk_size:
                   type: integer
                   default: 512
-                  description: 分块大小
+                  description: 鍒嗗潡澶у皬
                 chunk_overlap:
                   type: integer
                   default: 50
-                  description: 分块重叠大小
+                  description: 鍒嗗潡閲嶅彔澶у皬
       responses:
         '200':
-          description: 索引任务已创建
+          description: 绱㈠紩浠诲姟宸插垱寤?
           content:
             application/json:
               schema:
@@ -1092,9 +1092,9 @@ paths:
           $ref: '#/components/responses/Forbidden'
   /api/v1/rag/similar:
     post:
-      summary: 查找相似内容
+      summary: 鏌ユ壘鐩镐技鍐呭
       operationId: postRagSimilar
-      description: 基于给定文本查找知识库中的相似内容
+      description: 鍩轰簬缁欏畾鏂囨湰鏌ユ壘鐭ヨ瘑搴撲腑鐨勭浉浼煎唴瀹?
       tags:
         - RAG
       security:
@@ -1110,7 +1110,7 @@ paths:
               properties:
                 text:
                   type: string
-                  description: 要查找相似内容的文本
+                  description: 瑕佹煡鎵剧浉浼煎唴瀹圭殑鏂囨湰
                 top_k:
                   type: integer
                   default: 5
@@ -1122,10 +1122,10 @@ paths:
                   default: 0.7
                   minimum: 0
                   maximum: 1
-                  description: 相似度阈值
+                  description: 鐩镐技搴﹂槇鍊?
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -1136,31 +1136,158 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /health:
     get:
-      summary: 服务健康检查
+      summary: 鏈嶅姟鍋ュ悍妫€鏌?
       operationId: getHealth
       tags:
         - Health
       security: []
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheckResponse'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/rag/web-search:
+    post:
+      summary: 鎼滅储缃戠粶璧勬簮骞跺彲閫夊叆搴?
+      tags:
+        - RAG
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: max_results
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 20
+        - name: auto_index
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: 鎼滅储鎴愬姛
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebSearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/rag/audio-transcribe:
+    post:
+      summary: 闊抽杞綍骞跺彲閫夊叆搴?
+      tags:
+        - RAG
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 闊抽鏂囦欢
+                project_id:
+                  type: string
+                  description: 鍙€夐」鐩?ID锛屼笉浼犲垯浠呰浆褰曚笉鍏ュ簱
+                auto_index:
+                  type: boolean
+                  default: false
+                language:
+                  type: string
+                  default: zh
+      responses:
+        '200':
+          description: 杞綍鎴愬姛
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioTranscribeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/rag/video-analyze:
+    post:
+      summary: 瑙嗛鍒嗘瀽骞跺彲閫夊叆搴?
+      tags:
+        - RAG
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 瑙嗛鏂囦欢
+                project_id:
+                  type: string
+                  description: 鍙€夐」鐩?ID锛屼笉浼犲垯浠呭垎鏋愪笉鍏ュ簱
+                auto_index:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: 鍒嗘瀽鎴愬姛
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoAnalyzeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/health/capabilities:
     get:
-      summary: 获取能力健康状态
+      summary: 鑾峰彇鑳藉姏鍋ュ悍鐘舵€?
       operationId: getHealthCapabilities
-      description: 返回 document_parser / video_understanding / speech_recognition 的能力状态。
+      description: 杩斿洖 document_parser / video_understanding / speech_recognition 鐨勮兘鍔涚姸鎬併€?
       tags:
         - Health
       security: []
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -1169,7 +1296,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
   /api/v1/projects:
     post:
-      summary: 创建项目
+      summary: 鍒涘缓椤圭洰
       operationId: postProjects
       tags:
         - Project
@@ -1185,7 +1312,7 @@ paths:
               $ref: '#/components/schemas/ProjectRequest'
       responses:
         '200':
-          description: 项目创建成功
+          description: 椤圭洰鍒涘缓鎴愬姛
           content:
             application/json:
               schema:
@@ -1195,7 +1322,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     get:
-      summary: 获取项目列表
+      summary: 鑾峰彇椤圭洰鍒楄〃
       operationId: getProjects
       tags:
         - Project
@@ -1206,7 +1333,7 @@ paths:
         - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -1215,7 +1342,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /api/v1/projects/{project_id}:
     get:
-      summary: 获取项目详情
+      summary: 鑾峰彇椤圭洰璇︽儏
       operationId: getProjectsByProjectId
       tags:
         - Project
@@ -1229,7 +1356,7 @@ paths:
             type: string
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -1241,7 +1368,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     put:
-      summary: 修改项目信息
+      summary: 淇敼椤圭洰淇℃伅
       operationId: putProjectsByProjectId
       tags:
         - Project
@@ -1262,7 +1389,7 @@ paths:
               $ref: '#/components/schemas/ProjectRequest'
       responses:
         '200':
-          description: 更新成功
+          description: 鏇存柊鎴愬姛
           content:
             application/json:
               schema:
@@ -1276,7 +1403,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
-      summary: 删除项目
+      summary: 鍒犻櫎椤圭洰
       operationId: deleteProjectsByProjectId
       tags:
         - Project
@@ -1290,7 +1417,7 @@ paths:
             type: string
       responses:
         '200':
-          description: 删除成功
+          description: 鍒犻櫎鎴愬姛
           content:
             application/json:
               schema:
@@ -1303,7 +1430,7 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/projects/{project_id}/files:
     get:
-      summary: 获取项目的上传文件列表
+      summary: 鑾峰彇椤圭洰鐨勪笂浼犳枃浠跺垪琛?
       operationId: getProjectsByProjectIdFiles
       tags:
         - Project
@@ -1320,7 +1447,7 @@ paths:
         - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -1333,9 +1460,9 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/projects/{project_id}/statistics:
     get:
-      summary: 获取项目统计信息
+      summary: 鑾峰彇椤圭洰缁熻淇℃伅
       operationId: getProjectsByProjectIdStatistics
-      description: 获取项目的文件数、对话数、生成任务数等统计信息
+      description: 鑾峰彇椤圭洰鐨勬枃浠舵暟銆佸璇濇暟銆佺敓鎴愪换鍔℃暟绛夌粺璁′俊鎭?
       tags:
         - Project
       security:
@@ -1348,7 +1475,7 @@ paths:
             type: string
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -1361,9 +1488,9 @@ paths:
           $ref: '#/components/responses/NotFound'
   /api/v1/projects/search:
     get:
-      summary: 搜索项目
+      summary: 鎼滅储椤圭洰
       operationId: getProjectsSearch
-      description: 根据关键词搜索项目
+      description: 鏍规嵁鍏抽敭璇嶆悳绱㈤」鐩?
       tags:
         - Project
       security:
@@ -1374,7 +1501,7 @@ paths:
           required: true
           schema:
             type: string
-          description: 搜索关键词
+          description: 鎼滅储鍏抽敭璇?
         - name: status
           in: query
           schema:
@@ -1383,12 +1510,12 @@ paths:
               - draft
               - in_progress
               - completed
-          description: 按状态筛选
+          description: 鎸夌姸鎬佺瓫閫?
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/LimitParam'
       responses:
         '200':
-          description: 成功
+          description: 鎴愬姛
           content:
             application/json:
               schema:
@@ -1401,7 +1528,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT 认证令牌
+      description: JWT 璁よ瘉浠ょ墝
   schemas:
     RegisterRequest:
       type: object
@@ -1492,17 +1619,17 @@ components:
               type: string
             retryable:
               type: boolean
-              description: 是否建议客户端重试
+              description: 鏄惁寤鸿瀹㈡埛绔噸璇?
             details:
               type: object
-              description: 结构化错误详情（例如字段错误、状态冲突上下文）
+              description: 缁撴瀯鍖栭敊璇鎯咃紙渚嬪瀛楁閿欒銆佺姸鎬佸啿绐佷笂涓嬫枃锛?
               additionalProperties: true
             trace_id:
               type: string
-              description: 服务端追踪 ID，用于日志排障
+              description: 鏈嶅姟绔拷韪?ID锛岀敤浜庢棩蹇楁帓闅?
         message:
           type: string
-          description: 根级错误摘要，通常为“请求失败”或业务级失败说明
+          description: 鏍圭骇閿欒鎽樿锛岄€氬父涓衡€滆姹傚け璐モ€濇垨涓氬姟绾уけ璐ヨ鏄?
     LoginRequest:
       type: object
       required:
@@ -1528,10 +1655,10 @@ components:
         data:
           type: object
           additionalProperties: true
-          description: 成功响应载荷。部分接口可能返回空对象。
+          description: 鎴愬姛鍝嶅簲杞借嵎銆傞儴鍒嗘帴鍙ｅ彲鑳借繑鍥炵┖瀵硅薄銆?
         message:
           type: string
-          example: 操作成功
+          example: 鎿嶄綔鎴愬姛
     UserInfoResponse:
       type: object
       required:
@@ -1557,7 +1684,7 @@ components:
       properties:
         chunk_id:
           type: string
-          description: 来源片段唯一标识，可用于查询来源详情
+          description: 鏉ユ簮鐗囨鍞竴鏍囪瘑锛屽彲鐢ㄤ簬鏌ヨ鏉ユ簮璇︽儏
         source_type:
           type: string
           enum:
@@ -1709,7 +1836,7 @@ components:
           type: string
     CapabilityStatus:
       type: object
-      description: 能力执行状态与降级信息（统一字段，适用于解析/视频/语音）
+      description: 鑳藉姏鎵ц鐘舵€佷笌闄嶇骇淇℃伅锛堢粺涓€瀛楁锛岄€傜敤浜庤В鏋?瑙嗛/璇煶锛?
       required:
         - capability
         - provider
@@ -1722,23 +1849,23 @@ components:
             - document_parser
             - video_understanding
             - speech_recognition
-          description: 能力标识
+          description: 鑳藉姏鏍囪瘑
         provider:
           type: string
-          description: 实际执行的 provider（如 MinerU、Qwen-VL、Faster-Whisper、local_parser）
+          description: 瀹為檯鎵ц鐨?provider锛堝 MinerU銆丵wen-VL銆丗aster-Whisper銆乴ocal_parser锛?
         status:
           type: string
           enum:
             - available
             - degraded
             - unavailable
-          description: 能力状态
+          description: 鑳藉姏鐘舵€?
         fallback_used:
           type: boolean
-          description: 是否发生降级
+          description: 鏄惁鍙戠敓闄嶇骇
         fallback_target:
           type: string
-          description: 降级目标 provider（仅当 fallback_used=true 时有值）
+          description: 闄嶇骇鐩爣 provider锛堜粎褰?fallback_used=true 鏃舵湁鍊硷級
         reason_code:
           type: string
           enum:
@@ -1749,13 +1876,13 @@ components:
             - UNSUPPORTED_FILE_TYPE
             - EMPTY_OUTPUT
             - INTERNAL_ERROR
-          description: 失败或降级原因码
+          description: 澶辫触鎴栭檷绾у師鍥犵爜
         user_message:
           type: string
-          description: 可直接展示给用户的提示语
+          description: 鍙洿鎺ュ睍绀虹粰鐢ㄦ埛鐨勬彁绀鸿
         trace_id:
           type: string
-          description: 链路追踪 ID
+          description: 閾捐矾杩借釜 ID
     VoiceMessageResponse:
       type: object
       required:
@@ -1800,7 +1927,7 @@ components:
           type: string
     common_SourceReference:
       type: object
-      description: 内容来源引用（用于溯源）
+      description: 鍐呭鏉ユ簮寮曠敤锛堢敤浜庢函婧愶級
       required:
         - chunk_id
         - source_type
@@ -1808,32 +1935,33 @@ components:
       properties:
         chunk_id:
           type: string
-          description: 片段唯一标识
+          description: 鐗囨鍞竴鏍囪瘑
         source_type:
           type: string
           enum:
             - document
+            - web
             - video
             - audio
             - ai_generated
-          description: 来源类型
+          description: 鏉ユ簮绫诲瀷
         filename:
           type: string
-          description: 源文件名
+          description: 婧愭枃浠跺悕
         page_number:
           type: integer
-          description: 页码（文档场景）
+          description: 椤电爜锛堟枃妗ｅ満鏅級
         timestamp:
           type: number
           format: float
-          description: 时间戳（视频/音频场景，单位秒）
+          description: 鏃堕棿鎴筹紙瑙嗛/闊抽鍦烘櫙锛屽崟浣嶇锛?
         score:
           type: number
           format: float
-          description: 检索或重排得分（可选）
+          description: 妫€绱㈡垨閲嶆帓寰楀垎锛堝彲閫夛級
         content_preview:
           type: string
-          description: 内容预览片段
+          description: 鍐呭棰勮鐗囨
     UploadedFile:
       type: object
       required:
@@ -1873,51 +2001,51 @@ components:
           type: integer
           minimum: 0
           maximum: 100
-          description: 解析进度百分比
+          description: 瑙ｆ瀽杩涘害鐧惧垎姣?
         parse_details:
           type: object
-          description: 解析详情
+          description: 瑙ｆ瀽璇︽儏
           properties:
             pages_extracted:
               type: integer
-              description: 提取的页数
+              description: 鎻愬彇鐨勯〉鏁?
             images_extracted:
               type: integer
-              description: 提取的图片数
+              description: 鎻愬彇鐨勫浘鐗囨暟
             text_length:
               type: integer
-              description: 提取的文本长度
+              description: 鎻愬彇鐨勬枃鏈暱搴?
             duration:
               type: number
-              description: 视频时长（秒）
+              description: 瑙嗛鏃堕暱锛堢锛?
         parse_error:
           type: string
-          description: 解析错误信息
+          description: 瑙ｆ瀽閿欒淇℃伅
         usage_intent:
           type: string
-          description: 文件用途说明
+          description: 鏂囦欢鐢ㄩ€旇鏄?
         parse_result:
           type: object
-          description: 解析结果摘要
+          description: 瑙ｆ瀽缁撴灉鎽樿
           properties:
             chunk_count:
               type: integer
-              description: 切分片段数量
+              description: 鍒囧垎鐗囨鏁伴噺
             indexed_count:
               type: integer
-              description: 入库索引片段数量
+              description: 鍏ュ簱绱㈠紩鐗囨鏁伴噺
             capability_status:
               allOf:
                 - $ref: '#/components/schemas/CapabilityStatus'
-              description: 解析能力状态（含降级信息）
+              description: 瑙ｆ瀽鑳藉姏鐘舵€侊紙鍚檷绾т俊鎭級
             segments:
               type: array
-              description: 视频解析片段（video 场景）
+              description: 瑙嗛瑙ｆ瀽鐗囨锛坴ideo 鍦烘櫙锛?
               items:
                 type: object
             sources:
               type: array
-              description: 来源引用（video 场景）
+              description: 鏉ユ簮寮曠敤锛坴ideo 鍦烘櫙锛?
               items:
                 $ref: '#/components/schemas/common_SourceReference'
         created_at:
@@ -1985,7 +2113,7 @@ components:
                 $ref: '#/components/schemas/UploadedFile'
             total:
               type: integer
-              description: 成功上传的文件数
+              description: 鎴愬姛涓婁紶鐨勬枃浠舵暟
             failed:
               type: array
               items:
@@ -1995,7 +2123,7 @@ components:
                     type: string
                   error:
                     type: string
-              description: 上传失败的文件列表
+              description: 涓婁紶澶辫触鐨勬枃浠跺垪琛?
         message:
           type: string
     BatchDeleteResponse:
@@ -2012,7 +2140,7 @@ components:
           properties:
             deleted:
               type: integer
-              description: 成功删除的文件数
+              description: 鎴愬姛鍒犻櫎鐨勬枃浠舵暟
             failed:
               type: array
               items:
@@ -2022,7 +2150,7 @@ components:
                     type: string
                   error:
                     type: string
-              description: 删除失败的文件列表
+              description: 鍒犻櫎澶辫触鐨勬枃浠跺垪琛?
         message:
           type: string
     GenerationSessionMode:
@@ -2123,29 +2251,29 @@ components:
             - uncover
             - academic
           default: default
-          description: PPT 模板风格
+          description: PPT 妯℃澘椋庢牸
         style_preset:
           $ref: '#/components/schemas/CoursewareStylePreset'
         theme_color:
           type: string
           pattern: ^#[0-9A-Fa-f]{6}$
-          description: 主题色（十六进制颜色代码）
+          description: 涓婚鑹诧紙鍗佸叚杩涘埗棰滆壊浠ｇ爜锛?
           example: '#4A90E2'
         show_page_number:
           type: boolean
           default: true
-          description: 是否显示页码
+          description: 鏄惁鏄剧ず椤电爜
         header:
           type: string
-          description: 页眉文本
+          description: 椤电湁鏂囨湰
         footer:
           type: string
-          description: 页脚文本
+          description: 椤佃剼鏂囨湰
         pages:
           type: integer
           minimum: 1
           maximum: 100
-          description: 期望的页数
+          description: 鏈熸湜鐨勯〉鏁?
         audience:
           $ref: '#/components/schemas/GenerationAudience'
         target_duration_minutes:
@@ -2155,31 +2283,31 @@ components:
         include_animations:
           type: boolean
           default: false
-          description: 是否生成动画创意
+          description: 鏄惁鐢熸垚鍔ㄧ敾鍒涙剰
         include_games:
           type: boolean
           default: false
-          description: 是否生成互动游戏
+          description: 鏄惁鐢熸垚浜掑姩娓告垙
         animation_format:
           type: string
           enum:
             - gif
             - mp4
             - html5
-          description: 动画输出格式（当 include_animations 为 true 时）
+          description: 鍔ㄧ敾杈撳嚭鏍煎紡锛堝綋 include_animations 涓?true 鏃讹級
         use_text_to_image:
           type: boolean
           default: false
-          description: 是否启用自动配图
+          description: 鏄惁鍚敤鑷姩閰嶅浘
         system_prompt_tone:
           type: string
           maxLength: 2000
-          description: 用户输入的主基调 Prompt
+          description: 鐢ㄦ埛杈撳叆鐨勪富鍩鸿皟 Prompt
         rag_source_ids:
           type: array
           items:
             type: string
-          description: 本次生成绑定的素材 ID 列表
+          description: 鏈鐢熸垚缁戝畾鐨勭礌鏉?ID 鍒楄〃
     CreateGenerationSessionRequest:
       type: object
       required:
@@ -2215,12 +2343,12 @@ components:
           type: string
         task_id:
           type: string
-          description: 兼容旧任务模型时可返回
+          description: 鍏煎鏃т换鍔℃ā鍨嬫椂鍙繑鍥?
         state:
           $ref: '#/components/schemas/GenerationState'
         state_reason:
           type: string
-          description: 状态附加语义（用于未知状态或灰度状态说明）
+          description: 鐘舵€侀檮鍔犺涔夛紙鐢ㄤ簬鏈煡鐘舵€佹垨鐏板害鐘舵€佽鏄庯級
         status:
           $ref: '#/components/schemas/GenerateTaskStatus'
         contract_version:
@@ -2229,7 +2357,7 @@ components:
         schema_version:
           type: integer
           minimum: 1
-          description: 会话载荷结构版本
+          description: 浼氳瘽杞借嵎缁撴瀯鐗堟湰
         progress:
           type: integer
           minimum: 0
@@ -2361,21 +2489,21 @@ components:
             - speech_recognition
         provider:
           type: string
-          description: 原始目标能力或供应商
+          description: 鍘熷鐩爣鑳藉姏鎴栦緵搴斿晢
           example: MinerU
         fallback_used:
           type: boolean
         fallback_target:
           type: string
-          description: 实际回退到的能力或供应商
+          description: 瀹為檯鍥為€€鍒扮殑鑳藉姏鎴栦緵搴斿晢
           example: local_parser
         reason_code:
           type: string
-          description: 降级原因码（超时/限流/服务不可用等）
+          description: 闄嶇骇鍘熷洜鐮侊紙瓒呮椂/闄愭祦/鏈嶅姟涓嶅彲鐢ㄧ瓑锛?
           example: PROVIDER_TIMEOUT
         user_message:
           type: string
-          description: 可直接展示给用户的降级提示语
+          description: 鍙洿鎺ュ睍绀虹粰鐢ㄦ埛鐨勯檷绾ф彁绀鸿
     SessionStatePayload:
       type: object
       required:
@@ -2391,17 +2519,17 @@ components:
           $ref: '#/components/schemas/SessionContextSnapshot'
         capabilities:
           type: array
-          description: 服务端能力声明（状态、供应商、可用操作）
+          description: 鏈嶅姟绔兘鍔涘０鏄庯紙鐘舵€併€佷緵搴斿晢銆佸彲鐢ㄦ搷浣滐級
           items:
             $ref: '#/components/schemas/CapabilityDeclaration'
         fallbacks:
           type: array
-          description: 当前会话发生过的能力降级记录（按时间追加）
+          description: 褰撳墠浼氳瘽鍙戠敓杩囩殑鑳藉姏闄嶇骇璁板綍锛堟寜鏃堕棿杩藉姞锛?
           items:
             $ref: '#/components/schemas/ExternalFallbackInfo'
         allowed_actions:
           type: array
-          description: 当前状态下允许的下一步动作（防止前后端状态错配）
+          description: 褰撳墠鐘舵€佷笅鍏佽鐨勪笅涓€姝ュ姩浣滐紙闃叉鍓嶅悗绔姸鎬侀敊閰嶏級
           items:
             type: string
             example: update_outline
@@ -2428,7 +2556,7 @@ components:
               $ref: '#/components/schemas/ExternalFallbackInfo'
             transition_guard:
               type: string
-              description: 状态转换校验器名称
+              description: 鐘舵€佽浆鎹㈡牎楠屽櫒鍚嶇О
               example: StateTransitionGuard
     GenerationSessionResponse:
       type: object
@@ -2484,10 +2612,10 @@ components:
           format: date-time
         cursor:
           type: string
-          description: 增量消费游标
+          description: 澧為噺娑堣垂娓告爣
         payload:
           type: object
-          description: 事件附带的业务数据
+          description: 浜嬩欢闄勫甫鐨勪笟鍔℃暟鎹?
     GenerationEventListResponse:
       type: object
       required:
@@ -2515,7 +2643,7 @@ components:
         base_version:
           type: integer
           minimum: 1
-          description: 客户端编辑所基于的大纲版本（并发控制）
+          description: 瀹㈡埛绔紪杈戞墍鍩轰簬鐨勫ぇ绾茬増鏈紙骞跺彂鎺у埗锛?
         outline:
           $ref: '#/components/schemas/OutlineDocument'
         change_reason:
@@ -2608,14 +2736,14 @@ components:
           $ref: '#/components/schemas/StructuredPatchOperationType'
         path:
           type: string
-          description: 目标路径（JSON Pointer 风格）
+          description: 鐩爣璺緞锛圝SON Pointer 椋庢牸锛?
           example: /slides/5/body/blocks/2
         value:
           type: object
-          description: 操作值（按 op 类型解释）
+          description: 鎿嶄綔鍊硷紙鎸?op 绫诲瀷瑙ｉ噴锛?
         note:
           type: string
-          description: 可选备注，便于审计与回放
+          description: 鍙€夊娉紝渚夸簬瀹¤涓庡洖鏀?
     StructuredSlidePatch:
       type: object
       required:
@@ -2740,11 +2868,11 @@ components:
         continue_from_retrieval:
           type: boolean
           default: true
-          description: 是否复用 ANALYZING 阶段上下文
+          description: 鏄惁澶嶇敤 ANALYZING 闃舵涓婁笅鏂?
         expected_state:
           allOf:
             - $ref: '#/components/schemas/GenerationState'
-          description: 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM
+          description: 涔愯骞跺彂鎺у埗锛岄粯璁ゅ簲涓?AWAITING_OUTLINE_CONFIRM
     ConfirmOutlineResponse:
       type: object
       required:
@@ -2771,11 +2899,11 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
-          description: 用户要求重写大纲的指导语
+          description: 鐢ㄦ埛瑕佹眰閲嶅啓澶х翰鐨勬寚瀵艰
         base_version:
           type: integer
           minimum: 1
-          description: 当前确认页所见大纲版本
+          description: 褰撳墠纭椤垫墍瑙佸ぇ绾茬増鏈?
     RedraftOutlineResponse:
       type: object
       required:
@@ -2797,7 +2925,7 @@ components:
       properties:
         cursor:
           type: string
-          description: 上次消费到的事件游标
+          description: 涓婃娑堣垂鍒扮殑浜嬩欢娓告爣
         last_known_state:
           $ref: '#/components/schemas/GenerationState'
     ResumeSessionResponse:
@@ -2827,7 +2955,7 @@ components:
           type: string
           minLength: 1
           maxLength: 2000
-          description: 可选自然语言补充说明，最终以结构化 patch 为准
+          description: 鍙€夎嚜鐒惰瑷€琛ュ厖璇存槑锛屾渶缁堜互缁撴瀯鍖?patch 涓哄噯
         slide_index:
           type: integer
           minimum: 1
@@ -2836,7 +2964,7 @@ components:
         expected_render_version:
           type: integer
           minimum: 1
-          description: 防止并发覆盖的版本控制字段
+          description: 闃叉骞跺彂瑕嗙洊鐨勭増鏈帶鍒跺瓧娈?
     RegenerateSlideResponse:
       type: object
       required:
@@ -3031,23 +3159,23 @@ components:
           properties:
             session_id:
               type: string
-              description: 会话级预览上下文 ID（session-first 流程）
+              description: 浼氳瘽绾ч瑙堜笂涓嬫枃 ID锛坰ession-first 娴佺▼锛?
             task_id:
               type: string
-              description: 兼容旧任务流的执行 ID
+              description: 鍏煎鏃т换鍔℃祦鐨勬墽琛?ID
               nullable: true
             artifact_id:
               type: string
-              description: 当前预览对应的成果 ID
+              description: 褰撳墠棰勮瀵瑰簲鐨勬垚鏋?ID
               nullable: true
             based_on_version_id:
               type: string
-              description: 当前预览基于的正式版本 ID
+              description: 褰撳墠棰勮鍩轰簬鐨勬寮忕増鏈?ID
               nullable: true
             render_version:
               type: integer
               minimum: 1
-              description: 当前可预览渲染版本
+              description: 褰撳墠鍙瑙堟覆鏌撶増鏈?
             slides:
               type: array
               items:
@@ -3063,7 +3191,7 @@ components:
       properties:
         artifact_id:
           type: string
-          description: 指定要修改的成果 ID（可选）
+          description: 鎸囧畾瑕佷慨鏀圭殑鎴愭灉 ID锛堝彲閫夛級
         instruction:
           type: string
           minLength: 1
@@ -3077,7 +3205,7 @@ components:
         base_render_version:
           type: integer
           minimum: 1
-          description: 并发控制版本（防止覆盖更新）
+          description: 骞跺彂鎺у埗鐗堟湰锛堥槻姝㈣鐩栨洿鏂帮級
     ModifyResponse:
       type: object
       required:
@@ -3092,7 +3220,7 @@ components:
           properties:
             session_id:
               type: string
-              description: 修改任务实际作用的会话
+              description: 淇敼浠诲姟瀹為檯浣滅敤鐨勪細璇?
             modify_task_id:
               type: string
             status:
@@ -3105,14 +3233,14 @@ components:
             render_version:
               type: integer
               minimum: 1
-              description: 修改后最新渲染版本
+              description: 淇敼鍚庢渶鏂版覆鏌撶増鏈?
             artifact_id:
               type: string
-              description: 修改任务对应的成果 ID
+              description: 淇敼浠诲姟瀵瑰簲鐨勬垚鏋?ID
               nullable: true
             based_on_version_id:
               type: string
-              description: 修改任务基于的正式版本 ID
+              description: 淇敼浠诲姟鍩轰簬鐨勬寮忕増鏈?ID
               nullable: true
         message:
           type: string
@@ -3130,12 +3258,12 @@ components:
           properties:
             session_id:
               type: string
-              description: 当前幻灯片详情所属会话
+              description: 褰撳墠骞荤伅鐗囪鎯呮墍灞炰細璇?
             slide:
               $ref: '#/components/schemas/Slide'
             teaching_plan:
               $ref: '#/components/schemas/SlidePlan'
-              description: 该幻灯片对应的教学计划
+              description: 璇ュ够鐏墖瀵瑰簲鐨勬暀瀛﹁鍒?
             related_slides:
               type: array
               items:
@@ -3151,7 +3279,7 @@ components:
                       - previous
                       - next
                       - related
-              description: 相关幻灯片
+              description: 鐩稿叧骞荤伅鐗?
         message:
           type: string
     ExportRequest:
@@ -3161,23 +3289,23 @@ components:
       properties:
         artifact_id:
           type: string
-          description: 指定要导出的成果 ID（可选）
+          description: 鎸囧畾瑕佸鍑虹殑鎴愭灉 ID锛堝彲閫夛級
         format:
           type: string
           enum:
             - json
             - markdown
             - html
-          description: 导出格式
+          description: 瀵煎嚭鏍煎紡
         include_sources:
           type: boolean
           default: true
-          description: 是否包含来源信息
+          description: 鏄惁鍖呭惈鏉ユ簮淇℃伅
         expected_render_version:
           type: integer
           minimum: 1
           description: |
-            可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。
+            鍙€夊苟鍙戜繚鎶ょ増鏈紝浠呭 session 绾у鍑烘帴鍙ｇ敓鏁堬紙鍐茬獊鍙繑鍥?409锛夈€?
     ExportResponse:
       type: object
       required:
@@ -3192,22 +3320,22 @@ components:
           properties:
             session_id:
               type: string
-              description: 导出时绑定的会话 ID
+              description: 瀵煎嚭鏃剁粦瀹氱殑浼氳瘽 ID
             task_id:
               type: string
-              description: 兼容旧任务执行 ID
+              description: 鍏煎鏃т换鍔℃墽琛?ID
               nullable: true
             artifact_id:
               type: string
-              description: 导出对应的成果 ID
+              description: 瀵煎嚭瀵瑰簲鐨勬垚鏋?ID
               nullable: true
             based_on_version_id:
               type: string
-              description: 导出基于的正式版本 ID
+              description: 瀵煎嚭鍩轰簬鐨勬寮忕増鏈?ID
               nullable: true
             content:
               type: string
-              description: 导出的内容
+              description: 瀵煎嚭鐨勫唴瀹?
             format:
               type: string
             render_version:
@@ -3345,6 +3473,117 @@ components:
           type: boolean
         redis_required:
           type: boolean
+    WebKnowledgeUnit:
+      type: object
+      required:
+        - chunk_id
+        - source_type
+        - content
+        - metadata
+      properties:
+        chunk_id:
+          type: string
+        source_type:
+          type: string
+          enum:
+            - web
+            - audio
+            - video
+        content:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        citation:
+          allOf:
+            - $ref: '#/components/schemas/common_SourceReference'
+    WebSearchResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/WebKnowledgeUnit'
+            total:
+              type: integer
+            indexed:
+              type: integer
+              nullable: true
+        message:
+          type: string
+    AudioTranscribeResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            audio_id:
+              type: string
+            text:
+              type: string
+            segments:
+              type: array
+              items:
+                $ref: '#/components/schemas/WebKnowledgeUnit'
+            total_segments:
+              type: integer
+            indexed:
+              type: integer
+              nullable: true
+            language:
+              type: string
+            confidence:
+              type: number
+              format: float
+            duration:
+              type: number
+              format: float
+            capability_status:
+              $ref: '#/components/schemas/CapabilityStatus'
+        message:
+          type: string
+    VideoAnalyzeResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            video_id:
+              type: string
+            segments:
+              type: array
+              items:
+                $ref: '#/components/schemas/WebKnowledgeUnit'
+            total_segments:
+              type: integer
+            indexed:
+              type: integer
+              nullable: true
+            capability_status:
+              $ref: '#/components/schemas/CapabilityStatus'
+        message:
+          type: string
     CapabilitiesHealthResponse:
       type: object
       required:
@@ -3497,23 +3736,23 @@ components:
               type: string
             files_count:
               type: integer
-              description: 上传的文件数
+              description: 涓婁紶鐨勬枃浠舵暟
             messages_count:
               type: integer
-              description: 对话消息数
+              description: 瀵硅瘽娑堟伅鏁?
             generation_tasks_count:
               type: integer
-              description: 生成任务数
+              description: 鐢熸垚浠诲姟鏁?
             completed_tasks_count:
               type: integer
-              description: 已完成的任务数
+              description: 宸插畬鎴愮殑浠诲姟鏁?
             total_file_size:
               type: integer
-              description: 文件总大小（字节）
+              description: 鏂囦欢鎬诲ぇ灏忥紙瀛楄妭锛?
             last_activity:
               type: string
               format: date-time
-              description: 最后活动时间
+              description: 鏈€鍚庢椿鍔ㄦ椂闂?
             created_at:
               type: string
               format: date-time
@@ -3521,37 +3760,37 @@ components:
           type: string
   responses:
     BadRequest:
-      description: 请求参数错误或验证失败
+      description: 璇锋眰鍙傛暟閿欒鎴栭獙璇佸け璐?
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Conflict:
-      description: 资源冲突
+      description: 璧勬簮鍐茬獊
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
-      description: 未认证或 Token 无效/过期
+      description: 鏈璇佹垨 Token 鏃犳晥/杩囨湡
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Forbidden:
-      description: 无权限访问此资源
+      description: 鏃犳潈闄愯闂璧勬簮
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
-      description: 请求的资源不存在
+      description: 璇锋眰鐨勮祫婧愪笉瀛樺湪
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     ServiceUnavailable:
-      description: 服务不可用
+      description: 鏈嶅姟涓嶅彲鐢?
       content:
         application/json:
           schema:
@@ -3560,7 +3799,7 @@ components:
     PageParam:
       name: page
       in: query
-      description: 页码（从1开始）
+      description: 椤电爜锛堜粠1寮€濮嬶級
       schema:
         type: integer
         default: 1
@@ -3568,7 +3807,7 @@ components:
     LimitParam:
       name: limit
       in: query
-      description: 每页数量
+      description: 姣忛〉鏁伴噺
       schema:
         type: integer
         default: 20
@@ -3581,7 +3820,7 @@ components:
       schema:
         type: string
         format: uuid
-      description: 幂等性密钥，用于防止重复请求。
+      description: 骞傜瓑鎬у瘑閽ワ紝鐢ㄤ簬闃叉閲嶅璇锋眰銆?
     ContractVersion:
       name: X-Contract-Version
       in: header
@@ -3589,4 +3828,4 @@ components:
       schema:
         type: string
         example: 2026-03
-      description: 客户端期望的契约版本；服务端可据此做兼容降级与告警。
+      description: 瀹㈡埛绔湡鏈涚殑濂戠害鐗堟湰锛涙湇鍔＄鍙嵁姝ゅ仛鍏煎闄嶇骇涓庡憡璀︺€?
