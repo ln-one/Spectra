@@ -33,21 +33,7 @@
 
 下图展示了 `Spectra` 的六层系统架构，以及“教师端生成”“学生端访问”“个人学习空间创建/按需生成”三条核心业务路径：
 
-```mermaid
-flowchart TD
-    A["访问层<br/>教师端 Web 工作台<br/>学生端课程资料库入口"] --> B["前端交互层<br/>项目管理 / 对话输入 / 文件上传 / 预览修改 / 资料库访问"]
-    B --> C["业务编排层<br/>Auth / Libraries / Sessions / Files / Generate / References / Versions / Permission"]
-    C --> D["智能生成层<br/>LLM 意图理解 / RAG 检索 / 多模态解析 / 课件生成"]
-    D --> E["库编排层<br/>知识结构抽取 / 模态映射 / 引用解析 / 版本落库 / 按需外化"]
-    E --> F["数据存储层<br/>Library State / ChromaDB / Redis / Uploads / Artifacts"]
-
-    C --> G["教师工作链路"]
-    C --> H["学生访问链路"]
-    C --> I["个人学习空间链路"]
-    G --> D
-    H --> E
-    I --> D
-```
+![整体架构图](F:\服务外包大赛\整体架构图.png)
 
 ## 4.4 分层架构说明
 
@@ -127,32 +113,7 @@ flowchart TD
 
 ### 4.5.2 多模态数据流时序图
 
-```mermaid
-sequenceDiagram
-    participant T as 教师
-    participant UI as 前端工作台
-    participant API as 后端业务层
-    participant PARSER as 解析与RAG层
-    participant LLM as 大模型与生成引擎
-    participant ASSET as 库编排层
-    participant HUB as 项目状态与课程数据库
-
-    T->>UI: 输入教学目标并上传 PDF/Word/PPT/视频
-    UI->>API: 创建项目 / 上传文件 / 发起生成
-    API->>PARSER: 解析资料并结构化切片
-    PARSER->>PARSER: 向量化并写入知识库
-    PARSER-->>API: 返回召回片段与来源信息
-    API->>LLM: 发送教学意图 + 资料内容 + RAG 上下文
-    LLM-->>API: 返回结构化课件与教案内容
-    API->>ASSET: 提取知识结构并执行模态映射
-    ASSET->>HUB: 更新项目状态与课程数据库
-    API-->>UI: 返回任务状态、预览结果和下载入口
-    T->>UI: 提交修改意见
-    UI->>API: 发起再生成请求
-    API->>LLM: 结合反馈重新生成局部内容
-    API->>ASSET: 更新受影响的知识节点与模态关系
-    ASSET->>HUB: 更新项目最新正式状态
-```
+![多模态数据流时序图](F:\服务外包大赛\多模态数据流时序图.png)
 
 ### 4.5.3 从生成结果到课程资料库分享
 
