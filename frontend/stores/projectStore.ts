@@ -154,11 +154,15 @@ interface ProjectState {
 
   fetchProject: (projectId: string) => Promise<void>;
   fetchFiles: (projectId: string) => Promise<void>;
-  fetchMessages: (projectId: string) => Promise<void>;
+  fetchMessages: (projectId: string, sessionId?: string | null) => Promise<void>;
   uploadFile: (file: File, projectId: string) => Promise<void>;
   deleteFile: (fileId: string) => Promise<void>;
   toggleFileSelection: (fileId: string) => void;
-  sendMessage: (projectId: string, content: string) => Promise<void>;
+  sendMessage: (
+    projectId: string,
+    content: string,
+    sessionId?: string | null
+  ) => Promise<void>;
   focusSourceByChunk: (chunkId: string, projectId: string) => Promise<void>;
   clearActiveSource: () => void;
   startGeneration: (
@@ -263,11 +267,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }
   },
 
-  fetchMessages: async (projectId: string) => {
+  fetchMessages: async (projectId: string, sessionId?: string | null) => {
     set({ isMessagesLoading: true });
     try {
+      const effectiveSessionId = sessionId ?? get().activeSessionId ?? undefined;
       const response = await chatApi.getMessages({
         project_id: projectId,
+        session_id: effectiveSessionId,
         limit: 50,
       });
       set({ messages: response?.data?.messages ?? [] });
@@ -278,6 +284,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         description: message,
         variant: "destructive",
       });
+    } finally {
+      set({ isMessagesLoading: false });
     }
   },
 
@@ -325,7 +333,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }));
   },
 
-  sendMessage: async (projectId: string, content: string) => {
+  sendMessage: async (
+    projectId: string,
+    content: string,
+    sessionId?: string | null
+  ) => {
     if (!content.trim()) return;
     set({ isSending: true, lastFailedInput: null });
     const tempId = `temp-${Date.now()}`;
@@ -339,12 +351,18 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       set((state) => ({ messages: [...state.messages, userMessage] }));
 
       const { selectedFileIds } = get();
+      const effectiveSessionId = sessionId ?? get().activeSessionId ?? undefined;
       const response = await chatApi.sendMessage({
         project_id: projectId,
+        session_id: effectiveSessionId,
         content,
         rag_source_ids:
           selectedFileIds.length > 0 ? selectedFileIds : undefined,
       });
+
+      if (response?.data?.session_id && response.data.session_id !== get().activeSessionId) {
+        set({ activeSessionId: response.data.session_id });
+      }
 
       if (response?.data?.message) {
         set((state) => ({

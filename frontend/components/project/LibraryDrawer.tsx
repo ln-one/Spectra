@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { motion } from "framer-motion";
+import {
+  Loader2,
+  PencilLine,
+  Plus,
+  RefreshCw,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 import { projectSpaceApi } from "@/lib/sdk";
 import type { components } from "@/lib/sdk/types";
 import { Button } from "@/components/ui/button";
@@ -36,49 +44,85 @@ function formatTime(value?: string): string {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("zh-CN");
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-function StateBlock({
+function PaneState({
   state,
-  empty,
   hasData,
+  emptyLabel,
   onRetry,
 }: {
   state: TabState;
-  empty: string;
   hasData: boolean;
+  emptyLabel: string;
   onRetry: () => void;
 }) {
   if (state.loading) {
     return (
-      <div className="h-40 flex items-center justify-center text-zinc-500">
-        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-        加载中...
+      <div className="h-44 grid place-items-center text-zinc-500">
+        <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          加载中
+        </div>
       </div>
     );
   }
 
   if (state.error) {
     return (
-      <div className="h-40 flex flex-col items-center justify-center gap-2 text-zinc-500">
-        <p className="text-sm">{state.error}</p>
-        <Button size="sm" variant="outline" onClick={onRetry}>
-          重试
-        </Button>
+      <div className="h-44 grid place-items-center">
+        <div className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+          <p className="mb-3 leading-relaxed">{state.error}</p>
+          <Button size="sm" variant="outline" onClick={onRetry}>
+            重试
+          </Button>
+        </div>
       </div>
     );
   }
 
   if (!hasData) {
     return (
-      <div className="h-40 flex items-center justify-center text-zinc-500 text-sm">
-        {empty}
+      <div className="h-44 grid place-items-center">
+        <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-sm text-zinc-500">
+          {emptyLabel}
+        </div>
       </div>
     );
   }
 
   return null;
+}
+
+function RowCard({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+      className="rounded-xl border border-zinc-200/90 bg-white p-3 shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-zinc-800 break-all">{title}</p>
+        {action}
+      </div>
+      {subtitle ? <p className="mt-1.5 text-xs text-zinc-500">{subtitle}</p> : null}
+    </motion.div>
+  );
 }
 
 export function LibraryDrawer({
@@ -87,6 +131,7 @@ export function LibraryDrawer({
   projectId,
 }: LibraryDrawerProps) {
   const [activeTab, setActiveTab] = useState("references");
+
   const [references, setReferences] = useState<ProjectReference[]>([]);
   const [versions, setVersions] = useState<ProjectVersion[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
@@ -211,7 +256,7 @@ export function LibraryDrawer({
       setNewReferenceTarget("");
       await loadReferences();
     } catch {
-      // 交由列表状态提示
+      // rely on list refresh state
     }
   };
 
@@ -220,7 +265,7 @@ export function LibraryDrawer({
       await projectSpaceApi.deleteReference(projectId, referenceId);
       await loadReferences();
     } catch {
-      // 交由列表状态提示
+      // rely on list refresh state
     }
   };
 
@@ -233,7 +278,7 @@ export function LibraryDrawer({
       });
       await loadArtifacts();
     } catch {
-      // 交由列表状态提示
+      // rely on list refresh state
     }
   };
 
@@ -248,23 +293,25 @@ export function LibraryDrawer({
       setNewMemberUserId("");
       await loadMembers();
     } catch {
-      // 交由列表状态提示
+      // rely on list refresh state
     }
   };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-[460px] p-0">
-        <SheetHeader className="px-4 py-3 border-b">
-          <SheetTitle className="text-base">Lib 库编辑</SheetTitle>
+      <SheetContent side="right" className="w-full sm:max-w-[520px] p-0 bg-zinc-50">
+        <SheetHeader className="px-5 py-4 border-b border-zinc-200 bg-white">
+          <SheetTitle className="text-base font-semibold text-zinc-900">
+            Lib 工作区
+          </SheetTitle>
           <SheetDescription>
-            引用 / 版本 / 工件 / 成员 / 候选变更（遵循 OpenAPI 契约）
+            引用、版本、工件、成员、候选变更。所有读写均遵循 OpenAPI 契约。
           </SheetDescription>
         </SheetHeader>
 
-        <div className="h-[calc(100%-80px)] overflow-hidden px-4 py-3">
+        <div className="h-[calc(100%-84px)] overflow-hidden px-4 py-3">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-            <TabsList className="grid grid-cols-5 w-full">
+            <TabsList className="grid grid-cols-5 w-full bg-zinc-100 border border-zinc-200">
               <TabsTrigger value="references" className="text-xs">
                 引用
               </TabsTrigger>
@@ -282,11 +329,11 @@ export function LibraryDrawer({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="references" className="h-[calc(100%-54px)] overflow-auto">
+            <TabsContent value="references" className="mt-3 h-[calc(100%-52px)] overflow-auto">
               <div className="flex gap-2 mb-3">
                 <Input
                   value={newReferenceTarget}
-                  onChange={(e) => setNewReferenceTarget(e.target.value)}
+                  onChange={(event) => setNewReferenceTarget(event.target.value)}
                   placeholder="target_project_id"
                 />
                 <Button size="sm" onClick={handleAddReference}>
@@ -297,156 +344,146 @@ export function LibraryDrawer({
                   <RefreshCw className="w-3.5 h-3.5" />
                 </Button>
               </div>
-              <StateBlock
+              <PaneState
                 state={referencesState}
-                empty="暂无引用"
                 hasData={references.length > 0}
+                emptyLabel="当前没有引用，先添加一个关联库。"
                 onRetry={loadReferences}
               />
-              {!referencesState.loading && !referencesState.error && references.length > 0 && (
+              {!referencesState.loading && !referencesState.error && references.length > 0 ? (
                 <div className="space-y-2">
                   {references.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium truncate pr-2">
-                          {item.target_project_id}
-                        </p>
+                    <RowCard
+                      key={item.id}
+                      title={item.target_project_id}
+                      subtitle={`${item.relation_type} · ${item.mode} · ${item.status}`}
+                      action={
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6"
+                          className="h-7 w-7"
                           onClick={() => handleDeleteReference(item.id)}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
-                      </div>
-                      <p className="text-zinc-500 mt-1">
-                        {item.relation_type} · {item.mode} · {item.status}
-                      </p>
-                    </div>
+                      }
+                    />
                   ))}
                 </div>
-              )}
+              ) : null}
             </TabsContent>
 
-            <TabsContent value="versions" className="h-[calc(100%-54px)] overflow-auto">
+            <TabsContent value="versions" className="mt-3 h-[calc(100%-52px)] overflow-auto">
               <div className="flex justify-end mb-3">
                 <Button size="icon" variant="outline" onClick={loadVersions}>
                   <RefreshCw className="w-3.5 h-3.5" />
                 </Button>
               </div>
-              <StateBlock
+              <PaneState
                 state={versionsState}
-                empty="暂无版本"
                 hasData={versions.length > 0}
+                emptyLabel="当前没有版本记录。"
                 onRetry={loadVersions}
               />
-              {!versionsState.loading && !versionsState.error && versions.length > 0 && (
+              {!versionsState.loading && !versionsState.error && versions.length > 0 ? (
                 <div className="space-y-2">
                   {versions.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-2 text-xs">
-                      <p className="font-medium">{item.summary}</p>
-                      <p className="text-zinc-500 mt-1">
-                        {item.change_type} · {formatTime(item.created_at)}
-                      </p>
-                    </div>
+                    <RowCard
+                      key={item.id}
+                      title={item.summary || "无摘要"}
+                      subtitle={`${item.change_type} · ${formatTime(item.created_at)}`}
+                    />
                   ))}
                 </div>
-              )}
+              ) : null}
             </TabsContent>
 
-            <TabsContent value="artifacts" className="h-[calc(100%-54px)] overflow-auto">
-              <div className="flex gap-2 mb-3 justify-end">
+            <TabsContent value="artifacts" className="mt-3 h-[calc(100%-52px)] overflow-auto">
+              <div className="flex justify-between gap-2 mb-3">
                 <Button size="sm" onClick={handleQuickCreateArtifact}>
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  新建占位工件
+                  <PencilLine className="w-3.5 h-3.5 mr-1.5" />
+                  新建工件占位
                 </Button>
                 <Button size="icon" variant="outline" onClick={loadArtifacts}>
                   <RefreshCw className="w-3.5 h-3.5" />
                 </Button>
               </div>
-              <StateBlock
+              <PaneState
                 state={artifactsState}
-                empty="暂无工件"
                 hasData={artifacts.length > 0}
+                emptyLabel="当前会话还没有工件。"
                 onRetry={loadArtifacts}
               />
-              {!artifactsState.loading && !artifactsState.error && artifacts.length > 0 && (
+              {!artifactsState.loading && !artifactsState.error && artifacts.length > 0 ? (
                 <div className="space-y-2">
                   {artifacts.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-2 text-xs">
-                      <p className="font-medium">
-                        {item.type} · {item.id}
-                      </p>
-                      <p className="text-zinc-500 mt-1">
-                        session={item.session_id ?? "-"} · version=
-                        {item.based_on_version_id ?? "-"}
-                      </p>
-                    </div>
+                    <RowCard
+                      key={item.id}
+                      title={`${item.type} · ${item.id.slice(0, 8)}`}
+                      subtitle={`session=${item.session_id ?? "-"} · version=${item.based_on_version_id ?? "-"}`}
+                    />
                   ))}
                 </div>
-              )}
+              ) : null}
             </TabsContent>
 
-            <TabsContent value="members" className="h-[calc(100%-54px)] overflow-auto">
+            <TabsContent value="members" className="mt-3 h-[calc(100%-52px)] overflow-auto">
               <div className="flex gap-2 mb-3">
                 <Input
                   value={newMemberUserId}
-                  onChange={(e) => setNewMemberUserId(e.target.value)}
+                  onChange={(event) => setNewMemberUserId(event.target.value)}
                   placeholder="user_id"
                 />
                 <Button size="sm" onClick={handleAddMember}>
-                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <UserPlus className="w-3.5 h-3.5 mr-1" />
                   新增
                 </Button>
                 <Button size="icon" variant="outline" onClick={loadMembers}>
                   <RefreshCw className="w-3.5 h-3.5" />
                 </Button>
               </div>
-              <StateBlock
+              <PaneState
                 state={membersState}
-                empty="暂无成员"
                 hasData={members.length > 0}
+                emptyLabel="当前没有成员记录。"
                 onRetry={loadMembers}
               />
-              {!membersState.loading && !membersState.error && members.length > 0 && (
+              {!membersState.loading && !membersState.error && members.length > 0 ? (
                 <div className="space-y-2">
                   {members.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-2 text-xs">
-                      <p className="font-medium">{item.user_id}</p>
-                      <p className="text-zinc-500 mt-1">
-                        {item.role} · {item.status}
-                      </p>
-                    </div>
+                    <RowCard
+                      key={item.id}
+                      title={item.user_id}
+                      subtitle={`${item.role} · ${item.status}`}
+                    />
                   ))}
                 </div>
-              )}
+              ) : null}
             </TabsContent>
 
-            <TabsContent value="changes" className="h-[calc(100%-54px)] overflow-auto">
+            <TabsContent value="changes" className="mt-3 h-[calc(100%-52px)] overflow-auto">
               <div className="flex justify-end mb-3">
                 <Button size="icon" variant="outline" onClick={loadChanges}>
                   <RefreshCw className="w-3.5 h-3.5" />
                 </Button>
               </div>
-              <StateBlock
+              <PaneState
                 state={changesState}
-                empty="暂无候选变更"
                 hasData={changes.length > 0}
+                emptyLabel="候选变更为空，复杂审核流程 Phase 1 先占位。"
                 onRetry={loadChanges}
               />
-              {!changesState.loading && !changesState.error && changes.length > 0 && (
+              {!changesState.loading && !changesState.error && changes.length > 0 ? (
                 <div className="space-y-2">
                   {changes.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-2 text-xs">
-                      <p className="font-medium">{item.title}</p>
-                      <p className="text-zinc-500 mt-1">
-                        {item.status} · {formatTime(item.created_at)}
-                      </p>
-                    </div>
+                    <RowCard
+                      key={item.id}
+                      title={item.title}
+                      subtitle={`${item.status} · ${formatTime(item.created_at)}`}
+                    />
                   ))}
                 </div>
-              )}
+              ) : null}
             </TabsContent>
           </Tabs>
         </div>
@@ -454,4 +491,3 @@ export function LibraryDrawer({
     </Sheet>
   );
 }
-
