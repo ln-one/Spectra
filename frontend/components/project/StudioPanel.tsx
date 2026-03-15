@@ -35,6 +35,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { GenerationConfigPanel } from "./GenerationConfigPanel";
 import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
+import { STUDIO_TOOL_COMPONENTS } from "./studio-tools";
+import type { StudioToolKey } from "./studio-tools";
 
 const TOOL_ICONS: Record<string, React.ElementType> = {
   ppt: Presentation,
@@ -53,7 +55,7 @@ const TOOL_TITLES: Record<string, string> = {
   mindmap: "思维导图",
   outline: "互动游戏",
   quiz: "随堂小测",
-  summary: "讲课助手",
+  summary: "说课助手",
   animation: "演示动画",
   handout: "学情预演",
 };
@@ -163,6 +165,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const currentColor = currentTool
     ? TOOL_COLORS[currentTool.id]
     : TOOL_COLORS.ppt;
+  const ExpandedToolComponent =
+    expandedTool && expandedTool !== "ppt"
+      ? STUDIO_TOOL_COMPONENTS[expandedTool as StudioToolKey]
+      : null;
 
   return (
     <div
@@ -510,20 +516,12 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                           }}
                         />
                       </div>
-                    ) : (
-                      <div className="bg-zinc-50/90 backdrop-blur-sm border border-zinc-200/60 rounded-xl p-4 h-full flex flex-col items-center justify-center">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-100 to-zinc-200 flex items-center justify-center mb-3">
-                          <Sparkles className="w-6 h-6 text-zinc-400" />
-                        </div>
-                        <p className="text-sm font-medium text-zinc-600 mb-1">
-                          功能开发中
-                        </p>
-                        <p className="text-xs text-zinc-400 text-center">
-                          {TOOL_TITLES[expandedTool]}功能即将上线
-                        </p>
-                        <p className="text-xs text-zinc-300 mt-2">敬请期待</p>
-                      </div>
-                    )}
+                    ) : ExpandedToolComponent ? (
+                      <ExpandedToolComponent
+                        toolId={expandedTool as StudioToolKey}
+                        toolName={TOOL_TITLES[expandedTool]}
+                      />
+                    ) : null}
                   </motion.div>
                 </motion.div>
               )}
