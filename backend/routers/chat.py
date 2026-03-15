@@ -225,6 +225,13 @@ def _align_citations_with_content(content: str, citations: list[dict]) -> list[d
     return ordered
 
 
+def _strip_cite_tags(content: str) -> str:
+    """Remove inline <cite ...></cite> tags for display-safe message content."""
+    if not content:
+        return content
+    return re.sub(r"<cite\s+[^>]*>(?:\s*</cite>)?", "", content)
+
+
 def _normalize_chapter_token(token: str) -> str:
     return token.replace(" ", "")
 
@@ -447,6 +454,7 @@ async def send_message(
         prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
         route_info = {}
         selected_model = "unknown"
+        provider_model = "unknown"
         fallback_triggered = False
         mechanical_pattern_hit = False
         latency_ms = None
@@ -465,7 +473,8 @@ async def send_message(
 
             # 收集路由决策信息
             route_info = ai_result.get("route") or {}
-            selected_model = ai_result.get("model", "unknown")
+            provider_model = ai_result.get("model", "unknown")
+            selected_model = route_info.get("selected_model", provider_model)
             fallback_triggered = ai_result.get("fallback_triggered", False)
             latency_ms = ai_result.get("latency_ms")
             response_hash = hashlib.sha256(
@@ -506,10 +515,13 @@ async def send_message(
             response_hash
             or hashlib.sha256(assistant_content.encode("utf-8")).hexdigest()[:16]
         )
-        assistant_content = _append_citation_markers(assistant_content, citations)
-        assistant_content = _sanitize_cite_tags(assistant_content, citations)
-        assistant_content = _append_citation_markers(assistant_content, citations)
-        citations = _align_citations_with_content(assistant_content, citations)
+        content_with_citations = _append_citation_markers(assistant_content, citations)
+        content_with_citations = _sanitize_cite_tags(content_with_citations, citations)
+        content_with_citations = _append_citation_markers(
+            content_with_citations, citations
+        )
+        citations = _align_citations_with_content(content_with_citations, citations)
+        assistant_content = _strip_cite_tags(content_with_citations)
 
         # 构建可观测 metadata
         observability_metadata = {
@@ -518,6 +530,7 @@ async def send_message(
             "few_shot_version": FEW_SHOT_VERSION,
             "route_task": ModelRouteTask.CHAT_RESPONSE.value,
             "selected_model": selected_model,
+            "provider_model": provider_model,
             "has_rag_context": rag_hit,
             "prompt_hash": prompt_hash,
             "response_hash": response_hash,
