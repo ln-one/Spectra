@@ -72,7 +72,9 @@ def _as_user(app):
 
 
 @pytest.mark.anyio
-async def test_create_session_returns_quickly_and_schedules_outline(app, mock_db_service, _as_user):
+async def test_create_session_returns_quickly_and_schedules_outline(
+    app, mock_db_service, _as_user
+):
     schedule_mock = AsyncMock()
     with patch.object(db_service, "get_project", mock_db_service.get_project):
         with patch.object(db_service, "db", mock_db_service):

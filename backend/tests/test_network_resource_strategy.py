@@ -117,6 +117,7 @@ def test_rank_units_by_relevance():
     ranked = rank_units_by_relevance(units, query="牛顿第二定律 教学")
     assert ranked[0]["chunk_id"] == "u1"
 
+
 def test_video_segments_to_units_formats_key_points_without_double_dash():
     segments = [
         {
