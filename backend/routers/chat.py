@@ -63,12 +63,15 @@ def _to_message(conv) -> dict:
     citations = parsed_metadata.get("citations")
     if not isinstance(citations, list):
         citations = None
+    content = conv.content
+    if getattr(conv, "role", None) == "assistant":
+        content = _strip_cite_tags(content)
 
     try:
         return Message(
             id=conv.id,
             role=conv.role,
-            content=conv.content,
+            content=content,
             timestamp=conv.createdAt,
             citations=citations,
         ).model_dump(mode="json")
@@ -77,7 +80,7 @@ def _to_message(conv) -> dict:
         return Message(
             id=conv.id,
             role=conv.role,
-            content=conv.content,
+            content=content,
             timestamp=conv.createdAt,
         ).model_dump(mode="json")
 
@@ -521,7 +524,7 @@ async def send_message(
             content_with_citations, citations
         )
         citations = _align_citations_with_content(content_with_citations, citations)
-        assistant_content = _strip_cite_tags(content_with_citations)
+        assistant_content = content_with_citations
 
         # 构建可观测 metadata
         observability_metadata = {
