@@ -1020,6 +1020,11 @@ paths:
           required: true
           schema:
             type: string
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: 成功
@@ -2268,7 +2273,7 @@ components:
           type: array
           description: Structured source citations for assistant responses
           items:
-            $ref: '#/components/schemas/SourceReference'
+            $ref: '#/components/schemas/common_SourceReference'
     GetMessagesResponse:
       type: object
       required:
@@ -2469,6 +2474,43 @@ components:
               description: Follow-up suggestions
         message:
           type: string
+    common_SourceReference:
+      type: object
+      description: 内容来源引用（用于溯源）
+      required:
+        - chunk_id
+        - source_type
+        - filename
+      properties:
+        chunk_id:
+          type: string
+          description: 片段唯一标识
+        source_type:
+          type: string
+          enum:
+            - document
+            - web
+            - video
+            - audio
+            - ai_generated
+          description: 来源类型
+        filename:
+          type: string
+          description: 源文件名
+        page_number:
+          type: integer
+          description: 页码（文档场景）
+        timestamp:
+          type: number
+          format: float
+          description: 时间戳（视频/音频场景，单位秒）
+        score:
+          type: number
+          format: float
+          description: 检索或重排得分（可选）
+        content_preview:
+          type: string
+          description: 内容预览片段
     UploadedFile:
       type: object
       required:
@@ -3924,7 +3966,7 @@ components:
           type: number
           format: float
         source:
-          $ref: '#/components/schemas/preview_SourceReference'
+          $ref: '#/components/schemas/common_SourceReference'
         metadata:
           type: object
     RAGSearchResponse:
@@ -3964,7 +4006,7 @@ components:
             content:
               type: string
             source:
-              $ref: '#/components/schemas/preview_SourceReference'
+              $ref: '#/components/schemas/common_SourceReference'
             context:
               type: object
               properties:
@@ -3999,7 +4041,7 @@ components:
           additionalProperties: true
         citation:
           allOf:
-            - $ref: '#/components/schemas/SourceReference'
+            - $ref: '#/components/schemas/common_SourceReference'
     WebSearchResponse:
       type: object
       required:

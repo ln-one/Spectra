@@ -92,7 +92,7 @@ SourceReference:
       description: 片段唯一标识
     source_type:
       type: string
-      enum: [document, video, audio, ai_generated]
+      enum: [document, web, video, audio, ai_generated]
       description: 来源类型
     filename:
       type: string

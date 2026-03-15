@@ -38,7 +38,14 @@ def canonicalize_url(url: str) -> str:
         for k, v in parse_qsl(parsed.query, keep_blank_values=True)
         if not k.lower().startswith("utm_")
     ]
-    canonical = parsed._replace(query=urlencode(query_pairs), fragment="")
+    if query_pairs:
+        query_pairs = sorted(query_pairs)
+    canonical = parsed._replace(
+        scheme=parsed.scheme.lower(),
+        netloc=parsed.netloc.lower(),
+        query=urlencode(query_pairs),
+        fragment="",
+    )
     return urlunparse(canonical)
 
 

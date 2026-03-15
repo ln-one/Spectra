@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { components } from "@/lib/types/api";
-import { projectsApi, filesApi, chatApi, generateApi, ragApi } from "@/lib/sdk";
+import { projectsApi, filesApi, chatApi, generateApi } from "@/lib/sdk";
+import { ragApi } from "@/lib/api/rag";
 import {
   ApiErrorShape,
   createApiError,
@@ -346,7 +347,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   focusSourceByChunk: async (chunkId: string, projectId: string) => {
     try {
-      const response = await ragApi.getSourceDetail(chunkId);
+      const response = await ragApi.getSourceDetail(chunkId, projectId);
       const detail = response?.data ?? null;
       set({ activeSourceDetail: detail });
       const fileId = detail?.file_info?.id;

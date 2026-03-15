@@ -56,7 +56,7 @@ RAGResult:
       type: number
       format: float
     source:
-      $ref: './preview.yaml#/SourceReference'
+      $ref: './common.yaml#/SourceReference'
     metadata:
       type: object
 
@@ -74,7 +74,7 @@ SourceDetailResponse:
         content:
           type: string
         source:
-          $ref: './preview.yaml#/SourceReference'
+          $ref: './common.yaml#/SourceReference'
         context:
           type: object
           properties:

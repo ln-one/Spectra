@@ -43,7 +43,7 @@ from utils.responses import success_response
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
 logger = logging.getLogger(__name__)
-_UPLOAD_CHUNK_SIZE = 1024 * 1024
+_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
 
 
 def _build_index_metadata(unit: dict) -> dict:
@@ -138,18 +138,36 @@ async def get_source_detail(
 ):
     """查看来源详情"""
     try:
+        resolved_project_id = project_id
+        parsed = None
+        if not resolved_project_id:
+            try:
+                parsed = await db_service.db.parsedchunk.find_unique(
+                    where={"id": chunk_id},
+                    include={"upload": True},
+                )
+                if parsed and parsed.upload:
+                    resolved_project_id = parsed.upload.projectId
+            except Exception as file_err:
+                logger.warning(
+                    "Failed to resolve project for chunk %s: %s",
+                    chunk_id,
+                    file_err,
+                )
+
         detail = await rag_service.get_chunk_detail(
-            chunk_id=chunk_id, project_id=project_id
+            chunk_id=chunk_id, project_id=resolved_project_id
         )
         if not detail:
             raise NotFoundException(message=f"分块不存在: {chunk_id}")
 
         file_info = None
         try:
-            parsed = await db_service.db.parsedchunk.find_unique(
-                where={"id": chunk_id},
-                include={"upload": True},
-            )
+            if parsed is None:
+                parsed = await db_service.db.parsedchunk.find_unique(
+                    where={"id": chunk_id},
+                    include={"upload": True},
+                )
             if parsed and parsed.upload:
                 file_info = _serialize_upload(parsed.upload)
         except Exception as file_err:
@@ -248,7 +266,7 @@ async def find_similar(
 @router.post("/web-search")
 async def web_search(
     query: str = Query(..., min_length=1),
-    project_id: str = Query(...),
+    project_id: str = Query(..., min_length=1),
     max_results: int = Query(10, ge=1, le=20),
     auto_index: bool = Query(False),
     user_id: str = Depends(get_current_user),
@@ -274,11 +292,7 @@ async def web_search(
 
         if not raw_results:
             return success_response(
-                data={
-                    "results": [],
-                    "total": 0,
-                    "indexed": 0 if auto_index else None,
-                },
+                data={"results": [], "indexed": 0 if auto_index else None},
                 message="未找到相关网络资源",
             )
 
@@ -421,7 +435,7 @@ async def transcribe_audio_endpoint(
                 + (f"，已索引 {indexed_count} 条" if auto_index else ""),
             )
         finally:
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
     except APIException:
@@ -512,7 +526,7 @@ async def analyze_video_endpoint(
                 + (f"，已索引 {indexed_count} 条" if auto_index else ""),
             )
         finally:
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
     except APIException:

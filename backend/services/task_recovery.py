@@ -16,10 +16,14 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-
-from prisma import Prisma
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from prisma import Prisma
+else:
+    Prisma = Any
 
 # 超时阈值：processing 状态超过此时间视为疑似僵死
 STALE_PROCESSING_THRESHOLD_MINUTES = 30

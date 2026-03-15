@@ -175,6 +175,7 @@ def _raise_conflict(msg: str):
 @router.post("/sessions", status_code=status.HTTP_200_OK)
 async def create_generation_session(
     body: dict,
+    request: Request,
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -205,6 +206,7 @@ async def create_generation_session(
         )
 
     svc = _get_session_service()
+    task_queue_svc = _get_task_queue_service(request)
     key_str = _parse_idempotency_key(idempotency_key)
     cache_key = (
         f"create_session:{user_id}:{project_id}:{output_type}:{key_str}"
@@ -226,6 +228,7 @@ async def create_generation_session(
         output_type=output_type,
         options=body.get("options"),
         client_session_id=body.get("client_session_id"),
+        task_queue_service=task_queue_svc,
     )
 
     resp = success_response(

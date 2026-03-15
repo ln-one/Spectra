@@ -3,12 +3,26 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # pragma: no cover - test/runtime fallback
+
+    def load_dotenv(*args, **kwargs):
+        return False
+
+
 from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from prisma.errors import PrismaError
+
+try:
+    from prisma.errors import PrismaError
+except ModuleNotFoundError:  # pragma: no cover - test/runtime fallback
+
+    class PrismaError(Exception):
+        pass
+
 
 # Load environment variables (force backend/.env, independent of startup cwd)
 BASE_DIR = Path(__file__).resolve().parent

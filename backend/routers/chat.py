@@ -63,12 +63,15 @@ def _to_message(conv) -> dict:
     citations = parsed_metadata.get("citations")
     if not isinstance(citations, list):
         citations = None
+    content = conv.content
+    if getattr(conv, "role", None) == "assistant":
+        content = _strip_cite_tags(content)
 
     try:
         return Message(
             id=conv.id,
             role=conv.role,
-            content=conv.content,
+            content=content,
             timestamp=conv.createdAt,
             citations=citations,
         ).model_dump(mode="json")
@@ -77,7 +80,7 @@ def _to_message(conv) -> dict:
         return Message(
             id=conv.id,
             role=conv.role,
-            content=conv.content,
+            content=content,
             timestamp=conv.createdAt,
         ).model_dump(mode="json")
 
@@ -128,8 +131,6 @@ def _append_citation_markers(content: str, citations: list[dict]) -> str:
     """Normalize citation markers to <cite ...></cite> protocol."""
     if not citations:
         return content
-    if "<cite " in content:
-        return content
 
     # Backward-compatible conversion: [1] -> <cite chunk_id="..."></cite>
     def _replace_numeric_marker(match: re.Match) -> str:
@@ -146,17 +147,71 @@ def _append_citation_markers(content: str, citations: list[dict]) -> str:
     # If model omitted inline markers, attach first cite tag to the first paragraph.
     first_tag = _build_cite_tag(citations[0])
     if not first_tag:
-        return content
-    lines = content.splitlines()
+        return converted
+    lines = converted.splitlines()
     if not lines:
-        return content
+        return converted
     for idx, line in enumerate(lines):
         stripped = line.strip()
         if stripped and not stripped.startswith(("#", "-", "*", ">")):
             lines[idx] = f"{line.rstrip()} {first_tag}"
             return "\n".join(lines)
 
-    return f"{content.rstrip()} {first_tag}"
+    return f"{converted.rstrip()} {first_tag}"
+
+
+def _extract_cited_chunk_ids(content: str) -> list[str]:
+    """Extract chunk ids from inline <cite ...></cite> tags in content order."""
+    if not content:
+        return []
+    ids: list[str] = []
+    for match in re.finditer(
+        r'<cite\s+[^>]*chunk_id="([^"]+)"[^>]*>(?:\s*</cite>)?', content
+    ):
+        chunk_id = (match.group(1) or "").strip()
+        if chunk_id:
+            ids.append(chunk_id)
+    return ids
+
+
+def _sanitize_cite_tags(content: str, citations: list[dict]) -> str:
+    """Drop cite tags that cannot be mapped to structured citations."""
+    if not content:
+        return content
+    valid_ids = {
+        str(item.get("chunk_id")).strip()
+        for item in citations
+        if isinstance(item, dict) and item.get("chunk_id")
+    }
+    if not valid_ids:
+        return re.sub(r"<cite\s+[^>]*>(?:\s*</cite>)?", "", content)
+
+    # Backward-compatible conversion: [1] -> <cite chunk_id="..."></cite>
+    def _replace_numeric_marker(match: re.Match) -> str:
+        idx = int(match.group(1)) - 1
+        if idx < 0 or idx >= len(citations):
+            return match.group(0)
+        cite_tag = _build_cite_tag(citations[idx])
+        return cite_tag or match.group(0)
+
+    converted = re.sub(r"\[(\d+)\]", _replace_numeric_marker, content)
+    if "<cite " in converted:
+        return converted
+
+    # If model omitted inline markers, attach first cite tag to the first paragraph.
+    first_tag = _build_cite_tag(citations[0])
+    if not first_tag:
+        return converted
+    lines = converted.splitlines()
+    if not lines:
+        return converted
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped and not stripped.startswith(("#", "-", "*", ">")):
+            lines[idx] = f"{line.rstrip()} {first_tag}"
+            return "\n".join(lines)
+
+    return f"{converted.rstrip()} {first_tag}"
 
 
 def _extract_cited_chunk_ids(content: str) -> list[str]:
@@ -225,6 +280,14 @@ def _align_citations_with_content(content: str, citations: list[dict]) -> list[d
         if item:
             ordered.append(item)
     return ordered
+
+
+def _strip_cite_tags(content: str) -> str:
+    """Remove inline <cite ...></cite> tags for display-safe message content."""
+    if not content:
+        return content
+    return re.sub(r"<cite\s+[^>]*>(?:\s*</cite>)?", "", content)
+
 
 
 def _normalize_chapter_token(token: str) -> str:
@@ -449,6 +512,7 @@ async def send_message(
         prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
         route_info = {}
         selected_model = "unknown"
+        provider_model = "unknown"
         fallback_triggered = False
         mechanical_pattern_hit = False
         latency_ms = None
@@ -467,7 +531,8 @@ async def send_message(
 
             # 收集路由决策信息
             route_info = ai_result.get("route") or {}
-            selected_model = ai_result.get("model", "unknown")
+            provider_model = ai_result.get("model", "unknown")
+            selected_model = route_info.get("selected_model", provider_model)
             fallback_triggered = ai_result.get("fallback_triggered", False)
             latency_ms = ai_result.get("latency_ms")
             response_hash = hashlib.sha256(
@@ -519,6 +584,7 @@ async def send_message(
             "few_shot_version": FEW_SHOT_VERSION,
             "route_task": ModelRouteTask.CHAT_RESPONSE.value,
             "selected_model": selected_model,
+            "provider_model": provider_model,
             "has_rag_context": rag_hit,
             "prompt_hash": prompt_hash,
             "response_hash": response_hash,

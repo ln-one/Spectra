@@ -13,17 +13,17 @@ def test_canonicalize_url_and_dedupe():
         {
             "id": "a",
             "title": "T1",
-            "url": "https://example.com/page?utm_source=x&id=1",
+            "url": "HTTPS://EXAMPLE.COM/page?utm_source=x&id=1&b=2",
             "content": "教学内容 A " * 10,
         },
         {
             "id": "b",
             "title": "T1",
-            "url": "https://example.com/page?id=1",
+            "url": "https://example.com/page?b=2&id=1",
             "content": "教学内容 A " * 10,
         },
     ]
-    assert canonicalize_url(resources[0]["url"]) == "https://example.com/page?id=1"
+    assert canonicalize_url(resources[0]["url"]) == "https://example.com/page?b=2&id=1"
     deduped = dedupe_web_resources(resources)
     assert len(deduped) == 1
 
@@ -78,7 +78,6 @@ def test_video_segments_to_units_keeps_key_points():
     units = video_segments_to_units("v1", "cell.mp4", segments)
     assert len(units) == 1
     assert "有丝分裂阶段" in units[0]["content"]
-    assert "- - " not in units[0]["content"]
     assert units[0]["citation"]["timestamp"] == 10.0
 
 
@@ -117,3 +116,19 @@ def test_rank_units_by_relevance():
     ]
     ranked = rank_units_by_relevance(units, query="牛顿第二定律 教学")
     assert ranked[0]["chunk_id"] == "u1"
+
+
+def test_video_segments_to_units_formats_key_points_without_double_dash():
+    segments = [
+        {
+            "start": 3.0,
+            "end": 8.0,
+            "summary": "",
+            "key_points": ["point-a", "point-b"],
+            "confidence": 0.9,
+        }
+    ]
+    units = video_segments_to_units("v3", "demo.mp4", segments)
+    assert len(units) == 1
+    assert "- - " not in units[0]["content"]
+    assert units[0]["content"].splitlines() == ["- point-a", "- point-b"]
