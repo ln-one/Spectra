@@ -38,6 +38,11 @@
         required: true
         schema:
           type: string
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          type: string
     responses:
       '200':
         description: 成功
@@ -146,3 +151,128 @@
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
         $ref: '../components/responses.yaml#/Unauthorized'
+
+/api/v1/rag/web-search:
+  post:
+    summary: 搜索网络资源并可选入库
+    tags: [RAG]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: query
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: project_id
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: max_results
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+          minimum: 1
+          maximum: 20
+      - name: auto_index
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+    responses:
+      '200':
+        description: 搜索成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rag.yaml#/WebSearchResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/rag/audio-transcribe:
+  post:
+    summary: 音频转录并可选入库
+    tags: [RAG]
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file]
+            properties:
+              file:
+                type: string
+                format: binary
+                description: 音频文件
+              project_id:
+                type: string
+                description: 可选项目 ID，不传则仅转录不入库
+              auto_index:
+                type: boolean
+                default: false
+              language:
+                type: string
+                default: zh
+    responses:
+      '200':
+        description: 转录成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rag.yaml#/AudioTranscribeResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/rag/video-analyze:
+  post:
+    summary: 视频分析并可选入库
+    tags: [RAG]
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file]
+            properties:
+              file:
+                type: string
+                format: binary
+                description: 视频文件
+              project_id:
+                type: string
+                description: 可选项目 ID，不传则仅分析不入库
+              auto_index:
+                type: boolean
+                default: false
+    responses:
+      '200':
+        description: 分析成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/rag.yaml#/VideoAnalyzeResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'

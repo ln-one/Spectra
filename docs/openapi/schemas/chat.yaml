@@ -14,9 +14,9 @@ Message:
       format: date-time
     citations:
       type: array
-      description: assistant 回复关联的来源引用（可选，建议尽量返回）
+      description: Structured source citations for assistant responses
       items:
-        $ref: './preview.yaml#/SourceReference'
+        $ref: './common.yaml#/SourceReference'
 
 SendMessageRequest:
   type: object
@@ -26,7 +26,7 @@ SendMessageRequest:
       type: string
     session_id:
       type: string
-      description: 会话级上下文隔离 ID。提供后按 project_id + session_id 过滤历史与资料。
+      description: Optional session scope id for project-scoped context isolation
     content:
       type: string
       minLength: 1
@@ -39,7 +39,7 @@ SendMessageRequest:
       type: array
       items:
         type: string
-      description: 限定 RAG 检索范围的文件 ID 列表（空列表/未传表示不限）
+      description: Optional file ids to constrain RAG retrieval scope
 
 SendMessageResponse:
   type: object
@@ -52,15 +52,51 @@ SendMessageResponse:
       properties:
         session_id:
           type: string
-          description: 本次回复绑定的会话 ID（可选）
+          description: Session id bound to this response (optional)
         message:
           $ref: '#/Message'
+        rag_hit:
+          type: boolean
+          description: Whether this reply used RAG context
+        observability:
+          $ref: '#/ChatObservability'
         suggestions:
           type: array
           items:
             type: string
     message:
       type: string
+
+ChatObservability:
+  type: object
+  description: Observability fields for prompt routing and regression comparison
+  properties:
+    request_id:
+      type: string
+    prompt_template_version:
+      type: string
+    few_shot_version:
+      type: string
+    route_task:
+      type: string
+    selected_model:
+      type: string
+    has_rag_context:
+      type: boolean
+    prompt_hash:
+      type: string
+    response_hash:
+      type: string
+    mechanical_pattern_hit:
+      type: boolean
+    fallback_triggered:
+      type: boolean
+    latency_ms:
+      type: number
+      format: float
+    route_decision:
+      type: object
+      additionalProperties: true
 
 GetMessagesResponse:
   type: object
@@ -73,7 +109,7 @@ GetMessagesResponse:
       properties:
         session_id:
           type: string
-          description: 查询时的会话范围（可选）
+          description: Optional queried session scope
         messages:
           type: array
           items:
@@ -98,31 +134,31 @@ VoiceMessageResponse:
       properties:
         session_id:
           type: string
-          description: 本次语音对话绑定的会话 ID（可选）
+          description: Optional session id bound to this voice interaction
         text:
           type: string
-          description: 识别的文本内容
+          description: Recognized text
         confidence:
           type: number
           format: float
           minimum: 0
           maximum: 1
-          description: 识别置信度
+          description: Recognition confidence
         duration:
           type: number
           format: float
-          description: 音频时长（秒）
+          description: Audio duration in seconds
         message:
           $ref: '#/Message'
-          description: 自动创建的消息对象
+          description: Auto-created assistant message
         capability_status:
           allOf:
             - $ref: './common.yaml#/CapabilityStatus'
-          description: 语音识别能力状态（含降级信息）
+          description: Speech recognition capability status with degradation semantics
         suggestions:
           type: array
           items:
             type: string
-          description: AI 建议
+          description: Follow-up suggestions
     message:
       type: string

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Optional
 
 from schemas.generation import CoursewareContent
 from schemas.outline import CoursewareOutline, OutlineSection
+from services.model_router import ModelRouteTask
 
 if TYPE_CHECKING:
     pass
@@ -73,7 +74,12 @@ class CoursewareAIMixin:
 3. 总页数通常控制在 10-20 页。
 """
         try:
-            response = await self.generate(prompt=prompt, max_tokens=1500)
+            response = await self.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.OUTLINE_FORMATTING.value,
+                has_rag_context=bool(rag_context),
+                max_tokens=1500,
+            )
             content = response["content"].strip()
 
             json_match = re.search(r"\{[\s\S]*\}", content)
@@ -197,7 +203,11 @@ class CoursewareAIMixin:
                 instruction=instruction,
                 target_slides=target_labels,
             )
-            response = await self.generate(prompt=prompt, max_tokens=3000)
+            response = await self.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
+                max_tokens=3000,
+            )
             modified_raw = self._strip_outer_code_fence(response["content"])
             modified_parts = re.split(r"\n---\s*\n", modified_raw)
 
@@ -212,7 +222,11 @@ class CoursewareAIMixin:
                     current_content=current_content,
                     instruction=instruction,
                 )
-                response = await self.generate(prompt=prompt, max_tokens=4000)
+                response = await self.generate(
+                    prompt=prompt,
+                    route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
+                    max_tokens=4000,
+                )
                 new_markdown = self._strip_outer_code_fence(response["content"])
             else:
                 slide_contents = [s["content"] for s in all_slides]
@@ -225,7 +239,11 @@ class CoursewareAIMixin:
                 current_content=current_content,
                 instruction=instruction,
             )
-            response = await self.generate(prompt=prompt, max_tokens=4000)
+            response = await self.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
+                max_tokens=4000,
+            )
             new_markdown = self._strip_outer_code_fence(response["content"])
 
         return self._parse_courseware_response(new_markdown, instruction[:50])
@@ -268,7 +286,12 @@ class CoursewareAIMixin:
             rag_context=rag_context,
         )
 
-        response = await self.generate(prompt=prompt, max_tokens=4000)
+        response = await self.generate(
+            prompt=prompt,
+            route_task=ModelRouteTask.LESSON_PLAN_REASONING.value,
+            has_rag_context=bool(rag_context),
+            max_tokens=4000,
+        )
         return self._parse_courseware_response(response["content"], outline.title)
 
     async def generate_courseware_content(
@@ -324,7 +347,12 @@ class CoursewareAIMixin:
                 outline_slide_count=len(outline_nodes) if outline_nodes else None,
             )
 
-            response = await self.generate(prompt=prompt, max_tokens=4000)
+            response = await self.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.LESSON_PLAN_REASONING.value,
+                has_rag_context=bool(rag_context),
+                max_tokens=4000,
+            )
             courseware = self._parse_courseware_response(
                 response["content"], user_requirements
             )

@@ -1,8 +1,10 @@
+import hashlib
 import json
 import logging
 import os
+import re
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
@@ -21,12 +23,18 @@ from fastapi.responses import JSONResponse
 from schemas.chat import Message, SendMessageRequest
 from services import db_service
 from services.ai import ai_service
+from services.model_router import ModelRouteTask
+from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ErrorCode, ForbiddenException
 from utils.responses import error_response, success_response
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = logging.getLogger(__name__)
+
+# Prompt 可观测版本号
+PROMPT_TEMPLATE_VERSION = "v1.0"
+FEW_SHOT_VERSION = "v1.0"
 
 
 async def _verify_project_ownership(project_id: str, user_id: str):
@@ -55,12 +63,15 @@ def _to_message(conv) -> dict:
     citations = parsed_metadata.get("citations")
     if not isinstance(citations, list):
         citations = None
+    content = conv.content
+    if getattr(conv, "role", None) == "assistant":
+        content = _strip_cite_tags(content)
 
     try:
         return Message(
             id=conv.id,
             role=conv.role,
-            content=conv.content,
+            content=content,
             timestamp=conv.createdAt,
             citations=citations,
         ).model_dump(mode="json")
@@ -69,7 +80,7 @@ def _to_message(conv) -> dict:
         return Message(
             id=conv.id,
             role=conv.role,
-            content=conv.content,
+            content=content,
             timestamp=conv.createdAt,
         ).model_dump(mode="json")
 
@@ -85,35 +96,143 @@ def _dump_capability_status(capability_status) -> dict:
     return jsonable_encoder(capability_status)
 
 
+def _build_cite_tag(item: dict) -> str:
+    """Build a compact cite tag from a structured citation payload."""
+    chunk_id = item.get("chunk_id")
+    if not chunk_id:
+        return ""
+    filename = item.get("filename")
+    attrs = [f'chunk_id="{chunk_id}"']
+    if filename:
+        attrs.append(f'filename="{filename}"')
+    return "<cite " + " ".join(attrs) + "></cite>"
+
+
+def _normalize_markdown_paragraphs(content: str) -> str:
+    """Ensure long single-block response is split into markdown paragraphs."""
+    if not content or "\n\n" in content:
+        return content
+    sentences = [
+        s.strip() for s in re.split(r"(?<=[。！？!?])\s*", content) if s.strip()
+    ]
+    if len(sentences) < 3:
+        return content
+    paragraphs: list[str] = []
+    for i in range(0, len(sentences), 2):
+        chunk = " ".join(sentences[i : i + 2]).strip()
+        if chunk:
+            paragraphs.append(chunk)
+    if len(paragraphs) <= 1:
+        return content
+    return "\n\n".join(paragraphs)
+
+
 def _append_citation_markers(content: str, citations: list[dict]) -> str:
-    """Append inline citation markers and a source list to the assistant content."""
+    """Normalize citation markers to <cite ...></cite> protocol."""
     if not citations:
         return content
-    if "来源：" in content or "來源：" in content:
-        return content
 
-    seen = set()
-    ordered = []
+    # Backward-compatible conversion: [1] -> <cite chunk_id="..."></cite>
+    def _replace_numeric_marker(match: re.Match) -> str:
+        idx = int(match.group(1)) - 1
+        if idx < 0 or idx >= len(citations):
+            return match.group(0)
+        cite_tag = _build_cite_tag(citations[idx])
+        return cite_tag or match.group(0)
+
+    converted = re.sub(r"\[(\d+)\]", _replace_numeric_marker, content)
+    if "<cite " in converted:
+        return converted
+
+    # If model omitted inline markers, attach first cite tag to the first paragraph.
+    first_tag = _build_cite_tag(citations[0])
+    if not first_tag:
+        return converted
+    lines = converted.splitlines()
+    if not lines:
+        return converted
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped and not stripped.startswith(("#", "-", "*", ">")):
+            lines[idx] = f"{line.rstrip()} {first_tag}"
+            return "\n".join(lines)
+
+    return f"{converted.rstrip()} {first_tag}"
+
+
+def _extract_cited_chunk_ids(content: str) -> list[str]:
+    """Extract chunk ids from inline <cite ...></cite> tags in content order."""
+    if not content:
+        return []
+    ids: list[str] = []
+    for match in re.finditer(
+        r'<cite\s+[^>]*chunk_id="([^"]+)"[^>]*>(?:\s*</cite>)?', content
+    ):
+        chunk_id = (match.group(1) or "").strip()
+        if chunk_id:
+            ids.append(chunk_id)
+    return ids
+
+
+def _sanitize_cite_tags(content: str, citations: list[dict]) -> str:
+    """Drop cite tags that cannot be mapped to structured citations."""
+    if not content:
+        return content
+    valid_ids = {
+        str(item.get("chunk_id")).strip()
+        for item in citations
+        if isinstance(item, dict) and item.get("chunk_id")
+    }
+    if not valid_ids:
+        return re.sub(r"<cite\s+[^>]*>(?:\s*</cite>)?", "", content)
+
+    def _replace_invalid_tag(match: re.Match) -> str:
+        chunk_id = (match.group(1) or "").strip()
+        return match.group(0) if chunk_id in valid_ids else ""
+
+    return re.sub(
+        r'<cite\s+[^>]*chunk_id="([^"]+)"[^>]*>(?:\s*</cite>)?',
+        _replace_invalid_tag,
+        content,
+    )
+
+
+def _align_citations_with_content(content: str, citations: list[dict]) -> list[dict]:
+    """Keep citations[] aligned with inline cite tags in content."""
+    if not citations:
+        return []
+    chunk_order = _extract_cited_chunk_ids(content)
+    if not chunk_order:
+        return []
+
+    by_chunk_id: dict[str, dict] = {}
     for item in citations:
-        filename = item.get("filename")
-        page_number = item.get("page_number")
-        key = (filename, page_number)
-        if key in seen:
+        if not isinstance(item, dict):
             continue
-        seen.add(key)
-        ordered.append(item)
+        chunk_id = item.get("chunk_id")
+        if not chunk_id:
+            continue
+        key = str(chunk_id).strip()
+        if key and key not in by_chunk_id:
+            by_chunk_id[key] = item
 
-    if not ordered:
+    ordered: list[dict] = []
+    seen: set[str] = set()
+    for chunk_id in chunk_order:
+        if chunk_id in seen:
+            continue
+        seen.add(chunk_id)
+        item = by_chunk_id.get(chunk_id)
+        if item:
+            ordered.append(item)
+    return ordered
+
+
+def _strip_cite_tags(content: str) -> str:
+    """Remove inline <cite ...></cite> tags for display-safe message content."""
+    if not content:
         return content
-
-    lines = []
-    for idx, item in enumerate(ordered, start=1):
-        filename = item.get("filename") or "未知文件"
-        page_number = item.get("page_number")
-        page_suffix = f" (P{page_number})" if page_number else ""
-        lines.append(f"[{idx}] {filename}{page_suffix}")
-
-    return f"{content}\n\n来源：\n" + "\n".join(lines)
+    return re.sub(r"<cite\s+[^>]*>(?:\s*</cite>)?", "", content)
 
 
 def _normalize_chapter_token(token: str) -> str:
@@ -228,7 +347,7 @@ async def send_message(
         )
 
         # C5: RAG 检索（按 project_id + session_id 隔离）
-        rag_context = ""
+        rag_results = []
         citations = []
         rag_hit = False
         selected_files_hint = ""
@@ -265,18 +384,13 @@ async def send_message(
             rag_results = _rerank_by_chapter(body.content, rag_results)
             if rag_results:
                 rag_hit = True
-                rag_context = "\n\n".join(
-                    [
-                        f"[资料片段 {i+1}]: {r.content}"
-                        for i, r in enumerate(rag_results)
-                    ]
-                )
                 citations = [
                     {
                         "chunk_id": r.source.chunk_id,
                         "source_type": r.source.source_type,
                         "filename": r.source.filename,
                         "page_number": r.source.page_number,
+                        "timestamp": getattr(r.source, "timestamp", None),
                         "score": r.score,
                     }
                     for r in rag_results
@@ -289,36 +403,110 @@ async def send_message(
             limit=10,
             session_id=session_id,
         )
-        context = "\n".join([f"{m.role}: {m.content}" for m in recent_messages[-6:]])
+        history_payload = [
+            {"role": msg.role, "content": msg.content} for msg in recent_messages[-6:]
+        ]
+        rag_payload = None
+        if rag_results:
+            rag_payload = []
+            for item in rag_results:
+                source_obj = getattr(item, "source", None)
+                source = {}
+                if source_obj is not None:
+                    for field in [
+                        "chunk_id",
+                        "source_type",
+                        "filename",
+                        "page_number",
+                        "timestamp",
+                        "preview_text",
+                    ]:
+                        value = getattr(source_obj, field, None)
+                        if value is not None:
+                            source[field] = value
+                rag_payload.append(
+                    {
+                        "content": getattr(item, "content", ""),
+                        "score": getattr(item, "score", 0.0),
+                        "source": source,
+                    }
+                )
 
-        # 构造包含 RAG 资料的 prompt
-        rag_section = (
-            f"\n\n已上传的参考资料片段（优先基于此回答）：\n{rag_context}"
-            if rag_context
-            else ""
-        )
-        no_rag_hint = (
-            "\n\n（未在已上传资料中找到相关内容，将基于通用知识回答。）"
-            if not rag_hit and session_id
-            else ""
-        )
-        project_line = f"项目: {project.name}"
+        message_hints = []
         if selected_files_hint:
-            project_line = f"{project_line}\n{selected_files_hint}"
+            message_hints.append(selected_files_hint)
+        if not rag_hit and session_id:
+            message_hints.append("未命中项目资料，请优先提示用户补充可检索素材。")
+        user_message_for_prompt = body.content
+        if message_hints:
+            user_message_for_prompt = f"{body.content}\n\n系统提示：\n" + "\n".join(
+                message_hints
+            )
 
-        prompt = (
-            "你是教学课件助手。请基于上下文给出简洁、有操作性的下一步建议。"
-            "如果引用资料，请在相关句末用 [1][2] 这样的序号标注。\n\n"
-            f"{project_line}"
-            f"{rag_section}{no_rag_hint}\n\n"
-            f"上下文:\n{context}\n\n"
-            f"用户新消息: {body.content}"
+        prompt = prompt_service.build_chat_response_prompt(
+            user_message=user_message_for_prompt,
+            intent="general_chat",
+            session_id=session_id,
+            rag_context=rag_payload,
+            conversation_history=history_payload,
         )
+        prompt = f"项目：{project.name}\n{prompt}"
+
+        # 生成 request_id 用于追踪
+        request_id = str(uuid4())
+        prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
+        route_info = {}
+        selected_model = "unknown"
+        provider_model = "unknown"
+        fallback_triggered = False
+        mechanical_pattern_hit = False
+        latency_ms = None
+        response_hash = ""
+
         try:
-            ai_result = await ai_service.generate(prompt=prompt, max_tokens=500)
+            ai_result = await ai_service.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.CHAT_RESPONSE.value,
+                has_rag_context=rag_hit,
+                max_tokens=500,
+            )
             assistant_content = (
                 ai_result.get("content") or "我已收到你的需求，我们继续完善课件内容。"
             )
+
+            # 收集路由决策信息
+            route_info = ai_result.get("route") or {}
+            provider_model = ai_result.get("model", "unknown")
+            selected_model = route_info.get("selected_model", provider_model)
+            fallback_triggered = ai_result.get("fallback_triggered", False)
+            latency_ms = ai_result.get("latency_ms")
+            response_hash = hashlib.sha256(
+                assistant_content.encode("utf-8")
+            ).hexdigest()[:16]
+            mechanical_pattern_hit = contains_mechanical_option_pattern(
+                assistant_content
+            )
+
+            if mechanical_pattern_hit:
+                logger.warning(
+                    "Mechanical option phrasing detected in assistant response; "
+                    "attempting soft rewrite"
+                )
+                rewrite_prompt = (
+                    "请将下面这段回复改写为自然、温和的助教口吻，"
+                    "保留原始信息，不要使用 A/B/C 选项式表达，"
+                    "给出 1-2 个具体可执行教学切入点：\n\n"
+                    f"{assistant_content}"
+                )
+                rewrite_result = await ai_service.generate(
+                    prompt=rewrite_prompt,
+                    route_task=ModelRouteTask.SHORT_TEXT_POLISH.value,
+                    max_tokens=500,
+                )
+                rewritten_content = (rewrite_result.get("content") or "").strip()
+                if rewritten_content:
+                    assistant_content = rewritten_content
+            assistant_content = _normalize_markdown_paragraphs(assistant_content)
         except Exception as ai_exc:
             logger.error("AI generation failed in chat: %s", ai_exc, exc_info=True)
             if os.getenv("DEBUG", "false").lower() in {"1", "true", "yes", "on"}:
@@ -326,15 +514,51 @@ async def send_message(
             assistant_content = "AI 服务暂时不可用，我已收到你的需求。你可以先补充更多细节，我会在恢复后继续帮你完善。"
 
         # 将 citations 存入 metadata
-        assistant_content = _append_citation_markers(assistant_content, citations)
+        response_hash = (
+            response_hash
+            or hashlib.sha256(assistant_content.encode("utf-8")).hexdigest()[:16]
+        )
+        content_with_citations = _append_citation_markers(assistant_content, citations)
+        content_with_citations = _sanitize_cite_tags(content_with_citations, citations)
+        content_with_citations = _append_citation_markers(
+            content_with_citations, citations
+        )
+        citations = _align_citations_with_content(content_with_citations, citations)
+        assistant_content = content_with_citations
+
+        # 构建可观测 metadata
+        observability_metadata = {
+            "request_id": request_id,
+            "prompt_template_version": PROMPT_TEMPLATE_VERSION,
+            "few_shot_version": FEW_SHOT_VERSION,
+            "route_task": ModelRouteTask.CHAT_RESPONSE.value,
+            "selected_model": selected_model,
+            "provider_model": provider_model,
+            "has_rag_context": rag_hit,
+            "prompt_hash": prompt_hash,
+            "response_hash": response_hash,
+            "mechanical_pattern_hit": mechanical_pattern_hit,
+            "fallback_triggered": fallback_triggered,
+            "latency_ms": latency_ms,
+        }
+        # 添加路由决策信息
+        if route_info:
+            observability_metadata["route_decision"] = route_info
+
+        # 合并所有 metadata
+        full_metadata = {
+            "citations": citations,
+            "rag_hit": rag_hit,
+            "session_id": session_id,
+            **observability_metadata,
+        }
+
         assistant_msg = await db_service.create_conversation_message(
             project_id=body.project_id,
             role="assistant",
             content=assistant_content,
             metadata=(
-                {"citations": citations, "rag_hit": rag_hit, "session_id": session_id}
-                if (citations or session_id)
-                else None
+                full_metadata if (citations or session_id) else observability_metadata
             ),
             session_id=session_id,
         )
@@ -350,6 +574,7 @@ async def send_message(
                 "message": msg_dict,
                 "rag_hit": rag_hit,
                 "suggestions": ["继续细化教学目标", "补充重点难点", "开始生成课件"],
+                "observability": observability_metadata,  # 添加可观测字段
             },
             message="消息发送成功",
         )
@@ -402,6 +627,7 @@ async def get_messages(
 
         return success_response(
             data={
+                "session_id": session_id,
                 "messages": [_to_message(m) for m in messages],
                 "total": total,
                 "page": page,

@@ -33,6 +33,26 @@ def _fake_conv(role="user", content="Hello AI", conv_id="c-001", **kw):
     return SimpleNamespace(**defaults)
 
 
+def _fake_rag_result(
+    content="资料内容",
+    chunk_id="chunk-1",
+    filename="notes.pdf",
+    score=0.92,
+):
+    return SimpleNamespace(
+        content=content,
+        score=score,
+        source=SimpleNamespace(
+            chunk_id=chunk_id,
+            source_type="document",
+            filename=filename,
+            page_number=2,
+            timestamp=None,
+            preview_text=None,
+        ),
+    )
+
+
 def _mock(mp, obj, attr, rv=None):
     mp.setattr(obj, attr, AsyncMock(return_value=rv))
 
@@ -73,6 +93,40 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert len(body["data"]["suggestions"]) == 3
 
 
+def test_send_message_rewrites_mechanical_option_reply(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        db_service,
+        "create_conversation_message",
+        AsyncMock(
+            side_effect=[
+                _fake_conv(role="user", conv_id="c-user"),
+                _fake_conv(role="assistant", content="rewritten reply", conv_id="c-ai"),
+            ]
+        ),
+    )
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+
+    generate_mock = AsyncMock(
+        side_effect=[
+            {"content": "你可以选择 A/B/C 三种方式来推进。"},
+            {"content": "先从一个生活化情境切入，再补一个可直接落地的小练习。"},
+        ]
+    )
+    monkeypatch.setattr(ai_service, "generate", generate_mock)
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["message"]["content"] == "rewritten reply"
+    assert generate_mock.await_count == 2
+
+
 def test_send_message_scopes_recent_messages_by_session(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     monkeypatch.setattr(
@@ -102,6 +156,108 @@ def test_send_message_scopes_recent_messages_by_session(client, monkeypatch, _as
         limit=10,
         session_id="s-001",
     )
+
+
+def test_send_message_converts_numeric_marker_to_cite_tag(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+    _mock(monkeypatch, rag_service, "search", [_fake_rag_result()])
+    _mock(monkeypatch, ai_service, "generate", {"content": "根据资料可以这样讲。[1]"})
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+
+    saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
+    assert '<cite chunk_id="chunk-1"' in saved_assistant_content
+    assert "[1]" not in saved_assistant_content
+
+
+def test_send_message_aligns_citations_with_inline_cite_tags(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+    _mock(
+        monkeypatch,
+        rag_service,
+        "search",
+        [
+            _fake_rag_result(chunk_id="chunk-1", filename="a.pdf", score=0.91),
+            _fake_rag_result(chunk_id="chunk-2", filename="b.pdf", score=0.89),
+        ],
+    )
+    _mock(monkeypatch, ai_service, "generate", {"content": "优先参考第二条资料。[2]"})
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+
+    saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
+    saved_metadata = create_mock.await_args_list[1].kwargs["metadata"]
+    assert '<cite chunk_id="chunk-2"' in saved_assistant_content
+    assert "[2]" not in saved_assistant_content
+    assert len(saved_metadata["citations"]) == 1
+    assert saved_metadata["citations"][0]["chunk_id"] == "chunk-2"
+
+
+def test_send_message_sanitizes_unknown_cite_tag_and_recovers_mapping(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+    _mock(monkeypatch, rag_service, "search", [_fake_rag_result(chunk_id="chunk-1")])
+    _mock(
+        monkeypatch,
+        ai_service,
+        "generate",
+        {"content": '基于资料结论如下。<cite chunk_id="unknown-1"></cite>'},
+    )
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+
+    saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
+    saved_metadata = create_mock.await_args_list[1].kwargs["metadata"]
+    assert 'chunk_id="unknown-1"' not in saved_assistant_content
+    assert '<cite chunk_id="chunk-1"' in saved_assistant_content
+    assert saved_metadata["citations"][0]["chunk_id"] == "chunk-1"
 
 
 def test_send_message_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
@@ -175,6 +331,18 @@ def test_get_messages_success(client, monkeypatch, _as_user):
     assert body["data"]["total"] == 2
     assert body["data"]["page"] == 1
     assert len(body["data"]["messages"]) == 2
+
+
+def test_get_messages_returns_session_scope_in_payload(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    _mock(monkeypatch, db_service, "get_conversations_paginated", ([], 0))
+
+    resp = client.get(
+        "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["session_id"] == "s-001"
 
 
 def test_get_messages_includes_citations_from_metadata(client, monkeypatch, _as_user):

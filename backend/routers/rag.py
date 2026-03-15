@@ -1,24 +1,63 @@
 """
 RAG Router - 检索增强生成相关端点
 
-实现知识库检索、来源详情、文件索引、相似内容查找。
+实现知识库检索、来源详情、文件索引、相似内容查找、网络资源搜索、音视频处理。
 """
 
 import logging
+import os
+import tempfile
+import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 
 from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
 from services import db_service
+from services.network_resource_strategy import (
+    audio_segments_to_units,
+    prepare_web_knowledge_units,
+    video_segments_to_units,
+)
 from services.rag_indexing_service import index_upload_file_for_rag
 from services.rag_service import rag_service
+from services.web_search_service import web_search_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ForbiddenException, NotFoundException
 from utils.responses import success_response
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
 logger = logging.getLogger(__name__)
+_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
+
+
+def _build_index_metadata(unit: dict) -> dict:
+    """Merge unit metadata and citation fields for stable traceability."""
+    metadata = dict(unit.get("metadata") or {})
+    citation = dict(unit.get("citation") or {})
+
+    if citation:
+        metadata.update(
+            {
+                "chunk_id": citation.get("chunk_id"),
+                "source_type": citation.get("source_type"),
+                "filename": citation.get("filename"),
+                "page_number": citation.get("page_number"),
+                "timestamp": citation.get("timestamp"),
+            }
+        )
+
+    metadata = {k: v for k, v in metadata.items() if v is not None}
+    return metadata
 
 
 def _serialize_upload(upload) -> dict:
@@ -82,18 +121,36 @@ async def get_source_detail(
 ):
     """查看来源详情"""
     try:
+        resolved_project_id = project_id
+        parsed = None
+        if not resolved_project_id:
+            try:
+                parsed = await db_service.db.parsedchunk.find_unique(
+                    where={"id": chunk_id},
+                    include={"upload": True},
+                )
+                if parsed and parsed.upload:
+                    resolved_project_id = parsed.upload.projectId
+            except Exception as file_err:
+                logger.warning(
+                    "Failed to resolve project for chunk %s: %s",
+                    chunk_id,
+                    file_err,
+                )
+
         detail = await rag_service.get_chunk_detail(
-            chunk_id=chunk_id, project_id=project_id
+            chunk_id=chunk_id, project_id=resolved_project_id
         )
         if not detail:
             raise NotFoundException(message=f"分块不存在: {chunk_id}")
 
         file_info = None
         try:
-            parsed = await db_service.db.parsedchunk.find_unique(
-                where={"id": chunk_id},
-                include={"upload": True},
-            )
+            if parsed is None:
+                parsed = await db_service.db.parsedchunk.find_unique(
+                    where={"id": chunk_id},
+                    include={"upload": True},
+                )
             if parsed and parsed.upload:
                 file_info = _serialize_upload(parsed.upload)
         except Exception as file_err:
@@ -186,4 +243,284 @@ async def find_similar(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="查找相似内容失败",
+        )
+
+
+@router.post("/web-search")
+async def web_search(
+    query: str = Query(..., min_length=1),
+    project_id: str = Query(..., min_length=1),
+    max_results: int = Query(10, ge=1, le=20),
+    auto_index: bool = Query(False),
+    user_id: str = Depends(get_current_user),
+):
+    """搜索网络资源并可选自动入库
+
+    Args:
+        query: 搜索查询
+        project_id: 项目 ID
+        max_results: 最大结果数
+        auto_index: 是否自动索引到 RAG（默认 False）
+    """
+    try:
+        # 验证项目权限
+        project = await db_service.get_project(project_id)
+        if not project or project.userId != user_id:
+            raise ForbiddenException(message="无权限访问此项目")
+
+        # 执行网络搜索
+        raw_results = await web_search_service.search(
+            query, max_results=max_results, search_depth="basic"
+        )
+
+        if not raw_results:
+            return success_response(
+                data={"results": [], "indexed": 0 if auto_index else None},
+                message="未找到相关网络资源",
+            )
+
+        # 使用策略层处理和过滤
+        knowledge_units = prepare_web_knowledge_units(
+            raw_results, query, min_quality=0.45, min_relevance=0.1, top_k=max_results
+        )
+
+        indexed_count = 0
+        if auto_index and knowledge_units:
+            # 将知识单元索引到 RAG
+            from services.rag_service import ParsedChunkData
+
+            chunks_to_index = [
+                ParsedChunkData(
+                    chunk_id=unit["chunk_id"],
+                    content=unit["content"],
+                    metadata=_build_index_metadata(unit),
+                )
+                for unit in knowledge_units
+            ]
+
+            try:
+                indexed_count = await rag_service.index_chunks(
+                    project_id=project_id, chunks=chunks_to_index
+                )
+            except Exception as idx_err:
+                logger.warning("Failed to index web chunks: %s", idx_err)
+
+        return success_response(
+            data={
+                "results": knowledge_units,
+                "total": len(knowledge_units),
+                "indexed": indexed_count if auto_index else None,
+            },
+            message=f"搜索成功，找到 {len(knowledge_units)} 条结果"
+            + (f"，已索引 {indexed_count} 条" if auto_index else ""),
+        )
+    except APIException:
+        raise
+    except Exception as e:
+        logger.error(f"Web search failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="网络搜索失败",
+        )
+
+
+@router.post("/audio-transcribe")
+async def transcribe_audio_endpoint(
+    file: UploadFile = File(...),
+    project_id: str = Form(""),
+    auto_index: bool = Form(False),
+    language: str = Form("zh"),
+    user_id: str = Depends(get_current_user),
+):
+    """转录音频文件并可选自动入库
+
+    Args:
+        file: 音频文件
+        project_id: 项目 ID
+        auto_index: 是否自动索引到 RAG（默认 False）
+        language: 语言代码（默认 zh）
+    """
+    try:
+        # 验证项目权限
+        if project_id:
+            project = await db_service.get_project(project_id)
+            if not project or project.userId != user_id:
+                raise ForbiddenException(message="无权限访问此项目")
+
+        # 保存临时文件
+        audio_id = str(uuid.uuid4())
+        tmp_path = None
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            while True:
+                chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        try:
+            # 转录音频（使用现有 audio_service）
+            from services.audio_service import transcribe_audio
+
+            text, confidence, duration, capability_status = transcribe_audio(
+                tmp_path, language=language
+            )
+
+            # 构造 segments（简化版，因为现有服务不返回详细 segments）
+            segments = [
+                {
+                    "text": text,
+                    "start": 0.0,
+                    "end": duration,
+                    "confidence": confidence,
+                }
+            ]
+
+            # 使用策略层标准化
+            knowledge_units = audio_segments_to_units(
+                audio_id=audio_id,
+                filename=file.filename or "audio",
+                segments=segments,
+                min_confidence=0.35,
+            )
+
+            indexed_count = 0
+            if auto_index and knowledge_units and project_id:
+                from services.rag_service import ParsedChunkData
+
+                chunks_to_index = [
+                    ParsedChunkData(
+                        chunk_id=unit["chunk_id"],
+                        content=unit["content"],
+                        metadata=_build_index_metadata(unit),
+                    )
+                    for unit in knowledge_units
+                ]
+
+                try:
+                    indexed_count = await rag_service.index_chunks(
+                        project_id=project_id, chunks=chunks_to_index
+                    )
+                except Exception as idx_err:
+                    logger.warning("Failed to index audio chunks: %s", idx_err)
+
+            return success_response(
+                data={
+                    "audio_id": audio_id,
+                    "text": text,
+                    "segments": knowledge_units,
+                    "total_segments": len(knowledge_units),
+                    "indexed": indexed_count if auto_index else None,
+                    "language": language,
+                    "confidence": confidence,
+                    "duration": duration,
+                    "capability_status": capability_status.model_dump(),
+                },
+                message=f"音频转录成功，共 {len(knowledge_units)} 个片段"
+                + (f"，已索引 {indexed_count} 条" if auto_index else ""),
+            )
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    except APIException:
+        raise
+    except Exception as e:
+        logger.error(f"Audio transcription failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"音频转录失败: {str(e)}",
+        )
+
+
+@router.post("/video-analyze")
+async def analyze_video_endpoint(
+    file: UploadFile = File(...),
+    project_id: str = Form(""),
+    auto_index: bool = Form(False),
+    user_id: str = Depends(get_current_user),
+):
+    """分析视频文件并可选自动入库
+
+    Args:
+        file: 视频文件
+        project_id: 项目 ID
+        auto_index: 是否自动索引到 RAG（默认 False）
+    """
+    try:
+        # 验证项目权限
+        if project_id:
+            project = await db_service.get_project(project_id)
+            if not project or project.userId != user_id:
+                raise ForbiddenException(message="无权限访问此项目")
+
+        # 保存临时文件
+        video_id = str(uuid.uuid4())
+        tmp_path = None
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+            while True:
+                chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        try:
+            # 分析视频（使用现有 video_service）
+            from services.video_service import process_video
+
+            segments, capability_status = process_video(
+                tmp_path, file.filename or "video"
+            )
+
+            # 使用策略层标准化
+            knowledge_units = video_segments_to_units(
+                video_id=video_id,
+                filename=file.filename or "video",
+                segments=segments,
+                min_confidence=0.35,
+            )
+
+            indexed_count = 0
+            if auto_index and knowledge_units and project_id:
+                from services.rag_service import ParsedChunkData
+
+                chunks_to_index = [
+                    ParsedChunkData(
+                        chunk_id=unit["chunk_id"],
+                        content=unit["content"],
+                        metadata=_build_index_metadata(unit),
+                    )
+                    for unit in knowledge_units
+                ]
+
+                try:
+                    indexed_count = await rag_service.index_chunks(
+                        project_id=project_id, chunks=chunks_to_index
+                    )
+                except Exception as idx_err:
+                    logger.warning("Failed to index video chunks: %s", idx_err)
+
+            return success_response(
+                data={
+                    "video_id": video_id,
+                    "segments": knowledge_units,
+                    "total_segments": len(knowledge_units),
+                    "indexed": indexed_count if auto_index else None,
+                    "capability_status": capability_status.model_dump(),
+                },
+                message=f"视频分析成功，共 {len(knowledge_units)} 个片段"
+                + (f"，已索引 {indexed_count} 条" if auto_index else ""),
+            )
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    except APIException:
+        raise
+    except Exception as e:
+        logger.error(f"Video analysis failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"视频分析失败: {str(e)}",
         )
