@@ -28,7 +28,13 @@ const springConfig = {
 
 const PAGE_GAP = 24;
 const PANEL_GAP = 12;
-const MIN_RESIZABLE_PANEL_WIDTH = 96;
+const MIN_RESIZABLE_PANEL_WIDTH = 85;
+const MIN_EXPANDED_RIGHT_PANEL_WIDTH = 260;
+const COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX = 126;
+const COLLAPSED_SOURCES_WIDTH_PX = 85;
+const COLLAPSED_SOURCES_TRIGGER_WIDTH_PX = 180;
+const EXPANDED_SOURCES_COMFORT_WIDTH_PX = 280;
+const SOURCES_TITLE_SAFE_MIN_WIDTH_PX = 214;
 
 function formatSessionTime(value: string): string {
   const date = new Date(value);
@@ -67,6 +73,8 @@ export default function ProjectDetailPage() {
   const [chatWidth, setChatWidth] = useState(50);
   const [expandedStudioWidth, setExpandedStudioWidth] = useState(70);
   const [expandedChatHeight, setExpandedChatHeight] = useState(50);
+  const [panelAreaWidth, setPanelAreaWidth] = useState(0);
+  const [panelAreaHeight, setPanelAreaHeight] = useState(0);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
 
@@ -74,6 +82,8 @@ export default function ProjectDetailPage() {
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const panelAreaRef = useRef<HTMLDivElement | null>(null);
+  const previousChatWidthRef = useRef<number | null>(null);
+  const previousExpandedChatHeightRef = useRef<number | null>(null);
   const startSizesRef = useRef({
     studio: 0,
     chat: 0,
@@ -204,6 +214,127 @@ export default function ProjectDetailPage() {
     }
   }, [fetchGenerationHistory, handleChangeSession, projectId]);
 
+  useEffect(() => {
+    if (isLoading) return;
+    const target = panelAreaRef.current;
+    if (!target) return;
+
+    const syncSize = () => {
+      setPanelAreaWidth(target.clientWidth);
+      setPanelAreaHeight(target.clientHeight);
+    };
+    syncSize();
+
+    const observer = new ResizeObserver(syncSize);
+    observer.observe(target);
+    window.addEventListener("resize", syncSize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncSize);
+    };
+  }, [isLoading]);
+
+  const sourcesWidthPercent = 100 - studioWidth - chatWidth;
+  const effectivePanelAreaWidth =
+    panelAreaWidth > 0
+      ? panelAreaWidth
+      : typeof window !== "undefined"
+        ? window.innerWidth - PAGE_GAP * 2
+        : 0;
+  const sourcesWidthPx =
+    effectivePanelAreaWidth > 0
+      ? (effectivePanelAreaWidth * sourcesWidthPercent) / 100 -
+        (PAGE_GAP + PANEL_GAP / 2)
+      : 0;
+  const isSourcesCollapsedByWidth =
+    !isExpanded &&
+    sourcesWidthPx > 0 &&
+    sourcesWidthPx <= COLLAPSED_SOURCES_TRIGGER_WIDTH_PX;
+  const effectivePanelAreaHeight =
+    panelAreaHeight > 0
+      ? panelAreaHeight
+      : typeof window !== "undefined"
+        ? window.innerHeight - PAGE_GAP * 2
+        : 0;
+  const expandedSourcesHeightPx =
+    effectivePanelAreaHeight > 0
+      ? (effectivePanelAreaHeight * (100 - expandedChatHeight)) / 100 -
+        (PAGE_GAP + PANEL_GAP / 2)
+      : 0;
+  const isExpandedSourcesCollapsedByHeight =
+    isExpanded &&
+    expandedSourcesHeightPx > 0 &&
+    expandedSourcesHeightPx <= COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + 2;
+
+  const toggleSourcesCollapsed = useCallback(
+    (action: "collapse" | "expand" | "toggle" = "toggle") => {
+      if (isExpanded) return;
+
+      const containerWidth =
+        panelAreaRef.current?.clientWidth ?? window.innerWidth - PAGE_GAP * 2;
+      const minSourcesPercent =
+        ((MIN_RESIZABLE_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) /
+          containerWidth) *
+        100;
+      const maxChatBySources = Math.min(
+        75,
+        100 - studioWidth - minSourcesPercent
+      );
+
+      const applyTargetSourcesWidth = (targetWidthPx: number) => {
+        const targetSourcesPercent = Math.max(
+          minSourcesPercent,
+          ((targetWidthPx + PAGE_GAP + PANEL_GAP / 2) / containerWidth) * 100
+        );
+        const targetChat = 100 - studioWidth - targetSourcesPercent;
+        const nextChat = Math.max(30, Math.min(maxChatBySources, targetChat));
+        setChatWidth(nextChat);
+      };
+
+      const shouldExpand =
+        action === "expand" ||
+        (action === "toggle" && isSourcesCollapsedByWidth);
+
+      if (shouldExpand) {
+        if (previousChatWidthRef.current !== null) {
+          const restoredChat = Math.max(
+            30,
+            Math.min(maxChatBySources, previousChatWidthRef.current)
+          );
+          setChatWidth(restoredChat);
+          return;
+        }
+        applyTargetSourcesWidth(EXPANDED_SOURCES_COMFORT_WIDTH_PX);
+        return;
+      }
+
+      previousChatWidthRef.current = chatWidth;
+      applyTargetSourcesWidth(COLLAPSED_SOURCES_WIDTH_PX);
+    },
+    [chatWidth, isExpanded, isSourcesCollapsedByWidth, studioWidth]
+  );
+
+  const handleToggleExpandedSources = useCallback(() => {
+    if (!isExpanded) return;
+
+    const containerHeight =
+      panelAreaRef.current?.clientHeight ?? window.innerHeight - PAGE_GAP * 2;
+    const maxChatByCollapsedSources =
+      100 -
+      ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
+        containerHeight) *
+        100;
+
+    if (!isExpandedSourcesCollapsedByHeight) {
+      previousExpandedChatHeightRef.current = expandedChatHeight;
+      setExpandedChatHeight(Math.max(30, Math.min(92, maxChatByCollapsedSources)));
+      return;
+    }
+
+    setExpandedChatHeight(previousExpandedChatHeightRef.current ?? 50);
+  }, [expandedChatHeight, isExpanded, isExpandedSourcesCollapsedByHeight]);
+
   const handleMouseDown = useCallback(
     (
       event: React.MouseEvent,
@@ -259,13 +390,48 @@ export default function ProjectDetailPage() {
             75,
             100 - startSizesRef.current.studio - minSourcesPercent
           );
-          const nextChat = Math.max(
+          let nextChat = Math.max(
             30,
             Math.min(
               Math.max(30, maxChatBySources),
               startSizesRef.current.chat + deltaPercent
             )
           );
+
+          const toChatBySourcesWidthPx = (targetWidthPx: number) => {
+            const targetSourcesPercent =
+              ((targetWidthPx + PAGE_GAP + PANEL_GAP / 2) / containerWidth) * 100;
+            const targetChat = 100 - startSizesRef.current.studio - targetSourcesPercent;
+            return Math.max(
+              30,
+              Math.min(Math.max(30, maxChatBySources), targetChat)
+            );
+          };
+
+          const startSourcesPercent =
+            100 - startSizesRef.current.studio - startSizesRef.current.chat;
+          const startSourcesWidthPx =
+            (containerWidth * startSourcesPercent) / 100 - (PAGE_GAP + PANEL_GAP / 2);
+          const startedCollapsed =
+            startSourcesWidthPx <= COLLAPSED_SOURCES_TRIGGER_WIDTH_PX + 2;
+
+          const nextSourcesPercent = 100 - startSizesRef.current.studio - nextChat;
+          const nextSourcesWidthPx =
+            (containerWidth * nextSourcesPercent) / 100 - (PAGE_GAP + PANEL_GAP / 2);
+
+          const collapseSnapThreshold = COLLAPSED_SOURCES_TRIGGER_WIDTH_PX + 4;
+          const expandSnapThreshold = COLLAPSED_SOURCES_TRIGGER_WIDTH_PX - 60;
+
+          if (deltaX > 0 && nextSourcesWidthPx <= collapseSnapThreshold) {
+            nextChat = toChatBySourcesWidthPx(COLLAPSED_SOURCES_WIDTH_PX);
+          } else if (
+            deltaX < 0 &&
+            startedCollapsed &&
+            nextSourcesWidthPx >= expandSnapThreshold
+          ) {
+            nextChat = toChatBySourcesWidthPx(SOURCES_TITLE_SAFE_MIN_WIDTH_PX);
+          }
+
           setChatWidth(nextChat);
           return;
         }
@@ -273,7 +439,7 @@ export default function ProjectDetailPage() {
         if (handle === "expanded-studio-right") {
           const maxExpandedStudioByWidth =
             100 -
-            ((MIN_RESIZABLE_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) / containerWidth) *
+            ((MIN_EXPANDED_RIGHT_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) / containerWidth) *
               100;
           const nextExpandedStudio = Math.max(
             45,
@@ -286,9 +452,17 @@ export default function ProjectDetailPage() {
           return;
         }
 
+        const maxExpandedChatHeight =
+          100 -
+          ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
+            containerHeight) *
+            100;
         const nextExpandedChatHeight = Math.max(
           30,
-          Math.min(70, startSizesRef.current.expandedChatHeight + deltaYPercent)
+          Math.min(
+            Math.min(92, maxExpandedChatHeight),
+            startSizesRef.current.expandedChatHeight + deltaYPercent
+          )
         );
         setExpandedChatHeight(nextExpandedChatHeight);
       };
@@ -352,7 +526,7 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const sourcesWidth = 100 - studioWidth - chatWidth;
+  const sourcesWidth = sourcesWidthPercent;
 
   return (
     <div className="h-screen flex flex-col bg-zinc-100 overflow-hidden relative">
@@ -497,7 +671,14 @@ export default function ProjectDetailPage() {
             }}
             transition={springConfig}
           >
-            <SourcesPanel projectId={projectId} />
+            <SourcesPanel
+              projectId={projectId}
+              isCollapsed={isSourcesCollapsedByWidth}
+              onToggleCollapsed={toggleSourcesCollapsed}
+              isStudioExpanded={isExpanded}
+              isExpandedContentCollapsed={isExpandedSourcesCollapsedByHeight}
+              onToggleExpandedContentCollapsed={handleToggleExpandedSources}
+            />
           </motion.div>
         </motion.div>
       </div>

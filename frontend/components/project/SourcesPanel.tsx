@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import {
   Upload,
   FileText,
@@ -18,6 +19,10 @@ import {
   Code,
   FileSpreadsheet,
   Sparkles,
+  PanelRightClose,
+  PanelRightOpen,
+  ChevronsDown,
+  ChevronsUp,
 } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
@@ -34,8 +39,9 @@ import type { components } from "@/lib/types/api";
 
 type UploadedFile = components["schemas"]["UploadedFile"];
 const COMPACT_MODE_WIDTH = 140;
-const HEADER_COMPACT_HYSTERESIS = 18;
 const HEADER_FORCE_NORMAL_WIDTH = 260;
+const HEADER_MIN_VISIBLE_WIDTH = 96;
+const HEADER_COMPACT_HYSTERESIS = 16;
 
 const FILE_TYPE_CONFIG: Record<
   string,
@@ -156,6 +162,11 @@ function getFileStatusText(file: UploadedFile): string {
 
 interface SourcesPanelProps {
   projectId: string;
+  isCollapsed?: boolean;
+  onToggleCollapsed?: (action?: "collapse" | "expand" | "toggle") => void;
+  isStudioExpanded?: boolean;
+  isExpandedContentCollapsed?: boolean;
+  onToggleExpandedContentCollapsed?: () => void;
 }
 
 function FileItem({
@@ -193,6 +204,7 @@ function FileItem({
   const Icon = config.icon;
 
   if (isCompact) {
+    const compactHint = `${file.filename}\n${getFileStatusText(file)}`;
     return (
       <motion.div
         layout
@@ -211,6 +223,7 @@ function FileItem({
             : "bg-white hover:bg-zinc-50 shadow-sm hover:shadow-md border border-zinc-100"
         )}
         style={{ minHeight: "52px" }}
+        title={compactHint}
       >
         <div
           className={cn(
@@ -412,7 +425,14 @@ function FileItem({
   );
 }
 
-export function SourcesPanel({ projectId }: SourcesPanelProps) {
+export function SourcesPanel({
+  projectId,
+  isCollapsed = false,
+  onToggleCollapsed,
+  isStudioExpanded = false,
+  isExpandedContentCollapsed = false,
+  onToggleExpandedContentCollapsed,
+}: SourcesPanelProps) {
   const {
     files,
     selectedFileIds,
@@ -425,13 +445,12 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
   } = useProjectStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const headerInfoRef = useRef<HTMLDivElement>(null);
-  const uploadButtonRef = useRef<HTMLButtonElement>(null);
+  const horizontalViewportRef = useRef<HTMLDivElement>(null);
+  const headerActionsRef = useRef<HTMLDivElement>(null);
   const fileRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [isCompact, setIsCompact] = useState(false);
   const [isHeaderTight, setIsHeaderTight] = useState(false);
-
   useEffect(() => {
     const checkWidth = () => {
       if (containerRef.current) {
@@ -449,29 +468,25 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
           return;
         }
 
-        if (headerInfoRef.current && uploadButtonRef.current) {
-          const horizontalPadding = 32; // px-4 on both sides
+        if (headerActionsRef.current) {
+          const horizontalPadding = 32;
           const gap = 8;
-          const measuredRequiredWidth =
-            headerInfoRef.current.scrollWidth +
-            uploadButtonRef.current.offsetWidth +
-            horizontalPadding +
-            gap;
+          const availableInfoWidth =
+            width - horizontalPadding - headerActionsRef.current.offsetWidth - gap;
 
           setIsHeaderTight((prev) => {
-            const enterCompactThreshold = measuredRequiredWidth;
-            const exitCompactThreshold =
-              measuredRequiredWidth + HEADER_COMPACT_HYSTERESIS;
-
             if (prev) {
-              return width < exitCompactThreshold;
+              return (
+                availableInfoWidth <
+                HEADER_MIN_VISIBLE_WIDTH + HEADER_COMPACT_HYSTERESIS
+              );
             }
-
-            return width < enterCompactThreshold;
+            return availableInfoWidth < HEADER_MIN_VISIBLE_WIDTH;
           });
-        } else {
-          setIsHeaderTight(false);
+          return;
         }
+
+        setIsHeaderTight(true);
       }
     };
 
@@ -550,7 +565,12 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
     [projectId, deleteFile]
   );
 
-  const isHeaderCompact = isCompact || isHeaderTight;
+  const isHorizontalIconMode =
+    isStudioExpanded && isExpandedContentCollapsed;
+  const isEffectiveCompact = isCompact || isCollapsed || isHorizontalIconMode;
+  const isHeaderCompact = isStudioExpanded
+    ? isCompact || isCollapsed || isHeaderTight
+    : isCollapsed;
 
   return (
     <div
@@ -559,110 +579,257 @@ export function SourcesPanel({ projectId }: SourcesPanelProps) {
       style={{ transform: "translateZ(0)" }}
     >
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl will-change-[box-shadow,transform]">
-        <CardHeader
+                <CardHeader
           className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
           style={{ height: "52px" }}
         >
-          <div
-            ref={headerInfoRef}
-            className="flex flex-col justify-center min-w-0 flex-1"
-          >
-            <CardTitle className="text-sm font-semibold leading-tight">
-              {isHeaderCompact ? "S" : "Sources"}
-            </CardTitle>
-            <CardDescription className="text-xs text-zinc-500 leading-tight truncate">
-              {isHeaderCompact
-                ? `${files.length}/${selectedFileIds.length}`
-                : `${files.length} \u4e2a\u6587\u4ef6 \u00b7 ${selectedFileIds.length} \u5df2\u9009`}
-            </CardDescription>
-          </div>
-          <label className="relative shrink-0 ml-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mov,.avi,.mp3,.wav,.jpg,.png"
-              onChange={handleFileSelect}
-              disabled={isUploading}
-              className="hidden"
-            />
-            <Button
-              ref={uploadButtonRef}
-              size="sm"
-              disabled={isUploading}
-              aria-label={isUploading ? "\u4e0a\u4f20\u4e2d" : "\u4e0a\u4f20"}
-              className={cn(
-                "gap-1.5 rounded-full text-[11px] h-7 transition-all",
-                isHeaderCompact && "w-7 px-0 justify-center",
-                isUploading
-                  ? "bg-zinc-100 text-zinc-400"
-                  : "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
-              )}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {isUploading ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
+          {isCollapsed ? (
+            <div className="w-full flex items-center justify-between">
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="展开 Sources 面板"
+                className="h-7 w-7 rounded-full text-zinc-500 hover:text-zinc-700 hover:bg-transparent"
+                onClick={() => onToggleCollapsed?.("expand")}
+              >
+                <PanelRightOpen className="w-3.5 h-3.5" />
+              </Button>
+
+              <label className="relative shrink-0">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mov,.avi,.mp3,.wav,.jpg,.png"
+                  onChange={handleFileSelect}
+                  disabled={isUploading}
+                  className="hidden"
+                />
+                <Button
+                  size="sm"
+                  disabled={isUploading}
+                  aria-label={isUploading ? "上传中" : "上传"}
+                  className={cn(
+                    "w-7 h-7 px-0 rounded-full transition-all",
+                    isUploading
+                      ? "bg-zinc-100 text-zinc-400"
+                      : "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploading ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Upload className="w-3 h-3" />
+                  )}
+                </Button>
+              </label>
+            </div>
+          ) : (
+            <>
+              {!isHeaderCompact ? (
+                <div className="flex flex-col justify-center min-w-0 flex-1">
+                  <CardTitle className="text-sm font-semibold leading-tight">
+                    Sources
+                  </CardTitle>
+                  <CardDescription className="text-xs text-zinc-500 leading-tight truncate">
+                    {`${files.length} 个文件 · ${selectedFileIds.length} 已选`}
+                  </CardDescription>
+                </div>
               ) : (
-                <Upload className="w-3 h-3" />
+                <div className="flex-1" />
               )}
-              {!isHeaderCompact &&
-                (isUploading ? "\u4e0a\u4f20\u4e2d" : "\u4e0a\u4f20")}
-            </Button>
-          </label>
+
+              <div
+                ref={headerActionsRef}
+                className={cn(
+                  "flex items-center gap-1.5 shrink-0",
+                  isHeaderCompact ? "ml-0" : "ml-2"
+                )}
+              >
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={
+                    isStudioExpanded
+                      ? isExpandedContentCollapsed
+                        ? "向下展开 Sources 内容"
+                        : "向上收起 Sources 内容"
+                      : "收起 Sources 面板"
+                  }
+                  className="h-7 w-7 rounded-full px-0 text-zinc-500 hover:text-zinc-700 hover:bg-transparent"
+                  onClick={() => {
+                    if (isStudioExpanded) {
+                      onToggleExpandedContentCollapsed?.();
+                      return;
+                    }
+                    onToggleCollapsed?.("collapse");
+                  }}
+                >
+                  {isStudioExpanded ? (
+                    isExpandedContentCollapsed ? (
+                      <ChevronsDown className="w-3 h-3" />
+                    ) : (
+                      <ChevronsUp className="w-3 h-3" />
+                    )
+                  ) : (
+                    <PanelRightClose className="w-3 h-3" />
+                  )}
+                </Button>
+
+                <label className="relative shrink-0">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mov,.avi,.mp3,.wav,.jpg,.png"
+                    onChange={handleFileSelect}
+                    disabled={isUploading}
+                    className="hidden"
+                  />
+                  <Button
+                    size="sm"
+                    disabled={isUploading}
+                    aria-label={isUploading ? "上传中" : "上传"}
+                    className={cn(
+                      "gap-1.5 rounded-full text-[11px] h-7 transition-all",
+                      isHeaderCompact && "w-7 px-0 justify-center",
+                      isUploading
+                        ? "bg-zinc-100 text-zinc-400"
+                        : "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
+                    )}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Upload className="w-3 h-3" />
+                    )}
+                    {!isHeaderCompact && (isUploading ? "上传中" : "上传")}
+                  </Button>
+                </label>
+              </div>
+            </>
+          )}
         </CardHeader>
 
         <CardContent className="p-0 h-[calc(100%-52px)] overflow-hidden">
-          <ScrollArea className="h-full w-full">
-            <div className="min-h-full px-3 py-3 w-full max-w-full overflow-hidden">
+          {isHorizontalIconMode ? (
+            <div className="h-full px-3 py-1 overflow-hidden">
               {files.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center py-16">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
                     <File className="w-7 h-7 text-zinc-300" />
                   </div>
-                  <p className="text-sm font-medium text-zinc-700">
-                    {"\u6682\u65e0\u6587\u4ef6"}
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    {"\u4e0a\u4f20\u6587\u4ef6\u4ee5\u5f00\u59cb\u4f7f\u7528"}
-                  </p>
+                  <p className="text-sm font-medium text-zinc-700">{"\u6682\u65e0\u6587\u4ef6"}</p>
                 </div>
               ) : (
-                <div
-                  className={cn(
-                    "grid grid-cols-1 gap-2 w-full max-w-full",
-                    isCompact && "flex flex-col gap-2"
-                  )}
-                >
-                  <AnimatePresence mode="popLayout">
-                    {files.map((file) => (
-                      <div
-                        key={file.id}
-                        ref={(el) => {
-                          fileRefs.current[file.id] = el;
-                        }}
-                      >
-                        <FileItem
-                          file={file}
-                          isSelected={selectedFileIds.includes(file.id)}
-                          onToggle={() => toggleFileSelection(file.id)}
-                          onDelete={() => handleDelete(file.id)}
-                          isCompact={isCompact}
-                          isFocused={focusedFileId === file.id}
-                          focusDetail={
-                            focusedFileId === file.id ? focusPayload : null
-                          }
-                          isExpanded={!!expandedIds[file.id]}
-                          onCollapse={() => collapseFile(file.id)}
-                        />
+                <div className="h-full flex items-start">
+                  <ScrollAreaPrimitive.Root className="relative h-full w-full overflow-hidden">
+                    <ScrollAreaPrimitive.Viewport
+                      ref={horizontalViewportRef}
+                      className="h-[calc(100%-10px)] w-full rounded-[inherit]"
+                      onWheel={(event) => {
+                        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+                          event.preventDefault();
+                          horizontalViewportRef.current?.scrollBy({
+                            left: event.deltaY * 0.55,
+                            behavior: "smooth",
+                          });
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-3 min-w-max pt-0 pb-1 px-0.5 -translate-y-1">
+                        {files.map((file) => (
+                          <div
+                            key={file.id}
+                            ref={(el) => {
+                              fileRefs.current[file.id] = el;
+                            }}
+                            className="shrink-0"
+                          >
+                            <FileItem
+                              file={file}
+                              isSelected={selectedFileIds.includes(file.id)}
+                              onToggle={() => toggleFileSelection(file.id)}
+                              onDelete={() => handleDelete(file.id)}
+                              isCompact={true}
+                              isFocused={focusedFileId === file.id}
+                              focusDetail={
+                                focusedFileId === file.id ? focusPayload : null
+                              }
+                              isExpanded={false}
+                              onCollapse={() => collapseFile(file.id)}
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </AnimatePresence>
+                    </ScrollAreaPrimitive.Viewport>
+                    <ScrollAreaPrimitive.ScrollAreaScrollbar
+                      orientation="horizontal"
+                      className="flex touch-none select-none transition-colors h-2.5 flex-col border-t border-t-transparent p-[1px]"
+                    >
+                      <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
+                    </ScrollAreaPrimitive.ScrollAreaScrollbar>
+                    <ScrollAreaPrimitive.Corner />
+                  </ScrollAreaPrimitive.Root>
                 </div>
               )}
             </div>
-          </ScrollArea>
+          ) : (
+            <ScrollArea className="h-full w-full">
+              <div className="min-h-full px-3 py-3 w-full max-w-full overflow-hidden">
+                {files.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center py-16">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
+                      <File className="w-7 h-7 text-zinc-300" />
+                    </div>
+                    <p className="text-sm font-medium text-zinc-700">
+                      {"\u6682\u65e0\u6587\u4ef6"}
+                    </p>
+                    <p className="text-xs text-zinc-400 mt-1">
+                      {"\u4e0a\u4f20\u6587\u4ef6\u4ee5\u5f00\u59cb\u4f7f\u7528"}
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      "grid grid-cols-1 gap-2 w-full max-w-full",
+                      isEffectiveCompact && "flex flex-col gap-2"
+                    )}
+                  >
+                    <AnimatePresence mode="popLayout">
+                      {files.map((file) => (
+                        <div
+                          key={file.id}
+                          ref={(el) => {
+                            fileRefs.current[file.id] = el;
+                          }}
+                        >
+                          <FileItem
+                            file={file}
+                            isSelected={selectedFileIds.includes(file.id)}
+                            onToggle={() => toggleFileSelection(file.id)}
+                            onDelete={() => handleDelete(file.id)}
+                            isCompact={isEffectiveCompact}
+                            isFocused={focusedFileId === file.id}
+                            focusDetail={
+                              focusedFileId === file.id ? focusPayload : null
+                            }
+                            isExpanded={!!expandedIds[file.id]}
+                            onCollapse={() => collapseFile(file.id)}
+                          />
+                        </div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
