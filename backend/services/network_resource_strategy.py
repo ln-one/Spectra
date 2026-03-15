@@ -228,7 +228,7 @@ def video_segments_to_units(
             content = (
                 f"{summary}\n- " + "\n- ".join(key_points)
                 if summary
-                else "\n- ".join(f"- {p}" for p in key_points)
+                else "\n".join(f"- {p}" for p in key_points)
             )
         chunk_id = str(segment.get("chunk_id") or f"vid-{video_id}-{idx}")
         units.append(

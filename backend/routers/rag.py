@@ -5,9 +5,22 @@ RAG Router - 检索增强生成相关端点
 """
 
 import logging
+import os
+import tempfile
+import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
+from fastapi.concurrency import run_in_threadpool
 
 from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
 from services import db_service
@@ -20,11 +33,17 @@ from services.rag_indexing_service import index_upload_file_for_rag
 from services.rag_service import rag_service
 from services.web_search_service import web_search_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException, ForbiddenException, NotFoundException
+from utils.exceptions import (
+    APIException,
+    ForbiddenException,
+    NotFoundException,
+    ValidationException,
+)
 from utils.responses import success_response
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
 logger = logging.getLogger(__name__)
+_UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 
 def _build_index_metadata(unit: dict) -> dict:
@@ -63,6 +82,17 @@ def _serialize_upload(upload) -> dict:
         "created_at": getattr(upload, "createdAt", None),
         "updated_at": getattr(upload, "updatedAt", None),
     }
+
+
+async def _save_upload_to_temp_file(file: UploadFile, suffix: str) -> str:
+    """Persist upload to temp file in chunks to avoid loading full file in memory."""
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        while True:
+            chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+            if not chunk:
+                break
+            tmp.write(chunk)
+        return tmp.name
 
 
 @router.post("/search")
@@ -217,10 +247,10 @@ async def find_similar(
 
 @router.post("/web-search")
 async def web_search(
-    query: str,
-    project_id: str,
-    max_results: int = 10,
-    auto_index: bool = False,
+    query: str = Query(..., min_length=1),
+    project_id: str = Query(...),
+    max_results: int = Query(10, ge=1, le=20),
+    auto_index: bool = Query(False),
     user_id: str = Depends(get_current_user),
 ):
     """搜索网络资源并可选自动入库
@@ -244,7 +274,11 @@ async def web_search(
 
         if not raw_results:
             return success_response(
-                data={"results": [], "indexed": False},
+                data={
+                    "results": [],
+                    "total": 0,
+                    "indexed": 0 if auto_index else None,
+                },
                 message="未找到相关网络资源",
             )
 
@@ -296,9 +330,9 @@ async def web_search(
 @router.post("/audio-transcribe")
 async def transcribe_audio_endpoint(
     file: UploadFile = File(...),
-    project_id: str = "",
-    auto_index: bool = False,
-    language: str = "zh",
+    project_id: str = Form(""),
+    auto_index: bool = Form(False),
+    language: str = Form("zh"),
     user_id: str = Depends(get_current_user),
 ):
     """转录音频文件并可选自动入库
@@ -309,10 +343,10 @@ async def transcribe_audio_endpoint(
         auto_index: 是否自动索引到 RAG（默认 False）
         language: 语言代码（默认 zh）
     """
-    import tempfile
-    import uuid
-
     try:
+        if auto_index and not project_id:
+            raise ValidationException(message="auto_index=true 时必须提供 project_id")
+
         # 验证项目权限
         if project_id:
             project = await db_service.get_project(project_id)
@@ -321,17 +355,16 @@ async def transcribe_audio_endpoint(
 
         # 保存临时文件
         audio_id = str(uuid.uuid4())
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            content = await file.read()
-            tmp.write(content)
-            tmp_path = tmp.name
+        tmp_path = await _save_upload_to_temp_file(file, suffix=".wav")
 
         try:
             # 转录音频（使用现有 audio_service）
             from services.audio_service import transcribe_audio
 
-            text, confidence, duration, capability_status = transcribe_audio(
-                tmp_path, language=language
+            text, confidence, duration, capability_status = await run_in_threadpool(
+                transcribe_audio,
+                tmp_path,
+                language=language,
             )
 
             # 构造 segments（简化版，因为现有服务不返回详细 segments）
@@ -353,7 +386,7 @@ async def transcribe_audio_endpoint(
             )
 
             indexed_count = 0
-            if auto_index and knowledge_units and project_id:
+            if auto_index and knowledge_units:
                 from services.rag_service import ParsedChunkData
 
                 chunks_to_index = [
@@ -388,9 +421,8 @@ async def transcribe_audio_endpoint(
                 + (f"，已索引 {indexed_count} 条" if auto_index else ""),
             )
         finally:
-            import os
-
-            os.unlink(tmp_path)
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     except APIException:
         raise
@@ -405,8 +437,8 @@ async def transcribe_audio_endpoint(
 @router.post("/video-analyze")
 async def analyze_video_endpoint(
     file: UploadFile = File(...),
-    project_id: str = "",
-    auto_index: bool = False,
+    project_id: str = Form(""),
+    auto_index: bool = Form(False),
     user_id: str = Depends(get_current_user),
 ):
     """分析视频文件并可选自动入库
@@ -416,10 +448,10 @@ async def analyze_video_endpoint(
         project_id: 项目 ID
         auto_index: 是否自动索引到 RAG（默认 False）
     """
-    import tempfile
-    import uuid
-
     try:
+        if auto_index and not project_id:
+            raise ValidationException(message="auto_index=true 时必须提供 project_id")
+
         # 验证项目权限
         if project_id:
             project = await db_service.get_project(project_id)
@@ -428,17 +460,16 @@ async def analyze_video_endpoint(
 
         # 保存临时文件
         video_id = str(uuid.uuid4())
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-            content = await file.read()
-            tmp.write(content)
-            tmp_path = tmp.name
+        tmp_path = await _save_upload_to_temp_file(file, suffix=".mp4")
 
         try:
             # 分析视频（使用现有 video_service）
             from services.video_service import process_video
 
-            segments, capability_status = process_video(
-                tmp_path, file.filename or "video"
+            segments, capability_status = await run_in_threadpool(
+                process_video,
+                tmp_path,
+                file.filename or "video",
             )
 
             # 使用策略层标准化
@@ -450,7 +481,7 @@ async def analyze_video_endpoint(
             )
 
             indexed_count = 0
-            if auto_index and knowledge_units and project_id:
+            if auto_index and knowledge_units:
                 from services.rag_service import ParsedChunkData
 
                 chunks_to_index = [
@@ -481,9 +512,8 @@ async def analyze_video_endpoint(
                 + (f"，已索引 {indexed_count} 条" if auto_index else ""),
             )
         finally:
-            import os
-
-            os.unlink(tmp_path)
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     except APIException:
         raise

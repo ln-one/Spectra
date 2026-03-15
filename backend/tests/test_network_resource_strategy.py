@@ -78,6 +78,7 @@ def test_video_segments_to_units_keeps_key_points():
     units = video_segments_to_units("v1", "cell.mp4", segments)
     assert len(units) == 1
     assert "有丝分裂阶段" in units[0]["content"]
+    assert "- - " not in units[0]["content"]
     assert units[0]["citation"]["timestamp"] == 10.0
 
 

@@ -1101,12 +1101,140 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /api/v1/rag/web-search:
+    post:
+      summary: 搜索网络资源并可选入库
+      tags:
+        - RAG
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: max_results
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 20
+        - name: auto_index
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: 搜索成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebSearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/rag/audio-transcribe:
+    post:
+      summary: 音频转录并可选入库
+      tags:
+        - RAG
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 音频文件
+                project_id:
+                  type: string
+                  description: 可选项目 ID，不传则仅转录不入库
+                auto_index:
+                  type: boolean
+                  default: false
+                language:
+                  type: string
+                  default: zh
+      responses:
+        '200':
+          description: 转录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioTranscribeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/rag/video-analyze:
+    post:
+      summary: 视频分析并可选入库
+      tags:
+        - RAG
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 视频文件
+                project_id:
+                  type: string
+                  description: 可选项目 ID，不传则仅分析不入库
+                auto_index:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: 分析成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoAnalyzeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/health/capabilities:
     get:
       summary: 获取能力健康状态
       description: 返回 document_parser / video_understanding / speech_recognition 的能力状态。
       tags:
         - Health
+      security: []
       responses:
         '200':
           description: 成功
@@ -1489,6 +1617,7 @@ components:
           type: string
     SourceReference:
       type: object
+      description: 内容来源引用（用于溯源）
       required:
         - chunk_id
         - source_type
@@ -1496,21 +1625,32 @@ components:
       properties:
         chunk_id:
           type: string
-          description: 来源片段唯一标识，可用于查询来源详情
+          description: 片段唯一标识
         source_type:
           type: string
           enum:
-            - video
             - document
+            - video
+            - audio
             - ai_generated
+          description: 来源类型
         filename:
           type: string
+          description: 源文件名
         page_number:
           type: integer
+          description: 页码（文档场景）
         timestamp:
+          type: number
+          format: float
+          description: 时间戳（视频/音频场景，单位秒）
+        score:
+          type: number
+          format: float
+          description: 检索或重排得分（可选）
+        content_preview:
           type: string
-        preview_text:
-          type: string
+          description: 内容预览片段
     Message:
       type: object
       required:
@@ -1737,42 +1877,6 @@ components:
               description: Follow-up suggestions
         message:
           type: string
-    common_SourceReference:
-      type: object
-      description: 内容来源引用（用于溯源）
-      required:
-        - chunk_id
-        - source_type
-        - filename
-      properties:
-        chunk_id:
-          type: string
-          description: 片段唯一标识
-        source_type:
-          type: string
-          enum:
-            - document
-            - video
-            - audio
-            - ai_generated
-          description: 来源类型
-        filename:
-          type: string
-          description: 源文件名
-        page_number:
-          type: integer
-          description: 页码（文档场景）
-        timestamp:
-          type: number
-          format: float
-          description: 时间戳（视频/音频场景，单位秒）
-        score:
-          type: number
-          format: float
-          description: 检索或重排得分（可选）
-        content_preview:
-          type: string
-          description: 内容预览片段
     UploadedFile:
       type: object
       required:
@@ -1858,7 +1962,7 @@ components:
               type: array
               description: 来源引用（video 场景）
               items:
-                $ref: '#/components/schemas/common_SourceReference'
+                $ref: '#/components/schemas/SourceReference'
         created_at:
           type: string
           format: date-time
@@ -2776,6 +2880,30 @@ components:
           type: integer
           minimum: 1
           description: 防止并发覆盖的版本控制字段
+    preview_SourceReference:
+      type: object
+      required:
+        - chunk_id
+        - source_type
+        - filename
+      properties:
+        chunk_id:
+          type: string
+          description: 来源片段唯一标识，可用于查询来源详情
+        source_type:
+          type: string
+          enum:
+            - video
+            - document
+            - ai_generated
+        filename:
+          type: string
+        page_number:
+          type: integer
+        timestamp:
+          type: string
+        preview_text:
+          type: string
     RegenerateSlideResponse:
       type: object
       required:
@@ -2802,7 +2930,7 @@ components:
                 sources:
                   type: array
                   items:
-                    $ref: '#/components/schemas/SourceReference'
+                    $ref: '#/components/schemas/preview_SourceReference'
                 render_version:
                   type: integer
         message:
@@ -2917,7 +3045,7 @@ components:
         sources:
           type: array
           items:
-            $ref: '#/components/schemas/SourceReference'
+            $ref: '#/components/schemas/preview_SourceReference'
         thumbnail_url:
           type: string
     SlidePlan:
@@ -2944,7 +3072,7 @@ components:
         material_sources:
           type: array
           items:
-            $ref: '#/components/schemas/SourceReference'
+            $ref: '#/components/schemas/preview_SourceReference'
     LessonPlan:
       type: object
       properties:
@@ -3204,7 +3332,7 @@ components:
           type: number
           format: float
         source:
-          $ref: '#/components/schemas/SourceReference'
+          $ref: '#/components/schemas/preview_SourceReference'
         metadata:
           type: object
     RAGSearchResponse:
@@ -3244,7 +3372,7 @@ components:
             content:
               type: string
             source:
-              $ref: '#/components/schemas/SourceReference'
+              $ref: '#/components/schemas/preview_SourceReference'
             context:
               type: object
               properties:
@@ -3254,6 +3382,117 @@ components:
                   type: string
             file_info:
               $ref: '#/components/schemas/UploadedFile'
+        message:
+          type: string
+    WebKnowledgeUnit:
+      type: object
+      required:
+        - chunk_id
+        - source_type
+        - content
+        - metadata
+      properties:
+        chunk_id:
+          type: string
+        source_type:
+          type: string
+          enum:
+            - web
+            - audio
+            - video
+        content:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        citation:
+          allOf:
+            - $ref: '#/components/schemas/SourceReference'
+    WebSearchResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/WebKnowledgeUnit'
+            total:
+              type: integer
+            indexed:
+              type: integer
+              nullable: true
+        message:
+          type: string
+    AudioTranscribeResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            audio_id:
+              type: string
+            text:
+              type: string
+            segments:
+              type: array
+              items:
+                $ref: '#/components/schemas/WebKnowledgeUnit'
+            total_segments:
+              type: integer
+            indexed:
+              type: integer
+              nullable: true
+            language:
+              type: string
+            confidence:
+              type: number
+              format: float
+            duration:
+              type: number
+              format: float
+            capability_status:
+              $ref: '#/components/schemas/CapabilityStatus'
+        message:
+          type: string
+    VideoAnalyzeResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            video_id:
+              type: string
+            segments:
+              type: array
+              items:
+                $ref: '#/components/schemas/WebKnowledgeUnit'
+            total_segments:
+              type: integer
+            indexed:
+              type: integer
+              nullable: true
+            capability_status:
+              $ref: '#/components/schemas/CapabilityStatus'
         message:
           type: string
     CapabilitiesHealthResponse:

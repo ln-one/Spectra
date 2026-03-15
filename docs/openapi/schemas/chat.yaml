@@ -1,4 +1,4 @@
-﻿Message:
+Message:
   type: object
   required: [id, role, content, timestamp]
   properties:
@@ -16,7 +16,7 @@
       type: array
       description: Structured source citations for assistant responses
       items:
-        $ref: './preview.yaml#/SourceReference'
+        $ref: './common.yaml#/SourceReference'
 
 SendMessageRequest:
   type: object
