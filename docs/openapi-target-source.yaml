@@ -3,12 +3,13 @@ info:
   title: Spectra API Target Contract
   version: 1.1.0-target
   description: 多模态AI教学智能体 API - 目标契约规范（包含本轮 sprint 目标接口；对 session-first 会话化改造任务，作为实现基线）
+  license:
+    name: Proprietary
+    url: http://localhost:8000/license
 
 servers:
   - url: http://localhost:8000
     description: 开发环境
-  - url: https://api.spectra.com
-    description: 生产环境
 
 paths:
   # Auth
@@ -88,6 +89,8 @@ paths:
     $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1video-analyze'
 
   # Health
+  /health:
+    $ref: './openapi/paths/health.yaml#/~1health'
   /api/v1/health/capabilities:
     $ref: './openapi/paths/health.yaml#/~1api~1v1~1health~1capabilities'
 

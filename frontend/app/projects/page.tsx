@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { projectsApi } from "@/lib/api";
+import { projectsApi } from "@/lib/sdk";
 import { TokenStorage } from "@/lib/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import {

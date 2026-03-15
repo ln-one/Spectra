@@ -15,3 +15,21 @@ CapabilitiesHealthResponse:
           $ref: './common.yaml#/CapabilityStatus'
     message:
       type: string
+
+HealthCheckResponse:
+  type: object
+  required: [status, database, redis, db_required, redis_required]
+  properties:
+    status:
+      type: string
+      enum: [healthy, degraded]
+    database:
+      type: string
+      enum: [connected, disconnected]
+    redis:
+      type: string
+      enum: [connected, disconnected]
+    db_required:
+      type: boolean
+    redis_required:
+      type: boolean

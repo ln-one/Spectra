@@ -23,7 +23,6 @@ Spectra-Backend/
 │ ├── chat.py # Chat endpoints
 │ ├── preview.py # Preview endpoints
 │ ├── rag.py # RAG search endpoints
-│ └── courses.py # Course management endpoints (legacy)
 ├── services/ # Business logic layer
 │ ├── db_service.py # Database operations
 │ ├── ai_service.py # AI service integration

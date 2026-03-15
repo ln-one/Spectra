@@ -1,6 +1,7 @@
 /api/v1/generate/sessions/{session_id}/commands:
   post:
     summary: 执行会话命令（唯一写入口）
+    operationId: postGenerateSessionsBySessionIdCommands
     description: |
       所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
       服务层必须通过统一状态转换校验器（StateTransitionGuard）决定是否允许执行。

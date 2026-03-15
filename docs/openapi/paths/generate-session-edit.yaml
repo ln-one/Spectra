@@ -4,6 +4,7 @@
 /api/v1/generate/sessions/{session_id}/outline:
   put:
     summary: 更新大纲并回写会话
+    operationId: putGenerateSessionsBySessionIdOutline
     description: 兼容别名，等价于 command_type=UPDATE_OUTLINE
     deprecated: true
     tags: [Generate]
@@ -44,6 +45,7 @@
 /api/v1/generate/sessions/{session_id}/confirm:
   post:
     summary: 确认大纲并继续生成
+    operationId: postGenerateSessionsBySessionIdConfirm
     description: 兼容别名，等价于 command_type=CONFIRM_OUTLINE
     deprecated: true
     tags: [Generate]
@@ -84,6 +86,7 @@
 /api/v1/generate/sessions/{session_id}/outline/redraft:
   post:
     summary: 请求 AI 重写大纲
+    operationId: postGenerateSessionsBySessionIdOutlineRedraft
     description: 兼容别名，等价于 command_type=REDRAFT_OUTLINE
     deprecated: true
     tags: [Generate]
@@ -124,6 +127,7 @@
 /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
   post:
     summary: 局部重绘单页
+    operationId: postGenerateSessionsBySessionIdSlidesBySlideIdRegenerate
     description: 兼容别名，等价于 command_type=REGENERATE_SLIDE
     deprecated: true
     tags: [Generate]

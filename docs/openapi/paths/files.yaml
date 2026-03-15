@@ -1,6 +1,7 @@
 /api/v1/files:
   post:
     summary: 上传参考文件
+    operationId: postFiles
     tags: [Files]
     security:
       - BearerAuth: []
@@ -39,6 +40,7 @@
 /api/v1/files/{file_id}:
   delete:
     summary: 删除上传的文件
+    operationId: deleteFilesByFileId
     tags: [Files]
     security:
       - BearerAuth: []
@@ -65,6 +67,7 @@
 /api/v1/files/{file_id}/intent:
   patch:
     summary: 标注文件用途
+    operationId: patchFilesByFileIdIntent
     tags: [Files]
     security:
       - BearerAuth: []
@@ -99,6 +102,7 @@
 /api/v1/files/batch:
   post:
     summary: 批量上传文件
+    operationId: postFilesBatch
     description: 一次上传多个参考文件
     tags: [Files]
     security:
@@ -140,6 +144,7 @@
 
   delete:
     summary: 批量删除文件
+    operationId: deleteFilesBatch
     tags: [Files]
     security:
       - BearerAuth: []

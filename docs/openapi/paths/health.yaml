@@ -1,6 +1,23 @@
+/health:
+  get:
+    summary: 服务健康检查
+    operationId: getHealth
+    tags: [Health]
+    security: []
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/health.yaml#/HealthCheckResponse'
+      '503':
+        $ref: '../components/responses.yaml#/ServiceUnavailable'
+
 /api/v1/health/capabilities:
   get:
     summary: 获取能力健康状态
+    operationId: getHealthCapabilities
     description: 返回 document_parser / video_understanding / speech_recognition 的能力状态。
     tags: [Health]
     security: []
@@ -11,3 +28,5 @@
           application/json:
             schema:
               $ref: '../schemas/health.yaml#/CapabilitiesHealthResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'

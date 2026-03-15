@@ -3,15 +3,17 @@ info:
   title: Spectra API
   version: 1.1.0
   description: 多模态AI教学智能体 API - 当前可联调接口规范（仅包含已实现接口）
+  license:
+    name: Proprietary
+    url: http://localhost:8000/license
 servers:
   - url: http://localhost:8000
     description: 开发环境
-  - url: https://api.spectra.com
-    description: 生产环境
 paths:
   /api/v1/auth/register:
     post:
       summary: 用户注册
+      operationId: postAuthRegister
       tags:
         - Auth
       security: []
@@ -35,6 +37,7 @@ paths:
   /api/v1/auth/login:
     post:
       summary: 用户登录
+      operationId: postAuthLogin
       tags:
         - Auth
       security: []
@@ -58,6 +61,7 @@ paths:
   /api/v1/auth/refresh:
     post:
       summary: 刷新 Access Token
+      operationId: postAuthRefresh
       tags:
         - Auth
       security: []
@@ -87,6 +91,7 @@ paths:
   /api/v1/auth/logout:
     post:
       summary: 退出登录
+      operationId: postAuthLogout
       tags:
         - Auth
       security:
@@ -103,6 +108,7 @@ paths:
   /api/v1/auth/me:
     get:
       summary: 获取当前用户信息
+      operationId: getAuthMe
       tags:
         - Auth
       security:
@@ -119,6 +125,7 @@ paths:
   /api/v1/chat/messages:
     post:
       summary: 发送消息
+      operationId: postChatMessages
       tags:
         - Chat
       security:
@@ -146,6 +153,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
     get:
       summary: 获取对话历史
+      operationId: getChatMessages
       tags:
         - Chat
       security:
@@ -179,6 +187,7 @@ paths:
   /api/v1/chat/voice:
     post:
       summary: 语音消息输入
+      operationId: postChatVoice
       description: 上传语音文件，系统将自动识别并转换为文本消息
       tags:
         - Chat
@@ -222,6 +231,7 @@ paths:
   /api/v1/files:
     post:
       summary: 上传参考文件
+      operationId: postFiles
       tags:
         - Files
       security:
@@ -262,6 +272,7 @@ paths:
   /api/v1/files/{file_id}:
     delete:
       summary: 删除上传的文件
+      operationId: deleteFilesByFileId
       tags:
         - Files
       security:
@@ -288,6 +299,7 @@ paths:
   /api/v1/files/{file_id}/intent:
     patch:
       summary: 标注文件用途
+      operationId: patchFilesByFileIdIntent
       tags:
         - Files
       security:
@@ -322,6 +334,7 @@ paths:
   /api/v1/files/batch:
     post:
       summary: 批量上传文件
+      operationId: postFilesBatch
       description: 一次上传多个参考文件
       tags:
         - Files
@@ -365,6 +378,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
     delete:
       summary: 批量删除文件
+      operationId: deleteFilesBatch
       tags:
         - Files
       security:
@@ -399,6 +413,7 @@ paths:
   /api/v1/generate/sessions:
     get:
       summary: 获取生成会话列表
+      operationId: getGenerateSessions
       description: 返回项目内生成会话列表（按更新时间倒序）
       tags:
         - Generate
@@ -439,6 +454,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
     post:
       summary: 创建生成会话
+      operationId: postGenerateSessions
       description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
       tags:
         - Generate
@@ -469,6 +485,7 @@ paths:
   /api/v1/generate/sessions/{session_id}:
     get:
       summary: 查询生成会话快照
+      operationId: getGenerateSessionsBySessionId
       tags:
         - Generate
       security:
@@ -496,6 +513,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/events:
     get:
       summary: 获取生成事件流（SSE）
+      operationId: getGenerateSessionsBySessionIdEvents
       description: |
         默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
         返回短轮询事件列表。
@@ -545,6 +563,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/outline:
     put:
       summary: 更新大纲并回写会话
+      operationId: putGenerateSessionsBySessionIdOutline
       description: 兼容别名，等价于 command_type=UPDATE_OUTLINE
       deprecated: true
       tags:
@@ -585,6 +604,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/commands:
     post:
       summary: 执行会话命令（唯一写入口）
+      operationId: postGenerateSessionsBySessionIdCommands
       description: |
         所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
         服务层必须通过统一状态转换校验器（StateTransitionGuard）决定是否允许执行。
@@ -626,6 +646,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/confirm:
     post:
       summary: 确认大纲并继续生成
+      operationId: postGenerateSessionsBySessionIdConfirm
       description: 兼容别名，等价于 command_type=CONFIRM_OUTLINE
       deprecated: true
       tags:
@@ -666,6 +687,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/outline/redraft:
     post:
       summary: 请求 AI 重写大纲
+      operationId: postGenerateSessionsBySessionIdOutlineRedraft
       description: 兼容别名，等价于 command_type=REDRAFT_OUTLINE
       deprecated: true
       tags:
@@ -706,6 +728,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/resume:
     post:
       summary: 恢复中断会话
+      operationId: postGenerateSessionsBySessionIdResume
       description: 兼容别名，等价于 command_type=RESUME_SESSION
       deprecated: true
       tags:
@@ -743,6 +766,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
     post:
       summary: 局部重绘单页
+      operationId: postGenerateSessionsBySessionIdSlidesBySlideIdRegenerate
       description: 兼容别名，等价于 command_type=REGENERATE_SLIDE
       deprecated: true
       tags:
@@ -788,6 +812,7 @@ paths:
   /api/v1/generate/capabilities:
     get:
       summary: 获取生成域能力声明
+      operationId: getGenerateCapabilities
       description: 返回服务端当前支持的契约版本、特性开关与弃用信息。
       tags:
         - Generate
@@ -809,6 +834,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/preview:
     get:
       summary: 获取会话级课件预览
+      operationId: getGenerateSessionsBySessionIdPreview
       tags:
         - Preview
       security:
@@ -842,6 +868,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/preview/modify:
     post:
       summary: 提交会话级预览修改
+      operationId: postGenerateSessionsBySessionIdPreviewModify
       tags:
         - Preview
       security:
@@ -880,6 +907,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}:
     get:
       summary: 获取会话级单页详情
+      operationId: getGenerateSessionsBySessionIdPreviewSlidesBySlideId
       tags:
         - Preview
       security:
@@ -918,6 +946,7 @@ paths:
   /api/v1/generate/sessions/{session_id}/preview/export:
     post:
       summary: 导出会话级预览内容
+      operationId: postGenerateSessionsBySessionIdPreviewExport
       tags:
         - Preview
       security:
@@ -953,6 +982,7 @@ paths:
   /api/v1/rag/search:
     post:
       summary: 检索知识库
+      operationId: postRagSearch
       tags:
         - RAG
       security:
@@ -979,6 +1009,7 @@ paths:
   /api/v1/rag/sources/{chunk_id}:
     get:
       summary: 查看来源详情
+      operationId: getRagSourcesByChunkId
       tags:
         - RAG
       security:
@@ -1005,6 +1036,7 @@ paths:
   /api/v1/rag/index:
     post:
       summary: 索引新文件到知识库
+      operationId: postRagIndex
       description: 将上传的文件添加到 RAG 知识库索引
       tags:
         - RAG
@@ -1061,6 +1093,7 @@ paths:
   /api/v1/rag/similar:
     post:
       summary: 查找相似内容
+      operationId: postRagSimilar
       description: 基于给定文本查找知识库中的相似内容
       tags:
         - RAG
@@ -1228,9 +1261,26 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /health:
+    get:
+      summary: 服务健康检查
+      operationId: getHealth
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/health/capabilities:
     get:
       summary: 获取能力健康状态
+      operationId: getHealthCapabilities
       description: 返回 document_parser / video_understanding / speech_recognition 的能力状态。
       tags:
         - Health
@@ -1242,9 +1292,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CapabilitiesHealthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
   /api/v1/projects:
     post:
       summary: 创建项目
+      operationId: postProjects
       tags:
         - Project
       security:
@@ -1270,6 +1323,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
     get:
       summary: 获取项目列表
+      operationId: getProjects
       tags:
         - Project
       security:
@@ -1289,6 +1343,7 @@ paths:
   /api/v1/projects/{project_id}:
     get:
       summary: 获取项目详情
+      operationId: getProjectsByProjectId
       tags:
         - Project
       security:
@@ -1314,6 +1369,7 @@ paths:
           $ref: '#/components/responses/NotFound'
     put:
       summary: 修改项目信息
+      operationId: putProjectsByProjectId
       tags:
         - Project
       security:
@@ -1348,6 +1404,7 @@ paths:
           $ref: '#/components/responses/NotFound'
     delete:
       summary: 删除项目
+      operationId: deleteProjectsByProjectId
       tags:
         - Project
       security:
@@ -1374,6 +1431,7 @@ paths:
   /api/v1/projects/{project_id}/files:
     get:
       summary: 获取项目的上传文件列表
+      operationId: getProjectsByProjectIdFiles
       tags:
         - Project
         - Files
@@ -1403,6 +1461,7 @@ paths:
   /api/v1/projects/{project_id}/statistics:
     get:
       summary: 获取项目统计信息
+      operationId: getProjectsByProjectIdStatistics
       description: 获取项目的文件数、对话数、生成任务数等统计信息
       tags:
         - Project
@@ -1430,6 +1489,7 @@ paths:
   /api/v1/projects/search:
     get:
       summary: 搜索项目
+      operationId: getProjectsSearch
       description: 根据关键词搜索项目
       tags:
         - Project
@@ -3495,6 +3555,34 @@ components:
               $ref: '#/components/schemas/CapabilityStatus'
         message:
           type: string
+    HealthCheckResponse:
+      type: object
+      required:
+        - status
+        - database
+        - redis
+        - db_required
+        - redis_required
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+        database:
+          type: string
+          enum:
+            - connected
+            - disconnected
+        redis:
+          type: string
+          enum:
+            - connected
+            - disconnected
+        db_required:
+          type: boolean
+        redis_required:
+          type: boolean
     CapabilitiesHealthResponse:
       type: object
       required:
@@ -3696,6 +3784,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: 请求的资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: 服务不可用
       content:
         application/json:
           schema:

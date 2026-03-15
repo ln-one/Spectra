@@ -11,14 +11,18 @@
 
 import { create } from "zustand";
 import { authService, TokenStorage, User } from "@/lib/auth";
-import { ApiError, getErrorMessage } from "@/lib/api/errors";
+import {
+  ApiErrorShape,
+  createApiError,
+  getErrorMessage,
+} from "@/lib/sdk/errors";
 
 export interface AuthState {
   // 状态
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  error: ApiError | null;
+  error: ApiErrorShape | null;
 
   // 操作
   login: (email: string, password: string) => Promise<void>;
@@ -74,10 +78,10 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
         isLoading: false,
       });
     } catch (error) {
-      const apiError: ApiError = {
+      const apiError = createApiError({
         code: "LOGIN_FAILED",
         message: getErrorMessage(error),
-      };
+      });
       set({
         error: apiError,
         isLoading: false,
@@ -115,10 +119,10 @@ export const useAuthStore = create<AuthState>()((set, _get) => ({
         isLoading: false,
       });
     } catch (error) {
-      const apiError: ApiError = {
+      const apiError = createApiError({
         code: "REGISTER_FAILED",
         message: getErrorMessage(error),
-      };
+      });
       set({
         error: apiError,
         isLoading: false,
