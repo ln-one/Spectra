@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import type { components } from "@/lib/types/api";
-import { projectsApi, filesApi, chatApi, generateApi } from "@/lib/sdk";
-import { ragApi } from "@/lib/api/rag";
+import { projectsApi, filesApi, chatApi, generateApi, ragApi } from "@/lib/sdk";
 import {
   ApiErrorShape,
   createApiError,

@@ -16,10 +16,14 @@ export const ragApi = {
     return unwrap<RAGSearchResponse>(result);
   },
 
-  async getSourceDetail(chunkId: string): Promise<SourceDetailResponse> {
+  async getSourceDetail(
+    chunkId: string,
+    projectId?: string
+  ): Promise<SourceDetailResponse> {
     const result = await sdkClient.GET("/api/v1/rag/sources/{chunk_id}", {
       params: {
         path: { chunk_id: chunkId },
+        query: projectId ? { project_id: projectId } : undefined,
       },
     });
     return unwrap<SourceDetailResponse>(result);
