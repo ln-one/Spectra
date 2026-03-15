@@ -289,7 +289,6 @@ def _strip_cite_tags(content: str) -> str:
     return re.sub(r"<cite\s+[^>]*>(?:\s*</cite>)?", "", content)
 
 
-
 def _normalize_chapter_token(token: str) -> str:
     return token.replace(" ", "")
 
