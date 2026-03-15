@@ -84,7 +84,12 @@ def main():
     global worker_instance
 
     # Load environment variables
-    from dotenv import load_dotenv
+    try:
+        from dotenv import load_dotenv
+    except ModuleNotFoundError:  # pragma: no cover - runtime fallback
+
+        def load_dotenv(*args, **kwargs):
+            return False
 
     base_dir = Path(__file__).resolve().parent
     load_dotenv(dotenv_path=base_dir / ".env", override=False)

@@ -432,12 +432,6 @@ class GenerationSessionService:
         """
         session = await self._db.generationsession.find_unique(
             where={"id": session_id},
-            select={
-                "userId": True,
-                "state": True,
-                "lastCursor": True,
-                "updatedAt": True,
-            },
         )
         if session is None:
             raise ValueError(f"Session not found: {session_id}")
@@ -1002,7 +996,6 @@ class GenerationSessionService:
             # 最后确认会话是否仍处于草拟状态，避免重复执行
             session = await self._db.generationsession.find_unique(
                 where={"id": session_id},
-                select={"state": True, "currentOutlineVersion": True},
             )
             if not session:
                 return
@@ -1052,7 +1045,6 @@ class GenerationSessionService:
             # 幂等保护：若会话已完成草拟或状态已推进，则忽略重复执行
             session = await self._db.generationsession.find_unique(
                 where={"id": session_id},
-                select={"state": True, "currentOutlineVersion": True},
             )
             if not session:
                 logger.warning(
@@ -1155,7 +1147,6 @@ class GenerationSessionService:
             try:
                 latest = await self._db.generationsession.find_unique(
                     where={"id": session_id},
-                    select={"state": True, "currentOutlineVersion": True},
                 )
                 if latest:
                     latest_state = (

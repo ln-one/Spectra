@@ -15,6 +15,9 @@ from rq.registry import FailedJobRegistry, FinishedJobRegistry, StartedJobRegist
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_RAG_INDEX_TIMEOUT = int(os.getenv("RQ_RAG_INDEX_TIMEOUT", "1800"))
+MAX_RAG_INDEX_TIMEOUT = int(os.getenv("RQ_RAG_INDEX_TIMEOUT_MAX", "3600"))
+
 
 class TaskQueueService:
     """RQ 任务队列服务"""
@@ -110,7 +113,7 @@ class TaskQueueService:
         project_id: str,
         session_id: Optional[str] = None,
         priority: str = "default",
-        timeout: int = 300,
+        timeout: int = DEFAULT_RAG_INDEX_TIMEOUT,
     ) -> Job:
         """
         提交 RAG 索引任务到可恢复队列（C1）。
@@ -120,15 +123,15 @@ class TaskQueueService:
             project_id: 项目 ID
             session_id: 会话 ID（C5 数据隔离可选）
             priority: 优先级（high/default/low）
-            timeout: 超时时间（秒），默认 300 秒
+            timeout: 超时时间（秒），默认取 RQ_RAG_INDEX_TIMEOUT（缺省 1800 秒）
 
         Returns:
             Job: RQ Job 实例
         """
         if timeout < 30:
             raise ValueError("Timeout must be at least 30 seconds")
-        if timeout > 1800:
-            raise ValueError("Timeout cannot exceed 1800 seconds")
+        if timeout > MAX_RAG_INDEX_TIMEOUT:
+            raise ValueError(f"Timeout cannot exceed {MAX_RAG_INDEX_TIMEOUT} seconds")
 
         if priority == "high":
             queue = self.high_queue
