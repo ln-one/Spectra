@@ -706,6 +706,7 @@ async def execute_outline_draft_task(
             session_id=session_id,
             project_id=project_id,
             options=options,
+            trace_id=trace_id,
         )
 
         logger.info(
