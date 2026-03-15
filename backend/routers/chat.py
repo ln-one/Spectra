@@ -184,60 +184,6 @@ def _sanitize_cite_tags(content: str, citations: list[dict]) -> str:
         if isinstance(item, dict) and item.get("chunk_id")
     }
     if not valid_ids:
-        return re.sub(r"<cite\s+[^>]*>(?:\s*</cite>)?", "", content)
-
-    # Backward-compatible conversion: [1] -> <cite chunk_id="..."></cite>
-    def _replace_numeric_marker(match: re.Match) -> str:
-        idx = int(match.group(1)) - 1
-        if idx < 0 or idx >= len(citations):
-            return match.group(0)
-        cite_tag = _build_cite_tag(citations[idx])
-        return cite_tag or match.group(0)
-
-    converted = re.sub(r"\[(\d+)\]", _replace_numeric_marker, content)
-    if "<cite " in converted:
-        return converted
-
-    # If model omitted inline markers, attach first cite tag to the first paragraph.
-    first_tag = _build_cite_tag(citations[0])
-    if not first_tag:
-        return converted
-    lines = converted.splitlines()
-    if not lines:
-        return converted
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped and not stripped.startswith(("#", "-", "*", ">")):
-            lines[idx] = f"{line.rstrip()} {first_tag}"
-            return "\n".join(lines)
-
-    return f"{converted.rstrip()} {first_tag}"
-
-
-def _extract_cited_chunk_ids(content: str) -> list[str]:
-    """Extract chunk ids from inline <cite ...></cite> tags in content order."""
-    if not content:
-        return []
-    ids: list[str] = []
-    for match in re.finditer(
-        r'<cite\s+[^>]*chunk_id="([^"]+)"[^>]*>(?:\s*</cite>)?', content
-    ):
-        chunk_id = (match.group(1) or "").strip()
-        if chunk_id:
-            ids.append(chunk_id)
-    return ids
-
-
-def _sanitize_cite_tags(content: str, citations: list[dict]) -> str:
-    """Drop cite tags that cannot be mapped to structured citations."""
-    if not content:
-        return content
-    valid_ids = {
-        str(item.get("chunk_id")).strip()
-        for item in citations
-        if isinstance(item, dict) and item.get("chunk_id")
-    }
-    if not valid_ids:
         return re.sub(r"<cite\b[^>]*>(?:\s*</cite>)?", "", content)
 
     def _replace_invalid_tag(match: re.Match) -> str:
