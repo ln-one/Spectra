@@ -3,12 +3,27 @@
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Share2, Settings, Sparkles, User, Check, X } from "lucide-react";
+import {
+  PanelRightOpen,
+  Share2,
+  Settings,
+  Sparkles,
+  User,
+  Check,
+  X,
+} from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +32,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function ProjectHeader() {
+export interface SessionSwitcherItem {
+  sessionId: string;
+  title: string;
+  updatedAt: string;
+}
+
+interface ProjectHeaderProps {
+  sessions: SessionSwitcherItem[];
+  activeSessionId: string | null;
+  onChangeSession: (sessionId: string) => void;
+  onOpenLibrary: () => void;
+}
+
+export function ProjectHeader({
+  sessions,
+  activeSessionId,
+  onChangeSession,
+  onOpenLibrary,
+}: ProjectHeaderProps) {
   const { user, logout } = useAuthStore();
   const { project, updateProjectName } = useProjectStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -56,6 +89,9 @@ export function ProjectHeader() {
     }
   };
 
+  const normalizedActiveSessionId =
+    activeSessionId ?? (sessions.length > 0 ? sessions[0].sessionId : undefined);
+
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
@@ -63,7 +99,7 @@ export function ProjectHeader() {
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="h-16 flex items-center justify-between px-6 bg-white border-b border-gray-100 shrink-0"
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 min-w-0">
         <Link href="/projects" className="flex items-center gap-2 group">
           <div className="w-8 h-8 rounded-xl bg-zinc-900 flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-white" />
@@ -119,13 +155,40 @@ export function ProjectHeader() {
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button
-          size="sm"
-          className="bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-4"
+      <div className="flex-1 px-6 max-w-[420px]">
+        <Select
+          value={normalizedActiveSessionId}
+          onValueChange={onChangeSession}
+          disabled={sessions.length === 0}
         >
-          <Plus className="w-4 h-4 mr-1.5" />
-          创建笔记本
+          <SelectTrigger className="h-9">
+            <SelectValue placeholder="选择会话通道" />
+          </SelectTrigger>
+          <SelectContent>
+            {sessions.length === 0 ? (
+              <SelectItem value="empty" disabled>
+                暂无会话
+              </SelectItem>
+            ) : (
+              sessions.map((session) => (
+                <SelectItem key={session.sessionId} value={session.sessionId}>
+                  {session.title} · {session.updatedAt}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-full"
+          onClick={onOpenLibrary}
+        >
+          <PanelRightOpen className="w-4 h-4 mr-1.5" />
+          Lib
         </Button>
 
         <Button

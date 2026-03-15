@@ -8,9 +8,11 @@ import { TokenStorage } from "@/lib/auth";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import {
   ProjectHeader,
+  type SessionSwitcherItem,
   StudioPanel,
   ChatPanel,
   SourcesPanel,
+  LibraryDrawer,
 } from "@/components/project";
 import { LightRays } from "@/components/ui/light-rays";
 
@@ -38,6 +40,10 @@ export default function ProjectDetailPage() {
     fetchFiles,
     fetchMessages,
     fetchGenerationHistory,
+    fetchArtifactHistory,
+    setActiveSessionId,
+    generationHistory,
+    activeSessionId,
     reset,
   } = useProjectStore();
 
@@ -45,6 +51,7 @@ export default function ProjectDetailPage() {
   const [chatWidth, setChatWidth] = useState(50);
   const [expandedStudioWidth, setExpandedStudioWidth] = useState(70);
   const [expandedChatHeight, setExpandedChatHeight] = useState(50);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
@@ -58,6 +65,12 @@ export default function ProjectDetailPage() {
   });
 
   const isExpanded = layoutMode === "expanded";
+
+  const sessionOptions: SessionSwitcherItem[] = generationHistory.map((item) => ({
+    sessionId: item.id,
+    title: item.title || `会话 ${item.id.slice(-6)}`,
+    updatedAt: new Date(item.createdAt).toLocaleString("zh-CN"),
+  }));
 
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
@@ -88,6 +101,15 @@ export default function ProjectDetailPage() {
     // 会话创建仅在配置面板点击“开始生成”时触发，避免重复创建。
     return;
   };
+
+  const handleChangeSession = useCallback(
+    async (sessionId: string) => {
+      if (!sessionId || sessionId === "empty") return;
+      setActiveSessionId(sessionId);
+      await fetchArtifactHistory(projectId, sessionId);
+    },
+    [fetchArtifactHistory, projectId, setActiveSessionId]
+  );
 
   const handleMouseDown = useCallback(
     (
@@ -248,7 +270,12 @@ export default function ProjectDetailPage() {
         className="opacity-80"
       />
 
-      <ProjectHeader />
+      <ProjectHeader
+        sessions={sessionOptions}
+        activeSessionId={activeSessionId}
+        onChangeSession={handleChangeSession}
+        onOpenLibrary={() => setIsLibraryOpen(true)}
+      />
 
       <div className="flex-1 min-h-0 relative" style={{ padding: PAGE_GAP }}>
         <motion.div
@@ -381,6 +408,12 @@ export default function ProjectDetailPage() {
           Spectra 提供的内容未必准确，因此请仔细核查回答内容。
         </p>
       </div>
+
+      <LibraryDrawer
+        open={isLibraryOpen}
+        onOpenChange={setIsLibraryOpen}
+        projectId={projectId}
+      />
     </div>
   );
 }
