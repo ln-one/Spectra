@@ -7,7 +7,7 @@ Vector Service - ChromaDB 连接管理
 import logging
 import os
 import socket
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 try:
     import chromadb
@@ -103,6 +103,9 @@ class InMemoryCollection:
 
 Collection = ChromaCollection if _CHROMA_AVAILABLE else InMemoryCollection
 
+if TYPE_CHECKING:
+    import chromadb as chromadb_types
+
 
 class VectorService:
     """ChromaDB 向量数据库服务"""
@@ -119,7 +122,7 @@ class VectorService:
         self._memory_collections: Dict[str, InMemoryCollection] = {}
 
     @property
-    def client(self) -> chromadb.ClientAPI:
+    def client(self) -> "chromadb_types.ClientAPI | Any":
         """懒加载 ChromaDB 客户端"""
         if not _CHROMA_AVAILABLE:
             raise RuntimeError(

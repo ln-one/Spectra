@@ -56,7 +56,7 @@ RAGResult:
       type: number
       format: float
     source:
-      $ref: './preview.yaml#/SourceReference'
+      $ref: './common.yaml#/SourceReference'
     metadata:
       type: object
 
@@ -74,7 +74,7 @@ SourceDetailResponse:
         content:
           type: string
         source:
-          $ref: './preview.yaml#/SourceReference'
+          $ref: './common.yaml#/SourceReference'
         context:
           type: object
           properties:
@@ -84,5 +84,104 @@ SourceDetailResponse:
               type: string
         file_info:
           $ref: './files.yaml#/UploadedFile'
+    message:
+      type: string
+
+WebKnowledgeUnit:
+  type: object
+  required: [chunk_id, source_type, content, metadata]
+  properties:
+    chunk_id:
+      type: string
+    source_type:
+      type: string
+      enum: [web, audio, video]
+    content:
+      type: string
+    metadata:
+      type: object
+      additionalProperties: true
+    citation:
+      allOf:
+        - $ref: './common.yaml#/SourceReference'
+
+WebSearchResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/WebKnowledgeUnit'
+        total:
+          type: integer
+        indexed:
+          type: integer
+          nullable: true
+    message:
+      type: string
+
+AudioTranscribeResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        audio_id:
+          type: string
+        text:
+          type: string
+        segments:
+          type: array
+          items:
+            $ref: '#/WebKnowledgeUnit'
+        total_segments:
+          type: integer
+        indexed:
+          type: integer
+          nullable: true
+        language:
+          type: string
+        confidence:
+          type: number
+          format: float
+        duration:
+          type: number
+          format: float
+        capability_status:
+          $ref: './common.yaml#/CapabilityStatus'
+    message:
+      type: string
+
+VideoAnalyzeResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        video_id:
+          type: string
+        segments:
+          type: array
+          items:
+            $ref: '#/WebKnowledgeUnit'
+        total_segments:
+          type: integer
+        indexed:
+          type: integer
+          nullable: true
+        capability_status:
+          $ref: './common.yaml#/CapabilityStatus'
     message:
       type: string

@@ -92,7 +92,7 @@ SourceReference:
       description: 片段唯一标识
     source_type:
       type: string
-      enum: [document, video, audio, ai_generated]
+      enum: [document, web, video, audio, ai_generated]
       description: 来源类型
     filename:
       type: string
@@ -104,6 +104,10 @@ SourceReference:
       type: number
       format: float
       description: 时间戳（视频/音频场景，单位秒）
+    score:
+      type: number
+      format: float
+      description: 检索或重排得分（可选）
     content_preview:
       type: string
       description: 内容预览片段

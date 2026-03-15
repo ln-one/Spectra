@@ -225,6 +225,8 @@ export function GenerationConfigPanel({
       const maxAttempts = 60;
       const intervalMs = 2000;
       let outlineReady = false;
+      let outlineIncomplete = false;
+      let lastSessionState: string | undefined;
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const sessionResponse =
@@ -234,12 +236,11 @@ export function GenerationConfigPanel({
         const currentPages = latestSession?.outline?.nodes?.length || 0;
         const targetPages = Number(latestSession?.options?.pages || pageCount);
         useProjectStore.setState({ generationSession: latestSession });
+        lastSessionState = state;
 
-        if (
-          state === "AWAITING_OUTLINE_CONFIRM" &&
-          (targetPages <= 0 || currentPages >= targetPages)
-        ) {
+        if (state === "AWAITING_OUTLINE_CONFIRM") {
           outlineReady = true;
+          outlineIncomplete = targetPages > 0 && currentPages < targetPages;
           break;
         }
         if (
@@ -267,10 +268,18 @@ export function GenerationConfigPanel({
       if (!outlineReady) {
         toast({
           title: "大纲尚未完整生成",
-          description: "当前会话还未达到目标页数，请稍后重试",
+          description: lastSessionState
+            ? `当前状态：${lastSessionState}，请稍后重试`
+            : "当前会话还未达到目标页数，请稍后重试",
           variant: "destructive",
         });
         return;
+      }
+      if (outlineIncomplete) {
+        toast({
+          title: "大纲页数未达标",
+          description: "已进入编辑页，可手动补充或稍后重试生成",
+        });
       }
       setShowOutlineEditor(true);
     } catch (error) {

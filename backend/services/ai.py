@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -17,6 +18,7 @@ from litellm import acompletion
 
 from schemas.intent import IntentClassification, IntentType, ModifyIntent, ModifyType
 from services.courseware_ai import CoursewareAIMixin
+from services.model_router import ModelRouter, ModelRouteTask
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +65,20 @@ class AIService(CoursewareAIMixin):
 
     def __init__(self):
         self.default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
+        self.large_model = os.getenv("LARGE_MODEL", self.default_model)
+        self.small_model = os.getenv("SMALL_MODEL", self.default_model)
+        self.model_router = ModelRouter(
+            heavy_model=self.large_model,
+            light_model=self.small_model,
+        )
         self.allow_ai_stub = os.getenv("ALLOW_AI_STUB", "false").lower() == "true"
 
     async def generate(
         self,
         prompt: str,
         model: Optional[str] = None,
+        route_task: Optional[str] = None,
+        has_rag_context: bool = False,
         max_tokens: Optional[int] = 500,
     ) -> dict:
         """
@@ -82,14 +92,41 @@ class AIService(CoursewareAIMixin):
         Returns:
             dict with 'content', 'model', and 'tokens_used'
         """
-        requested_model = model or self.default_model
+        started_at = time.perf_counter()
+
+        def _elapsed_ms() -> float:
+            return round((time.perf_counter() - started_at) * 1000.0, 2)
+
+        route_decision = None
+        requested_model = model
+        if not requested_model:
+            if route_task:
+                route_decision = self.model_router.route(
+                    route_task,
+                    prompt=prompt,
+                    has_rag_context=has_rag_context,
+                )
+                requested_model = route_decision.selected_model
+            else:
+                requested_model = self.default_model
         resolved_model = requested_model
+        fallback_triggered = False
+        fallback_model = None
+
+        # 确定 fallback 模型
+        if route_decision:
+            fallback_model = route_decision.fallback_model
+
         try:
             resolved_model = _resolve_model_name(requested_model)
             logger.info(
-                "AI generate invoked: requested_model=%s resolved_model=%s",
+                (
+                    "AI generate invoked:"
+                    " requested_model=%s resolved_model=%s route_task=%s"
+                ),
                 requested_model,
                 resolved_model,
+                route_task,
             )
             response = await acompletion(
                 model=resolved_model,
@@ -101,19 +138,83 @@ class AIService(CoursewareAIMixin):
             tokens_used = (
                 response.usage.total_tokens if hasattr(response, "usage") else None
             )
+            latency_ms = _elapsed_ms()
+            route_info = route_decision.to_dict() if route_decision else None
+            if route_info is not None:
+                route_info["latency_ms"] = latency_ms
 
             return {
                 "content": content,
                 "model": resolved_model,
                 "tokens_used": tokens_used,
+                "route": route_info,
+                "fallback_triggered": fallback_triggered,
+                "latency_ms": latency_ms,
             }
         except Exception as e:
-            logger.warning(f"AI generation failed: {str(e)}", exc_info=True)
+            logger.warning(
+                f"AI generation failed with {resolved_model}: {str(e)}", exc_info=True
+            )
+
+            # 尝试 fallback 到更强模型
+            if fallback_model and fallback_model != requested_model:
+                try:
+                    fallback_resolved = _resolve_model_name(fallback_model)
+                    logger.info(
+                        "Attempting fallback: %s -> %s",
+                        resolved_model,
+                        fallback_resolved,
+                    )
+                    response = await acompletion(
+                        model=fallback_resolved,
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=max_tokens,
+                    )
+                    content = response.choices[0].message.content
+                    tokens_used = (
+                        response.usage.total_tokens
+                        if hasattr(response, "usage")
+                        else None
+                    )
+                    fallback_triggered = True
+
+                    # 更新 route_decision 记录 fallback
+                    route_info = route_decision.to_dict() if route_decision else {}
+                    route_info["fallback_triggered"] = True
+                    route_info["original_model"] = resolved_model
+                    route_info["failure_reason"] = str(e)
+                    route_info["latency_ms"] = _elapsed_ms()
+
+                    return {
+                        "content": content,
+                        "model": fallback_resolved,
+                        "tokens_used": tokens_used,
+                        "route": route_info,
+                        "fallback_triggered": fallback_triggered,
+                        "latency_ms": route_info["latency_ms"],
+                    }
+                except Exception as fallback_exc:
+                    logger.error(
+                        "Fallback to %s also failed: %s",
+                        fallback_model,
+                        fallback_exc,
+                        exc_info=True,
+                    )
+
+            # 如果没有 fallback 或 fallback 也失败，使用 stub 或抛出异常
             if self.allow_ai_stub:
+                latency_ms = _elapsed_ms()
+                route_info = route_decision.to_dict() if route_decision else None
+                if route_info is not None:
+                    route_info["failure_reason"] = str(e)
+                    route_info["latency_ms"] = latency_ms
                 return {
                     "content": f"AI stub response for prompt: {prompt[:50]}...",
                     "model": resolved_model,
                     "tokens_used": 0,
+                    "route": route_info,
+                    "fallback_triggered": fallback_triggered,
+                    "latency_ms": latency_ms,
                 }
             raise
 
@@ -127,7 +228,11 @@ class AIService(CoursewareAIMixin):
 
         try:
             prompt = prompt_service.build_intent_prompt(user_message)
-            response = await self.generate(prompt=prompt, max_tokens=200)
+            response = await self.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.INTENT_CLASSIFICATION.value,
+                max_tokens=200,
+            )
             content = response["content"].strip()
 
             parsed = json.loads(content)
@@ -250,7 +355,11 @@ class AIService(CoursewareAIMixin):
                 "- global: 全局修改（改主题、改整体风格）\n\n"
                 "严格返回 JSON，不要包含其他内容。"
             )
-            response = await self.generate(prompt=prompt, max_tokens=200)
+            response = await self.generate(
+                prompt=prompt,
+                route_task=ModelRouteTask.INTENT_CLASSIFICATION.value,
+                max_tokens=200,
+            )
             content = response["content"].strip()
             parsed = json.loads(content)
 

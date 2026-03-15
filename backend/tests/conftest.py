@@ -1,12 +1,13 @@
 import pytest
 from starlette.testclient import TestClient
 
-from main import app
-from services.generation import CoursewareContent
+from schemas.generation import CoursewareContent
 
 
 @pytest.fixture
 def client():
+    from main import app
+
     return TestClient(app)
 
 
