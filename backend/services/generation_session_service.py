@@ -432,6 +432,12 @@ class GenerationSessionService:
         """
         session = await self._db.generationsession.find_unique(
             where={"id": session_id},
+            select={
+                "userId": True,
+                "state": True,
+                "lastCursor": True,
+                "updatedAt": True,
+            },
         )
         if session is None:
             raise ValueError(f"Session not found: {session_id}")
@@ -1031,6 +1037,7 @@ class GenerationSessionService:
         session_id: str,
         project_id: str,
         options: Optional[dict],
+        trace_id: Optional[str] = None,
     ) -> None:
         """
         本地异步执行大纲草拟任务（降级路径）。
@@ -1040,7 +1047,7 @@ class GenerationSessionService:
         2. outline.updated (成功) 或 task.failed + outline.updated (失败)
         3. state.changed (AWAITING_OUTLINE_CONFIRM)
         """
-        trace_id = str(uuid.uuid4())
+        trace_id = trace_id or str(uuid.uuid4())
         try:
             # 幂等保护：若会话已完成草拟或状态已推进，则忽略重复执行
             session = await self._db.generationsession.find_unique(
