@@ -6,12 +6,12 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import {
   FileText,
   Presentation,
-  BookOpen,
+  Gamepad2,
   Brain,
-  HelpCircle,
-  FileEdit,
+  CircleHelp,
+  GraduationCap,
   Film,
-  BookMarked,
+  Radar,
   Sparkles,
   Clock,
   CheckCircle2,
@@ -40,22 +40,22 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   ppt: Presentation,
   word: FileText,
   mindmap: Brain,
-  outline: BookOpen,
-  quiz: HelpCircle,
-  summary: FileEdit,
+  outline: Gamepad2,
+  quiz: CircleHelp,
+  summary: GraduationCap,
   animation: Film,
-  handout: BookMarked,
+  handout: Radar,
 };
 
 const TOOL_TITLES: Record<string, string> = {
-  ppt: "PPT 课件生成",
-  word: "Word 文档生成",
-  mindmap: "思维导图生成",
-  outline: "课程大纲生成",
-  quiz: "测验题目生成",
-  summary: "内容摘要生成",
-  animation: "动画脚本生成",
-  handout: "讲义生成",
+  ppt: "课件生成",
+  word: "文档生成",
+  mindmap: "思维导图",
+  outline: "互动游戏",
+  quiz: "随堂小测",
+  summary: "讲课助手",
+  animation: "演示动画",
+  handout: "学情预演",
 };
 
 const TOOL_COLORS: Record<
@@ -75,40 +75,40 @@ const TOOL_COLORS: Record<
     glow: "rgba(59, 130, 246, 0.25)",
   },
   mindmap: {
-    primary: "#8b5cf6",
-    secondary: "#a78bfa",
-    gradient: "from-violet-500 to-purple-500",
-    glow: "rgba(139, 92, 246, 0.25)",
+    primary: "#14b8a6",
+    secondary: "#2dd4bf",
+    gradient: "from-teal-500 to-emerald-500",
+    glow: "rgba(20, 184, 166, 0.25)",
   },
   outline: {
-    primary: "#10b981",
-    secondary: "#34d399",
-    gradient: "from-emerald-500 to-teal-500",
-    glow: "rgba(16, 185, 129, 0.25)",
-  },
-  quiz: {
-    primary: "#ec4899",
-    secondary: "#f472b6",
-    gradient: "from-pink-500 to-rose-500",
-    glow: "rgba(236, 72, 153, 0.25)",
-  },
-  summary: {
-    primary: "#06b6d4",
-    secondary: "#22d3ee",
-    gradient: "from-cyan-500 to-sky-500",
-    glow: "rgba(6, 182, 212, 0.25)",
-  },
-  animation: {
     primary: "#f43f5e",
     secondary: "#fb7185",
-    gradient: "from-rose-500 to-red-500",
+    gradient: "from-rose-500 to-pink-500",
     glow: "rgba(244, 63, 94, 0.25)",
   },
+  quiz: {
+    primary: "#8b5cf6",
+    secondary: "#a78bfa",
+    gradient: "from-violet-500 to-indigo-500",
+    glow: "rgba(139, 92, 246, 0.25)",
+  },
+  summary: {
+    primary: "#0ea5e9",
+    secondary: "#38bdf8",
+    gradient: "from-sky-500 to-cyan-500",
+    glow: "rgba(14, 165, 233, 0.25)",
+  },
+  animation: {
+    primary: "#22c55e",
+    secondary: "#4ade80",
+    gradient: "from-green-500 to-emerald-500",
+    glow: "rgba(34, 197, 94, 0.25)",
+  },
   handout: {
-    primary: "#84cc16",
-    secondary: "#a3e635",
-    gradient: "from-lime-500 to-green-500",
-    glow: "rgba(132, 204, 22, 0.25)",
+    primary: "#eab308",
+    secondary: "#facc15",
+    gradient: "from-yellow-500 to-amber-500",
+    glow: "rgba(234, 179, 8, 0.25)",
   },
 };
 
@@ -251,10 +251,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                   "backdrop-blur-md border border-white/40 transform-gpu will-change-transform [backface-visibility:hidden]"
                 )}
                 style={{
-                  width: 36,
-                  height: 36,
+                  width: 40,
+                  height: 40,
                   background: `linear-gradient(135deg, ${currentColor.glow}, transparent)`,
-                  boxShadow: `0 4px 12px ${currentColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                  boxShadow: `0 8px 22px ${currentColor.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
                 }}
                 transition={{ layout: ICON_LAYOUT_TRANSITION }}
               >
@@ -337,10 +337,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               "backdrop-blur-md border border-white/40 transform-gpu will-change-transform [backface-visibility:hidden]"
                             )}
                             style={{
-                              width: 36,
-                              height: 36,
+                              width: 40,
+                              height: 40,
                               background: `linear-gradient(135deg, ${color.glow}, transparent)`,
-                              boxShadow: `0 4px 12px ${color.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
+                              boxShadow: `0 8px 22px ${color.glow}, inset 0 1px 0 rgba(255, 255, 255, 0.6)`,
                             }}
                             transition={{ layout: ICON_LAYOUT_TRANSITION }}
                           >

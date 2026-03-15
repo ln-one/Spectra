@@ -11,7 +11,6 @@ import {
   StudioPanel,
   ChatPanel,
   SourcesPanel,
-  LibraryWorkspace,
 } from "@/components/project";
 import { LightRays } from "@/components/ui/light-rays";
 
@@ -46,9 +45,6 @@ export default function ProjectDetailPage() {
   const [chatWidth, setChatWidth] = useState(50);
   const [expandedStudioWidth, setExpandedStudioWidth] = useState(70);
   const [expandedChatHeight, setExpandedChatHeight] = useState(50);
-  const [workspaceMode, setWorkspaceMode] = useState<"studio" | "library">(
-    "studio"
-  );
 
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
@@ -254,40 +250,8 @@ export default function ProjectDetailPage() {
 
       <ProjectHeader />
 
-      <div className="h-11 px-6 border-b border-zinc-200 bg-white/90 backdrop-blur flex items-center gap-2 shrink-0">
-        <button
-          onClick={() => setWorkspaceMode("studio")}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-            workspaceMode === "studio"
-              ? "bg-zinc-900 text-white"
-              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-          }`}
-        >
-          创作工作台
-        </button>
-        <button
-          onClick={() => setWorkspaceMode("library")}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-            workspaceMode === "library"
-              ? "bg-zinc-900 text-white"
-              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-          }`}
-        >
-          库模型工作区
-        </button>
-      </div>
-
       <div className="flex-1 min-h-0 relative" style={{ padding: PAGE_GAP }}>
-        {workspaceMode === "library" ? (
-          <div
-            className="absolute inset-0"
-            style={{ padding: PAGE_GAP }}
-            ref={panelAreaRef}
-          >
-            <LibraryWorkspace projectId={projectId} />
-          </div>
-        ) : (
-          <motion.div
+        <motion.div
             ref={panelAreaRef}
             className="absolute inset-0"
             style={{ padding: PAGE_GAP }}
@@ -409,8 +373,7 @@ export default function ProjectDetailPage() {
             >
               <SourcesPanel projectId={projectId} />
             </motion.div>
-          </motion.div>
-        )}
+        </motion.div>
       </div>
 
       <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
@@ -421,3 +384,4 @@ export default function ProjectDetailPage() {
     </div>
   );
 }
+

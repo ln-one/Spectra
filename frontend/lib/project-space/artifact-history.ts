@@ -41,7 +41,7 @@ function emptyHistory(): ArtifactHistoryByTool {
 
 const TOOL_TITLE_MAP: Record<GenerationToolType, string> = {
   ppt: "PPT 课件",
-  word: "Word 文档",
+  word: "文档生成",
   mindmap: "思维导图",
   outline: "课程大纲",
   quiz: "测验题库",
