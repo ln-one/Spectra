@@ -1020,6 +1020,11 @@ paths:
           required: true
           schema:
             type: string
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: 成功
@@ -2256,7 +2261,7 @@ components:
           type: array
           description: Structured source citations for assistant responses
           items:
-            $ref: '#/components/schemas/SourceReference'
+            $ref: '#/components/schemas/common_SourceReference'
     GetMessagesResponse:
       type: object
       required:
@@ -3925,7 +3930,7 @@ components:
           type: number
           format: float
         source:
-          $ref: '#/components/schemas/SourceReference'
+          $ref: '#/components/schemas/common_SourceReference'
         metadata:
           type: object
     RAGSearchResponse:
@@ -3965,7 +3970,7 @@ components:
             content:
               type: string
             source:
-              $ref: '#/components/schemas/SourceReference'
+              $ref: '#/components/schemas/common_SourceReference'
             context:
               type: object
               properties:

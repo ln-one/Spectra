@@ -5,9 +5,21 @@ RAG Router - 检索增强生成相关端点
 """
 
 import logging
+import os
+import tempfile
+import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 
 from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
 from services import db_service
@@ -25,6 +37,7 @@ from utils.responses import success_response
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
 logger = logging.getLogger(__name__)
+_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
 
 
 def _build_index_metadata(unit: dict) -> dict:
@@ -235,10 +248,10 @@ async def find_similar(
 
 @router.post("/web-search")
 async def web_search(
-    query: str,
-    project_id: str,
-    max_results: int = 10,
-    auto_index: bool = False,
+    query: str = Query(..., min_length=1),
+    project_id: str = Query(..., min_length=1),
+    max_results: int = Query(10, ge=1, le=20),
+    auto_index: bool = Query(False),
     user_id: str = Depends(get_current_user),
 ):
     """搜索网络资源并可选自动入库
@@ -327,9 +340,6 @@ async def transcribe_audio_endpoint(
         auto_index: 是否自动索引到 RAG（默认 False）
         language: 语言代码（默认 zh）
     """
-    import tempfile
-    import uuid
-
     try:
         # 验证项目权限
         if project_id:
@@ -339,9 +349,13 @@ async def transcribe_audio_endpoint(
 
         # 保存临时文件
         audio_id = str(uuid.uuid4())
+        tmp_path = None
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            content = await file.read()
-            tmp.write(content)
+            while True:
+                chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                tmp.write(chunk)
             tmp_path = tmp.name
 
         try:
@@ -406,9 +420,8 @@ async def transcribe_audio_endpoint(
                 + (f"，已索引 {indexed_count} 条" if auto_index else ""),
             )
         finally:
-            import os
-
-            os.unlink(tmp_path)
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     except APIException:
         raise
@@ -434,9 +447,6 @@ async def analyze_video_endpoint(
         project_id: 项目 ID
         auto_index: 是否自动索引到 RAG（默认 False）
     """
-    import tempfile
-    import uuid
-
     try:
         # 验证项目权限
         if project_id:
@@ -446,9 +456,13 @@ async def analyze_video_endpoint(
 
         # 保存临时文件
         video_id = str(uuid.uuid4())
+        tmp_path = None
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-            content = await file.read()
-            tmp.write(content)
+            while True:
+                chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                tmp.write(chunk)
             tmp_path = tmp.name
 
         try:
@@ -499,9 +513,8 @@ async def analyze_video_endpoint(
                 + (f"，已索引 {indexed_count} 条" if auto_index else ""),
             )
         finally:
-            import os
-
-            os.unlink(tmp_path)
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     except APIException:
         raise

@@ -38,6 +38,11 @@
         required: true
         schema:
           type: string
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          type: string
     responses:
       '200':
         description: 成功

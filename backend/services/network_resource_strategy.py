@@ -38,7 +38,14 @@ def canonicalize_url(url: str) -> str:
         for k, v in parse_qsl(parsed.query, keep_blank_values=True)
         if not k.lower().startswith("utm_")
     ]
-    canonical = parsed._replace(query=urlencode(query_pairs), fragment="")
+    if query_pairs:
+        query_pairs = sorted(query_pairs)
+    canonical = parsed._replace(
+        scheme=parsed.scheme.lower(),
+        netloc=parsed.netloc.lower(),
+        query=urlencode(query_pairs),
+        fragment="",
+    )
     return urlunparse(canonical)
 
 
@@ -228,7 +235,7 @@ def video_segments_to_units(
             content = (
                 f"{summary}\n- " + "\n- ".join(key_points)
                 if summary
-                else "\n- ".join(f"- {p}" for p in key_points)
+                else "\n".join(f"- {p}" for p in key_points)
             )
         chunk_id = str(segment.get("chunk_id") or f"vid-{video_id}-{idx}")
         units.append(

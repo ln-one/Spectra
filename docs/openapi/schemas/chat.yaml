@@ -16,7 +16,7 @@ Message:
       type: array
       description: Structured source citations for assistant responses
       items:
-        $ref: './preview.yaml#/SourceReference'
+        $ref: './common.yaml#/SourceReference'
 
 SendMessageRequest:
   type: object
