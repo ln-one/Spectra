@@ -92,6 +92,26 @@ def _short_body(resp: httpx.Response, limit: int = 200) -> str:
     return f"{text[:limit]}..."
 
 
+async def _post_with_retry(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    retries: int = 3,
+    backoff_seconds: float = 0.8,
+    **kwargs,
+) -> httpx.Response:
+    last_exc: Exception | None = None
+    for i in range(retries):
+        try:
+            return await client.post(url, **kwargs)
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            last_exc = exc
+            if i == retries - 1:
+                break
+            await asyncio.sleep(backoff_seconds * (i + 1))
+    raise RuntimeError(f"POST 请求失败: url={url}, error={last_exc}")
+
+
 async def _resolve_api_token(
     client: httpx.AsyncClient,
     api_base_url: str,
@@ -114,7 +134,11 @@ async def _resolve_api_token(
         "username": username or f"eval_runner_{int(time.time())}",
         "fullName": "D5 Eval Runner",
     }
-    register = await client.post(f"{api_base_url}/auth/register", json=register_payload)
+    register = await _post_with_retry(
+        client,
+        f"{api_base_url}/auth/register",
+        json=register_payload,
+    )
     if 200 <= register.status_code < 300:
         data = _parse_json_safely(register).get("data", {})
         resolved = data.get("access_token")
@@ -122,18 +146,16 @@ async def _resolve_api_token(
             return resolved
         raise RuntimeError("register 成功但响应缺少 access_token")
 
-    if register.status_code not in (400, 409):
-        raise RuntimeError(
-            f"register 失败: status={register.status_code}, body={_short_body(register)}"
-        )
-
-    login = await client.post(
+    login = await _post_with_retry(
+        client,
         f"{api_base_url}/auth/login",
         json={"email": email, "password": password},
     )
     if not (200 <= login.status_code < 300):
         raise RuntimeError(
-            f"login 失败: status={login.status_code}, body={_short_body(login)}"
+            "register/login 均失败: "
+            f"register_status={register.status_code}, register_body={_short_body(register)}; "
+            f"login_status={login.status_code}, login_body={_short_body(login)}"
         )
 
     data = _parse_json_safely(login).get("data", {})
@@ -153,7 +175,8 @@ async def run_single_case_via_api(
     """通过后端 API 执行单条评测用例，避免本地模型环境差异。"""
     start = time.monotonic()
     try:
-        resp = await client.post(
+        resp = await _post_with_retry(
+            client,
             f"{api_base_url}/rag/search",
             headers={"Authorization": f"Bearer {token}"},
             json={
