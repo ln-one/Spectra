@@ -24,11 +24,11 @@ import {
 
 type Project = components["schemas"]["Project"];
 type UploadedFile = components["schemas"]["UploadedFile"];
-type Message = components["schemas"]["Message"];
+type Message = sdkComponents["schemas"]["Message"];
 type OutlineDocument = components["schemas"]["OutlineDocument"];
 type GenerationOptions = components["schemas"]["GenerationOptions"];
 type SessionStatePayload = components["schemas"]["SessionStatePayload"];
-type SourceDetailResponse = components["schemas"]["SourceDetailResponse"];
+type SourceDetailResponse = sdkComponents["schemas"]["SourceDetailResponse"];
 type SourceDetail = SourceDetailResponse["data"];
 type Artifact = sdkComponents["schemas"]["Artifact"];
 

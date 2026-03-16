@@ -30,10 +30,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import type { Message, SourceReference } from "@/lib/sdk/chat";
+import {
+  type CitationViewModel,
+  toCitationViewModels,
+} from "@/lib/chat/citation-view-model";
 
 interface ChatPanelProps {
   projectId: string;
+}
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  citations?: unknown;
 }
 
 function CodeBlock({
@@ -211,13 +222,17 @@ function MessageBubble({
   index,
   projectId,
 }: {
-  message: Message;
+  message: ChatMessage;
   index: number;
   projectId: string;
 }) {
   const isUser = message.role === "user";
   const { focusSourceByChunk } = useProjectStore();
   const { body } = splitContentAndSources(message.content);
+  const citations = useMemo(
+    () => toCitationViewModels(message.citations),
+    [message.citations]
+  );
 
   return (
     <motion.div
@@ -276,14 +291,12 @@ function MessageBubble({
           ) : (
             <div className="relative">
               <MarkdownContent content={body} isUser={isUser} />
-              {message.citations && message.citations.length > 0 && (
+              {citations.length > 0 && (
                 <div className="mt-1 flex flex-wrap gap-1">
-                  {message.citations.map((citation, i) => (
+                  {citations.map((citation, i) => (
                     <button
-                      key={`${citation.chunk_id}-${i}`}
-                      onClick={() =>
-                        focusSourceByChunk(citation.chunk_id, projectId)
-                      }
+                      key={`${citation.chunkId}-${i}`}
+                      onClick={() => focusSourceByChunk(citation.chunkId, projectId)}
                       className="text-[10px] leading-none text-zinc-500 hover:text-zinc-900 transition-colors"
                       aria-label={`引用 ${i + 1}`}
                     >
@@ -298,19 +311,19 @@ function MessageBubble({
           )}
         </motion.div>
 
-        {message.citations && message.citations.length > 0 && (
+        {citations.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.03 + 0.15 }}
             className="flex flex-wrap gap-1.5 mt-1"
           >
-            {message.citations.map((citation, i) => (
+            {citations.map((citation, i) => (
               <CitationBadge
-                key={`${citation.chunk_id}-${i}`}
+                key={`${citation.chunkId}-${i}`}
                 citation={citation}
                 index={i}
-                onClick={() => focusSourceByChunk(citation.chunk_id, projectId)}
+                onClick={() => focusSourceByChunk(citation.chunkId, projectId)}
               />
             ))}
           </motion.div>
@@ -332,24 +345,41 @@ function CitationBadge({
   index,
   onClick,
 }: {
-  citation: SourceReference;
+  citation: CitationViewModel;
   index: number;
   onClick: () => void;
 }) {
+  const sourceLabelMap: Record<CitationViewModel["sourceType"], string> = {
+    document: "文档",
+    web: "网页",
+    video: "视频",
+    audio: "音频",
+    ai_generated: "AI",
+  };
+
   return (
     <Badge
       variant="outline"
       onClick={onClick}
       className="gap-1.5 px-2.5 py-1 text-[10px] font-medium cursor-pointer hover:bg-zinc-50 hover:border-zinc-300 transition-colors shadow-sm"
+      title={citation.contentPreview || citation.filename}
     >
       <span className="text-[10px] font-semibold text-zinc-700">
         {index + 1}
       </span>
       <ExternalLink className="w-3 h-3" />
+      <span className="rounded bg-zinc-100 px-1 py-0.5 text-[9px] text-zinc-600">
+        {sourceLabelMap[citation.sourceType]}
+      </span>
       <span className="truncate max-w-[100px]">{citation.filename}</span>
-      {citation.page_number && (
+      {citation.pageNumber && (
         <span className="text-zinc-400 font-normal">
-          P{citation.page_number}
+          P{citation.pageNumber}
+        </span>
+      )}
+      {typeof citation.timestamp === "number" && (
+        <span className="text-zinc-400 font-normal">
+          {Math.round(citation.timestamp)}s
         </span>
       )}
     </Badge>

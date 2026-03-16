@@ -32,7 +32,8 @@ import { useProjectStore } from "@/stores/projectStore";
 import { previewApi } from "@/lib/sdk/preview";
 import { generateApi } from "@/lib/sdk/generate";
 import { ApiError } from "@/lib/sdk/client";
-import { components } from "@/lib/types/api";
+import { toast } from "@/hooks/use-toast";
+import type { components } from "@/lib/sdk/types";
 
 type Slide = components["schemas"]["Slide"];
 
@@ -124,10 +125,17 @@ export default function GeneratePreviewPage() {
     useProjectStore();
 
   const sessionIdFromQuery = searchParams?.get("session") || null;
+  const artifactIdFromQuery = searchParams?.get("artifact_id") || null;
   const activeSessionId =
     sessionIdFromQuery ||
     generationSession?.session.session_id ||
     (generationHistory.length > 0 ? generationHistory[0].id : null);
+
+  useEffect(() => {
+    if (artifactIdFromQuery) {
+      setCurrentArtifactId(artifactIdFromQuery);
+    }
+  }, [artifactIdFromQuery]);
 
   useEffect(() => {
     if (projectId) {
@@ -152,12 +160,22 @@ export default function GeneratePreviewPage() {
     }
     try {
       setPreviewBlockedReason(null);
-      const response = await previewApi.getSessionPreview(activeSessionId);
+      const response = await previewApi.getSessionPreview(activeSessionId, {
+        artifact_id: currentArtifactId ?? undefined,
+      });
       if (response.success && response.data.slides) {
         setSlides(response.data.slides.sort((a, b) => a.index - b.index));
         setCurrentArtifactId(response.data.artifact_id ?? null);
       }
     } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        toast({
+          title: "版本已变化",
+          description: "版本变化，请刷新后重试。",
+          variant: "destructive",
+        });
+        return;
+      }
       if (error instanceof ApiError && error.message.includes("不支持预览")) {
         try {
           const sessionResp = await generateApi.getSession(activeSessionId);
@@ -178,7 +196,7 @@ export default function GeneratePreviewPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeSessionId]);
+  }, [activeSessionId, currentArtifactId]);
 
   useEffect(() => {
     loadSlides();
@@ -282,6 +300,14 @@ export default function GeneratePreviewPage() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        toast({
+          title: "版本已变化",
+          description: "版本变化，请刷新后重试。",
+          variant: "destructive",
+        });
+        return;
+      }
       console.error("Failed to export preview:", error);
     } finally {
       setIsExporting(false);

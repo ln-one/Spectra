@@ -10,10 +10,16 @@ export type ModifySessionRequest = components["schemas"]["ModifySessionRequest"]
 export type ExportRequest = components["schemas"]["ExportRequest"];
 
 export const previewApi = {
-  async getSessionPreview(sessionId: string): Promise<PreviewResponse> {
+  async getSessionPreview(
+    sessionId: string,
+    options?: { artifact_id?: string }
+  ): Promise<PreviewResponse> {
+    const query = options?.artifact_id
+      ? { artifact_id: options.artifact_id }
+      : undefined;
     const result = await sdkClient.GET(
       "/api/v1/generate/sessions/{session_id}/preview",
-      { params: { path: { session_id: sessionId } } }
+      { params: { path: { session_id: sessionId }, query } }
     );
     return unwrap<PreviewResponse>(result);
   },
@@ -36,12 +42,19 @@ export const previewApi = {
 
   async getSessionSlideDetail(
     sessionId: string,
-    slideId: string
+    slideId: string,
+    options?: { artifact_id?: string }
   ): Promise<SlideDetailResponse> {
+    const query = options?.artifact_id
+      ? { artifact_id: options.artifact_id }
+      : undefined;
     const result = await sdkClient.GET(
       "/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}",
       {
-        params: { path: { session_id: sessionId, slide_id: slideId } },
+        params: {
+          path: { session_id: sessionId, slide_id: slideId },
+          query,
+        },
       }
     );
     return unwrap<SlideDetailResponse>(result);

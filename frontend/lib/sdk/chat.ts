@@ -10,7 +10,7 @@ import { TokenStorage } from "../auth";
 import type { components } from "./types";
 
 export type Message = components["schemas"]["Message"];
-export type SourceReference = components["schemas"]["SourceReference"];
+export type SourceReference = NonNullable<Message["citations"]>[number];
 export type GetMessagesResponse = components["schemas"]["GetMessagesResponse"];
 export type SendMessageRequest = components["schemas"]["SendMessageRequest"];
 export type SendMessageResponse = components["schemas"]["SendMessageResponse"];

@@ -1,4 +1,4 @@
-import { ApiError, sdkClient, unwrap, withIdempotency } from "./client";
+import { sdkClient, unwrap, withIdempotency } from "./client";
 import type { components } from "./types";
 
 type ProjectReferencesResponse = components["schemas"]["ProjectReferencesResponse"];
@@ -25,7 +25,7 @@ type SimpleSuccessResponse = components["schemas"]["SimpleSuccessResponse"];
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
-function shouldUseMock(error?: unknown): boolean {
+function shouldUseMock(_error?: unknown): boolean {
   return MOCK_MODE;
 }
 

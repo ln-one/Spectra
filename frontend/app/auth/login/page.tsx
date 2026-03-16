@@ -43,7 +43,7 @@ function LoginForm() {
   const { success, error } = useNotification();
   const prefersReducedMotion = useReducedMotion() ?? false;
 
-  const redirect = searchParams.get("redirect") || "/projects";
+  const redirect = searchParams?.get("redirect") || "/projects";
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),

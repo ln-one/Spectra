@@ -11,6 +11,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { projectSpaceApi } from "@/lib/sdk";
+import { ApiError } from "@/lib/sdk/client";
 import type { components } from "@/lib/sdk/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,28 @@ interface LibraryDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
+}
+
+function formatLibraryError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    if (error.status === 403 || error.code === "FORBIDDEN") {
+      return "权限不足：当前账号无法访问该库能力。";
+    }
+    if (
+      error.status === 404 ||
+      error.status === 501 ||
+      error.code === "NOT_IMPLEMENTED"
+    ) {
+      return "后端未开放该能力（Phase 1 占位）。";
+    }
+    return `${error.code}: ${error.message}`;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 function formatTime(value?: string): string {
@@ -171,7 +194,7 @@ export function LibraryDrawer({
     } catch (error) {
       setReferencesState({
         loading: false,
-        error: error instanceof Error ? error.message : "加载引用失败",
+        error: formatLibraryError(error, "加载引用失败"),
       });
     }
   };
@@ -185,7 +208,7 @@ export function LibraryDrawer({
     } catch (error) {
       setVersionsState({
         loading: false,
-        error: error instanceof Error ? error.message : "加载版本失败",
+        error: formatLibraryError(error, "加载版本失败"),
       });
     }
   };
@@ -199,7 +222,7 @@ export function LibraryDrawer({
     } catch (error) {
       setArtifactsState({
         loading: false,
-        error: error instanceof Error ? error.message : "加载工件失败",
+        error: formatLibraryError(error, "加载工件失败"),
       });
     }
   };
@@ -213,7 +236,7 @@ export function LibraryDrawer({
     } catch (error) {
       setMembersState({
         loading: false,
-        error: error instanceof Error ? error.message : "加载成员失败",
+        error: formatLibraryError(error, "加载成员失败"),
       });
     }
   };
@@ -227,7 +250,7 @@ export function LibraryDrawer({
     } catch (error) {
       setChangesState({
         loading: false,
-        error: error instanceof Error ? error.message : "加载候选变更失败",
+        error: formatLibraryError(error, "加载候选变更失败"),
       });
     }
   };

@@ -5,6 +5,7 @@ export type RAGSearchRequest = components["schemas"]["RAGSearchRequest"];
 export type RAGSearchResponse = components["schemas"]["RAGSearchResponse"];
 export type SourceDetailResponse =
   components["schemas"]["SourceDetailResponse"];
+export type WebSearchResponse = components["schemas"]["WebSearchResponse"];
 export type RAGIndexResponse =
   paths["/api/v1/rag/index"]["post"]["responses"][200]["content"]["application/json"];
 
@@ -52,5 +53,17 @@ export const ragApi = {
       body: data,
     });
     return unwrap<RAGSearchResponse>(result);
+  },
+
+  async webSearch(params: {
+    query: string;
+    project_id: string;
+    max_results?: number;
+    auto_index?: boolean;
+  }): Promise<WebSearchResponse> {
+    const result = await sdkClient.POST("/api/v1/rag/web-search", {
+      params: { query: params },
+    });
+    return unwrap<WebSearchResponse>(result);
   },
 };

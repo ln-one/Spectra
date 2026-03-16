@@ -23,6 +23,7 @@ import {
   PanelRightOpen,
   ChevronsDown,
   ChevronsUp,
+  Globe,
 } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
@@ -35,13 +36,14 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import type { components } from "@/lib/types/api";
+import type { components } from "@/lib/sdk/types";
 
 type UploadedFile = components["schemas"]["UploadedFile"];
 const COMPACT_MODE_WIDTH = 140;
 const HEADER_FORCE_NORMAL_WIDTH = 260;
 const HEADER_MIN_VISIBLE_WIDTH = 96;
 const HEADER_COMPACT_HYSTERESIS = 16;
+const WEB_SOURCE_CARD_ID = "__web_source_default__";
 
 const FILE_TYPE_CONFIG: Record<
   string,
@@ -153,11 +155,87 @@ function getFileStatusText(file: UploadedFile): string {
   ) {
     return `\u5df2\u7d22\u5f15 ${file.parse_result.indexed_count} \u6bb5`;
   }
-  if (file.status === "ready") return "\u5df2\u5b8c\u6210\u89e3\u6790";
+  if (file.status === "ready") return "\u4e0a\u4f20\u5b8c\u6210";
   if (file.status === "parsing") return "\u89e3\u6790\u4e2d";
   if (file.status === "uploading") return "\u4e0a\u4f20\u4e2d";
   if (file.parse_error) return `\u5931\u8d25\uff1a${file.parse_error}`;
   return "\u89e3\u6790\u5931\u8d25";
+}
+
+function getSourceTypeLabel(type?: string): string {
+  if (type === "web") return "网页";
+  if (type === "video") return "视频";
+  if (type === "audio") return "音频";
+  if (type === "ai_generated") return "AI";
+  return "文档";
+}
+
+function toSeconds(value?: string | number | null): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function WebSourceCard({ isCompact }: { isCompact: boolean }) {
+  const hint = "网页检索（即将上线）\n入口预留中";
+
+  if (isCompact) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -8, scale: 0.96 }}
+        transition={{
+          layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+          duration: 0.12,
+        }}
+        className="group relative flex items-center justify-center p-2.5 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-sm"
+        style={{ minHeight: "52px" }}
+        title={hint}
+      >
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white/80 border border-blue-100">
+          <Globe className="w-4 h-4 text-blue-500" />
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+      transition={{
+        layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+        duration: 0.12,
+      }}
+      className="grid grid-cols-[32px_1fr_auto] items-center gap-2.5 p-2.5 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-sm"
+      style={{ minHeight: "52px" }}
+      title={hint}
+    >
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/80 border border-blue-100">
+        <Globe className="w-4 h-4 text-blue-500" />
+      </div>
+      <div className="min-w-0 flex flex-col justify-center">
+        <p className="text-xs font-medium text-zinc-800 truncate">
+          网页检索（即将上线）
+        </p>
+        <p className="text-[10px] text-zinc-500 mt-0.5 truncate">入口预留中</p>
+      </div>
+      <div className="flex items-center gap-1.5 pl-1.5 border-l border-blue-100">
+        <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+      </div>
+    </motion.div>
+  );
 }
 
 interface SourcesPanelProps {
@@ -189,7 +267,11 @@ function FileItem({
   focusDetail?: {
     chunk_id?: string;
     content?: string;
-    source?: { page_number?: number | null };
+    source?: {
+      page_number?: number | null;
+      source_type?: string;
+      timestamp?: number | string | null;
+    };
     context?: {
       previous_chunk?: string | null;
       next_chunk?: string | null;
@@ -202,6 +284,7 @@ function FileItem({
   const config = FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
   const statusConfig = STATUS_CONFIG[file.status] || STATUS_CONFIG.uploading;
   const Icon = config.icon;
+  const focusTimestampSeconds = toSeconds(focusDetail?.source?.timestamp);
 
   if (isCompact) {
     const compactHint = `${file.filename}\n${getFileStatusText(file)}`;
@@ -391,12 +474,20 @@ function FileItem({
           >
             <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
               <span>{"\u5f15\u7528\u7247\u6bb5"}</span>
-              {focusDetail.source?.page_number ? (
-                <span>
-                  {"\u9875\u7801 P"}
-                  {focusDetail.source.page_number}
-                </span>
-              ) : null}
+              <div className="flex items-center gap-1.5">
+                {focusDetail.source?.source_type ? (
+                  <span>{getSourceTypeLabel(focusDetail.source.source_type)}</span>
+                ) : null}
+                {focusDetail.source?.page_number ? (
+                  <span>
+                    {"\u9875\u7801 P"}
+                    {focusDetail.source.page_number}
+                  </span>
+                ) : null}
+                {focusTimestampSeconds !== null ? (
+                  <span>{Math.round(focusTimestampSeconds)}s</span>
+                ) : null}
+              </div>
             </div>
             <div className="whitespace-pre-wrap text-zinc-800">
               {focusDetail.content}
@@ -717,11 +808,18 @@ export function SourcesPanel({
           {isHorizontalIconMode ? (
             <div className="h-full px-3 py-1 overflow-hidden">
               {files.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center py-16">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
-                    <File className="w-7 h-7 text-zinc-300" />
+                <div className="h-full flex flex-col">
+                  <div className="pt-1 pb-2">
+                    <WebSourceCard isCompact={true} />
                   </div>
-                  <p className="text-sm font-medium text-zinc-700">{"\u6682\u65e0\u6587\u4ef6"}</p>
+                  <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
+                      <File className="w-7 h-7 text-zinc-300" />
+                    </div>
+                    <p className="text-sm font-medium text-zinc-700">
+                      {"\u6682\u65e0\u6587\u4ef6"}
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="h-full flex items-start">
@@ -740,6 +838,15 @@ export function SourcesPanel({
                       }}
                     >
                       <div className="flex items-center gap-3 min-w-max pt-0 pb-1 px-0.5 -translate-y-1">
+                        <div
+                          key={WEB_SOURCE_CARD_ID}
+                          ref={(el) => {
+                            fileRefs.current[WEB_SOURCE_CARD_ID] = el;
+                          }}
+                          className="shrink-0"
+                        >
+                          <WebSourceCard isCompact={true} />
+                        </div>
                         {files.map((file) => (
                           <div
                             key={file.id}
@@ -780,16 +887,21 @@ export function SourcesPanel({
             <ScrollArea className="h-full w-full">
               <div className="min-h-full px-3 py-3 w-full max-w-full overflow-hidden">
                 {files.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-16">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
-                      <File className="w-7 h-7 text-zinc-300" />
+                  <div className="h-full flex flex-col">
+                    <div className="mb-2">
+                      <WebSourceCard isCompact={isEffectiveCompact} />
                     </div>
-                    <p className="text-sm font-medium text-zinc-700">
-                      {"\u6682\u65e0\u6587\u4ef6"}
-                    </p>
-                    <p className="text-xs text-zinc-400 mt-1">
-                      {"\u4e0a\u4f20\u6587\u4ef6\u4ee5\u5f00\u59cb\u4f7f\u7528"}
-                    </p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
+                        <File className="w-7 h-7 text-zinc-300" />
+                      </div>
+                      <p className="text-sm font-medium text-zinc-700">
+                        {"\u6682\u65e0\u6587\u4ef6"}
+                      </p>
+                      <p className="text-xs text-zinc-400 mt-1">
+                        {"\u4e0a\u4f20\u6587\u4ef6\u4ee5\u5f00\u59cb\u4f7f\u7528"}
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <div
@@ -799,6 +911,14 @@ export function SourcesPanel({
                     )}
                   >
                     <AnimatePresence mode="popLayout">
+                      <div
+                        key={WEB_SOURCE_CARD_ID}
+                        ref={(el) => {
+                          fileRefs.current[WEB_SOURCE_CARD_ID] = el;
+                        }}
+                      >
+                        <WebSourceCard isCompact={isEffectiveCompact} />
+                      </div>
                       {files.map((file) => (
                         <div
                           key={file.id}
