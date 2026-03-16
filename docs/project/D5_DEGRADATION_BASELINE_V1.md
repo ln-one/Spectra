@@ -2,9 +2,10 @@
 
 ## 版本信息
 - 版本：v1.0-draft
-- 日期：2026-03-05
+- 日期：2026-03-16（增量更新）
 - 负责人：成员 D
 - 目的：定义解析/视频/语音三类能力降级后的最低可用标准与回退优先级
+- 当前状态：D-5.1 已完成首轮收口（真实样本 + 评测结果 + 基线冻结）；D5 整体验收仍进行中
 
 ## 1. 统一判定原则
 1. 降级后不追求等质量，但必须“可用且可解释”。
@@ -95,3 +96,50 @@
 1. C：确保所有降级分支返回 `status/fallback_used/fallback_target/reason_code/user_message`。
 2. B：按统一字段渲染，不通过字符串猜测状态。
 3. A：将“可解释失败 + 主流程不断”纳入上线门禁。
+
+## 8. D-5.1 真实样本记录（2026-03-16）
+本节记录首个真实链路样本（非测试用 `test_proj_*`），用于冻结 D-5.1 基线输入。
+
+样本元数据：
+- `project_id`：`19ada801-2d6e-4258-9814-d7b02ce328fd`
+- `upload_id`：`9a46136d-66b7-486e-ae97-5cd1ee223b2d`
+- 文件：`requirements.md`
+- 文件类型：`word`（由当前后端映射策略识别）
+- 文件大小：`4810` bytes
+
+索引结果：
+- `chunk_count = 7`
+- `indexed_count = 7`
+- `text_length = 1908`
+- 上传最终状态：`ready`
+- 证据日志：`Indexed 7 chunks for project ...`、`index_complete ... chunks=7 indexed=7`、`POST /api/v1/files 200`
+
+阶段结论：
+1. 文档解析链路已满足本文件第 2.A 节最低可用标准（非空文本、可分块、可索引）。
+2. 该样本可作为 D-5.1 后续审计与回归的真实锚点。
+3. 在该真实样本上已完成 D-5.1 评测收口并冻结基线：
+   - 评测数据集：`backend/eval/dataset_d51_real_project_space.json`
+   - 评测结果：`keyword_hit_rate=90.00%`、`failure_rate=0.00%`、`avg_latency_ms=743.70`
+   - 基线文件：`backend/eval/baselines/rag-baseline-v1.json`
+4. D5 整体（解析/视频/语音降级策略）仍需继续补足样本与门禁结果，不等于 D5 全量验收完成。
+
+## 9. D-5.1 剩余缺口与下一步
+1. D-5.1 首轮基线已冻结，后续每次优化需执行 `baseline_manager.py check` 做退化门禁。
+2. 文档解析降级策略样本量从 `1` 提升到 `>=10`（覆盖成功/降级/失败）。
+3. 增补视频理解（2.B）真实样本 `>=10`，并记录降级分支命中情况。
+4. 增补语音识别（2.C）真实样本 `>=10`，并记录低置信告警表现。
+5. 输出“用户可解释率/回退命中率/主流程可继续率”三项统计结果。
+6. 任一能力“用户可解释率 < 95%”则 D5 验收不通过。
+
+## 10. 复现命令（真实 project_id 生成）
+在 `backend` 目录执行：
+
+```powershell
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+新终端执行：
+
+```powershell
+.\venv\Scripts\python.exe .\scripts\bootstrap_real_project_data.py --base-url http://127.0.0.1:8000/api/v1 --file "D:\Code\Spectra\docs\project\requirements.md"
+```
