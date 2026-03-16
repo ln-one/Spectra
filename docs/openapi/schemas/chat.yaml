@@ -151,10 +151,15 @@ VoiceMessageResponse:
         message:
           $ref: '#/Message'
           description: Auto-created assistant message
+        rag_hit:
+          type: boolean
+          description: Voice flow currently does not run RAG retrieval; returns false explicitly.
         capability_status:
           allOf:
             - $ref: './common.yaml#/CapabilityStatus'
           description: Speech recognition capability status with degradation semantics
+        observability:
+          $ref: '#/ChatObservability'
         suggestions:
           type: array
           items:

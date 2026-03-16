@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import time
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -561,8 +562,8 @@ async def send_message(
 
         # 构建回复 message（含 citations 字段）
         msg_dict = _to_message(assistant_msg)
-        if citations:
-            msg_dict["citations"] = citations
+        # D-PS3: 始终返回数组，空命中也要显式表达为空列表。
+        msg_dict["citations"] = citations or []
 
         response_payload = success_response(
             data={
@@ -678,10 +679,13 @@ async def voice_message(
         # 调用音频服务进行识别
         from services.audio_service import transcribe_audio
 
+        start_at = time.perf_counter()
         recognized_text, confidence, duration, capability_status = transcribe_audio(
             tmp_path
         )
+        latency_ms = round((time.perf_counter() - start_at) * 1000, 2)
         duration = duration if duration > 0 else estimated_duration
+        capability_status_payload = _dump_capability_status(capability_status)
 
         # 清理临时文件
         Path(tmp_path).unlink(missing_ok=True)
@@ -693,6 +697,17 @@ async def voice_message(
                 or "语音识别暂不可用，请改用文本输入或稍后重试。"
             )
 
+        observability_metadata = {
+            "request_id": str(uuid4()),
+            "route_task": "speech_recognition",
+            "selected_model": capability_status_payload.get("provider", "unknown"),
+            "has_rag_context": False,
+            "fallback_triggered": bool(
+                capability_status_payload.get("fallback_used", False)
+            ),
+            "latency_ms": latency_ms,
+        }
+
         await db_service.create_conversation_message(
             project_id=project_id,
             role="user",
@@ -702,13 +717,13 @@ async def voice_message(
                     "source": "voice",
                     "filename": audio.filename,
                     "idempotency_key": key_str,
-                    "capability_status": _dump_capability_status(capability_status),
+                    "capability_status": capability_status_payload,
                 }
                 if key_str
                 else {
                     "source": "voice",
                     "filename": audio.filename,
-                    "capability_status": _dump_capability_status(capability_status),
+                    "capability_status": capability_status_payload,
                 }
             ),
             session_id=session_id,
@@ -720,8 +735,16 @@ async def voice_message(
                 "收到语音需求。你可以继续补充年级、课时和重点难点，"
                 "我会据此生成课件。"
             ),
+            metadata={
+                "citations": [],
+                "rag_hit": False,
+                "session_id": session_id,
+                **observability_metadata,
+            },
             session_id=session_id,
         )
+        assistant_msg_dict = _to_message(assistant_msg)
+        assistant_msg_dict["citations"] = []
 
         response_payload = success_response(
             data={
@@ -729,8 +752,10 @@ async def voice_message(
                 "text": recognized_text,
                 "confidence": confidence,
                 "duration": round(duration, 2),
-                "message": _to_message(assistant_msg),
-                "capability_status": _dump_capability_status(capability_status),
+                "message": assistant_msg_dict,
+                "rag_hit": False,
+                "capability_status": capability_status_payload,
+                "observability": observability_metadata,
                 "suggestions": ["补充教学目标", "补充参考资料", "开始生成课件"],
             },
             message="语音识别成功",

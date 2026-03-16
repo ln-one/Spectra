@@ -470,8 +470,12 @@ def test_voice_message_success(client, monkeypatch, _as_user):
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["text"]
+    assert body["data"]["rag_hit"] is False
     assert body["data"]["message"]["role"] == "assistant"
     assert body["data"]["message"]["content"] == "voice assistant reply"
+    assert body["data"]["message"]["citations"] == []
+    assert body["data"]["observability"]["route_task"] == "speech_recognition"
+    assert body["data"]["observability"]["has_rag_context"] is False
     assert body["data"]["duration"] >= 1
 
 
