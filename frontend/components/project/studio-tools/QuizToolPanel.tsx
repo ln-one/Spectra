@@ -93,13 +93,18 @@ export function QuizToolPanel({ toolName }: ToolPanelProps) {
       preview={
         <div className="space-y-3">
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-            <p className="text-xs text-zinc-500">第 {(cursor % QUIZ_BANK.length) + 1} 题</p>
-            <p className="text-sm font-medium text-zinc-800 mt-1">{current.question}</p>
+            <p className="text-xs text-zinc-500">
+              第 {(cursor % QUIZ_BANK.length) + 1} 题
+            </p>
+            <p className="text-sm font-medium text-zinc-800 mt-1">
+              {current.question}
+            </p>
           </div>
           <div className="space-y-2">
             {current.options.map((option, index) => {
               const selected = selectedIndex === index;
-              const shouldHighlight = selectedIndex !== null && index === current.answerIndex;
+              const shouldHighlight =
+                selectedIndex !== null && index === current.answerIndex;
               return (
                 <button
                   key={option}
@@ -135,11 +140,19 @@ export function QuizToolPanel({ toolName }: ToolPanelProps) {
       <section className="grid grid-cols-2 gap-2">
         <div className="space-y-1.5">
           <Label className="text-[11px] text-zinc-500">考察范围</Label>
-          <Input value={scope} onChange={(e) => setScope(e.target.value)} className="h-9 text-xs" />
+          <Input
+            value={scope}
+            onChange={(e) => setScope(e.target.value)}
+            className="h-9 text-xs"
+          />
         </div>
         <div className="space-y-1.5">
           <Label className="text-[11px] text-zinc-500">题量</Label>
-          <Input value={count} onChange={(e) => setCount(e.target.value)} className="h-9 text-xs" />
+          <Input
+            value={count}
+            onChange={(e) => setCount(e.target.value)}
+            className="h-9 text-xs"
+          />
         </div>
       </section>
     </ToolPanelShell>

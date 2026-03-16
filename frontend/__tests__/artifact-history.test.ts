@@ -70,4 +70,3 @@ describe("artifact history mapper", () => {
     expect(grouped.ppt).toHaveLength(0);
   });
 });
-

@@ -133,7 +133,10 @@ export default function NewProjectPage() {
                 id="reference_mode"
                 value={formData.reference_mode}
                 onChange={(e) =>
-                  setFormData({ ...formData, reference_mode: e.target.value as any })
+                  setFormData({
+                    ...formData,
+                    reference_mode: e.target.value as any,
+                  })
                 }
                 className="w-full px-3 py-2 border rounded-md text-sm"
               >
@@ -150,7 +153,10 @@ export default function NewProjectPage() {
                 id="visibility"
                 value={formData.visibility}
                 onChange={(e) =>
-                  setFormData({ ...formData, visibility: e.target.value as any })
+                  setFormData({
+                    ...formData,
+                    visibility: e.target.value as any,
+                  })
                 }
                 className="w-full px-3 py-2 border rounded-md text-sm"
               >

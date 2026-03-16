@@ -25,13 +25,15 @@ const MODEL_OPTIONS = ["BOPPPS", "5E", "对分课堂"];
 const GRADES = ["初一", "初二", "初三", "高一", "高二", "高三"];
 
 export function WordToolPanel({ toolName }: ToolPanelProps) {
-  const [docType, setDocType] = useState<(typeof DOC_TYPES)[number]["id"]>("layered-plan");
+  const [docType, setDocType] =
+    useState<(typeof DOC_TYPES)[number]["id"]>("layered-plan");
   const [model, setModel] = useState("BOPPPS");
   const [grade, setGrade] = useState("高一");
   const [difficulty, setDifficulty] = useState("B层");
   const [topic, setTopic] = useState("函数的单调性");
 
-  const docTypeLabel = DOC_TYPES.find((item) => item.id === docType)?.label ?? "分层教案";
+  const docTypeLabel =
+    DOC_TYPES.find((item) => item.id === docType)?.label ?? "分层教案";
 
   const previewMarkdown = useMemo(() => {
     if (docType === "layered-plan") {
@@ -91,13 +93,19 @@ export function WordToolPanel({ toolName }: ToolPanelProps) {
       previewDescription="这里模拟生成后的文档预览，后续将替换为真实返回结果。"
       footer={
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-zinc-500">可在中栏 Chat 继续微调文案（后续接入）。</span>
+          <span className="text-[11px] text-zinc-500">
+            可在中栏 Chat 继续微调文案（后续接入）。
+          </span>
           <Button size="sm" className="h-8 rounded-lg" disabled>
             生成文档（即将接入）
           </Button>
         </div>
       }
-      preview={<pre className="text-xs leading-5 text-zinc-700 whitespace-pre-wrap">{previewMarkdown}</pre>}
+      preview={
+        <pre className="text-xs leading-5 text-zinc-700 whitespace-pre-wrap">
+          {previewMarkdown}
+        </pre>
+      }
     >
       <section className="space-y-2">
         <Label className="text-xs text-zinc-600">第一步：文档类型</Label>
@@ -124,7 +132,11 @@ export function WordToolPanel({ toolName }: ToolPanelProps) {
         <div className="grid grid-cols-1 gap-2">
           <div className="space-y-1.5">
             <Label className="text-[11px] text-zinc-500">主题</Label>
-            <Input value={topic} onChange={(e) => setTopic(e.target.value)} className="h-9 text-xs" />
+            <Input
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              className="h-9 text-xs"
+            />
           </div>
 
           {docType === "layered-plan" ? (

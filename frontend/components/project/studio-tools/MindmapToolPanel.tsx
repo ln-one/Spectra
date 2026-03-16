@@ -15,8 +15,19 @@ const INITIAL_TREE: MindNode = {
   id: "root",
   label: "化学反应速率",
   children: [
-    { id: "n1", label: "影响因素", children: [{ id: "n1-1", label: "温度" }, { id: "n1-2", label: "浓度" }] },
-    { id: "n2", label: "实验观察", children: [{ id: "n2-1", label: "颜色变化" }] },
+    {
+      id: "n1",
+      label: "影响因素",
+      children: [
+        { id: "n1-1", label: "温度" },
+        { id: "n1-2", label: "浓度" },
+      ],
+    },
+    {
+      id: "n2",
+      label: "实验观察",
+      children: [{ id: "n2-1", label: "颜色变化" }],
+    },
   ],
 };
 
@@ -72,7 +83,9 @@ export function MindmapToolPanel({ toolName }: ToolPanelProps) {
       previewDescription="后续可替换为 Markmap / React Flow 画布。"
       footer={
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-zinc-500">当前高亮节点：{selectedId}</span>
+          <span className="text-[11px] text-zinc-500">
+            当前高亮节点：{selectedId}
+          </span>
           <Button
             type="button"
             size="sm"
@@ -85,13 +98,17 @@ export function MindmapToolPanel({ toolName }: ToolPanelProps) {
       }
       preview={
         <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3">
-          <p className="text-[11px] text-zinc-500 mb-2">节点列表（可点击高亮）</p>
+          <p className="text-[11px] text-zinc-500 mb-2">
+            节点列表（可点击高亮）
+          </p>
           <div className="space-y-1">{renderNode(tree)}</div>
         </div>
       }
     >
       <section className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-        <p className="text-xs text-zinc-600">提示：在后续版本中，选中节点后可通过 Chat 指令继续细化分支内容。</p>
+        <p className="text-xs text-zinc-600">
+          提示：在后续版本中，选中节点后可通过 Chat 指令继续细化分支内容。
+        </p>
       </section>
     </ToolPanelShell>
   );

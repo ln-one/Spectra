@@ -476,7 +476,9 @@ function FileItem({
               <span>{"\u5f15\u7528\u7247\u6bb5"}</span>
               <div className="flex items-center gap-1.5">
                 {focusDetail.source?.source_type ? (
-                  <span>{getSourceTypeLabel(focusDetail.source.source_type)}</span>
+                  <span>
+                    {getSourceTypeLabel(focusDetail.source.source_type)}
+                  </span>
                 ) : null}
                 {focusDetail.source?.page_number ? (
                   <span>
@@ -563,7 +565,10 @@ export function SourcesPanel({
           const horizontalPadding = 32;
           const gap = 8;
           const availableInfoWidth =
-            width - horizontalPadding - headerActionsRef.current.offsetWidth - gap;
+            width -
+            horizontalPadding -
+            headerActionsRef.current.offsetWidth -
+            gap;
 
           setIsHeaderTight((prev) => {
             if (prev) {
@@ -656,8 +661,7 @@ export function SourcesPanel({
     [projectId, deleteFile]
   );
 
-  const isHorizontalIconMode =
-    isStudioExpanded && isExpandedContentCollapsed;
+  const isHorizontalIconMode = isStudioExpanded && isExpandedContentCollapsed;
   const isEffectiveCompact = isCompact || isCollapsed || isHorizontalIconMode;
   const isHeaderCompact = isStudioExpanded
     ? isCompact || isCollapsed || isHeaderTight
@@ -670,7 +674,7 @@ export function SourcesPanel({
       style={{ transform: "translateZ(0)" }}
     >
       <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl will-change-[box-shadow,transform]">
-                <CardHeader
+        <CardHeader
           className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
           style={{ height: "52px" }}
         >
@@ -899,7 +903,9 @@ export function SourcesPanel({
                         {"\u6682\u65e0\u6587\u4ef6"}
                       </p>
                       <p className="text-xs text-zinc-400 mt-1">
-                        {"\u4e0a\u4f20\u6587\u4ef6\u4ee5\u5f00\u59cb\u4f7f\u7528"}
+                        {
+                          "\u4e0a\u4f20\u6587\u4ef6\u4ee5\u5f00\u59cb\u4f7f\u7528"
+                        }
                       </p>
                     </div>
                   </div>
@@ -952,4 +958,3 @@ export function SourcesPanel({
     </div>
   );
 }
-

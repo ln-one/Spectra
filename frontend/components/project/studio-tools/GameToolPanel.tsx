@@ -41,12 +41,16 @@ export function GameToolPanel({ toolName }: ToolPanelProps) {
       previewDescription="后续接入真实 iframe/Sandpack 运行环境。"
       footer={
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-zinc-500">当前规则：倒计时 {countdown}s，生命值 {life}</span>
+          <span className="text-[11px] text-zinc-500">
+            当前规则：倒计时 {countdown}s，生命值 {life}
+          </span>
           <Button
             type="button"
             size="sm"
             className="h-8 rounded-lg text-xs"
-            onClick={() => setVariantIndex((prev) => (prev + 1) % GAME_VARIANTS.length)}
+            onClick={() =>
+              setVariantIndex((prev) => (prev + 1) % GAME_VARIANTS.length)
+            }
           >
             重新生成规则
           </Button>
@@ -89,7 +93,11 @@ export function GameToolPanel({ toolName }: ToolPanelProps) {
     >
       <section className="space-y-1.5">
         <Label className="text-[11px] text-zinc-500">主题描述</Label>
-        <Input value={theme} onChange={(e) => setTheme(e.target.value)} className="h-9 text-xs" />
+        <Input
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          className="h-9 text-xs"
+        />
       </section>
     </ToolPanelShell>
   );

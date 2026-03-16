@@ -83,7 +83,9 @@ export function SpeakerNotesToolPanel({ toolName }: ToolPanelProps) {
               ))}
             </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-              <p className="text-[11px] text-zinc-500 mb-2">演说模式 · 第 {activePage} 页</p>
+              <p className="text-[11px] text-zinc-500 mb-2">
+                演说模式 · 第 {activePage} 页
+              </p>
               <div className="space-y-2">
                 {SCRIPT_SECTIONS.map((line, index) => (
                   <p

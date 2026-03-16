@@ -92,11 +92,13 @@ export default function ProjectDetailPage() {
   });
 
   const isExpanded = layoutMode === "expanded";
-  const sessionOptions: SessionSwitcherItem[] = generationHistory.map((item) => ({
-    sessionId: item.id,
-    title: `会话 ${item.id.slice(-6)}`,
-    updatedAt: formatSessionTime(item.createdAt),
-  }));
+  const sessionOptions: SessionSwitcherItem[] = generationHistory.map(
+    (item) => ({
+      sessionId: item.id,
+      title: `会话 ${item.id.slice(-6)}`,
+      updatedAt: formatSessionTime(item.createdAt),
+    })
+  );
 
   const updateSessionInUrl = useCallback(
     (sessionId: string) => {
@@ -328,7 +330,9 @@ export default function ProjectDetailPage() {
 
     if (!isExpandedSourcesCollapsedByHeight) {
       previousExpandedChatHeightRef.current = expandedChatHeight;
-      setExpandedChatHeight(Math.max(30, Math.min(92, maxChatByCollapsedSources)));
+      setExpandedChatHeight(
+        Math.max(30, Math.min(92, maxChatByCollapsedSources))
+      );
       return;
     }
 
@@ -384,7 +388,8 @@ export default function ProjectDetailPage() {
 
         if (handle === "chat-sources") {
           const minSourcesPercent =
-            ((MIN_RESIZABLE_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) / containerWidth) *
+            ((MIN_RESIZABLE_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) /
+              containerWidth) *
             100;
           const maxChatBySources = Math.min(
             75,
@@ -400,8 +405,10 @@ export default function ProjectDetailPage() {
 
           const toChatBySourcesWidthPx = (targetWidthPx: number) => {
             const targetSourcesPercent =
-              ((targetWidthPx + PAGE_GAP + PANEL_GAP / 2) / containerWidth) * 100;
-            const targetChat = 100 - startSizesRef.current.studio - targetSourcesPercent;
+              ((targetWidthPx + PAGE_GAP + PANEL_GAP / 2) / containerWidth) *
+              100;
+            const targetChat =
+              100 - startSizesRef.current.studio - targetSourcesPercent;
             return Math.max(
               30,
               Math.min(Math.max(30, maxChatBySources), targetChat)
@@ -411,13 +418,16 @@ export default function ProjectDetailPage() {
           const startSourcesPercent =
             100 - startSizesRef.current.studio - startSizesRef.current.chat;
           const startSourcesWidthPx =
-            (containerWidth * startSourcesPercent) / 100 - (PAGE_GAP + PANEL_GAP / 2);
+            (containerWidth * startSourcesPercent) / 100 -
+            (PAGE_GAP + PANEL_GAP / 2);
           const startedCollapsed =
             startSourcesWidthPx <= COLLAPSED_SOURCES_TRIGGER_WIDTH_PX + 2;
 
-          const nextSourcesPercent = 100 - startSizesRef.current.studio - nextChat;
+          const nextSourcesPercent =
+            100 - startSizesRef.current.studio - nextChat;
           const nextSourcesWidthPx =
-            (containerWidth * nextSourcesPercent) / 100 - (PAGE_GAP + PANEL_GAP / 2);
+            (containerWidth * nextSourcesPercent) / 100 -
+            (PAGE_GAP + PANEL_GAP / 2);
 
           const collapseSnapThreshold = COLLAPSED_SOURCES_TRIGGER_WIDTH_PX + 4;
           const expandSnapThreshold = COLLAPSED_SOURCES_TRIGGER_WIDTH_PX - 60;
@@ -439,7 +449,8 @@ export default function ProjectDetailPage() {
         if (handle === "expanded-studio-right") {
           const maxExpandedStudioByWidth =
             100 -
-            ((MIN_EXPANDED_RIGHT_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) / containerWidth) *
+            ((MIN_EXPANDED_RIGHT_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) /
+              containerWidth) *
               100;
           const nextExpandedStudio = Math.max(
             45,

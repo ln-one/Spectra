@@ -416,7 +416,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                       }
                                       router.push(
                                         `/projects/${project.id}/generate?session=${
-                                          item.sessionId ?? activeSessionId ?? ""
+                                          item.sessionId ??
+                                          activeSessionId ??
+                                          ""
                                         }`
                                       );
                                     }}
@@ -434,14 +436,18 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                       {item.title}
                                     </p>
                                     <p className="text-[10px] text-zinc-400">
-                                      {new Date(item.createdAt).toLocaleString("zh-CN")}
+                                      {new Date(item.createdAt).toLocaleString(
+                                        "zh-CN"
+                                      )}
                                     </p>
                                   </div>
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     className="h-7 w-7 rounded-lg"
-                                    onClick={() => exportArtifact(item.artifactId)}
+                                    onClick={() =>
+                                      exportArtifact(item.artifactId)
+                                    }
                                   >
                                     <Download className="w-3.5 h-3.5 text-zinc-500" />
                                   </Button>

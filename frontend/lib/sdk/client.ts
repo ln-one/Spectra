@@ -135,7 +135,11 @@ async function fetchWithAuth(
       "NETWORK_ERROR",
       `Network request failed: ${authedRequest.method} ${authedRequest.url}`,
       undefined,
-      { url: authedRequest.url, method: authedRequest.method, cause: errorMessage },
+      {
+        url: authedRequest.url,
+        method: authedRequest.method,
+        cause: errorMessage,
+      },
       true
     );
   }

@@ -153,7 +153,10 @@ interface ProjectState {
 
   fetchProject: (projectId: string) => Promise<void>;
   fetchFiles: (projectId: string) => Promise<void>;
-  fetchMessages: (projectId: string, sessionId?: string | null) => Promise<void>;
+  fetchMessages: (
+    projectId: string,
+    sessionId?: string | null
+  ) => Promise<void>;
   uploadFile: (file: File, projectId: string) => Promise<void>;
   deleteFile: (fileId: string) => Promise<void>;
   toggleFileSelection: (fileId: string) => void;
@@ -262,7 +265,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   fetchMessages: async (projectId: string, sessionId?: string | null) => {
     set({ isMessagesLoading: true });
     try {
-      const effectiveSessionId = sessionId ?? get().activeSessionId ?? undefined;
+      const effectiveSessionId =
+        sessionId ?? get().activeSessionId ?? undefined;
       const response = await chatApi.getMessages({
         project_id: projectId,
         session_id: effectiveSessionId,
@@ -344,7 +348,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       set((state) => ({ messages: [...state.messages, userMessage] }));
 
       const { selectedFileIds } = get();
-      const effectiveSessionId = sessionId ?? get().activeSessionId ?? undefined;
+      const effectiveSessionId =
+        sessionId ?? get().activeSessionId ?? undefined;
       const response = await chatApi.sendMessage({
         project_id: projectId,
         session_id: effectiveSessionId,
@@ -540,7 +545,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       });
     }
   },
-  fetchArtifactHistory: async (projectId: string, sessionId?: string | null) => {
+  fetchArtifactHistory: async (
+    projectId: string,
+    sessionId?: string | null
+  ) => {
     try {
       const response = await projectSpaceApi.getArtifacts(projectId);
       const artifacts = ((response?.data?.artifacts ?? []) as Artifact[]) || [];
@@ -647,7 +655,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       });
     }
   },
-  setActiveSessionId: (sessionId: string | null) => set({ activeSessionId: sessionId }),
+  setActiveSessionId: (sessionId: string | null) =>
+    set({ activeSessionId: sessionId }),
   updateOutline: async (sessionId: string, outline: OutlineDocument) => {
     const session = get().generationSession;
     const baseVersion = session?.outline?.version ?? 1;

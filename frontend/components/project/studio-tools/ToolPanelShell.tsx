@@ -26,7 +26,12 @@ export function ToolPanelShell({
   footer,
 }: ToolPanelShellProps) {
   return (
-    <div className={cn("h-full rounded-xl border border-zinc-200/80 bg-white", className)}>
+    <div
+      className={cn(
+        "h-full rounded-xl border border-zinc-200/80 bg-white",
+        className
+      )}
+    >
       <div className="h-full flex flex-col">
         <div className="px-3 py-3 border-b border-zinc-100">
           <div className="flex items-center gap-2">
@@ -41,8 +46,12 @@ export function ToolPanelShell({
         <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
           {children}
           <section className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
-            <h4 className="text-xs font-semibold text-zinc-700">{previewTitle}</h4>
-            <p className="text-[11px] text-zinc-500 mt-1">{previewDescription}</p>
+            <h4 className="text-xs font-semibold text-zinc-700">
+              {previewTitle}
+            </h4>
+            <p className="text-[11px] text-zinc-500 mt-1">
+              {previewDescription}
+            </p>
             <div className="mt-3 rounded-lg border border-zinc-200 bg-white p-3">
               {preview}
             </div>
@@ -50,7 +59,9 @@ export function ToolPanelShell({
         </div>
 
         {footer ? (
-          <div className="px-3 py-2 border-t border-zinc-100 bg-zinc-50/60">{footer}</div>
+          <div className="px-3 py-2 border-t border-zinc-100 bg-zinc-50/60">
+            {footer}
+          </div>
         ) : null}
       </div>
     </div>

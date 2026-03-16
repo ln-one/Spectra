@@ -24,7 +24,10 @@ export interface ArtifactHistoryItem {
   storagePath?: string;
 }
 
-export type ArtifactHistoryByTool = Record<GenerationToolType, ArtifactHistoryItem[]>;
+export type ArtifactHistoryByTool = Record<
+  GenerationToolType,
+  ArtifactHistoryItem[]
+>;
 
 function emptyHistory(): ArtifactHistoryByTool {
   return {
@@ -51,7 +54,8 @@ const TOOL_TITLE_MAP: Record<GenerationToolType, string> = {
 };
 
 function normalizeStatus(statusRaw: unknown): ArtifactHistoryItem["status"] {
-  const normalized = typeof statusRaw === "string" ? statusRaw.toLowerCase() : "";
+  const normalized =
+    typeof statusRaw === "string" ? statusRaw.toLowerCase() : "";
   if (normalized === "failed") return "failed";
   if (normalized === "processing") return "processing";
   if (normalized === "pending") return "pending";
@@ -67,7 +71,10 @@ function readMetadataField(
 }
 
 export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
-  const metadataOutputType = readMetadataField(artifact.metadata, "output_type");
+  const metadataOutputType = readMetadataField(
+    artifact.metadata,
+    "output_type"
+  );
   if (
     typeof metadataOutputType === "string" &&
     [
@@ -108,7 +115,9 @@ export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
 export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   const toolType = mapArtifactToToolType(artifact);
   const titlePrefix = TOOL_TITLE_MAP[toolType];
-  const status = normalizeStatus(readMetadataField(artifact.metadata, "status"));
+  const status = normalizeStatus(
+    readMetadataField(artifact.metadata, "status")
+  );
   return {
     artifactId: artifact.id,
     sessionId: artifact.session_id ?? null,
@@ -142,4 +151,3 @@ export function groupArtifactsByTool(
 
   return grouped;
 }
-

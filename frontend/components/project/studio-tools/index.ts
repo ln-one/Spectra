@@ -17,7 +17,10 @@ export { AnimationToolPanel } from "./AnimationToolPanel";
 export { SimulationToolPanel } from "./SimulationToolPanel";
 export type { ToolDraftState, ToolPanelProps, StudioToolKey } from "./types";
 
-export const STUDIO_TOOL_COMPONENTS: Record<StudioToolKey, ComponentType<ToolPanelProps>> = {
+export const STUDIO_TOOL_COMPONENTS: Record<
+  StudioToolKey,
+  ComponentType<ToolPanelProps>
+> = {
   word: WordToolPanel,
   mindmap: MindmapToolPanel,
   outline: GameToolPanel,

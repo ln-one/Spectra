@@ -1,9 +1,11 @@
 import { sdkClient, unwrap, withIdempotency } from "./client";
 import type { components } from "./types";
 
-type ProjectReferencesResponse = components["schemas"]["ProjectReferencesResponse"];
+type ProjectReferencesResponse =
+  components["schemas"]["ProjectReferencesResponse"];
 type ProjectReferenceRequest = components["schemas"]["ProjectReferenceRequest"];
-type ProjectReferenceResponse = components["schemas"]["ProjectReferenceResponse"];
+type ProjectReferenceResponse =
+  components["schemas"]["ProjectReferenceResponse"];
 type ProjectReferenceUpdateRequest =
   components["schemas"]["ProjectReferenceUpdateRequest"];
 type ProjectVersionsResponse = components["schemas"]["ProjectVersionsResponse"];
@@ -16,7 +18,8 @@ type ProjectMemberResponse = components["schemas"]["ProjectMemberResponse"];
 type ProjectMemberRequest = components["schemas"]["ProjectMemberRequest"];
 type ProjectMemberUpdateRequest =
   components["schemas"]["ProjectMemberUpdateRequest"];
-type CandidateChangesResponse = components["schemas"]["CandidateChangesResponse"];
+type CandidateChangesResponse =
+  components["schemas"]["CandidateChangesResponse"];
 type CandidateChangeResponse = components["schemas"]["CandidateChangeResponse"];
 type CandidateChangeRequest = components["schemas"]["CandidateChangeRequest"];
 type CandidateChangeReviewRequest =
@@ -139,9 +142,12 @@ function createMockCandidateChange(
 export const projectSpaceApi = {
   async getReferences(projectId: string): Promise<ProjectReferencesResponse> {
     try {
-      const result = await sdkClient.GET("/api/v1/projects/{project_id}/references", {
-        params: { path: { project_id: projectId } },
-      });
+      const result = await sdkClient.GET(
+        "/api/v1/projects/{project_id}/references",
+        {
+          params: { path: { project_id: projectId } },
+        }
+      );
       return unwrap<ProjectReferencesResponse>(result);
     } catch (error) {
       if (!shouldUseMock(error)) throw error;
@@ -197,7 +203,9 @@ export const projectSpaceApi = {
       const result = await sdkClient.PATCH(
         "/api/v1/projects/{project_id}/references/{reference_id}",
         {
-          params: { path: { project_id: projectId, reference_id: referenceId } },
+          params: {
+            path: { project_id: projectId, reference_id: referenceId },
+          },
           body: data,
         }
       );
@@ -227,7 +235,9 @@ export const projectSpaceApi = {
       const result = await sdkClient.DELETE(
         "/api/v1/projects/{project_id}/references/{reference_id}",
         {
-          params: { path: { project_id: projectId, reference_id: referenceId } },
+          params: {
+            path: { project_id: projectId, reference_id: referenceId },
+          },
         }
       );
       return unwrap<SimpleSuccessResponse>(result);
@@ -243,9 +253,12 @@ export const projectSpaceApi = {
 
   async getVersions(projectId: string): Promise<ProjectVersionsResponse> {
     try {
-      const result = await sdkClient.GET("/api/v1/projects/{project_id}/versions", {
-        params: { path: { project_id: projectId } },
-      });
+      const result = await sdkClient.GET(
+        "/api/v1/projects/{project_id}/versions",
+        {
+          params: { path: { project_id: projectId } },
+        }
+      );
       return unwrap<ProjectVersionsResponse>(result);
     } catch (error) {
       if (!shouldUseMock(error)) throw error;
@@ -297,9 +310,12 @@ export const projectSpaceApi = {
     }
   ): Promise<ArtifactsResponse> {
     try {
-      const result = await sdkClient.GET("/api/v1/projects/{project_id}/artifacts", {
-        params: { path: { project_id: projectId }, query: params },
-      });
+      const result = await sdkClient.GET(
+        "/api/v1/projects/{project_id}/artifacts",
+        {
+          params: { path: { project_id: projectId }, query: params },
+        }
+      );
       return unwrap<ArtifactsResponse>(result);
     } catch (error) {
       if (!shouldUseMock(error)) throw error;
@@ -341,10 +357,13 @@ export const projectSpaceApi = {
     data: ArtifactCreateRequest
   ): Promise<ArtifactResponse> {
     try {
-      const result = await sdkClient.POST("/api/v1/projects/{project_id}/artifacts", {
-        params: { path: { project_id: projectId } },
-        body: data,
-      });
+      const result = await sdkClient.POST(
+        "/api/v1/projects/{project_id}/artifacts",
+        {
+          params: { path: { project_id: projectId } },
+          body: data,
+        }
+      );
       return unwrap<ArtifactResponse>(result);
     } catch (error) {
       if (!shouldUseMock(error)) throw error;
@@ -376,9 +395,12 @@ export const projectSpaceApi = {
 
   async getMembers(projectId: string): Promise<ProjectMembersResponse> {
     try {
-      const result = await sdkClient.GET("/api/v1/projects/{project_id}/members", {
-        params: { path: { project_id: projectId } },
-      });
+      const result = await sdkClient.GET(
+        "/api/v1/projects/{project_id}/members",
+        {
+          params: { path: { project_id: projectId } },
+        }
+      );
       return unwrap<ProjectMembersResponse>(result);
     } catch (error) {
       if (!shouldUseMock(error)) throw error;
@@ -396,11 +418,14 @@ export const projectSpaceApi = {
   ): Promise<ProjectMemberResponse> {
     const headers = withIdempotency({}, true);
     try {
-      const result = await sdkClient.POST("/api/v1/projects/{project_id}/members", {
-        params: { path: { project_id: projectId } },
-        body: data,
-        headers,
-      });
+      const result = await sdkClient.POST(
+        "/api/v1/projects/{project_id}/members",
+        {
+          params: { path: { project_id: projectId } },
+          body: data,
+          headers,
+        }
+      );
       return unwrap<ProjectMemberResponse>(result);
     } catch (error) {
       if (!shouldUseMock(error)) throw error;
@@ -543,4 +568,3 @@ export const projectSpaceApi = {
     }
   },
 };
-

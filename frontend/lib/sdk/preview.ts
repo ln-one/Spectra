@@ -6,7 +6,8 @@ export type ModifyResponse = components["schemas"]["ModifyResponse"];
 export type SlideDetailResponse = components["schemas"]["SlideDetailResponse"];
 export type ExportResponse = components["schemas"]["ExportResponse"];
 
-export type ModifySessionRequest = components["schemas"]["ModifySessionRequest"];
+export type ModifySessionRequest =
+  components["schemas"]["ModifySessionRequest"];
 export type ExportRequest = components["schemas"]["ExportRequest"];
 
 export const previewApi = {

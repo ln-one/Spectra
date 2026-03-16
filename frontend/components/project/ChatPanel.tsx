@@ -296,7 +296,9 @@ function MessageBubble({
                   {citations.map((citation, i) => (
                     <button
                       key={`${citation.chunkId}-${i}`}
-                      onClick={() => focusSourceByChunk(citation.chunkId, projectId)}
+                      onClick={() =>
+                        focusSourceByChunk(citation.chunkId, projectId)
+                      }
                       className="text-[10px] leading-none text-zinc-500 hover:text-zinc-900 transition-colors"
                       aria-label={`引用 ${i + 1}`}
                     >

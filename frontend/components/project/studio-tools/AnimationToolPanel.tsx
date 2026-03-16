@@ -28,15 +28,24 @@ export function AnimationToolPanel({ toolName }: ToolPanelProps) {
       previewDescription="可选分栏显示代码与效果，参数变化即时反映到预览。"
       footer={
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-zinc-500">速度：{speed}% · 轨迹：{showTrail ? "开启" : "关闭"}</span>
-          <Button type="button" size="sm" className="h-8 rounded-lg text-xs" disabled>
+          <span className="text-[11px] text-zinc-500">
+            速度：{speed}% · 轨迹：{showTrail ? "开启" : "关闭"}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 rounded-lg text-xs"
+            disabled
+          >
             应用到真实动画（后续）
           </Button>
         </div>
       }
       preview={
         <div className={splitView ? "grid grid-cols-2 gap-2" : "space-y-2"}>
-          <div className="rounded-lg bg-zinc-900 p-3 text-[11px] text-zinc-100 whitespace-pre-wrap">{codeText}</div>
+          <div className="rounded-lg bg-zinc-900 p-3 text-[11px] text-zinc-100 whitespace-pre-wrap">
+            {codeText}
+          </div>
           <div className="rounded-lg border border-zinc-200 bg-white p-3">
             <p className="text-xs text-zinc-500">预览画布</p>
             <div className="mt-3 h-24 rounded-md bg-gradient-to-r from-zinc-100 to-zinc-200 relative overflow-hidden">

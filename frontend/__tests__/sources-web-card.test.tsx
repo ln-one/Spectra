@@ -44,6 +44,8 @@ describe("SourcesPanel web card", () => {
     render(<SourcesPanel projectId="proj_1" />);
 
     expect(screen.getByTitle(/网页检索（即将上线）/)).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/网页检索并入库/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(/网页检索并入库/)
+    ).not.toBeInTheDocument();
   });
 });

@@ -84,7 +84,9 @@ export function SimulationToolPanel({ toolName }: ToolPanelProps) {
                   {student.name.slice(-1)}
                 </div>
                 <span className="text-xs text-zinc-700">{student.name}</span>
-                <span className="text-[10px] text-zinc-500">[{student.tag}]</span>
+                <span className="text-[10px] text-zinc-500">
+                  [{student.tag}]
+                </span>
               </div>
             ))}
             <div className="rounded-md bg-white border border-zinc-200 p-2 text-xs text-zinc-700">
@@ -104,7 +106,11 @@ export function SimulationToolPanel({ toolName }: ToolPanelProps) {
               size="sm"
               className="h-9 text-xs"
               onClick={() =>
-                setJudgeText(answer.trim() ? "裁判评价：回答结构清晰，可再补充一个反例增强说服力。" : "")
+                setJudgeText(
+                  answer.trim()
+                    ? "裁判评价：回答结构清晰，可再补充一个反例增强说服力。"
+                    : ""
+                )
               }
             >
               提交作答
@@ -120,7 +126,10 @@ export function SimulationToolPanel({ toolName }: ToolPanelProps) {
           {showStrategies ? (
             <div className="space-y-2">
               {visibleStrategies.map((item) => (
-                <div key={item} className="rounded-md border border-violet-300 bg-violet-50 p-2 text-xs text-violet-700">
+                <div
+                  key={item}
+                  className="rounded-md border border-violet-300 bg-violet-50 p-2 text-xs text-violet-700"
+                >
                   {item}
                 </div>
               ))}
