@@ -11,6 +11,11 @@ RAG 评测脚本
     --top-k         检索 top_k（默认 5）
     --output        结果输出路径（默认 eval/results/latest.json）
     --baseline      基线结果路径，用于对比（可选）
+    --api-base-url  可选，走后端 API 模式（如 http://127.0.0.1:8000/api/v1）
+    --api-token     API 模式下可选，Bearer Token
+    --api-email     API 模式下可选，未提供 token 时用 email/password 注册/登录
+    --api-password  API 模式下可选，未提供 token 时与 --api-email 配合
+    --api-username  API 模式下可选，注册时使用（默认 eval_runner_<timestamp>）
 """
 
 import argparse
@@ -21,9 +26,12 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 # 将 backend 目录加入 sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import httpx  # noqa: E402
 
 from eval.metrics import EvalResult, compute_metrics  # noqa: E402
 
@@ -69,6 +77,137 @@ async def run_single_case(
         )
 
 
+def _parse_json_safely(resp: httpx.Response) -> dict[str, Any]:
+    try:
+        payload = resp.json()
+        return payload if isinstance(payload, dict) else {}
+    except Exception:
+        return {}
+
+
+def _short_body(resp: httpx.Response, limit: int = 200) -> str:
+    text = (resp.text or "").replace("\n", " ").strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}..."
+
+
+async def _resolve_api_token(
+    client: httpx.AsyncClient,
+    api_base_url: str,
+    token: str | None,
+    email: str | None,
+    password: str | None,
+    username: str | None,
+) -> str:
+    if token:
+        return token
+
+    if not email or not password:
+        raise ValueError(
+            "API 模式需提供 --api-token，或提供 --api-email + --api-password。"
+        )
+
+    register_payload = {
+        "email": email,
+        "password": password,
+        "username": username or f"eval_runner_{int(time.time())}",
+        "fullName": "D5 Eval Runner",
+    }
+    register = await client.post(f"{api_base_url}/auth/register", json=register_payload)
+    if 200 <= register.status_code < 300:
+        data = _parse_json_safely(register).get("data", {})
+        resolved = data.get("access_token")
+        if resolved:
+            return resolved
+        raise RuntimeError("register 成功但响应缺少 access_token")
+
+    if register.status_code not in (400, 409):
+        raise RuntimeError(
+            f"register 失败: status={register.status_code}, body={_short_body(register)}"
+        )
+
+    login = await client.post(
+        f"{api_base_url}/auth/login",
+        json={"email": email, "password": password},
+    )
+    if not (200 <= login.status_code < 300):
+        raise RuntimeError(
+            f"login 失败: status={login.status_code}, body={_short_body(login)}"
+        )
+
+    data = _parse_json_safely(login).get("data", {})
+    resolved = data.get("access_token")
+    if not resolved:
+        raise RuntimeError("login 成功但响应缺少 access_token")
+    return resolved
+
+
+async def run_single_case_via_api(
+    client: httpx.AsyncClient,
+    api_base_url: str,
+    token: str,
+    case: dict,
+    top_k: int,
+) -> EvalResult:
+    """通过后端 API 执行单条评测用例，避免本地模型环境差异。"""
+    start = time.monotonic()
+    try:
+        resp = await client.post(
+            f"{api_base_url}/rag/search",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "project_id": case["project_id"],
+                "query": case["query"],
+                "top_k": top_k,
+            },
+        )
+        latency_ms = (time.monotonic() - start) * 1000
+        if not (200 <= resp.status_code < 300):
+            return EvalResult(
+                case_id=case["id"],
+                query=case["query"],
+                retrieved_chunk_ids=[],
+                retrieved_contents=[],
+                latency_ms=latency_ms,
+                error=f"HTTP {resp.status_code}: {_short_body(resp)}",
+            )
+
+        payload = _parse_json_safely(resp)
+        data = payload.get("data", {}) if isinstance(payload, dict) else {}
+        raw_results = data.get("results", []) if isinstance(data, dict) else []
+
+        chunk_ids: list[str] = []
+        contents: list[str] = []
+        for item in raw_results:
+            if not isinstance(item, dict):
+                continue
+            cid = item.get("chunk_id")
+            content = item.get("content")
+            if isinstance(cid, str) and cid:
+                chunk_ids.append(cid)
+            if isinstance(content, str) and content:
+                contents.append(content)
+
+        return EvalResult(
+            case_id=case["id"],
+            query=case["query"],
+            retrieved_chunk_ids=chunk_ids,
+            retrieved_contents=contents,
+            latency_ms=latency_ms,
+        )
+    except Exception as e:
+        latency_ms = (time.monotonic() - start) * 1000
+        return EvalResult(
+            case_id=case["id"],
+            query=case["query"],
+            retrieved_chunk_ids=[],
+            retrieved_contents=[],
+            latency_ms=latency_ms,
+            error=str(e),
+        )
+
+
 async def run_eval(
     project_id: str,
     dataset_path: Path,
@@ -76,9 +215,12 @@ async def run_eval(
     output_path: Path,
     baseline_path: Path | None,
     run_tag: str | None = None,
+    api_base_url: str | None = None,
+    api_token: str | None = None,
+    api_email: str | None = None,
+    api_password: str | None = None,
+    api_username: str | None = None,
 ) -> None:
-    from services.rag_service import rag_service
-
     dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
     cases = dataset["cases"]
 
@@ -90,13 +232,40 @@ async def run_eval(
     print("-" * 50)
 
     eval_results: list[EvalResult] = []
-    for i, case in enumerate(cases, 1):
-        result = await run_single_case(rag_service, case, top_k)
-        status = "✗ FAIL" if result.failed else f"✓ {result.latency_ms:.0f}ms"
-        print(f"[{i:2d}/{len(cases)}] {case['id']} {status}")
-        if result.error:
-            print(f"       错误: {result.error}")
-        eval_results.append(result)
+    if api_base_url:
+        normalized_base = api_base_url.rstrip("/")
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            token = await _resolve_api_token(
+                client=client,
+                api_base_url=normalized_base,
+                token=api_token,
+                email=api_email,
+                password=api_password,
+                username=api_username,
+            )
+            for i, case in enumerate(cases, 1):
+                result = await run_single_case_via_api(
+                    client=client,
+                    api_base_url=normalized_base,
+                    token=token,
+                    case=case,
+                    top_k=top_k,
+                )
+                status = "FAIL" if result.failed else f"OK {result.latency_ms:.0f}ms"
+                print(f"[{i:2d}/{len(cases)}] {case['id']} {status}")
+                if result.error:
+                    print(f"       错误: {result.error}")
+                eval_results.append(result)
+    else:
+        from services.rag_service import rag_service
+
+        for i, case in enumerate(cases, 1):
+            result = await run_single_case(rag_service, case, top_k)
+            status = "FAIL" if result.failed else f"OK {result.latency_ms:.0f}ms"
+            print(f"[{i:2d}/{len(cases)}] {case['id']} {status}")
+            if result.error:
+                print(f"       错误: {result.error}")
+            eval_results.append(result)
 
     metrics = compute_metrics(eval_results, cases)
 
@@ -166,6 +335,31 @@ def main() -> None:
     )
     parser.add_argument("--baseline", default=None, help="基线结果路径（可选）")
     parser.add_argument("--tag", default=None, help="运行标签（可选）")
+    parser.add_argument(
+        "--api-base-url",
+        default=None,
+        help="后端 API 基地址（可选），例如 http://127.0.0.1:8000/api/v1",
+    )
+    parser.add_argument(
+        "--api-token",
+        default=None,
+        help="API Bearer Token（可选，提供后不再自动注册/登录）",
+    )
+    parser.add_argument(
+        "--api-email",
+        default=None,
+        help="API 模式邮箱（未提供 token 时用于注册/登录）",
+    )
+    parser.add_argument(
+        "--api-password",
+        default=None,
+        help="API 模式密码（未提供 token 时与 --api-email 配合）",
+    )
+    parser.add_argument(
+        "--api-username",
+        default=None,
+        help="API 模式注册用户名（可选）",
+    )
     args = parser.parse_args()
 
     asyncio.run(
@@ -176,6 +370,11 @@ def main() -> None:
             output_path=Path(args.output),
             baseline_path=Path(args.baseline) if args.baseline else None,
             run_tag=args.tag,
+            api_base_url=args.api_base_url,
+            api_token=args.api_token,
+            api_email=args.api_email,
+            api_password=args.api_password,
+            api_username=args.api_username,
         )
     )
 

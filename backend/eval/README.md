@@ -25,6 +25,13 @@ cd backend
 
 # 与基线对比
 .venv-wsl/bin/python eval/run_eval.py --project-id <id> --baseline eval/baselines/rag-baseline-v1.json
+
+# 通过后端 API 运行评测（推荐 Windows / 远程环境）
+.venv-wsl/bin/python eval/run_eval.py \
+  --project-id <id> \
+  --api-base-url http://127.0.0.1:8000/api/v1 \
+  --api-email eval_runner@example.com \
+  --api-password "StrongPass!2026"
 ```
 
 Windows 环境可将解释器替换为 `venv/Scripts/python.exe`。
