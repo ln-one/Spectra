@@ -20,11 +20,14 @@ export const ragApi = {
     chunkId: string,
     projectId?: string
   ): Promise<SourceDetailResponse> {
+    const params = projectId
+      ? (({
+          path: { chunk_id: chunkId },
+          query: { project_id: projectId },
+        } as unknown) as { path: { chunk_id: string } })
+      : { path: { chunk_id: chunkId } };
     const result = await sdkClient.GET("/api/v1/rag/sources/{chunk_id}", {
-      params: {
-        path: { chunk_id: chunkId },
-        query: projectId ? { project_id: projectId } : undefined,
-      },
+      params,
     });
     return unwrap<SourceDetailResponse>(result);
   },

@@ -14,8 +14,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { ragApi } from "@/lib/sdk/rag";
-import { generateApi } from "@/lib/sdk/generate";
+import { ragApi, generateApi } from "@/lib/sdk";
 import { useProjectStore } from "@/stores/projectStore";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";

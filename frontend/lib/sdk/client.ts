@@ -125,7 +125,21 @@ async function fetchWithAuth(
   }
 
   const authedRequest = new Request(baseRequest, { headers });
-  const response = await fetch(authedRequest);
+  let response: Response;
+  try {
+    response = await fetch(authedRequest);
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown network error";
+    throw new ApiError(
+      "NETWORK_ERROR",
+      `Network request failed: ${authedRequest.method} ${authedRequest.url}`,
+      undefined,
+      { url: authedRequest.url, method: authedRequest.method, cause: errorMessage },
+      true
+    );
+  }
+
   if (response.status === 401 && !shouldSkipAuth(url)) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
