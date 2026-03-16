@@ -82,7 +82,8 @@ export const filesApi = {
   async uploadFile(
     file: File,
     projectId: string,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    sessionId?: string
   ): Promise<UploadResponse> {
     if (file.size > MAX_FILE_SIZE) {
       throw new Error(
@@ -93,6 +94,9 @@ export const filesApi = {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("project_id", projectId);
+      if (sessionId) {
+        formData.append("session_id", sessionId);
+      }
 
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_BASE_URL}/api/v1/files`);
@@ -200,12 +204,13 @@ export const filesApi = {
   async batchUploadFiles(
     files: File[],
     projectId: string,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    sessionId?: string
   ): Promise<components["schemas"]["BatchUploadResponse"]> {
     for (const file of files) {
       if (file.size > MAX_FILE_SIZE) {
         throw new Error(
-          `文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`
+          `文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（400MB）`
         );
       }
     }
@@ -215,6 +220,9 @@ export const filesApi = {
       formData.append("files", file);
     });
     formData.append("project_id", projectId);
+    if (sessionId) {
+      formData.append("session_id", sessionId);
+    }
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();

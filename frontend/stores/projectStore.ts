@@ -233,18 +233,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     try {
       const response = await filesApi.getProjectFiles(projectId);
       if (response?.data?.files) {
-        const currentFiles = get().files;
         set({ files: response.data.files });
 
         let hasPending = false;
         response.data.files.forEach((file) => {
-          if (file.status === "ready") {
-            const oldFile = currentFiles.find((f) => f.id === file.id);
-            if (oldFile && oldFile.status !== "ready") {
-              // Automatically index file for RAG when it becomes ready
-              ragApi.indexFile({ file_id: file.id }).catch(console.error);
-            }
-          } else if (file.status === "parsing" || file.status === "uploading") {
+          if (file.status === "parsing" || file.status === "uploading") {
             hasPending = true;
           }
         });
@@ -291,7 +284,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   uploadFile: async (file: File, projectId: string) => {
     set({ isUploading: true });
     try {
-      await filesApi.uploadFile(file, projectId);
+      const activeSessionId = get().activeSessionId ?? undefined;
+      await filesApi.uploadFile(file, projectId, undefined, activeSessionId);
       await get().fetchFiles(projectId);
     } catch (error) {
       const message = getErrorMessage(error);
