@@ -184,17 +184,17 @@ def _sanitize_cite_tags(content: str, citations: list[dict]) -> str:
         if isinstance(item, dict) and item.get("chunk_id")
     }
     if not valid_ids:
-        return re.sub(r"<cite\s+[^>]*>(?:\s*</cite>)?", "", content)
+        return re.sub(r"<cite\b[^>]*>(?:\s*</cite>)?", "", content)
 
     def _replace_invalid_tag(match: re.Match) -> str:
-        chunk_id = (match.group(1) or "").strip()
-        return match.group(0) if chunk_id in valid_ids else ""
+        tag = match.group(0)
+        chunk_id_match = re.search(r'chunk_id="([^"]+)"', tag)
+        if not chunk_id_match:
+            return ""
+        chunk_id = chunk_id_match.group(1).strip()
+        return tag if chunk_id in valid_ids else ""
 
-    return re.sub(
-        r'<cite\s+[^>]*chunk_id="([^"]+)"[^>]*>(?:\s*</cite>)?',
-        _replace_invalid_tag,
-        content,
-    )
+    return re.sub(r"<cite\b[^>]*>(?:\s*</cite>)?", _replace_invalid_tag, content)
 
 
 def _align_citations_with_content(content: str, citations: list[dict]) -> list[dict]:
@@ -518,13 +518,9 @@ async def send_message(
             response_hash
             or hashlib.sha256(assistant_content.encode("utf-8")).hexdigest()[:16]
         )
-        content_with_citations = _append_citation_markers(assistant_content, citations)
-        content_with_citations = _sanitize_cite_tags(content_with_citations, citations)
-        content_with_citations = _append_citation_markers(
-            content_with_citations, citations
-        )
-        citations = _align_citations_with_content(content_with_citations, citations)
-        assistant_content = content_with_citations
+        assistant_content = _sanitize_cite_tags(assistant_content, citations)
+        assistant_content = _append_citation_markers(assistant_content, citations)
+        citations = _align_citations_with_content(assistant_content, citations)
 
         # 构建可观测 metadata
         observability_metadata = {

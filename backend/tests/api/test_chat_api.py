@@ -260,6 +260,37 @@ def test_send_message_sanitizes_unknown_cite_tag_and_recovers_mapping(
     assert saved_metadata["citations"][0]["chunk_id"] == "chunk-1"
 
 
+def test_send_message_strips_cite_tag_without_chunk_id(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+    _mock(monkeypatch, rag_service, "search", [_fake_rag_result(chunk_id="chunk-1")])
+    _mock(
+        monkeypatch,
+        ai_service,
+        "generate",
+        {"content": '结论如下。<cite filename="notes.pdf"></cite>'},
+    )
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+
+    saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
+    assert '<cite filename="notes.pdf"></cite>' not in saved_assistant_content
+    assert '<cite chunk_id="chunk-1"' in saved_assistant_content
+
+
 def test_send_message_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
     cached = {
         "success": True,
