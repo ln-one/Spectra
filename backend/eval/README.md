@@ -52,6 +52,25 @@ cd backend
   --baseline eval/baselines/rag-baseline-v1.json
 ```
 
+真实项目收口（推荐）：
+
+```bash
+cd backend
+
+# 使用真实项目评测集（基于 docs/project/requirements.md）
+.venv-wsl/bin/python eval/run_eval.py \
+  --project-id <real_project_id> \
+  --dataset eval/dataset_d51_real_project_space.json \
+  --output eval/results/d51_real_project_latest.json \
+  --tag d5.1-real-project
+
+# 冻结真实项目基线
+.venv-wsl/bin/python eval/baseline_manager.py freeze \
+  --result eval/results/d51_real_project_latest.json \
+  --output eval/baselines/rag-baseline-v1.json \
+  --notes "D-5.1 real-project baseline"
+```
+
 默认门禁阈值：
 - `keyword_hit_rate` 最多下降 `3%`
 - `failure_rate` 最多上升 `5%`
