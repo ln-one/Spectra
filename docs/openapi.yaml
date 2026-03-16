@@ -1682,6 +1682,7 @@ components:
           type: string
     SourceReference:
       type: object
+      description: 内容来源引用（用于溯源）
       required:
         - chunk_id
         - source_type
@@ -1689,21 +1690,32 @@ components:
       properties:
         chunk_id:
           type: string
-          description: 来源片段唯一标识，可用于查询来源详情
+          description: 片段唯一标识
         source_type:
           type: string
           enum:
-            - video
             - document
+            - video
+            - audio
             - ai_generated
+          description: 来源类型
         filename:
           type: string
+          description: 源文件名
         page_number:
           type: integer
+          description: 页码（文档场景）
         timestamp:
+          type: number
+          format: float
+          description: 时间戳（视频/音频场景，单位秒）
+        score:
+          type: number
+          format: float
+          description: 检索或重排得分（可选）
+        content_preview:
           type: string
-        preview_text:
-          type: string
+          description: 内容预览片段
     Message:
       type: object
       required:
@@ -2052,7 +2064,7 @@ components:
               type: array
               description: 来源引用（video 场景）
               items:
-                $ref: '#/components/schemas/common_SourceReference'
+                $ref: '#/components/schemas/SourceReference'
         created_at:
           type: string
           format: date-time
@@ -2970,6 +2982,30 @@ components:
           type: integer
           minimum: 1
           description: 防止并发覆盖的版本控制字段
+    preview_SourceReference:
+      type: object
+      required:
+        - chunk_id
+        - source_type
+        - filename
+      properties:
+        chunk_id:
+          type: string
+          description: 来源片段唯一标识，可用于查询来源详情
+        source_type:
+          type: string
+          enum:
+            - video
+            - document
+            - ai_generated
+        filename:
+          type: string
+        page_number:
+          type: integer
+        timestamp:
+          type: string
+        preview_text:
+          type: string
     RegenerateSlideResponse:
       type: object
       required:
@@ -2996,7 +3032,7 @@ components:
                 sources:
                   type: array
                   items:
-                    $ref: '#/components/schemas/SourceReference'
+                    $ref: '#/components/schemas/preview_SourceReference'
                 render_version:
                   type: integer
         message:
@@ -3111,7 +3147,7 @@ components:
         sources:
           type: array
           items:
-            $ref: '#/components/schemas/SourceReference'
+            $ref: '#/components/schemas/preview_SourceReference'
         thumbnail_url:
           type: string
     SlidePlan:
@@ -3138,7 +3174,7 @@ components:
         material_sources:
           type: array
           items:
-            $ref: '#/components/schemas/SourceReference'
+            $ref: '#/components/schemas/preview_SourceReference'
     LessonPlan:
       type: object
       properties:
