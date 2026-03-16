@@ -405,10 +405,19 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hasHydratedHistoryRef = useRef(false);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!messagesEndRef.current) return;
+    const behavior =
+      hasHydratedHistoryRef.current && messages.length > 0 ? "smooth" : "auto";
+    messagesEndRef.current.scrollIntoView({ behavior, block: "end" });
+    hasHydratedHistoryRef.current = messages.length > 0;
   }, [messages]);
+
+  useEffect(() => {
+    hasHydratedHistoryRef.current = false;
+  }, [projectId]);
 
   useEffect(() => {
     if (lastFailedInput) {
@@ -458,7 +467,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
           style={{ height: "52px" }}
         >
-          <div className="flex flex-col justify-center shrink-0 h-full overflow-hidden">
+          <div className="flex flex-col justify-center min-w-0 flex-1">
             <CardTitle className="text-sm font-semibold leading-tight">
               Chat
             </CardTitle>

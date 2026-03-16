@@ -49,16 +49,9 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   handout: Radar,
 };
 
-const TOOL_TITLES: Record<string, string> = {
-  ppt: "课件生成",
-  word: "文档生成",
-  mindmap: "思维导图",
-  outline: "互动游戏",
-  quiz: "随堂小测",
-  summary: "说课助手",
-  animation: "演示动画",
-  handout: "学情预演",
-};
+const TOOL_LABELS: Record<string, string> = Object.fromEntries(
+  GENERATION_TOOLS.map((tool) => [tool.type, tool.name])
+) as Record<string, string>;
 
 const TOOL_COLORS: Record<
   string,
@@ -201,7 +194,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       }}
                     >
                       {isExpanded
-                        ? TOOL_TITLES[expandedTool || "ppt"]
+                        ? TOOL_LABELS[expandedTool || "ppt"]
                         : "Studio"}
                     </motion.span>
                   </CardTitle>
@@ -403,7 +396,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               className="space-y-1.5"
                             >
                               <p className="text-[10px] text-zinc-400 uppercase tracking-wide">
-                                {TOOL_TITLES[toolKey] ?? toolKey}
+                                {TOOL_LABELS[toolKey] ?? toolKey}
                               </p>
                               {items.slice(0, 3).map((item, index) => (
                                 <motion.div
@@ -519,7 +512,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                     ) : ExpandedToolComponent ? (
                       <ExpandedToolComponent
                         toolId={expandedTool as StudioToolKey}
-                        toolName={TOOL_TITLES[expandedTool]}
+                        toolName={TOOL_LABELS[expandedTool] ?? expandedTool}
                       />
                     ) : null}
                   </motion.div>
