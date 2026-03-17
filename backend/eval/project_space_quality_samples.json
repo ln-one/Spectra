@@ -1,0 +1,163 @@
+{
+  "thresholds": {
+    "min_anchor_completeness_rate": 0.95,
+    "min_candidate_payload_completeness_rate": 0.95,
+    "min_capability_loop_pass_rate": 0.9,
+    "min_citation_contract_pass_rate": 0.95,
+    "min_capability_coverage_rate": 1.0
+  },
+  "samples": [
+    {
+      "id": "psq-001",
+      "capability": "ppt",
+      "artifact_id": "art-ppt-1",
+      "based_on_version_id": "ver-ppt-1",
+      "candidate_change_payload": {
+        "artifact_id": "art-ppt-1",
+        "based_on_version_id": "ver-ppt-1",
+        "change_type": "update",
+        "patch": {
+          "title": "力学导入"
+        }
+      },
+      "display_ready": true,
+      "export_ready": true,
+      "history_ready": true,
+      "candidate_change_ready": true,
+      "citation_contract_ok": true
+    },
+    {
+      "id": "psq-002",
+      "capability": "word",
+      "artifact_id": "art-word-1",
+      "based_on_version_id": "ver-word-1",
+      "candidate_change_payload": {
+        "artifact_id": "art-word-1",
+        "based_on_version_id": "ver-word-1",
+        "change_type": "update",
+        "patch": {
+          "sections": 6
+        }
+      },
+      "display_ready": true,
+      "export_ready": true,
+      "history_ready": true,
+      "candidate_change_ready": true,
+      "citation_contract_ok": true
+    },
+    {
+      "id": "psq-003",
+      "capability": "mindmap",
+      "artifact_id": "art-mind-1",
+      "based_on_version_id": "ver-mind-1",
+      "candidate_change_payload": {
+        "artifact_id": "art-mind-1",
+        "based_on_version_id": "ver-mind-1",
+        "change_type": "update",
+        "patch": {
+          "nodes": 12
+        }
+      },
+      "display_ready": true,
+      "export_ready": true,
+      "history_ready": true,
+      "candidate_change_ready": true,
+      "citation_contract_ok": true
+    },
+    {
+      "id": "psq-004",
+      "capability": "outline",
+      "artifact_id": "art-outline-1",
+      "based_on_version_id": "ver-outline-1",
+      "candidate_change_payload": {
+        "artifact_id": "art-outline-1",
+        "based_on_version_id": "ver-outline-1",
+        "change_type": "update",
+        "patch": {
+          "kind": "outline"
+        }
+      },
+      "display_ready": true,
+      "export_ready": true,
+      "history_ready": true,
+      "candidate_change_ready": true,
+      "citation_contract_ok": true
+    },
+    {
+      "id": "psq-005",
+      "capability": "quiz",
+      "artifact_id": "art-quiz-1",
+      "based_on_version_id": "ver-quiz-1",
+      "candidate_change_payload": {
+        "artifact_id": "art-quiz-1",
+        "based_on_version_id": "ver-quiz-1",
+        "change_type": "update",
+        "patch": {
+          "question_count": 10
+        }
+      },
+      "display_ready": true,
+      "export_ready": true,
+      "history_ready": true,
+      "candidate_change_ready": true,
+      "citation_contract_ok": true
+    },
+    {
+      "id": "psq-006",
+      "capability": "summary",
+      "artifact_id": "art-summary-1",
+      "based_on_version_id": "ver-summary-1",
+      "candidate_change_payload": {
+        "artifact_id": "art-summary-1",
+        "based_on_version_id": "ver-summary-1",
+        "change_type": "update",
+        "patch": {
+          "length": "short"
+        }
+      },
+      "display_ready": true,
+      "export_ready": true,
+      "history_ready": true,
+      "candidate_change_ready": true,
+      "citation_contract_ok": true
+    },
+    {
+      "id": "psq-007",
+      "capability": "animation",
+      "artifact_id": "art-anim-1",
+      "based_on_version_id": "ver-anim-1",
+      "candidate_change_payload": {
+        "artifact_id": "art-anim-1",
+        "based_on_version_id": "ver-anim-1",
+        "change_type": "update",
+        "patch": {
+          "kind": "animation_storyboard"
+        }
+      },
+      "display_ready": true,
+      "export_ready": true,
+      "history_ready": true,
+      "candidate_change_ready": true,
+      "citation_contract_ok": true
+    },
+    {
+      "id": "psq-008",
+      "capability": "handout",
+      "artifact_id": "art-handout-1",
+      "based_on_version_id": "ver-handout-1",
+      "candidate_change_payload": {
+        "artifact_id": "art-handout-1",
+        "based_on_version_id": "ver-handout-1",
+        "change_type": "update",
+        "patch": {
+          "kind": "handout"
+        }
+      },
+      "display_ready": true,
+      "export_ready": true,
+      "history_ready": true,
+      "candidate_change_ready": true,
+      "citation_contract_ok": true
+    }
+  ]
+}

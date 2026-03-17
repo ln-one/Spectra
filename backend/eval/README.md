@@ -222,3 +222,22 @@ cd backend
 - `relevance_pass_rate`：排序后的高位结果是否与查询相关
 - `low_quality_reject_rate`：低质量/弱相关资源是否被过滤
 - `citation_ready_rate`：输出是否具备可直接引用字段（`chunk_id/source_type/filename/timestamp`）
+
+## D-PS5 Project Space 质量门禁评测
+
+```bash
+cd backend
+
+# 运行 Project Space 门禁评测（artifact 锚点 / candidate payload / 8 类能力闭环）
+.venv-wsl/bin/python eval/project_space_quality_gate.py \
+  --dataset eval/project_space_quality_samples.json \
+  --output eval/results/project_space_quality_latest.json
+```
+
+评测指标：
+- `artifact_anchor_completeness_rate`：`artifact_id + based_on_version_id` 锚点完整率
+- `candidate_payload_completeness_rate`：`candidate change` payload 必填字段完整率
+- `capability_loop_pass_rate`：能力是否满足“可展示 + 可导出 + 可进历史 + 可提交候选变更”
+- `citation_contract_pass_rate`：引用协议一致性通过率
+- `capability_coverage_rate`：8 类能力覆盖率（`ppt/word/mindmap/outline/quiz/summary/animation/handout`）
+- `gate_passed`：是否通过阈值门禁
