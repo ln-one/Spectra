@@ -275,4 +275,5 @@ cd backend
 - `citation_contract_pass_rate`：引用协议一致性通过率
 - `capability_coverage_rate`：8 类能力覆盖率（`ppt/word/mindmap/outline/quiz/summary/animation/handout`）
 - `capability_artifact_mapping_pass_rate`：能力到 Artifact 映射通过率（含 `outline/animation/handout` 的 `metadata.kind` 校验）
+- `wave1_entry_semantics_pass_rate`：第一波能力入口语义通过率（`ppt/word/outline=session-first`，`summary=artifact-lite`）
 - `gate_passed`：是否通过阈值门禁

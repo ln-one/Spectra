@@ -28,6 +28,7 @@ class Guardrails:
     max_citation_drop: float = 0.02
     max_coverage_drop: float = 0.0
     max_mapping_drop: float = 0.02
+    max_wave1_entry_drop: float = 0.02
 
 
 REQUIRED_METRICS = {
@@ -37,6 +38,7 @@ REQUIRED_METRICS = {
     "citation_contract_pass_rate",
     "capability_coverage_rate",
     "capability_artifact_mapping_pass_rate",
+    "wave1_entry_semantics_pass_rate",
     "gate_passed",
 }
 
@@ -76,6 +78,7 @@ def freeze_baseline(
             "max_citation_drop": guardrails.max_citation_drop,
             "max_coverage_drop": guardrails.max_coverage_drop,
             "max_mapping_drop": guardrails.max_mapping_drop,
+            "max_wave1_entry_drop": guardrails.max_wave1_entry_drop,
         },
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -107,6 +110,9 @@ def check_regression(
         ),
         max_coverage_drop=baseline.get("guardrails", {}).get("max_coverage_drop", 0.0),
         max_mapping_drop=baseline.get("guardrails", {}).get("max_mapping_drop", 0.02),
+        max_wave1_entry_drop=baseline.get("guardrails", {}).get(
+            "max_wave1_entry_drop", 0.02
+        ),
     )
 
     curr_m = current["metrics"]
@@ -155,6 +161,15 @@ def check_regression(
         violations.append(
             "capability_artifact_mapping_pass_rate "
             f"{curr_m['capability_artifact_mapping_pass_rate']:.2%} < 最低允许 {mapping_min:.2%}"
+        )
+
+    wave1_entry_min = (
+        base_m["wave1_entry_semantics_pass_rate"] - g.max_wave1_entry_drop
+    )
+    if curr_m["wave1_entry_semantics_pass_rate"] < wave1_entry_min:
+        violations.append(
+            "wave1_entry_semantics_pass_rate "
+            f"{curr_m['wave1_entry_semantics_pass_rate']:.2%} < 最低允许 {wave1_entry_min:.2%}"
         )
 
     if not bool(curr_m["gate_passed"]):
@@ -207,6 +222,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=0.02,
         help="capability_artifact_mapping_pass_rate 最大允许下降值（默认 0.02）",
     )
+    freeze_parser.add_argument(
+        "--max-wave1-entry-drop",
+        type=float,
+        default=0.02,
+        help="wave1_entry_semantics_pass_rate 最大允许下降值（默认 0.02）",
+    )
 
     check_parser = sub.add_parser("check", help="校验当前结果是否退化")
     check_parser.add_argument("--current", required=True, help="当前结果路径")
@@ -229,6 +250,7 @@ def main() -> int:
                 max_citation_drop=args.max_citation_drop,
                 max_coverage_drop=args.max_coverage_drop,
                 max_mapping_drop=args.max_mapping_drop,
+                max_wave1_entry_drop=args.max_wave1_entry_drop,
             ),
             notes=args.notes,
         )
@@ -237,7 +259,8 @@ def main() -> int:
             "指标快照: "
             f"anchor={payload['metrics']['artifact_anchor_completeness_rate']:.2%}, "
             f"candidate={payload['metrics']['candidate_payload_completeness_rate']:.2%}, "
-            f"mapping={payload['metrics']['capability_artifact_mapping_pass_rate']:.2%}"
+            f"mapping={payload['metrics']['capability_artifact_mapping_pass_rate']:.2%}, "
+            f"wave1_entry={payload['metrics']['wave1_entry_semantics_pass_rate']:.2%}"
         )
         return 0
 

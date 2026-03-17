@@ -17,6 +17,7 @@ def _result_payload(
     citation: float,
     coverage: float,
     mapping: float,
+    wave1_entry: float,
     gate_passed: bool,
 ) -> dict:
     return {
@@ -27,6 +28,7 @@ def _result_payload(
             "citation_contract_pass_rate": citation,
             "capability_coverage_rate": coverage,
             "capability_artifact_mapping_pass_rate": mapping,
+            "wave1_entry_semantics_pass_rate": wave1_entry,
             "gate_passed": gate_passed,
         }
     }
@@ -40,6 +42,7 @@ def test_freeze_baseline_and_check_pass(tmp_path):
         citation=1.0,
         coverage=1.0,
         mapping=1.0,
+        wave1_entry=1.0,
         gate_passed=True,
     )
     current = _result_payload(
@@ -49,6 +52,7 @@ def test_freeze_baseline_and_check_pass(tmp_path):
         citation=0.99,
         coverage=1.0,
         mapping=0.99,
+        wave1_entry=0.99,
         gate_passed=True,
     )
 
@@ -68,6 +72,7 @@ def test_freeze_baseline_and_check_pass(tmp_path):
             max_citation_drop=0.02,
             max_coverage_drop=0.0,
             max_mapping_drop=0.02,
+            max_wave1_entry_drop=0.02,
         ),
         notes="project space baseline",
     )
@@ -88,6 +93,7 @@ def test_check_regression_fail_on_mapping_and_gate(tmp_path):
         citation=1.0,
         coverage=1.0,
         mapping=1.0,
+        wave1_entry=1.0,
         gate_passed=True,
     )
     current = _result_payload(
@@ -97,6 +103,7 @@ def test_check_regression_fail_on_mapping_and_gate(tmp_path):
         citation=0.97,
         coverage=0.9,
         mapping=0.85,
+        wave1_entry=0.85,
         gate_passed=False,
     )
 
@@ -113,6 +120,7 @@ def test_check_regression_fail_on_mapping_and_gate(tmp_path):
                     "max_citation_drop": 0.02,
                     "max_coverage_drop": 0.0,
                     "max_mapping_drop": 0.02,
+                    "max_wave1_entry_drop": 0.02,
                 },
             }
         ),
@@ -126,6 +134,7 @@ def test_check_regression_fail_on_mapping_and_gate(tmp_path):
     )
     assert passed is False
     assert any("capability_artifact_mapping_pass_rate" in item for item in violations)
+    assert any("wave1_entry_semantics_pass_rate" in item for item in violations)
     assert any("gate_passed=false" in item for item in violations)
 
 
