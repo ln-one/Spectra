@@ -569,3 +569,34 @@
         $ref: '../components/responses.yaml#/Forbidden'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
+
+  delete:
+    summary: Delete project member
+    operationId: deleteProjectsByProjectIdMembersByMemberId
+    tags: [Project, Member]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: member_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Delete success
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/SimpleSuccessResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

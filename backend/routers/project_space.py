@@ -10,8 +10,10 @@ import json
 import logging
 from pathlib import Path
 from typing import Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse
 
 from schemas.project_space import (
@@ -19,9 +21,25 @@ from schemas.project_space import (
     ArtifactCreate,
     ArtifactResponse,
     ArtifactsResponse,
+    CandidateChange,
+    CandidateChangeCreate,
+    CandidateChangeResponse,
+    CandidateChangeReview,
+    CandidateChangesResponse,
+    ProjectMember,
+    ProjectMemberCreate,
+    ProjectMemberResponse,
+    ProjectMembersResponse,
+    ProjectMemberUpdate,
+    ProjectReference,
+    ProjectReferenceCreate,
+    ProjectReferenceResponse,
+    ProjectReferencesResponse,
+    ProjectReferenceUpdate,
     ProjectVersion,
     ProjectVersionResponse,
     ProjectVersionsResponse,
+    SimpleSuccessResponse,
 )
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
@@ -57,6 +75,50 @@ def _safe_parse_json(value):
             )
             return None
     return None
+
+
+def _to_project_reference_model(reference) -> ProjectReference:
+    return ProjectReference(
+        id=reference.id,
+        project_id=reference.projectId,
+        target_project_id=reference.targetProjectId,
+        relation_type=reference.relationType,
+        mode=reference.mode,
+        pinned_version_id=reference.pinnedVersionId,
+        priority=reference.priority,
+        status=reference.status,
+        created_by=reference.createdBy,
+        created_at=reference.createdAt,
+        updated_at=reference.updatedAt,
+    )
+
+
+def _to_candidate_change_model(change) -> CandidateChange:
+    return CandidateChange(
+        id=change.id,
+        project_id=change.projectId,
+        title=change.title,
+        summary=change.summary,
+        payload=_safe_parse_json(change.payload),
+        session_id=change.sessionId,
+        base_version_id=change.baseVersionId,
+        status=change.status,
+        proposer_user_id=change.proposerUserId,
+        created_at=change.createdAt,
+        updated_at=change.updatedAt,
+    )
+
+
+def _to_project_member_model(member) -> ProjectMember:
+    return ProjectMember(
+        id=member.id,
+        project_id=member.projectId,
+        user_id=member.userId,
+        role=member.role,
+        permissions=_safe_parse_json(member.permissions),
+        status=member.status,
+        created_at=member.createdAt,
+    )
 
 
 # ============================================
@@ -466,4 +528,422 @@ async def download_artifact(
 
     except (NotFoundException, Exception) as e:
         logger.error(f"download_artifact error: {e}")
+        raise
+
+
+# ============================================
+# ProjectReference Endpoints
+# ============================================
+
+
+@router.post(
+    "/{project_id}/references",
+    response_model=ProjectReferenceResponse,
+    responses={
+        **COMMON_ERROR_RESPONSES,
+        400: {"description": "Bad Request"},
+        409: {"description": "Conflict"},
+    },
+)
+async def create_project_reference(
+    project_id: str,
+    body: ProjectReferenceCreate,
+    user_id: str = Depends(get_current_user),
+):
+    """创建项目引用"""
+    try:
+        reference = await project_space_service.create_project_reference(
+            project_id=project_id,
+            user_id=user_id,
+            target_project_id=body.target_project_id,
+            relation_type=body.relation_type,
+            mode=body.mode,
+            pinned_version_id=body.pinned_version_id,
+            priority=body.priority,
+        )
+        return ProjectReferenceResponse(
+            success=True,
+            data={"reference": _to_project_reference_model(reference)},
+            message="创建引用成功",
+        )
+    except Exception as e:
+        logger.error(f"create_project_reference error: {e}")
+        raise
+
+
+@router.get(
+    "/{project_id}/references",
+    response_model=ProjectReferencesResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def get_project_references(
+    project_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """获取项目引用列表"""
+    try:
+        references = await project_space_service.get_project_references(
+            project_id=project_id,
+            user_id=user_id,
+        )
+        return ProjectReferencesResponse(
+            success=True,
+            data={
+                "references": [_to_project_reference_model(ref) for ref in references]
+            },
+            message="获取引用列表成功",
+        )
+
+    except Exception as e:
+        logger.error(f"get_project_references error: {e}")
+        raise
+
+
+@router.patch(
+    "/{project_id}/references/{reference_id}",
+    response_model=ProjectReferenceResponse,
+    responses={**COMMON_ERROR_RESPONSES, 400: {"description": "Bad Request"}},
+)
+async def update_project_reference(
+    project_id: str,
+    reference_id: str,
+    body: ProjectReferenceUpdate,
+    user_id: str = Depends(get_current_user),
+):
+    """更新项目引用"""
+    try:
+        updated_ref = await project_space_service.update_project_reference(
+            project_id=project_id,
+            reference_id=reference_id,
+            user_id=user_id,
+            mode=body.mode,
+            pinned_version_id=body.pinned_version_id,
+            priority=body.priority,
+            status=body.status,
+        )
+
+        return ProjectReferenceResponse(
+            success=True,
+            data={"reference": _to_project_reference_model(updated_ref)},
+            message="更新引用成功",
+        )
+
+    except Exception as e:
+        logger.error(f"update_project_reference error: {e}")
+        raise
+
+
+@router.delete(
+    "/{project_id}/references/{reference_id}",
+    response_model=SimpleSuccessResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def delete_project_reference(
+    project_id: str,
+    reference_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """删除项目引用"""
+    try:
+        await project_space_service.delete_project_reference(
+            project_id=project_id,
+            reference_id=reference_id,
+            user_id=user_id,
+        )
+        return SimpleSuccessResponse(
+            success=True,
+            data={},
+            message="删除引用成功",
+        )
+
+    except Exception as e:
+        logger.error(f"delete_project_reference error: {e}")
+        raise
+
+
+# ============================================
+# CandidateChange Endpoints
+# ============================================
+
+
+@router.post(
+    "/{project_id}/candidate-changes",
+    response_model=CandidateChangeResponse,
+    responses={
+        **COMMON_ERROR_RESPONSES,
+        400: {"description": "Bad Request"},
+        409: {"description": "Conflict"},
+    },
+)
+async def create_candidate_change(
+    project_id: str,
+    body: CandidateChangeCreate,
+    user_id: str = Depends(get_current_user),
+):
+    """提交候选变更"""
+    try:
+        change = await project_space_service.create_candidate_change(
+            project_id=project_id,
+            user_id=user_id,
+            title=body.title,
+            summary=body.summary,
+            payload=body.payload,
+            session_id=body.session_id,
+            base_version_id=body.base_version_id,
+        )
+
+        return CandidateChangeResponse(
+            success=True,
+            data={"change": _to_candidate_change_model(change)},
+            message="提交候选变更成功",
+        )
+
+    except Exception as e:
+        logger.error(f"create_candidate_change error: {e}")
+        raise
+
+
+@router.get(
+    "/{project_id}/candidate-changes",
+    response_model=CandidateChangesResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def get_candidate_changes(
+    project_id: str,
+    status: Optional[str] = Query(None, description="Status filter"),
+    proposer_user_id: Optional[str] = Query(
+        None, description="Proposer user ID filter"
+    ),
+    session_id: Optional[str] = Query(None, description="Session ID filter"),
+    user_id: str = Depends(get_current_user),
+):
+    """获取候选变更列表"""
+    try:
+        changes = await project_space_service.get_candidate_changes(
+            project_id=project_id,
+            user_id=user_id,
+            status=status,
+            proposer_user_id=proposer_user_id,
+            session_id=session_id,
+        )
+
+        return CandidateChangesResponse(
+            success=True,
+            data={
+                "changes": [_to_candidate_change_model(change) for change in changes]
+            },
+            message="获取候选变更列表成功",
+        )
+
+    except Exception as e:
+        logger.error(f"get_candidate_changes error: {e}")
+        raise
+
+
+@router.post(
+    "/{project_id}/candidate-changes/{change_id}/review",
+    response_model=CandidateChangeResponse,
+    responses={
+        **COMMON_ERROR_RESPONSES,
+        400: {"description": "Bad Request"},
+        409: {"description": "Conflict"},
+    },
+)
+async def review_candidate_change(
+    project_id: str,
+    change_id: str,
+    body: CandidateChangeReview,
+    user_id: str = Depends(get_current_user),
+):
+    """审核候选变更"""
+    try:
+        # Check permission
+        await project_space_service.check_project_permission(
+            project_id, user_id, "can_manage"
+        )
+
+        # Review change
+        updated_change = await project_space_service.review_candidate_change(
+            project_id=project_id,
+            change_id=change_id,
+            action=body.action,
+            review_comment=body.review_comment,
+            reviewer_user_id=user_id,
+        )
+
+        return CandidateChangeResponse(
+            success=True,
+            data={"change": _to_candidate_change_model(updated_change)},
+            message=f"审核成功: {body.action}",
+        )
+
+    except Exception as e:
+        logger.error(f"review_candidate_change error: {e}")
+        raise
+
+
+# ============================================
+# ProjectMember Endpoints
+# ============================================
+
+
+@router.get(
+    "/{project_id}/members",
+    response_model=ProjectMembersResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def get_project_members(
+    project_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """获取项目成员列表"""
+    try:
+        members = await project_space_service.get_project_members(
+            project_id=project_id,
+            user_id=user_id,
+        )
+        return ProjectMembersResponse(
+            success=True,
+            data={"members": [_to_project_member_model(member) for member in members]},
+            message="获取成员列表成功",
+        )
+
+    except Exception as e:
+        logger.error(f"get_project_members error: {e}")
+        raise
+
+
+@router.post(
+    "/{project_id}/members",
+    response_model=ProjectMemberResponse,
+    responses={**COMMON_ERROR_RESPONSES, 400: {"description": "Bad Request"}},
+)
+async def create_project_member(
+    project_id: str,
+    body: ProjectMemberCreate,
+    user_id: str = Depends(get_current_user),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
+):
+    """添加项目成员"""
+    try:
+        key_str = str(idempotency_key) if idempotency_key else None
+        cache_key = (
+            f"project-space:members:create:{user_id}:{project_id}:"
+            f"{body.user_id}:{key_str}"
+            if key_str
+            else None
+        )
+        if cache_key:
+            cached = await project_space_service.get_idempotency_response(cache_key)
+            if cached:
+                return cached
+
+        permissions_dict = None
+        if body.permissions:
+            permissions_dict = body.permissions.model_dump()
+
+        member = await project_space_service.create_project_member(
+            project_id=project_id,
+            user_id=user_id,
+            target_user_id=body.user_id,
+            role=body.role,
+            permissions=permissions_dict,
+        )
+
+        response_payload = ProjectMemberResponse(
+            success=True,
+            data={"member": _to_project_member_model(member)},
+            message="添加成员成功",
+        )
+        if cache_key:
+            await project_space_service.save_idempotency_response(
+                cache_key, jsonable_encoder(response_payload)
+            )
+        return response_payload
+
+    except Exception as e:
+        logger.error(f"create_project_member error: {e}")
+        raise
+
+
+@router.patch(
+    "/{project_id}/members/{member_id}",
+    response_model=ProjectMemberResponse,
+    responses={**COMMON_ERROR_RESPONSES, 400: {"description": "Bad Request"}},
+)
+async def update_project_member(
+    project_id: str,
+    member_id: str,
+    body: ProjectMemberUpdate,
+    user_id: str = Depends(get_current_user),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
+):
+    """更新项目成员"""
+    try:
+        key_str = str(idempotency_key) if idempotency_key else None
+        cache_key = (
+            f"project-space:members:update:{user_id}:{project_id}:{member_id}:{key_str}"
+            if key_str
+            else None
+        )
+        if cache_key:
+            cached = await project_space_service.get_idempotency_response(cache_key)
+            if cached:
+                return cached
+
+        permissions_dict = None
+        if body.permissions:
+            permissions_dict = body.permissions.model_dump()
+
+        updated_member = await project_space_service.update_project_member(
+            project_id=project_id,
+            member_id=member_id,
+            user_id=user_id,
+            role=body.role,
+            permissions=permissions_dict,
+            status=body.status,
+        )
+
+        response_payload = ProjectMemberResponse(
+            success=True,
+            data={"member": _to_project_member_model(updated_member)},
+            message="更新成员成功",
+        )
+        if cache_key:
+            await project_space_service.save_idempotency_response(
+                cache_key, jsonable_encoder(response_payload)
+            )
+        return response_payload
+
+    except Exception as e:
+        logger.error(f"update_project_member error: {e}")
+        raise
+
+
+@router.delete(
+    "/{project_id}/members/{member_id}",
+    response_model=SimpleSuccessResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def delete_project_member(
+    project_id: str,
+    member_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """删除项目成员"""
+    try:
+        await project_space_service.delete_project_member(
+            project_id=project_id,
+            member_id=member_id,
+            user_id=user_id,
+        )
+
+        return SimpleSuccessResponse(
+            success=True,
+            data={},
+            message="删除成员成功",
+        )
+
+    except Exception as e:
+        logger.error(f"delete_project_member error: {e}")
         raise
