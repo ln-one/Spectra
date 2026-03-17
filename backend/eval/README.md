@@ -226,6 +226,17 @@ cd backend
 .venv-wsl/bin/python eval/network_resource_quality_audit.py \
   --dataset eval/network_resource_samples.json \
   --output eval/results/network_resource_latest.json
+
+# 冻结首版网络资源质量基线
+.venv-wsl/bin/python eval/network_resource_baseline.py freeze \
+  --result eval/results/network_resource_latest.json \
+  --output eval/baselines/network-resource-baseline-v1.json \
+  --notes "D-8.6 network resource baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/network_resource_baseline.py check \
+  --current eval/results/network_resource_latest.json \
+  --baseline eval/baselines/network-resource-baseline-v1.json
 ```
 
 评测指标：
@@ -233,6 +244,7 @@ cd backend
 - `relevance_pass_rate`：排序后的高位结果是否与查询相关
 - `low_quality_reject_rate`：低质量/弱相关资源是否被过滤
 - `citation_ready_rate`：输出是否具备可直接引用字段（`chunk_id/source_type/filename/timestamp`）
+- `gate_passed`：是否通过阈值门禁（支持 `thresholds` 配置）
 
 ## D-PS5 Project Space 质量门禁评测
 
