@@ -163,9 +163,7 @@ def check_regression(
             f"最低允许 {mapping_min:.2%}"
         )
 
-    wave1_entry_min = (
-        base_m["wave1_entry_semantics_pass_rate"] - g.max_wave1_entry_drop
-    )
+    wave1_entry_min = base_m["wave1_entry_semantics_pass_rate"] - g.max_wave1_entry_drop
     if curr_m["wave1_entry_semantics_pass_rate"] < wave1_entry_min:
         violations.append(
             "wave1_entry_semantics_pass_rate "
