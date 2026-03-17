@@ -16,6 +16,15 @@ from .chat import (
     VoiceMessageResponse,
 )
 from .generation import GenerateRequest, GenerateResponse
+from .project_space import (
+    Artifact,
+    ArtifactCreate,
+    ArtifactResponse,
+    ArtifactsResponse,
+    ProjectVersion,
+    ProjectVersionResponse,
+    ProjectVersionsResponse,
+)
 from .projects import ProjectBase, ProjectCreate, ProjectResponse, ProjectUpdate
 
 __all__ = [
@@ -39,6 +48,14 @@ __all__ = [
     "ProjectCreate",
     "ProjectUpdate",
     "ProjectResponse",
+    # Project Space
+    "ProjectVersion",
+    "ProjectVersionResponse",
+    "ProjectVersionsResponse",
+    "Artifact",
+    "ArtifactCreate",
+    "ArtifactResponse",
+    "ArtifactsResponse",
     # Generation
     "GenerateRequest",
     "GenerateResponse",

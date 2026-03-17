@@ -3,6 +3,7 @@ from typing import Optional
 
 from prisma import Prisma
 from schemas.projects import ProjectCreate
+from utils.exceptions import APIException, NotFoundException, ValidationException
 
 
 class DatabaseService:
@@ -34,7 +35,61 @@ class DatabaseService:
         }
         if getattr(project_data, "grade_level", None) is not None:
             data["gradeLevel"] = project_data.grade_level
+
+        # Project Space 扩展字段
+        if getattr(project_data, "visibility", None) is not None:
+            data["visibility"] = project_data.visibility
+        if getattr(project_data, "is_referenceable", None) is not None:
+            data["isReferenceable"] = project_data.is_referenceable
+
         project = await self.db.project.create(data=data)
+
+        # 如果指定了 base_project_id，自动创建 base reference（带回滚保护）
+        base_project_id = getattr(project_data, "base_project_id", None)
+        if base_project_id:
+            try:
+                # 验证 base project 存在
+                base_project = await self.get_project(base_project_id)
+                if not base_project:
+                    raise NotFoundException(
+                        message=f"基底项目不存在: {base_project_id}"
+                    )
+
+                reference_mode = getattr(project_data, "reference_mode", "follow")
+                if reference_mode not in {"follow", "pinned"}:
+                    raise ValidationException(
+                        message="reference_mode 仅支持 follow 或 pinned"
+                    )
+
+                pinned_version_id = None
+                if reference_mode == "pinned":
+                    pinned_version_id = getattr(base_project, "currentVersionId", None)
+                    if not pinned_version_id:
+                        raise ValidationException(
+                            message=(
+                                "reference_mode=pinned 时，"
+                                "基底项目必须存在 current_version_id"
+                            )
+                        )
+
+                await self.create_project_reference(
+                    project_id=project.id,
+                    target_project_id=base_project_id,
+                    relation_type="base",
+                    mode=reference_mode,
+                    pinned_version_id=pinned_version_id,
+                    priority=0,
+                    created_by=user_id,
+                )
+            except APIException:
+                # 回滚：删除刚创建的 project
+                await self.delete_project(project.id)
+                raise
+            except Exception as e:
+                # 回滚：删除刚创建的 project
+                await self.delete_project(project.id)
+                raise ValidationException(message=f"创建基底引用失败: {e}")
+
         return project
 
     async def get_project(self, project_id: str):
@@ -186,11 +241,17 @@ class DatabaseService:
         name: str,
         description: str,
         grade_level: Optional[str] = None,
+        visibility: Optional[str] = None,
+        is_referenceable: Optional[bool] = None,
     ):
-        """Update project name/description/grade_level."""
+        """Update project name/description/grade_level/visibility/is_referenceable."""
         data: dict = {"name": name, "description": description}
         if grade_level is not None:
             data["gradeLevel"] = grade_level
+        if visibility is not None:
+            data["visibility"] = visibility
+        if is_referenceable is not None:
+            data["isReferenceable"] = is_referenceable
         return await self.db.project.update(
             where={"id": project_id},
             data=data,
@@ -579,6 +640,139 @@ class DatabaseService:
                 data={"retryCount": {"increment": 1}},
             )
         return None
+
+    # ============================================
+    # Project Space Methods
+    # ============================================
+
+    # ProjectReference Methods
+    async def create_project_reference(
+        self,
+        project_id: str,
+        target_project_id: str,
+        relation_type: str,
+        mode: str,
+        pinned_version_id: Optional[str],
+        priority: int,
+        created_by: Optional[str],
+    ):
+        """Create a new project reference."""
+        data = {
+            "projectId": project_id,
+            "targetProjectId": target_project_id,
+            "relationType": relation_type,
+            "mode": mode,
+            "priority": priority,
+        }
+        if pinned_version_id:
+            data["pinnedVersionId"] = pinned_version_id
+        if created_by:
+            data["createdBy"] = created_by
+
+        return await self.db.projectreference.create(data=data)
+
+    # ProjectVersion Methods
+    async def get_project_versions(self, project_id: str):
+        """Get all versions for a project, ordered by creation time desc."""
+        return await self.db.projectversion.find_many(
+            where={"projectId": project_id},
+            order={"createdAt": "desc"},
+        )
+
+    async def get_project_version(self, version_id: str):
+        """Get a specific project version by ID."""
+        return await self.db.projectversion.find_unique(where={"id": version_id})
+
+    async def create_project_version(
+        self,
+        project_id: str,
+        parent_version_id: Optional[str],
+        summary: Optional[str],
+        change_type: str,
+        snapshot_data: Optional[dict],
+        created_by: Optional[str],
+    ):
+        """Create a new project version."""
+        data = {
+            "projectId": project_id,
+            "changeType": change_type,
+        }
+        if parent_version_id:
+            data["parentVersionId"] = parent_version_id
+        if summary:
+            data["summary"] = summary
+        if snapshot_data:
+            data["snapshotData"] = json.dumps(snapshot_data)
+        if created_by:
+            data["createdBy"] = created_by
+
+        return await self.db.projectversion.create(data=data)
+
+    async def update_project_current_version(self, project_id: str, version_id: str):
+        """Update project's current version ID."""
+        return await self.db.project.update(
+            where={"id": project_id},
+            data={"currentVersionId": version_id},
+        )
+
+    # Artifact Methods
+    async def get_project_artifacts(
+        self,
+        project_id: str,
+        type_filter: Optional[str] = None,
+        visibility_filter: Optional[str] = None,
+        owner_user_id_filter: Optional[str] = None,
+        based_on_version_id_filter: Optional[str] = None,
+    ):
+        """Get artifacts for a project with optional filters."""
+        where: dict = {"projectId": project_id}
+        if type_filter:
+            where["type"] = type_filter
+        if visibility_filter:
+            where["visibility"] = visibility_filter
+        if owner_user_id_filter:
+            where["ownerUserId"] = owner_user_id_filter
+        if based_on_version_id_filter:
+            where["basedOnVersionId"] = based_on_version_id_filter
+
+        return await self.db.artifact.find_many(
+            where=where,
+            order={"createdAt": "desc"},
+        )
+
+    async def get_artifact(self, artifact_id: str):
+        """Get a specific artifact by ID."""
+        return await self.db.artifact.find_unique(where={"id": artifact_id})
+
+    async def create_artifact(
+        self,
+        project_id: str,
+        artifact_type: str,
+        visibility: str,
+        session_id: Optional[str] = None,
+        based_on_version_id: Optional[str] = None,
+        owner_user_id: Optional[str] = None,
+        storage_path: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ):
+        """Create a new artifact."""
+        data = {
+            "projectId": project_id,
+            "type": artifact_type,
+            "visibility": visibility,
+        }
+        if session_id:
+            data["sessionId"] = session_id
+        if based_on_version_id:
+            data["basedOnVersionId"] = based_on_version_id
+        if owner_user_id:
+            data["ownerUserId"] = owner_user_id
+        if storage_path:
+            data["storagePath"] = storage_path
+        if metadata:
+            data["metadata"] = json.dumps(metadata)
+
+        return await self.db.artifact.create(data=data)
 
 
 # Global database service instance
