@@ -9,7 +9,6 @@ import {
   File,
   Trash2,
   Check,
-  Loader2,
   FileVideo,
   Presentation,
   Image,
@@ -26,6 +25,7 @@ import {
   Globe,
 } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
+import { useNotificationStore } from "@/stores/notificationStore";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -183,6 +183,18 @@ function toSeconds(value?: string | number | null): number | null {
   return null;
 }
 
+function getUploadErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return "上传失败";
+}
+
+function normalizeUploadingProgress(progress: number): number {
+  if (!Number.isFinite(progress)) return 5;
+  return Math.max(5, Math.min(95, Math.round(progress)));
+}
+
 function WebSourceCard({ isCompact }: { isCompact: boolean }) {
   const hint = "网页检索（即将上线）\n入口预留中";
 
@@ -229,7 +241,9 @@ function WebSourceCard({ isCompact }: { isCompact: boolean }) {
         <p className="text-xs font-medium text-zinc-800 truncate">
           网页检索（即将上线）
         </p>
-        <p className="text-[10px] text-zinc-500 mt-0.5 truncate">入口预留中</p>
+        <p className="text-[10px] text-zinc-500 mt-0.5 truncate">
+          入口预留中
+        </p>
       </div>
       <div className="flex items-center gap-1.5 pl-1.5 border-l border-blue-100">
         <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
@@ -529,13 +543,14 @@ export function SourcesPanel({
   const {
     files,
     selectedFileIds,
-    isUploading,
     uploadFile,
     deleteFile,
     toggleFileSelection,
     activeSourceDetail,
     clearActiveSource,
   } = useProjectStore();
+  const { addNotification, updateNotification, replaceNotification } =
+    useNotificationStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const horizontalViewportRef = useRef<HTMLDivElement>(null);
@@ -544,6 +559,7 @@ export function SourcesPanel({
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [isCompact, setIsCompact] = useState(false);
   const [isHeaderTight, setIsHeaderTight] = useState(false);
+  const [uploadingTasksCount, setUploadingTasksCount] = useState(0);
   useEffect(() => {
     const checkWidth = () => {
       if (containerRef.current) {
@@ -598,7 +614,7 @@ export function SourcesPanel({
       window.removeEventListener("resize", checkWidth);
       resizeObserver.disconnect();
     };
-  }, [files.length, selectedFileIds.length, isUploading]);
+  }, [files.length, selectedFileIds.length, uploadingTasksCount]);
 
   const focusedFileId = activeSourceDetail?.file_info?.id;
   const focusPayload = useMemo(() => {
@@ -641,17 +657,85 @@ export function SourcesPanel({
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const fileList = e.target.files;
       if (!fileList || fileList.length === 0) return;
+      const selectedFiles = Array.from(fileList);
 
-      for (let i = 0; i < fileList.length; i++) {
-        const file = fileList[i];
-        await uploadFile(file, projectId);
-      }
+      selectedFiles.forEach((file) => {
+        setUploadingTasksCount((count) => count + 1);
+        const notificationId = addNotification({
+          type: "upload",
+          title: file.name,
+          description: "上传中",
+          duration: 0,
+          progress: 5,
+          status: "uploading",
+          meta: {
+            fileName: file.name,
+          },
+        });
+
+        void uploadFile(file, projectId, {
+          onProgress: (progress) => {
+            const displayProgress = normalizeUploadingProgress(progress);
+            updateNotification(notificationId, {
+              progress: displayProgress,
+              status: displayProgress >= 95 ? "parsing" : "uploading",
+              description: displayProgress >= 95 ? "处理中" : "上传中",
+              duration: 0,
+            });
+          },
+        })
+          .then((uploadedFile) => {
+            replaceNotification(notificationId, {
+              type: "upload",
+              title: file.name,
+              description: "解析中",
+              duration: 0,
+              progress: 95,
+              status: "parsing",
+              meta: {
+                fileName: file.name,
+                fileId: uploadedFile?.id,
+              },
+            });
+
+            window.setTimeout(() => {
+              replaceNotification(notificationId, {
+                type: "success",
+                title: file.name,
+                description: "上传成功",
+                duration: 3000,
+                progress: 100,
+                status: "success",
+                meta: {
+                  fileName: file.name,
+                  fileId: uploadedFile?.id,
+                },
+              });
+            }, 450);
+          })
+          .catch((error) => {
+            replaceNotification(notificationId, {
+              type: "error",
+              title: file.name,
+              description: getUploadErrorMessage(error),
+              duration: 6000,
+              progress: 95,
+              status: "failed",
+              meta: {
+                fileName: file.name,
+              },
+            });
+          })
+          .finally(() => {
+            setUploadingTasksCount((count) => Math.max(0, count - 1));
+          });
+      });
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     },
-    [projectId, uploadFile]
+    [addNotification, projectId, replaceNotification, updateNotification, uploadFile]
   );
 
   const handleDelete = useCallback(
@@ -697,26 +781,18 @@ export function SourcesPanel({
                   multiple
                   accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mov,.avi,.mp3,.wav,.jpg,.png"
                   onChange={handleFileSelect}
-                  disabled={isUploading}
                   className="hidden"
                 />
                 <Button
                   size="sm"
-                  disabled={isUploading}
-                  aria-label={isUploading ? "上传中" : "上传"}
+                  aria-label="上传"
                   className={cn(
                     "w-7 h-7 px-0 rounded-full transition-all",
-                    isUploading
-                      ? "bg-zinc-100 text-zinc-400"
-                      : "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
+                    "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
                   )}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  {isUploading ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Upload className="w-3 h-3" />
-                  )}
+                  <Upload className="w-3 h-3" />
                 </Button>
               </label>
             </div>
@@ -728,7 +804,11 @@ export function SourcesPanel({
                     Sources
                   </CardTitle>
                   <CardDescription className="text-xs text-zinc-500 leading-tight truncate">
-                    {`${files.length} 个文件 · ${selectedFileIds.length} 已选`}
+                    {`${files.length} 个文件 · ${selectedFileIds.length} 已选${
+                      uploadingTasksCount > 0
+                        ? ` · 上传中 ${uploadingTasksCount} 个`
+                        : ""
+                    }`}
                   </CardDescription>
                 </div>
               ) : (
@@ -779,28 +859,20 @@ export function SourcesPanel({
                     multiple
                     accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mov,.avi,.mp3,.wav,.jpg,.png"
                     onChange={handleFileSelect}
-                    disabled={isUploading}
                     className="hidden"
                   />
                   <Button
                     size="sm"
-                    disabled={isUploading}
-                    aria-label={isUploading ? "上传中" : "上传"}
+                    aria-label="上传"
                     className={cn(
                       "gap-1.5 rounded-full text-[11px] h-7 transition-all",
                       isHeaderCompact && "w-7 px-0 justify-center",
-                      isUploading
-                        ? "bg-zinc-100 text-zinc-400"
-                        : "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
+                      "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
                     )}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    {isUploading ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Upload className="w-3 h-3" />
-                    )}
-                    {!isHeaderCompact && (isUploading ? "上传中" : "上传")}
+                    <Upload className="w-3 h-3" />
+                    {!isHeaderCompact && "上传"}
                   </Button>
                 </label>
               </div>
@@ -958,3 +1030,5 @@ export function SourcesPanel({
     </div>
   );
 }
+
+

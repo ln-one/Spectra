@@ -148,6 +148,7 @@ interface ProjectState {
   isMessagesLoading: boolean;
   isSending: boolean;
   isUploading: boolean;
+  uploadingCount: number;
   error: ApiErrorShape | null;
 
   fetchProject: (projectId: string) => Promise<void>;
@@ -156,7 +157,11 @@ interface ProjectState {
     projectId: string,
     sessionId?: string | null
   ) => Promise<void>;
-  uploadFile: (file: File, projectId: string) => Promise<void>;
+  uploadFile: (
+    file: File,
+    projectId: string,
+    options?: { onProgress?: (progress: number) => void }
+  ) => Promise<UploadedFile | void>;
   deleteFile: (fileId: string) => Promise<void>;
   toggleFileSelection: (fileId: string) => void;
   sendMessage: (
@@ -205,6 +210,7 @@ const initialState = {
   isMessagesLoading: false,
   isSending: false,
   isUploading: false,
+  uploadingCount: 0,
   error: null,
 };
 
@@ -283,23 +289,36 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       set({ isMessagesLoading: false });
     }
   },
-
-  uploadFile: async (file: File, projectId: string) => {
-    set({ isUploading: true });
+  uploadFile: async (file: File, projectId: string, options) => {
+    set((state) => {
+      const nextUploadingCount = state.uploadingCount + 1;
+      return {
+        uploadingCount: nextUploadingCount,
+        isUploading: nextUploadingCount > 0,
+      };
+    });
     try {
       const activeSessionId = get().activeSessionId ?? undefined;
-      await filesApi.uploadFile(file, projectId, undefined, activeSessionId);
+      const response = await filesApi.uploadFile(
+        file,
+        projectId,
+        options?.onProgress,
+        activeSessionId
+      );
       await get().fetchFiles(projectId);
+      return response?.data?.file;
     } catch (error) {
       const message = getErrorMessage(error);
       set({ error: createApiError({ code: "UPLOAD_FAILED", message }) });
-      toast({
-        title: "文件上传失败",
-        description: message,
-        variant: "destructive",
-      });
+      throw error;
     } finally {
-      set({ isUploading: false });
+      set((state) => {
+        const nextUploadingCount = Math.max(0, state.uploadingCount - 1);
+        return {
+          uploadingCount: nextUploadingCount,
+          isUploading: nextUploadingCount > 0,
+        };
+      });
     }
   },
 
