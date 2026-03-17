@@ -671,6 +671,58 @@ class DatabaseService:
 
         return await self.db.projectreference.create(data=data)
 
+    async def get_project_references(self, project_id: str):
+        """Get all references for a project."""
+        return await self.db.projectreference.find_many(
+            where={"projectId": project_id, "status": "active"},
+            order={"priority": "asc"},
+        )
+
+    async def get_project_reference(self, reference_id: str):
+        """Get a specific project reference by ID."""
+        return await self.db.projectreference.find_unique(where={"id": reference_id})
+
+    async def update_project_reference(
+        self,
+        reference_id: str,
+        mode: Optional[str] = None,
+        pinned_version_id: Optional[str] = None,
+        priority: Optional[int] = None,
+        status: Optional[str] = None,
+    ):
+        """Update a project reference."""
+        data = {}
+        if mode is not None:
+            data["mode"] = mode
+        if pinned_version_id is not None:
+            data["pinnedVersionId"] = pinned_version_id
+        if priority is not None:
+            data["priority"] = priority
+        if status is not None:
+            data["status"] = status
+
+        return await self.db.projectreference.update(
+            where={"id": reference_id},
+            data=data,
+        )
+
+    async def delete_project_reference(self, reference_id: str):
+        """Soft delete a project reference by setting status to disabled."""
+        return await self.db.projectreference.update(
+            where={"id": reference_id},
+            data={"status": "disabled"},
+        )
+
+    async def get_base_reference(self, project_id: str):
+        """Get the base reference for a project."""
+        return await self.db.projectreference.find_first(
+            where={
+                "projectId": project_id,
+                "relationType": "base",
+                "status": "active",
+            }
+        )
+
     # ProjectVersion Methods
     async def get_project_versions(self, project_id: str):
         """Get all versions for a project, ordered by creation time desc."""
@@ -773,6 +825,141 @@ class DatabaseService:
             data["metadata"] = json.dumps(metadata)
 
         return await self.db.artifact.create(data=data)
+
+    # CandidateChange Methods
+    async def get_candidate_changes(
+        self,
+        project_id: str,
+        status: Optional[str] = None,
+        proposer_user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ):
+        """Get candidate changes for a project with optional filters."""
+        where: dict = {"projectId": project_id}
+        if status:
+            where["status"] = status
+        if proposer_user_id:
+            where["proposerUserId"] = proposer_user_id
+        if session_id:
+            where["sessionId"] = session_id
+
+        return await self.db.candidatechange.find_many(
+            where=where,
+            order={"createdAt": "desc"},
+        )
+
+    async def get_candidate_change(self, change_id: str):
+        """Get a specific candidate change by ID."""
+        return await self.db.candidatechange.find_unique(where={"id": change_id})
+
+    async def create_candidate_change(
+        self,
+        project_id: str,
+        title: str,
+        summary: Optional[str],
+        payload: Optional[dict],
+        session_id: Optional[str],
+        base_version_id: Optional[str],
+        proposer_user_id: Optional[str],
+    ):
+        """Create a new candidate change."""
+        data = {
+            "projectId": project_id,
+            "title": title,
+        }
+        if summary:
+            data["summary"] = summary
+        if payload:
+            data["payload"] = json.dumps(payload)
+        if session_id:
+            data["sessionId"] = session_id
+        if base_version_id:
+            data["baseVersionId"] = base_version_id
+        if proposer_user_id:
+            data["proposerUserId"] = proposer_user_id
+
+        return await self.db.candidatechange.create(data=data)
+
+    async def update_candidate_change_status(
+        self,
+        change_id: str,
+        status: str,
+        review_comment: Optional[str] = None,
+    ):
+        """Update candidate change status."""
+        data = {"status": status}
+        if review_comment is not None:
+            data["reviewComment"] = review_comment
+
+        return await self.db.candidatechange.update(
+            where={"id": change_id},
+            data=data,
+        )
+
+    # ProjectMember Methods
+    async def get_project_members(self, project_id: str):
+        """Get all members for a project."""
+        return await self.db.projectmember.find_many(
+            where={"projectId": project_id, "status": "active"},
+            order={"createdAt": "asc"},
+        )
+
+    async def get_project_member(self, member_id: str):
+        """Get a specific project member by ID."""
+        return await self.db.projectmember.find_unique(where={"id": member_id})
+
+    async def get_project_member_by_user(self, project_id: str, user_id: str):
+        """Get a project member by project and user ID."""
+        return await self.db.projectmember.find_first(
+            where={
+                "projectId": project_id,
+                "userId": user_id,
+                "status": "active",
+            }
+        )
+
+    async def create_project_member(
+        self,
+        project_id: str,
+        user_id: str,
+        role: str,
+        permissions: Optional[dict],
+    ):
+        """Create a new project member."""
+        data = {
+            "projectId": project_id,
+            "userId": user_id,
+            "role": role,
+        }
+        if permissions:
+            data["permissions"] = json.dumps(permissions)
+
+        return await self.db.projectmember.create(data=data)
+
+    async def update_project_member(
+        self,
+        member_id: str,
+        role: Optional[str] = None,
+        permissions: Optional[dict] = None,
+        status: Optional[str] = None,
+    ):
+        """Update a project member."""
+        data = {}
+        if role is not None:
+            data["role"] = role
+        if permissions is not None:
+            data["permissions"] = json.dumps(permissions)
+        if status is not None:
+            data["status"] = status
+
+        return await self.db.projectmember.update(
+            where={"id": member_id},
+            data=data,
+        )
+
+    async def delete_project_member(self, member_id: str):
+        """Delete project member."""
+        return await self.db.projectmember.delete(where={"id": member_id})
 
 
 # Global database service instance
