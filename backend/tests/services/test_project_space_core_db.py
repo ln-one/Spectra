@@ -75,3 +75,23 @@ async def test_create_project_with_base_reference_pinned_requires_version(monkey
         await service.create_project(body, user_id="u-1")
 
     delete_project.assert_awaited_once_with("p-new")
+
+
+@pytest.mark.asyncio
+async def test_update_candidate_change_status_persists_review_comment():
+    service = DatabaseService()
+    update_change = AsyncMock(return_value=SimpleNamespace(id="c-001"))
+    service.db = SimpleNamespace(
+        candidatechange=SimpleNamespace(update=update_change),
+    )
+
+    await service.update_candidate_change_status(
+        change_id="c-001",
+        status="accepted",
+        review_comment="looks good",
+    )
+
+    update_change.assert_awaited_once_with(
+        where={"id": "c-001"},
+        data={"status": "accepted", "reviewComment": "looks good"},
+    )
