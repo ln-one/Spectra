@@ -105,9 +105,7 @@ def check_regression(
             "max_candidate_payload_drop", 0.02
         ),
         max_loop_drop=baseline.get("guardrails", {}).get("max_loop_drop", 0.03),
-        max_citation_drop=baseline.get("guardrails", {}).get(
-            "max_citation_drop", 0.02
-        ),
+        max_citation_drop=baseline.get("guardrails", {}).get("max_citation_drop", 0.02),
         max_coverage_drop=baseline.get("guardrails", {}).get("max_coverage_drop", 0.0),
         max_mapping_drop=baseline.get("guardrails", {}).get("max_mapping_drop", 0.02),
         max_wave1_entry_drop=baseline.get("guardrails", {}).get(
@@ -163,9 +161,7 @@ def check_regression(
             f"{curr_m['capability_artifact_mapping_pass_rate']:.2%} < 最低允许 {mapping_min:.2%}"
         )
 
-    wave1_entry_min = (
-        base_m["wave1_entry_semantics_pass_rate"] - g.max_wave1_entry_drop
-    )
+    wave1_entry_min = base_m["wave1_entry_semantics_pass_rate"] - g.max_wave1_entry_drop
     if curr_m["wave1_entry_semantics_pass_rate"] < wave1_entry_min:
         violations.append(
             "wave1_entry_semantics_pass_rate "

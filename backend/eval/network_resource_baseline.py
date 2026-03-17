@@ -97,9 +97,7 @@ def check_regression(
         max_relevance_drop=baseline.get("guardrails", {}).get(
             "max_relevance_drop", 0.03
         ),
-        max_reject_drop=baseline.get("guardrails", {}).get(
-            "max_reject_drop", 0.03
-        ),
+        max_reject_drop=baseline.get("guardrails", {}).get("max_reject_drop", 0.03),
         max_citation_ready_drop=baseline.get("guardrails", {}).get(
             "max_citation_ready_drop", 0.03
         ),

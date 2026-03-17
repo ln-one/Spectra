@@ -122,9 +122,7 @@ def check_regression(
             f"quality_delta {curr_m['quality_delta']:.3f} < 最低允许 {quality_min:.3f}"
         )
 
-    latency_min = (
-        base_m["latency_reduction_rate"] - g.max_latency_reduction_drop
-    )
+    latency_min = base_m["latency_reduction_rate"] - g.max_latency_reduction_drop
     if curr_m["latency_reduction_rate"] < latency_min:
         violations.append(
             "latency_reduction_rate "
@@ -145,10 +143,7 @@ def check_regression(
             f"最大允许 {fallback_max:.2%}"
         )
 
-    if (
-        curr_m["non_degradable_misroute_rate"]
-        > g.max_non_degradable_misroute_rate
-    ):
+    if curr_m["non_degradable_misroute_rate"] > g.max_non_degradable_misroute_rate:
         violations.append(
             "non_degradable_misroute_rate "
             f"{curr_m['non_degradable_misroute_rate']:.2%} > "

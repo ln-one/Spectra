@@ -91,7 +91,9 @@ def check_regression(
         max_readability_drop=baseline.get("guardrails", {}).get(
             "max_readability_drop", 0.03
         ),
-        max_relevance_drop=baseline.get("guardrails", {}).get("max_relevance_drop", 0.03),
+        max_relevance_drop=baseline.get("guardrails", {}).get(
+            "max_relevance_drop", 0.03
+        ),
     )
 
     curr_m = current["metrics"]

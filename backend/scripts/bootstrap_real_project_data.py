@@ -284,9 +284,7 @@ def _resolve_chroma_sqlite(repo_root: Path) -> Optional[Path]:
     return None
 
 
-def _local_verify(
-    repo_root: Path, project_id: str, file_id: str
-) -> dict[str, Any]:
+def _local_verify(repo_root: Path, project_id: str, file_id: str) -> dict[str, Any]:
     result: dict[str, Any] = {
         "db_path": None,
         "project_exists": None,
@@ -303,8 +301,9 @@ def _local_verify(
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
         result["project_exists"] = bool(
-            cur.execute("SELECT COUNT(*) FROM Project WHERE id = ?", (project_id,))
-            .fetchone()[0]
+            cur.execute(
+                "SELECT COUNT(*) FROM Project WHERE id = ?", (project_id,)
+            ).fetchone()[0]
         )
         result["upload_ready"] = bool(
             cur.execute(

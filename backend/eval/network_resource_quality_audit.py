@@ -107,9 +107,7 @@ def compute_metrics(
     min_citation_ready_rate: float = 0.95,
 ) -> NetworkResourceMetrics:
     if not samples:
-        return NetworkResourceMetrics(
-            0, 0.0, 0.0, 0.0, 0.0, False, [], [], [], []
-        )
+        return NetworkResourceMetrics(0, 0.0, 0.0, 0.0, 0.0, False, [], [], [], [])
 
     normalization_pass = 0
     relevance_pass = 0

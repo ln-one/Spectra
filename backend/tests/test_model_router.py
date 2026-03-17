@@ -85,9 +85,7 @@ class TestModelRouterRules:
             }
         task_rows = {row["task"]: row for row in rows}
         assert (
-            task_rows[ModelRouteTask.LESSON_PLAN_REASONING.value][
-                "default_model_tier"
-            ]
+            task_rows[ModelRouteTask.LESSON_PLAN_REASONING.value]["default_model_tier"]
             == "heavy"
         )
         assert task_rows[ModelRouteTask.CHAT_RESPONSE.value]["complexity"] == "adaptive"

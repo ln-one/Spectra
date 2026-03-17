@@ -222,7 +222,9 @@ def compute_metrics(
     hit_rate = hit_pass / hit_total if hit_total > 0 else 0.0
     misquote_rate = misquote_count / misquote_total if misquote_total > 0 else 0.0
     no_hit_notice_rate = no_hit_notice_pass / no_hit_total if no_hit_total > 0 else 0.0
-    contract_consistency_rate = contract_pass / contract_total if contract_total > 0 else 0.0
+    contract_consistency_rate = (
+        contract_pass / contract_total if contract_total > 0 else 0.0
+    )
     session_isolation_rate = (
         session_scope_pass / session_scope_total if session_scope_total > 0 else 0.0
     )
@@ -231,12 +233,16 @@ def compute_metrics(
         hit_rate >= min_hit_rate if hit_total > 0 else True,
         misquote_rate <= max_misquote_rate if misquote_total > 0 else True,
         no_hit_notice_rate >= min_no_hit_notice_rate if no_hit_total > 0 else True,
-        contract_consistency_rate >= min_contract_consistency_rate
-        if contract_total > 0
-        else True,
-        session_isolation_rate >= min_session_isolation_rate
-        if session_scope_total > 0
-        else True,
+        (
+            contract_consistency_rate >= min_contract_consistency_rate
+            if contract_total > 0
+            else True
+        ),
+        (
+            session_isolation_rate >= min_session_isolation_rate
+            if session_scope_total > 0
+            else True
+        ),
     ]
     gate_passed = all(gate_checks)
 

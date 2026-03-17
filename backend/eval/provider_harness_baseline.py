@@ -59,7 +59,9 @@ def _validate_payload(payload: dict, source: Path) -> tuple[str, dict[str, dict]
 
     reports = _reports_by_name(payload, source)
     if baseline_provider not in reports:
-        raise ValueError(f"{source} baseline_provider 不在 reports 中: {baseline_provider}")
+        raise ValueError(
+            f"{source} baseline_provider 不在 reports 中: {baseline_provider}"
+        )
     return baseline_provider, reports
 
 
@@ -141,7 +143,9 @@ def check_regression(
             continue
 
         curr_report = curr_reports[provider_name]
-        provider_drop = hist_report["keyword_hit_rate"] - curr_report["keyword_hit_rate"]
+        provider_drop = (
+            hist_report["keyword_hit_rate"] - curr_report["keyword_hit_rate"]
+        )
         if provider_drop > g.max_provider_keyword_hit_drop:
             violations.append(
                 f"{provider_name} keyword_hit_rate dropped too much: "
@@ -151,7 +155,10 @@ def check_regression(
         curr_regression_delta = (
             curr_base_report["keyword_hit_rate"] - curr_report["keyword_hit_rate"]
         )
-        if provider_name != base_provider_name and curr_regression_delta > g.max_regression_delta:
+        if (
+            provider_name != base_provider_name
+            and curr_regression_delta > g.max_regression_delta
+        ):
             violations.append(
                 f"{provider_name} regression delta too large: "
                 f"{curr_regression_delta:.2%} > {g.max_regression_delta:.2%}"

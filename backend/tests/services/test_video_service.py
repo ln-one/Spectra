@@ -30,11 +30,7 @@ def test_process_video_success_with_mocked_dashscope(monkeypatch):
     fake_response = SimpleNamespace(
         output=SimpleNamespace(
             choices=[
-                {
-                    "message": {
-                        "content": [{"text": "这是可用于课件的关键讲解片段。"}]
-                    }
-                }
+                {"message": {"content": [{"text": "这是可用于课件的关键讲解片段。"}]}}
             ]
         )
     )

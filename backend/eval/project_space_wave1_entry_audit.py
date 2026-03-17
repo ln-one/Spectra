@@ -13,7 +13,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-
 WAVE1_ENTRY_RULES = {
     "ppt": {"route": "session-first"},
     "word": {"route": "session-first"},
