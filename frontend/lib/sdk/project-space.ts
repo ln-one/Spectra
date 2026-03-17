@@ -28,10 +28,6 @@ type SimpleSuccessResponse = components["schemas"]["SimpleSuccessResponse"];
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 
-function shouldUseMock(_error?: unknown): boolean {
-  return MOCK_MODE;
-}
-
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -141,41 +137,27 @@ function createMockCandidateChange(
 
 export const projectSpaceApi = {
   async getReferences(projectId: string): Promise<ProjectReferencesResponse> {
-    try {
-      const result = await sdkClient.GET(
-        "/api/v1/projects/{project_id}/references",
-        {
-          params: { path: { project_id: projectId } },
-        }
-      );
-      return unwrap<ProjectReferencesResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: { references: [createMockReference(projectId)] },
         message: "mock references",
       };
     }
+    const result = await sdkClient.GET(
+      "/api/v1/projects/{project_id}/references",
+      {
+        params: { path: { project_id: projectId } },
+      }
+    );
+    return unwrap<ProjectReferencesResponse>(result);
   },
 
   async createReference(
     projectId: string,
     data: ProjectReferenceRequest
   ): Promise<ProjectReferenceResponse> {
-    const headers = withIdempotency({}, true);
-    try {
-      const result = await sdkClient.POST(
-        "/api/v1/projects/{project_id}/references",
-        {
-          params: { path: { project_id: projectId } },
-          body: data,
-          headers,
-        }
-      );
-      return unwrap<ProjectReferenceResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {
@@ -192,6 +174,16 @@ export const projectSpaceApi = {
         message: "mock create reference",
       };
     }
+    const headers = withIdempotency({}, true);
+    const result = await sdkClient.POST(
+      "/api/v1/projects/{project_id}/references",
+      {
+        params: { path: { project_id: projectId } },
+        body: data,
+        headers,
+      }
+    );
+    return unwrap<ProjectReferenceResponse>(result);
   },
 
   async updateReference(
@@ -199,19 +191,7 @@ export const projectSpaceApi = {
     referenceId: string,
     data: ProjectReferenceUpdateRequest
   ): Promise<ProjectReferenceResponse> {
-    try {
-      const result = await sdkClient.PATCH(
-        "/api/v1/projects/{project_id}/references/{reference_id}",
-        {
-          params: {
-            path: { project_id: projectId, reference_id: referenceId },
-          },
-          body: data,
-        }
-      );
-      return unwrap<ProjectReferenceResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {
@@ -225,43 +205,42 @@ export const projectSpaceApi = {
         message: "mock update reference",
       };
     }
+    const result = await sdkClient.PATCH(
+      "/api/v1/projects/{project_id}/references/{reference_id}",
+      {
+        params: {
+          path: { project_id: projectId, reference_id: referenceId },
+        },
+        body: data,
+      }
+    );
+    return unwrap<ProjectReferenceResponse>(result);
   },
 
   async deleteReference(
     projectId: string,
     referenceId: string
   ): Promise<SimpleSuccessResponse> {
-    try {
-      const result = await sdkClient.DELETE(
-        "/api/v1/projects/{project_id}/references/{reference_id}",
-        {
-          params: {
-            path: { project_id: projectId, reference_id: referenceId },
-          },
-        }
-      );
-      return unwrap<SimpleSuccessResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {},
         message: "mock delete reference",
       };
     }
+    const result = await sdkClient.DELETE(
+      "/api/v1/projects/{project_id}/references/{reference_id}",
+      {
+        params: {
+          path: { project_id: projectId, reference_id: referenceId },
+        },
+      }
+    );
+    return unwrap<SimpleSuccessResponse>(result);
   },
 
   async getVersions(projectId: string): Promise<ProjectVersionsResponse> {
-    try {
-      const result = await sdkClient.GET(
-        "/api/v1/projects/{project_id}/versions",
-        {
-          params: { path: { project_id: projectId } },
-        }
-      );
-      return unwrap<ProjectVersionsResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {
@@ -274,22 +253,20 @@ export const projectSpaceApi = {
         message: "mock versions",
       };
     }
+    const result = await sdkClient.GET(
+      "/api/v1/projects/{project_id}/versions",
+      {
+        params: { path: { project_id: projectId } },
+      }
+    );
+    return unwrap<ProjectVersionsResponse>(result);
   },
 
   async getVersion(
     projectId: string,
     versionId: string
   ): Promise<ProjectVersionResponse> {
-    try {
-      const result = await sdkClient.GET(
-        "/api/v1/projects/{project_id}/versions/{version_id}",
-        {
-          params: { path: { project_id: projectId, version_id: versionId } },
-        }
-      );
-      return unwrap<ProjectVersionResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {
@@ -298,6 +275,13 @@ export const projectSpaceApi = {
         message: "mock version detail",
       };
     }
+    const result = await sdkClient.GET(
+      "/api/v1/projects/{project_id}/versions/{version_id}",
+      {
+        params: { path: { project_id: projectId, version_id: versionId } },
+      }
+    );
+    return unwrap<ProjectVersionResponse>(result);
   },
 
   async getArtifacts(
@@ -309,38 +293,27 @@ export const projectSpaceApi = {
       based_on_version_id?: string;
     }
   ): Promise<ArtifactsResponse> {
-    try {
-      const result = await sdkClient.GET(
-        "/api/v1/projects/{project_id}/artifacts",
-        {
-          params: { path: { project_id: projectId }, query: params },
-        }
-      );
-      return unwrap<ArtifactsResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: { artifacts: createMockArtifacts(projectId) },
         message: "mock artifacts",
       };
     }
+    const result = await sdkClient.GET(
+      "/api/v1/projects/{project_id}/artifacts",
+      {
+        params: { path: { project_id: projectId }, query: params },
+      }
+    );
+    return unwrap<ArtifactsResponse>(result);
   },
 
   async getArtifact(
     projectId: string,
     artifactId: string
   ): Promise<ArtifactResponse> {
-    try {
-      const result = await sdkClient.GET(
-        "/api/v1/projects/{project_id}/artifacts/{artifact_id}",
-        {
-          params: { path: { project_id: projectId, artifact_id: artifactId } },
-        }
-      );
-      return unwrap<ArtifactResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       const hit =
         createMockArtifacts(projectId).find((a) => a.id === artifactId) ??
         createMockArtifacts(projectId)[0];
@@ -350,23 +323,20 @@ export const projectSpaceApi = {
         message: "mock artifact detail",
       };
     }
+    const result = await sdkClient.GET(
+      "/api/v1/projects/{project_id}/artifacts/{artifact_id}",
+      {
+        params: { path: { project_id: projectId, artifact_id: artifactId } },
+      }
+    );
+    return unwrap<ArtifactResponse>(result);
   },
 
   async createArtifact(
     projectId: string,
     data: ArtifactCreateRequest
   ): Promise<ArtifactResponse> {
-    try {
-      const result = await sdkClient.POST(
-        "/api/v1/projects/{project_id}/artifacts",
-        {
-          params: { path: { project_id: projectId } },
-          body: data,
-        }
-      );
-      return unwrap<ArtifactResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {
@@ -391,44 +361,38 @@ export const projectSpaceApi = {
         message: "mock create artifact",
       };
     }
+    const result = await sdkClient.POST(
+      "/api/v1/projects/{project_id}/artifacts",
+      {
+        params: { path: { project_id: projectId } },
+        body: data,
+      }
+    );
+    return unwrap<ArtifactResponse>(result);
   },
 
   async getMembers(projectId: string): Promise<ProjectMembersResponse> {
-    try {
-      const result = await sdkClient.GET(
-        "/api/v1/projects/{project_id}/members",
-        {
-          params: { path: { project_id: projectId } },
-        }
-      );
-      return unwrap<ProjectMembersResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: { members: [createMockMember(projectId)] },
         message: "mock members",
       };
     }
+    const result = await sdkClient.GET(
+      "/api/v1/projects/{project_id}/members",
+      {
+        params: { path: { project_id: projectId } },
+      }
+    );
+    return unwrap<ProjectMembersResponse>(result);
   },
 
   async addMember(
     projectId: string,
     data: ProjectMemberRequest
   ): Promise<ProjectMemberResponse> {
-    const headers = withIdempotency({}, true);
-    try {
-      const result = await sdkClient.POST(
-        "/api/v1/projects/{project_id}/members",
-        {
-          params: { path: { project_id: projectId } },
-          body: data,
-          headers,
-        }
-      );
-      return unwrap<ProjectMemberResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {
@@ -445,6 +409,16 @@ export const projectSpaceApi = {
         message: "mock add member",
       };
     }
+    const headers = withIdempotency({}, true);
+    const result = await sdkClient.POST(
+      "/api/v1/projects/{project_id}/members",
+      {
+        params: { path: { project_id: projectId } },
+        body: data,
+        headers,
+      }
+    );
+    return unwrap<ProjectMemberResponse>(result);
   },
 
   async updateMember(
@@ -452,19 +426,7 @@ export const projectSpaceApi = {
     memberId: string,
     data: ProjectMemberUpdateRequest
   ): Promise<ProjectMemberResponse> {
-    const headers = withIdempotency({}, true);
-    try {
-      const result = await sdkClient.PATCH(
-        "/api/v1/projects/{project_id}/members/{member_id}",
-        {
-          params: { path: { project_id: projectId, member_id: memberId } },
-          body: data,
-          headers,
-        }
-      );
-      return unwrap<ProjectMemberResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {
@@ -478,6 +440,16 @@ export const projectSpaceApi = {
         message: "mock update member",
       };
     }
+    const headers = withIdempotency({}, true);
+    const result = await sdkClient.PATCH(
+      "/api/v1/projects/{project_id}/members/{member_id}",
+      {
+        params: { path: { project_id: projectId, member_id: memberId } },
+        body: data,
+        headers,
+      }
+    );
+    return unwrap<ProjectMemberResponse>(result);
   },
 
   async getCandidateChanges(
@@ -488,39 +460,27 @@ export const projectSpaceApi = {
       session_id?: string;
     }
   ): Promise<CandidateChangesResponse> {
-    try {
-      const result = await sdkClient.GET(
-        "/api/v1/projects/{project_id}/candidate-changes",
-        {
-          params: { path: { project_id: projectId }, query: params },
-        }
-      );
-      return unwrap<CandidateChangesResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: { changes: [createMockCandidateChange(projectId)] },
         message: "mock candidate changes",
       };
     }
+    const result = await sdkClient.GET(
+      "/api/v1/projects/{project_id}/candidate-changes",
+      {
+        params: { path: { project_id: projectId }, query: params },
+      }
+    );
+    return unwrap<CandidateChangesResponse>(result);
   },
 
   async createCandidateChange(
     projectId: string,
     data: CandidateChangeRequest
   ): Promise<CandidateChangeResponse> {
-    try {
-      const result = await sdkClient.POST(
-        "/api/v1/projects/{project_id}/candidate-changes",
-        {
-          params: { path: { project_id: projectId } },
-          body: data,
-        }
-      );
-      return unwrap<CandidateChangeResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {
@@ -535,6 +495,14 @@ export const projectSpaceApi = {
         message: "mock create candidate change",
       };
     }
+    const result = await sdkClient.POST(
+      "/api/v1/projects/{project_id}/candidate-changes",
+      {
+        params: { path: { project_id: projectId } },
+        body: data,
+      }
+    );
+    return unwrap<CandidateChangeResponse>(result);
   },
 
   async reviewCandidateChange(
@@ -542,17 +510,7 @@ export const projectSpaceApi = {
     changeId: string,
     data: CandidateChangeReviewRequest
   ): Promise<CandidateChangeResponse> {
-    try {
-      const result = await sdkClient.POST(
-        "/api/v1/projects/{project_id}/candidate-changes/{change_id}/review",
-        {
-          params: { path: { project_id: projectId, change_id: changeId } },
-          body: data,
-        }
-      );
-      return unwrap<CandidateChangeResponse>(result);
-    } catch (error) {
-      if (!shouldUseMock(error)) throw error;
+    if (MOCK_MODE) {
       return {
         success: true,
         data: {
@@ -566,5 +524,13 @@ export const projectSpaceApi = {
         message: "mock review candidate change",
       };
     }
+    const result = await sdkClient.POST(
+      "/api/v1/projects/{project_id}/candidate-changes/{change_id}/review",
+      {
+        params: { path: { project_id: projectId, change_id: changeId } },
+        body: data,
+      }
+    );
+    return unwrap<CandidateChangeResponse>(result);
   },
 };

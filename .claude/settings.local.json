@@ -22,7 +22,9 @@
       "Bash(black:*)",
       "Bash(dos2unix:*)",
       "Bash(flake8:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(D:/program/Anaconda/python.exe:*)"
     ]
   }
 }

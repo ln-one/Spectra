@@ -44,7 +44,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { components } from "@/lib/types/api";
+import type { components } from "@/lib/sdk/types";
 import { useProjectStore } from "@/stores/projectStore";
 
 type OutlineDocument = components["schemas"]["OutlineDocument"];

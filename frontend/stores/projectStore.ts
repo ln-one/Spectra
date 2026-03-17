@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import type { components } from "@/lib/types/api";
 import type { components as sdkComponents } from "@/lib/sdk/types";
 import {
   projectsApi,
@@ -22,12 +21,12 @@ import {
   type ArtifactHistoryItem,
 } from "@/lib/project-space/artifact-history";
 
-type Project = components["schemas"]["Project"];
-type UploadedFile = components["schemas"]["UploadedFile"];
+type Project = sdkComponents["schemas"]["Project"];
+type UploadedFile = sdkComponents["schemas"]["UploadedFile"];
 type Message = sdkComponents["schemas"]["Message"];
-type OutlineDocument = components["schemas"]["OutlineDocument"];
-type GenerationOptions = components["schemas"]["GenerationOptions"];
-type SessionStatePayload = components["schemas"]["SessionStatePayload"];
+type OutlineDocument = sdkComponents["schemas"]["OutlineDocument"];
+type GenerationOptions = sdkComponents["schemas"]["GenerationOptions"];
+type SessionStatePayload = sdkComponents["schemas"]["SessionStatePayload"];
 type SourceDetailResponse = sdkComponents["schemas"]["SourceDetailResponse"];
 type SourceDetail = SourceDetailResponse["data"];
 type Artifact = sdkComponents["schemas"]["Artifact"];
