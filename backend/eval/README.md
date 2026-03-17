@@ -288,3 +288,19 @@ cd backend
 - `capability_artifact_mapping_pass_rate`：能力到 Artifact 映射通过率（含 `outline/animation/handout` 的 `metadata.kind` 校验）
 - `wave1_entry_semantics_pass_rate`：第一波能力入口语义通过率（`ppt/word/outline=session-first`，`summary=artifact-lite`）
 - `gate_passed`：是否通过阈值门禁
+
+## D-PS4 第一波入口语义审计
+
+```bash
+cd backend
+
+# 审计第一波能力入口语义（session-first vs artifact-lite）
+.venv-wsl/bin/python eval/project_space_wave1_entry_audit.py \
+  --dataset eval/project_space_wave1_entry_samples.json \
+  --output eval/results/project_space_wave1_entry_latest.json
+```
+
+评测指标：
+- `contract_pass_rate`：入口语义契约通过率
+- `gate_passed`：是否通过阈值门禁
+- `failed_sample_ids` / `failed_reasons`：失败样本与原因
