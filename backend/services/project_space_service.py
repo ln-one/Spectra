@@ -243,21 +243,21 @@ class ProjectSpaceService:
     @staticmethod
     def _default_artifact_content(artifact_type: str) -> Dict[str, Any]:
         if artifact_type == "pptx":
-            return {"title": "璇句欢婕旂ず鏂囩", "slides": []}
+            return {"title": "PPT demo", "slides": []}
         if artifact_type == "docx":
-            return {"title": "鏁欏璁蹭箟", "sections": []}
+            return {"title": "Teaching handout", "sections": []}
         if artifact_type == "mindmap":
-            return {"title": "鎬濈淮瀵煎浘", "nodes": []}
+            return {"title": "Mindmap", "nodes": []}
         if artifact_type == "summary":
-            return {"title": "璇剧▼鎬荤粨", "summary": "", "key_points": []}
+            return {"title": "Course summary", "summary": "", "key_points": []}
         if artifact_type == "exercise":
-            return {"title": "练习题", "questions": []}
+            return {"title": "Exercise", "questions": []}
         if artifact_type == "html":
             return {"html": "<html><body>Empty</body></html>"}
         if artifact_type == "gif":
-            return {"title": "动画占位图", "scenes": []}
+            return {"title": "Animation placeholder", "scenes": []}
         if artifact_type == "mp4":
-            return {"title": "瑙嗛鍗犱綅鏂囦欢"}
+            return {"title": "Video placeholder"}
         return {"title": f"{artifact_type} artifact", "data": []}
 
     async def get_project_versions(self, project_id: str):
@@ -584,16 +584,16 @@ class ProjectSpaceService:
         """
         source_project = await self.db.get_project(project_id)
         if not source_project:
-            raise NotFoundException(f"椤圭洰涓嶅瓨鍦? {project_id}")
+            raise NotFoundException(f"Project not found: {project_id}")
 
         # Check if target project exists
         target_project = await self.db.get_project(target_project_id)
         if not target_project:
-            raise NotFoundException(f"鐩爣椤圭洰涓嶅瓨鍦? {target_project_id}")
+            raise NotFoundException(f"Target project not found: {target_project_id}")
 
         # Check if target is referenceable
         if not getattr(target_project, "isReferenceable", True):
-            raise ValidationException(f"鐩爣椤圭洰涓嶅彲琚紩鐢? {target_project_id}")
+            raise ValidationException(f"Target not referenceable: {target_project_id}")
 
         # Default black-box visibility:
         # non-shared projects cannot be referenced across owners.
@@ -607,7 +607,7 @@ class ProjectSpaceService:
             and source_owner_id != target_owner_id
         ):
             raise ForbiddenException(
-                "目标项目为私有黑盒资源，无法跨用户建立引用；请将目标项目设置为 shared。"
+                "Target project is private across owners unless visibility is shared."
             )
 
         # Check base reference uniqueness
@@ -615,25 +615,25 @@ class ProjectSpaceService:
             existing_base = await self.db.get_base_reference(project_id)
             if existing_base:
                 raise ConflictException(
-                    f"椤圭洰宸插瓨鍦ㄤ富鍩哄簳寮曠敤锛屼笉鑳介噸澶嶅垱寤?base 寮曠敤"
+                    "Project already has an active base reference."
                 )
 
         # Check pinned mode requires version
         if mode == "pinned" and not pinned_version_id:
-            raise ValidationException("mode=pinned 鏃跺繀椤绘寚瀹?pinned_version_id")
+            raise ValidationException("mode=pinned requires pinned_version_id")
 
         # Validate pinned version exists
         if pinned_version_id:
             version = await self.db.get_project_version(pinned_version_id)
             if not version or version.projectId != target_project_id:
                 raise ValidationException(
-                    f"pinned_version_id {pinned_version_id} 不存在或不属于目标项目"
+                    f"Invalid pinned_version_id for target project: {pinned_version_id}"
                 )
 
         # Check for DAG cycles
         if await self.check_dag_cycle(project_id, target_project_id):
             raise ConflictException(
-                f"娣诲姞寮曠敤浼氬鑷村惊鐜緷璧? {project_id} -> {target_project_id}"
+                f"Reference would create DAG cycle: {project_id} -> {target_project_id}"
             )
 
     # ============================================
@@ -666,26 +666,26 @@ class ProjectSpaceService:
         # Get candidate change
         change = await self.db.get_candidate_change(change_id)
         if not change:
-            raise NotFoundException(f"鍊欓€夊彉鏇翠笉瀛樺湪: {change_id}")
+            raise NotFoundException(f"Candidate change not found: {change_id}")
         if change.projectId != project_id:
             raise NotFoundException(
                 f"Candidate change {change_id} not found in project {project_id}"
             )
 
         if change.status != "pending":
-            raise ConflictException(f"候选变更状态冲突，当前状态为: {change.status}")
+            raise ConflictException(f"Status conflict: {change.status}")
 
         # Update status
         if action == "accept":
             project = await self.db.get_project(change.projectId)
             if not project:
-                raise NotFoundException(f"项目不存在: {change.projectId}")
+                raise NotFoundException(f"Project not found: {change.projectId}")
 
             current_version_id = getattr(project, "currentVersionId", None)
             base_version_id = getattr(change, "baseVersionId", None)
             if base_version_id != current_version_id:
                 raise ConflictException(
-                    "候选变更基线版本与项目当前版本不一致，无法合入新版本"
+                    "Base version conflicts with current project version."
                 )
 
             # Create new version
@@ -728,7 +728,7 @@ class ProjectSpaceService:
 
         else:
             raise ValidationException(
-                f"鏃犳晥鐨?action: {action}锛屼粎鏀寔 accept/reject"
+                f"Invalid action: {action}. Only accept/reject are supported."
             )
 
     # ============================================
