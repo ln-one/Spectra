@@ -1,0 +1,65 @@
+{
+  "thresholds": {
+    "min_hit_rate": 0.9,
+    "max_misquote_rate": 0.05,
+    "min_no_hit_notice_rate": 0.95,
+    "min_contract_consistency_rate": 0.95,
+    "min_session_isolation_rate": 1.0
+  },
+  "samples": [
+    {
+      "id": "dps3-001",
+      "project_id": "proj-demo",
+      "session_id": "session-a",
+      "query": "总结牛顿第二定律公式",
+      "expected_source_ids": ["chunk-n2-1"],
+      "used_source_ids": ["chunk-n2-1"],
+      "rag_hit": true,
+      "observability_has_rag_context": true,
+      "citations": [
+        {
+          "chunk_id": "chunk-n2-1",
+          "source_type": "document",
+          "filename": "physics.md"
+        }
+      ],
+      "assistant_markdown": "根据资料，牛顿第二定律可写作 F=ma。<cite chunk_id=\"chunk-n2-1\"></cite>",
+      "has_no_hit_notice": false,
+      "source_session_ids": ["session-a"]
+    },
+    {
+      "id": "dps3-002",
+      "project_id": "proj-demo",
+      "session_id": "session-a",
+      "query": "资料里有没有暗反应步骤",
+      "expected_source_ids": [],
+      "used_source_ids": [],
+      "rag_hit": false,
+      "observability_has_rag_context": false,
+      "citations": [],
+      "assistant_markdown": "当前资料未命中该问题，请先补充相关资料后再试。",
+      "has_no_hit_notice": true,
+      "source_session_ids": []
+    },
+    {
+      "id": "dps3-003",
+      "project_id": "proj-demo",
+      "session_id": "session-b",
+      "query": "解释动量守恒的适用条件",
+      "expected_source_ids": ["chunk-momentum-1"],
+      "used_source_ids": ["chunk-momentum-1"],
+      "rag_hit": true,
+      "observability_has_rag_context": true,
+      "citations": [
+        {
+          "chunk_id": "chunk-momentum-1",
+          "source_type": "document",
+          "filename": "mechanics.md"
+        }
+      ],
+      "assistant_markdown": "动量守恒适用于系统所受合外力近似为零的场景。<cite chunk_id=\"chunk-momentum-1\"></cite>",
+      "has_no_hit_notice": false,
+      "source_session_ids": ["session-b"]
+    }
+  ]
+}

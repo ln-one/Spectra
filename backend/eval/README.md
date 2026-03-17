@@ -139,12 +139,20 @@ cd backend
 .venv-wsl/bin/python eval/dialogue_memory_audit.py \
   --dataset eval/dialogue_memory_samples.json \
   --output eval/results/dialogue_memory_latest.json
+
+# 运行 D-PS3 联调样本（session 作用域 + 协议一致性）
+.venv-wsl/bin/python eval/dialogue_memory_audit.py \
+  --dataset eval/dialogue_memory_samples_dps3.json \
+  --output eval/results/dialogue_memory_dps3_latest.json
 ```
 
 评测指标：
 - `hit_rate`：有资料问题中，回答是否命中期望来源
 - `misquote_rate`：回答引用错误来源的比例
 - `no_hit_notice_rate`：无可用资料时是否明确提示“未命中资料”
+- `contract_consistency_rate`：`message.content / citations[] / rag_hit / observability.has_rag_context` 一致率
+- `session_isolation_rate`：资料来源是否严格落在当前 `session_id` 作用域
+- `gate_passed`：是否通过数据集阈值门禁（支持 `thresholds` 配置）
 
 ## D7 大纲流质量评测
 
