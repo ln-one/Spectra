@@ -197,11 +197,11 @@ function WebSourceCard({ isCompact }: { isCompact: boolean }) {
           layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
           duration: 0.12,
         }}
-        className="group relative flex items-center justify-center p-2.5 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-sm"
+        className="group relative flex items-center justify-center p-2.5 rounded-xl hover:bg-white/30 transition-colors"
         style={{ minHeight: "52px" }}
         title={hint}
       >
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white/80 border border-blue-100">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white/50">
           <Globe className="w-4 h-4 text-blue-500" />
         </div>
       </motion.div>
@@ -302,8 +302,8 @@ function FileItem({
         className={cn(
           "group relative flex items-center justify-center p-2.5 rounded-xl cursor-pointer transition-all duration-200 overflow-visible",
           isSelected
-            ? "bg-white shadow-sm border-2 border-zinc-200"
-            : "bg-white hover:bg-zinc-50 shadow-sm hover:shadow-md border border-zinc-100"
+            ? "bg-white/50"
+            : "hover:bg-white/30"
         )}
         style={{ minHeight: "52px" }}
         title={compactHint}

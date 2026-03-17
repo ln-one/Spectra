@@ -24,7 +24,8 @@
       "Bash(flake8:*)",
       "Bash(node:*)",
       "Bash(curl:*)",
-      "Bash(D:/program/Anaconda/python.exe:*)"
+      "Bash(D:/program/Anaconda/python.exe:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

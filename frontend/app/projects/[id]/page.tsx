@@ -28,6 +28,8 @@ const springConfig = {
 
 const PAGE_GAP = 24;
 const PANEL_GAP = 12;
+const HEADER_TO_PANEL_GAP = 0;
+const PANEL_TOP_INSET = 0;
 const MIN_RESIZABLE_PANEL_WIDTH = 85;
 const MIN_EXPANDED_RIGHT_PANEL_WIDTH = 260;
 const COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX = 126;
@@ -70,7 +72,7 @@ export default function ProjectDetailPage() {
   } = useProjectStore();
 
   const [studioWidth, setStudioWidth] = useState(25);
-  const [chatWidth, setChatWidth] = useState(50);
+  const [chatWidth, setChatWidth] = useState(52);
   const [expandedStudioWidth, setExpandedStudioWidth] = useState(70);
   const [expandedChatHeight, setExpandedChatHeight] = useState(50);
   const [panelAreaWidth, setPanelAreaWidth] = useState(0);
@@ -257,7 +259,7 @@ export default function ProjectDetailPage() {
     panelAreaHeight > 0
       ? panelAreaHeight
       : typeof window !== "undefined"
-        ? window.innerHeight - PAGE_GAP * 2
+        ? window.innerHeight - (HEADER_TO_PANEL_GAP + PAGE_GAP)
         : 0;
   const expandedSourcesHeightPx =
     effectivePanelAreaHeight > 0
@@ -321,7 +323,8 @@ export default function ProjectDetailPage() {
     if (!isExpanded) return;
 
     const containerHeight =
-      panelAreaRef.current?.clientHeight ?? window.innerHeight - PAGE_GAP * 2;
+      panelAreaRef.current?.clientHeight ??
+      window.innerHeight - (HEADER_TO_PANEL_GAP + PAGE_GAP);
     const maxChatByCollapsedSources =
       100 -
       ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
@@ -368,7 +371,7 @@ export default function ProjectDetailPage() {
           panelAreaRef.current?.clientWidth ?? window.innerWidth - PAGE_GAP * 2;
         const containerHeight =
           panelAreaRef.current?.clientHeight ??
-          window.innerHeight - PAGE_GAP * 2;
+          window.innerHeight - (HEADER_TO_PANEL_GAP + PAGE_GAP);
         const deltaPercent = (deltaX / containerWidth) * 100;
         const deltaYPercent = (deltaY / containerHeight) * 100;
 
@@ -559,11 +562,16 @@ export default function ProjectDetailPage() {
         onOpenLibrary={() => setIsLibraryOpen(true)}
       />
 
-      <div className="flex-1 min-h-0 relative" style={{ padding: PAGE_GAP }}>
+      <div className="flex-1 min-h-0 relative">
         <motion.div
           ref={panelAreaRef}
-          className="absolute inset-0"
-          style={{ padding: PAGE_GAP }}
+          className="absolute"
+          style={{
+            top: HEADER_TO_PANEL_GAP,
+            right: 0,
+            bottom: 0,
+            left: 0,
+          }}
           initial={false}
         >
           <motion.div
@@ -572,11 +580,11 @@ export default function ProjectDetailPage() {
             initial={false}
             animate={{
               left: PAGE_GAP,
-              top: PAGE_GAP,
+              top: PANEL_TOP_INSET,
               width: isExpanded
                 ? `calc(${expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(${studioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
-              height: `calc(100% - ${PAGE_GAP * 2}px)`,
+              height: `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
             }}
             transition={springConfig}
           >
@@ -586,8 +594,8 @@ export default function ProjectDetailPage() {
           <motion.div
             className="absolute cursor-col-resize z-10"
             style={{
-              top: PAGE_GAP,
-              height: `calc(100% - ${PAGE_GAP * 2}px)`,
+              top: PANEL_TOP_INSET,
+              height: `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
             }}
             initial={false}
             animate={{
@@ -613,13 +621,13 @@ export default function ProjectDetailPage() {
               left: isExpanded
                 ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2}px)`
                 : `calc(${studioWidth}% + ${PANEL_GAP / 2}px)`,
-              top: PAGE_GAP,
+              top: PANEL_TOP_INSET,
               width: isExpanded
                 ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(${chatWidth}% - ${PANEL_GAP}px)`,
               height: isExpanded
-                ? `calc(${expandedChatHeight}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
-                : `calc(100% - ${PAGE_GAP * 2}px)`,
+                ? `calc(${expandedChatHeight}% - ${PANEL_TOP_INSET + PANEL_GAP / 2}px)`
+                : `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
             }}
             transition={springConfig}
           >
@@ -630,8 +638,8 @@ export default function ProjectDetailPage() {
             <motion.div
               className="absolute cursor-col-resize z-10"
               style={{
-                top: PAGE_GAP,
-                height: `calc(100% - ${PAGE_GAP * 2}px)`,
+                top: PANEL_TOP_INSET,
+                height: `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
               }}
               initial={false}
               animate={{
@@ -672,13 +680,13 @@ export default function ProjectDetailPage() {
                 : `calc(${studioWidth + chatWidth}% + ${PANEL_GAP / 2}px)`,
               top: isExpanded
                 ? `calc(${expandedChatHeight}% + ${PANEL_GAP / 2}px)`
-                : PAGE_GAP,
+                : PANEL_TOP_INSET,
               width: isExpanded
                 ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(${sourcesWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
               height: isExpanded
                 ? `calc(${100 - expandedChatHeight}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
-                : `calc(100% - ${PAGE_GAP * 2}px)`,
+                : `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
             }}
             transition={springConfig}
           >

@@ -135,7 +135,9 @@ export default function NewProjectPage() {
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    reference_mode: e.target.value as any,
+                    reference_mode: (e.target as HTMLSelectElement).value as
+                      | "follow"
+                      | "pinned",
                   })
                 }
                 className="w-full px-3 py-2 border rounded-md text-sm"
@@ -155,7 +157,9 @@ export default function NewProjectPage() {
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    visibility: e.target.value as any,
+                    visibility: (e.target as HTMLSelectElement).value as
+                      | "private"
+                      | "shared",
                   })
                 }
                 className="w-full px-3 py-2 border rounded-md text-sm"
