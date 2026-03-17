@@ -176,6 +176,12 @@ class ProjectReferencesResponse(BaseModel):
     message: str = "操作成功"
 
 
+class SimpleSuccessResponse(BaseModel):
+    success: bool = True
+    data: Dict[str, Any] = Field(default_factory=dict)
+    message: str = "操作成功"
+
+
 class CandidateChangeBase(BaseModel):
     title: str
     summary: Optional[str] = None
