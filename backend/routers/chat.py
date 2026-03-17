@@ -51,6 +51,7 @@ async def _verify_project_ownership(project_id: str, user_id: str):
 
 def _to_message(conv) -> dict:
     """Convert Prisma Conversation record to API message payload."""
+    role = getattr(conv, "role", None)
     metadata = getattr(conv, "metadata", None)
     parsed_metadata = {}
     if isinstance(metadata, str):
@@ -63,9 +64,9 @@ def _to_message(conv) -> dict:
 
     citations = parsed_metadata.get("citations")
     if not isinstance(citations, list):
-        citations = None
+        citations = [] if role == "assistant" else None
     content = conv.content
-    if getattr(conv, "role", None) == "assistant":
+    if role == "assistant":
         content = _strip_cite_tags(content)
 
     try:
@@ -83,6 +84,7 @@ def _to_message(conv) -> dict:
             role=conv.role,
             content=content,
             timestamp=conv.createdAt,
+            citations=[] if role == "assistant" else None,
         ).model_dump(mode="json")
 
 
