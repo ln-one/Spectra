@@ -614,9 +614,7 @@ class ProjectSpaceService:
         if relation_type == "base":
             existing_base = await self.db.get_base_reference(project_id)
             if existing_base:
-                raise ConflictException(
-                    "Project already has an active base reference."
-                )
+                raise ConflictException("Project already has an active base reference.")
 
         # Check pinned mode requires version
         if mode == "pinned" and not pinned_version_id:
