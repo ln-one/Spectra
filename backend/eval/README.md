@@ -136,6 +136,29 @@ cd backend
   --baseline eval/baselines/source-quality-baseline-v1.json
 ```
 
+## D1 Provider Harness 基线管理
+
+```bash
+cd backend
+
+# 运行 provider harness（mock 对比）
+.venv-wsl/bin/python eval/provider_harness.py \
+  --sample-pool eval/provider_sample_pool.json \
+  --thresholds eval/provider_thresholds.json \
+  --output eval/results/provider_harness_latest.json
+
+# 冻结首版 provider harness 基线
+.venv-wsl/bin/python eval/provider_harness_baseline.py freeze \
+  --result eval/results/provider_harness_latest.json \
+  --output eval/baselines/provider-harness-baseline-v1.json \
+  --notes "D1 provider harness baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/provider_harness_baseline.py check \
+  --current eval/results/provider_harness_latest.json \
+  --baseline eval/baselines/provider-harness-baseline-v1.json
+```
+
 评测指标：
 - `coverage_rate`：输出是否具备来源
 - `readability_rate`：来源字段是否可读可定位（chunk_id/source_type/filename/page|timestamp）
