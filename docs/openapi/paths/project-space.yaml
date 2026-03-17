@@ -298,6 +298,61 @@
       '404':
         $ref: '../components/responses.yaml#/NotFound'
 
+/api/v1/projects/{project_id}/artifacts/{artifact_id}/download:
+  get:
+    summary: 下载成果文件
+    operationId: getProjectsByProjectIdArtifactsByArtifactIdDownload
+    tags: [Project, Artifact]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: artifact_id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: 文件流
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+          application/json:
+            schema:
+              type: object
+          application/vnd.openxmlformats-officedocument.presentationml.presentation:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+            schema:
+              type: string
+              format: binary
+          text/html:
+            schema:
+              type: string
+          image/gif:
+            schema:
+              type: string
+              format: binary
+          video/mp4:
+            schema:
+              type: string
+              format: binary
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
 /api/v1/projects/{project_id}/candidate-changes:
   post:
     summary: 提交候选变更
