@@ -196,6 +196,17 @@ cd backend
 .venv-wsl/bin/python eval/router_quality_audit.py \
   --dataset eval/router_quality_samples.json \
   --output eval/results/router_quality_latest.json
+
+# 冻结首版路由门禁基线
+.venv-wsl/bin/python eval/router_quality_baseline.py freeze \
+  --result eval/results/router_quality_latest.json \
+  --output eval/baselines/router-quality-baseline-v1.json \
+  --notes "D-8.5 router quality baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/router_quality_baseline.py check \
+  --current eval/results/router_quality_latest.json \
+  --baseline eval/baselines/router-quality-baseline-v1.json
 ```
 
 评测指标：

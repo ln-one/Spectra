@@ -1,0 +1,32 @@
+{
+  "baseline_version": "1",
+  "created_at": "2026-03-17T08:11:07.584562+00:00",
+  "source_result": "eval\\results\\router_quality_latest.json",
+  "notes": "d8.5-router-baseline-v1",
+  "metrics": {
+    "avg_quality_before": 0.9414285714285714,
+    "avg_quality_after": 0.9328571428571429,
+    "avg_latency_before_ms": 1077.142857142857,
+    "avg_latency_after_ms": 831.4285714285714,
+    "avg_cost_before": 0.029857142857142856,
+    "avg_cost_after": 0.02342857142857143,
+    "quality_delta": -0.008571428571428452,
+    "latency_reduction_rate": 0.22811671087533153,
+    "cost_reduction_rate": 0.2153110047846889,
+    "fallback_rate": 0.14285714285714285,
+    "non_degradable_misroute_rate": 0.0,
+    "gate_passed": true,
+    "fallback_ids": [
+      "router-004"
+    ],
+    "failed_non_degradable_ids": [],
+    "failed_quality_ids": []
+  },
+  "guardrails": {
+    "max_quality_delta_drop": 0.02,
+    "max_latency_reduction_drop": 0.05,
+    "max_cost_reduction_drop": 0.05,
+    "max_fallback_rate_increase": 0.1,
+    "max_non_degradable_misroute_rate": 0.0
+  }
+}
