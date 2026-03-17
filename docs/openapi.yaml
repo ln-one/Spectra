@@ -1695,6 +1695,7 @@ components:
           type: string
           enum:
             - document
+            - web
             - video
             - audio
             - ai_generated
@@ -1741,7 +1742,7 @@ components:
           type: array
           description: Structured source citations for assistant responses
           items:
-            $ref: '#/components/schemas/common_SourceReference'
+            $ref: '#/components/schemas/SourceReference'
     GetMessagesResponse:
       type: object
       required:
@@ -1931,10 +1932,15 @@ components:
             message:
               $ref: '#/components/schemas/Message'
               description: Auto-created assistant message
+            rag_hit:
+              type: boolean
+              description: Voice flow currently does not run RAG retrieval; returns false explicitly.
             capability_status:
               allOf:
                 - $ref: '#/components/schemas/CapabilityStatus'
               description: Speech recognition capability status with degradation semantics
+            observability:
+              $ref: '#/components/schemas/ChatObservability'
             suggestions:
               type: array
               items:
@@ -1942,43 +1948,6 @@ components:
               description: Follow-up suggestions
         message:
           type: string
-    common_SourceReference:
-      type: object
-      description: 内容来源引用（用于溯源）
-      required:
-        - chunk_id
-        - source_type
-        - filename
-      properties:
-        chunk_id:
-          type: string
-          description: 片段唯一标识
-        source_type:
-          type: string
-          enum:
-            - document
-            - web
-            - video
-            - audio
-            - ai_generated
-          description: 来源类型
-        filename:
-          type: string
-          description: 源文件名
-        page_number:
-          type: integer
-          description: 页码（文档场景）
-        timestamp:
-          type: number
-          format: float
-          description: 时间戳（视频/音频场景，单位秒）
-        score:
-          type: number
-          format: float
-          description: 检索或重排得分（可选）
-        content_preview:
-          type: string
-          description: 内容预览片段
     UploadedFile:
       type: object
       required:
@@ -3434,7 +3403,7 @@ components:
           type: number
           format: float
         source:
-          $ref: '#/components/schemas/common_SourceReference'
+          $ref: '#/components/schemas/SourceReference'
         metadata:
           type: object
     RAGSearchResponse:
@@ -3474,7 +3443,7 @@ components:
             content:
               type: string
             source:
-              $ref: '#/components/schemas/common_SourceReference'
+              $ref: '#/components/schemas/SourceReference'
             context:
               type: object
               properties:
@@ -3509,7 +3478,7 @@ components:
           additionalProperties: true
         citation:
           allOf:
-            - $ref: '#/components/schemas/common_SourceReference'
+            - $ref: '#/components/schemas/SourceReference'
     WebSearchResponse:
       type: object
       required:
