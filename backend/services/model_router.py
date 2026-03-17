@@ -46,18 +46,22 @@ class RouteDecision:
 class ModelRouter:
     """Task-aware model router (internal orchestration layer only)."""
 
-    _LIGHT_TASKS = {
+    _LIGHT_TASKS = (
         ModelRouteTask.INTENT_CLASSIFICATION.value,
         ModelRouteTask.TITLE_POLISH.value,
         ModelRouteTask.OUTLINE_FORMATTING.value,
         ModelRouteTask.SHORT_TEXT_POLISH.value,
-    }
-    _HEAVY_TASKS = {
+    )
+    _ADAPTIVE_TASKS = (ModelRouteTask.CHAT_RESPONSE.value,)
+    _HEAVY_TASKS = (
         ModelRouteTask.RAG_DEEP_SUMMARY.value,
         ModelRouteTask.LESSON_PLAN_REASONING.value,
         ModelRouteTask.PREVIEW_MODIFICATION.value,
-    }
-    _ADAPTIVE_TASKS = {ModelRouteTask.CHAT_RESPONSE.value}
+    )
+    _TASK_ORDER = _LIGHT_TASKS + _ADAPTIVE_TASKS + _HEAVY_TASKS
+    _LIGHT_TASK_SET = set(_LIGHT_TASKS)
+    _ADAPTIVE_TASK_SET = set(_ADAPTIVE_TASKS)
+    _HEAVY_TASK_SET = set(_HEAVY_TASKS)
 
     def __init__(
         self,
@@ -73,9 +77,46 @@ class ModelRouter:
     @classmethod
     def supported_tasks(cls) -> Iterable[str]:
         """Return all supported route task labels."""
-        return tuple(
-            list(cls._LIGHT_TASKS) + list(cls._HEAVY_TASKS) + list(cls._ADAPTIVE_TASKS)
-        )
+        return cls._TASK_ORDER
+
+    @classmethod
+    def policy_table(cls) -> list[dict]:
+        """Return routing policy table for docs/audit snapshots."""
+        rows: list[dict] = []
+        for task in cls._LIGHT_TASKS:
+            rows.append(
+                {
+                    "task": task,
+                    "complexity": TaskComplexity.LIGHT.value,
+                    "default_model_tier": "light",
+                    "fallback_model_tier": "heavy",
+                    "rule": "lightweight_task",
+                }
+            )
+        for task in cls._ADAPTIVE_TASKS:
+            rows.append(
+                {
+                    "task": task,
+                    "complexity": TaskComplexity.ADAPTIVE.value,
+                    "default_model_tier": "adaptive",
+                    "fallback_model_tier": "heavy",
+                    "rule": (
+                        "chat_with_rag_context | chat_prompt_too_long | "
+                        "chat_lightweight"
+                    ),
+                }
+            )
+        for task in cls._HEAVY_TASKS:
+            rows.append(
+                {
+                    "task": task,
+                    "complexity": TaskComplexity.HEAVY.value,
+                    "default_model_tier": "heavy",
+                    "fallback_model_tier": "heavy",
+                    "rule": "reasoning_or_rag_heavy_task",
+                }
+            )
+        return rows
 
     def route(
         self,
@@ -86,7 +127,7 @@ class ModelRouter:
     ) -> RouteDecision:
         """Choose model by task type and runtime hints."""
         task_value = (task or "").strip()
-        if task_value in self._LIGHT_TASKS:
+        if task_value in self._LIGHT_TASK_SET:
             return RouteDecision(
                 task=task_value,
                 complexity=TaskComplexity.LIGHT.value,
@@ -94,7 +135,7 @@ class ModelRouter:
                 fallback_model=self.heavy_model,
                 reason="lightweight_task",
             )
-        if task_value in self._HEAVY_TASKS:
+        if task_value in self._HEAVY_TASK_SET:
             return RouteDecision(
                 task=task_value,
                 complexity=TaskComplexity.HEAVY.value,
@@ -102,7 +143,7 @@ class ModelRouter:
                 fallback_model=self.heavy_model,
                 reason="reasoning_or_rag_heavy_task",
             )
-        if task_value in self._ADAPTIVE_TASKS:
+        if task_value in self._ADAPTIVE_TASK_SET:
             if has_rag_context:
                 return RouteDecision(
                     task=task_value,

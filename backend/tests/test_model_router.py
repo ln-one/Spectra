@@ -59,6 +59,39 @@ class TestModelRouterRules:
         assert ModelRouteTask.LESSON_PLAN_REASONING.value in tasks
         assert ModelRouteTask.PREVIEW_MODIFICATION.value in tasks
 
+    def test_supported_tasks_keep_stable_order_for_audit_outputs(self):
+        tasks = list(ModelRouter.supported_tasks())
+        assert tasks == [
+            ModelRouteTask.INTENT_CLASSIFICATION.value,
+            ModelRouteTask.TITLE_POLISH.value,
+            ModelRouteTask.OUTLINE_FORMATTING.value,
+            ModelRouteTask.SHORT_TEXT_POLISH.value,
+            ModelRouteTask.CHAT_RESPONSE.value,
+            ModelRouteTask.RAG_DEEP_SUMMARY.value,
+            ModelRouteTask.LESSON_PLAN_REASONING.value,
+            ModelRouteTask.PREVIEW_MODIFICATION.value,
+        ]
+
+    def test_policy_table_contains_required_mapping_fields(self):
+        rows = ModelRouter.policy_table()
+        assert len(rows) == len(tuple(ModelRouter.supported_tasks()))
+        for row in rows:
+            assert set(row.keys()) == {
+                "task",
+                "complexity",
+                "default_model_tier",
+                "fallback_model_tier",
+                "rule",
+            }
+        task_rows = {row["task"]: row for row in rows}
+        assert (
+            task_rows[ModelRouteTask.LESSON_PLAN_REASONING.value][
+                "default_model_tier"
+            ]
+            == "heavy"
+        )
+        assert task_rows[ModelRouteTask.CHAT_RESPONSE.value]["complexity"] == "adaptive"
+
 
 @pytest.mark.asyncio
 async def test_ai_generate_routes_to_small_model(monkeypatch):
