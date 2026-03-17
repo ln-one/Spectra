@@ -4,12 +4,14 @@
     "min_candidate_payload_completeness_rate": 0.95,
     "min_capability_loop_pass_rate": 0.9,
     "min_citation_contract_pass_rate": 0.95,
-    "min_capability_coverage_rate": 1.0
+    "min_capability_coverage_rate": 1.0,
+    "min_capability_artifact_mapping_pass_rate": 0.95
   },
   "samples": [
     {
       "id": "psq-001",
       "capability": "ppt",
+      "artifact_type": "pptx",
       "artifact_id": "art-ppt-1",
       "based_on_version_id": "ver-ppt-1",
       "candidate_change_payload": {
@@ -29,6 +31,7 @@
     {
       "id": "psq-002",
       "capability": "word",
+      "artifact_type": "docx",
       "artifact_id": "art-word-1",
       "based_on_version_id": "ver-word-1",
       "candidate_change_payload": {
@@ -48,6 +51,7 @@
     {
       "id": "psq-003",
       "capability": "mindmap",
+      "artifact_type": "mindmap",
       "artifact_id": "art-mind-1",
       "based_on_version_id": "ver-mind-1",
       "candidate_change_payload": {
@@ -67,6 +71,10 @@
     {
       "id": "psq-004",
       "capability": "outline",
+      "artifact_type": "summary",
+      "metadata": {
+        "kind": "outline"
+      },
       "artifact_id": "art-outline-1",
       "based_on_version_id": "ver-outline-1",
       "candidate_change_payload": {
@@ -86,6 +94,7 @@
     {
       "id": "psq-005",
       "capability": "quiz",
+      "artifact_type": "exercise",
       "artifact_id": "art-quiz-1",
       "based_on_version_id": "ver-quiz-1",
       "candidate_change_payload": {
@@ -105,6 +114,7 @@
     {
       "id": "psq-006",
       "capability": "summary",
+      "artifact_type": "summary",
       "artifact_id": "art-summary-1",
       "based_on_version_id": "ver-summary-1",
       "candidate_change_payload": {
@@ -124,6 +134,10 @@
     {
       "id": "psq-007",
       "capability": "animation",
+      "artifact_type": "html",
+      "metadata": {
+        "kind": "animation_storyboard"
+      },
       "artifact_id": "art-anim-1",
       "based_on_version_id": "ver-anim-1",
       "candidate_change_payload": {
@@ -143,6 +157,10 @@
     {
       "id": "psq-008",
       "capability": "handout",
+      "artifact_type": "docx",
+      "metadata": {
+        "kind": "handout"
+      },
       "artifact_id": "art-handout-1",
       "based_on_version_id": "ver-handout-1",
       "candidate_change_payload": {

@@ -7,6 +7,7 @@ D-PS5 Project Space 质量门禁评测工具。
 3) capability_loop_pass_rate
 4) citation_contract_pass_rate
 5) capability_coverage_rate
+6) capability_artifact_mapping_pass_rate
 """
 
 from __future__ import annotations
@@ -27,6 +28,17 @@ ALL_CAPABILITIES = {
     "handout",
 }
 
+CAPABILITY_ARTIFACT_MAPPING = {
+    "ppt": {"artifact_type": "pptx"},
+    "word": {"artifact_type": "docx"},
+    "mindmap": {"artifact_type": "mindmap"},
+    "outline": {"artifact_type": "summary", "metadata_kind": "outline"},
+    "quiz": {"artifact_type": "exercise"},
+    "summary": {"artifact_type": "summary"},
+    "animation": {"artifact_type": "html", "metadata_kind": "animation_storyboard"},
+    "handout": {"artifact_type": "docx", "metadata_kind": "handout"},
+}
+
 
 @dataclass
 class ProjectSpaceQualityMetrics:
@@ -36,11 +48,13 @@ class ProjectSpaceQualityMetrics:
     capability_loop_pass_rate: float
     citation_contract_pass_rate: float
     capability_coverage_rate: float
+    capability_artifact_mapping_pass_rate: float
     gate_passed: bool
     failed_anchor_ids: list[str]
     failed_candidate_payload_ids: list[str]
     failed_loop_ids: list[str]
     failed_citation_ids: list[str]
+    failed_mapping_ids: list[str]
 
     def summary(self) -> str:
         failed = (
@@ -48,6 +62,7 @@ class ProjectSpaceQualityMetrics:
             + len(self.failed_candidate_payload_ids)
             + len(self.failed_loop_ids)
             + len(self.failed_citation_ids)
+            + len(self.failed_mapping_ids)
         )
         return (
             f"total={self.total_samples}, "
@@ -56,6 +71,7 @@ class ProjectSpaceQualityMetrics:
             f"loop={self.capability_loop_pass_rate:.1%}, "
             f"citation={self.citation_contract_pass_rate:.1%}, "
             f"coverage={self.capability_coverage_rate:.1%}, "
+            f"mapping={self.capability_artifact_mapping_pass_rate:.1%}, "
             f"gate_passed={self.gate_passed}, "
             f"failed={failed}"
         )
@@ -110,6 +126,30 @@ def _capability_loop_pass(sample: dict) -> bool:
     )
 
 
+def _capability_artifact_mapping_pass(sample: dict) -> bool:
+    capability = str(sample.get("capability", "") or "").strip().lower()
+    if not capability:
+        return False
+
+    expected = CAPABILITY_ARTIFACT_MAPPING.get(capability)
+    if not expected:
+        return False
+
+    artifact_type = str(sample.get("artifact_type", "") or "").strip().lower()
+    if artifact_type != expected["artifact_type"]:
+        return False
+
+    expected_kind = expected.get("metadata_kind")
+    if not expected_kind:
+        return True
+
+    metadata = sample.get("metadata")
+    if not isinstance(metadata, dict):
+        return False
+    metadata_kind = str(metadata.get("kind", "") or "").strip().lower()
+    return metadata_kind == expected_kind
+
+
 def compute_metrics(
     samples: list[dict],
     *,
@@ -118,6 +158,7 @@ def compute_metrics(
     min_capability_loop_pass_rate: float = 0.90,
     min_citation_contract_pass_rate: float = 0.95,
     min_capability_coverage_rate: float = 1.0,
+    min_capability_artifact_mapping_pass_rate: float = 0.95,
 ) -> ProjectSpaceQualityMetrics:
     if not samples:
         return ProjectSpaceQualityMetrics(
@@ -127,22 +168,26 @@ def compute_metrics(
             capability_loop_pass_rate=0.0,
             citation_contract_pass_rate=0.0,
             capability_coverage_rate=0.0,
+            capability_artifact_mapping_pass_rate=0.0,
             gate_passed=False,
             failed_anchor_ids=[],
             failed_candidate_payload_ids=[],
             failed_loop_ids=[],
             failed_citation_ids=[],
+            failed_mapping_ids=[],
         )
 
     anchor_pass = 0
     candidate_pass = 0
     loop_pass = 0
     citation_pass = 0
+    mapping_pass = 0
 
     failed_anchor_ids: list[str] = []
     failed_candidate_payload_ids: list[str] = []
     failed_loop_ids: list[str] = []
     failed_citation_ids: list[str] = []
+    failed_mapping_ids: list[str] = []
 
     covered_capabilities: set[str] = set()
 
@@ -173,12 +218,18 @@ def compute_metrics(
         else:
             failed_citation_ids.append(sample_id)
 
+        if _capability_artifact_mapping_pass(sample):
+            mapping_pass += 1
+        else:
+            failed_mapping_ids.append(sample_id)
+
     total = len(samples)
     anchor_rate = anchor_pass / total
     candidate_rate = candidate_pass / total
     loop_rate = loop_pass / total
     citation_rate = citation_pass / total
     coverage_rate = len(covered_capabilities & ALL_CAPABILITIES) / len(ALL_CAPABILITIES)
+    mapping_rate = mapping_pass / total
 
     gate_passed = (
         anchor_rate >= min_anchor_completeness_rate
@@ -186,6 +237,7 @@ def compute_metrics(
         and loop_rate >= min_capability_loop_pass_rate
         and citation_rate >= min_citation_contract_pass_rate
         and coverage_rate >= min_capability_coverage_rate
+        and mapping_rate >= min_capability_artifact_mapping_pass_rate
     )
 
     return ProjectSpaceQualityMetrics(
@@ -195,11 +247,13 @@ def compute_metrics(
         capability_loop_pass_rate=loop_rate,
         citation_contract_pass_rate=citation_rate,
         capability_coverage_rate=coverage_rate,
+        capability_artifact_mapping_pass_rate=mapping_rate,
         gate_passed=gate_passed,
         failed_anchor_ids=failed_anchor_ids,
         failed_candidate_payload_ids=failed_candidate_payload_ids,
         failed_loop_ids=failed_loop_ids,
         failed_citation_ids=failed_citation_ids,
+        failed_mapping_ids=failed_mapping_ids,
     )
 
 
@@ -228,6 +282,9 @@ def run_audit(
         min_capability_coverage_rate=float(
             thresholds.get("min_capability_coverage_rate", 1.0)
         ),
+        min_capability_artifact_mapping_pass_rate=float(
+            thresholds.get("min_capability_artifact_mapping_pass_rate", 0.95)
+        ),
     )
 
     if output_path:
@@ -240,11 +297,15 @@ def run_audit(
                 "capability_loop_pass_rate": metrics.capability_loop_pass_rate,
                 "citation_contract_pass_rate": metrics.citation_contract_pass_rate,
                 "capability_coverage_rate": metrics.capability_coverage_rate,
+                "capability_artifact_mapping_pass_rate": (
+                    metrics.capability_artifact_mapping_pass_rate
+                ),
                 "gate_passed": metrics.gate_passed,
                 "failed_anchor_ids": metrics.failed_anchor_ids,
                 "failed_candidate_payload_ids": metrics.failed_candidate_payload_ids,
                 "failed_loop_ids": metrics.failed_loop_ids,
                 "failed_citation_ids": metrics.failed_citation_ids,
+                "failed_mapping_ids": metrics.failed_mapping_ids,
             },
         }
         output_path.parent.mkdir(parents=True, exist_ok=True)

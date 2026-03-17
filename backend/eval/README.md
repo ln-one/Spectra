@@ -263,4 +263,5 @@ cd backend
 - `capability_loop_pass_rate`：能力是否满足“可展示 + 可导出 + 可进历史 + 可提交候选变更”
 - `citation_contract_pass_rate`：引用协议一致性通过率
 - `capability_coverage_rate`：8 类能力覆盖率（`ppt/word/mindmap/outline/quiz/summary/animation/handout`）
+- `capability_artifact_mapping_pass_rate`：能力到 Artifact 映射通过率（含 `outline/animation/handout` 的 `metadata.kind` 校验）
 - `gate_passed`：是否通过阈值门禁
