@@ -7,6 +7,7 @@ import pytest
 from main import app
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
+from utils.exceptions import ConflictException
 
 _NOW = datetime.now(timezone.utc)
 _USER_ID = "u-ps-001"
@@ -52,6 +53,50 @@ def _fake_version(
         changeType="author-update",
         snapshotData='{"k":"v"}',
         createdBy=_USER_ID,
+        createdAt=_NOW,
+    )
+
+
+def _fake_reference(reference_id: str = "r-001", status: str = "active"):
+    return SimpleNamespace(
+        id=reference_id,
+        projectId=_PROJECT_ID,
+        targetProjectId="p-target-001",
+        relationType="auxiliary",
+        mode="follow",
+        pinnedVersionId=None,
+        priority=0,
+        status=status,
+        createdBy=_USER_ID,
+        createdAt=_NOW,
+        updatedAt=_NOW,
+    )
+
+
+def _fake_change(change_id: str = "c-001", status: str = "pending"):
+    return SimpleNamespace(
+        id=change_id,
+        projectId=_PROJECT_ID,
+        title="candidate change",
+        summary="summary",
+        payload='{"k":"v"}',
+        sessionId="s-001",
+        baseVersionId="v-001",
+        status=status,
+        proposerUserId=_USER_ID,
+        createdAt=_NOW,
+        updatedAt=_NOW,
+    )
+
+
+def _fake_member(member_id: str = "m-001", user_id: str = "u-member-001"):
+    return SimpleNamespace(
+        id=member_id,
+        projectId=_PROJECT_ID,
+        userId=user_id,
+        role="editor",
+        permissions='{"can_view": true, "can_collaborate": true}',
+        status="active",
         createdAt=_NOW,
     )
 
@@ -292,3 +337,183 @@ def test_download_artifact_mp4_success(client, monkeypatch, tmp_path, _as_user):
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("video/mp4")
     assert "a-mp4-001.mp4" in resp.headers.get("content-disposition", "")
+
+
+def test_get_candidate_changes_with_filters_success(client, monkeypatch, _as_user):
+    get_changes = AsyncMock(return_value=[_fake_change(status="accepted")])
+    monkeypatch.setattr(project_space_service, "get_candidate_changes", get_changes)
+
+    resp = client.get(
+        f"/api/v1/projects/{_PROJECT_ID}/candidate-changes"
+        "?status=accepted&proposer_user_id=u-ps-001&session_id=s-001"
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["changes"][0]["status"] == "accepted"
+    get_changes.assert_awaited_once_with(
+        project_id=_PROJECT_ID,
+        user_id=_USER_ID,
+        status="accepted",
+        proposer_user_id="u-ps-001",
+        session_id="s-001",
+    )
+
+
+def test_review_candidate_change_success_passes_review_comment(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    review_change = AsyncMock(
+        return_value=_fake_change(change_id="c-007", status="accepted")
+    )
+    monkeypatch.setattr(project_space_service, "review_candidate_change", review_change)
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/candidate-changes/c-007/review",
+        json={"action": "accept", "review_comment": "looks good"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["change"]["id"] == "c-007"
+    assert body["data"]["change"]["status"] == "accepted"
+    review_change.assert_awaited_once_with(
+        project_id=_PROJECT_ID,
+        change_id="c-007",
+        action="accept",
+        review_comment="looks good",
+        reviewer_user_id=_USER_ID,
+    )
+
+
+def test_review_candidate_change_conflict_returns_409(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "review_candidate_change",
+        AsyncMock(side_effect=ConflictException("version conflict")),
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/candidate-changes/c-008/review",
+        json={"action": "accept"},
+    )
+    assert resp.status_code == 409
+
+
+def test_delete_reference_returns_simple_success(client, monkeypatch, _as_user):
+    delete_reference = AsyncMock(return_value=_fake_reference(status="disabled"))
+    monkeypatch.setattr(
+        project_space_service,
+        "delete_project_reference",
+        delete_reference,
+    )
+
+    resp = client.delete(f"/api/v1/projects/{_PROJECT_ID}/references/r-001")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"] == {}
+    delete_reference.assert_awaited_once_with(
+        project_id=_PROJECT_ID,
+        reference_id="r-001",
+        user_id=_USER_ID,
+    )
+
+
+def test_create_project_member_idempotency_hit_returns_cached(
+    client, monkeypatch, _as_user
+):
+    cached = {
+        "success": True,
+        "data": {
+            "member": {
+                "id": "m-cached",
+                "project_id": _PROJECT_ID,
+                "user_id": "u-cached",
+                "role": "viewer",
+                "permissions": None,
+                "status": "active",
+                "created_at": _NOW.isoformat(),
+            }
+        },
+        "message": "缓存命中",
+    }
+    monkeypatch.setattr(
+        project_space_service,
+        "get_idempotency_response",
+        AsyncMock(return_value=cached),
+    )
+    create_member = AsyncMock(return_value=_fake_member())
+    monkeypatch.setattr(project_space_service, "create_project_member", create_member)
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/members",
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000201"},
+        json={"user_id": "u-member-001", "role": "editor"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["message"] == "缓存命中"
+    assert body["data"]["member"]["id"] == "m-cached"
+    create_member.assert_not_awaited()
+
+
+def test_update_project_member_persists_idempotency(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "get_idempotency_response",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "update_project_member",
+        AsyncMock(return_value=_fake_member(member_id="m-007")),
+    )
+    save_idempotency = AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        project_space_service,
+        "save_idempotency_response",
+        save_idempotency,
+    )
+
+    resp = client.patch(
+        f"/api/v1/projects/{_PROJECT_ID}/members/m-007",
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000202"},
+        json={"role": "viewer"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["member"]["id"] == "m-007"
+    save_idempotency.assert_awaited_once()
+
+
+def test_delete_project_member_returns_simple_success(client, monkeypatch, _as_user):
+    delete_member = AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        project_space_service,
+        "delete_project_member",
+        delete_member,
+    )
+
+    resp = client.delete(f"/api/v1/projects/{_PROJECT_ID}/members/m-009")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"] == {}
+    delete_member.assert_awaited_once_with(
+        project_id=_PROJECT_ID,
+        member_id="m-009",
+        user_id=_USER_ID,
+    )
