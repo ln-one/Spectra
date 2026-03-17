@@ -13,9 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sqlite3
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -99,7 +97,8 @@ def _raise_for_status(resp: httpx.Response, action: str) -> None:
         return
     payload = _safe_json(resp)
     raise RuntimeError(
-        f"{action} failed: status={resp.status_code}, payload={json.dumps(payload, ensure_ascii=False)}"
+        f"{action} failed: status={resp.status_code}, "
+        f"payload={json.dumps(payload, ensure_ascii=False)}"
     )
 
 
@@ -250,7 +249,8 @@ def _choose_valid_db(db_candidates: list[Path]) -> Optional[Path]:
             conn = sqlite3.connect(path)
             cur = conn.cursor()
             exists = cur.execute(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='Project'"
+                "SELECT COUNT(*) FROM sqlite_master "
+                "WHERE type='table' AND name='Project'"
             ).fetchone()[0]
             conn.close()
             if exists:
@@ -307,7 +307,8 @@ def _local_verify(repo_root: Path, project_id: str, file_id: str) -> dict[str, A
         )
         result["upload_ready"] = bool(
             cur.execute(
-                "SELECT COUNT(*) FROM Upload WHERE id = ? AND projectId = ? AND status = 'ready'",
+                "SELECT COUNT(*) FROM Upload "
+                "WHERE id = ? AND projectId = ? AND status = 'ready'",
                 (file_id, project_id),
             ).fetchone()[0]
         )

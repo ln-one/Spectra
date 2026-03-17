@@ -72,7 +72,9 @@ def freeze_baseline(
             "max_latency_reduction_drop": guardrails.max_latency_reduction_drop,
             "max_cost_reduction_drop": guardrails.max_cost_reduction_drop,
             "max_fallback_rate_increase": guardrails.max_fallback_rate_increase,
-            "max_non_degradable_misroute_rate": guardrails.max_non_degradable_misroute_rate,
+            "max_non_degradable_misroute_rate": (
+                guardrails.max_non_degradable_misroute_rate
+            ),
         },
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -222,7 +224,8 @@ def main() -> int:
         print(
             "指标快照: "
             f"quality_delta={payload['metrics']['quality_delta']:+.3f}, "
-            f"latency_reduction_rate={payload['metrics']['latency_reduction_rate']:.2%}, "
+            f"latency_reduction_rate="
+            f"{payload['metrics']['latency_reduction_rate']:.2%}, "
             f"cost_reduction_rate={payload['metrics']['cost_reduction_rate']:.2%}"
         )
         return 0

@@ -154,7 +154,8 @@ async def _resolve_api_token(
     if not (200 <= login.status_code < 300):
         raise RuntimeError(
             "register/login 均失败: "
-            f"register_status={register.status_code}, register_body={_short_body(register)}; "
+            f"register_status={register.status_code}, "
+            f"register_body={_short_body(register)}; "
             f"login_status={login.status_code}, login_body={_short_body(login)}"
         )
 

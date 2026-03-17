@@ -130,7 +130,8 @@ def check_regression(
     if curr_m["candidate_payload_completeness_rate"] < candidate_min:
         violations.append(
             "candidate_payload_completeness_rate "
-            f"{curr_m['candidate_payload_completeness_rate']:.2%} < 最低允许 {candidate_min:.2%}"
+            f"{curr_m['candidate_payload_completeness_rate']:.2%} < "
+            f"最低允许 {candidate_min:.2%}"
         )
 
     loop_min = base_m["capability_loop_pass_rate"] - g.max_loop_drop
@@ -158,14 +159,18 @@ def check_regression(
     if curr_m["capability_artifact_mapping_pass_rate"] < mapping_min:
         violations.append(
             "capability_artifact_mapping_pass_rate "
-            f"{curr_m['capability_artifact_mapping_pass_rate']:.2%} < 最低允许 {mapping_min:.2%}"
+            f"{curr_m['capability_artifact_mapping_pass_rate']:.2%} < "
+            f"最低允许 {mapping_min:.2%}"
         )
 
-    wave1_entry_min = base_m["wave1_entry_semantics_pass_rate"] - g.max_wave1_entry_drop
+    wave1_entry_min = (
+        base_m["wave1_entry_semantics_pass_rate"] - g.max_wave1_entry_drop
+    )
     if curr_m["wave1_entry_semantics_pass_rate"] < wave1_entry_min:
         violations.append(
             "wave1_entry_semantics_pass_rate "
-            f"{curr_m['wave1_entry_semantics_pass_rate']:.2%} < 最低允许 {wave1_entry_min:.2%}"
+            f"{curr_m['wave1_entry_semantics_pass_rate']:.2%} < "
+            f"最低允许 {wave1_entry_min:.2%}"
         )
 
     if not bool(curr_m["gate_passed"]):
@@ -254,8 +259,12 @@ def main() -> int:
         print(
             "指标快照: "
             f"anchor={payload['metrics']['artifact_anchor_completeness_rate']:.2%}, "
-            f"candidate={payload['metrics']['candidate_payload_completeness_rate']:.2%}, "
-            f"mapping={payload['metrics']['capability_artifact_mapping_pass_rate']:.2%}, "
+            "candidate="
+            f"{payload['metrics']['candidate_payload_completeness_rate']:.2%}, "
+        )
+        print(
+            "mapping="
+            f"{payload['metrics']['capability_artifact_mapping_pass_rate']:.2%}, "
             f"wave1_entry={payload['metrics']['wave1_entry_semantics_pass_rate']:.2%}"
         )
         return 0

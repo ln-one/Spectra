@@ -107,7 +107,8 @@ def check_regression(
 
     if curr_base_provider != base_base_provider:
         return False, [
-            f"baseline_provider changed: current={curr_base_provider}, baseline={base_base_provider}"
+            "baseline_provider changed: "
+            f"current={curr_base_provider}, baseline={base_base_provider}"
         ]
 
     g = guardrails_override or Guardrails(

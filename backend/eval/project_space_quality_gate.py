@@ -335,8 +335,12 @@ def run_audit(
             "dataset": str(dataset_path),
             "total_samples": metrics.total_samples,
             "metrics": {
-                "artifact_anchor_completeness_rate": metrics.artifact_anchor_completeness_rate,
-                "candidate_payload_completeness_rate": metrics.candidate_payload_completeness_rate,
+                "artifact_anchor_completeness_rate": (
+                    metrics.artifact_anchor_completeness_rate
+                ),
+                "candidate_payload_completeness_rate": (
+                    metrics.candidate_payload_completeness_rate
+                ),
                 "capability_loop_pass_rate": metrics.capability_loop_pass_rate,
                 "citation_contract_pass_rate": metrics.citation_contract_pass_rate,
                 "capability_coverage_rate": metrics.capability_coverage_rate,
