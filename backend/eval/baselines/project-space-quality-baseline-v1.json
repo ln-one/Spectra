@@ -1,0 +1,28 @@
+{
+  "baseline_version": "1",
+  "created_at": "2026-03-17T10:07:51.819579+00:00",
+  "source_result": "backend\\eval\\results\\project_space_quality_latest.json",
+  "notes": "dps5-baseline-v1",
+  "metrics": {
+    "artifact_anchor_completeness_rate": 1.0,
+    "candidate_payload_completeness_rate": 1.0,
+    "capability_loop_pass_rate": 1.0,
+    "citation_contract_pass_rate": 1.0,
+    "capability_coverage_rate": 1.0,
+    "capability_artifact_mapping_pass_rate": 1.0,
+    "gate_passed": true,
+    "failed_anchor_ids": [],
+    "failed_candidate_payload_ids": [],
+    "failed_loop_ids": [],
+    "failed_citation_ids": [],
+    "failed_mapping_ids": []
+  },
+  "guardrails": {
+    "max_anchor_drop": 0.02,
+    "max_candidate_payload_drop": 0.02,
+    "max_loop_drop": 0.03,
+    "max_citation_drop": 0.02,
+    "max_coverage_drop": 0.0,
+    "max_mapping_drop": 0.02
+  }
+}
