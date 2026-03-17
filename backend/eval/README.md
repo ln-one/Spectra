@@ -123,6 +123,17 @@ cd backend
 .venv-wsl/bin/python eval/source_quality_audit.py \
   --dataset eval/source_audit_samples.json \
   --output eval/results/source_audit_latest.json
+
+# 冻结首版来源质量基线
+.venv-wsl/bin/python eval/source_quality_baseline.py freeze \
+  --result eval/results/source_audit_latest.json \
+  --output eval/baselines/source-quality-baseline-v1.json \
+  --notes "D4 source quality baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/source_quality_baseline.py check \
+  --current eval/results/source_audit_latest.json \
+  --baseline eval/baselines/source-quality-baseline-v1.json
 ```
 
 评测指标：
