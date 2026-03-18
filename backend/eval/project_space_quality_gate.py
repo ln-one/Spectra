@@ -55,7 +55,9 @@ CAPABILITY_ARTIFACT_MAPPING = {
 WAVE1_ENTRY_ROUTE_MAPPING = {
     "ppt": {"entry_route": "session-first", "session_required": True},
     "word": {"entry_route": "session-first", "session_required": True},
+    "mindmap": {"entry_route": "artifact-lite", "session_required": False},
     "outline": {"entry_route": "session-first", "session_required": True},
+    "quiz": {"entry_route": "artifact-lite", "session_required": False},
     "summary": {"entry_route": "artifact-lite", "session_required": False},
 }
 

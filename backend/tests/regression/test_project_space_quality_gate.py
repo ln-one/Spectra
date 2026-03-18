@@ -267,6 +267,47 @@ def test_compute_metrics_checks_wave1_entry_semantics():
     assert "summary-bad-entry" in m.failed_wave1_entry_ids
 
 
+def test_compute_metrics_checks_artifact_lite_entry_semantics_for_quiz():
+    samples = [
+        {
+            "id": "quiz-bad-entry",
+            "capability": "quiz",
+            "entry_route": "session-first",
+            "session_required": True,
+            "artifact_type": "exercise",
+            "metadata": {"capability": "quiz"},
+            "artifact_id": "a1",
+            "based_on_version_id": "v1",
+            "candidate_change_payload": {
+                "artifact_id": "a1",
+                "based_on_version_id": "v1",
+                "change_type": "update",
+                "patch": {"x": 1},
+            },
+            "display_ready": True,
+            "export_ready": True,
+            "history_ready": True,
+            "candidate_change_ready": True,
+            "citation_contract_ok": True,
+        }
+    ]
+
+    m = compute_metrics(
+        samples,
+        min_anchor_completeness_rate=0.0,
+        min_candidate_payload_completeness_rate=0.0,
+        min_capability_loop_pass_rate=0.0,
+        min_citation_contract_pass_rate=0.0,
+        min_capability_coverage_rate=0.0,
+        min_capability_artifact_mapping_pass_rate=0.0,
+        min_wave1_entry_semantics_pass_rate=1.0,
+    )
+
+    assert m.gate_passed is False
+    assert m.wave1_entry_semantics_pass_rate == pytest.approx(0.0)
+    assert "quiz-bad-entry" in m.failed_wave1_entry_ids
+
+
 def test_compute_metrics_checks_metadata_capability_for_summary():
     samples = [
         {
