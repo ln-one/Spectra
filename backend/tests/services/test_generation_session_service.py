@@ -437,13 +437,16 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     }
 
     group_map = {
-        group["capability"]: group["artifacts"]
+        group["capability"]: group["items"]
         for group in payload["session_artifact_groups"]
     }
     assert set(group_map.keys()) == {"outline", "ppt", "summary"}
     assert group_map["outline"][0]["artifact_id"] == "art-outline-001"
     assert group_map["ppt"][0]["artifact_id"] == "art-ppt-001"
     assert group_map["summary"][0]["artifact_id"] == "art-summary-001"
+    assert payload["session_artifact_groups"][0]["artifacts"] == (
+        payload["session_artifact_groups"][0]["items"]
+    )
     latest_change = payload["latest_candidate_change"]
     assert latest_change is not None
     assert latest_change["id"] == "chg-123"

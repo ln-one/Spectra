@@ -551,6 +551,9 @@ class GenerationSessionService:
             {
                 "capability": capability,
                 "count": len(items),
+                # `items` aligns with OpenAPI contract;
+                # `artifacts` remains for backward-compatible clients.
+                "items": items,
                 "artifacts": items,
             }
             for capability, items in grouped.items()
