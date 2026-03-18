@@ -209,11 +209,9 @@ function splitContentAndSources(content: string): { body: string } {
 function MessageBubble({
   message,
   index,
-  projectId,
 }: {
   message: Message;
   index: number;
-  projectId: string;
 }) {
   const isUser = message.role === "user";
   const { focusSourceByChunk } = useProjectStore();
@@ -281,9 +279,7 @@ function MessageBubble({
                   {message.citations.map((citation, i) => (
                     <button
                       key={`${citation.chunk_id}-${i}`}
-                      onClick={() =>
-                        focusSourceByChunk(citation.chunk_id, projectId)
-                      }
+                      onClick={() => focusSourceByChunk(citation.chunk_id)}
                       className="text-[10px] leading-none text-zinc-500 hover:text-zinc-900 transition-colors"
                       aria-label={`引用 ${i + 1}`}
                     >
@@ -310,7 +306,7 @@ function MessageBubble({
                 key={`${citation.chunk_id}-${i}`}
                 citation={citation}
                 index={i}
-                onClick={() => focusSourceByChunk(citation.chunk_id, projectId)}
+                onClick={() => focusSourceByChunk(citation.chunk_id)}
               />
             ))}
           </motion.div>
@@ -543,7 +539,6 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                         key={message.id}
                         message={message}
                         index={index}
-                        projectId={projectId}
                       />
                     ))}
                   </AnimatePresence>

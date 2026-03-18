@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import type { components } from "@/lib/types/api";
-import { projectsApi, filesApi, chatApi, generateApi } from "@/lib/sdk";
-import { ragApi } from "@/lib/api/rag";
+import { projectsApi, filesApi, chatApi, generateApi, ragApi } from "@/lib/sdk";
 import {
   ApiErrorShape,
   createApiError,
@@ -141,7 +140,7 @@ interface ProjectState {
   deleteFile: (fileId: string) => Promise<void>;
   toggleFileSelection: (fileId: string) => void;
   sendMessage: (projectId: string, content: string) => Promise<void>;
-  focusSourceByChunk: (chunkId: string, projectId: string) => Promise<void>;
+  focusSourceByChunk: (chunkId: string) => Promise<void>;
   clearActiveSource: () => void;
   startGeneration: (
     projectId: string,
@@ -345,9 +344,9 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }
   },
 
-  focusSourceByChunk: async (chunkId: string, projectId: string) => {
+  focusSourceByChunk: async (chunkId: string) => {
     try {
-      const response = await ragApi.getSourceDetail(chunkId, projectId);
+      const response = await ragApi.getSourceDetail(chunkId);
       const detail = response?.data ?? null;
       set({ activeSourceDetail: detail });
       const fileId = detail?.file_info?.id;
@@ -358,7 +357,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
             : [...state.selectedFileIds, fileId],
         }));
       } else {
-        await get().fetchFiles(projectId);
+        const currentProjectId = get().project?.id;
+        if (currentProjectId) {
+          await get().fetchFiles(currentProjectId);
+        }
       }
     } catch (error) {
       const message = getErrorMessage(error);
