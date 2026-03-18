@@ -48,6 +48,15 @@ _SESSION_TO_TASK_TYPE = {
     "docx": "docx",
 }
 
+_ARTIFACT_TYPE_TO_CAPABILITY = {
+    "pptx": "ppt",
+    "docx": "word",
+    "mindmap": "mindmap",
+    "summary": "summary",
+    "exercise": "quiz",
+    "html": "animation",
+}
+
 _OUTLINE_STYLE_RULES = {
     "structured": (
         "采用“总-分-总”结构：导入总览 -> 分章节展开 -> 结语总结；"
@@ -171,6 +180,31 @@ def _courseware_outline_to_document(
         "nodes": nodes,
         "summary": getattr(outline, "summary", None),
     }
+
+
+def _parse_json_object(raw: Optional[str]) -> dict:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _resolve_capability_from_artifact(artifact_type: str, metadata: dict) -> str:
+    normalized_type = str(artifact_type or "").strip().lower()
+    metadata_kind = str((metadata or {}).get("kind") or "").strip().lower()
+
+    if normalized_type == "summary" and metadata_kind == "outline":
+        return "outline"
+    if normalized_type == "docx" and metadata_kind == "handout":
+        return "handout"
+    if normalized_type == "html" and metadata_kind == "animation_storyboard":
+        return "animation"
+    if normalized_type in _ARTIFACT_TYPE_TO_CAPABILITY:
+        return _ARTIFACT_TYPE_TO_CAPABILITY[normalized_type]
+    return normalized_type or "unknown"
 
 
 # ============================================================
@@ -396,6 +430,11 @@ class GenerationSessionService:
             latest_task = max(session.tasks, key=lambda t: t.createdAt)
             latest_task_id = latest_task.id
 
+        artifact_history = await self._get_session_artifact_history(
+            project_id=session.projectId,
+            session_id=session.id,
+        )
+
         return {
             "session": self._to_session_ref(session, task_id=latest_task_id),
             "options": json.loads(session.options) if session.options else None,
@@ -403,6 +442,8 @@ class GenerationSessionService:
             "context_snapshot": None,
             "capabilities": _default_capabilities(),
             "fallbacks": fallbacks,
+            "session_artifacts": artifact_history["session_artifacts"],
+            "session_artifact_groups": artifact_history["session_artifact_groups"],
             "allowed_actions": self._guard.get_allowed_actions(session.state),
             "result": (
                 {
@@ -424,6 +465,65 @@ class GenerationSessionService:
                 if session.state == "FAILED" and session.errorCode
                 else None
             ),
+        }
+
+    async def _get_session_artifact_history(
+        self,
+        project_id: str,
+        session_id: str,
+    ) -> dict:
+        artifact_model = getattr(self._db, "artifact", None)
+        if artifact_model is None or not hasattr(artifact_model, "find_many"):
+            return {
+                "session_artifacts": [],
+                "session_artifact_groups": [],
+            }
+
+        artifacts = await artifact_model.find_many(
+            where={"projectId": project_id, "sessionId": session_id},
+            order={"updatedAt": "desc"},
+        )
+
+        history_items: list[dict] = []
+        grouped: dict[str, list[dict]] = {}
+
+        for artifact in artifacts:
+            metadata = _parse_json_object(getattr(artifact, "metadata", None))
+            capability = _resolve_capability_from_artifact(
+                artifact_type=getattr(artifact, "type", ""),
+                metadata=metadata,
+            )
+            item = {
+                "artifact_id": artifact.id,
+                "type": getattr(artifact, "type", None),
+                "capability": capability,
+                "based_on_version_id": getattr(artifact, "basedOnVersionId", None),
+                "created_at": (
+                    artifact.createdAt.isoformat()
+                    if getattr(artifact, "createdAt", None)
+                    else None
+                ),
+                "updated_at": (
+                    artifact.updatedAt.isoformat()
+                    if getattr(artifact, "updatedAt", None)
+                    else None
+                ),
+                "metadata": metadata,
+            }
+            history_items.append(item)
+            grouped.setdefault(capability, []).append(item)
+
+        grouped_items = [
+            {
+                "capability": capability,
+                "count": len(items),
+                "artifacts": items,
+            }
+            for capability, items in grouped.items()
+        ]
+        return {
+            "session_artifacts": history_items,
+            "session_artifact_groups": grouped_items,
         }
 
     async def get_session_runtime_state(self, session_id: str, user_id: str) -> dict:

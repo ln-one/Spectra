@@ -55,6 +55,24 @@ def _allow_confirm_transition():
     )
 
 
+def _fake_artifact(
+    artifact_id: str,
+    artifact_type: str,
+    *,
+    metadata: Optional[str] = None,
+    based_on_version_id: Optional[str] = None,
+):
+    now = datetime.now(timezone.utc)
+    return SimpleNamespace(
+        id=artifact_id,
+        type=artifact_type,
+        metadata=metadata,
+        basedOnVersionId=based_on_version_id,
+        createdAt=now,
+        updatedAt=now,
+    )
+
+
 def test_extract_outline_style_from_explicit_option():
     style = _extract_outline_style({"outline_style": "problem"})
     assert style == "problem"
@@ -325,6 +343,70 @@ async def test_get_session_snapshot_uses_guard_public_allowed_actions():
 
     assert payload["allowed_actions"] == ["export"]
     service._guard.get_allowed_actions.assert_called_once_with("SUCCESS")
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_includes_grouped_session_artifacts():
+    session = _fake_session(state="SUCCESS")
+    artifacts = [
+        _fake_artifact(
+            artifact_id="art-outline-001",
+            artifact_type="summary",
+            metadata='{"kind":"outline"}',
+            based_on_version_id="ver-002",
+        ),
+        _fake_artifact(
+            artifact_id="art-ppt-001",
+            artifact_type="pptx",
+            based_on_version_id="ver-001",
+        ),
+        _fake_artifact(
+            artifact_id="art-summary-001",
+            artifact_type="summary",
+        ),
+    ]
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        artifact=SimpleNamespace(find_many=AsyncMock(return_value=artifacts)),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert len(payload["session_artifacts"]) == 3
+    assert payload["session_artifacts"][0]["artifact_id"] == "art-outline-001"
+    assert payload["session_artifacts"][0]["capability"] == "outline"
+    assert payload["session_artifacts"][0]["based_on_version_id"] == "ver-002"
+
+    group_map = {
+        group["capability"]: group["artifacts"]
+        for group in payload["session_artifact_groups"]
+    }
+    assert set(group_map.keys()) == {"outline", "ppt", "summary"}
+    assert group_map["outline"][0]["artifact_id"] == "art-outline-001"
+    assert group_map["ppt"][0]["artifact_id"] == "art-ppt-001"
+    assert group_map["summary"][0]["artifact_id"] == "art-summary-001"
+
+    db.artifact.find_many.assert_awaited_once_with(
+        where={"projectId": "p-001", "sessionId": "s-001"},
+        order={"updatedAt": "desc"},
+    )
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_handles_missing_artifact_model():
+    session = _fake_session(state="SUCCESS")
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert payload["session_artifacts"] == []
+    assert payload["session_artifact_groups"] == []
 
 
 @pytest.mark.anyio
