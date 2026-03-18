@@ -105,6 +105,36 @@ SessionArtifactGroup:
       items:
         $ref: '#/SessionArtifactItem'
 
+SessionCandidateChangeSummary:
+  type: object
+  required: [id, status, title, updated_at]
+  properties:
+    id:
+      type: string
+    status:
+      type: string
+      description: candidate change 状态（pending/accepted/rejected）
+    title:
+      type: string
+    summary:
+      type: string
+      nullable: true
+    base_version_id:
+      type: string
+      nullable: true
+    review_comment:
+      type: string
+      nullable: true
+    accepted_version_id:
+      type: string
+      nullable: true
+    proposer_user_id:
+      type: string
+      nullable: true
+    updated_at:
+      type: string
+      format: date-time
+
 SessionStatePayload:
   type: object
   required: [session]
@@ -121,6 +151,11 @@ SessionStatePayload:
       description: 会话当前默认成果对应的正式版本 ID
     artifact_anchor:
       $ref: '#/ArtifactAnchor'
+    latest_candidate_change:
+      allOf:
+        - $ref: '#/SessionCandidateChangeSummary'
+      nullable: true
+      description: 当前 session 下最近一次 candidate change 摘要（按 updated_at 倒序）
     session_artifacts:
       type: array
       description: 当前会话下可追溯的成果历史（按更新时间倒序）

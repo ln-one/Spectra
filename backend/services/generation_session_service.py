@@ -447,12 +447,17 @@ class GenerationSessionService:
             project_id=session.projectId,
             session_id=session.id,
         )
+        latest_candidate_change = await self._get_latest_session_candidate_change(
+            project_id=session.projectId,
+            session_id=session.id,
+        )
 
         return {
             "session": self._to_session_ref(session, task_id=latest_task_id),
             "artifact_id": artifact_history["artifact_id"],
             "based_on_version_id": artifact_history["based_on_version_id"],
             "artifact_anchor": artifact_history["artifact_anchor"],
+            "latest_candidate_change": latest_candidate_change,
             "options": json.loads(session.options) if session.options else None,
             "outline": outline,
             "context_snapshot": None,
@@ -561,6 +566,49 @@ class GenerationSessionService:
             ),
             "session_artifacts": history_items,
             "session_artifact_groups": grouped_items,
+        }
+
+    async def _get_latest_session_candidate_change(
+        self,
+        project_id: str,
+        session_id: str,
+    ) -> Optional[dict]:
+        candidate_change_model = getattr(self._db, "candidatechange", None)
+        if candidate_change_model is None or not hasattr(
+            candidate_change_model, "find_first"
+        ):
+            return None
+
+        change = await candidate_change_model.find_first(
+            where={"projectId": project_id, "sessionId": session_id},
+            order={"updatedAt": "desc"},
+        )
+        if change is None:
+            return None
+
+        payload_raw = getattr(change, "payload", None)
+        payload: dict = {}
+        if isinstance(payload_raw, dict):
+            payload = payload_raw
+        elif isinstance(payload_raw, str):
+            payload = _parse_json_object(payload_raw)
+
+        accepted_version_id = None
+        review = payload.get("review")
+        if isinstance(review, dict):
+            accepted_version_id = review.get("accepted_version_id")
+
+        updated_at = getattr(change, "updatedAt", None)
+        return {
+            "id": change.id,
+            "status": getattr(change, "status", None),
+            "title": getattr(change, "title", None),
+            "summary": getattr(change, "summary", None),
+            "base_version_id": getattr(change, "baseVersionId", None),
+            "review_comment": getattr(change, "reviewComment", None),
+            "accepted_version_id": accepted_version_id,
+            "proposer_user_id": getattr(change, "proposerUserId", None),
+            "updated_at": updated_at.isoformat() if updated_at else None,
         }
 
     async def get_session_runtime_state(self, session_id: str, user_id: str) -> dict:

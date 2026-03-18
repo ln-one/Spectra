@@ -73,6 +73,31 @@ def _fake_artifact(
     )
 
 
+def _fake_candidate_change(
+    *,
+    change_id: str = "chg-001",
+    status: str = "pending",
+    title: str = "outline update",
+    summary: str = "adjust chapter order",
+    base_version_id: str = "ver-002",
+    review_comment: Optional[str] = None,
+    proposer_user_id: str = "u-001",
+    payload: Optional[str] = None,
+):
+    now = datetime.now(timezone.utc)
+    return SimpleNamespace(
+        id=change_id,
+        status=status,
+        title=title,
+        summary=summary,
+        baseVersionId=base_version_id,
+        reviewComment=review_comment,
+        proposerUserId=proposer_user_id,
+        payload=payload,
+        updatedAt=now,
+    )
+
+
 def test_extract_outline_style_from_explicit_option():
     style = _extract_outline_style({"outline_style": "problem"})
     assert style == "problem"
@@ -81,7 +106,9 @@ def test_extract_outline_style_from_explicit_option():
 def test_extract_outline_style_from_system_prompt_token():
     style = _extract_outline_style(
         {
-            "system_prompt_tone": "course topic\n[outline_style=story]\nextra requirements"
+            "system_prompt_tone": (
+                "course topic\n[outline_style=story]\nextra requirements"
+            )
         }
     )
     assert style == "story"
@@ -92,7 +119,10 @@ def test_build_outline_requirements_includes_style_hard_constraints():
     text = _build_outline_requirements(
         project,
         {
-            "system_prompt_tone": "[outline_style=workshop]\nPlease emphasize hands-on practice",
+            "system_prompt_tone": (
+                "[outline_style=workshop]\n"
+                "Please emphasize hands-on practice"
+            ),
             "pages": 12,
         },
     )
@@ -368,6 +398,20 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
         artifact=SimpleNamespace(find_many=AsyncMock(return_value=artifacts)),
+        candidatechange=SimpleNamespace(
+            find_first=AsyncMock(
+                return_value=_fake_candidate_change(
+                    change_id="chg-123",
+                    status="accepted",
+                    title="sync summary structure",
+                    summary="sync with latest outline",
+                    base_version_id="ver-002",
+                    review_comment="looks good",
+                    proposer_user_id="u-review",
+                    payload='{"review":{"accepted_version_id":"ver-003"}}',
+                )
+            )
+        ),
     )
     service = GenerationSessionService(db=db)
     service._guard.get_allowed_actions = Mock(return_value=["export"])
@@ -400,8 +444,23 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert group_map["outline"][0]["artifact_id"] == "art-outline-001"
     assert group_map["ppt"][0]["artifact_id"] == "art-ppt-001"
     assert group_map["summary"][0]["artifact_id"] == "art-summary-001"
+    latest_change = payload["latest_candidate_change"]
+    assert latest_change is not None
+    assert latest_change["id"] == "chg-123"
+    assert latest_change["status"] == "accepted"
+    assert latest_change["title"] == "sync summary structure"
+    assert latest_change["summary"] == "sync with latest outline"
+    assert latest_change["base_version_id"] == "ver-002"
+    assert latest_change["review_comment"] == "looks good"
+    assert latest_change["accepted_version_id"] == "ver-003"
+    assert latest_change["proposer_user_id"] == "u-review"
+    assert latest_change["updated_at"] is not None
 
     db.artifact.find_many.assert_awaited_once_with(
+        where={"projectId": "p-001", "sessionId": "s-001"},
+        order={"updatedAt": "desc"},
+    )
+    db.candidatechange.find_first.assert_awaited_once_with(
         where={"projectId": "p-001", "sessionId": "s-001"},
         order={"updatedAt": "desc"},
     )
@@ -425,6 +484,7 @@ async def test_get_session_snapshot_handles_missing_artifact_model():
         "artifact_id": None,
         "based_on_version_id": None,
     }
+    assert payload["latest_candidate_change"] is None
     assert payload["session_artifacts"] == []
     assert payload["session_artifact_groups"] == []
 

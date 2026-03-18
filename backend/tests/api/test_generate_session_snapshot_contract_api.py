@@ -32,6 +32,17 @@ def _snapshot_payload():
             "artifact_id": "art-summary-003",
             "based_on_version_id": "ver-003",
         },
+        "latest_candidate_change": {
+            "id": "chg-003",
+            "status": "accepted",
+            "title": "sync summary structure",
+            "summary": "sync with latest outline",
+            "base_version_id": "ver-003",
+            "review_comment": "approved",
+            "accepted_version_id": "ver-004",
+            "proposer_user_id": "u-reviewer",
+            "updated_at": "2026-03-18T08:05:00Z",
+        },
         "session_artifacts": [
             {
                 "artifact_id": "art-summary-003",
@@ -83,6 +94,8 @@ def test_get_session_snapshot_includes_anchor_and_history(
     assert body["data"]["artifact_id"] == "art-summary-003"
     assert body["data"]["based_on_version_id"] == "ver-003"
     assert body["data"]["artifact_anchor"]["session_id"] == "s-snapshot-001"
+    assert body["data"]["latest_candidate_change"]["id"] == "chg-003"
+    assert body["data"]["latest_candidate_change"]["accepted_version_id"] == "ver-004"
     assert body["data"]["session_artifacts"][0]["artifact_anchor"]["artifact_id"] == (
         "art-summary-003"
     )
