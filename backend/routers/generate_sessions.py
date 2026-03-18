@@ -599,6 +599,38 @@ async def submit_session_candidate_change(
     )
 
 
+@router.get("/sessions/{session_id}/candidate-change")
+async def list_session_candidate_changes(
+    session_id: str,
+    status_filter: Optional[str] = Query(None, alias="status"),
+    proposer_user_id: Optional[str] = Query(None),
+    user_id: str = Depends(get_current_user),
+):
+    """查询 session 作用域 candidate change 列表。"""
+    svc = _get_session_service()
+    try:
+        snapshot = await svc.get_session_snapshot(session_id, user_id)
+    except ValueError:
+        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
+    except PermissionError:
+        raise ForbiddenException(
+            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
+        )
+
+    project_id = snapshot["session"]["project_id"]
+    changes = await project_space_service.get_candidate_changes(
+        project_id=project_id,
+        user_id=user_id,
+        status=status_filter,
+        proposer_user_id=proposer_user_id,
+        session_id=session_id,
+    )
+    return success_response(
+        data={"changes": [_serialize_candidate_change(change) for change in changes]},
+        message="候选变更列表查询成功",
+    )
+
+
 @router.put("/sessions/{session_id}/outline")
 async def update_outline(
     session_id: str,

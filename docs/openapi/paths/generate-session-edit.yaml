@@ -2,6 +2,44 @@
   $ref: './generate-session-command.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
 
 /api/v1/generate/sessions/{session_id}/candidate-change:
+  get:
+    summary: 查询会话候选变更列表
+    operationId: getGenerateSessionsBySessionIdCandidateChange
+    description: 查询当前 session 下提交的 candidate change，支持按状态和提交者筛选。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [pending, accepted, rejected]
+      - name: proposer_user_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 候选变更列表查询成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/project-space.yaml#/CandidateChangesResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
   post:
     summary: 提交会话候选变更
     operationId: postGenerateSessionsBySessionIdCandidateChange

@@ -144,3 +144,32 @@ def test_submit_session_candidate_change_fallbacks_to_project_current_version(
         "selected_base_version_id": "v-current-001",
         "source": "project_current_version",
     }
+
+
+def test_list_session_candidate_changes_with_filters(client, monkeypatch, _as_user):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    list_changes = AsyncMock(
+        return_value=[
+            _fake_change(
+                '{"review":{"action":"accept","accepted_version_id":"v-100"}}'
+            )
+        ]
+    )
+    monkeypatch.setattr(project_space_service, "get_candidate_changes", list_changes)
+
+    resp = client.get(
+        "/api/v1/generate/sessions/s-candidate-001/candidate-change"
+        "?status=accepted&proposer_user_id=u-candidate-001"
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["changes"][0]["accepted_version_id"] == "v-100"
+    list_changes.assert_awaited_once_with(
+        project_id="p-candidate-001",
+        user_id=_USER_ID,
+        status="accepted",
+        proposer_user_id="u-candidate-001",
+        session_id="s-candidate-001",
+    )
