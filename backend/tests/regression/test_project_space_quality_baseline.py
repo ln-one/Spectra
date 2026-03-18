@@ -3,8 +3,8 @@ import json
 import pytest
 
 from eval.project_space_quality_baseline import (
-    build_failure_report_payload,
     Guardrails,
+    build_failure_report_payload,
     check_regression,
     check_regression_report,
     format_failure_report,
