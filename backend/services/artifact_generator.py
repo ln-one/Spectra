@@ -354,20 +354,10 @@ class ArtifactGenerator:
         self, content: Dict[str, Any], project_id: str, artifact_id: str
     ) -> str:
         """
-        Generate animation script JSON.
+        Generate a GIF placeholder artifact.
 
-        Expected content format:
-        {
-            "title": "动画标题",
-            "scenes": [
-                {
-                    "duration": 5,
-                    "description": "场景描述",
-                    "visuals": "视觉元素",
-                    "narration": "旁白"
-                }
-            ]
-        }
+        This path is retained for generic GIF artifacts. Animation storyboard
+        defaults are now generated through HTML + metadata.kind semantics.
 
         Returns:
             Storage path (GIF 占位图，便于下载链路闭环)

@@ -39,6 +39,12 @@ class ArtifactCreateType(str, Enum):
     MP4 = "mp4"
 
 
+class ArtifactCreateMode(str, Enum):
+    CREATE = "create"
+    REPLACE = "replace"
+    ANIMATION_STORYBOARD = "animation_storyboard"
+
+
 class ChangeType(str, Enum):
     AUTHOR_UPDATE = "author-update"
     MERGE_CHANGE = "merge-change"
@@ -87,7 +93,7 @@ class ArtifactBase(BaseModel):
 
 
 class ArtifactCreate(ArtifactBase):
-    mode: Optional[str] = Field(default="create")
+    mode: ArtifactCreateMode = Field(default=ArtifactCreateMode.CREATE)
 
 
 class Artifact(BaseModel):

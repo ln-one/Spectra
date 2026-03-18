@@ -25,6 +25,7 @@ def _fake_artifact(
     artifact_id: str = "a-001",
     artifact_type: str = "mp4",
     storage_path: str = "uploads/artifacts/p-ps-001/mp4/a-001.mp4",
+    metadata: str = '{"created_by":"u-ps-001"}',
 ):
     return SimpleNamespace(
         id=artifact_id,
@@ -35,7 +36,7 @@ def _fake_artifact(
         type=artifact_type,
         visibility="private",
         storagePath=storage_path,
-        metadata='{"created_by":"u-ps-001"}',
+        metadata=metadata,
         createdAt=_NOW,
         updatedAt=_NOW,
     )
@@ -268,6 +269,45 @@ def test_create_artifact_pptx_success(client, monkeypatch, _as_user):
     )
     assert resp.status_code == 200
     assert resp.json()["data"]["artifact"]["type"] == "pptx"
+
+
+def test_create_artifact_animation_storyboard_html_success(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_id="a-html-001",
+                artifact_type="html",
+                storage_path=("uploads/artifacts/p-ps-001/html/a-html-001.html"),
+                metadata=(
+                    '{"created_by":"u-ps-001","kind":"animation_storyboard",'
+                    '"capability":"animation"}'
+                ),
+            )
+        ),
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts",
+        json={
+            "type": "html",
+            "visibility": "private",
+            "mode": "animation_storyboard",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["artifact"]["type"] == "html"
+    assert body["data"]["artifact"]["metadata"]["kind"] == "animation_storyboard"
 
 
 def test_create_artifact_invalid_type_400(client, monkeypatch, _as_user):

@@ -11,6 +11,7 @@ Business logic for project space features:
 - Candidate change review
 """
 
+import html
 import logging
 from typing import Any, Dict, Optional, Set
 
@@ -165,9 +166,10 @@ class ProjectSpaceService:
                     f"{based_on_version_id} is invalid for project {project_id}"
                 )
 
-        # Generate actual file based on type
-        if content is None:
-            content = self._default_artifact_content(artifact_type)
+        # Generate actual file based on type.
+        normalized_content = self._normalize_artifact_content(
+            artifact_type, content or {}
+        )
 
         # Check if type is supported for file generation
         supported_types = [
@@ -189,32 +191,34 @@ class ProjectSpaceService:
         try:
             if artifact_type == "pptx":
                 actual_path = await artifact_generator.generate_pptx(
-                    content, project_id, artifact_id
+                    normalized_content, project_id, artifact_id
                 )
             elif artifact_type == "docx":
                 actual_path = await artifact_generator.generate_docx(
-                    content, project_id, artifact_id
+                    normalized_content, project_id, artifact_id
                 )
             elif artifact_type == "mindmap":
                 actual_path = await artifact_generator.generate_mindmap(
-                    content, project_id, artifact_id
+                    normalized_content, project_id, artifact_id
                 )
             elif artifact_type == "summary":
                 actual_path = await artifact_generator.generate_summary(
-                    content, project_id, artifact_id
+                    normalized_content, project_id, artifact_id
                 )
             elif artifact_type == "exercise":
                 actual_path = await artifact_generator.generate_quiz(
-                    content, project_id, artifact_id
+                    normalized_content, project_id, artifact_id
                 )
             elif artifact_type == "html":
-                html_content = content.get("html", "<html><body>Empty</body></html>")
+                html_content = normalized_content.get(
+                    "html", "<html><body>Empty</body></html>"
+                )
                 actual_path = await artifact_generator.generate_html(
                     html_content, project_id, artifact_id
                 )
             elif artifact_type == "gif":
                 actual_path = await artifact_generator.generate_animation(
-                    content, project_id, artifact_id
+                    normalized_content, project_id, artifact_id
                 )
             elif artifact_type == "mp4":
                 actual_path = await artifact_generator.generate_video_placeholder(
@@ -236,12 +240,115 @@ class ProjectSpaceService:
             based_on_version_id=based_on_version_id,
             owner_user_id=user_id,
             storage_path=storage_path,
-            metadata={"created_by": user_id},
+            metadata=self._build_artifact_metadata(
+                artifact_type, normalized_content, user_id
+            ),
         )
         return artifact
 
     @staticmethod
+    def _build_animation_storyboard_html(content: Dict[str, Any]) -> str:
+        title = html.escape(content.get("title", "Animation Storyboard"))
+        scenes = content.get("scenes") or [
+            {
+                "title": "Scene 1",
+                "description": "Pending storyboard scene.",
+                "visuals": "Add key visual cues.",
+                "narration": "Add narration notes.",
+            }
+        ]
+
+        scene_markup = []
+        for index, scene in enumerate(scenes, start=1):
+            scene_title = html.escape(scene.get("title") or f"Scene {index}")
+            description = html.escape(
+                scene.get("description") or "Pending storyboard details."
+            )
+            visuals = html.escape(scene.get("visuals") or "TBD")
+            narration = html.escape(scene.get("narration") or "TBD")
+            scene_markup.append(f"""
+                <section class="scene-card">
+                  <h2>{scene_title}</h2>
+                  <p>{description}</p>
+                  <dl>
+                    <dt>Visuals</dt>
+                    <dd>{visuals}</dd>
+                    <dt>Narration</dt>
+                    <dd>{narration}</dd>
+                  </dl>
+                </section>
+                """.strip())
+
+        body = "\n".join(scene_markup)
+        return (
+            "<!DOCTYPE html>\n"
+            '<html lang="en">\n'
+            "<head>\n"
+            '  <meta charset="utf-8" />\n'
+            f"  <title>{title}</title>\n"
+            "  <style>\n"
+            "    body { font-family: Arial, sans-serif; margin: 40px; }\n"
+            "    .scene-card { border: 1px solid #d0d7de; padding: 16px; "
+            "margin-bottom: 16px; border-radius: 12px; }\n"
+            "    dt { font-weight: 700; margin-top: 8px; }\n"
+            "    dd { margin: 0; color: #444; }\n"
+            "  </style>\n"
+            "</head>\n"
+            "<body>\n"
+            f"  <h1>{title}</h1>\n"
+            f"  {body}\n"
+            "</body>\n"
+            "</html>\n"
+        )
+
+    @classmethod
+    def _normalize_artifact_content(
+        cls, artifact_type: str, content: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if artifact_type == "pptx":
+            return {"title": "PPT demo", "slides": [], **content}
+        if artifact_type == "docx":
+            return {"title": "Teaching handout", "sections": [], **content}
+        if artifact_type == "mindmap":
+            return {"title": "Mindmap", "nodes": [], **content}
+        if artifact_type == "summary":
+            return {
+                "title": "Course summary",
+                "summary": "",
+                "key_points": [],
+                **content,
+            }
+        if artifact_type == "exercise":
+            return {"title": "Exercise", "questions": [], **content}
+        if artifact_type == "html":
+            mode = str(content.get("mode") or "").strip().lower()
+            normalized = dict(content)
+            if mode == "animation_storyboard":
+                normalized.setdefault("title", "Animation Storyboard")
+                normalized["kind"] = "animation_storyboard"
+                normalized["html"] = cls._build_animation_storyboard_html(normalized)
+                return normalized
+            normalized.setdefault("html", "<html><body>Empty</body></html>")
+            return normalized
+        if artifact_type == "gif":
+            return {"title": "Animation placeholder", "scenes": [], **content}
+        if artifact_type == "mp4":
+            return {"title": "Video placeholder", **content}
+        return {"title": f"{artifact_type} artifact", "data": [], **content}
+
+    @staticmethod
+    def _build_artifact_metadata(
+        artifact_type: str, content: Dict[str, Any], user_id: str
+    ) -> Dict[str, Any]:
+        metadata: Dict[str, Any] = {"created_by": user_id}
+        if artifact_type == "html" and content.get("kind") == "animation_storyboard":
+            metadata["kind"] = "animation_storyboard"
+            metadata["capability"] = "animation"
+        return metadata
+
+    @staticmethod
     def _default_artifact_content(artifact_type: str) -> Dict[str, Any]:
+        # Backward-compatible helper kept for callers/tests that still use it directly.
         if artifact_type == "pptx":
             return {"title": "PPT demo", "slides": []}
         if artifact_type == "docx":
