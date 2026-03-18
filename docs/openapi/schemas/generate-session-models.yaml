@@ -58,12 +58,79 @@ SessionRef:
       type: string
       format: date-time
 
+ArtifactAnchor:
+  type: object
+  required: [session_id, artifact_id, based_on_version_id]
+  properties:
+    session_id:
+      type: string
+      description: 当前锚点所属会话 ID
+    artifact_id:
+      type: string
+      nullable: true
+      description: 当前会话绑定成果 ID（为空表示尚未绑定成果）
+    based_on_version_id:
+      type: string
+      nullable: true
+      description: 当前成果基于的正式版本 ID
+
+SessionArtifactItem:
+  type: object
+  required: [artifact_id, capability, title, updated_at, artifact_anchor]
+  properties:
+    artifact_id:
+      type: string
+    capability:
+      type: string
+      description: 成果来源能力（如 outline/summary/ppt）
+    title:
+      type: string
+    based_on_version_id:
+      type: string
+      nullable: true
+    updated_at:
+      type: string
+      format: date-time
+    artifact_anchor:
+      $ref: '#/ArtifactAnchor'
+
+SessionArtifactGroup:
+  type: object
+  required: [capability, items]
+  properties:
+    capability:
+      type: string
+    items:
+      type: array
+      items:
+        $ref: '#/SessionArtifactItem'
+
 SessionStatePayload:
   type: object
   required: [session]
   properties:
     session:
       $ref: '#/SessionRef'
+    artifact_id:
+      type: string
+      nullable: true
+      description: 会话当前默认成果 ID
+    based_on_version_id:
+      type: string
+      nullable: true
+      description: 会话当前默认成果对应的正式版本 ID
+    artifact_anchor:
+      $ref: '#/ArtifactAnchor'
+    session_artifacts:
+      type: array
+      description: 当前会话下可追溯的成果历史（按更新时间倒序）
+      items:
+        $ref: '#/SessionArtifactItem'
+    session_artifact_groups:
+      type: array
+      description: 会话成果历史按 capability 聚合视图
+      items:
+        $ref: '#/SessionArtifactGroup'
     options:
       $ref: './generate-core.yaml#/GenerationOptions'
     outline:

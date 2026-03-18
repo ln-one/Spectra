@@ -22,6 +22,8 @@ PreviewResponse:
           type: string
           description: 当前预览基于的正式版本 ID
           nullable: true
+        artifact_anchor:
+          $ref: './generate-session-models.yaml#/ArtifactAnchor'
         render_version:
           type: integer
           minimum: 1
@@ -182,6 +184,8 @@ ModifyResponse:
           type: string
           description: 修改任务基于的正式版本 ID
           nullable: true
+        artifact_anchor:
+          $ref: './generate-session-models.yaml#/ArtifactAnchor'
     message:
       type: string
 
@@ -197,6 +201,16 @@ SlideDetailResponse:
         session_id:
           type: string
           description: 当前幻灯片详情所属会话
+        artifact_id:
+          type: string
+          description: 当前页面预览对应的成果 ID
+          nullable: true
+        based_on_version_id:
+          type: string
+          description: 当前页面预览基于的正式版本 ID
+          nullable: true
+        artifact_anchor:
+          $ref: './generate-session-models.yaml#/ArtifactAnchor'
         slide:
           $ref: '#/Slide'
         teaching_plan:
@@ -263,6 +277,8 @@ ExportResponse:
           type: string
           description: 导出基于的正式版本 ID
           nullable: true
+        artifact_anchor:
+          $ref: './generate-session-models.yaml#/ArtifactAnchor'
         content:
           type: string
           description: 导出的内容
