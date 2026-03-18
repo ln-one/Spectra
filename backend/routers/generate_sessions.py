@@ -1063,11 +1063,20 @@ async def modify_session_preview(
     """修改预览内容（转发给 REGENERATE_SLIDE command）。"""
     slide_id = body.get("slide_id")
     patch = body.get("patch")
+    candidate_change_body = body.get("candidate_change")
     if not slide_id or not patch:
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=ErrorCode.INVALID_INPUT,
             message="slide_id 和 patch 为必填字段",
+        )
+    if candidate_change_body is not None and not isinstance(
+        candidate_change_body, dict
+    ):
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="candidate_change must be an object",
         )
 
     _validate_optional_positive_int(
@@ -1116,6 +1125,47 @@ async def modify_session_preview(
     }
     if isinstance(result, dict):
         payload.update(result)
+    if candidate_change_body is not None:
+        candidate_change_input = dict(candidate_change_body)
+        if body.get("artifact_id") and "artifact_id" not in candidate_change_input:
+            candidate_change_input["artifact_id"] = body.get("artifact_id")
+        project_id = snapshot["session"]["project_id"]
+        key_str = _parse_idempotency_key(idempotency_key)
+        cache_key = (
+            "session_preview_modify_candidate_change:"
+            f"{user_id}:{project_id}:{session_id}:{key_str}"
+            if key_str
+            else None
+        )
+        cached_change = None
+        if cache_key:
+            cached = await db_service.get_idempotency_response(cache_key)
+            if isinstance(cached, dict):
+                cached_change = cached.get("change")
+        if cached_change is None:
+            change = await _create_session_candidate_change(
+                session_id=session_id,
+                user_id=user_id,
+                snapshot=snapshot,
+                body=candidate_change_input,
+                extra_payload={
+                    "generation_command": {
+                        "command_type": "REGENERATE_SLIDE",
+                        "slide_id": slide_id,
+                        "patch": patch,
+                        "expected_render_version": body.get("expected_render_version"),
+                    },
+                    "generation_result": payload,
+                    "trigger": "preview_modify",
+                },
+            )
+            cached_change = _serialize_candidate_change(change)
+            if cache_key:
+                await db_service.save_idempotency_response(
+                    cache_key,
+                    {"change": cached_change},
+                )
+        payload["candidate_change"] = cached_change
     return success_response(data=payload, message="预览修改请求已接受")
 
 

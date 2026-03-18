@@ -140,6 +140,8 @@ ModifySessionRequest:
     artifact_id:
       type: string
       description: 指定要修改的成果 ID（可选）
+    candidate_change:
+      $ref: './generate-session-requests.yaml#/SubmitSessionCandidateChangeRequest'
     instruction:
       type: string
       minLength: 1
@@ -186,6 +188,8 @@ ModifyResponse:
           nullable: true
         artifact_anchor:
           $ref: './generate-session-models.yaml#/ArtifactAnchor'
+        candidate_change:
+          $ref: './project-space.yaml#/CandidateChange'
     message:
       type: string
 
