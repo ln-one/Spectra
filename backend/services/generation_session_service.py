@@ -207,6 +207,19 @@ def _resolve_capability_from_artifact(artifact_type: str, metadata: dict) -> str
     return normalized_type or "unknown"
 
 
+def _build_session_artifact_anchor(
+    session_id: str,
+    artifact_id: Optional[str],
+    based_on_version_id: Optional[str],
+) -> dict:
+    """Build a unified artifact anchor for session-scope payloads."""
+    return {
+        "session_id": session_id,
+        "artifact_id": artifact_id,
+        "based_on_version_id": based_on_version_id,
+    }
+
+
 # ============================================================
 # 内部辅助：能力声明（集成 capability_health）
 # ============================================================
@@ -437,6 +450,9 @@ class GenerationSessionService:
 
         return {
             "session": self._to_session_ref(session, task_id=latest_task_id),
+            "artifact_id": artifact_history["artifact_id"],
+            "based_on_version_id": artifact_history["based_on_version_id"],
+            "artifact_anchor": artifact_history["artifact_anchor"],
             "options": json.loads(session.options) if session.options else None,
             "outline": outline,
             "context_snapshot": None,
@@ -472,9 +488,17 @@ class GenerationSessionService:
         project_id: str,
         session_id: str,
     ) -> dict:
+        default_anchor = _build_session_artifact_anchor(
+            session_id=session_id,
+            artifact_id=None,
+            based_on_version_id=None,
+        )
         artifact_model = getattr(self._db, "artifact", None)
         if artifact_model is None or not hasattr(artifact_model, "find_many"):
             return {
+                "artifact_id": None,
+                "based_on_version_id": None,
+                "artifact_anchor": default_anchor,
                 "session_artifacts": [],
                 "session_artifact_groups": [],
             }
@@ -498,6 +522,11 @@ class GenerationSessionService:
                 "type": getattr(artifact, "type", None),
                 "capability": capability,
                 "based_on_version_id": getattr(artifact, "basedOnVersionId", None),
+                "artifact_anchor": _build_session_artifact_anchor(
+                    session_id=session_id,
+                    artifact_id=artifact.id,
+                    based_on_version_id=getattr(artifact, "basedOnVersionId", None),
+                ),
                 "created_at": (
                     artifact.createdAt.isoformat()
                     if getattr(artifact, "createdAt", None)
@@ -521,7 +550,15 @@ class GenerationSessionService:
             }
             for capability, items in grouped.items()
         ]
+        latest_item = history_items[0] if history_items else None
         return {
+            "artifact_id": latest_item["artifact_id"] if latest_item else None,
+            "based_on_version_id": (
+                latest_item["based_on_version_id"] if latest_item else None
+            ),
+            "artifact_anchor": (
+                latest_item["artifact_anchor"] if latest_item else default_anchor
+            ),
             "session_artifacts": history_items,
             "session_artifact_groups": grouped_items,
         }
