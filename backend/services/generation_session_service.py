@@ -22,8 +22,13 @@ from services.generation_session_helpers import (
     _courseware_outline_to_document,
     _default_capabilities,
     _extract_outline_style,
+    _extract_template_config,
+    _is_queue_worker_available,
+    _normalize_task_type,
     _parse_json_object,
     _resolve_capability_from_artifact,
+    _to_generation_event,
+    _to_session_ref,
 )
 from services.state_transition_guard import (
     StateTransitionGuard,
@@ -52,14 +57,6 @@ _EXECUTION_TRIGGER_COMMANDS = {
     "CONFIRM_OUTLINE",
     "RESUME_SESSION",
     "REGENERATE_SLIDE",
-}
-_SESSION_TO_TASK_TYPE = {
-    "ppt": "pptx",
-    "word": "docx",
-    "both": "both",
-    # backward compatibility
-    "pptx": "pptx",
-    "docx": "docx",
 }
 
 
@@ -127,7 +124,7 @@ class GenerationSessionService:
         )
 
         logger.info("Session created: %s for project %s", session.id, project_id)
-        return self._to_session_ref(session)
+        return _to_session_ref(session, CONTRACT_VERSION, SCHEMA_VERSION)
 
     # ----------------------------------------------------------
     # 2. 查询会话快照
@@ -178,7 +175,9 @@ class GenerationSessionService:
         )
 
         return {
-            "session": self._to_session_ref(session, task_id=latest_task_id),
+            "session": _to_session_ref(
+                session, CONTRACT_VERSION, SCHEMA_VERSION, task_id=latest_task_id
+            ),
             "options": json.loads(session.options) if session.options else None,
             "outline": outline,
             "context_snapshot": None,
@@ -365,9 +364,9 @@ class GenerationSessionService:
 
         # CONFIRM_OUTLINE 触发入队；队列不可用时降级为本地异步执行，避免 pending 卡死
         if created_task_id:
-            task_type = self._normalize_task_type(session.outputType)
-            template_config = self._extract_template_config(session.options)
-            worker_available = self._is_queue_worker_available(task_queue_service)
+            task_type = _normalize_task_type(session.outputType, ConflictError)
+            template_config = _extract_template_config(session.options)
+            worker_available = _is_queue_worker_available(task_queue_service)
 
             if task_queue_service is None or not worker_available:
                 fallback_reason = (
@@ -470,7 +469,12 @@ class GenerationSessionService:
             "accepted": True,
             "task_id": created_task_id,
             "transition": transition,
-            "session": self._to_session_ref(updated_session, task_id=created_task_id),
+            "session": _to_session_ref(
+                updated_session,
+                CONTRACT_VERSION,
+                SCHEMA_VERSION,
+                task_id=created_task_id,
+            ),
             "warnings": warnings,
         }
 
@@ -521,7 +525,7 @@ class GenerationSessionService:
             take=limit,
         )
 
-        return [self._to_generation_event(e) for e in events]
+        return [_to_generation_event(e) for e in events]
 
     # ----------------------------------------------------------
     # 5. 更新大纲（UPDATE_OUTLINE 便捷版）
@@ -656,7 +660,7 @@ class GenerationSessionService:
                 options = json.loads(session.options)
             except (json.JSONDecodeError, TypeError):
                 options = {}
-        task_type = self._normalize_task_type(session.outputType)
+        task_type = _normalize_task_type(session.outputType, ConflictError)
 
         # 创建 GenerationTask 并关联 session
         input_payload = {"outline_version": session.currentOutlineVersion}
@@ -750,7 +754,7 @@ class GenerationSessionService:
         不等待任务完成，立即返回。任务执行器负责事件推送。
         """
         # 尝试 RQ 入队（仅在 worker 可用时）
-        if task_queue_service and self._is_queue_worker_available(task_queue_service):
+        if task_queue_service and _is_queue_worker_available(task_queue_service):
             try:
                 job = task_queue_service.enqueue_outline_draft_task(
                     session_id=session_id,
@@ -1117,39 +1121,6 @@ class GenerationSessionService:
             data={"lastCursor": cursor},
         )
 
-    @staticmethod
-    def _extract_template_config(options_raw: Optional[str]) -> Optional[dict]:
-        if not options_raw:
-            return None
-        try:
-            options = json.loads(options_raw)
-        except (TypeError, json.JSONDecodeError):
-            return None
-        template_config = options.get("template_config")
-        return template_config if isinstance(template_config, dict) else None
-
-    @staticmethod
-    def _normalize_task_type(output_type: str) -> str:
-        normalized = _SESSION_TO_TASK_TYPE.get((output_type or "").lower())
-        if normalized is None:
-            raise ConflictError(f"不支持的 output_type: {output_type}")
-        return normalized
-
-    @staticmethod
-    def _is_queue_worker_available(task_queue_service) -> bool:
-        if task_queue_service is None:
-            return False
-        try:
-            queue_info = task_queue_service.get_queue_info()
-            if not isinstance(queue_info, dict):
-                return True
-            worker_count = int(((queue_info.get("workers") or {}).get("count") or 0))
-            return worker_count > 0
-        except Exception as exc:
-            logger.warning("Failed to inspect queue worker availability: %s", exc)
-            # Fail open: assume workers are available and let enqueue handle failure.
-            return True
-
     def _schedule_enqueued_task_watchdog(
         self,
         session_id: str,
@@ -1288,61 +1259,6 @@ class GenerationSessionService:
             state_reason="task_dispatch_failed",
             payload={"task_id": task_id, "error": error_message},
         )
-
-    @staticmethod
-    def _to_session_ref(session, task_id: Optional[str] = None) -> dict:
-        """将 Prisma GenerationSession 转为 SessionRef 字典（对齐 OpenAPI）。"""
-        return {
-            "session_id": session.id,
-            "project_id": session.projectId,
-            "task_id": task_id,  # 由调用方传入最新关联 task_id
-            "state": session.state,
-            "state_reason": session.stateReason,
-            "status": _state_to_legacy_status(session.state),
-            "contract_version": CONTRACT_VERSION,
-            "schema_version": SCHEMA_VERSION,
-            "progress": session.progress,
-            "resumable": session.resumable,
-            "updated_at": session.updatedAt.isoformat() if session.updatedAt else None,
-            "render_version": session.renderVersion,
-        }
-
-    @staticmethod
-    def _to_generation_event(event) -> dict:
-        """将 Prisma SessionEvent 转为 GenerationEvent 字典（对齐 OpenAPI）。"""
-        payload = None
-        if event.payload:
-            try:
-                payload = json.loads(event.payload)
-            except json.JSONDecodeError:
-                payload = None
-        return {
-            "event_id": event.id,
-            "event_schema_version": event.schemaVersion,
-            "event_type": event.eventType,
-            "state": event.state,
-            "state_reason": event.stateReason,
-            "progress": event.progress,
-            "timestamp": event.createdAt.isoformat(),
-            "cursor": event.cursor,
-            "payload": payload,
-        }
-
-
-def _state_to_legacy_status(state: str) -> str:
-    """将会话状态映射到旧版 task status 字段（兼容层）。"""
-    mapping = {
-        "IDLE": "pending",
-        "CONFIGURING": "pending",
-        "ANALYZING": "processing",
-        "DRAFTING_OUTLINE": "processing",
-        "AWAITING_OUTLINE_CONFIRM": "processing",
-        "GENERATING_CONTENT": "processing",
-        "RENDERING": "processing",
-        "SUCCESS": "completed",
-        "FAILED": "failed",
-    }
-    return mapping.get(state, "pending")
 
 
 # ============================================================

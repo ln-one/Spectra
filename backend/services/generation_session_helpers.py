@@ -1,10 +1,21 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import uuid
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+_SESSION_TO_TASK_TYPE = {
+    "ppt": "pptx",
+    "word": "docx",
+    "both": "both",
+    "pptx": "pptx",
+    "docx": "docx",
+}
 
 _ARTIFACT_TYPE_TO_CAPABILITY = {
     "pptx": "ppt",
@@ -265,3 +276,92 @@ def _default_capabilities() -> list[dict]:
             "status_message": None,
         },
     ]
+
+
+def _extract_template_config(options_raw: Optional[str]) -> Optional[dict]:
+    if not options_raw:
+        return None
+    try:
+        options = json.loads(options_raw)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    template_config = options.get("template_config")
+    return template_config if isinstance(template_config, dict) else None
+
+
+def _normalize_task_type(output_type: str, error_cls=ValueError) -> str:
+    normalized = _SESSION_TO_TASK_TYPE.get((output_type or "").lower())
+    if normalized is None:
+        raise error_cls(f"不支持的 output_type: {output_type}")
+    return normalized
+
+
+def _is_queue_worker_available(task_queue_service) -> bool:
+    if task_queue_service is None:
+        return False
+    try:
+        queue_info = task_queue_service.get_queue_info()
+        if not isinstance(queue_info, dict):
+            return True
+        worker_count = int(((queue_info.get("workers") or {}).get("count") or 0))
+        return worker_count > 0
+    except Exception as exc:
+        logger.warning("Failed to inspect queue worker availability: %s", exc)
+        return True
+
+
+def _state_to_legacy_status(state: str) -> str:
+    mapping = {
+        "IDLE": "pending",
+        "CONFIGURING": "pending",
+        "ANALYZING": "processing",
+        "DRAFTING_OUTLINE": "processing",
+        "AWAITING_OUTLINE_CONFIRM": "processing",
+        "GENERATING_CONTENT": "processing",
+        "RENDERING": "processing",
+        "SUCCESS": "completed",
+        "FAILED": "failed",
+    }
+    return mapping.get(state, "pending")
+
+
+def _to_session_ref(
+    session,
+    contract_version: str,
+    schema_version: int,
+    task_id: Optional[str] = None,
+) -> dict:
+    return {
+        "session_id": session.id,
+        "project_id": session.projectId,
+        "task_id": task_id,
+        "state": session.state,
+        "state_reason": session.stateReason,
+        "status": _state_to_legacy_status(session.state),
+        "contract_version": contract_version,
+        "schema_version": schema_version,
+        "progress": session.progress,
+        "resumable": session.resumable,
+        "updated_at": session.updatedAt.isoformat() if session.updatedAt else None,
+        "render_version": session.renderVersion,
+    }
+
+
+def _to_generation_event(event) -> dict:
+    payload = None
+    if event.payload:
+        try:
+            payload = json.loads(event.payload)
+        except json.JSONDecodeError:
+            payload = None
+    return {
+        "event_id": event.id,
+        "event_schema_version": event.schemaVersion,
+        "event_type": event.eventType,
+        "state": event.state,
+        "state_reason": event.stateReason,
+        "progress": event.progress,
+        "timestamp": event.createdAt.isoformat(),
+        "cursor": event.cursor,
+        "payload": payload,
+    }
