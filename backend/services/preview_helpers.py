@@ -8,7 +8,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from schemas.preview import LessonPlan, Slide, SlidePlan, SourceReference, SourceType
 from services.database import db_service
@@ -144,3 +144,69 @@ def build_lesson_plan(slides: list[Slide], lesson_plan_markdown: str) -> LessonP
         )
 
     return LessonPlan(teaching_objectives=objectives, slides_plan=plans)
+
+
+def build_artifact_anchor(session_id: str, artifact) -> dict:
+    """Build unified artifact anchor payload for session-scope responses."""
+    return {
+        "session_id": session_id,
+        "artifact_id": artifact.id if artifact else None,
+        "based_on_version_id": (
+            getattr(artifact, "basedOnVersionId", None) if artifact else None
+        ),
+    }
+
+
+def strip_sources(
+    slides: list[dict], lesson_plan: Optional[dict]
+) -> Tuple[list[dict], Optional[dict]]:
+    """Drop source arrays from preview payload when include_sources=False."""
+    slides_clean = []
+    for slide in slides:
+        item = dict(slide)
+        item["sources"] = []
+        slides_clean.append(item)
+
+    lesson_plan_clean = None
+    if lesson_plan:
+        lesson_plan_clean = dict(lesson_plan)
+        plans = []
+        for plan in lesson_plan_clean.get("slides_plan", []) or []:
+            plan_item = dict(plan)
+            plan_item["material_sources"] = []
+            plans.append(plan_item)
+        lesson_plan_clean["slides_plan"] = plans
+    return slides_clean, lesson_plan_clean
+
+
+async def load_preview_material(session_id: str, project_id: str):
+    """Load task + rendered preview materials for preview/export APIs."""
+    tasks = await db_service.db.generationtask.find_many(
+        where={"sessionId": session_id},
+        order={"createdAt": "desc"},
+        take=1,
+    )
+    task = tasks[0] if tasks else None
+
+    slides: list[dict] = []
+    lesson_plan: Optional[dict] = None
+    content: dict = {}
+    if task:
+        try:
+            project = await db_service.get_project(project_id)
+            if not project:
+                raise ValueError("project not found for preview")
+            content = await get_or_generate_content(task, project)
+            slide_models = build_slides(task.id, content.get("markdown_content", ""))
+            slides = [s.model_dump() for s in slide_models]
+            lesson_plan = build_lesson_plan(
+                slide_models,
+                content.get("lesson_plan_markdown", ""),
+            ).model_dump()
+        except Exception as preview_err:
+            logger.warning(
+                "Session preview content generation failed, using fallback: %s",
+                preview_err,
+                exc_info=True,
+            )
+    return task, slides, lesson_plan, content
