@@ -1,0 +1,191 @@
+"""Artifact routes for Project Space."""
+
+import logging
+from pathlib import Path
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import FileResponse
+
+from schemas.project_space import ArtifactCreate, ArtifactResponse, ArtifactsResponse
+from services.project_space_service import project_space_service
+from utils.dependencies import get_current_user
+from utils.exceptions import NotFoundException
+
+from .shared import COMMON_ERROR_RESPONSES, DOCX_MIME, PPTX_MIME, to_artifact_model
+
+router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+@router.get(
+    "/{project_id}/artifacts",
+    response_model=ArtifactsResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def get_project_artifacts(
+    project_id: str,
+    user_id: str = Depends(get_current_user),
+    type: Optional[str] = Query(None, description="Artifact type filter"),
+    visibility: Optional[str] = Query(None, description="Visibility filter"),
+    owner_user_id: Optional[str] = Query(None, description="Owner user ID filter"),
+    based_on_version_id: Optional[str] = Query(
+        None, description="Based on version ID filter"
+    ),
+):
+    try:
+        await project_space_service.check_project_permission(
+            project_id, user_id, "can_view"
+        )
+        artifacts = await project_space_service.get_project_artifacts(
+            project_id,
+            type_filter=type,
+            visibility_filter=visibility,
+            owner_user_id_filter=owner_user_id,
+            based_on_version_id_filter=based_on_version_id,
+        )
+        return ArtifactsResponse(
+            success=True,
+            data={"artifacts": [to_artifact_model(artifact) for artifact in artifacts]},
+            message="获取成果列表成功",
+        )
+    except (NotFoundException, Exception) as exc:
+        logger.error(f"get_project_artifacts error: {exc}")
+        raise
+
+
+@router.get(
+    "/{project_id}/artifacts/{artifact_id}",
+    response_model=ArtifactResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+async def get_artifact(
+    project_id: str,
+    artifact_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        await project_space_service.check_project_permission(
+            project_id, user_id, "can_view"
+        )
+        artifact = await project_space_service.get_artifact(artifact_id)
+        if not artifact or artifact.projectId != project_id:
+            raise NotFoundException(
+                f"Artifact {artifact_id} not found in project {project_id}"
+            )
+        return ArtifactResponse(
+            success=True,
+            data={"artifact": to_artifact_model(artifact)},
+            message="获取成果详情成功",
+        )
+    except (NotFoundException, Exception) as exc:
+        logger.error(f"get_artifact error: {exc}")
+        raise
+
+
+@router.post(
+    "/{project_id}/artifacts",
+    response_model=ArtifactResponse,
+    responses={**COMMON_ERROR_RESPONSES, 400: {"description": "Bad Request"}},
+)
+async def create_artifact(
+    project_id: str,
+    body: ArtifactCreate,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        await project_space_service.check_project_permission(
+            project_id, user_id, "can_collaborate"
+        )
+        artifact = await project_space_service.create_artifact_with_file(
+            project_id=project_id,
+            artifact_type=body.type,
+            visibility=body.visibility,
+            user_id=user_id,
+            session_id=body.session_id,
+            based_on_version_id=body.based_on_version_id,
+            content={"mode": body.mode},
+        )
+        logger.info(f"Created artifact {artifact.id} for project {project_id}")
+        return ArtifactResponse(
+            success=True,
+            data={"artifact": to_artifact_model(artifact)},
+            message="创建成果成功",
+        )
+    except (NotFoundException, Exception) as exc:
+        logger.error(f"create_artifact error: {exc}")
+        raise
+
+
+@router.get(
+    "/{project_id}/artifacts/{artifact_id}/download",
+    responses={
+        **COMMON_ERROR_RESPONSES,
+        200: {
+            "description": "Binary artifact stream",
+            "content": {
+                "application/octet-stream": {},
+                PPTX_MIME: {},
+                DOCX_MIME: {},
+                "application/json": {},
+                "text/html": {},
+                "image/gif": {},
+                "video/mp4": {},
+            },
+        },
+    },
+)
+async def download_artifact(
+    project_id: str,
+    artifact_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        await project_space_service.check_project_permission(
+            project_id, user_id, "can_view"
+        )
+        artifact = await project_space_service.get_artifact(artifact_id)
+        if not artifact or artifact.projectId != project_id:
+            raise NotFoundException(
+                f"Artifact {artifact_id} not found in project {project_id}"
+            )
+        if not artifact.storagePath:
+            raise NotFoundException(f"Artifact {artifact_id} has no storage path")
+
+        file_path = Path(artifact.storagePath)
+        if not file_path.exists():
+            raise NotFoundException(
+                f"Artifact file not found at {artifact.storagePath}"
+            )
+
+        media_types = {
+            "pptx": PPTX_MIME,
+            "docx": DOCX_MIME,
+            "mindmap": "application/json",
+            "summary": "application/json",
+            "exercise": "application/json",
+            "html": "text/html",
+            "gif": "image/gif",
+            "mp4": "video/mp4",
+        }
+        extension_map = {
+            "pptx": "pptx",
+            "docx": "docx",
+            "mindmap": "json",
+            "summary": "json",
+            "exercise": "json",
+            "html": "html",
+            "gif": "gif",
+            "mp4": "mp4",
+        }
+        media_type = media_types.get(artifact.type, "application/octet-stream")
+        filename = (
+            f"{artifact.type}_{artifact.id}.{extension_map.get(artifact.type, 'bin')}"
+        )
+        logger.info(f"Downloading artifact {artifact_id} from {artifact.storagePath}")
+        return FileResponse(
+            path=str(file_path), media_type=media_type, filename=filename
+        )
+    except (NotFoundException, Exception) as exc:
+        logger.error(f"download_artifact error: {exc}")
+        raise
