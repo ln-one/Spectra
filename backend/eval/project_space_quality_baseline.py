@@ -188,7 +188,8 @@ def check_regression_report(
             "anchor",
             "max_anchor_drop",
             "artifact_anchor_completeness_rate "
-            f"{curr_m['artifact_anchor_completeness_rate']:.2%} < 最低允许 {anchor_min:.2%} "
+            f"{curr_m['artifact_anchor_completeness_rate']:.2%} < "
+            f"最低允许 {anchor_min:.2%} "
             f"(guardrail={_guardrail_path('max_anchor_drop')}, "
             f"baseline={base_m['artifact_anchor_completeness_rate']:.2%}, "
             f"allowed_drop={g.max_anchor_drop:.2%})",
