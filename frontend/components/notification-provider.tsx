@@ -145,7 +145,7 @@ export function NotificationProvider() {
         }
       });
     };
-  }, [dockedIds, notifications]);
+  }, [notifications]);
 
   const shouldDockMap = useMemo(() => {
     const map = new Map<string, boolean>();

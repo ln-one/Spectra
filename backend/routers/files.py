@@ -302,6 +302,8 @@ async def upload_file(
         latest = await db_service.get_file(upload.id)
         if _SYNC_RAG_INDEXING:
             await _index_upload_for_rag(latest, project_id, session_id)
+            # 解析完成后重新获取最新状态（包括 errorMessage）
+            latest = await db_service.get_file(upload.id)
         else:
             _dispatch_rag_indexing(
                 request, background_tasks, latest, project_id, session_id
@@ -358,6 +360,8 @@ async def batch_upload_files(
                 latest = await db_service.get_file(upload.id)
                 if _SYNC_RAG_INDEXING:
                     await _index_upload_for_rag(latest, project_id, session_id)
+                    # 解析完成后重新获取最新状态（包括 errorMessage）
+                    latest = await db_service.get_file(upload.id)
                 else:
                     _dispatch_rag_indexing(
                         request, background_tasks, latest, project_id, session_id
