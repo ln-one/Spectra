@@ -30,14 +30,26 @@ ALL_CAPABILITIES = {
 }
 
 CAPABILITY_ARTIFACT_MAPPING = {
-    "ppt": {"artifact_type": "pptx"},
-    "word": {"artifact_type": "docx"},
-    "mindmap": {"artifact_type": "mindmap"},
-    "outline": {"artifact_type": "summary", "metadata_kind": "outline"},
-    "quiz": {"artifact_type": "exercise"},
-    "summary": {"artifact_type": "summary"},
-    "animation": {"artifact_type": "html", "metadata_kind": "animation_storyboard"},
-    "handout": {"artifact_type": "docx", "metadata_kind": "handout"},
+    "ppt": {"artifact_type": "pptx", "metadata_capability": "ppt"},
+    "word": {"artifact_type": "docx", "metadata_capability": "word"},
+    "mindmap": {"artifact_type": "mindmap", "metadata_capability": "mindmap"},
+    "outline": {
+        "artifact_type": "summary",
+        "metadata_kind": "outline",
+        "metadata_capability": "outline",
+    },
+    "quiz": {"artifact_type": "exercise", "metadata_capability": "quiz"},
+    "summary": {"artifact_type": "summary", "metadata_capability": "summary"},
+    "animation": {
+        "artifact_type": "html",
+        "metadata_kind": "animation_storyboard",
+        "metadata_capability": "animation",
+    },
+    "handout": {
+        "artifact_type": "docx",
+        "metadata_kind": "handout",
+        "metadata_capability": "handout",
+    },
 }
 
 WAVE1_ENTRY_ROUTE_MAPPING = {
@@ -151,15 +163,25 @@ def _capability_artifact_mapping_pass(sample: dict) -> bool:
     if artifact_type != expected["artifact_type"]:
         return False
 
-    expected_kind = expected.get("metadata_kind")
-    if not expected_kind:
-        return True
-
     metadata = sample.get("metadata")
+    expected_kind = expected.get("metadata_kind")
+    expected_capability = expected.get("metadata_capability")
+    if not expected_kind and not expected_capability:
+        return True
     if not isinstance(metadata, dict):
         return False
-    metadata_kind = str(metadata.get("kind", "") or "").strip().lower()
-    return metadata_kind == expected_kind
+
+    if expected_kind:
+        metadata_kind = str(metadata.get("kind", "") or "").strip().lower()
+        if metadata_kind != expected_kind:
+            return False
+
+    if expected_capability:
+        metadata_capability = str(metadata.get("capability", "") or "").strip().lower()
+        if metadata_capability != expected_capability:
+            return False
+
+    return True
 
 
 def _wave1_entry_semantics_pass(sample: dict) -> bool:
