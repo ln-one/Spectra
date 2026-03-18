@@ -309,7 +309,9 @@ def test_create_artifact_docx_sets_word_capability_metadata(
     assert body["data"]["artifact"]["metadata"]["capability"] == "word"
 
 
-def test_create_artifact_summary_sets_capability_metadata(client, monkeypatch, _as_user):
+def test_create_artifact_summary_sets_capability_metadata(
+    client, monkeypatch, _as_user
+):
     monkeypatch.setattr(
         project_space_service,
         "check_project_permission",
@@ -646,14 +648,20 @@ def test_download_artifact_structured_types_success(
     )
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith(expected_content_type)
-    assert (
-        f"{artifact_type}_a-{artifact_type}-001{suffix}"
-        in resp.headers.get("content-disposition", "")
+    assert f"{artifact_type}_a-{artifact_type}-001{suffix}" in resp.headers.get(
+        "content-disposition", ""
     )
 
 
 @pytest.mark.parametrize(
-    ("artifact_id", "artifact_type", "metadata", "suffix", "content", "expected_content_type"),
+    (
+        "artifact_id",
+        "artifact_type",
+        "metadata",
+        "suffix",
+        "content",
+        "expected_content_type",
+    ),
     [
         (
             "a-outline-download-001",

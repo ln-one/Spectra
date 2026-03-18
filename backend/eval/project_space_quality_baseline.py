@@ -52,9 +52,7 @@ class RegressionCheckReport:
 
     @property
     def triggered_guardrail_keys(self) -> list[str]:
-        return [
-            key for key, items in self.triggered_guardrails.items() if items
-        ]
+        return [key for key, items in self.triggered_guardrails.items() if items]
 
 
 def _guardrail_path(guardrail: str) -> str:
@@ -329,7 +327,8 @@ def check_regression(
 
 def format_failure_report(report: RegressionCheckReport) -> list[str]:
     triggered_guardrails = (
-        ", ".join(_guardrail_path(key) for key in report.triggered_guardrail_keys) or "-"
+        ", ".join(_guardrail_path(key) for key in report.triggered_guardrail_keys)
+        or "-"
     )
     lines = [
         "Project Space 基线校验失败摘要：",
@@ -348,7 +347,7 @@ def format_failure_report(report: RegressionCheckReport) -> list[str]:
         lines.append(f"- {_guardrail_path(key)}")
     lines.extend(
         [
-        "Project Space 基线校验失败分组：",
+            "Project Space 基线校验失败分组：",
         ]
     )
     group_titles = {

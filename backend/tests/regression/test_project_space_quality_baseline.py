@@ -236,9 +236,7 @@ def test_check_regression_report_groups_failures(tmp_path):
     lines = format_failure_report(report)
     assert any("失败分组数" in line for line in lines)
     assert any("触发 guardrails" in line for line in lines)
-    assert any(
-        "guardrails.max_mapping_drop" in line for line in lines
-    )
+    assert any("guardrails.max_mapping_drop" in line for line in lines)
     assert any("current=current-dataset.json" in line for line in lines)
     assert any("[Artifact 映射]" == line for line in lines)
     assert any("[总门禁]" == line for line in lines)

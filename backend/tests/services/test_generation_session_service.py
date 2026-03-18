@@ -121,8 +121,7 @@ def test_build_outline_requirements_includes_style_hard_constraints():
         project,
         {
             "system_prompt_tone": (
-                "[outline_style=workshop]\n"
-                "Please emphasize hands-on practice"
+                "[outline_style=workshop]\n" "Please emphasize hands-on practice"
             ),
             "pages": 12,
         },
