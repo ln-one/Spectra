@@ -3155,6 +3155,21 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SlidePlan'
+    ArtifactAnchor:
+      type: object
+      description: 会话作用域下的统一成果锚点表达
+      properties:
+        session_id:
+          type: string
+          description: 当前锚点所属会话 ID
+        artifact_id:
+          type: string
+          nullable: true
+          description: 当前锚点绑定的成果 ID
+        based_on_version_id:
+          type: string
+          nullable: true
+          description: 当前锚点基于的版本 ID
     PreviewResponse:
       type: object
       required:
@@ -3182,6 +3197,8 @@ components:
               type: string
               description: 当前预览基于的正式版本 ID
               nullable: true
+            artifact_anchor:
+              $ref: '#/components/schemas/ArtifactAnchor'
             render_version:
               type: integer
               minimum: 1
@@ -3252,6 +3269,8 @@ components:
               type: string
               description: 修改任务基于的正式版本 ID
               nullable: true
+            artifact_anchor:
+              $ref: '#/components/schemas/ArtifactAnchor'
         message:
           type: string
     SlideDetailResponse:
@@ -3269,6 +3288,8 @@ components:
             session_id:
               type: string
               description: 当前幻灯片详情所属会话
+            artifact_anchor:
+              $ref: '#/components/schemas/ArtifactAnchor'
             slide:
               $ref: '#/components/schemas/Slide'
             teaching_plan:
@@ -3343,6 +3364,8 @@ components:
               type: string
               description: 导出基于的正式版本 ID
               nullable: true
+            artifact_anchor:
+              $ref: '#/components/schemas/ArtifactAnchor'
             content:
               type: string
               description: 导出的内容

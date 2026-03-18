@@ -285,3 +285,105 @@ async def test_idempotency_prevents_duplicate_creation(app):
     assert response.status_code == 200
     data = response.json()
     assert data["data"]["session"]["session_id"] == "s-001"
+
+
+@pytest.mark.anyio
+async def test_preview_response_contains_unified_artifact_anchor(app, _as_user):
+    session_service = SimpleNamespace(
+        get_session_snapshot=AsyncMock(
+            return_value={
+                "session": {
+                    "state": "SUCCESS",
+                    "project_id": "p-001",
+                    "render_version": 3,
+                }
+            }
+        )
+    )
+    bound_artifact = SimpleNamespace(id="art-001", basedOnVersionId="ver-001")
+
+    with patch(
+        "routers.generate_sessions._get_session_service",
+        return_value=session_service,
+    ):
+        with patch(
+            "routers.generate_sessions._resolve_session_artifact_binding",
+            AsyncMock(return_value=bound_artifact),
+        ):
+            with patch(
+                "routers.generate_sessions._load_preview_material",
+                AsyncMock(
+                    return_value=(
+                        SimpleNamespace(id="task-001"),
+                        [],
+                        {"slides_plan": []},
+                        {"markdown_content": ""},
+                    )
+                ),
+            ):
+                client = TestClient(app)
+                response = client.get("/api/v1/generate/sessions/s-001/preview")
+
+    assert response.status_code == 200
+    body = response.json()
+    anchor = body["data"]["artifact_anchor"]
+    assert anchor == {
+        "session_id": "s-001",
+        "artifact_id": "art-001",
+        "based_on_version_id": "ver-001",
+    }
+    assert body["data"]["artifact_id"] == "art-001"
+    assert body["data"]["based_on_version_id"] == "ver-001"
+
+
+@pytest.mark.anyio
+async def test_export_response_contains_unified_artifact_anchor(app, _as_user):
+    session_service = SimpleNamespace(
+        get_session_snapshot=AsyncMock(
+            return_value={
+                "session": {
+                    "state": "SUCCESS",
+                    "project_id": "p-001",
+                    "render_version": 2,
+                },
+                "result": {"ppt_url": None, "word_url": None, "version": 2},
+            }
+        )
+    )
+    bound_artifact = SimpleNamespace(id="art-777", basedOnVersionId="ver-888")
+
+    with patch(
+        "routers.generate_sessions._get_session_service",
+        return_value=session_service,
+    ):
+        with patch(
+            "routers.generate_sessions._resolve_session_artifact_binding",
+            AsyncMock(return_value=bound_artifact),
+        ):
+            with patch(
+                "routers.generate_sessions._load_preview_material",
+                AsyncMock(
+                    return_value=(
+                        SimpleNamespace(id="task-777"),
+                        [],
+                        {"slides_plan": []},
+                        {"markdown_content": "# hello"},
+                    )
+                ),
+            ):
+                client = TestClient(app)
+                response = client.post(
+                    "/api/v1/generate/sessions/s-001/preview/export",
+                    json={"format": "markdown"},
+                )
+
+    assert response.status_code == 200
+    body = response.json()
+    anchor = body["data"]["artifact_anchor"]
+    assert anchor == {
+        "session_id": "s-001",
+        "artifact_id": "art-777",
+        "based_on_version_id": "ver-888",
+    }
+    assert body["data"]["artifact_id"] == "art-777"
+    assert body["data"]["based_on_version_id"] == "ver-888"
