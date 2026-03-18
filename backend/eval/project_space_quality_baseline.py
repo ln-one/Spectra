@@ -69,6 +69,8 @@ def freeze_baseline(
         "baseline_version": "1",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_result": str(result_path),
+        "dataset": result.get("dataset"),
+        "total_samples": result.get("total_samples"),
         "notes": notes,
         "metrics": result["metrics"],
         "guardrails": {

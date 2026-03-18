@@ -59,10 +59,19 @@ def test_freeze_baseline_and_check_pass(tmp_path):
     result_path = tmp_path / "ps_result.json"
     baseline_path = tmp_path / "ps_baseline.json"
     current_path = tmp_path / "ps_current.json"
-    result_path.write_text(json.dumps(baseline_source), encoding="utf-8")
+    result_path.write_text(
+        json.dumps(
+            {
+                "dataset": "backend/eval/project_space_quality_samples.json",
+                "total_samples": 8,
+                "metrics": baseline_source["metrics"],
+            }
+        ),
+        encoding="utf-8",
+    )
     current_path.write_text(json.dumps(current), encoding="utf-8")
 
-    freeze_baseline(
+    payload = freeze_baseline(
         result_path=result_path,
         output_path=baseline_path,
         guardrails=Guardrails(
@@ -76,6 +85,8 @@ def test_freeze_baseline_and_check_pass(tmp_path):
         ),
         notes="project space baseline",
     )
+    assert payload["dataset"] == "backend/eval/project_space_quality_samples.json"
+    assert payload["total_samples"] == 8
 
     passed, violations = check_regression(
         current_path=current_path,
