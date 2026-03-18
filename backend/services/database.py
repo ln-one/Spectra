@@ -845,7 +845,7 @@ class DatabaseService:
 
         return await self.db.candidatechange.find_many(
             where=where,
-            order={"createdAt": "desc"},
+            order={"updatedAt": "desc"},
         )
 
     async def get_candidate_change(self, change_id: str):

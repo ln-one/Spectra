@@ -95,3 +95,29 @@ async def test_update_candidate_change_status_persists_review_comment():
         where={"id": "c-001"},
         data={"status": "accepted", "reviewComment": "looks good"},
     )
+
+
+@pytest.mark.asyncio
+async def test_get_candidate_changes_orders_by_updated_at_desc():
+    service = DatabaseService()
+    find_many = AsyncMock(return_value=[SimpleNamespace(id="c-001")])
+    service.db = SimpleNamespace(
+        candidatechange=SimpleNamespace(find_many=find_many),
+    )
+
+    await service.get_candidate_changes(
+        project_id="p-001",
+        status="pending",
+        proposer_user_id="u-001",
+        session_id="s-001",
+    )
+
+    find_many.assert_awaited_once_with(
+        where={
+            "projectId": "p-001",
+            "status": "pending",
+            "proposerUserId": "u-001",
+            "sessionId": "s-001",
+        },
+        order={"updatedAt": "desc"},
+    )
