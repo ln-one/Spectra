@@ -9,9 +9,7 @@ GenerationSessionService - 会话化生成主链路服务
 
 from __future__ import annotations
 
-import json
 import logging
-import uuid
 from typing import TYPE_CHECKING, Any, Optional
 
 from services.generation_session_service.command_execution import (
@@ -22,12 +20,13 @@ from services.generation_session_service.command_execution import (
     save_cached_command_response,
 )
 from services.generation_session_service.command_handlers import dispatch_command
+from services.generation_session_service.event_store import append_event
 from services.generation_session_service.helpers import (
     _build_outline_requirements,
     _default_capabilities,
     _extract_outline_style,
-    _to_session_ref,
 )
+from services.generation_session_service.lifecycle import create_session
 from services.generation_session_service.outline_draft import (
     execute_outline_draft_local,
     schedule_outline_draft_task,
@@ -109,39 +108,21 @@ class GenerationSessionService:
         Returns:
             SessionRef 字典（对齐 OpenAPI CreateGenerationSessionResponse.data.session）
         """
-        session = await self._db.generationsession.create(
-            data={
-                "projectId": project_id,
-                "userId": user_id,
-                "outputType": output_type,
-                "options": json.dumps(options) if options else None,
-                "clientSessionId": client_session_id,
-                "state": "DRAFTING_OUTLINE",
-                "renderVersion": 0,
-                "currentOutlineVersion": 0,
-                "resumable": True,
-            }
-        )
-
-        # 写入初始事件
-        await self._append_event(
-            session_id=session.id,
-            event_type="state.changed",
-            state="DRAFTING_OUTLINE",
-            progress=0,
-            payload={"reason": "session_created"},
-        )
-
-        # 触发后台大纲草拟任务（不等待完成）
-        await self._schedule_outline_draft_task(
-            session_id=session.id,
+        session_ref = await create_session(
+            db=self._db,
             project_id=project_id,
+            user_id=user_id,
+            output_type=output_type,
             options=options,
+            client_session_id=client_session_id,
             task_queue_service=task_queue_service,
+            contract_version=CONTRACT_VERSION,
+            schema_version=SCHEMA_VERSION,
+            append_event=self._append_event,
+            schedule_outline_draft_task=self._schedule_outline_draft_task,
         )
-
-        logger.info("Session created: %s for project %s", session.id, project_id)
-        return _to_session_ref(session, CONTRACT_VERSION, SCHEMA_VERSION)
+        logger.info("Session created for project %s", project_id)
+        return session_ref
 
     # ----------------------------------------------------------
     # 2. 查询会话快照
@@ -399,24 +380,15 @@ class GenerationSessionService:
         progress: Optional[int] = None,
         payload: Optional[dict] = None,
     ) -> None:
-        """追加不可变事件记录并更新 lastCursor。"""
-        cursor = str(uuid.uuid4())
-        await self._db.sessionevent.create(
-            data={
-                "sessionId": session_id,
-                "eventType": event_type,
-                "state": state,
-                "stateReason": state_reason,
-                "progress": progress,
-                "cursor": cursor,
-                "payload": json.dumps(payload) if payload else None,
-                "schemaVersion": SCHEMA_VERSION,
-            }
-        )
-        # 同步更新会话的 lastCursor
-        await self._db.generationsession.update(
-            where={"id": session_id},
-            data={"lastCursor": cursor},
+        await append_event(
+            db=self._db,
+            schema_version=SCHEMA_VERSION,
+            session_id=session_id,
+            event_type=event_type,
+            state=state,
+            state_reason=state_reason,
+            progress=progress,
+            payload=payload,
         )
 
     def _schedule_enqueued_task_watchdog(
