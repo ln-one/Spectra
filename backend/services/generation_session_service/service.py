@@ -9,7 +9,6 @@ GenerationSessionService - 会话化生成主链路服务
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import uuid
@@ -39,6 +38,11 @@ from services.generation_session_service.queries import (
 )
 from services.generation_session_service.queries import (
     get_session_snapshot as query_session_snapshot,
+)
+from services.generation_session_service.task_dispatch import (
+    mark_dispatch_failed,
+    schedule_enqueued_task_watchdog,
+    schedule_local_execution,
 )
 from services.state_transition_guard import (
     StateTransitionGuard,
@@ -533,48 +537,18 @@ class GenerationSessionService:
         rq_job_id: str,
         task_queue_service,
     ) -> None:
-        async def _watch() -> None:
-            await asyncio.sleep(2)
-            try:
-                job_status = await asyncio.to_thread(
-                    task_queue_service.get_job_status,
-                    rq_job_id,
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Task watchdog failed to read RQ status: task=%s job=%s error=%s",
-                    task_id,
-                    rq_job_id,
-                    exc,
-                )
-                return
-
-            if not job_status or job_status.get("status") != "failed":
-                return
-
-            task = await self._db.generationtask.find_unique(where={"id": task_id})
-            if task is None or task.status != "pending":
-                return
-
-            exc_info = job_status.get("exc_info")
-            enqueue_error = exc_info if isinstance(exc_info, str) else str(exc_info)
-            scheduled = await self._schedule_local_execution(
-                session_id=session_id,
-                task_id=task_id,
-                project_id=project_id,
-                task_type=task_type,
-                template_config=template_config,
-                fallback_reason="rq_job_failed_fallback_local_execution",
-                enqueue_error=(enqueue_error or "")[:400],
-            )
-            if not scheduled:
-                await self._mark_dispatch_failed(
-                    session_id=session_id,
-                    task_id=task_id,
-                    error_message="RQ job failed and local fallback scheduling failed",
-                )
-
-        asyncio.create_task(_watch())
+        schedule_enqueued_task_watchdog(
+            db=self._db,
+            session_id=session_id,
+            task_id=task_id,
+            project_id=project_id,
+            task_type=task_type,
+            template_config=template_config,
+            rq_job_id=rq_job_id,
+            task_queue_service=task_queue_service,
+            schedule_local_execution=self._schedule_local_execution,
+            mark_dispatch_failed=self._mark_dispatch_failed,
+        )
 
     async def _schedule_local_execution(
         self,
@@ -586,53 +560,16 @@ class GenerationSessionService:
         fallback_reason: str,
         enqueue_error: Optional[str] = None,
     ) -> bool:
-        try:
-            from services.task_executor import execute_generation_task
-
-            asyncio.create_task(
-                execute_generation_task(
-                    task_id=task_id,
-                    project_id=project_id,
-                    task_type=task_type,
-                    template_config=template_config,
-                )
-            )
-            logger.warning(
-                "Session task fallback to local async execution:"
-                " session=%s task=%s reason=%s",
-                session_id,
-                task_id,
-                fallback_reason,
-            )
-            try:
-                await self._append_event(
-                    session_id=session_id,
-                    event_type="state.changed",
-                    state="GENERATING_CONTENT",
-                    state_reason=fallback_reason,
-                    payload={
-                        "task_id": task_id,
-                        "dispatch": "local_async",
-                        "reason": fallback_reason,
-                        "enqueue_error": enqueue_error,
-                    },
-                )
-            except Exception as event_err:
-                logger.warning(
-                    "Failed to append fallback dispatch event: session=%s error=%s",
-                    session_id,
-                    event_err,
-                )
-            return True
-        except Exception as local_err:
-            logger.error(
-                "Failed to schedule local fallback execution:"
-                " session=%s task=%s error=%s",
-                session_id,
-                task_id,
-                local_err,
-            )
-            return False
+        return await schedule_local_execution(
+            session_id=session_id,
+            task_id=task_id,
+            project_id=project_id,
+            task_type=task_type,
+            template_config=template_config,
+            fallback_reason=fallback_reason,
+            append_event=self._append_event,
+            enqueue_error=enqueue_error,
+        )
 
     async def _mark_dispatch_failed(
         self,
@@ -640,26 +577,12 @@ class GenerationSessionService:
         task_id: str,
         error_message: str,
     ) -> None:
-        await self._db.generationtask.update(
-            where={"id": task_id},
-            data={"status": "failed", "errorMessage": error_message},
-        )
-        await self._db.generationsession.update(
-            where={"id": session_id},
-            data={
-                "state": "FAILED",
-                "errorCode": "TASK_DISPATCH_FAILED",
-                "errorMessage": error_message,
-                "errorRetryable": True,
-                "resumable": True,
-            },
-        )
-        await self._append_event(
+        await mark_dispatch_failed(
+            db=self._db,
             session_id=session_id,
-            event_type="state.changed",
-            state="FAILED",
-            state_reason="task_dispatch_failed",
-            payload={"task_id": task_id, "error": error_message},
+            task_id=task_id,
+            error_message=error_message,
+            append_event=self._append_event,
         )
 
 
