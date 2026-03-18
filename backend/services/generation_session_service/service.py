@@ -15,9 +15,8 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Optional
 
-from services.ai import ai_service
-from services.generation_session_command_handlers import dispatch_command
-from services.generation_session_helpers import (
+from services.generation_session_service.command_handlers import dispatch_command
+from services.generation_session_service.helpers import (
     _build_outline_requirements,
     _default_capabilities,
     _extract_outline_style,
@@ -26,19 +25,19 @@ from services.generation_session_helpers import (
     _normalize_task_type,
     _to_session_ref,
 )
-from services.generation_session_outline_draft import (
+from services.generation_session_service.outline_draft import (
     execute_outline_draft_local,
     schedule_outline_draft_task,
     schedule_outline_draft_watchdog,
 )
-from services.generation_session_queries import get_events as query_events
-from services.generation_session_queries import (
+from services.generation_session_service.queries import get_events as query_events
+from services.generation_session_service.queries import (
     get_session_artifact_history as query_session_artifact_history,
 )
-from services.generation_session_queries import (
+from services.generation_session_service.queries import (
     get_session_runtime_state as query_session_runtime_state,
 )
-from services.generation_session_queries import (
+from services.generation_session_service.queries import (
     get_session_snapshot as query_session_snapshot,
 )
 from services.state_transition_guard import (
@@ -483,13 +482,15 @@ class GenerationSessionService:
         options: Optional[dict],
         trace_id: Optional[str] = None,
     ) -> None:
+        from services import generation_session_service as generation_session_module
+
         await execute_outline_draft_local(
             db=self._db,
             session_id=session_id,
             project_id=project_id,
             options=options,
             append_event=self._append_event,
-            ai_service_obj=ai_service,
+            ai_service_obj=generation_session_module.ai_service,
             trace_id=trace_id,
         )
 

@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, status
 
-from routers.generate_sessions_shared import (
+from routers.generate_sessions.shared import (
     build_session_artifact_anchor,
     get_session_service,
     load_session_preview_material,

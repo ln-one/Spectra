@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from services.generation_session_helpers import (
+from services.generation_session_service.helpers import (
     _default_capabilities,
     _parse_json_object,
     _resolve_capability_from_artifact,

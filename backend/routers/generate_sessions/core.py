@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from fastapi.responses import StreamingResponse
 
-from routers.generate_sessions_shared import (
+from routers.generate_sessions.shared import (
     CONTRACT_VERSION,
     get_session_service,
     get_task_queue_service,

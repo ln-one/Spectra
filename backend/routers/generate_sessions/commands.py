@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request, status
 
-from routers.generate_sessions_shared import (
+from routers.generate_sessions.shared import (
     get_session_service,
     get_task_queue_service,
     parse_idempotency_key,

@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-import routers.generate_sessions_preview as generate_sessions_preview_router
+import routers.generate_sessions.preview as generate_sessions_preview_router
 from main import app
 from utils.dependencies import get_current_user
 

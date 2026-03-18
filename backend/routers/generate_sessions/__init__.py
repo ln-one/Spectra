@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter
 
-from routers.generate_sessions_commands import router as commands_router
-from routers.generate_sessions_core import router as core_router
-from routers.generate_sessions_preview import router as preview_router
+from routers.generate_sessions.commands import router as commands_router
+from routers.generate_sessions.core import router as core_router
+from routers.generate_sessions.preview import router as preview_router
 
 router = APIRouter(prefix="/generate", tags=["Generate"])
 

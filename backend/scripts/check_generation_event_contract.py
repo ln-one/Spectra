@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 OPENAPI_ENUM_FILE = ROOT / "docs" / "openapi" / "schemas" / "generate-core.yaml"
 SCAN_FILES = [
-    ROOT / "backend" / "services" / "generation_session_service.py",
+    ROOT / "backend" / "services" / "generation_session_service" / "service.py",
     ROOT / "backend" / "services" / "task_executor.py",
     ROOT / "backend" / "services" / "task_recovery.py",
 ]
