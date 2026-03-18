@@ -207,6 +207,28 @@ def _resolve_capability_from_artifact(artifact_type: str, metadata: dict) -> str
     return normalized_type or "unknown"
 
 
+def _resolve_session_artifact_title(
+    *,
+    artifact_id: str,
+    capability: str,
+    metadata: dict,
+) -> str:
+    title = (metadata or {}).get("title")
+    if isinstance(title, str) and title.strip():
+        return title.strip()
+
+    for key in ("name", "filename"):
+        candidate = (metadata or {}).get(key)
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+
+    short_id = str(artifact_id or "").strip()
+    if len(short_id) > 8:
+        short_id = short_id[:8]
+    normalized_capability = str(capability or "").strip() or "artifact"
+    return f"{normalized_capability}-{short_id or 'unknown'}"
+
+
 def _build_session_artifact_anchor(
     session_id: str,
     artifact_id: Optional[str],
@@ -526,6 +548,11 @@ class GenerationSessionService:
                 "artifact_id": artifact.id,
                 "type": getattr(artifact, "type", None),
                 "capability": capability,
+                "title": _resolve_session_artifact_title(
+                    artifact_id=artifact.id,
+                    capability=capability,
+                    metadata=metadata,
+                ),
                 "based_on_version_id": getattr(artifact, "basedOnVersionId", None),
                 "artifact_anchor": _build_session_artifact_anchor(
                     session_id=session_id,

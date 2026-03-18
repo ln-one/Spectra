@@ -382,7 +382,7 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
         _fake_artifact(
             artifact_id="art-outline-001",
             artifact_type="summary",
-            metadata='{"kind":"outline"}',
+            metadata='{"kind":"outline","title":"课程大纲v2"}',
             based_on_version_id="ver-002",
         ),
         _fake_artifact(
@@ -429,6 +429,7 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert len(payload["session_artifacts"]) == 3
     assert payload["session_artifacts"][0]["artifact_id"] == "art-outline-001"
     assert payload["session_artifacts"][0]["capability"] == "outline"
+    assert payload["session_artifacts"][0]["title"] == "课程大纲v2"
     assert payload["session_artifacts"][0]["based_on_version_id"] == "ver-002"
     assert payload["session_artifacts"][0]["artifact_anchor"] == {
         "session_id": "s-001",
@@ -442,7 +443,9 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     }
     assert set(group_map.keys()) == {"outline", "ppt", "summary"}
     assert group_map["outline"][0]["artifact_id"] == "art-outline-001"
+    assert group_map["outline"][0]["title"] == "课程大纲v2"
     assert group_map["ppt"][0]["artifact_id"] == "art-ppt-001"
+    assert group_map["ppt"][0]["title"].startswith("ppt-")
     assert group_map["summary"][0]["artifact_id"] == "art-summary-001"
     assert payload["session_artifact_groups"][0]["artifacts"] == (
         payload["session_artifact_groups"][0]["items"]
