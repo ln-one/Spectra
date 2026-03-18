@@ -5,15 +5,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, status
 
-from routers.generate_sessions import (
-    _build_artifact_anchor,
-    _get_session_service,
-    _load_preview_material,
-    _parse_idempotency_key,
-    _raise_conflict,
-    _resolve_session_artifact_binding,
-    _validate_optional_positive_int,
-    _validate_positive_int,
+from routers.generate_sessions_shared import (
+    build_session_artifact_anchor,
+    get_session_service,
+    load_session_preview_material,
+    parse_idempotency_key,
+    raise_conflict,
+    resolve_session_artifact_binding,
+    validate_optional_positive_int,
+    validate_positive_int,
 )
 from services.generation_session_service import ConflictError
 from services.preview_helpers import (
@@ -35,6 +35,16 @@ from utils.exceptions import (
 from utils.responses import success_response
 
 router = APIRouter()
+
+# Backward-compatible aliases for tests and monkeypatches.
+_get_session_service = get_session_service
+_parse_idempotency_key = parse_idempotency_key
+_raise_conflict = raise_conflict
+_validate_optional_positive_int = validate_optional_positive_int
+_validate_positive_int = validate_positive_int
+_resolve_session_artifact_binding = resolve_session_artifact_binding
+_load_preview_material = load_session_preview_material
+_build_artifact_anchor = build_session_artifact_anchor
 
 
 @router.get("/sessions/{session_id}/preview")

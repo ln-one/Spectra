@@ -5,14 +5,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request, status
 
-from routers.generate_sessions import (
-    _get_session_service,
-    _get_task_queue_service,
-    _parse_idempotency_key,
-    _raise_conflict,
-    _validate_command_payload,
-    _validate_optional_positive_int,
-    _validate_positive_int,
+from routers.generate_sessions_shared import (
+    get_session_service,
+    get_task_queue_service,
+    parse_idempotency_key,
+    raise_conflict,
+    validate_command_payload,
+    validate_optional_positive_int,
+    validate_positive_int,
 )
 from services.generation_session_service import ConflictError
 from utils.dependencies import get_current_user
@@ -44,16 +44,16 @@ async def execute_session_command(
             message="command 字段为必填",
         )
 
-    _validate_command_payload(command)
+    validate_command_payload(command)
 
-    svc = _get_session_service()
+    svc = get_session_service()
     try:
         result = await svc.execute_command(
             session_id=session_id,
             user_id=user_id,
             command=command,
-            idempotency_key=_parse_idempotency_key(idempotency_key),
-            task_queue_service=_get_task_queue_service(request),
+            idempotency_key=parse_idempotency_key(idempotency_key),
+            task_queue_service=get_task_queue_service(request),
         )
     except ValueError:
         raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
@@ -62,7 +62,7 @@ async def execute_session_command(
             message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
         )
     except ConflictError as exc:
-        _raise_conflict(str(exc))
+        raise_conflict(str(exc))
 
     return success_response(data=result, message="命令已执行")
 
@@ -83,9 +83,9 @@ async def update_outline(
             error_code=ErrorCode.INVALID_INPUT,
             message="outline 和 base_version 为必填字段",
         )
-    _validate_positive_int(base_version, "base_version")
+    validate_positive_int(base_version, "base_version")
 
-    svc = _get_session_service()
+    svc = get_session_service()
     try:
         result = await svc.update_outline(
             session_id=session_id,
@@ -93,7 +93,7 @@ async def update_outline(
             outline_data=outline,
             base_version=base_version,
             change_reason=body.get("change_reason"),
-            idempotency_key=_parse_idempotency_key(idempotency_key),
+            idempotency_key=parse_idempotency_key(idempotency_key),
         )
     except ValueError:
         raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
@@ -102,7 +102,7 @@ async def update_outline(
             message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
         )
     except ConflictError as exc:
-        _raise_conflict(str(exc))
+        raise_conflict(str(exc))
 
     snapshot = await svc.get_session_snapshot(session_id, user_id)
     return success_response(
@@ -121,7 +121,7 @@ async def confirm_outline(
 ):
     """确认大纲并继续生成。"""
     body = body or {}
-    svc = _get_session_service()
+    svc = get_session_service()
     try:
         result = await svc.execute_command(
             session_id=session_id,
@@ -131,8 +131,8 @@ async def confirm_outline(
                 "continue_from_retrieval": body.get("continue_from_retrieval", True),
                 "expected_state": body.get("expected_state"),
             },
-            idempotency_key=_parse_idempotency_key(idempotency_key),
-            task_queue_service=_get_task_queue_service(request),
+            idempotency_key=parse_idempotency_key(idempotency_key),
+            task_queue_service=get_task_queue_service(request),
         )
     except ValueError:
         raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
@@ -141,7 +141,7 @@ async def confirm_outline(
             message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
         )
     except ConflictError as exc:
-        _raise_conflict(str(exc))
+        raise_conflict(str(exc))
 
     return success_response(data=result, message="大纲已确认，开始生成内容")
 
@@ -163,9 +163,9 @@ async def redraft_outline(
             message="instruction 和 base_version 为必填字段",
         )
 
-    _validate_positive_int(base_version, "base_version")
+    validate_positive_int(base_version, "base_version")
 
-    svc = _get_session_service()
+    svc = get_session_service()
     try:
         result = await svc.execute_command(
             session_id=session_id,
@@ -175,7 +175,7 @@ async def redraft_outline(
                 "instruction": instruction,
                 "base_version": base_version,
             },
-            idempotency_key=_parse_idempotency_key(idempotency_key),
+            idempotency_key=parse_idempotency_key(idempotency_key),
         )
     except ValueError:
         raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
@@ -184,7 +184,7 @@ async def redraft_outline(
             message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
         )
     except ConflictError as exc:
-        _raise_conflict(str(exc))
+        raise_conflict(str(exc))
 
     return success_response(data=result, message="大纲重写请求已接受")
 
@@ -197,7 +197,7 @@ async def resume_session(
 ):
     """恢复中断会话。"""
     body = body or {}
-    svc = _get_session_service()
+    svc = get_session_service()
     try:
         result = await svc.execute_command(
             session_id=session_id,
@@ -215,7 +215,7 @@ async def resume_session(
             message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
         )
     except ConflictError as exc:
-        _raise_conflict(str(exc))
+        raise_conflict(str(exc))
 
     return success_response(data=result, message="会话已恢复")
 
@@ -237,12 +237,12 @@ async def regenerate_slide(
             message="patch 字段为必填",
         )
 
-    _validate_optional_positive_int(
+    validate_optional_positive_int(
         body.get("expected_render_version"),
         "expected_render_version",
     )
 
-    svc = _get_session_service()
+    svc = get_session_service()
     try:
         result = await svc.execute_command(
             session_id=session_id,
@@ -253,7 +253,7 @@ async def regenerate_slide(
                 "patch": patch,
                 "expected_render_version": body.get("expected_render_version"),
             },
-            idempotency_key=_parse_idempotency_key(idempotency_key),
+            idempotency_key=parse_idempotency_key(idempotency_key),
         )
     except ValueError:
         raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
@@ -262,6 +262,6 @@ async def regenerate_slide(
             message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
         )
     except ConflictError as exc:
-        _raise_conflict(str(exc))
+        raise_conflict(str(exc))
 
     return success_response(data=result, message="局部重绘请求已接受")

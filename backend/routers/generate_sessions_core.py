@@ -8,11 +8,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from fastapi.responses import StreamingResponse
 
-from routers.generate_sessions import (
+from routers.generate_sessions_shared import (
     CONTRACT_VERSION,
-    _get_session_service,
-    _get_task_queue_service,
-    _parse_idempotency_key,
+    get_session_service,
+    get_task_queue_service,
+    parse_idempotency_key,
 )
 from services.database import db_service
 from utils.dependencies import get_current_user, get_current_user_optional
@@ -114,9 +114,9 @@ async def create_generation_session(
             message="无权访问该项目", error_code=ErrorCode.FORBIDDEN
         )
 
-    svc = _get_session_service()
-    task_queue_svc = _get_task_queue_service(request)
-    key_str = _parse_idempotency_key(idempotency_key)
+    svc = get_session_service()
+    task_queue_svc = get_task_queue_service(request)
+    key_str = parse_idempotency_key(idempotency_key)
     cache_key = (
         f"create_session:{user_id}:{project_id}:{output_type}:{key_str}"
         if key_str
@@ -154,7 +154,7 @@ async def get_generation_session(
     user_id: str = Depends(get_current_user),
 ):
     """查询生成会话完整快照。"""
-    svc = _get_session_service()
+    svc = get_session_service()
     try:
         payload = await svc.get_session_snapshot(session_id, user_id)
     except ValueError:
@@ -185,7 +185,7 @@ async def get_session_events(
             user_id = auth_service.verify_token(token)
         if not user_id:
             raise UnauthorizedException(message="缺少认证信息")
-    svc = _get_session_service()
+    svc = get_session_service()
 
     try:
         await svc.get_session_snapshot(session_id, user_id)
