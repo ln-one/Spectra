@@ -34,6 +34,7 @@ from routers import (  # noqa: E402
     files_router,
     generate_sessions_router,
     health_router,
+    project_space_router,
     projects_router,
     rag_router,
 )
@@ -124,6 +125,7 @@ api_v1_router.include_router(files_router, tags=["Files"])
 api_v1_router.include_router(generate_sessions_router, tags=["Generate"])
 api_v1_router.include_router(health_router, tags=["Health"])
 api_v1_router.include_router(projects_router, tags=["Projects"])
+api_v1_router.include_router(project_space_router, tags=["Project Space"])
 api_v1_router.include_router(rag_router, tags=["RAG"])
 
 # Include the versioned API router

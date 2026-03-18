@@ -93,6 +93,32 @@ def test_search_projects_missing_q_400(client, _as_user):
     assert resp.status_code == 400
 
 
+def test_create_project_with_project_space_fields_success(
+    client, monkeypatch, _as_user
+):
+    created = _fake_project(
+        visibility="shared", isReferenceable=True, currentVersionId="v-1"
+    )
+    _mock(monkeypatch, db_service, "create_project", created)
+
+    resp = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Project With Base",
+            "description": "desc",
+            "base_project_id": "base-001",
+            "reference_mode": "follow",
+            "visibility": "shared",
+            "is_referenceable": True,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["project"]["visibility"] == "shared"
+    assert body["data"]["project"]["isReferenceable"] is True
+
+
 def test_update_project_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     _mock(monkeypatch, db_service, "get_idempotency_response", None)
@@ -109,6 +135,38 @@ def test_update_project_success(client, monkeypatch, _as_user):
     body = resp.json()
     assert body["data"]["project"]["name"] == "Updated"
     save_mock.assert_awaited_once()
+
+
+def test_update_project_project_space_fields_passed(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    _mock(monkeypatch, db_service, "get_idempotency_response", None)
+    update_mock = AsyncMock(
+        return_value=_fake_project(name="Updated", visibility="private")
+    )
+    monkeypatch.setattr(db_service, "update_project", update_mock)
+    monkeypatch.setattr(
+        db_service, "save_idempotency_response", AsyncMock(return_value=None)
+    )
+
+    resp = client.put(
+        f"/api/v1/projects/{_PROJECT_ID}",
+        json={
+            "name": "Updated",
+            "description": "new desc",
+            "visibility": "private",
+            "is_referenceable": False,
+        },
+    )
+
+    assert resp.status_code == 200
+    update_mock.assert_awaited_once_with(
+        project_id=_PROJECT_ID,
+        name="Updated",
+        description="new desc",
+        grade_level=None,
+        visibility="private",
+        is_referenceable=False,
+    )
 
 
 def test_update_project_idempotency_hit_returns_cached(client, monkeypatch, _as_user):

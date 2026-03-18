@@ -7,6 +7,7 @@ _ROUTER_MODULES = {
     "files_router": ".files",
     "generate_sessions_router": ".generate_sessions",
     "health_router": ".health",
+    "project_space_router": ".project_space",
     "projects_router": ".projects",
     "rag_router": ".rag",
 }
@@ -17,6 +18,7 @@ __all__ = [
     "files_router",
     "generate_sessions_router",
     "health_router",
+    "project_space_router",
     "projects_router",
     "rag_router",
 ]

@@ -199,7 +199,7 @@ ArtifactCreateRequest:
       nullable: true
     type:
       type: string
-      enum: [mindmap, summary, exercise, html, gif, mp4]
+      enum: [pptx, docx, mindmap, summary, exercise, html, gif, mp4]
     visibility:
       type: string
       enum: [private, project-visible, shared]
