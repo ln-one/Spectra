@@ -260,7 +260,12 @@ def test_create_artifact_pptx_success(client, monkeypatch, _as_user):
     monkeypatch.setattr(
         project_space_service,
         "create_artifact_with_file",
-        AsyncMock(return_value=_fake_artifact(artifact_type="pptx")),
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_type="pptx",
+                metadata='{"created_by":"u-ps-001","capability":"ppt"}',
+            )
+        ),
     )
 
     resp = client.post(
@@ -268,7 +273,71 @@ def test_create_artifact_pptx_success(client, monkeypatch, _as_user):
         json={"type": "pptx", "visibility": "private"},
     )
     assert resp.status_code == 200
-    assert resp.json()["data"]["artifact"]["type"] == "pptx"
+    body = resp.json()
+    assert body["data"]["artifact"]["type"] == "pptx"
+    assert body["data"]["artifact"]["metadata"]["capability"] == "ppt"
+
+
+def test_create_artifact_docx_sets_word_capability_metadata(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_id="a-docx-word-001",
+                artifact_type="docx",
+                storage_path="uploads/artifacts/p-ps-001/docx/a-docx-word-001.docx",
+                metadata='{"created_by":"u-ps-001","capability":"word"}',
+            )
+        ),
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts",
+        json={"type": "docx", "visibility": "private"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["artifact"]["type"] == "docx"
+    assert body["data"]["artifact"]["metadata"]["capability"] == "word"
+
+
+def test_create_artifact_summary_sets_capability_metadata(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_id="a-summary-default-001",
+                artifact_type="summary",
+                storage_path=(
+                    "uploads/artifacts/p-ps-001/summary/a-summary-default-001.json"
+                ),
+                metadata='{"created_by":"u-ps-001","capability":"summary"}',
+            )
+        ),
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts",
+        json={"type": "summary", "visibility": "private"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["artifact"]["type"] == "summary"
+    assert body["data"]["artifact"]["metadata"]["capability"] == "summary"
 
 
 def test_create_artifact_animation_storyboard_html_success(

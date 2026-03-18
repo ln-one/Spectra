@@ -7,6 +7,117 @@ from services.project_space_service import ProjectSpaceService
 
 
 @pytest.mark.asyncio
+async def test_create_artifact_pptx_sets_capability_metadata(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="artifact-006",
+            projectId="project-001",
+            type="pptx",
+            storagePath="generated/deck.pptx",
+        )
+    )
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(return_value=None),
+    )
+
+    generate_pptx = AsyncMock(return_value="generated/deck.pptx")
+    monkeypatch.setattr(
+        "services.project_space_service.artifact_generator.generate_pptx",
+        generate_pptx,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="pptx",
+        visibility="private",
+        user_id="user-001",
+        content={"title": "课程课件"},
+    )
+
+    generate_pptx.assert_awaited_once()
+    payload = generate_pptx.await_args.args[0]
+    assert payload["title"] == "课程课件"
+    create_artifact.assert_awaited_once()
+    assert create_artifact.await_args.kwargs["metadata"]["capability"] == "ppt"
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_docx_sets_word_capability_metadata(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="artifact-007",
+            projectId="project-001",
+            type="docx",
+            storagePath="generated/word.docx",
+        )
+    )
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(return_value=None),
+    )
+
+    generate_docx = AsyncMock(return_value="generated/word.docx")
+    monkeypatch.setattr(
+        "services.project_space_service.artifact_generator.generate_docx",
+        generate_docx,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="docx",
+        visibility="private",
+        user_id="user-001",
+        content={"title": "课程文稿"},
+    )
+
+    generate_docx.assert_awaited_once()
+    payload = generate_docx.await_args.args[0]
+    assert payload["title"] == "课程文稿"
+    create_artifact.assert_awaited_once()
+    assert create_artifact.await_args.kwargs["metadata"]["capability"] == "word"
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_summary_sets_capability_metadata(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="artifact-008",
+            projectId="project-001",
+            type="summary",
+            storagePath="generated/summary.json",
+        )
+    )
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(return_value=None),
+    )
+
+    generate_summary = AsyncMock(return_value="generated/summary.json")
+    monkeypatch.setattr(
+        "services.project_space_service.artifact_generator.generate_summary",
+        generate_summary,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        content={"title": "课程总结"},
+    )
+
+    generate_summary.assert_awaited_once()
+    payload = generate_summary.await_args.args[0]
+    assert payload["title"] == "课程总结"
+    create_artifact.assert_awaited_once()
+    assert create_artifact.await_args.kwargs["metadata"]["capability"] == "summary"
+
+
+@pytest.mark.asyncio
 async def test_create_artifact_with_animation_storyboard_mode_uses_html_and_metadata(
     monkeypatch,
 ):
