@@ -17,6 +17,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Optional
 
 from services.ai import ai_service
+from services.generation_session_command_handlers import dispatch_command
 from services.generation_session_helpers import (
     _build_outline_requirements,
     _courseware_outline_to_document,
@@ -570,175 +571,13 @@ class GenerationSessionService:
         Returns:
             task_id (str) if a GenerationTask was created (CONFIRM_OUTLINE), else None.
         """
-        command_type = command.get("command_type")
-        new_state = result.to_state
-
-        if command_type == "UPDATE_OUTLINE":
-            await self._handle_update_outline(session, command, new_state)
-        elif command_type == "REDRAFT_OUTLINE":
-            await self._handle_redraft_outline(session, command, new_state)
-        elif command_type == "CONFIRM_OUTLINE":
-            return await self._handle_confirm_outline(session, command, new_state)
-        elif command_type == "REGENERATE_SLIDE":
-            await self._handle_regenerate_slide(session, command, new_state)
-        elif command_type == "RESUME_SESSION":
-            await self._handle_resume_session(session, command, new_state)
-        else:
-            raise ValueError(f"未处理的命令类型：{command_type}")
-        return None
-
-    async def _handle_update_outline(self, session, command: dict, new_state: str):
-        base_version = command.get("base_version", 0)
-        outline_data = command.get("outline", {})
-        change_reason = command.get("change_reason")
-
-        # 并发版本冲突检查
-        if session.currentOutlineVersion != base_version:
-            raise ConflictError(
-                f"大纲版本冲突：期望 {base_version}，当前 {session.currentOutlineVersion}"
-            )
-
-        new_version = base_version + 1
-        await self._db.outlineversion.create(
-            data={
-                "sessionId": session.id,
-                "version": new_version,
-                "outlineData": json.dumps(outline_data),
-                "changeReason": change_reason,
-            }
-        )
-        await self._db.generationsession.update(
-            where={"id": session.id},
-            data={
-                "state": new_state,
-                "currentOutlineVersion": new_version,
-                "renderVersion": {"increment": 1},
-            },
-        )
-        await self._append_event(
-            session_id=session.id,
-            event_type="outline.updated",
-            state=new_state,
-            payload={"version": new_version, "change_reason": change_reason},
-        )
-
-    async def _handle_redraft_outline(self, session, command: dict, new_state: str):
-        instruction = command.get("instruction", "")
-        base_version = command.get("base_version", 0)
-
-        if session.currentOutlineVersion != base_version:
-            raise ConflictError(
-                f"大纲版本冲突：期望 {base_version}，当前 {session.currentOutlineVersion}"
-            )
-
-        await self._db.generationsession.update(
-            where={"id": session.id},
-            data={"state": new_state, "renderVersion": {"increment": 1}},
-        )
-        await self._append_event(
-            session_id=session.id,
-            event_type="state.changed",
-            state=new_state,
-            payload={"instruction": instruction, "base_version": base_version},
-        )
-        # 实际 AI 重写由异步任务完成（C6 后续迭代接入 task_queue）
-
-    async def _handle_confirm_outline(
-        self, session, command: dict, new_state: str
-    ) -> str:
-        """确认大纲，更新状态，创建 GenerationTask，返回 task_id。"""
-        expected_state = command.get("expected_state")
-        if expected_state and session.state != expected_state:
-            raise ConflictError(
-                f"状态不匹配：期望 {expected_state}，当前 {session.state}"
-            )
-
-        # 解析 session options 以获取 template_config
-        options: dict = {}
-        if session.options:
-            try:
-                options = json.loads(session.options)
-            except (json.JSONDecodeError, TypeError):
-                options = {}
-        task_type = _normalize_task_type(session.outputType, ConflictError)
-
-        # 创建 GenerationTask 并关联 session
-        input_payload = {"outline_version": session.currentOutlineVersion}
-        if options.get("template_config"):
-            input_payload["template_config"] = options.get("template_config")
-
-        task = await self._db.generationtask.create(
-            data={
-                "projectId": session.projectId,
-                "sessionId": session.id,
-                "taskType": task_type,
-                "status": "pending",
-                "progress": 0,
-                "inputData": json.dumps(input_payload),
-            }
-        )
-
-        await self._db.generationsession.update(
-            where={"id": session.id},
-            data={
-                "state": new_state,
-                "renderVersion": {"increment": 1},
-                "resumable": True,
-            },
-        )
-        await self._append_event(
-            session_id=session.id,
-            event_type="state.changed",
-            state=new_state,
-            payload={
-                "confirmed": True,
-                "task_id": task.id,
-                "reason": "outline_confirmed",
-            },
-        )
-        return task.id
-
-    async def _handle_regenerate_slide(self, session, command: dict, new_state: str):
-        slide_id = command.get("slide_id")
-        patch = command.get("patch", {})
-        expected_render_version = command.get("expected_render_version")
-
-        if expected_render_version and session.renderVersion != expected_render_version:
-            raise ConflictError(
-                f"渲染版本冲突：期望 {expected_render_version}，当前 {session.renderVersion}"
-            )
-
-        await self._db.generationsession.update(
-            where={"id": session.id},
-            data={"state": new_state, "renderVersion": {"increment": 1}},
-        )
-        await self._append_event(
-            session_id=session.id,
-            event_type="slide.updated",
-            state=new_state,
-            payload={
-                "slide_id": slide_id,
-                "patch_schema_version": patch.get("schema_version", 1),
-            },
-        )
-
-    async def _handle_resume_session(self, session, command: dict, new_state: str):
-        cursor = command.get("cursor")
-        await self._db.generationsession.update(
-            where={"id": session.id},
-            data={
-                "state": new_state,
-                "resumable": True,
-                "lastCursor": cursor,
-                "errorCode": None,
-                "errorMessage": None,
-            },
-        )
-        await self._append_event(
-            session_id=session.id,
-            event_type="session.recovered",
-            state=new_state,
-            payload={"resumed_from_cursor": cursor},
+        return await dispatch_command(
+            db=self._db,
+            session=session,
+            command=command,
+            new_state=result.to_state,
+            append_event=self._append_event,
+            conflict_error_cls=ConflictError,
         )
 
     async def _schedule_outline_draft_task(
