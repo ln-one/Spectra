@@ -382,6 +382,66 @@ def test_create_artifact_handout_docx_success(client, monkeypatch, _as_user):
     assert body["data"]["artifact"]["metadata"]["kind"] == "handout"
 
 
+def test_create_artifact_mindmap_sets_capability_metadata(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_id="a-mindmap-001",
+                artifact_type="mindmap",
+                storage_path="uploads/artifacts/p-ps-001/mindmap/a-mindmap-001.json",
+                metadata='{"created_by":"u-ps-001","capability":"mindmap"}',
+            )
+        ),
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts",
+        json={"type": "mindmap", "visibility": "private"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["artifact"]["type"] == "mindmap"
+    assert body["data"]["artifact"]["metadata"]["capability"] == "mindmap"
+
+
+def test_create_artifact_quiz_sets_capability_metadata(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_id="a-quiz-001",
+                artifact_type="exercise",
+                storage_path="uploads/artifacts/p-ps-001/exercise/a-quiz-001.json",
+                metadata='{"created_by":"u-ps-001","capability":"quiz"}',
+            )
+        ),
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts",
+        json={"type": "exercise", "visibility": "private"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["artifact"]["type"] == "exercise"
+    assert body["data"]["artifact"]["metadata"]["capability"] == "quiz"
+
+
 def test_create_artifact_invalid_type_400(client, monkeypatch, _as_user):
     monkeypatch.setattr(
         project_space_service,

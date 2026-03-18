@@ -110,6 +110,82 @@ async def test_create_artifact_with_outline_mode_sets_summary_metadata(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_create_artifact_mindmap_sets_capability_metadata(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="artifact-004",
+            projectId="project-001",
+            type="mindmap",
+            storagePath="generated/mindmap.json",
+        )
+    )
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(return_value=None),
+    )
+
+    generate_mindmap = AsyncMock(return_value="generated/mindmap.json")
+    monkeypatch.setattr(
+        "services.project_space_service.artifact_generator.generate_mindmap",
+        generate_mindmap,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="mindmap",
+        visibility="private",
+        user_id="user-001",
+        content={"title": "知识导图"},
+    )
+
+    generate_mindmap.assert_awaited_once()
+    payload = generate_mindmap.await_args.args[0]
+    assert payload["title"] == "知识导图"
+    create_artifact.assert_awaited_once()
+    assert create_artifact.await_args.kwargs["artifact_type"] == "mindmap"
+    assert create_artifact.await_args.kwargs["metadata"]["capability"] == "mindmap"
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_quiz_sets_capability_metadata(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="artifact-005",
+            projectId="project-001",
+            type="exercise",
+            storagePath="generated/quiz.json",
+        )
+    )
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(return_value=None),
+    )
+
+    generate_quiz = AsyncMock(return_value="generated/quiz.json")
+    monkeypatch.setattr(
+        "services.project_space_service.artifact_generator.generate_quiz",
+        generate_quiz,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="exercise",
+        visibility="private",
+        user_id="user-001",
+        content={"title": "课堂练习"},
+    )
+
+    generate_quiz.assert_awaited_once()
+    payload = generate_quiz.await_args.args[0]
+    assert payload["title"] == "课堂练习"
+    create_artifact.assert_awaited_once()
+    assert create_artifact.await_args.kwargs["artifact_type"] == "exercise"
+    assert create_artifact.await_args.kwargs["metadata"]["capability"] == "quiz"
+
+
+@pytest.mark.asyncio
 async def test_create_artifact_with_handout_mode_sets_docx_metadata(monkeypatch):
     service = ProjectSpaceService()
     create_artifact = AsyncMock(

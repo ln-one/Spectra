@@ -350,6 +350,10 @@ class ProjectSpaceService:
         artifact_type: str, content: Dict[str, Any], user_id: str
     ) -> Dict[str, Any]:
         metadata: Dict[str, Any] = {"created_by": user_id}
+        if artifact_type == "mindmap":
+            metadata["capability"] = "mindmap"
+        if artifact_type == "exercise":
+            metadata["capability"] = "quiz"
         if artifact_type == "summary" and content.get("kind") == "outline":
             metadata["kind"] = "outline"
             metadata["capability"] = "outline"
