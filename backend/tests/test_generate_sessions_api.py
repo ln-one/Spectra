@@ -303,15 +303,15 @@ async def test_preview_response_contains_unified_artifact_anchor(app, _as_user):
     bound_artifact = SimpleNamespace(id="art-001", basedOnVersionId="ver-001")
 
     with patch(
-        "routers.generate_sessions._get_session_service",
+        "routers.generate_sessions_preview._get_session_service",
         return_value=session_service,
     ):
         with patch(
-            "routers.generate_sessions._resolve_session_artifact_binding",
+            "routers.generate_sessions_preview._resolve_session_artifact_binding",
             AsyncMock(return_value=bound_artifact),
         ):
             with patch(
-                "routers.generate_sessions._load_preview_material",
+                "routers.generate_sessions_preview._load_preview_material",
                 AsyncMock(
                     return_value=(
                         SimpleNamespace(id="task-001"),
@@ -353,15 +353,15 @@ async def test_export_response_contains_unified_artifact_anchor(app, _as_user):
     bound_artifact = SimpleNamespace(id="art-777", basedOnVersionId="ver-888")
 
     with patch(
-        "routers.generate_sessions._get_session_service",
+        "routers.generate_sessions_preview._get_session_service",
         return_value=session_service,
     ):
         with patch(
-            "routers.generate_sessions._resolve_session_artifact_binding",
+            "routers.generate_sessions_preview._resolve_session_artifact_binding",
             AsyncMock(return_value=bound_artifact),
         ):
             with patch(
-                "routers.generate_sessions._load_preview_material",
+                "routers.generate_sessions_preview._load_preview_material",
                 AsyncMock(
                     return_value=(
                         SimpleNamespace(id="task-777"),

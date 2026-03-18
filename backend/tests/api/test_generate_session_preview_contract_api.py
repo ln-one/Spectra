@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+import routers.generate_sessions_preview as generate_sessions_preview_router
 from main import app
-from routers import generate_sessions as generate_sessions_router
 from utils.dependencies import get_current_user
 
 _USER_ID = "u-preview-001"
@@ -35,14 +35,16 @@ def _snapshot(render_version: int = 3, state: str = "SUCCESS"):
 
 def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
-    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
     monkeypatch.setattr(
-        generate_sessions_router,
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
         "_resolve_session_artifact_binding",
         AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-001")),
     )
     monkeypatch.setattr(
-        generate_sessions_router,
+        generate_sessions_preview_router,
         "_load_preview_material",
         AsyncMock(return_value=(SimpleNamespace(id="t-001"), [], None, {})),
     )
@@ -62,9 +64,11 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
         execute_command=AsyncMock(return_value={"task_id": "gt-001"}),
     )
-    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
     monkeypatch.setattr(
-        generate_sessions_router,
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
         "_resolve_session_artifact_binding",
         AsyncMock(return_value=SimpleNamespace(id="a-002", basedOnVersionId="v-002")),
     )
@@ -88,9 +92,11 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
 
 def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
     svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
-    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
     monkeypatch.setattr(
-        generate_sessions_router,
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
         "_resolve_session_artifact_binding",
         AsyncMock(return_value=SimpleNamespace(id="a-003", basedOnVersionId=None)),
     )
@@ -110,7 +116,7 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
         ],
     }
     monkeypatch.setattr(
-        generate_sessions_router,
+        generate_sessions_preview_router,
         "_load_preview_material",
         AsyncMock(return_value=(SimpleNamespace(id="t-003"), slides, lesson_plan, {})),
     )
@@ -127,7 +133,9 @@ def test_export_preview_expected_render_version_conflict(client, monkeypatch, _a
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=4))
     )
-    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
 
     resp = client.post(
         "/api/v1/generate/sessions/s-preview-001/preview/export",
@@ -143,14 +151,16 @@ def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_use
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=7))
     )
-    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
     monkeypatch.setattr(
-        generate_sessions_router,
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
         "_resolve_session_artifact_binding",
         AsyncMock(return_value=SimpleNamespace(id="a-004", basedOnVersionId="v-007")),
     )
     monkeypatch.setattr(
-        generate_sessions_router,
+        generate_sessions_preview_router,
         "_load_preview_material",
         AsyncMock(
             return_value=(
