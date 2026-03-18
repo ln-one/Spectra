@@ -3,7 +3,6 @@ from importlib import import_module
 _ROUTER_MODULES = {
     "auth_router": ".auth",
     "chat_router": ".chat",
-    "courses_router": ".courses",
     "files_router": ".files",
     "generate_sessions_router": ".generate_sessions",
     "health_router": ".health",
