@@ -24,15 +24,22 @@ from services.generation_session_helpers import (
     _extract_template_config,
     _is_queue_worker_available,
     _normalize_task_type,
-    _parse_json_object,
-    _resolve_capability_from_artifact,
-    _to_generation_event,
     _to_session_ref,
 )
 from services.generation_session_outline_draft import (
     execute_outline_draft_local,
     schedule_outline_draft_task,
     schedule_outline_draft_watchdog,
+)
+from services.generation_session_queries import get_events as query_events
+from services.generation_session_queries import (
+    get_session_artifact_history as query_session_artifact_history,
+)
+from services.generation_session_queries import (
+    get_session_runtime_state as query_session_runtime_state,
+)
+from services.generation_session_queries import (
+    get_session_snapshot as query_session_snapshot,
 )
 from services.state_transition_guard import (
     StateTransitionGuard,
@@ -142,171 +149,35 @@ class GenerationSessionService:
             ValueError: 会话不存在
             PermissionError: 无权访问
         """
-        session = await self._db.generationsession.find_unique(
-            where={"id": session_id},
-            include={"outlineVersions": True, "tasks": True},
+        return await query_session_snapshot(
+            db=self._db,
+            guard=self._guard,
+            session_id=session_id,
+            user_id=user_id,
+            contract_version=CONTRACT_VERSION,
+            schema_version=SCHEMA_VERSION,
         )
-        if session is None:
-            raise ValueError(f"Session not found: {session_id}")
-        if session.userId != user_id:
-            raise PermissionError("无权访问该会话")
-
-        # 最新大纲
-        outline = None
-        if session.outlineVersions:
-            latest = max(session.outlineVersions, key=lambda v: v.version)
-            try:
-                outline = json.loads(latest.outlineData)
-            except (json.JSONDecodeError, AttributeError):
-                outline = None
-
-        fallbacks = []
-        if session.fallbacksJson:
-            try:
-                fallbacks = json.loads(session.fallbacksJson)
-            except json.JSONDecodeError:
-                fallbacks = []
-
-        # 取最近一次关联任务的 task_id
-        latest_task_id = None
-        if session.tasks:
-            latest_task = max(session.tasks, key=lambda t: t.createdAt)
-            latest_task_id = latest_task.id
-
-        artifact_history = await self._get_session_artifact_history(
-            project_id=session.projectId,
-            session_id=session.id,
-        )
-
-        return {
-            "session": _to_session_ref(
-                session, CONTRACT_VERSION, SCHEMA_VERSION, task_id=latest_task_id
-            ),
-            "options": json.loads(session.options) if session.options else None,
-            "outline": outline,
-            "context_snapshot": None,
-            "capabilities": _default_capabilities(),
-            "fallbacks": fallbacks,
-            "session_artifacts": artifact_history["session_artifacts"],
-            "session_artifact_groups": artifact_history["session_artifact_groups"],
-            "allowed_actions": self._guard.get_allowed_actions(session.state),
-            "result": (
-                {
-                    "ppt_url": session.pptUrl,
-                    "word_url": session.wordUrl,
-                    "version": session.renderVersion,
-                }
-                if session.state == "SUCCESS"
-                else None
-            ),
-            "error": (
-                {
-                    "code": session.errorCode,
-                    "message": session.errorMessage,
-                    "retryable": session.errorRetryable,
-                    "fallback": None,
-                    "transition_guard": "StateTransitionGuard",
-                }
-                if session.state == "FAILED" and session.errorCode
-                else None
-            ),
-        }
 
     async def _get_session_artifact_history(
         self,
         project_id: str,
         session_id: str,
     ) -> dict:
-        artifact_model = getattr(self._db, "artifact", None)
-        if artifact_model is None or not hasattr(artifact_model, "find_many"):
-            return {
-                "session_artifacts": [],
-                "session_artifact_groups": [],
-            }
-
-        artifacts = await artifact_model.find_many(
-            where={"projectId": project_id, "sessionId": session_id},
-            order={"updatedAt": "desc"},
+        return await query_session_artifact_history(
+            db=self._db,
+            project_id=project_id,
+            session_id=session_id,
         )
-
-        history_items: list[dict] = []
-        grouped: dict[str, list[dict]] = {}
-
-        for artifact in artifacts:
-            metadata = _parse_json_object(getattr(artifact, "metadata", None))
-            capability = _resolve_capability_from_artifact(
-                artifact_type=getattr(artifact, "type", ""),
-                metadata=metadata,
-            )
-            item = {
-                "artifact_id": artifact.id,
-                "type": getattr(artifact, "type", None),
-                "capability": capability,
-                "based_on_version_id": getattr(artifact, "basedOnVersionId", None),
-                "created_at": (
-                    artifact.createdAt.isoformat()
-                    if getattr(artifact, "createdAt", None)
-                    else None
-                ),
-                "updated_at": (
-                    artifact.updatedAt.isoformat()
-                    if getattr(artifact, "updatedAt", None)
-                    else None
-                ),
-                "metadata": metadata,
-            }
-            history_items.append(item)
-            grouped.setdefault(capability, []).append(item)
-
-        grouped_items = [
-            {
-                "capability": capability,
-                "count": len(items),
-                "artifacts": items,
-            }
-            for capability, items in grouped.items()
-        ]
-        return {
-            "session_artifacts": history_items,
-            "session_artifact_groups": grouped_items,
-        }
 
     async def get_session_runtime_state(self, session_id: str, user_id: str) -> dict:
         """
         返回 SSE 轮询所需的轻量会话状态，避免每秒加载 outline/tasks。
         """
-        session = await self._db.generationsession.find_unique(
-            where={"id": session_id},
-            select={
-                "userId": True,
-                "state": True,
-                "lastCursor": True,
-                "updatedAt": True,
-            },
+        return await query_session_runtime_state(
+            db=self._db,
+            session_id=session_id,
+            user_id=user_id,
         )
-        if session is None:
-            raise ValueError(f"Session not found: {session_id}")
-
-        owner_id = (
-            session.get("userId") if isinstance(session, dict) else session.userId
-        )
-        if owner_id != user_id:
-            raise PermissionError("无权访问该会话")
-
-        state = session.get("state") if isinstance(session, dict) else session.state
-        last_cursor = (
-            session.get("lastCursor")
-            if isinstance(session, dict)
-            else session.lastCursor
-        )
-        updated_at = (
-            session.get("updatedAt") if isinstance(session, dict) else session.updatedAt
-        )
-        return {
-            "state": state,
-            "last_cursor": last_cursor,
-            "updated_at": updated_at,
-        }
 
     # ----------------------------------------------------------
     # 3. 执行命令（唯一写操作入口）
@@ -510,26 +381,13 @@ class GenerationSessionService:
         """
         返回 cursor 之后的事件列表（用于短轮询或 SSE 历史补齐）。
         """
-        session = await self._db.generationsession.find_unique(where={"id": session_id})
-        if session is None:
-            raise ValueError(f"Session not found: {session_id}")
-        if session.userId != user_id:
-            raise PermissionError("无权访问该会话")
-
-        where: dict = {"sessionId": session_id}
-        if cursor:
-            # 找到 cursor 对应事件的 createdAt，返回之后的事件
-            pivot = await self._db.sessionevent.find_unique(where={"cursor": cursor})
-            if pivot and getattr(pivot, "sessionId", None) == session_id:
-                where["createdAt"] = {"gt": pivot.createdAt}
-
-        events = await self._db.sessionevent.find_many(
-            where=where,
-            order={"createdAt": "asc"},
-            take=limit,
+        return await query_events(
+            db=self._db,
+            session_id=session_id,
+            user_id=user_id,
+            cursor=cursor,
+            limit=limit,
         )
-
-        return [_to_generation_event(e) for e in events]
 
     # ----------------------------------------------------------
     # 5. 更新大纲（UPDATE_OUTLINE 便捷版）
