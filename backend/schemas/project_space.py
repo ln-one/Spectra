@@ -42,6 +42,8 @@ class ArtifactCreateType(str, Enum):
 class ArtifactCreateMode(str, Enum):
     CREATE = "create"
     REPLACE = "replace"
+    OUTLINE = "outline"
+    HANDOUT = "handout"
     ANIMATION_STORYBOARD = "animation_storyboard"
 
 

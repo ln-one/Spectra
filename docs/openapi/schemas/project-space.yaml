@@ -205,8 +205,10 @@ ArtifactCreateRequest:
       enum: [private, project-visible, shared]
     mode:
       type: string
-      enum: [create, replace, animation_storyboard]
+      enum: [create, replace, outline, handout, animation_storyboard]
       description: |
+        Use `type=summary` + `mode=outline` to create the default outline artifact.
+        Use `type=docx` + `mode=handout` to create the default handout artifact.
         Artifact creation mode. Use `type=html` + `mode=animation_storyboard`
         to create the default animation storyboard artifact.
 

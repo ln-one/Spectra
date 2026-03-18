@@ -305,23 +305,32 @@ class ProjectSpaceService:
     def _normalize_artifact_content(
         cls, artifact_type: str, content: Dict[str, Any]
     ) -> Dict[str, Any]:
+        mode = str(content.get("mode") or "").strip().lower()
         if artifact_type == "pptx":
             return {"title": "PPT demo", "slides": [], **content}
         if artifact_type == "docx":
-            return {"title": "Teaching handout", "sections": [], **content}
+            normalized = {"title": "Teaching handout", "sections": [], **content}
+            if mode == "handout":
+                normalized["kind"] = "handout"
+                normalized.setdefault("title", "Teaching handout")
+            return normalized
         if artifact_type == "mindmap":
             return {"title": "Mindmap", "nodes": [], **content}
         if artifact_type == "summary":
-            return {
+            normalized = {
                 "title": "Course summary",
                 "summary": "",
                 "key_points": [],
                 **content,
             }
+            if mode == "outline":
+                normalized["kind"] = "outline"
+                normalized.setdefault("title", "Course outline")
+                normalized.setdefault("nodes", [])
+            return normalized
         if artifact_type == "exercise":
             return {"title": "Exercise", "questions": [], **content}
         if artifact_type == "html":
-            mode = str(content.get("mode") or "").strip().lower()
             normalized = dict(content)
             if mode == "animation_storyboard":
                 normalized.setdefault("title", "Animation Storyboard")
@@ -341,6 +350,12 @@ class ProjectSpaceService:
         artifact_type: str, content: Dict[str, Any], user_id: str
     ) -> Dict[str, Any]:
         metadata: Dict[str, Any] = {"created_by": user_id}
+        if artifact_type == "summary" and content.get("kind") == "outline":
+            metadata["kind"] = "outline"
+            metadata["capability"] = "outline"
+        if artifact_type == "docx" and content.get("kind") == "handout":
+            metadata["kind"] = "handout"
+            metadata["capability"] = "handout"
         if artifact_type == "html" and content.get("kind") == "animation_storyboard":
             metadata["kind"] = "animation_storyboard"
             metadata["capability"] = "animation"

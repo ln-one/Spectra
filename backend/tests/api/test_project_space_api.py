@@ -310,6 +310,78 @@ def test_create_artifact_animation_storyboard_html_success(
     assert body["data"]["artifact"]["metadata"]["kind"] == "animation_storyboard"
 
 
+def test_create_artifact_outline_summary_success(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_id="a-summary-001",
+                artifact_type="summary",
+                storage_path=("uploads/artifacts/p-ps-001/summary/a-summary-001.json"),
+                metadata=(
+                    '{"created_by":"u-ps-001","kind":"outline",'
+                    '"capability":"outline"}'
+                ),
+            )
+        ),
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts",
+        json={
+            "type": "summary",
+            "visibility": "private",
+            "mode": "outline",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["artifact"]["type"] == "summary"
+    assert body["data"]["artifact"]["metadata"]["kind"] == "outline"
+
+
+def test_create_artifact_handout_docx_success(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_id="a-docx-001",
+                artifact_type="docx",
+                storage_path="uploads/artifacts/p-ps-001/docx/a-docx-001.docx",
+                metadata=(
+                    '{"created_by":"u-ps-001","kind":"handout",'
+                    '"capability":"handout"}'
+                ),
+            )
+        ),
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts",
+        json={
+            "type": "docx",
+            "visibility": "private",
+            "mode": "handout",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["artifact"]["type"] == "docx"
+    assert body["data"]["artifact"]["metadata"]["kind"] == "handout"
+
+
 def test_create_artifact_invalid_type_400(client, monkeypatch, _as_user):
     monkeypatch.setattr(
         project_space_service,
