@@ -10,6 +10,7 @@ Session-First 生成路由（C6）
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
 from typing import Optional
@@ -165,6 +166,89 @@ def _raise_conflict(msg: str):
         message=msg,
         details={"transition_guard": "StateTransitionGuard"},
     )
+
+
+async def _resolve_session_artifact_binding(
+    project_id: str, session_id: str, artifact_id: Optional[str] = None
+):
+    """Resolve artifact binding for preview/export in session scope."""
+    if artifact_id:
+        artifact = await db_service.db.artifact.find_unique(where={"id": artifact_id})
+        if not artifact or artifact.projectId != project_id:
+            raise NotFoundException(
+                message=f"成果不存在: {artifact_id}",
+                error_code=ErrorCode.NOT_FOUND,
+            )
+        if artifact.sessionId and artifact.sessionId != session_id:
+            raise NotFoundException(
+                message=f"成果 {artifact_id} 不属于会话 {session_id}",
+                error_code=ErrorCode.NOT_FOUND,
+            )
+        return artifact
+
+    return await db_service.db.artifact.find_first(
+        where={"projectId": project_id, "sessionId": session_id},
+        order={"updatedAt": "desc"},
+    )
+
+
+def _without_sources(slides: list[dict], lesson_plan: Optional[dict]):
+    """Drop source arrays from preview payload when include_sources=False."""
+    slides_clean = []
+    for slide in slides:
+        item = dict(slide)
+        item["sources"] = []
+        slides_clean.append(item)
+
+    lesson_plan_clean = None
+    if lesson_plan:
+        lesson_plan_clean = dict(lesson_plan)
+        plans = []
+        for plan in lesson_plan_clean.get("slides_plan", []) or []:
+            plan_item = dict(plan)
+            plan_item["material_sources"] = []
+            plans.append(plan_item)
+        lesson_plan_clean["slides_plan"] = plans
+    return slides_clean, lesson_plan_clean
+
+
+async def _load_preview_material(session_id: str, project_id: str):
+    """Load task + rendered preview materials for preview/export APIs."""
+    tasks = await db_service.db.generationtask.find_many(
+        where={"sessionId": session_id},
+        order={"createdAt": "desc"},
+        take=1,
+    )
+    task = tasks[0] if tasks else None
+
+    slides: list[dict] = []
+    lesson_plan: Optional[dict] = None
+    content: dict = {}
+    if task:
+        try:
+            from services.preview_helpers import (
+                build_lesson_plan,
+                build_slides,
+                get_or_generate_content,
+            )
+
+            project = await db_service.get_project(project_id)
+            if not project:
+                raise ValueError("project not found for preview")
+            content = await get_or_generate_content(task, project)
+            slide_models = build_slides(task.id, content.get("markdown_content", ""))
+            slides = [s.model_dump() for s in slide_models]
+            lesson_plan = build_lesson_plan(
+                slide_models,
+                content.get("lesson_plan_markdown", ""),
+            ).model_dump()
+        except Exception as preview_err:
+            logger.warning(
+                "Session preview content generation failed, using fallback: %s",
+                preview_err,
+                exc_info=True,
+            )
+    return task, slides, lesson_plan, content
 
 
 # ============================================================
@@ -681,6 +765,7 @@ async def get_capabilities(
 @router.get("/sessions/{session_id}/preview")
 async def get_session_preview(
     session_id: str,
+    artifact_id: Optional[str] = Query(None, description="指定成果ID（可选）"),
     user_id: str = Depends(get_current_user),
 ):
     """获取会话预览（session 作用域）。"""
@@ -703,45 +788,22 @@ async def get_session_preview(
             message=f"当前状态 {session_state} 不支持预览，需等待生成完成",
         )
 
-    # 读取任务结果（兼容旧 task 路径）
-    tasks = await db_service.db.generationtask.find_many(
-        where={"sessionId": session_id},
-        order={"createdAt": "desc"},
-        take=1,
+    project_id = snapshot["session"]["project_id"]
+    bound_artifact = await _resolve_session_artifact_binding(
+        project_id=project_id,
+        session_id=session_id,
+        artifact_id=artifact_id,
     )
-    task = tasks[0] if tasks else None
-
-    slides = []
-    lesson_plan = None
-    if task:
-        try:
-            from services.preview_helpers import (
-                build_lesson_plan,
-                build_slides,
-                get_or_generate_content,
-            )
-
-            project = await db_service.get_project(snapshot["session"]["project_id"])
-            if not project:
-                raise ValueError("project not found for preview")
-            content = await get_or_generate_content(task, project)
-            slide_models = build_slides(task.id, content["markdown_content"])
-            slides = [s.model_dump() for s in slide_models]
-            lesson_plan = build_lesson_plan(
-                slide_models,
-                content.get("lesson_plan_markdown", ""),
-            ).model_dump()
-        except Exception as preview_err:
-            logger.warning(
-                "Session preview content generation failed, using fallback: %s",
-                preview_err,
-                exc_info=True,
-            )
+    task, slides, lesson_plan, _ = await _load_preview_material(session_id, project_id)
 
     return success_response(
         data={
             "session_id": session_id,
             "task_id": task.id if task else None,
+            "artifact_id": bound_artifact.id if bound_artifact else None,
+            "based_on_version_id": (
+                bound_artifact.basedOnVersionId if bound_artifact else None
+            ),
             "render_version": snapshot["session"].get("render_version") or 1,
             "slides": slides,
             "lesson_plan": lesson_plan,
@@ -794,13 +856,33 @@ async def modify_session_preview(
     except ConflictError as e:
         _raise_conflict(str(e))
 
-    return success_response(data=result, message="预览修改请求已接受")
+    snapshot = await svc.get_session_snapshot(session_id, user_id)
+    bound_artifact = await _resolve_session_artifact_binding(
+        project_id=snapshot["session"]["project_id"],
+        session_id=session_id,
+        artifact_id=body.get("artifact_id"),
+    )
+    payload = {
+        "session_id": session_id,
+        "modify_task_id": (result.get("task_id") if isinstance(result, dict) else None)
+        or f"modify-{session_id}",
+        "status": "pending",
+        "render_version": snapshot["session"].get("render_version") or 1,
+        "artifact_id": bound_artifact.id if bound_artifact else None,
+        "based_on_version_id": (
+            bound_artifact.basedOnVersionId if bound_artifact else None
+        ),
+    }
+    if isinstance(result, dict):
+        payload.update(result)
+    return success_response(data=payload, message="预览修改请求已接受")
 
 
 @router.get("/sessions/{session_id}/preview/slides/{slide_id}")
 async def get_session_slide_preview(
     session_id: str,
     slide_id: str,
+    artifact_id: Optional[str] = Query(None, description="指定来源成果ID（可选）"),
     user_id: str = Depends(get_current_user),
 ):
     """获取单页幻灯片预览（session 作用域）。"""
@@ -814,14 +896,69 @@ async def get_session_slide_preview(
             message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
         )
 
+    project_id = snapshot["session"]["project_id"]
+    bound_artifact = await _resolve_session_artifact_binding(
+        project_id=project_id,
+        session_id=session_id,
+        artifact_id=artifact_id,
+    )
+    _, slides, lesson_plan, _ = await _load_preview_material(session_id, project_id)
+
+    selected_slide = None
+    for item in slides:
+        if item.get("id") == slide_id:
+            selected_slide = item
+            break
+    if selected_slide is None and slide_id.isdigit():
+        idx = int(slide_id)
+        selected_slide = next(
+            (item for item in slides if item.get("index") == idx), None
+        )
+    if not selected_slide:
+        raise NotFoundException(
+            message=f"幻灯片不存在: {slide_id}",
+            error_code=ErrorCode.NOT_FOUND,
+        )
+
+    plans = (lesson_plan or {}).get("slides_plan", []) if lesson_plan else []
+    teaching_plan = next(
+        (plan for plan in plans if plan.get("slide_id") == selected_slide.get("id")),
+        None,
+    )
+
+    related_slides = []
+    current_index = selected_slide.get("index")
+    for item in slides:
+        index = item.get("index")
+        if not isinstance(index, int) or not isinstance(current_index, int):
+            continue
+        if index == current_index - 1:
+            related_slides.append(
+                {
+                    "slide_id": item.get("id"),
+                    "title": item.get("title", ""),
+                    "relation": "previous",
+                }
+            )
+        elif index == current_index + 1:
+            related_slides.append(
+                {
+                    "slide_id": item.get("id"),
+                    "title": item.get("title", ""),
+                    "relation": "next",
+                }
+            )
+
     return success_response(
         data={
             "session_id": session_id,
-            "slide_id": slide_id,
-            "render_version": snapshot["session"].get("render_version"),
-            "state": snapshot["session"]["state"],
-            # 实际 slide 内容由前端基于 ppt_url 渲染，此处返回元信息
-            "sources": [],  # C4/C3 阶段填充来源信息
+            "artifact_id": bound_artifact.id if bound_artifact else None,
+            "based_on_version_id": (
+                bound_artifact.basedOnVersionId if bound_artifact else None
+            ),
+            "slide": selected_slide,
+            "teaching_plan": teaching_plan,
+            "related_slides": related_slides,
         },
         message="页面预览获取成功",
     )
@@ -852,10 +989,62 @@ async def export_session(
             message="只有状态为 SUCCESS 的会话才能导出",
         )
 
+    expected_render_version = body.get("expected_render_version")
+    if expected_render_version is not None:
+        _validate_positive_int(expected_render_version, "expected_render_version")
+        current_render_version = snapshot["session"].get("render_version") or 1
+        if current_render_version != expected_render_version:
+            _raise_conflict(
+                f"渲染版本冲突：期望 {expected_render_version}，当前 {current_render_version}"
+            )
+
+    project_id = snapshot["session"]["project_id"]
+    bound_artifact = await _resolve_session_artifact_binding(
+        project_id=project_id,
+        session_id=session_id,
+        artifact_id=body.get("artifact_id"),
+    )
+    task, slides, lesson_plan, content = await _load_preview_material(
+        session_id, project_id
+    )
+    export_format = str(body.get("format") or "markdown").lower()
+    include_sources = bool(body.get("include_sources", True))
+    if not include_sources:
+        slides, lesson_plan = _without_sources(slides, lesson_plan)
+
+    markdown_content = content.get("markdown_content", "")
+    if export_format == "json":
+        export_content = json.dumps(
+            {
+                "session_id": session_id,
+                "slides": slides,
+                "lesson_plan": lesson_plan,
+                "markdown_content": markdown_content,
+            },
+            ensure_ascii=False,
+        )
+    elif export_format == "html":
+        export_content = (
+            "<!doctype html><html><body><pre>"
+            + html.escape(markdown_content)
+            + "</pre></body></html>"
+        )
+    else:
+        export_format = "markdown"
+        export_content = markdown_content
+
     result = snapshot.get("result") or {}
     return success_response(
         data={
             "session_id": session_id,
+            "task_id": task.id if task else None,
+            "artifact_id": bound_artifact.id if bound_artifact else None,
+            "based_on_version_id": (
+                bound_artifact.basedOnVersionId if bound_artifact else None
+            ),
+            "content": export_content,
+            "format": export_format,
+            "render_version": snapshot["session"].get("render_version") or 1,
             "ppt_url": result.get("ppt_url"),
             "word_url": result.get("word_url"),
             "version": result.get("version"),
