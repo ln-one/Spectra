@@ -71,6 +71,24 @@ def _confirm_result():
     }
 
 
+def _cached_change():
+    return {
+        "id": "c-cached",
+        "session_id": "s-candidate-001",
+        "project_id": "p-candidate-001",
+        "base_version_id": "v-010",
+        "title": "cached-change",
+        "summary": "cached summary",
+        "payload": None,
+        "status": "pending",
+        "review_comment": None,
+        "accepted_version_id": None,
+        "proposer_user_id": _USER_ID,
+        "created_at": "2026-03-18T09:00:00Z",
+        "updated_at": "2026-03-18T09:00:00Z",
+    }
+
+
 def test_submit_session_candidate_change_success(client, monkeypatch, _as_user):
     svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
     monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
@@ -274,6 +292,38 @@ def test_confirm_outline_rejects_non_object_candidate_change(
     svc.execute_command.assert_not_awaited()
 
 
+def test_confirm_outline_candidate_change_idempotency_hit_returns_cached(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        execute_command=AsyncMock(return_value=_confirm_result()),
+        get_session_snapshot=AsyncMock(return_value=_snapshot()),
+    )
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        db_service,
+        "get_idempotency_response",
+        AsyncMock(return_value={"change": _cached_change()}),
+    )
+    create_change = AsyncMock(return_value=_fake_change('{"review":{}}'))
+    monkeypatch.setattr(project_space_service, "create_candidate_change", create_change)
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/confirm",
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000001112"},
+        json={
+            "candidate_change": {
+                "title": "confirm-change",
+                "summary": "submit after confirm",
+            }
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["candidate_change"]["id"] == "c-cached"
+    create_change.assert_not_awaited()
+
+
 def test_modify_preview_can_attach_candidate_change(client, monkeypatch, _as_user):
     svc = SimpleNamespace(
         execute_command=AsyncMock(return_value={"task_id": "modify-task-001"}),
@@ -340,6 +390,45 @@ def test_modify_preview_rejects_non_object_candidate_change(
     assert body["success"] is False
     assert body["error"]["code"] == "INVALID_INPUT"
     svc.execute_command.assert_not_awaited()
+
+
+def test_modify_preview_candidate_change_idempotency_hit_returns_cached(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        execute_command=AsyncMock(return_value={"task_id": "modify-task-001"}),
+        get_session_snapshot=AsyncMock(return_value=_snapshot()),
+    )
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-010")),
+    )
+    monkeypatch.setattr(
+        db_service,
+        "get_idempotency_response",
+        AsyncMock(return_value={"change": _cached_change()}),
+    )
+    create_change = AsyncMock(return_value=_fake_change('{"review":{}}'))
+    monkeypatch.setattr(project_space_service, "create_candidate_change", create_change)
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/preview/modify",
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000001113"},
+        json={
+            "slide_id": "slide-001",
+            "patch": {"title": "updated"},
+            "candidate_change": {
+                "title": "modify-change",
+                "summary": "submit after preview modify",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["candidate_change"]["id"] == "c-cached"
+    create_change.assert_not_awaited()
 
 
 def test_export_preview_can_attach_candidate_change(client, monkeypatch, _as_user):
@@ -411,3 +500,50 @@ def test_export_preview_rejects_non_object_candidate_change(
     body = resp.json()
     assert body["success"] is False
     assert body["error"]["code"] == "INVALID_INPUT"
+
+
+def test_export_preview_candidate_change_idempotency_hit_returns_cached(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-010")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="task-export-001"),
+                [],
+                {"slides_plan": []},
+                {"markdown_content": "# export"},
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        db_service,
+        "get_idempotency_response",
+        AsyncMock(return_value={"change": _cached_change()}),
+    )
+    create_change = AsyncMock(return_value=_fake_change('{"review":{}}'))
+    monkeypatch.setattr(project_space_service, "create_candidate_change", create_change)
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/preview/export",
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000001114"},
+        json={
+            "format": "markdown",
+            "candidate_change": {
+                "title": "export-change",
+                "summary": "submit after preview export",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["candidate_change"]["id"] == "c-cached"
+    create_change.assert_not_awaited()
