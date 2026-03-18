@@ -10,7 +10,6 @@ Session-First 生成路由（C6）
 from __future__ import annotations
 
 import asyncio
-import html
 import json
 import logging
 from typing import Optional
@@ -23,7 +22,14 @@ from services.database import db_service
 from services.generation_session_service import ConflictError, GenerationSessionService
 from services.preview_helpers import (
     build_artifact_anchor,
+    build_export_payload,
+    build_modify_payload,
+    build_preview_payload,
+    build_slide_preview_payload,
+    ensure_exportable_state,
+    ensure_previewable_state,
     load_preview_material,
+    resolve_slide_preview,
     strip_sources,
 )
 from utils.dependencies import get_current_user, get_current_user_optional
@@ -741,12 +747,13 @@ async def get_session_preview(
             message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
         )
 
-    session_state = snapshot["session"]["state"]
-    if session_state not in ("SUCCESS", "RENDERING", "GENERATING_CONTENT"):
+    try:
+        ensure_previewable_state(snapshot)
+    except ValueError as exc:
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=ErrorCode.INVALID_INPUT,
-            message=f"当前状态 {session_state} 不支持预览，需等待生成完成",
+            message=str(exc),
         )
 
     project_id = snapshot["session"]["project_id"]
@@ -759,16 +766,14 @@ async def get_session_preview(
     anchor = _build_artifact_anchor(session_id, bound_artifact)
 
     return success_response(
-        data={
-            "session_id": session_id,
-            "task_id": task.id if task else None,
-            "artifact_id": anchor["artifact_id"],
-            "based_on_version_id": anchor["based_on_version_id"],
-            "artifact_anchor": anchor,
-            "render_version": snapshot["session"].get("render_version") or 1,
-            "slides": slides,
-            "lesson_plan": lesson_plan,
-        },
+        data=build_preview_payload(
+            session_id=session_id,
+            snapshot=snapshot,
+            task=task,
+            slides=slides,
+            lesson_plan=lesson_plan,
+            anchor=anchor,
+        ),
         message="预览获取成功",
     )
 
@@ -824,19 +829,15 @@ async def modify_session_preview(
     )
 
     anchor = _build_artifact_anchor(session_id, bound_artifact)
-    payload = {
-        "session_id": session_id,
-        "modify_task_id": (result.get("task_id") if isinstance(result, dict) else None)
-        or f"modify-{session_id}",
-        "status": "pending",
-        "render_version": snapshot["session"].get("render_version") or 1,
-        "artifact_id": anchor["artifact_id"],
-        "based_on_version_id": anchor["based_on_version_id"],
-        "artifact_anchor": anchor,
-    }
-    if isinstance(result, dict):
-        payload.update(result)
-    return success_response(data=payload, message="预览修改请求已接受")
+    return success_response(
+        data=build_modify_payload(
+            session_id=session_id,
+            snapshot=snapshot,
+            anchor=anchor,
+            result=result if isinstance(result, dict) else None,
+        ),
+        message="预览修改请求已接受",
+    )
 
 
 @router.get("/sessions/{session_id}/preview/slides/{slide_id}")
@@ -866,61 +867,26 @@ async def get_session_slide_preview(
     _, slides, lesson_plan, _ = await _load_preview_material(session_id, project_id)
     anchor = _build_artifact_anchor(session_id, bound_artifact)
 
-    selected_slide = None
-    for item in slides:
-        if item.get("id") == slide_id:
-            selected_slide = item
-            break
-    if selected_slide is None and slide_id.isdigit():
-        idx = int(slide_id)
-        selected_slide = next(
-            (item for item in slides if item.get("index") == idx), None
+    try:
+        selected_slide, teaching_plan, related_slides = resolve_slide_preview(
+            slide_id=slide_id,
+            slides=slides,
+            lesson_plan=lesson_plan,
         )
-    if not selected_slide:
+    except LookupError as exc:
         raise NotFoundException(
-            message=f"幻灯片不存在: {slide_id}",
+            message=str(exc),
             error_code=ErrorCode.NOT_FOUND,
         )
 
-    plans = (lesson_plan or {}).get("slides_plan", []) if lesson_plan else []
-    teaching_plan = next(
-        (plan for plan in plans if plan.get("slide_id") == selected_slide.get("id")),
-        None,
-    )
-
-    related_slides = []
-    current_index = selected_slide.get("index")
-    for item in slides:
-        index = item.get("index")
-        if not isinstance(index, int) or not isinstance(current_index, int):
-            continue
-        if index == current_index - 1:
-            related_slides.append(
-                {
-                    "slide_id": item.get("id"),
-                    "title": item.get("title", ""),
-                    "relation": "previous",
-                }
-            )
-        elif index == current_index + 1:
-            related_slides.append(
-                {
-                    "slide_id": item.get("id"),
-                    "title": item.get("title", ""),
-                    "relation": "next",
-                }
-            )
-
     return success_response(
-        data={
-            "session_id": session_id,
-            "artifact_id": anchor["artifact_id"],
-            "based_on_version_id": anchor["based_on_version_id"],
-            "artifact_anchor": anchor,
-            "slide": selected_slide,
-            "teaching_plan": teaching_plan,
-            "related_slides": related_slides,
-        },
+        data=build_slide_preview_payload(
+            session_id=session_id,
+            anchor=anchor,
+            selected_slide=selected_slide,
+            teaching_plan=teaching_plan,
+            related_slides=related_slides,
+        ),
         message="页面预览获取成功",
     )
 
@@ -943,21 +909,19 @@ async def export_session(
             message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
         )
 
-    if snapshot["session"]["state"] != "SUCCESS":
-        raise APIException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="只有状态为 SUCCESS 的会话才能导出",
-        )
-
     expected_render_version = body.get("expected_render_version")
     if expected_render_version is not None:
         _validate_positive_int(expected_render_version, "expected_render_version")
-        current_render_version = snapshot["session"].get("render_version") or 1
-        if current_render_version != expected_render_version:
-            _raise_conflict(
-                f"渲染版本冲突：期望 {expected_render_version}，当前 {current_render_version}"
-            )
+    try:
+        ensure_exportable_state(snapshot, expected_render_version)
+    except ValueError as exc:
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=str(exc),
+        )
+    except RuntimeError as exc:
+        _raise_conflict(str(exc))
 
     project_id = snapshot["session"]["project_id"]
     bound_artifact = await _resolve_session_artifact_binding(
@@ -969,46 +933,19 @@ async def export_session(
         session_id, project_id
     )
     anchor = _build_artifact_anchor(session_id, bound_artifact)
-    export_format = str(body.get("format") or "markdown").lower()
+    export_format = str(body.get("format") or "markdown")
     include_sources = bool(body.get("include_sources", True))
-    if not include_sources:
-        slides, lesson_plan = _without_sources(slides, lesson_plan)
-
-    markdown_content = content.get("markdown_content", "")
-    if export_format == "json":
-        export_content = json.dumps(
-            {
-                "session_id": session_id,
-                "slides": slides,
-                "lesson_plan": lesson_plan,
-                "markdown_content": markdown_content,
-            },
-            ensure_ascii=False,
-        )
-    elif export_format == "html":
-        export_content = (
-            "<!doctype html><html><body><pre>"
-            + html.escape(markdown_content)
-            + "</pre></body></html>"
-        )
-    else:
-        export_format = "markdown"
-        export_content = markdown_content
-
-    result = snapshot.get("result") or {}
     return success_response(
-        data={
-            "session_id": session_id,
-            "task_id": task.id if task else None,
-            "artifact_id": anchor["artifact_id"],
-            "based_on_version_id": anchor["based_on_version_id"],
-            "artifact_anchor": anchor,
-            "content": export_content,
-            "format": export_format,
-            "render_version": snapshot["session"].get("render_version") or 1,
-            "ppt_url": result.get("ppt_url"),
-            "word_url": result.get("word_url"),
-            "version": result.get("version"),
-        },
+        data=build_export_payload(
+            session_id=session_id,
+            snapshot=snapshot,
+            task=task,
+            slides=slides,
+            lesson_plan=lesson_plan,
+            content=content,
+            anchor=anchor,
+            export_format=export_format,
+            include_sources=include_sources,
+        ),
         message="导出成功",
     )

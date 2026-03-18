@@ -4,6 +4,7 @@ Preview Helpers - 预览相关辅助函数
 从 routers/preview.py 拆分，包含缓存、Slide 构建、LessonPlan 构建。
 """
 
+import html
 import json
 import logging
 import re
@@ -157,6 +158,30 @@ def build_artifact_anchor(session_id: str, artifact) -> dict:
     }
 
 
+def ensure_previewable_state(snapshot: dict) -> None:
+    """Validate whether the session state can serve preview content."""
+    session_state = snapshot["session"]["state"]
+    if session_state not in ("SUCCESS", "RENDERING", "GENERATING_CONTENT"):
+        raise ValueError(f"当前状态 {session_state} 不支持预览，需等待生成完成")
+
+
+def ensure_exportable_state(
+    snapshot: dict, expected_render_version: Optional[int]
+) -> None:
+    """Validate export preconditions from session snapshot."""
+    if snapshot["session"]["state"] != "SUCCESS":
+        raise ValueError("只有状态为 SUCCESS 的会话才能导出")
+
+    if expected_render_version is None:
+        return
+
+    current_render_version = snapshot["session"].get("render_version") or 1
+    if current_render_version != expected_render_version:
+        raise RuntimeError(
+            f"渲染版本冲突：期望 {expected_render_version}，当前 {current_render_version}"
+        )
+
+
 def strip_sources(
     slides: list[dict], lesson_plan: Optional[dict]
 ) -> Tuple[list[dict], Optional[dict]]:
@@ -177,6 +202,167 @@ def strip_sources(
             plans.append(plan_item)
         lesson_plan_clean["slides_plan"] = plans
     return slides_clean, lesson_plan_clean
+
+
+def build_preview_payload(
+    session_id: str,
+    snapshot: dict,
+    task,
+    slides: list[dict],
+    lesson_plan: Optional[dict],
+    anchor: dict,
+) -> dict:
+    """Build preview response payload for session-scope preview APIs."""
+    return {
+        "session_id": session_id,
+        "task_id": task.id if task else None,
+        "artifact_id": anchor["artifact_id"],
+        "based_on_version_id": anchor["based_on_version_id"],
+        "artifact_anchor": anchor,
+        "render_version": snapshot["session"].get("render_version") or 1,
+        "slides": slides,
+        "lesson_plan": lesson_plan,
+    }
+
+
+def build_modify_payload(
+    session_id: str,
+    snapshot: dict,
+    anchor: dict,
+    result: Optional[dict],
+) -> dict:
+    """Build response payload for preview modify requests."""
+    payload = {
+        "session_id": session_id,
+        "modify_task_id": (result.get("task_id") if isinstance(result, dict) else None)
+        or f"modify-{session_id}",
+        "status": "pending",
+        "render_version": snapshot["session"].get("render_version") or 1,
+        "artifact_id": anchor["artifact_id"],
+        "based_on_version_id": anchor["based_on_version_id"],
+        "artifact_anchor": anchor,
+    }
+    if isinstance(result, dict):
+        payload.update(result)
+    return payload
+
+
+def resolve_slide_preview(
+    slide_id: str, slides: list[dict], lesson_plan: Optional[dict]
+) -> Tuple[dict, Optional[dict], list[dict]]:
+    """Resolve a single slide preview payload from rendered preview materials."""
+    selected_slide = next((item for item in slides if item.get("id") == slide_id), None)
+    if selected_slide is None and slide_id.isdigit():
+        idx = int(slide_id)
+        selected_slide = next(
+            (item for item in slides if item.get("index") == idx),
+            None,
+        )
+    if not selected_slide:
+        raise LookupError(f"幻灯片不存在: {slide_id}")
+
+    plans = (lesson_plan or {}).get("slides_plan", []) if lesson_plan else []
+    teaching_plan = next(
+        (plan for plan in plans if plan.get("slide_id") == selected_slide.get("id")),
+        None,
+    )
+
+    related_slides = []
+    current_index = selected_slide.get("index")
+    for item in slides:
+        index = item.get("index")
+        if not isinstance(index, int) or not isinstance(current_index, int):
+            continue
+        if index == current_index - 1:
+            related_slides.append(
+                {
+                    "slide_id": item.get("id"),
+                    "title": item.get("title", ""),
+                    "relation": "previous",
+                }
+            )
+        elif index == current_index + 1:
+            related_slides.append(
+                {
+                    "slide_id": item.get("id"),
+                    "title": item.get("title", ""),
+                    "relation": "next",
+                }
+            )
+
+    return selected_slide, teaching_plan, related_slides
+
+
+def build_slide_preview_payload(
+    session_id: str,
+    anchor: dict,
+    selected_slide: dict,
+    teaching_plan: Optional[dict],
+    related_slides: list[dict],
+) -> dict:
+    """Build response payload for slide preview API."""
+    return {
+        "session_id": session_id,
+        "artifact_id": anchor["artifact_id"],
+        "based_on_version_id": anchor["based_on_version_id"],
+        "artifact_anchor": anchor,
+        "slide": selected_slide,
+        "teaching_plan": teaching_plan,
+        "related_slides": related_slides,
+    }
+
+
+def build_export_payload(
+    session_id: str,
+    snapshot: dict,
+    task,
+    slides: list[dict],
+    lesson_plan: Optional[dict],
+    content: dict,
+    anchor: dict,
+    export_format: str,
+    include_sources: bool,
+) -> dict:
+    """Build export payload for preview export API."""
+    if not include_sources:
+        slides, lesson_plan = strip_sources(slides, lesson_plan)
+
+    markdown_content = content.get("markdown_content", "")
+    normalized_format = export_format.lower()
+    if normalized_format == "json":
+        export_content = json.dumps(
+            {
+                "session_id": session_id,
+                "slides": slides,
+                "lesson_plan": lesson_plan,
+                "markdown_content": markdown_content,
+            },
+            ensure_ascii=False,
+        )
+    elif normalized_format == "html":
+        export_content = (
+            "<!doctype html><html><body><pre>"
+            + html.escape(markdown_content)
+            + "</pre></body></html>"
+        )
+    else:
+        normalized_format = "markdown"
+        export_content = markdown_content
+
+    result = snapshot.get("result") or {}
+    return {
+        "session_id": session_id,
+        "task_id": task.id if task else None,
+        "artifact_id": anchor["artifact_id"],
+        "based_on_version_id": anchor["based_on_version_id"],
+        "artifact_anchor": anchor,
+        "content": export_content,
+        "format": normalized_format,
+        "render_version": snapshot["session"].get("render_version") or 1,
+        "ppt_url": result.get("ppt_url"),
+        "word_url": result.get("word_url"),
+        "version": result.get("version"),
+    }
 
 
 async def load_preview_material(session_id: str, project_id: str):
