@@ -320,6 +320,58 @@ async def _create_session_candidate_change(
     )
 
 
+async def _attach_auto_candidate_change(
+    *,
+    session_id: str,
+    user_id: str,
+    snapshot: dict,
+    body: dict,
+    candidate_change_body: Optional[dict],
+    idempotency_key: Optional[str],
+    cache_scope: str,
+    generation_command: dict,
+    generation_result: dict,
+    trigger: str,
+) -> Optional[dict]:
+    if candidate_change_body is None:
+        return None
+
+    candidate_change_input = dict(candidate_change_body)
+    if body.get("artifact_id") and "artifact_id" not in candidate_change_input:
+        candidate_change_input["artifact_id"] = body.get("artifact_id")
+
+    project_id = snapshot["session"]["project_id"]
+    cache_key = (
+        f"{cache_scope}:{user_id}:{project_id}:{session_id}:{idempotency_key}"
+        if idempotency_key
+        else None
+    )
+    cached_change = None
+    if cache_key:
+        cached = await db_service.get_idempotency_response(cache_key)
+        if isinstance(cached, dict):
+            cached_change = cached.get("change")
+    if cached_change is None:
+        change = await _create_session_candidate_change(
+            session_id=session_id,
+            user_id=user_id,
+            snapshot=snapshot,
+            body=candidate_change_input,
+            extra_payload={
+                "generation_command": generation_command,
+                "generation_result": generation_result,
+                "trigger": trigger,
+            },
+        )
+        cached_change = _serialize_candidate_change(change)
+        if cache_key:
+            await db_service.save_idempotency_response(
+                cache_key,
+                {"change": cached_change},
+            )
+    return cached_change
+
+
 async def _load_preview_material(session_id: str, project_id: str):
     """Load task + rendered preview materials for preview/export APIs."""
     tasks = await db_service.db.generationtask.find_many(
@@ -770,44 +822,22 @@ async def confirm_outline(
     payload = dict(result) if isinstance(result, dict) else {"result": result}
     if candidate_change_body is not None:
         snapshot = await svc.get_session_snapshot(session_id, user_id)
-        project_id = snapshot["session"]["project_id"]
-        key_str = _parse_idempotency_key(idempotency_key)
-        cache_key = (
-            "session_confirm_candidate_change:"
-            f"{user_id}:{project_id}:{session_id}:{key_str}"
-            if key_str
-            else None
+        payload["candidate_change"] = await _attach_auto_candidate_change(
+            session_id=session_id,
+            user_id=user_id,
+            snapshot=snapshot,
+            body=body,
+            candidate_change_body=candidate_change_body,
+            idempotency_key=_parse_idempotency_key(idempotency_key),
+            cache_scope="session_confirm_candidate_change",
+            generation_command={
+                "command_type": "CONFIRM_OUTLINE",
+                "continue_from_retrieval": body.get("continue_from_retrieval", True),
+                "expected_state": body.get("expected_state"),
+            },
+            generation_result=payload,
+            trigger="confirm_outline",
         )
-        cached_change = None
-        if cache_key:
-            cached = await db_service.get_idempotency_response(cache_key)
-            if isinstance(cached, dict):
-                cached_change = cached.get("change")
-        if cached_change is None:
-            change = await _create_session_candidate_change(
-                session_id=session_id,
-                user_id=user_id,
-                snapshot=snapshot,
-                body=candidate_change_body,
-                extra_payload={
-                    "generation_command": {
-                        "command_type": "CONFIRM_OUTLINE",
-                        "continue_from_retrieval": body.get(
-                            "continue_from_retrieval", True
-                        ),
-                        "expected_state": body.get("expected_state"),
-                    },
-                    "generation_result": payload,
-                    "trigger": "confirm_outline",
-                },
-            )
-            cached_change = _serialize_candidate_change(change)
-            if cache_key:
-                await db_service.save_idempotency_response(
-                    cache_key,
-                    {"change": cached_change},
-                )
-        payload["candidate_change"] = cached_change
 
     return success_response(data=payload, message="大纲已确认，开始生成内容")
 
@@ -1126,46 +1156,23 @@ async def modify_session_preview(
     if isinstance(result, dict):
         payload.update(result)
     if candidate_change_body is not None:
-        candidate_change_input = dict(candidate_change_body)
-        if body.get("artifact_id") and "artifact_id" not in candidate_change_input:
-            candidate_change_input["artifact_id"] = body.get("artifact_id")
-        project_id = snapshot["session"]["project_id"]
-        key_str = _parse_idempotency_key(idempotency_key)
-        cache_key = (
-            "session_preview_modify_candidate_change:"
-            f"{user_id}:{project_id}:{session_id}:{key_str}"
-            if key_str
-            else None
+        payload["candidate_change"] = await _attach_auto_candidate_change(
+            session_id=session_id,
+            user_id=user_id,
+            snapshot=snapshot,
+            body=body,
+            candidate_change_body=candidate_change_body,
+            idempotency_key=_parse_idempotency_key(idempotency_key),
+            cache_scope="session_preview_modify_candidate_change",
+            generation_command={
+                "command_type": "REGENERATE_SLIDE",
+                "slide_id": slide_id,
+                "patch": patch,
+                "expected_render_version": body.get("expected_render_version"),
+            },
+            generation_result=payload,
+            trigger="preview_modify",
         )
-        cached_change = None
-        if cache_key:
-            cached = await db_service.get_idempotency_response(cache_key)
-            if isinstance(cached, dict):
-                cached_change = cached.get("change")
-        if cached_change is None:
-            change = await _create_session_candidate_change(
-                session_id=session_id,
-                user_id=user_id,
-                snapshot=snapshot,
-                body=candidate_change_input,
-                extra_payload={
-                    "generation_command": {
-                        "command_type": "REGENERATE_SLIDE",
-                        "slide_id": slide_id,
-                        "patch": patch,
-                        "expected_render_version": body.get("expected_render_version"),
-                    },
-                    "generation_result": payload,
-                    "trigger": "preview_modify",
-                },
-            )
-            cached_change = _serialize_candidate_change(change)
-            if cache_key:
-                await db_service.save_idempotency_response(
-                    cache_key,
-                    {"change": cached_change},
-                )
-        payload["candidate_change"] = cached_change
     return success_response(data=payload, message="预览修改请求已接受")
 
 
@@ -1351,44 +1358,22 @@ async def export_session(
         "version": result.get("version"),
     }
     if candidate_change_body is not None:
-        candidate_change_input = dict(candidate_change_body)
-        if body.get("artifact_id") and "artifact_id" not in candidate_change_input:
-            candidate_change_input["artifact_id"] = body.get("artifact_id")
-        key_str = _parse_idempotency_key(idempotency_key)
-        cache_key = (
-            "session_preview_export_candidate_change:"
-            f"{user_id}:{project_id}:{session_id}:{key_str}"
-            if key_str
-            else None
+        payload["candidate_change"] = await _attach_auto_candidate_change(
+            session_id=session_id,
+            user_id=user_id,
+            snapshot=snapshot,
+            body=body,
+            candidate_change_body=candidate_change_body,
+            idempotency_key=_parse_idempotency_key(idempotency_key),
+            cache_scope="session_preview_export_candidate_change",
+            generation_command={
+                "command_type": "EXPORT_PREVIEW",
+                "format": export_format,
+                "include_sources": include_sources,
+                "expected_render_version": body.get("expected_render_version"),
+            },
+            generation_result=payload,
+            trigger="preview_export",
         )
-        cached_change = None
-        if cache_key:
-            cached = await db_service.get_idempotency_response(cache_key)
-            if isinstance(cached, dict):
-                cached_change = cached.get("change")
-        if cached_change is None:
-            change = await _create_session_candidate_change(
-                session_id=session_id,
-                user_id=user_id,
-                snapshot=snapshot,
-                body=candidate_change_input,
-                extra_payload={
-                    "generation_command": {
-                        "command_type": "EXPORT_PREVIEW",
-                        "format": export_format,
-                        "include_sources": include_sources,
-                        "expected_render_version": body.get("expected_render_version"),
-                    },
-                    "generation_result": payload,
-                    "trigger": "preview_export",
-                },
-            )
-            cached_change = _serialize_candidate_change(change)
-            if cache_key:
-                await db_service.save_idempotency_response(
-                    cache_key,
-                    {"change": cached_change},
-                )
-        payload["candidate_change"] = cached_change
 
     return success_response(data=payload, message="导出成功")
