@@ -221,13 +221,21 @@ def test_check_regression_report_groups_failures(tmp_path):
     assert report.current_total_samples == 6
     assert report.baseline_total_samples == 8
     assert "gate_passed=false" in report.grouped_violations["gate"]
+    assert "max_mapping_drop" in report.triggered_guardrail_keys
+    assert "max_wave1_entry_drop" in report.triggered_guardrail_keys
     assert any(
         "capability_artifact_mapping_pass_rate" in item
+        for item in report.grouped_violations["mapping"]
+    )
+    assert any(
+        "guardrail=max_mapping_drop" in item
         for item in report.grouped_violations["mapping"]
     )
 
     lines = format_failure_report(report)
     assert any("失败分组数" in line for line in lines)
+    assert any("触发 guardrails" in line for line in lines)
+    assert any("- max_mapping_drop" == line for line in lines)
     assert any("current=current-dataset.json" in line for line in lines)
     assert any("[Artifact 映射]" == line for line in lines)
     assert any("[总门禁]" == line for line in lines)
@@ -292,5 +300,7 @@ def test_cli_check_prints_summary_and_grouped_failures(tmp_path, monkeypatch, ca
     assert main() == 1
     captured = capsys.readouterr()
     assert "Project Space 基线校验失败摘要：" in captured.out
+    assert "Project Space 基线校验触发的 guardrails：" in captured.out
+    assert "- max_mapping_drop" in captured.out
     assert "[Artifact 映射]" in captured.out
     assert "[总门禁]" in captured.out
