@@ -1,0 +1,255 @@
+import json
+from typing import Optional
+
+
+class ProjectSpaceMixin:
+    async def create_project_reference(
+        self,
+        project_id: str,
+        target_project_id: str,
+        relation_type: str,
+        mode: str,
+        pinned_version_id: Optional[str],
+        priority: int,
+        created_by: Optional[str],
+    ):
+        data = {
+            "projectId": project_id,
+            "targetProjectId": target_project_id,
+            "relationType": relation_type,
+            "mode": mode,
+            "priority": priority,
+        }
+        if pinned_version_id:
+            data["pinnedVersionId"] = pinned_version_id
+        if created_by:
+            data["createdBy"] = created_by
+        return await self.db.projectreference.create(data=data)
+
+    async def get_project_references(self, project_id: str):
+        return await self.db.projectreference.find_many(
+            where={"projectId": project_id, "status": "active"},
+            order={"priority": "asc"},
+        )
+
+    async def get_project_reference(self, reference_id: str):
+        return await self.db.projectreference.find_unique(where={"id": reference_id})
+
+    async def update_project_reference(
+        self,
+        reference_id: str,
+        mode: Optional[str] = None,
+        pinned_version_id: Optional[str] = None,
+        priority: Optional[int] = None,
+        status: Optional[str] = None,
+    ):
+        data = {}
+        if mode is not None:
+            data["mode"] = mode
+        if pinned_version_id is not None:
+            data["pinnedVersionId"] = pinned_version_id
+        if priority is not None:
+            data["priority"] = priority
+        if status is not None:
+            data["status"] = status
+        return await self.db.projectreference.update(
+            where={"id": reference_id}, data=data
+        )
+
+    async def delete_project_reference(self, reference_id: str):
+        return await self.db.projectreference.update(
+            where={"id": reference_id},
+            data={"status": "disabled"},
+        )
+
+    async def get_base_reference(self, project_id: str):
+        return await self.db.projectreference.find_first(
+            where={"projectId": project_id, "relationType": "base", "status": "active"}
+        )
+
+    async def get_project_versions(self, project_id: str):
+        return await self.db.projectversion.find_many(
+            where={"projectId": project_id},
+            order={"createdAt": "desc"},
+        )
+
+    async def get_project_version(self, version_id: str):
+        return await self.db.projectversion.find_unique(where={"id": version_id})
+
+    async def create_project_version(
+        self,
+        project_id: str,
+        parent_version_id: Optional[str],
+        summary: Optional[str],
+        change_type: str,
+        snapshot_data: Optional[dict],
+        created_by: Optional[str],
+    ):
+        data = {"projectId": project_id, "changeType": change_type}
+        if parent_version_id:
+            data["parentVersionId"] = parent_version_id
+        if summary:
+            data["summary"] = summary
+        if snapshot_data:
+            data["snapshotData"] = json.dumps(snapshot_data)
+        if created_by:
+            data["createdBy"] = created_by
+        return await self.db.projectversion.create(data=data)
+
+    async def update_project_current_version(self, project_id: str, version_id: str):
+        return await self.db.project.update(
+            where={"id": project_id},
+            data={"currentVersionId": version_id},
+        )
+
+    async def get_project_artifacts(
+        self,
+        project_id: str,
+        type_filter: Optional[str] = None,
+        visibility_filter: Optional[str] = None,
+        owner_user_id_filter: Optional[str] = None,
+        based_on_version_id_filter: Optional[str] = None,
+    ):
+        where: dict = {"projectId": project_id}
+        if type_filter:
+            where["type"] = type_filter
+        if visibility_filter:
+            where["visibility"] = visibility_filter
+        if owner_user_id_filter:
+            where["ownerUserId"] = owner_user_id_filter
+        if based_on_version_id_filter:
+            where["basedOnVersionId"] = based_on_version_id_filter
+        return await self.db.artifact.find_many(
+            where=where, order={"createdAt": "desc"}
+        )
+
+    async def get_artifact(self, artifact_id: str):
+        return await self.db.artifact.find_unique(where={"id": artifact_id})
+
+    async def create_artifact(
+        self,
+        project_id: str,
+        artifact_type: str,
+        visibility: str,
+        session_id: Optional[str] = None,
+        based_on_version_id: Optional[str] = None,
+        owner_user_id: Optional[str] = None,
+        storage_path: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ):
+        data = {
+            "projectId": project_id,
+            "type": artifact_type,
+            "visibility": visibility,
+        }
+        if session_id:
+            data["sessionId"] = session_id
+        if based_on_version_id:
+            data["basedOnVersionId"] = based_on_version_id
+        if owner_user_id:
+            data["ownerUserId"] = owner_user_id
+        if storage_path:
+            data["storagePath"] = storage_path
+        if metadata:
+            data["metadata"] = json.dumps(metadata)
+        return await self.db.artifact.create(data=data)
+
+    async def get_candidate_changes(
+        self,
+        project_id: str,
+        status: Optional[str] = None,
+        proposer_user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ):
+        where: dict = {"projectId": project_id}
+        if status:
+            where["status"] = status
+        if proposer_user_id:
+            where["proposerUserId"] = proposer_user_id
+        if session_id:
+            where["sessionId"] = session_id
+        return await self.db.candidatechange.find_many(
+            where=where, order={"createdAt": "desc"}
+        )
+
+    async def get_candidate_change(self, change_id: str):
+        return await self.db.candidatechange.find_unique(where={"id": change_id})
+
+    async def create_candidate_change(
+        self,
+        project_id: str,
+        title: str,
+        summary: Optional[str],
+        payload: Optional[dict],
+        session_id: Optional[str],
+        base_version_id: Optional[str],
+        proposer_user_id: Optional[str],
+    ):
+        data = {"projectId": project_id, "title": title}
+        if summary:
+            data["summary"] = summary
+        if payload:
+            data["payload"] = json.dumps(payload)
+        if session_id:
+            data["sessionId"] = session_id
+        if base_version_id:
+            data["baseVersionId"] = base_version_id
+        if proposer_user_id:
+            data["proposerUserId"] = proposer_user_id
+        return await self.db.candidatechange.create(data=data)
+
+    async def update_candidate_change_status(
+        self,
+        change_id: str,
+        status: str,
+        review_comment: Optional[str] = None,
+    ):
+        data = {"status": status}
+        if review_comment is not None:
+            data["reviewComment"] = review_comment
+        return await self.db.candidatechange.update(where={"id": change_id}, data=data)
+
+    async def get_project_members(self, project_id: str):
+        return await self.db.projectmember.find_many(
+            where={"projectId": project_id, "status": "active"},
+            order={"createdAt": "asc"},
+        )
+
+    async def get_project_member(self, member_id: str):
+        return await self.db.projectmember.find_unique(where={"id": member_id})
+
+    async def get_project_member_by_user(self, project_id: str, user_id: str):
+        return await self.db.projectmember.find_first(
+            where={"projectId": project_id, "userId": user_id, "status": "active"}
+        )
+
+    async def create_project_member(
+        self,
+        project_id: str,
+        user_id: str,
+        role: str,
+        permissions: Optional[dict],
+    ):
+        data = {"projectId": project_id, "userId": user_id, "role": role}
+        if permissions:
+            data["permissions"] = json.dumps(permissions)
+        return await self.db.projectmember.create(data=data)
+
+    async def update_project_member(
+        self,
+        member_id: str,
+        role: Optional[str] = None,
+        permissions: Optional[dict] = None,
+        status: Optional[str] = None,
+    ):
+        data = {}
+        if role is not None:
+            data["role"] = role
+        if permissions is not None:
+            data["permissions"] = json.dumps(permissions)
+        if status is not None:
+            data["status"] = status
+        return await self.db.projectmember.update(where={"id": member_id}, data=data)
+
+    async def delete_project_member(self, member_id: str):
+        return await self.db.projectmember.delete(where={"id": member_id})
