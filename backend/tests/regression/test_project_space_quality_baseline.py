@@ -3,6 +3,7 @@ import json
 import pytest
 
 from eval.project_space_quality_baseline import (
+    build_failure_report_payload,
     Guardrails,
     check_regression,
     check_regression_report,
@@ -306,3 +307,127 @@ def test_cli_check_prints_summary_and_grouped_failures(tmp_path, monkeypatch, ca
     assert "- guardrails.max_mapping_drop" in captured.out
     assert "[Artifact 映射]" in captured.out
     assert "[总门禁]" in captured.out
+
+
+def test_build_failure_report_payload_contains_machine_readable_fields(tmp_path):
+    baseline = {
+        "dataset": "baseline-dataset.json",
+        "total_samples": 8,
+        "metrics": _result_payload(
+            anchor=1.0,
+            candidate=1.0,
+            loop=1.0,
+            citation=1.0,
+            coverage=1.0,
+            mapping=1.0,
+            wave1_entry=1.0,
+            gate_passed=True,
+        )["metrics"],
+        "guardrails": {
+            "max_anchor_drop": 0.02,
+            "max_candidate_payload_drop": 0.02,
+            "max_loop_drop": 0.03,
+            "max_citation_drop": 0.02,
+            "max_coverage_drop": 0.0,
+            "max_mapping_drop": 0.02,
+            "max_wave1_entry_drop": 0.02,
+        },
+    }
+    current = {
+        "dataset": "current-dataset.json",
+        "total_samples": 6,
+        "metrics": _result_payload(
+            anchor=1.0,
+            candidate=1.0,
+            loop=1.0,
+            citation=1.0,
+            coverage=1.0,
+            mapping=0.85,
+            wave1_entry=1.0,
+            gate_passed=False,
+        )["metrics"],
+    }
+
+    baseline_path = tmp_path / "baseline.json"
+    current_path = tmp_path / "current.json"
+    baseline_path.write_text(json.dumps(baseline), encoding="utf-8")
+    current_path.write_text(json.dumps(current), encoding="utf-8")
+
+    report = check_regression_report(
+        current_path=current_path,
+        baseline_path=baseline_path,
+    )
+    payload = build_failure_report_payload(report)
+
+    assert payload["passed"] is False
+    assert payload["violation_count"] == 2
+    assert "guardrails.max_mapping_drop" in payload["triggered_guardrails"]
+    assert payload["current_dataset"] == "current-dataset.json"
+    assert payload["baseline_total_samples"] == 8
+    assert "mapping" in payload["grouped_violations"]
+    assert "violations" in payload
+
+
+def test_cli_check_json_outputs_machine_readable_payload(tmp_path, monkeypatch, capsys):
+    baseline = {
+        "dataset": "baseline-dataset.json",
+        "total_samples": 8,
+        "metrics": _result_payload(
+            anchor=1.0,
+            candidate=1.0,
+            loop=1.0,
+            citation=1.0,
+            coverage=1.0,
+            mapping=1.0,
+            wave1_entry=1.0,
+            gate_passed=True,
+        )["metrics"],
+        "guardrails": {
+            "max_anchor_drop": 0.02,
+            "max_candidate_payload_drop": 0.02,
+            "max_loop_drop": 0.03,
+            "max_citation_drop": 0.02,
+            "max_coverage_drop": 0.0,
+            "max_mapping_drop": 0.02,
+            "max_wave1_entry_drop": 0.02,
+        },
+    }
+    current = {
+        "dataset": "current-dataset.json",
+        "total_samples": 6,
+        "metrics": _result_payload(
+            anchor=1.0,
+            candidate=1.0,
+            loop=1.0,
+            citation=1.0,
+            coverage=1.0,
+            mapping=0.85,
+            wave1_entry=1.0,
+            gate_passed=False,
+        )["metrics"],
+    }
+
+    baseline_path = tmp_path / "baseline.json"
+    current_path = tmp_path / "current.json"
+    baseline_path.write_text(json.dumps(baseline), encoding="utf-8")
+    current_path.write_text(json.dumps(current), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "project_space_quality_baseline.py",
+            "check",
+            "--current",
+            str(current_path),
+            "--baseline",
+            str(baseline_path),
+            "--json",
+        ],
+    )
+
+    assert main() == 1
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["passed"] is False
+    assert "guardrails.max_mapping_drop" in payload["triggered_guardrails"]
+    assert "mapping" in payload["grouped_violations"]

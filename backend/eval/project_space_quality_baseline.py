@@ -371,6 +371,23 @@ def format_failure_report(report: RegressionCheckReport) -> list[str]:
     return lines
 
 
+def build_failure_report_payload(report: RegressionCheckReport) -> dict:
+    return {
+        "passed": report.passed,
+        "violation_count": report.violation_count,
+        "group_count": report.group_count,
+        "triggered_guardrails": [
+            _guardrail_path(key) for key in report.triggered_guardrail_keys
+        ],
+        "current_dataset": report.current_dataset,
+        "baseline_dataset": report.baseline_dataset,
+        "current_total_samples": report.current_total_samples,
+        "baseline_total_samples": report.baseline_total_samples,
+        "grouped_violations": report.grouped_violations,
+        "violations": report.violations,
+    }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="D-PS5 Project Space 基线管理工具")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -425,6 +442,11 @@ def _build_parser() -> argparse.ArgumentParser:
     check_parser = sub.add_parser("check", help="校验当前结果是否退化")
     check_parser.add_argument("--current", required=True, help="当前结果路径")
     check_parser.add_argument("--baseline", required=True, help="基线路径")
+    check_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 输出校验结果，便于联调脚本或 CI 消费",
+    )
     return parser
 
 
@@ -466,6 +488,15 @@ def main() -> int:
             current_path=Path(args.current),
             baseline_path=Path(args.baseline),
         )
+        if args.json:
+            print(
+                json.dumps(
+                    build_failure_report_payload(report),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 0 if report.passed else 1
         if report.passed:
             print("Project Space 基线校验通过：未发现超阈值退化。")
             return 0
