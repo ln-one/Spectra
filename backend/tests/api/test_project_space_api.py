@@ -590,6 +590,68 @@ def test_download_artifact_mp4_success(client, monkeypatch, tmp_path, _as_user):
     assert "a-mp4-001.mp4" in resp.headers.get("content-disposition", "")
 
 
+@pytest.mark.parametrize(
+    ("artifact_type", "suffix", "content", "expected_content_type"),
+    [
+        ("mindmap", ".json", '{"nodes":[]}', "application/json"),
+        ("summary", ".json", '{"summary":"ok"}', "application/json"),
+        ("exercise", ".json", '{"questions":[]}', "application/json"),
+        ("html", ".html", "<html><body>ok</body></html>", "text/html"),
+        (
+            "docx",
+            ".docx",
+            (
+                b"PK\x03\x04\x14\x00\x00\x00\x08\x00"
+                b"\x00\x00!\x00dummy-docx-placeholder"
+            ),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+    ],
+)
+def test_download_artifact_structured_types_success(
+    client,
+    monkeypatch,
+    tmp_path,
+    _as_user,
+    artifact_type,
+    suffix,
+    content,
+    expected_content_type,
+):
+    artifact_path = tmp_path / f"demo{suffix}"
+    if isinstance(content, bytes):
+        artifact_path.write_bytes(content)
+    else:
+        artifact_path.write_text(content, encoding="utf-8")
+
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_artifact",
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_id=f"a-{artifact_type}-001",
+                artifact_type=artifact_type,
+                storage_path=str(artifact_path),
+            )
+        ),
+    )
+
+    resp = client.get(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts/a-{artifact_type}-001/download",
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith(expected_content_type)
+    assert (
+        f"{artifact_type}_a-{artifact_type}-001{suffix}"
+        in resp.headers.get("content-disposition", "")
+    )
+
+
 def test_get_candidate_changes_with_filters_success(client, monkeypatch, _as_user):
     get_changes = AsyncMock(return_value=[_fake_change(status="accepted")])
     monkeypatch.setattr(project_space_service, "get_candidate_changes", get_changes)
