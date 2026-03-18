@@ -34,6 +34,7 @@ def test_compute_metrics_basic():
     assert m.relevance_pass_rate == pytest.approx(1.0)
     assert m.low_quality_reject_rate == pytest.approx(1.0)
     assert m.citation_ready_rate == pytest.approx(1.0)
+    assert m.gate_passed is True
 
 
 def test_run_audit_writes_output(tmp_path):
@@ -62,7 +63,35 @@ def test_run_audit_writes_output(tmp_path):
     m = run_audit(dataset_path=dataset_path, output_path=output_path)
     assert m.total_samples == 1
     assert m.citation_ready_rate == pytest.approx(1.0)
+    assert m.gate_passed is True
     assert output_path.exists()
 
     saved = json.loads(output_path.read_text(encoding="utf-8"))
     assert saved["metrics"]["citation_ready_rate"] == pytest.approx(1.0)
+    assert saved["metrics"]["gate_passed"] is True
+
+
+def test_compute_metrics_gate_can_fail():
+    samples = [
+        {
+            "id": "bad",
+            "query": "牛顿第二定律",
+            "web_resources": [
+                {
+                    "id": "w1",
+                    "title": "广告",
+                    "url": "https://spam.example.com/ad",
+                    "content": "点我",
+                }
+            ],
+            "expected_reject_resource_ids": [],
+        }
+    ]
+    m = compute_metrics(
+        samples,
+        min_normalization_rate=1.0,
+        min_relevance_pass_rate=1.0,
+        min_low_quality_reject_rate=1.0,
+        min_citation_ready_rate=1.0,
+    )
+    assert m.gate_passed is False

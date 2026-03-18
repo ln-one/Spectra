@@ -225,6 +225,38 @@ def test_send_message_aligns_citations_with_inline_cite_tags(
     assert saved_metadata["citations"][0]["chunk_id"] == "chunk-2"
 
 
+def test_send_message_response_contract_aligns_rag_and_observability(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        db_service,
+        "create_conversation_message",
+        AsyncMock(
+            side_effect=[
+                _fake_conv(role="user", conv_id="c-user"),
+                _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+            ]
+        ),
+    )
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+    _mock(monkeypatch, rag_service, "search", [_fake_rag_result(chunk_id="chunk-1")])
+    _mock(monkeypatch, ai_service, "generate", {"content": "根据资料结论。[1]"})
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+    body = resp.json()["data"]
+    assert body["rag_hit"] is True
+    assert body["observability"]["has_rag_context"] is True
+    assert isinstance(body["message"]["citations"], list)
+    assert body["message"]["citations"][0]["chunk_id"] == "chunk-1"
+
+
 def test_send_message_sanitizes_unknown_cite_tag_and_recovers_mapping(
     client, monkeypatch, _as_user
 ):
@@ -403,6 +435,25 @@ def test_get_messages_includes_citations_from_metadata(client, monkeypatch, _as_
     assert body["data"]["messages"][0]["citations"] == expected_citations
 
 
+def test_get_messages_assistant_without_citations_returns_empty_array(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    convs = [
+        _fake_conv(
+            role="assistant",
+            conv_id="c-001",
+            metadata=None,
+        )
+    ]
+    _mock(monkeypatch, db_service, "get_conversations_paginated", (convs, 1))
+
+    resp = client.get("/api/v1/chat/messages?project_id=p-001&page=1&limit=20")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["messages"][0]["citations"] == []
+
+
 def test_get_messages_no_token_401(client):
     resp = client.get("/api/v1/chat/messages?project_id=p-001")
     assert resp.status_code == 401
@@ -470,8 +521,12 @@ def test_voice_message_success(client, monkeypatch, _as_user):
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["text"]
+    assert body["data"]["rag_hit"] is False
     assert body["data"]["message"]["role"] == "assistant"
     assert body["data"]["message"]["content"] == "voice assistant reply"
+    assert body["data"]["message"]["citations"] == []
+    assert body["data"]["observability"]["route_task"] == "speech_recognition"
+    assert body["data"]["observability"]["has_rag_context"] is False
     assert body["data"]["duration"] >= 1
 
 

@@ -25,6 +25,13 @@ cd backend
 
 # 与基线对比
 .venv-wsl/bin/python eval/run_eval.py --project-id <id> --baseline eval/baselines/rag-baseline-v1.json
+
+# 通过后端 API 运行评测（推荐 Windows / 远程环境）
+.venv-wsl/bin/python eval/run_eval.py \
+  --project-id <id> \
+  --api-base-url http://127.0.0.1:8000/api/v1 \
+  --api-email eval_runner@example.com \
+  --api-password "StrongPass!2026"
 ```
 
 Windows 环境可将解释器替换为 `venv/Scripts/python.exe`。
@@ -50,6 +57,25 @@ cd backend
 .venv-wsl/bin/python eval/baseline_manager.py check \
   --current eval/results/latest.json \
   --baseline eval/baselines/rag-baseline-v1.json
+```
+
+真实项目收口（推荐）：
+
+```bash
+cd backend
+
+# 使用真实项目评测集（基于 docs/project/requirements.md）
+.venv-wsl/bin/python eval/run_eval.py \
+  --project-id <real_project_id> \
+  --dataset eval/dataset_d51_real_project_space.json \
+  --output eval/results/d51_real_project_latest.json \
+  --tag d5.1-real-project
+
+# 冻结真实项目基线
+.venv-wsl/bin/python eval/baseline_manager.py freeze \
+  --result eval/results/d51_real_project_latest.json \
+  --output eval/baselines/rag-baseline-v1.json \
+  --notes "D-5.1 real-project baseline"
 ```
 
 默认门禁阈值：
@@ -97,6 +123,40 @@ cd backend
 .venv-wsl/bin/python eval/source_quality_audit.py \
   --dataset eval/source_audit_samples.json \
   --output eval/results/source_audit_latest.json
+
+# 冻结首版来源质量基线
+.venv-wsl/bin/python eval/source_quality_baseline.py freeze \
+  --result eval/results/source_audit_latest.json \
+  --output eval/baselines/source-quality-baseline-v1.json \
+  --notes "D4 source quality baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/source_quality_baseline.py check \
+  --current eval/results/source_audit_latest.json \
+  --baseline eval/baselines/source-quality-baseline-v1.json
+```
+
+## D1 Provider Harness 基线管理
+
+```bash
+cd backend
+
+# 运行 provider harness（mock 对比）
+.venv-wsl/bin/python eval/provider_harness.py \
+  --sample-pool eval/provider_sample_pool.json \
+  --thresholds eval/provider_thresholds.json \
+  --output eval/results/provider_harness_latest.json
+
+# 冻结首版 provider harness 基线
+.venv-wsl/bin/python eval/provider_harness_baseline.py freeze \
+  --result eval/results/provider_harness_latest.json \
+  --output eval/baselines/provider-harness-baseline-v1.json \
+  --notes "D1 provider harness baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/provider_harness_baseline.py check \
+  --current eval/results/provider_harness_latest.json \
+  --baseline eval/baselines/provider-harness-baseline-v1.json
 ```
 
 评测指标：
@@ -113,12 +173,20 @@ cd backend
 .venv-wsl/bin/python eval/dialogue_memory_audit.py \
   --dataset eval/dialogue_memory_samples.json \
   --output eval/results/dialogue_memory_latest.json
+
+# 运行 D-PS3 联调样本（session 作用域 + 协议一致性）
+.venv-wsl/bin/python eval/dialogue_memory_audit.py \
+  --dataset eval/dialogue_memory_samples_dps3.json \
+  --output eval/results/dialogue_memory_dps3_latest.json
 ```
 
 评测指标：
 - `hit_rate`：有资料问题中，回答是否命中期望来源
 - `misquote_rate`：回答引用错误来源的比例
 - `no_hit_notice_rate`：无可用资料时是否明确提示“未命中资料”
+- `contract_consistency_rate`：`message.content / citations[] / rag_hit / observability.has_rag_context` 一致率
+- `session_isolation_rate`：资料来源是否严格落在当前 `session_id` 作用域
+- `gate_passed`：是否通过数据集阈值门禁（支持 `thresholds` 配置）
 
 ## D7 大纲流质量评测
 
@@ -162,6 +230,17 @@ cd backend
 .venv-wsl/bin/python eval/router_quality_audit.py \
   --dataset eval/router_quality_samples.json \
   --output eval/results/router_quality_latest.json
+
+# 冻结首版路由门禁基线
+.venv-wsl/bin/python eval/router_quality_baseline.py freeze \
+  --result eval/results/router_quality_latest.json \
+  --output eval/baselines/router-quality-baseline-v1.json \
+  --notes "D-8.5 router quality baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/router_quality_baseline.py check \
+  --current eval/results/router_quality_latest.json \
+  --baseline eval/baselines/router-quality-baseline-v1.json
 ```
 
 评测指标：
@@ -181,6 +260,17 @@ cd backend
 .venv-wsl/bin/python eval/network_resource_quality_audit.py \
   --dataset eval/network_resource_samples.json \
   --output eval/results/network_resource_latest.json
+
+# 冻结首版网络资源质量基线
+.venv-wsl/bin/python eval/network_resource_baseline.py freeze \
+  --result eval/results/network_resource_latest.json \
+  --output eval/baselines/network-resource-baseline-v1.json \
+  --notes "D-8.6 network resource baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/network_resource_baseline.py check \
+  --current eval/results/network_resource_latest.json \
+  --baseline eval/baselines/network-resource-baseline-v1.json
 ```
 
 评测指标：
@@ -188,3 +278,52 @@ cd backend
 - `relevance_pass_rate`：排序后的高位结果是否与查询相关
 - `low_quality_reject_rate`：低质量/弱相关资源是否被过滤
 - `citation_ready_rate`：输出是否具备可直接引用字段（`chunk_id/source_type/filename/timestamp`）
+- `gate_passed`：是否通过阈值门禁（支持 `thresholds` 配置）
+
+## D-PS5 Project Space 质量门禁评测
+
+```bash
+cd backend
+
+# 运行 Project Space 门禁评测（artifact 锚点 / candidate payload / 8 类能力闭环）
+.venv-wsl/bin/python eval/project_space_quality_gate.py \
+  --dataset eval/project_space_quality_samples.json \
+  --output eval/results/project_space_quality_latest.json
+
+# 冻结首版 Project Space 质量基线
+.venv-wsl/bin/python eval/project_space_quality_baseline.py freeze \
+  --result eval/results/project_space_quality_latest.json \
+  --output eval/baselines/project-space-quality-baseline-v1.json \
+  --notes "D-PS5 project space baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/project_space_quality_baseline.py check \
+  --current eval/results/project_space_quality_latest.json \
+  --baseline eval/baselines/project-space-quality-baseline-v1.json
+```
+
+评测指标：
+- `artifact_anchor_completeness_rate`：`artifact_id + based_on_version_id` 锚点完整率
+- `candidate_payload_completeness_rate`：`candidate change` payload 必填字段完整率
+- `capability_loop_pass_rate`：能力是否满足“可展示 + 可导出 + 可进历史 + 可提交候选变更”
+- `citation_contract_pass_rate`：引用协议一致性通过率
+- `capability_coverage_rate`：8 类能力覆盖率（`ppt/word/mindmap/outline/quiz/summary/animation/handout`）
+- `capability_artifact_mapping_pass_rate`：能力到 Artifact 映射通过率（含 `outline/animation/handout` 的 `metadata.kind` 校验）
+- `wave1_entry_semantics_pass_rate`：第一波能力入口语义通过率（`ppt/word/outline=session-first`，`summary=artifact-lite`）
+- `gate_passed`：是否通过阈值门禁
+
+## D-PS4 第一波入口语义审计
+
+```bash
+cd backend
+
+# 审计第一波能力入口语义（session-first vs artifact-lite）
+.venv-wsl/bin/python eval/project_space_wave1_entry_audit.py \
+  --dataset eval/project_space_wave1_entry_samples.json \
+  --output eval/results/project_space_wave1_entry_latest.json
+```
+
+评测指标：
+- `contract_pass_rate`：入口语义契约通过率
+- `gate_passed`：是否通过阈值门禁
+- `failed_sample_ids` / `failed_reasons`：失败样本与原因

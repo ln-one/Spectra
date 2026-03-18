@@ -192,6 +192,17 @@ async def _resolve_session_artifact_binding(
     )
 
 
+def _build_artifact_anchor(session_id: str, artifact) -> dict:
+    """Build unified artifact anchor payload for session-scope responses."""
+    return {
+        "session_id": session_id,
+        "artifact_id": artifact.id if artifact else None,
+        "based_on_version_id": (
+            getattr(artifact, "basedOnVersionId", None) if artifact else None
+        ),
+    }
+
+
 def _without_sources(slides: list[dict], lesson_plan: Optional[dict]):
     """Drop source arrays from preview payload when include_sources=False."""
     slides_clean = []
@@ -795,15 +806,15 @@ async def get_session_preview(
         artifact_id=artifact_id,
     )
     task, slides, lesson_plan, _ = await _load_preview_material(session_id, project_id)
+    anchor = _build_artifact_anchor(session_id, bound_artifact)
 
     return success_response(
         data={
             "session_id": session_id,
             "task_id": task.id if task else None,
-            "artifact_id": bound_artifact.id if bound_artifact else None,
-            "based_on_version_id": (
-                bound_artifact.basedOnVersionId if bound_artifact else None
-            ),
+            "artifact_id": anchor["artifact_id"],
+            "based_on_version_id": anchor["based_on_version_id"],
+            "artifact_anchor": anchor,
             "render_version": snapshot["session"].get("render_version") or 1,
             "slides": slides,
             "lesson_plan": lesson_plan,
@@ -862,16 +873,16 @@ async def modify_session_preview(
         artifact_id=body.get("artifact_id"),
     )
 
+    anchor = _build_artifact_anchor(session_id, bound_artifact)
     payload = {
         "session_id": session_id,
         "modify_task_id": (result.get("task_id") if isinstance(result, dict) else None)
         or f"modify-{session_id}",
         "status": "pending",
         "render_version": snapshot["session"].get("render_version") or 1,
-        "artifact_id": bound_artifact.id if bound_artifact else None,
-        "based_on_version_id": (
-            bound_artifact.basedOnVersionId if bound_artifact else None
-        ),
+        "artifact_id": anchor["artifact_id"],
+        "based_on_version_id": anchor["based_on_version_id"],
+        "artifact_anchor": anchor,
     }
     if isinstance(result, dict):
         payload.update(result)
@@ -903,6 +914,7 @@ async def get_session_slide_preview(
         artifact_id=artifact_id,
     )
     _, slides, lesson_plan, _ = await _load_preview_material(session_id, project_id)
+    anchor = _build_artifact_anchor(session_id, bound_artifact)
 
     selected_slide = None
     for item in slides:
@@ -952,10 +964,9 @@ async def get_session_slide_preview(
     return success_response(
         data={
             "session_id": session_id,
-            "artifact_id": bound_artifact.id if bound_artifact else None,
-            "based_on_version_id": (
-                bound_artifact.basedOnVersionId if bound_artifact else None
-            ),
+            "artifact_id": anchor["artifact_id"],
+            "based_on_version_id": anchor["based_on_version_id"],
+            "artifact_anchor": anchor,
             "slide": selected_slide,
             "teaching_plan": teaching_plan,
             "related_slides": related_slides,
@@ -1004,10 +1015,10 @@ async def export_session(
         session_id=session_id,
         artifact_id=body.get("artifact_id"),
     )
-
     task, slides, lesson_plan, content = await _load_preview_material(
         session_id, project_id
     )
+    anchor = _build_artifact_anchor(session_id, bound_artifact)
     export_format = str(body.get("format") or "markdown").lower()
     include_sources = bool(body.get("include_sources", True))
     if not include_sources:
@@ -1039,10 +1050,9 @@ async def export_session(
         data={
             "session_id": session_id,
             "task_id": task.id if task else None,
-            "artifact_id": bound_artifact.id if bound_artifact else None,
-            "based_on_version_id": (
-                bound_artifact.basedOnVersionId if bound_artifact else None
-            ),
+            "artifact_id": anchor["artifact_id"],
+            "based_on_version_id": anchor["based_on_version_id"],
+            "artifact_anchor": anchor,
             "content": export_content,
             "format": export_format,
             "render_version": snapshot["session"].get("render_version") or 1,

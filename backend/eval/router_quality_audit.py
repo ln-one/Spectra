@@ -236,6 +236,17 @@ def run_audit(
         payload = {
             "dataset": str(dataset_path),
             "total_samples": metrics.total_samples,
+            "thresholds": {
+                "default_quality_floor": float(
+                    thresholds.get("default_quality_floor", 0.85)
+                ),
+                "max_avg_quality_drop": float(
+                    thresholds.get("max_avg_quality_drop", 0.02)
+                ),
+                "max_non_degradable_misroute_rate": float(
+                    thresholds.get("max_non_degradable_misroute_rate", 0.0)
+                ),
+            },
             "metrics": {
                 "avg_quality_before": metrics.avg_quality_before,
                 "avg_quality_after": metrics.avg_quality_after,

@@ -2520,10 +2520,15 @@ components:
             message:
               $ref: '#/components/schemas/Message'
               description: Auto-created assistant message
+            rag_hit:
+              type: boolean
+              description: Voice flow currently does not run RAG retrieval; returns false explicitly.
             capability_status:
               allOf:
                 - $ref: '#/components/schemas/CapabilityStatus'
               description: Speech recognition capability status with degradation semantics
+            observability:
+              $ref: '#/components/schemas/ChatObservability'
             suggestions:
               type: array
               items:

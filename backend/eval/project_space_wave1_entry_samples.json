@@ -1,0 +1,47 @@
+{
+  "thresholds": {
+    "min_contract_pass_rate": 1.0
+  },
+  "samples": [
+    {
+      "id": "wave1-001",
+      "capability": "ppt",
+      "endpoint": "/api/v1/generate/sessions/sess-ppt-001/preview",
+      "request": {
+        "project_id": "proj-001",
+        "session_id": "sess-ppt-001",
+        "artifact_id": "art-ppt-001"
+      }
+    },
+    {
+      "id": "wave1-002",
+      "capability": "word",
+      "endpoint": "/api/v1/generate/sessions/sess-word-001/preview",
+      "request": {
+        "project_id": "proj-001",
+        "session_id": "sess-word-001",
+        "artifact_id": "art-word-001"
+      }
+    },
+    {
+      "id": "wave1-003",
+      "capability": "outline",
+      "endpoint": "/api/v1/generate/sessions/sess-outline-001/preview",
+      "request": {
+        "project_id": "proj-001",
+        "session_id": "sess-outline-001",
+        "artifact_id": "art-outline-001"
+      }
+    },
+    {
+      "id": "wave1-004",
+      "capability": "summary",
+      "endpoint": "/api/v1/projects/proj-001/artifacts",
+      "request": {
+        "project_id": "proj-001",
+        "session_id": "",
+        "artifact_id": "art-summary-001"
+      }
+    }
+  ]
+}

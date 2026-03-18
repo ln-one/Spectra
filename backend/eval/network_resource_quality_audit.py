@@ -33,6 +33,7 @@ class NetworkResourceMetrics:
     relevance_pass_rate: float
     low_quality_reject_rate: float
     citation_ready_rate: float
+    gate_passed: bool
     failed_normalization_ids: list[str]
     failed_relevance_ids: list[str]
     failed_reject_ids: list[str]
@@ -51,6 +52,7 @@ class NetworkResourceMetrics:
             f"relevance={self.relevance_pass_rate:.1%}, "
             f"reject={self.low_quality_reject_rate:.1%}, "
             f"citation={self.citation_ready_rate:.1%}, "
+            f"gate_passed={self.gate_passed}, "
             f"failed={failed}"
         )
 
@@ -90,9 +92,16 @@ def _is_relevant(units: list[dict], query: str) -> bool:
     return fuzzy_hits >= 1
 
 
-def compute_metrics(samples: list[dict]) -> NetworkResourceMetrics:
+def compute_metrics(
+    samples: list[dict],
+    *,
+    min_normalization_rate: float = 0.95,
+    min_relevance_pass_rate: float = 0.90,
+    min_low_quality_reject_rate: float = 0.95,
+    min_citation_ready_rate: float = 0.95,
+) -> NetworkResourceMetrics:
     if not samples:
-        return NetworkResourceMetrics(0, 0.0, 0.0, 0.0, 0.0, [], [], [], [])
+        return NetworkResourceMetrics(0, 0.0, 0.0, 0.0, 0.0, False, [], [], [], [])
 
     normalization_pass = 0
     relevance_pass = 0
@@ -163,12 +172,24 @@ def compute_metrics(samples: list[dict]) -> NetworkResourceMetrics:
             failed_citation_ids.append(sample_id)
 
     total = len(samples)
+    normalization_rate = normalization_pass / total
+    relevance_rate = relevance_pass / total
+    reject_rate = reject_pass / total
+    citation_rate = citation_pass / total
+    gate_passed = (
+        normalization_rate >= min_normalization_rate
+        and relevance_rate >= min_relevance_pass_rate
+        and reject_rate >= min_low_quality_reject_rate
+        and citation_rate >= min_citation_ready_rate
+    )
+
     return NetworkResourceMetrics(
         total_samples=total,
-        normalization_rate=normalization_pass / total,
-        relevance_pass_rate=relevance_pass / total,
-        low_quality_reject_rate=reject_pass / total,
-        citation_ready_rate=citation_pass / total,
+        normalization_rate=normalization_rate,
+        relevance_pass_rate=relevance_rate,
+        low_quality_reject_rate=reject_rate,
+        citation_ready_rate=citation_rate,
+        gate_passed=gate_passed,
         failed_normalization_ids=failed_normalization_ids,
         failed_relevance_ids=failed_relevance_ids,
         failed_reject_ids=failed_reject_ids,
@@ -181,18 +202,42 @@ def run_audit(
     output_path: Path | None = None,
 ) -> NetworkResourceMetrics:
     dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    thresholds = dataset.get("thresholds", {}) or {}
     samples = dataset.get("samples", [])
-    metrics = compute_metrics(samples)
+    metrics = compute_metrics(
+        samples,
+        min_normalization_rate=float(thresholds.get("min_normalization_rate", 0.95)),
+        min_relevance_pass_rate=float(thresholds.get("min_relevance_pass_rate", 0.90)),
+        min_low_quality_reject_rate=float(
+            thresholds.get("min_low_quality_reject_rate", 0.95)
+        ),
+        min_citation_ready_rate=float(thresholds.get("min_citation_ready_rate", 0.95)),
+    )
 
     if output_path:
         payload = {
             "dataset": str(dataset_path),
             "total_samples": metrics.total_samples,
+            "thresholds": {
+                "min_normalization_rate": float(
+                    thresholds.get("min_normalization_rate", 0.95)
+                ),
+                "min_relevance_pass_rate": float(
+                    thresholds.get("min_relevance_pass_rate", 0.90)
+                ),
+                "min_low_quality_reject_rate": float(
+                    thresholds.get("min_low_quality_reject_rate", 0.95)
+                ),
+                "min_citation_ready_rate": float(
+                    thresholds.get("min_citation_ready_rate", 0.95)
+                ),
+            },
             "metrics": {
                 "normalization_rate": metrics.normalization_rate,
                 "relevance_pass_rate": metrics.relevance_pass_rate,
                 "low_quality_reject_rate": metrics.low_quality_reject_rate,
                 "citation_ready_rate": metrics.citation_ready_rate,
+                "gate_passed": metrics.gate_passed,
                 "failed_normalization_ids": metrics.failed_normalization_ids,
                 "failed_relevance_ids": metrics.failed_relevance_ids,
                 "failed_reject_ids": metrics.failed_reject_ids,

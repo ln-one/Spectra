@@ -1,0 +1,86 @@
+{
+  "version": "d5.1-real-2026-03-16",
+  "description": "D-5.1 真实项目评测数据集（基于项目需求文档）",
+  "cases": [
+    {
+      "id": "real-001",
+      "query": "这个项目的核心目标是什么",
+      "expected_keywords": ["多模态AI互动式教学智能体", "课件共创系统", "教学思路"],
+      "relevant_chunk_ids": [],
+      "category": "goal",
+      "difficulty": "easy"
+    },
+    {
+      "id": "real-002",
+      "query": "系统如何理解教师意图",
+      "expected_keywords": ["多轮对话", "教学目标", "核心知识点", "重点难点"],
+      "relevant_chunk_ids": [],
+      "category": "intent",
+      "difficulty": "easy"
+    },
+    {
+      "id": "real-003",
+      "query": "支持哪些参考资料格式",
+      "expected_keywords": ["PDF", "Word", "视频", "图片"],
+      "relevant_chunk_ids": [],
+      "category": "multimodal",
+      "difficulty": "easy"
+    },
+    {
+      "id": "real-004",
+      "query": "课件初稿要生成哪些产物",
+      "expected_keywords": ["PPT", "Word教案", "多模态课件初稿"],
+      "relevant_chunk_ids": [],
+      "category": "generation",
+      "difficulty": "easy"
+    },
+    {
+      "id": "real-005",
+      "query": "项目的迭代优化流程是什么",
+      "expected_keywords": ["互动-生成-反馈-再生成", "预览", "修改意见"],
+      "relevant_chunk_ids": [],
+      "category": "iteration",
+      "difficulty": "medium"
+    },
+    {
+      "id": "real-006",
+      "query": "本地知识库RAG有哪些技术要求",
+      "expected_keywords": ["RAG", "向量化", "检索增强", "知识库输入"],
+      "relevant_chunk_ids": [],
+      "category": "rag",
+      "difficulty": "medium"
+    },
+    {
+      "id": "real-007",
+      "query": "输入界面需要支持什么交互能力",
+      "expected_keywords": ["语音输入", "文字输入", "参考资料上传", "多轮对话"],
+      "relevant_chunk_ids": [],
+      "category": "input",
+      "difficulty": "medium"
+    },
+    {
+      "id": "real-008",
+      "query": "教学意图理解与知识融合模块要做什么",
+      "expected_keywords": ["结构化提取", "知识点清单", "逻辑顺序", "有效融合"],
+      "relevant_chunk_ids": [],
+      "category": "fusion",
+      "difficulty": "medium"
+    },
+    {
+      "id": "real-009",
+      "query": "多模态课件生成引擎对PPT有什么要求",
+      "expected_keywords": ["封面", "目录", "内容页", "总结页", "图文并茂"],
+      "relevant_chunk_ids": [],
+      "category": "ppt",
+      "difficulty": "hard"
+    },
+    {
+      "id": "real-010",
+      "query": "最终导出支持哪些格式",
+      "expected_keywords": [".pptx", ".docx", "HTML5", "GIF", "MP4"],
+      "relevant_chunk_ids": [],
+      "category": "export",
+      "difficulty": "hard"
+    }
+  ]
+}

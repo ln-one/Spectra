@@ -35,6 +35,13 @@
   - 运行 `mock_high` / `mock_low` provider 对比
   - 输出回归检测结果与摘要
 
+### 4.1 Harness 基线管理（已落地）
+- 文件：`backend/eval/provider_harness_baseline.py`
+- 能力：
+  - `freeze`：冻结 `provider_harness` 评测结果为可追溯基线
+  - `check`：按门禁阈值做回归退化检测
+- 首版基线：`backend/eval/baselines/provider-harness-baseline-v1.json`
+
 运行方式：
 ```bash
 cd backend
@@ -42,6 +49,14 @@ cd backend
   --sample-pool eval/provider_sample_pool.json \
   --thresholds eval/provider_thresholds.json \
   --output eval/results/provider_harness_latest.json
+
+.venv-wsl/bin/python eval/provider_harness_baseline.py freeze \
+  --result eval/results/provider_harness_latest.json \
+  --output eval/baselines/provider-harness-baseline-v1.json
+
+.venv-wsl/bin/python eval/provider_harness_baseline.py check \
+  --current eval/results/provider_harness_latest.json \
+  --baseline eval/baselines/provider-harness-baseline-v1.json
 ```
 
 ## 5. 后续对接点（给 C）

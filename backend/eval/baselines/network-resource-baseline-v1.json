@@ -1,0 +1,23 @@
+{
+  "baseline_version": "1",
+  "created_at": "2026-03-17T08:36:55.063203+00:00",
+  "source_result": "eval\\results\\network_resource_latest.json",
+  "notes": "d8.6-network-resource-baseline-v1",
+  "metrics": {
+    "normalization_rate": 1.0,
+    "relevance_pass_rate": 1.0,
+    "low_quality_reject_rate": 1.0,
+    "citation_ready_rate": 1.0,
+    "gate_passed": true,
+    "failed_normalization_ids": [],
+    "failed_relevance_ids": [],
+    "failed_reject_ids": [],
+    "failed_citation_ids": []
+  },
+  "guardrails": {
+    "max_normalization_drop": 0.03,
+    "max_relevance_drop": 0.03,
+    "max_reject_drop": 0.03,
+    "max_citation_ready_drop": 0.03
+  }
+}
