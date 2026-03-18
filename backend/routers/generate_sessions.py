@@ -27,6 +27,7 @@ from utils.exceptions import (
     APIException,
     ErrorCode,
     ForbiddenException,
+    InternalServerException,
     NotFoundException,
     UnauthorizedException,
 )
@@ -352,17 +353,37 @@ async def _attach_auto_candidate_change(
         if isinstance(cached, dict):
             cached_change = cached.get("change")
     if cached_change is None:
-        change = await _create_session_candidate_change(
-            session_id=session_id,
-            user_id=user_id,
-            snapshot=snapshot,
-            body=candidate_change_input,
-            extra_payload={
-                "generation_command": generation_command,
-                "generation_result": generation_result,
-                "trigger": trigger,
-            },
-        )
+        try:
+            change = await _create_session_candidate_change(
+                session_id=session_id,
+                user_id=user_id,
+                snapshot=snapshot,
+                body=candidate_change_input,
+                extra_payload={
+                    "generation_command": generation_command,
+                    "generation_result": generation_result,
+                    "trigger": trigger,
+                },
+            )
+        except APIException:
+            raise
+        except Exception as exc:
+            logger.error(
+                "Auto candidate-change attachment failed: session_id=%s trigger=%s",
+                session_id,
+                trigger,
+                exc_info=True,
+            )
+            raise InternalServerException(
+                message=(
+                    "自动提交 candidate change 失败，请稍后重试或改用显式提交入口"
+                ),
+                details={
+                    "session_id": session_id,
+                    "trigger": trigger,
+                    "cause": exc.__class__.__name__,
+                },
+            )
         cached_change = _serialize_candidate_change(change)
         if cache_key:
             await db_service.save_idempotency_response(

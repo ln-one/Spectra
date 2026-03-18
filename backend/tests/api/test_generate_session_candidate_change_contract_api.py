@@ -8,6 +8,7 @@ from routers import generate_sessions as generate_sessions_router
 from services.database import db_service
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
+from utils.exceptions import ErrorCode
 
 _USER_ID = "u-candidate-001"
 
@@ -324,6 +325,41 @@ def test_confirm_outline_candidate_change_idempotency_hit_returns_cached(
     create_change.assert_not_awaited()
 
 
+def test_confirm_outline_candidate_change_unexpected_error_returns_internal_error(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        execute_command=AsyncMock(return_value=_confirm_result()),
+        get_session_snapshot=AsyncMock(return_value=_snapshot()),
+    )
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-010")),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_candidate_change",
+        AsyncMock(side_effect=RuntimeError("storage down")),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/confirm",
+        json={
+            "candidate_change": {
+                "title": "confirm-change",
+                "summary": "submit after confirm",
+            }
+        },
+    )
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == ErrorCode.INTERNAL_ERROR.value
+    assert body["error"]["details"]["trigger"] == "confirm_outline"
+
+
 def test_modify_preview_can_attach_candidate_change(client, monkeypatch, _as_user):
     svc = SimpleNamespace(
         execute_command=AsyncMock(return_value={"task_id": "modify-task-001"}),
@@ -429,6 +465,43 @@ def test_modify_preview_candidate_change_idempotency_hit_returns_cached(
     body = resp.json()
     assert body["data"]["candidate_change"]["id"] == "c-cached"
     create_change.assert_not_awaited()
+
+
+def test_modify_preview_candidate_change_unexpected_error_returns_internal_error(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(
+        execute_command=AsyncMock(return_value={"task_id": "modify-task-001"}),
+        get_session_snapshot=AsyncMock(return_value=_snapshot()),
+    )
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-010")),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_candidate_change",
+        AsyncMock(side_effect=RuntimeError("storage down")),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/preview/modify",
+        json={
+            "slide_id": "slide-001",
+            "patch": {"title": "updated"},
+            "candidate_change": {
+                "title": "modify-change",
+                "summary": "submit after preview modify",
+            },
+        },
+    )
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == ErrorCode.INTERNAL_ERROR.value
+    assert body["error"]["details"]["trigger"] == "preview_modify"
 
 
 def test_export_preview_can_attach_candidate_change(client, monkeypatch, _as_user):
@@ -547,3 +620,48 @@ def test_export_preview_candidate_change_idempotency_hit_returns_cached(
     body = resp.json()
     assert body["data"]["candidate_change"]["id"] == "c-cached"
     create_change.assert_not_awaited()
+
+
+def test_export_preview_candidate_change_unexpected_error_returns_internal_error(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-010")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="task-export-001"),
+                [],
+                {"slides_plan": []},
+                {"markdown_content": "# export"},
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "create_candidate_change",
+        AsyncMock(side_effect=RuntimeError("storage down")),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/preview/export",
+        json={
+            "format": "markdown",
+            "candidate_change": {
+                "title": "export-change",
+                "summary": "submit after preview export",
+            },
+        },
+    )
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == ErrorCode.INTERNAL_ERROR.value
+    assert body["error"]["details"]["trigger"] == "preview_export"
