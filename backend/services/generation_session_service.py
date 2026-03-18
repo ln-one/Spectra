@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import uuid
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -20,7 +19,6 @@ from services.ai import ai_service
 from services.generation_session_command_handlers import dispatch_command
 from services.generation_session_helpers import (
     _build_outline_requirements,
-    _courseware_outline_to_document,
     _default_capabilities,
     _extract_outline_style,
     _extract_template_config,
@@ -30,6 +28,11 @@ from services.generation_session_helpers import (
     _resolve_capability_from_artifact,
     _to_generation_event,
     _to_session_ref,
+)
+from services.generation_session_outline_draft import (
+    execute_outline_draft_local,
+    schedule_outline_draft_task,
+    schedule_outline_draft_watchdog,
 )
 from services.state_transition_guard import (
     StateTransitionGuard,
@@ -587,58 +590,14 @@ class GenerationSessionService:
         options: Optional[dict],
         task_queue_service,
     ) -> None:
-        """
-        调度后台大纲草拟任务（RQ 优先，降级到 asyncio）。
-
-        不等待任务完成，立即返回。任务执行器负责事件推送。
-        """
-        # 尝试 RQ 入队（仅在 worker 可用时）
-        if task_queue_service and _is_queue_worker_available(task_queue_service):
-            try:
-                job = task_queue_service.enqueue_outline_draft_task(
-                    session_id=session_id,
-                    project_id=project_id,
-                    options=options,
-                    priority="default",
-                    timeout=300,
-                )
-                logger.info(
-                    "Outline draft task enqueued: session=%s job_id=%s",
-                    session_id,
-                    job.id,
-                )
-                self._schedule_outline_draft_watchdog(
-                    session_id=session_id,
-                    project_id=project_id,
-                    options=options,
-                    rq_job_id=job.id,
-                    task_queue_service=task_queue_service,
-                )
-                return
-            except Exception as enqueue_err:
-                logger.warning(
-                    "Failed to enqueue outline draft task, fallback to local async: %s",
-                    enqueue_err,
-                    exc_info=True,
-                )
-        elif task_queue_service:
-            logger.warning(
-                "Outline draft queue worker unavailable, fallback to local async:"
-                " session=%s",
-                session_id,
-            )
-
-        # 降级到本地异步执行
-        asyncio.create_task(
-            self._execute_outline_draft_local(
-                session_id=session_id,
-                project_id=project_id,
-                options=options,
-            )
-        )
-        logger.info(
-            "Outline draft task scheduled locally: session=%s",
-            session_id,
+        await schedule_outline_draft_task(
+            db=self._db,
+            session_id=session_id,
+            project_id=project_id,
+            options=options,
+            task_queue_service=task_queue_service,
+            append_event=self._append_event,
+            execute_outline_draft_local=self._execute_outline_draft_local,
         )
 
     def _schedule_outline_draft_watchdog(
@@ -649,73 +608,15 @@ class GenerationSessionService:
         rq_job_id: str,
         task_queue_service,
     ) -> None:
-        async def _watch() -> None:
-            delay_seconds = int(os.getenv("OUTLINE_DRAFT_WATCHDOG_SECONDS", "30"))
-            await asyncio.sleep(max(5, delay_seconds))
-
-            try:
-                job_status = await asyncio.to_thread(
-                    task_queue_service.get_job_status,
-                    rq_job_id,
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Outline draft watchdog failed to read RQ status: "
-                    "session=%s job=%s error=%s",
-                    session_id,
-                    rq_job_id,
-                    exc,
-                )
-                return
-
-            status = (job_status or {}).get("status")
-            if status in {"started", "finished"}:
-                return
-
-            if status in {"queued", "scheduled", "deferred"}:
-                try:
-                    canceled = await asyncio.to_thread(
-                        task_queue_service.cancel_job,
-                        rq_job_id,
-                    )
-                except Exception:
-                    canceled = False
-
-                if not canceled:
-                    return
-
-            # 最后确认会话是否仍处于草拟状态，避免重复执行
-            session = await self._db.generationsession.find_unique(
-                where={"id": session_id},
-            )
-            if not session:
-                return
-
-            state = session.get("state") if isinstance(session, dict) else session.state
-            current_outline_version = (
-                session.get("currentOutlineVersion")
-                if isinstance(session, dict)
-                else session.currentOutlineVersion
-            )
-            if state != "DRAFTING_OUTLINE" or (current_outline_version or 0) >= 1:
-                return
-
-            logger.warning(
-                "Outline draft watchdog fallback to local async execution: "
-                "session=%s job=%s status=%s",
-                session_id,
-                rq_job_id,
-                status or "unknown",
-            )
-            asyncio.create_task(
-                self._execute_outline_draft_local(
-                    session_id=session_id,
-                    project_id=project_id,
-                    options=options,
-                )
-            )
-
-        asyncio.create_task(_watch())
+        schedule_outline_draft_watchdog(
+            db=self._db,
+            session_id=session_id,
+            project_id=project_id,
+            options=options,
+            rq_job_id=rq_job_id,
+            task_queue_service=task_queue_service,
+            execute_outline_draft_local=self._execute_outline_draft_local,
+        )
 
     async def _execute_outline_draft_local(
         self,
@@ -724,212 +625,15 @@ class GenerationSessionService:
         options: Optional[dict],
         trace_id: Optional[str] = None,
     ) -> None:
-        """
-        本地异步执行大纲草拟任务（降级路径）。
-
-        按照计划的事件序列：
-        1. progress.updated (10~30)
-        2. outline.updated (成功) 或 task.failed + outline.updated (失败)
-        3. state.changed (AWAITING_OUTLINE_CONFIRM)
-        """
-        trace_id = trace_id or str(uuid.uuid4())
-        try:
-            # 幂等保护：若会话已完成草拟或状态已推进，则忽略重复执行
-            session = await self._db.generationsession.find_unique(
-                where={"id": session_id},
-            )
-            if not session:
-                logger.warning(
-                    "Outline draft skipped because session not found: session=%s",
-                    session_id,
-                )
-                return
-
-            state = session.get("state") if isinstance(session, dict) else session.state
-            current_outline_version = (
-                session.get("currentOutlineVersion")
-                if isinstance(session, dict)
-                else session.currentOutlineVersion
-            )
-            if state != "DRAFTING_OUTLINE" or (current_outline_version or 0) >= 1:
-                logger.info(
-                    "Outline draft skipped due to non-drafting session state:"
-                    " session=%s state=%s current_outline_version=%s",
-                    session_id,
-                    state,
-                    current_outline_version,
-                )
-                return
-
-            # 发送进度事件
-            await self._append_event(
-                session_id=session_id,
-                event_type="progress.updated",
-                state="DRAFTING_OUTLINE",
-                progress=15,
-                payload={"stage": "outline_draft", "trace_id": trace_id},
-            )
-
-            # 执行大纲生成
-            project = await self._db.project.find_unique(where={"id": project_id})
-            requirement_text = _build_outline_requirements(project, options)
-            template_style = (options or {}).get("template") or "default"
-
-            outline = await ai_service.generate_outline(
-                project_id=project_id,
-                user_requirements=requirement_text,
-                template_style=template_style,
-            )
-
-            outline_doc = _courseware_outline_to_document(
-                outline,
-                target_pages=(options or {}).get("pages"),
-            )
-
-            # 成功路径：写入大纲版本
-            await self._db.outlineversion.create(
-                data={
-                    "sessionId": session_id,
-                    "version": 1,
-                    "outlineData": json.dumps(outline_doc),
-                    "changeReason": "drafted_async",
-                }
-            )
-
-            # 更新会话状态
-            await self._db.generationsession.update(
-                where={"id": session_id},
-                data={
-                    "state": "AWAITING_OUTLINE_CONFIRM",
-                    "stateReason": "outline_drafted_async",
-                    "currentOutlineVersion": 1,
-                },
-            )
-
-            # 发送大纲更新事件
-            await self._append_event(
-                session_id=session_id,
-                event_type="outline.updated",
-                state="AWAITING_OUTLINE_CONFIRM",
-                progress=100,
-                payload={
-                    "version": 1,
-                    "change_reason": "drafted_async",
-                    "trace_id": trace_id,
-                },
-            )
-
-            # 发送状态变更事件
-            await self._append_event(
-                session_id=session_id,
-                event_type="state.changed",
-                state="AWAITING_OUTLINE_CONFIRM",
-                state_reason="outline_drafted_async",
-                payload={"trace_id": trace_id},
-            )
-
-            logger.info(
-                "Outline draft completed successfully: session=%s trace_id=%s",
-                session_id,
-                trace_id,
-            )
-
-        except Exception as draft_err:
-            # 幂等保护：若失败前已被其他任务完成，则忽略当前失败
-            try:
-                latest = await self._db.generationsession.find_unique(
-                    where={"id": session_id},
-                )
-                if latest:
-                    latest_state = (
-                        latest.get("state")
-                        if isinstance(latest, dict)
-                        else latest.state
-                    )
-                    latest_outline_version = (
-                        latest.get("currentOutlineVersion")
-                        if isinstance(latest, dict)
-                        else latest.currentOutlineVersion
-                    )
-                    if (
-                        latest_state == "AWAITING_OUTLINE_CONFIRM"
-                        and (latest_outline_version or 0) >= 1
-                    ):
-                        logger.info(
-                            "Outline draft failure ignored due to concurrent"
-                            " completion: session=%s trace_id=%s",
-                            session_id,
-                            trace_id,
-                        )
-                        return
-            except Exception:
-                # 仅作为防护检查，失败不应阻断原始失败处理
-                pass
-
-            # 失败路径：记录失败事件并写入空大纲
-            logger.error(
-                "Outline draft failed: session=%s trace_id=%s error=%s",
-                session_id,
-                trace_id,
-                draft_err,
-                exc_info=True,
-            )
-
-            # 发送失败事件
-            await self._append_event(
-                session_id=session_id,
-                event_type="task.failed",
-                state="DRAFTING_OUTLINE",
-                payload={
-                    "stage": "outline_draft",
-                    "error_code": "OUTLINE_GENERATION_FAILED",
-                    "error_message": str(draft_err),
-                    "retryable": True,
-                    "trace_id": trace_id,
-                },
-            )
-
-            # 写入空大纲作为 fallback
-            empty_outline = {"version": 1, "nodes": [], "summary": None}
-            await self._db.outlineversion.create(
-                data={
-                    "sessionId": session_id,
-                    "version": 1,
-                    "outlineData": json.dumps(empty_outline),
-                    "changeReason": "draft_failed_fallback_empty",
-                }
-            )
-
-            # 更新会话状态到可编辑状态
-            await self._db.generationsession.update(
-                where={"id": session_id},
-                data={
-                    "state": "AWAITING_OUTLINE_CONFIRM",
-                    "stateReason": "outline_draft_failed_fallback_empty",
-                    "currentOutlineVersion": 1,
-                },
-            )
-
-            # 发送空大纲更新事件
-            await self._append_event(
-                session_id=session_id,
-                event_type="outline.updated",
-                state="AWAITING_OUTLINE_CONFIRM",
-                payload={
-                    "version": 1,
-                    "change_reason": "draft_failed_fallback_empty",
-                    "trace_id": trace_id,
-                },
-            )
-
-            # 发送状态变更事件
-            await self._append_event(
-                session_id=session_id,
-                event_type="state.changed",
-                state="AWAITING_OUTLINE_CONFIRM",
-                state_reason="outline_draft_failed_fallback_empty",
-                payload={"trace_id": trace_id},
-            )
+        await execute_outline_draft_local(
+            db=self._db,
+            session_id=session_id,
+            project_id=project_id,
+            options=options,
+            append_event=self._append_event,
+            ai_service_obj=ai_service,
+            trace_id=trace_id,
+        )
 
     async def _append_event(
         self,
