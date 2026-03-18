@@ -691,7 +691,17 @@ class ProjectSpaceService:
             if isinstance(payload, str):
                 import json
 
-                payload = json.loads(payload) if payload else {}
+                try:
+                    payload = json.loads(payload) if payload else {}
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Invalid candidate change payload JSON for change %s, "
+                        "fallback to empty dict",
+                        change_id,
+                    )
+                    payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
 
             new_version = await self.db.create_project_version(
                 project_id=change.projectId,
@@ -708,8 +718,17 @@ class ProjectSpaceService:
             )
 
             # Update change status
+            payload_with_review = dict(payload)
+            payload_with_review["review"] = {
+                "action": "accept",
+                "accepted_version_id": new_version.id,
+                "reviewer_user_id": reviewer_user_id,
+            }
             updated_change = await self.db.update_candidate_change_status(
-                change_id, "accepted", review_comment
+                change_id,
+                "accepted",
+                review_comment,
+                payload=payload_with_review,
             )
             logger.info(
                 f"Accepted candidate change {change_id}, "

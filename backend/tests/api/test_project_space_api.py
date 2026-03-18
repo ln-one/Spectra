@@ -73,17 +73,23 @@ def _fake_reference(reference_id: str = "r-001", status: str = "active"):
     )
 
 
-def _fake_change(change_id: str = "c-001", status: str = "pending"):
+def _fake_change(
+    change_id: str = "c-001",
+    status: str = "pending",
+    payload: str = '{"k":"v"}',
+    review_comment: str | None = None,
+):
     return SimpleNamespace(
         id=change_id,
         projectId=_PROJECT_ID,
         title="candidate change",
         summary="summary",
-        payload='{"k":"v"}',
+        payload=payload,
         sessionId="s-001",
         baseVersionId="v-001",
         status=status,
         proposerUserId=_USER_ID,
+        reviewComment=review_comment,
         createdAt=_NOW,
         updatedAt=_NOW,
     )
@@ -167,7 +173,8 @@ def test_get_project_artifacts_with_filters_success(client, monkeypatch, _as_use
 
     resp = client.get(
         f"/api/v1/projects/{_PROJECT_ID}/artifacts"
-        "?type=summary&visibility=private&owner_user_id=u-ps-001&based_on_version_id=v-1"
+        "?type=summary&visibility=private&owner_user_id=u-ps-001"
+        "&based_on_version_id=v-1"
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -191,7 +198,10 @@ def test_get_artifact_detail_success(client, monkeypatch, _as_user):
         project_space_service,
         "get_artifact",
         AsyncMock(
-            return_value=_fake_artifact(artifact_id="a-008", artifact_type="gif")
+            return_value=_fake_artifact(
+                artifact_id="a-008",
+                artifact_type="gif",
+            )
         ),
     )
 
@@ -389,6 +399,38 @@ def test_review_candidate_change_success_passes_review_comment(
         review_comment="looks good",
         reviewer_user_id=_USER_ID,
     )
+
+
+def test_review_candidate_change_returns_accepted_version_id(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    review_change = AsyncMock(
+        return_value=_fake_change(
+            change_id="c-009",
+            status="accepted",
+            payload=(
+                '{"review":{"action":"accept","accepted_version_id":"v-002",'
+                '"reviewer_user_id":"u-ps-001"}}'
+            ),
+            review_comment="accepted",
+        )
+    )
+    monkeypatch.setattr(project_space_service, "review_candidate_change", review_change)
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/candidate-changes/c-009/review",
+        json={"action": "accept", "review_comment": "accepted"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["change"]["accepted_version_id"] == "v-002"
+    assert body["data"]["change"]["review_comment"] == "accepted"
 
 
 def test_review_candidate_change_conflict_returns_409(client, monkeypatch, _as_user):

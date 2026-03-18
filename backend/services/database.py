@@ -885,11 +885,14 @@ class DatabaseService:
         change_id: str,
         status: str,
         review_comment: Optional[str] = None,
+        payload: Optional[dict] = None,
     ):
         """Update candidate change status."""
         data = {"status": status}
         if review_comment is not None:
             data["reviewComment"] = review_comment
+        if payload is not None:
+            data["payload"] = json.dumps(payload)
 
         return await self.db.candidatechange.update(
             where={"id": change_id},
