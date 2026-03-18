@@ -173,3 +173,33 @@ def test_list_session_candidate_changes_with_filters(client, monkeypatch, _as_us
         proposer_user_id="u-candidate-001",
         session_id="s-candidate-001",
     )
+
+
+def test_submit_session_candidate_change_idempotency_hit_returns_cached(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        db_service,
+        "get_idempotency_response",
+        AsyncMock(
+            return_value={
+                "success": True,
+                "data": {"change": {"id": "c-cached", "session_id": "s-candidate-001"}},
+                "message": "候选变更提交成功",
+            }
+        ),
+    )
+    create_change = AsyncMock(return_value=_fake_change('{"review":{}}'))
+    monkeypatch.setattr(project_space_service, "create_candidate_change", create_change)
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/candidate-change",
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000001111"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["change"]["id"] == "c-cached"
+    create_change.assert_not_awaited()

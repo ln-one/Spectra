@@ -531,6 +531,7 @@ async def submit_session_candidate_change(
     session_id: str,
     body: Optional[dict] = None,
     user_id: str = Depends(get_current_user),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
     """在 session 主链路中提交 candidate change。"""
     body = body or {}
@@ -553,6 +554,17 @@ async def submit_session_candidate_change(
         )
 
     project_id = snapshot["session"]["project_id"]
+    key_str = _parse_idempotency_key(idempotency_key)
+    cache_key = (
+        f"session_candidate_change:{user_id}:{project_id}:{session_id}:{key_str}"
+        if key_str
+        else None
+    )
+    if cache_key:
+        cached = await db_service.get_idempotency_response(cache_key)
+        if cached:
+            return cached
+
     bound_artifact = await _resolve_session_artifact_binding(
         project_id=project_id,
         session_id=session_id,
@@ -593,10 +605,13 @@ async def submit_session_candidate_change(
         session_id=session_id,
         base_version_id=base_version_id,
     )
-    return success_response(
+    resp = success_response(
         data={"change": _serialize_candidate_change(change)},
         message="候选变更提交成功",
     )
+    if cache_key:
+        await db_service.save_idempotency_response(cache_key, resp)
+    return resp
 
 
 @router.get("/sessions/{session_id}/candidate-change")
