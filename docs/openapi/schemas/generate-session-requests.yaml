@@ -255,6 +255,38 @@ GenerationEventListResponse:
     message:
       type: string
 
+SubmitSessionCandidateChangeRequest:
+  type: object
+  properties:
+    artifact_id:
+      type: string
+      description: 指定来源成果 ID（可选，默认绑定当前 session 最近成果）
+    title:
+      type: string
+      description: 候选变更标题（可选）
+    summary:
+      type: string
+      description: 候选变更摘要（可选）
+    payload:
+      type: object
+      additionalProperties: true
+      description: 业务自定义附加字段（服务端会补齐 session 上下文锚点）
+
+SubmitSessionCandidateChangeResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [change]
+      properties:
+        change:
+          $ref: './project-space.yaml#/CandidateChange'
+    message:
+      type: string
+
 GenerationSessionCommandRequest:
   $ref: './generate-commands.yaml#/GenerationSessionCommandRequest'
 

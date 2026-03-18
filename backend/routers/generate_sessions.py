@@ -21,6 +21,7 @@ from fastapi.responses import StreamingResponse
 
 from services.database import db_service
 from services.generation_session_service import ConflictError, GenerationSessionService
+from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user, get_current_user_optional
 from utils.exceptions import (
     APIException,
@@ -221,6 +222,39 @@ def _without_sources(slides: list[dict], lesson_plan: Optional[dict]):
             plans.append(plan_item)
         lesson_plan_clean["slides_plan"] = plans
     return slides_clean, lesson_plan_clean
+
+
+def _serialize_candidate_change(change) -> dict:
+    payload = None
+    if isinstance(change.payload, dict):
+        payload = change.payload
+    elif isinstance(change.payload, str):
+        raw = change.payload.strip()
+        if raw:
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                payload = None
+    accepted_version_id = None
+    if isinstance(payload, dict):
+        review = payload.get("review")
+        if isinstance(review, dict):
+            accepted_version_id = review.get("accepted_version_id")
+    return {
+        "id": change.id,
+        "project_id": change.projectId,
+        "session_id": change.sessionId,
+        "base_version_id": change.baseVersionId,
+        "title": change.title,
+        "summary": change.summary,
+        "payload": payload,
+        "status": change.status,
+        "review_comment": getattr(change, "reviewComment", None),
+        "accepted_version_id": accepted_version_id,
+        "proposer_user_id": change.proposerUserId,
+        "created_at": change.createdAt,
+        "updated_at": change.updatedAt,
+    }
 
 
 async def _load_preview_material(session_id: str, project_id: str):
@@ -490,6 +524,66 @@ async def execute_session_command(
 # ============================================================
 # 5. PUT /generate/sessions/{session_id}/outline — 更新大纲（兼容别名）
 # ============================================================
+
+
+@router.post("/sessions/{session_id}/candidate-change")
+async def submit_session_candidate_change(
+    session_id: str,
+    body: Optional[dict] = None,
+    user_id: str = Depends(get_current_user),
+):
+    """在 session 主链路中提交 candidate change。"""
+    body = body or {}
+    custom_payload = body.get("payload")
+    if custom_payload is not None and not isinstance(custom_payload, dict):
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="payload must be an object",
+        )
+
+    svc = _get_session_service()
+    try:
+        snapshot = await svc.get_session_snapshot(session_id, user_id)
+    except ValueError:
+        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
+    except PermissionError:
+        raise ForbiddenException(
+            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
+        )
+
+    project_id = snapshot["session"]["project_id"]
+    bound_artifact = await _resolve_session_artifact_binding(
+        project_id=project_id,
+        session_id=session_id,
+        artifact_id=body.get("artifact_id"),
+    )
+    anchor = _build_artifact_anchor(session_id, bound_artifact)
+    payload = dict(custom_payload or {})
+    payload.update(
+        {
+            "source": "generate-session",
+            "project_id": project_id,
+            "session_id": session_id,
+            "artifact_anchor": anchor,
+            "session_artifacts": snapshot.get("session_artifacts") or [],
+            "result": snapshot.get("result") or {},
+            "outline": snapshot.get("outline"),
+        }
+    )
+    change = await project_space_service.create_candidate_change(
+        project_id=project_id,
+        user_id=user_id,
+        title=body.get("title") or f"session-{session_id}-candidate-change",
+        summary=body.get("summary"),
+        payload=payload,
+        session_id=session_id,
+        base_version_id=anchor["based_on_version_id"],
+    )
+    return success_response(
+        data={"change": _serialize_candidate_change(change)},
+        message="候选变更提交成功",
+    )
 
 
 @router.put("/sessions/{session_id}/outline")

@@ -1,6 +1,43 @@
 /api/v1/generate/sessions/{session_id}/commands:
   $ref: './generate-session-command.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
 
+/api/v1/generate/sessions/{session_id}/candidate-change:
+  post:
+    summary: 提交会话候选变更
+    operationId: postGenerateSessionsBySessionIdCandidateChange
+    description: 在 session 主链路内提交 candidate change，自动绑定 artifact_anchor 与 base_version_id。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate-session-requests.yaml#/SubmitSessionCandidateChangeRequest'
+    responses:
+      '200':
+        description: 候选变更提交成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-session-requests.yaml#/SubmitSessionCandidateChangeResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
 /api/v1/generate/sessions/{session_id}/outline:
   put:
     summary: 更新大纲并回写会话

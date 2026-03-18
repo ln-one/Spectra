@@ -60,6 +60,10 @@ RegenerateSlideResponse:
   $ref: './generate-session.yaml#/RegenerateSlideResponse'
 GenerationEventListResponse:
   $ref: './generate-session.yaml#/GenerationEventListResponse'
+SubmitSessionCandidateChangeRequest:
+  $ref: './generate-session.yaml#/SubmitSessionCandidateChangeRequest'
+SubmitSessionCandidateChangeResponse:
+  $ref: './generate-session.yaml#/SubmitSessionCandidateChangeResponse'
 GenerationCapabilitiesResponse:
   $ref: './generate-session.yaml#/GenerationCapabilitiesResponse'
 GenerationSessionCommandRequest:
