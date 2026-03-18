@@ -652,6 +652,84 @@ def test_download_artifact_structured_types_success(
     )
 
 
+@pytest.mark.parametrize(
+    ("artifact_id", "artifact_type", "metadata", "suffix", "content", "expected_content_type"),
+    [
+        (
+            "a-outline-download-001",
+            "summary",
+            '{"kind":"outline","capability":"outline"}',
+            ".json",
+            '{"sections":[]}',
+            "application/json",
+        ),
+        (
+            "a-handout-download-001",
+            "docx",
+            '{"kind":"handout","capability":"handout"}',
+            ".docx",
+            (
+                b"PK\x03\x04\x14\x00\x00\x00\x08\x00"
+                b"\x00\x00!\x00dummy-handout-placeholder"
+            ),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+        (
+            "a-animation-download-001",
+            "html",
+            '{"kind":"animation_storyboard","capability":"animation"}',
+            ".html",
+            "<html><body>storyboard</body></html>",
+            "text/html",
+        ),
+    ],
+)
+def test_download_artifact_mapped_semantics_success(
+    client,
+    monkeypatch,
+    tmp_path,
+    _as_user,
+    artifact_id,
+    artifact_type,
+    metadata,
+    suffix,
+    content,
+    expected_content_type,
+):
+    artifact_path = tmp_path / f"{artifact_id}{suffix}"
+    if isinstance(content, bytes):
+        artifact_path.write_bytes(content)
+    else:
+        artifact_path.write_text(content, encoding="utf-8")
+
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_artifact",
+        AsyncMock(
+            return_value=_fake_artifact(
+                artifact_id=artifact_id,
+                artifact_type=artifact_type,
+                storage_path=str(artifact_path),
+                metadata=metadata,
+            )
+        ),
+    )
+
+    resp = client.get(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts/{artifact_id}/download",
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith(expected_content_type)
+    assert f"{artifact_type}_{artifact_id}{suffix}" in resp.headers.get(
+        "content-disposition", ""
+    )
+
+
 def test_get_candidate_changes_with_filters_success(client, monkeypatch, _as_user):
     get_changes = AsyncMock(return_value=[_fake_change(status="accepted")])
     monkeypatch.setattr(project_space_service, "get_candidate_changes", get_changes)
