@@ -280,6 +280,8 @@ async def update_project(
             name=body.name,
             description=body.description,
             grade_level=body.grade_level,
+            visibility=body.visibility,
+            is_referenceable=body.is_referenceable,
         )
         logger.info(
             "project_updated",

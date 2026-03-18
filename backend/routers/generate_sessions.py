@@ -173,7 +173,7 @@ async def _resolve_session_artifact_binding(
 ):
     """Resolve artifact binding for preview/export in session scope."""
     if artifact_id:
-        artifact = await db_service.db.artifact.find_unique(where={"id": artifact_id})
+        artifact = await db_service.get_artifact(artifact_id)
         if not artifact or artifact.projectId != project_id:
             raise NotFoundException(
                 message=f"成果不存在: {artifact_id}",
@@ -866,13 +866,13 @@ async def modify_session_preview(
         )
     except ConflictError as e:
         _raise_conflict(str(e))
-
     snapshot = await svc.get_session_snapshot(session_id, user_id)
     bound_artifact = await _resolve_session_artifact_binding(
         project_id=snapshot["session"]["project_id"],
         session_id=session_id,
         artifact_id=body.get("artifact_id"),
     )
+
     anchor = _build_artifact_anchor(session_id, bound_artifact)
     payload = {
         "session_id": session_id,
