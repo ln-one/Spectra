@@ -12,6 +12,7 @@ from services.generation_session_service import (
     GenerationSessionService,
     _build_outline_requirements,
     _extract_outline_style,
+    _resolve_capability_from_artifact,
 )
 from services.state_transition_guard import TransitionResult
 
@@ -129,6 +130,38 @@ def test_build_outline_requirements_includes_style_hard_constraints():
     assert "workshop" in text
     assert "12" in text
     assert "Please emphasize hands-on practice" in text
+
+
+def test_resolve_capability_outline_mapping():
+    capability = _resolve_capability_from_artifact(
+        artifact_type="summary",
+        metadata={"kind": "outline"},
+    )
+    assert capability == "outline"
+
+
+def test_resolve_capability_handout_mapping():
+    capability = _resolve_capability_from_artifact(
+        artifact_type="docx",
+        metadata={"kind": "handout"},
+    )
+    assert capability == "handout"
+
+
+def test_resolve_capability_animation_mapping_requires_metadata_kind():
+    capability = _resolve_capability_from_artifact(
+        artifact_type="html",
+        metadata={"kind": "animation_storyboard"},
+    )
+    assert capability == "animation"
+
+
+def test_resolve_capability_html_without_animation_kind():
+    capability = _resolve_capability_from_artifact(
+        artifact_type="html",
+        metadata={},
+    )
+    assert capability == "html"
 
 
 @pytest.mark.anyio

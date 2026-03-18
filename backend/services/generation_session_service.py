@@ -54,7 +54,6 @@ _ARTIFACT_TYPE_TO_CAPABILITY = {
     "mindmap": "mindmap",
     "summary": "summary",
     "exercise": "quiz",
-    "html": "animation",
 }
 
 _OUTLINE_STYLE_RULES = {
