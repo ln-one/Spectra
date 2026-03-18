@@ -14,14 +14,18 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Optional
 
+from services.generation_session_service.command_execution import (
+    build_command_response,
+    dispatch_created_task,
+    load_and_validate_session,
+    load_cached_command_response,
+    save_cached_command_response,
+)
 from services.generation_session_service.command_handlers import dispatch_command
 from services.generation_session_service.helpers import (
     _build_outline_requirements,
     _default_capabilities,
     _extract_outline_style,
-    _extract_template_config,
-    _is_queue_worker_available,
-    _normalize_task_type,
     _to_session_ref,
 )
 from services.generation_session_service.outline_draft import (
@@ -49,7 +53,6 @@ from services.state_transition_guard import (
     TransitionResult,
     state_transition_guard,
 )
-from services.task_recovery import TaskRecoveryService
 
 if TYPE_CHECKING:
     from prisma import Prisma
@@ -205,168 +208,57 @@ class GenerationSessionService:
             PermissionError: 无权访问
             ConflictError: 状态不允许或版本冲突（由调用层转为 409）
         """
-        # 幂等检查（key 含 user_id + session_id 防跨用户/跨会话溢用）
-        if idempotency_key:
-            cached = await self._db.idempotencykey.find_unique(
-                where={"key": f"cmd:{user_id}:{session_id}:{idempotency_key}"}
-            )
-            if cached:
-                return json.loads(cached.response)
+        cached = await load_cached_command_response(
+            db=self._db,
+            session_id=session_id,
+            user_id=user_id,
+            idempotency_key=idempotency_key,
+        )
+        if cached:
+            return cached
 
-        session = await self._db.generationsession.find_unique(where={"id": session_id})
-        if session is None:
-            raise ValueError(f"Session not found: {session_id}")
-        if session.userId != user_id:
-            raise PermissionError("无权访问该会话")
-
-        command_type = command.get("command_type", "")
-
-        # C1 幂等防重：同一 session 存在执行中任务时拒绝重复执行触发型命令。
-        if command_type in _EXECUTION_TRIGGER_COMMANDS:
-            recovery_service = TaskRecoveryService(self._db)
-            if await recovery_service.is_session_already_running(session_id):
-                raise ConflictError(
-                    "当前会话已有执行中的任务，请等待当前任务完成后重试"
-                )
-
-        result = self._guard.validate(session.state, command_type)
-
-        if not result.allowed:
-            raise ConflictError(result.reject_reason or "状态转换不允许")
-
-        command_id = str(uuid.uuid4())
+        session, command_type, result = await load_and_validate_session(
+            db=self._db,
+            guard=self._guard,
+            execution_trigger_commands=_EXECUTION_TRIGGER_COMMANDS,
+            conflict_error_cls=ConflictError,
+            session_id=session_id,
+            user_id=user_id,
+            command=command,
+        )
 
         # 执行具体命令逻辑，CONFIRM_OUTLINE 时返回已创建的 task_id
         created_task_id = await self._dispatch_command(session, command, result)
-        warnings: list[str] = []
-
-        # CONFIRM_OUTLINE 触发入队；队列不可用时降级为本地异步执行，避免 pending 卡死
-        if created_task_id:
-            task_type = _normalize_task_type(session.outputType, ConflictError)
-            template_config = _extract_template_config(session.options)
-            worker_available = _is_queue_worker_available(task_queue_service)
-
-            if task_queue_service is None or not worker_available:
-                fallback_reason = (
-                    "task_queue_unavailable_fallback_local_execution"
-                    if task_queue_service is None
-                    else "task_queue_no_worker_fallback_local_execution"
-                )
-                scheduled = await self._schedule_local_execution(
-                    session_id=session_id,
-                    task_id=created_task_id,
-                    project_id=session.projectId,
-                    task_type=task_type,
-                    template_config=template_config,
-                    fallback_reason=fallback_reason,
-                )
-                if scheduled:
-                    warnings.append(fallback_reason)
-                else:
-                    await self._mark_dispatch_failed(
-                        session_id=session_id,
-                        task_id=created_task_id,
-                        error_message=(
-                            "Task queue unavailable and local"
-                            " fallback scheduling failed"
-                        ),
-                    )
-                    raise ConflictError("任务分发失败，请稍后重试")
-            else:
-                try:
-                    job = task_queue_service.enqueue_generation_task(
-                        task_id=created_task_id,
-                        project_id=session.projectId,
-                        task_type=task_type,
-                        template_config=template_config,
-                        priority="default",
-                    )
-                    # 将 RQ Job ID 写回 GenerationTask
-                    await self._db.generationtask.update(
-                        where={"id": created_task_id},
-                        data={"rqJobId": job.id},
-                    )
-                    logger.info(
-                        "Session task enqueued: session=%s task=%s rq_job=%s",
-                        session_id,
-                        created_task_id,
-                        job.id,
-                    )
-                    self._schedule_enqueued_task_watchdog(
-                        session_id=session_id,
-                        task_id=created_task_id,
-                        project_id=session.projectId,
-                        task_type=task_type,
-                        template_config=template_config,
-                        rq_job_id=job.id,
-                        task_queue_service=task_queue_service,
-                    )
-                except Exception as enqueue_err:
-                    logger.warning(
-                        "Failed to enqueue session task,"
-                        " fallback to local async execution: %s",
-                        enqueue_err,
-                    )
-                    scheduled = await self._schedule_local_execution(
-                        session_id=session_id,
-                        task_id=created_task_id,
-                        project_id=session.projectId,
-                        task_type=task_type,
-                        template_config=template_config,
-                        fallback_reason="task_enqueue_failed_fallback_local_execution",
-                        enqueue_error=str(enqueue_err),
-                    )
-                    if scheduled:
-                        warnings.append("task_enqueue_failed_fallback_local_execution")
-                    else:
-                        await self._mark_dispatch_failed(
-                            session_id=session_id,
-                            task_id=created_task_id,
-                            error_message=(
-                                "Task enqueue failed and local"
-                                " fallback scheduling failed: "
-                                f"{type(enqueue_err).__name__}: {enqueue_err}"
-                            ),
-                        )
-                        raise ConflictError("任务分发失败，请稍后重试")
-
-        transition = {
-            "command_type": command_type,
-            "from_state": result.from_state,
-            "to_state": result.to_state,
-            "validated_by": result.validated_by,
-        }
-
-        # 查询更新后的会话
-        updated_session = await self._db.generationsession.find_unique(
-            where={"id": session_id}
+        warnings = await dispatch_created_task(
+            db=self._db,
+            conflict_error_cls=ConflictError,
+            session_id=session_id,
+            session=session,
+            created_task_id=created_task_id,
+            task_queue_service=task_queue_service,
+            schedule_local_execution=self._schedule_local_execution,
+            mark_dispatch_failed=self._mark_dispatch_failed,
+            schedule_enqueued_task_watchdog=self._schedule_enqueued_task_watchdog,
         )
 
-        response_data = {
-            "command_id": command_id,
-            "accepted": True,
-            "task_id": created_task_id,
-            "transition": transition,
-            "session": _to_session_ref(
-                updated_session,
-                CONTRACT_VERSION,
-                SCHEMA_VERSION,
-                task_id=created_task_id,
-            ),
-            "warnings": warnings,
-        }
+        response_data = await build_command_response(
+            db=self._db,
+            session_id=session_id,
+            command_type=command_type,
+            created_task_id=created_task_id,
+            result=result,
+            warnings=warnings,
+            contract_version=CONTRACT_VERSION,
+            schema_version=SCHEMA_VERSION,
+        )
 
-        # 缓存幂等响应（key 含 user_id + session_id 防跨用户/跨会话溢用）
-        if idempotency_key:
-            try:
-                await self._db.idempotencykey.create(
-                    data={
-                        "key": f"cmd:{user_id}:{session_id}:{idempotency_key}",
-                        "response": json.dumps(response_data),
-                    }
-                )
-            except Exception:
-                pass  # 并发重复写入时忽略
+        await save_cached_command_response(
+            db=self._db,
+            session_id=session_id,
+            user_id=user_id,
+            idempotency_key=idempotency_key,
+            response_data=response_data,
+        )
 
         return response_data
 
