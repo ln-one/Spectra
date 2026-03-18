@@ -31,6 +31,25 @@ class Guardrails:
     max_wave1_entry_drop: float = 0.02
 
 
+@dataclass
+class RegressionCheckReport:
+    passed: bool
+    violations: list[str]
+    grouped_violations: dict[str, list[str]]
+    current_dataset: str | None
+    baseline_dataset: str | None
+    current_total_samples: int | None
+    baseline_total_samples: int | None
+
+    @property
+    def violation_count(self) -> int:
+        return len(self.violations)
+
+    @property
+    def group_count(self) -> int:
+        return sum(1 for items in self.grouped_violations.values() if items)
+
+
 REQUIRED_METRICS = {
     "artifact_anchor_completeness_rate",
     "candidate_payload_completeness_rate",
@@ -91,11 +110,21 @@ def freeze_baseline(
     return payload
 
 
-def check_regression(
+def _append_violation(
+    grouped_violations: dict[str, list[str]],
+    group: str,
+    message: str,
+    violations: list[str],
+) -> None:
+    grouped_violations[group].append(message)
+    violations.append(message)
+
+
+def check_regression_report(
     current_path: Path,
     baseline_path: Path,
     guardrails_override: Guardrails | None = None,
-) -> tuple[bool, list[str]]:
+) -> RegressionCheckReport:
     current = _load_json(current_path)
     baseline = _load_json(baseline_path)
     _validate_payload(current, current_path)
@@ -118,65 +147,150 @@ def check_regression(
     curr_m = current["metrics"]
     base_m = baseline["metrics"]
     violations: list[str] = []
+    grouped_violations: dict[str, list[str]] = {
+        "anchor": [],
+        "candidate_payload": [],
+        "capability_loop": [],
+        "citation": [],
+        "coverage": [],
+        "mapping": [],
+        "entry_semantics": [],
+        "gate": [],
+    }
 
     anchor_min = base_m["artifact_anchor_completeness_rate"] - g.max_anchor_drop
     if curr_m["artifact_anchor_completeness_rate"] < anchor_min:
-        violations.append(
+        _append_violation(
+            grouped_violations,
+            "anchor",
             "artifact_anchor_completeness_rate "
-            f"{curr_m['artifact_anchor_completeness_rate']:.2%} < 最低允许 {anchor_min:.2%}"
+            f"{curr_m['artifact_anchor_completeness_rate']:.2%} < 最低允许 {anchor_min:.2%}",
+            violations,
         )
 
     candidate_min = (
         base_m["candidate_payload_completeness_rate"] - g.max_candidate_payload_drop
     )
     if curr_m["candidate_payload_completeness_rate"] < candidate_min:
-        violations.append(
+        _append_violation(
+            grouped_violations,
+            "candidate_payload",
             "candidate_payload_completeness_rate "
             f"{curr_m['candidate_payload_completeness_rate']:.2%} < "
-            f"最低允许 {candidate_min:.2%}"
+            f"最低允许 {candidate_min:.2%}",
+            violations,
         )
 
     loop_min = base_m["capability_loop_pass_rate"] - g.max_loop_drop
     if curr_m["capability_loop_pass_rate"] < loop_min:
-        violations.append(
+        _append_violation(
+            grouped_violations,
+            "capability_loop",
             "capability_loop_pass_rate "
-            f"{curr_m['capability_loop_pass_rate']:.2%} < 最低允许 {loop_min:.2%}"
+            f"{curr_m['capability_loop_pass_rate']:.2%} < 最低允许 {loop_min:.2%}",
+            violations,
         )
 
     citation_min = base_m["citation_contract_pass_rate"] - g.max_citation_drop
     if curr_m["citation_contract_pass_rate"] < citation_min:
-        violations.append(
+        _append_violation(
+            grouped_violations,
+            "citation",
             "citation_contract_pass_rate "
-            f"{curr_m['citation_contract_pass_rate']:.2%} < 最低允许 {citation_min:.2%}"
+            f"{curr_m['citation_contract_pass_rate']:.2%} < 最低允许 {citation_min:.2%}",
+            violations,
         )
 
     coverage_min = base_m["capability_coverage_rate"] - g.max_coverage_drop
     if curr_m["capability_coverage_rate"] < coverage_min:
-        violations.append(
+        _append_violation(
+            grouped_violations,
+            "coverage",
             "capability_coverage_rate "
-            f"{curr_m['capability_coverage_rate']:.2%} < 最低允许 {coverage_min:.2%}"
+            f"{curr_m['capability_coverage_rate']:.2%} < 最低允许 {coverage_min:.2%}",
+            violations,
         )
 
     mapping_min = base_m["capability_artifact_mapping_pass_rate"] - g.max_mapping_drop
     if curr_m["capability_artifact_mapping_pass_rate"] < mapping_min:
-        violations.append(
+        _append_violation(
+            grouped_violations,
+            "mapping",
             "capability_artifact_mapping_pass_rate "
             f"{curr_m['capability_artifact_mapping_pass_rate']:.2%} < "
-            f"最低允许 {mapping_min:.2%}"
+            f"最低允许 {mapping_min:.2%}",
+            violations,
         )
 
     wave1_entry_min = base_m["wave1_entry_semantics_pass_rate"] - g.max_wave1_entry_drop
     if curr_m["wave1_entry_semantics_pass_rate"] < wave1_entry_min:
-        violations.append(
+        _append_violation(
+            grouped_violations,
+            "entry_semantics",
             "wave1_entry_semantics_pass_rate "
             f"{curr_m['wave1_entry_semantics_pass_rate']:.2%} < "
-            f"最低允许 {wave1_entry_min:.2%}"
+            f"最低允许 {wave1_entry_min:.2%}",
+            violations,
         )
 
     if not bool(curr_m["gate_passed"]):
-        violations.append("gate_passed=false")
+        _append_violation(grouped_violations, "gate", "gate_passed=false", violations)
 
-    return len(violations) == 0, violations
+    return RegressionCheckReport(
+        passed=len(violations) == 0,
+        violations=violations,
+        grouped_violations=grouped_violations,
+        current_dataset=current.get("dataset"),
+        baseline_dataset=baseline.get("dataset"),
+        current_total_samples=current.get("total_samples"),
+        baseline_total_samples=baseline.get("total_samples"),
+    )
+
+
+def check_regression(
+    current_path: Path,
+    baseline_path: Path,
+    guardrails_override: Guardrails | None = None,
+) -> tuple[bool, list[str]]:
+    report = check_regression_report(
+        current_path=current_path,
+        baseline_path=baseline_path,
+        guardrails_override=guardrails_override,
+    )
+    return report.passed, report.violations
+
+
+def format_failure_report(report: RegressionCheckReport) -> list[str]:
+    lines = [
+        "Project Space 基线校验失败摘要：",
+        f"- 失败分组数: {report.group_count}",
+        f"- 失败项数: {report.violation_count}",
+        "- 数据集: "
+        f"current={report.current_dataset or '-'}, "
+        f"baseline={report.baseline_dataset or '-'}",
+        "- 样本数: "
+        f"current={report.current_total_samples or '-'}, "
+        f"baseline={report.baseline_total_samples or '-'}",
+        "Project Space 基线校验失败分组：",
+    ]
+    group_titles = {
+        "anchor": "成果锚点",
+        "candidate_payload": "Candidate Change Payload",
+        "capability_loop": "能力闭环",
+        "citation": "引用契约",
+        "coverage": "能力覆盖率",
+        "mapping": "Artifact 映射",
+        "entry_semantics": "入口语义",
+        "gate": "总门禁",
+    }
+    for key, title in group_titles.items():
+        items = report.grouped_violations[key]
+        if not items:
+            continue
+        lines.append(f"[{title}]")
+        for item in items:
+            lines.append(f"- {item}")
+    return lines
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -270,17 +384,16 @@ def main() -> int:
         return 0
 
     if args.command == "check":
-        passed, violations = check_regression(
+        report = check_regression_report(
             current_path=Path(args.current),
             baseline_path=Path(args.baseline),
         )
-        if passed:
+        if report.passed:
             print("Project Space 基线校验通过：未发现超阈值退化。")
             return 0
 
-        print("Project Space 基线校验失败：")
-        for violation in violations:
-            print(f"- {violation}")
+        for line in format_failure_report(report):
+            print(line)
         return 1
 
     parser.error("未知命令")
