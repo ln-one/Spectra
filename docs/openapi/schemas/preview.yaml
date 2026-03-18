@@ -243,6 +243,8 @@ ExportRequest:
     artifact_id:
       type: string
       description: 指定要导出的成果 ID（可选）
+    candidate_change:
+      $ref: './generate-session-requests.yaml#/SubmitSessionCandidateChangeRequest'
     format:
       type: string
       enum: [json, markdown, html]
@@ -291,5 +293,7 @@ ExportResponse:
         render_version:
           type: integer
           minimum: 1
+        candidate_change:
+          $ref: './project-space.yaml#/CandidateChange'
     message:
       type: string

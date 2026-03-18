@@ -1260,9 +1260,20 @@ async def export_session(
     session_id: str,
     body: Optional[dict] = None,
     user_id: str = Depends(get_current_user),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
     """导出课件文件（session 作用域）。"""
     body = body or {}
+    candidate_change_body = body.get("candidate_change")
+    if candidate_change_body is not None and not isinstance(
+        candidate_change_body, dict
+    ):
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="candidate_change must be an object",
+        )
+
     svc = _get_session_service()
     try:
         snapshot = await svc.get_session_snapshot(session_id, user_id)
@@ -1326,19 +1337,58 @@ async def export_session(
         export_content = markdown_content
 
     result = snapshot.get("result") or {}
-    return success_response(
-        data={
-            "session_id": session_id,
-            "task_id": task.id if task else None,
-            "artifact_id": anchor["artifact_id"],
-            "based_on_version_id": anchor["based_on_version_id"],
-            "artifact_anchor": anchor,
-            "content": export_content,
-            "format": export_format,
-            "render_version": snapshot["session"].get("render_version") or 1,
-            "ppt_url": result.get("ppt_url"),
-            "word_url": result.get("word_url"),
-            "version": result.get("version"),
-        },
-        message="导出成功",
-    )
+    payload = {
+        "session_id": session_id,
+        "task_id": task.id if task else None,
+        "artifact_id": anchor["artifact_id"],
+        "based_on_version_id": anchor["based_on_version_id"],
+        "artifact_anchor": anchor,
+        "content": export_content,
+        "format": export_format,
+        "render_version": snapshot["session"].get("render_version") or 1,
+        "ppt_url": result.get("ppt_url"),
+        "word_url": result.get("word_url"),
+        "version": result.get("version"),
+    }
+    if candidate_change_body is not None:
+        candidate_change_input = dict(candidate_change_body)
+        if body.get("artifact_id") and "artifact_id" not in candidate_change_input:
+            candidate_change_input["artifact_id"] = body.get("artifact_id")
+        key_str = _parse_idempotency_key(idempotency_key)
+        cache_key = (
+            "session_preview_export_candidate_change:"
+            f"{user_id}:{project_id}:{session_id}:{key_str}"
+            if key_str
+            else None
+        )
+        cached_change = None
+        if cache_key:
+            cached = await db_service.get_idempotency_response(cache_key)
+            if isinstance(cached, dict):
+                cached_change = cached.get("change")
+        if cached_change is None:
+            change = await _create_session_candidate_change(
+                session_id=session_id,
+                user_id=user_id,
+                snapshot=snapshot,
+                body=candidate_change_input,
+                extra_payload={
+                    "generation_command": {
+                        "command_type": "EXPORT_PREVIEW",
+                        "format": export_format,
+                        "include_sources": include_sources,
+                        "expected_render_version": body.get("expected_render_version"),
+                    },
+                    "generation_result": payload,
+                    "trigger": "preview_export",
+                },
+            )
+            cached_change = _serialize_candidate_change(change)
+            if cache_key:
+                await db_service.save_idempotency_response(
+                    cache_key,
+                    {"change": cached_change},
+                )
+        payload["candidate_change"] = cached_change
+
+    return success_response(data=payload, message="导出成功")

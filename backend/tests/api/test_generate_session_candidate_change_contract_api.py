@@ -340,3 +340,74 @@ def test_modify_preview_rejects_non_object_candidate_change(
     assert body["success"] is False
     assert body["error"]["code"] == "INVALID_INPUT"
     svc.execute_command.assert_not_awaited()
+
+
+def test_export_preview_can_attach_candidate_change(client, monkeypatch, _as_user):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-010")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="task-export-001"),
+                [],
+                {"slides_plan": []},
+                {"markdown_content": "# export"},
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        db_service,
+        "get_project",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                id="p-candidate-001",
+                currentVersionId="v-999",
+            )
+        ),
+    )
+    create_change = AsyncMock(return_value=_fake_change('{"review":{}}'))
+    monkeypatch.setattr(project_space_service, "create_candidate_change", create_change)
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/preview/export",
+        json={
+            "format": "markdown",
+            "artifact_id": "a-001",
+            "candidate_change": {
+                "title": "export-change",
+                "summary": "submit after preview export",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["candidate_change"]["session_id"] == "s-candidate-001"
+    kwargs = create_change.await_args.kwargs
+    assert kwargs["payload"]["generation_command"]["command_type"] == "EXPORT_PREVIEW"
+    assert kwargs["payload"]["generation_command"]["format"] == "markdown"
+    assert kwargs["payload"]["trigger"] == "preview_export"
+    assert kwargs["payload"]["artifact_anchor"]["artifact_id"] == "a-001"
+
+
+def test_export_preview_rejects_non_object_candidate_change(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/preview/export",
+        json={"format": "markdown", "candidate_change": "invalid"},
+    )
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INVALID_INPUT"

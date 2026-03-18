@@ -123,6 +123,7 @@
         required: true
         schema:
           type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ContractVersion'
     requestBody:
       required: true
