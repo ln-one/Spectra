@@ -257,6 +257,69 @@ def _serialize_candidate_change(change) -> dict:
     }
 
 
+async def _create_session_candidate_change(
+    *,
+    session_id: str,
+    user_id: str,
+    snapshot: dict,
+    body: Optional[dict] = None,
+    extra_payload: Optional[dict] = None,
+):
+    body = body or {}
+    custom_payload = body.get("payload")
+    if custom_payload is not None and not isinstance(custom_payload, dict):
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="payload must be an object",
+        )
+
+    project_id = snapshot["session"]["project_id"]
+    bound_artifact = await _resolve_session_artifact_binding(
+        project_id=project_id,
+        session_id=session_id,
+        artifact_id=body.get("artifact_id"),
+    )
+    anchor = _build_artifact_anchor(session_id, bound_artifact)
+    project = await db_service.get_project(project_id)
+    base_version_id = anchor["based_on_version_id"] or (
+        getattr(project, "currentVersionId", None) if project else None
+    )
+    base_version_source = (
+        "artifact_anchor"
+        if anchor["based_on_version_id"]
+        else ("project_current_version" if base_version_id else "none")
+    )
+    payload = dict(custom_payload or {})
+    payload.update(
+        {
+            "source": "generate-session",
+            "project_id": project_id,
+            "session_id": session_id,
+            "artifact_anchor": anchor,
+            "base_version_context": {
+                "selected_base_version_id": base_version_id,
+                "source": base_version_source,
+            },
+            "session_artifacts": snapshot.get("session_artifacts") or [],
+            "result": snapshot.get("result") or {},
+            "outline": snapshot.get("outline"),
+        }
+    )
+    if extra_payload:
+        payload.update(extra_payload)
+
+    return await project_space_service.create_candidate_change(
+        project_id=project_id,
+        user_id=user_id,
+        title=body.get("title") or f"session-{session_id}-candidate-change",
+        summary=body.get("summary"),
+        payload=payload,
+        session_id=session_id,
+        base_version_id=base_version_id,
+    )
+
+
 async def _load_preview_material(session_id: str, project_id: str):
     """Load task + rendered preview materials for preview/export APIs."""
     tasks = await db_service.db.generationtask.find_many(
@@ -565,45 +628,11 @@ async def submit_session_candidate_change(
         if cached:
             return cached
 
-    bound_artifact = await _resolve_session_artifact_binding(
-        project_id=project_id,
+    change = await _create_session_candidate_change(
         session_id=session_id,
-        artifact_id=body.get("artifact_id"),
-    )
-    anchor = _build_artifact_anchor(session_id, bound_artifact)
-    project = await db_service.get_project(project_id)
-    base_version_id = anchor["based_on_version_id"] or (
-        getattr(project, "currentVersionId", None) if project else None
-    )
-    base_version_source = (
-        "artifact_anchor"
-        if anchor["based_on_version_id"]
-        else ("project_current_version" if base_version_id else "none")
-    )
-    payload = dict(custom_payload or {})
-    payload.update(
-        {
-            "source": "generate-session",
-            "project_id": project_id,
-            "session_id": session_id,
-            "artifact_anchor": anchor,
-            "base_version_context": {
-                "selected_base_version_id": base_version_id,
-                "source": base_version_source,
-            },
-            "session_artifacts": snapshot.get("session_artifacts") or [],
-            "result": snapshot.get("result") or {},
-            "outline": snapshot.get("outline"),
-        }
-    )
-    change = await project_space_service.create_candidate_change(
-        project_id=project_id,
         user_id=user_id,
-        title=body.get("title") or f"session-{session_id}-candidate-change",
-        summary=body.get("summary"),
-        payload=payload,
-        session_id=session_id,
-        base_version_id=base_version_id,
+        snapshot=snapshot,
+        body=body,
     )
     resp = success_response(
         data={"change": _serialize_candidate_change(change)},
@@ -706,6 +735,16 @@ async def confirm_outline(
 ):
     """确认大纲并继续生成（兼容别名，等价于 command_type=CONFIRM_OUTLINE）。"""
     body = body or {}
+    candidate_change_body = body.get("candidate_change")
+    if candidate_change_body is not None and not isinstance(
+        candidate_change_body, dict
+    ):
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="candidate_change must be an object",
+        )
+
     svc = _get_session_service()
     try:
         result = await svc.execute_command(
@@ -728,12 +767,49 @@ async def confirm_outline(
     except ConflictError as e:
         _raise_conflict(str(e))
 
-    return success_response(data=result, message="大纲已确认，开始生成内容")
+    payload = dict(result) if isinstance(result, dict) else {"result": result}
+    if candidate_change_body is not None:
+        snapshot = await svc.get_session_snapshot(session_id, user_id)
+        project_id = snapshot["session"]["project_id"]
+        key_str = _parse_idempotency_key(idempotency_key)
+        cache_key = (
+            "session_confirm_candidate_change:"
+            f"{user_id}:{project_id}:{session_id}:{key_str}"
+            if key_str
+            else None
+        )
+        cached_change = None
+        if cache_key:
+            cached = await db_service.get_idempotency_response(cache_key)
+            if isinstance(cached, dict):
+                cached_change = cached.get("change")
+        if cached_change is None:
+            change = await _create_session_candidate_change(
+                session_id=session_id,
+                user_id=user_id,
+                snapshot=snapshot,
+                body=candidate_change_body,
+                extra_payload={
+                    "generation_command": {
+                        "command_type": "CONFIRM_OUTLINE",
+                        "continue_from_retrieval": body.get(
+                            "continue_from_retrieval", True
+                        ),
+                        "expected_state": body.get("expected_state"),
+                    },
+                    "generation_result": payload,
+                    "trigger": "confirm_outline",
+                },
+            )
+            cached_change = _serialize_candidate_change(change)
+            if cache_key:
+                await db_service.save_idempotency_response(
+                    cache_key,
+                    {"change": cached_change},
+                )
+        payload["candidate_change"] = cached_change
 
-
-# ============================================================
-# 7. POST /generate/sessions/{session_id}/outline/redraft — AI 重写（兼容别名）
-# ============================================================
+    return success_response(data=payload, message="大纲已确认，开始生成内容")
 
 
 @router.post("/sessions/{session_id}/outline/redraft")

@@ -61,6 +61,16 @@ def _fake_change(payload: str):
     )
 
 
+def _confirm_result():
+    return {
+        "session": {
+            "session_id": "s-candidate-001",
+            "project_id": "p-candidate-001",
+            "state": "GENERATING_CONTENT",
+        }
+    }
+
+
 def test_submit_session_candidate_change_success(client, monkeypatch, _as_user):
     svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
     monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
@@ -151,9 +161,7 @@ def test_list_session_candidate_changes_with_filters(client, monkeypatch, _as_us
     monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
     list_changes = AsyncMock(
         return_value=[
-            _fake_change(
-                '{"review":{"action":"accept","accepted_version_id":"v-100"}}'
-            )
+            _fake_change('{"review":{"action":"accept","accepted_version_id":"v-100"}}')
         ]
     )
     monkeypatch.setattr(project_space_service, "get_candidate_changes", list_changes)
@@ -203,3 +211,64 @@ def test_submit_session_candidate_change_idempotency_hit_returns_cached(
     assert body["success"] is True
     assert body["data"]["change"]["id"] == "c-cached"
     create_change.assert_not_awaited()
+
+
+def test_confirm_outline_can_attach_candidate_change(client, monkeypatch, _as_user):
+    svc = SimpleNamespace(
+        execute_command=AsyncMock(return_value=_confirm_result()),
+        get_session_snapshot=AsyncMock(return_value=_snapshot()),
+    )
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+    monkeypatch.setattr(
+        db_service,
+        "get_project",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                id="p-candidate-001",
+                currentVersionId="v-999",
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        generate_sessions_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-010")),
+    )
+    create_change = AsyncMock(return_value=_fake_change('{"review":{}}'))
+    monkeypatch.setattr(project_space_service, "create_candidate_change", create_change)
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/confirm",
+        json={
+            "candidate_change": {
+                "title": "confirm-change",
+                "summary": "submit after confirm",
+            }
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["session"]["state"] == "GENERATING_CONTENT"
+    assert body["data"]["candidate_change"]["session_id"] == "s-candidate-001"
+    kwargs = create_change.await_args.kwargs
+    assert kwargs["payload"]["generation_command"]["command_type"] == "CONFIRM_OUTLINE"
+    assert kwargs["payload"]["trigger"] == "confirm_outline"
+    assert kwargs["payload"]["artifact_anchor"]["artifact_id"] == "a-001"
+
+
+def test_confirm_outline_rejects_non_object_candidate_change(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(execute_command=AsyncMock(return_value=_confirm_result()))
+    monkeypatch.setattr(generate_sessions_router, "_get_session_service", lambda: svc)
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-candidate-001/confirm",
+        json={"candidate_change": "invalid"},
+    )
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INVALID_INPUT"
+    svc.execute_command.assert_not_awaited()
