@@ -559,6 +559,15 @@ async def submit_session_candidate_change(
         artifact_id=body.get("artifact_id"),
     )
     anchor = _build_artifact_anchor(session_id, bound_artifact)
+    project = await db_service.get_project(project_id)
+    base_version_id = anchor["based_on_version_id"] or (
+        getattr(project, "currentVersionId", None) if project else None
+    )
+    base_version_source = (
+        "artifact_anchor"
+        if anchor["based_on_version_id"]
+        else ("project_current_version" if base_version_id else "none")
+    )
     payload = dict(custom_payload or {})
     payload.update(
         {
@@ -566,6 +575,10 @@ async def submit_session_candidate_change(
             "project_id": project_id,
             "session_id": session_id,
             "artifact_anchor": anchor,
+            "base_version_context": {
+                "selected_base_version_id": base_version_id,
+                "source": base_version_source,
+            },
             "session_artifacts": snapshot.get("session_artifacts") or [],
             "result": snapshot.get("result") or {},
             "outline": snapshot.get("outline"),
@@ -578,7 +591,7 @@ async def submit_session_candidate_change(
         summary=body.get("summary"),
         payload=payload,
         session_id=session_id,
-        base_version_id=anchor["based_on_version_id"],
+        base_version_id=base_version_id,
     )
     return success_response(
         data={"change": _serialize_candidate_change(change)},
