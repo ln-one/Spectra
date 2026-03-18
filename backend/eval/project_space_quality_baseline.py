@@ -57,6 +57,10 @@ class RegressionCheckReport:
         ]
 
 
+def _guardrail_path(guardrail: str) -> str:
+    return f"guardrails.{guardrail}"
+
+
 REQUIRED_METRICS = {
     "artifact_anchor_completeness_rate",
     "candidate_payload_completeness_rate",
@@ -187,7 +191,8 @@ def check_regression_report(
             "max_anchor_drop",
             "artifact_anchor_completeness_rate "
             f"{curr_m['artifact_anchor_completeness_rate']:.2%} < 最低允许 {anchor_min:.2%} "
-            f"(guardrail=max_anchor_drop, baseline={base_m['artifact_anchor_completeness_rate']:.2%}, "
+            f"(guardrail={_guardrail_path('max_anchor_drop')}, "
+            f"baseline={base_m['artifact_anchor_completeness_rate']:.2%}, "
             f"allowed_drop={g.max_anchor_drop:.2%})",
             violations,
         )
@@ -204,7 +209,7 @@ def check_regression_report(
             "candidate_payload_completeness_rate "
             f"{curr_m['candidate_payload_completeness_rate']:.2%} < "
             f"最低允许 {candidate_min:.2%} "
-            f"(guardrail=max_candidate_payload_drop, "
+            f"(guardrail={_guardrail_path('max_candidate_payload_drop')}, "
             f"baseline={base_m['candidate_payload_completeness_rate']:.2%}, "
             f"allowed_drop={g.max_candidate_payload_drop:.2%})",
             violations,
@@ -219,7 +224,8 @@ def check_regression_report(
             "max_loop_drop",
             "capability_loop_pass_rate "
             f"{curr_m['capability_loop_pass_rate']:.2%} < 最低允许 {loop_min:.2%} "
-            f"(guardrail=max_loop_drop, baseline={base_m['capability_loop_pass_rate']:.2%}, "
+            f"(guardrail={_guardrail_path('max_loop_drop')}, "
+            f"baseline={base_m['capability_loop_pass_rate']:.2%}, "
             f"allowed_drop={g.max_loop_drop:.2%})",
             violations,
         )
@@ -233,7 +239,8 @@ def check_regression_report(
             "max_citation_drop",
             "citation_contract_pass_rate "
             f"{curr_m['citation_contract_pass_rate']:.2%} < 最低允许 {citation_min:.2%} "
-            f"(guardrail=max_citation_drop, baseline={base_m['citation_contract_pass_rate']:.2%}, "
+            f"(guardrail={_guardrail_path('max_citation_drop')}, "
+            f"baseline={base_m['citation_contract_pass_rate']:.2%}, "
             f"allowed_drop={g.max_citation_drop:.2%})",
             violations,
         )
@@ -247,7 +254,8 @@ def check_regression_report(
             "max_coverage_drop",
             "capability_coverage_rate "
             f"{curr_m['capability_coverage_rate']:.2%} < 最低允许 {coverage_min:.2%} "
-            f"(guardrail=max_coverage_drop, baseline={base_m['capability_coverage_rate']:.2%}, "
+            f"(guardrail={_guardrail_path('max_coverage_drop')}, "
+            f"baseline={base_m['capability_coverage_rate']:.2%}, "
             f"allowed_drop={g.max_coverage_drop:.2%})",
             violations,
         )
@@ -262,7 +270,7 @@ def check_regression_report(
             "capability_artifact_mapping_pass_rate "
             f"{curr_m['capability_artifact_mapping_pass_rate']:.2%} < "
             f"最低允许 {mapping_min:.2%} "
-            f"(guardrail=max_mapping_drop, "
+            f"(guardrail={_guardrail_path('max_mapping_drop')}, "
             f"baseline={base_m['capability_artifact_mapping_pass_rate']:.2%}, "
             f"allowed_drop={g.max_mapping_drop:.2%})",
             violations,
@@ -278,7 +286,7 @@ def check_regression_report(
             "wave1_entry_semantics_pass_rate "
             f"{curr_m['wave1_entry_semantics_pass_rate']:.2%} < "
             f"最低允许 {wave1_entry_min:.2%} "
-            f"(guardrail=max_wave1_entry_drop, "
+            f"(guardrail={_guardrail_path('max_wave1_entry_drop')}, "
             f"baseline={base_m['wave1_entry_semantics_pass_rate']:.2%}, "
             f"allowed_drop={g.max_wave1_entry_drop:.2%})",
             violations,
@@ -320,7 +328,9 @@ def check_regression(
 
 
 def format_failure_report(report: RegressionCheckReport) -> list[str]:
-    triggered_guardrails = ", ".join(report.triggered_guardrail_keys) or "-"
+    triggered_guardrails = (
+        ", ".join(_guardrail_path(key) for key in report.triggered_guardrail_keys) or "-"
+    )
     lines = [
         "Project Space 基线校验失败摘要：",
         f"- 失败分组数: {report.group_count}",
@@ -335,7 +345,7 @@ def format_failure_report(report: RegressionCheckReport) -> list[str]:
         "Project Space 基线校验触发的 guardrails：",
     ]
     for key in report.triggered_guardrail_keys:
-        lines.append(f"- {key}")
+        lines.append(f"- {_guardrail_path(key)}")
     lines.extend(
         [
         "Project Space 基线校验失败分组：",
