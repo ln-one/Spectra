@@ -9,6 +9,81 @@ import pytest
 from schemas.generation import CoursewareContent
 from services.ai import AIService
 
+MOCK_COURSEWARE_RESPONSE = """===PPT_CONTENT_START===
+# Python 编程基础
+
+课程导入与目标说明
+
+---
+
+# 核心概念
+
+- 变量与数据类型
+- 控制流
+- 函数与集合
+
+===PPT_CONTENT_END===
+
+===LESSON_PLAN_START===
+# 教学目标
+
+- 理解 Python 基础概念
+- 完成简单示例练习
+
+# 教学过程
+
+## 导入环节（5分钟）
+
+说明课程目标与学习路径。
+
+## 讲授环节（30分钟）
+
+讲解变量、控制流、函数与集合。
+
+## 总结环节（10分钟）
+
+回顾重点并布置练习。
+
+===LESSON_PLAN_END==="""
+
+
+@pytest.fixture(autouse=True)
+def stub_ai_and_rag(monkeypatch):
+    """默认把真实 AI/RAG 调用替换为快速 stub，避免集成测试被外部依赖拖慢。"""
+
+    async def _fake_generate(
+        self,
+        prompt: str,
+        model=None,
+        route_task=None,
+        has_rag_context: bool = False,
+        max_tokens=None,
+    ):
+        return {
+            "content": MOCK_COURSEWARE_RESPONSE,
+            "model": "test-stub-model",
+            "tokens_used": 128,
+            "route": {
+                "task": route_task,
+                "selected_model": model or "test-stub-model",
+                "has_rag_context": has_rag_context,
+            },
+            "fallback_triggered": False,
+            "latency_ms": 1.0,
+        }
+
+    async def _fake_rag_context(
+        self,
+        project_id: str,
+        query: str,
+        top_k: int = 5,
+        score_threshold: float = 0.3,
+    ):
+        return None
+
+    monkeypatch.setattr(AIService, "generate", _fake_generate)
+    monkeypatch.setattr(AIService, "_retrieve_rag_context", _fake_rag_context)
+
 
 class TestAIServiceIntegration:
     """测试 AI Service 集成"""
