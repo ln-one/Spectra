@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from typing import Optional
 
@@ -13,6 +12,9 @@ from services.preview_helpers import (
     strip_sources,
 )
 from services.project_space_service import project_space_service
+from services.project_space_service.candidate_change_semantics import (
+    serialize_candidate_change as serialize_candidate_change_payload,
+)
 from utils.exceptions import (
     APIException,
     ErrorCode,
@@ -59,44 +61,8 @@ def parse_candidate_change_payload(value, field_name: str) -> Optional[dict]:
     )
 
 
-def _deserialize_candidate_payload(value) -> Optional[dict]:
-    if value is None:
-        return None
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, str):
-        raw = value.strip()
-        if not raw:
-            return None
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            return None
-        return parsed if isinstance(parsed, dict) else None
-    return None
-
-
 def serialize_candidate_change(change) -> dict:
-    payload = _deserialize_candidate_payload(getattr(change, "payload", None))
-    review = payload.get("review") if isinstance(payload, dict) else None
-    accepted_version_id = (
-        review.get("accepted_version_id") if isinstance(review, dict) else None
-    )
-    return {
-        "id": change.id,
-        "project_id": change.projectId,
-        "session_id": change.sessionId,
-        "base_version_id": change.baseVersionId,
-        "title": change.title,
-        "summary": change.summary,
-        "payload": payload,
-        "status": change.status,
-        "review_comment": getattr(change, "reviewComment", None),
-        "accepted_version_id": accepted_version_id,
-        "proposer_user_id": change.proposerUserId,
-        "created_at": change.createdAt,
-        "updated_at": change.updatedAt,
-    }
+    return serialize_candidate_change_payload(change, isoformat_datetimes=False)
 
 
 async def create_session_candidate_change(

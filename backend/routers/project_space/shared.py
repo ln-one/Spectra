@@ -1,6 +1,5 @@
 """Shared helpers for Project Space routers."""
 
-import json
 import logging
 
 from schemas.project_space import (
@@ -9,6 +8,10 @@ from schemas.project_space import (
     ProjectMember,
     ProjectReference,
     ProjectVersion,
+)
+from services.project_space_service.candidate_change_semantics import (
+    parse_json_object,
+    serialize_candidate_change,
 )
 
 logger = logging.getLogger(__name__)
@@ -24,22 +27,10 @@ COMMON_ERROR_RESPONSES = {
 
 
 def safe_parse_json(value):
-    if value is None:
-        return None
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, str):
-        raw = value.strip()
-        if not raw:
-            return None
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            logger.warning(
-                "Invalid JSON payload in project-space response serialization"
-            )
-            return None
-    return None
+    parsed = parse_json_object(value)
+    if parsed is None and isinstance(value, str) and value.strip():
+        logger.warning("Invalid JSON payload in project-space response serialization")
+    return parsed
 
 
 def to_project_version_model(version) -> ProjectVersion:
@@ -88,25 +79,9 @@ def to_project_reference_model(reference) -> ProjectReference:
 
 
 def to_candidate_change_model(change) -> CandidateChange:
-    payload = safe_parse_json(change.payload)
-    review = payload.get("review") if isinstance(payload, dict) else None
-    accepted_version_id = None
-    if isinstance(review, dict):
-        accepted_version_id = review.get("accepted_version_id")
+    payload = serialize_candidate_change(change, isoformat_datetimes=False)
     return CandidateChange(
-        id=change.id,
-        project_id=change.projectId,
-        title=change.title,
-        summary=change.summary,
-        payload=payload,
-        session_id=change.sessionId,
-        base_version_id=change.baseVersionId,
-        status=change.status,
-        review_comment=getattr(change, "reviewComment", None),
-        accepted_version_id=accepted_version_id,
-        proposer_user_id=change.proposerUserId,
-        created_at=change.createdAt,
-        updated_at=change.updatedAt,
+        **payload,
     )
 
 

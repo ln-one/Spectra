@@ -3,10 +3,13 @@ from __future__ import annotations
 from typing import Optional
 
 from services.generation_session_service.capability_helpers import (
-    _parse_json_object,
     _resolve_capability_from_artifact,
 )
 from services.preview_helpers import build_artifact_anchor
+from services.project_space_service.candidate_change_semantics import (
+    parse_json_object,
+    serialize_candidate_change,
+)
 
 
 def _resolve_session_artifact_title(
@@ -29,30 +32,7 @@ def _resolve_session_artifact_title(
 
 
 def _serialize_candidate_change(change) -> dict:
-    payload = _parse_json_object(getattr(change, "payload", None))
-    review = payload.get("review") if isinstance(payload, dict) else None
-    accepted_version_id = (
-        review.get("accepted_version_id") if isinstance(review, dict) else None
-    )
-    return {
-        "id": change.id,
-        "project_id": change.projectId,
-        "session_id": change.sessionId,
-        "base_version_id": change.baseVersionId,
-        "title": change.title,
-        "summary": change.summary,
-        "payload": payload or None,
-        "status": change.status,
-        "review_comment": getattr(change, "reviewComment", None),
-        "accepted_version_id": accepted_version_id,
-        "proposer_user_id": change.proposerUserId,
-        "created_at": (
-            change.createdAt.isoformat() if getattr(change, "createdAt", None) else None
-        ),
-        "updated_at": (
-            change.updatedAt.isoformat() if getattr(change, "updatedAt", None) else None
-        ),
-    }
+    return serialize_candidate_change(change, isoformat_datetimes=True)
 
 
 async def get_latest_session_candidate_change(
@@ -96,7 +76,7 @@ async def get_session_artifact_history(
     grouped: dict[str, list[dict]] = {}
 
     for artifact in artifacts:
-        metadata = _parse_json_object(getattr(artifact, "metadata", None))
+        metadata = parse_json_object(getattr(artifact, "metadata", None))
         capability = _resolve_capability_from_artifact(
             artifact_type=getattr(artifact, "type", ""),
             metadata=metadata,
