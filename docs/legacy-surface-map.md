@@ -53,25 +53,15 @@
 ### `/Users/ln1/Projects/Spectra/backend/routers/__init__.py`
 
 作用：
-- 为 app 装配层和旧引用习惯保留 router lazy export
-
-当前导出：
-- `auth_router`
-- `chat_router`
-- `files_router`
-- `generate_sessions_router`
-- `health_router`
-- `project_space_router`
-- `projects_router`
-- `rag_router`
+- 当前只作为 `routers` 包命名空间存在，支持 `import routers.<module>` 风格导入
 
 当前判断：
-- 仍有实际价值
-- 但属于典型兼容层，不应继续增长
+- 生产代码已经不再依赖这里的聚合导出
+- lazy export 已移除，剩下的是极薄兼容壳
 
 后续处理建议：
-1. 等 app setup 进一步稳定后，评估是否可改为显式导入
-2. 如果仍保留，限定为唯一聚合入口，不承载额外逻辑
+1. 继续把测试和外部工具从 `import routers.<module>` 迁到更直接的模块路径（如适用）
+2. 等确认没有外部依赖后，再评估是否彻底移除该兼容壳
 
 ---
 

@@ -38,8 +38,9 @@ Current consumers:
 - In-repo tests/scripts: none
 
 Assessment:
-- No longer needed by repository code paths.
-- Candidate for the next cleanup PR once we confirm no external tooling depends on `from routers import ...` imports.
+- Legacy lazy exports have already been retired.
+- What remains is only a minimal namespace package for `import routers.<module>` style imports.
+- Candidate for full removal after test patching and any external tooling stop importing router submodules via the package namespace.
 
 ### Generation-session helper bridge
 
