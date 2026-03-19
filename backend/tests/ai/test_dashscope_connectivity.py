@@ -5,8 +5,11 @@ DashScope API 连通性测试
 运行方式: pytest tests/test_dashscope_connectivity.py -v -m integration
 """
 
+import asyncio
+
 import pytest
 
+import services.ai as ai_module
 from services.ai import AIService, _resolve_model_name
 
 
@@ -35,6 +38,45 @@ class TestModelNameResolve:
             _resolve_model_name("claude-3-sonnet-20240229")
             == "claude-3-sonnet-20240229"
         )
+
+
+@pytest.mark.asyncio
+async def test_generate_times_out_with_clear_error(monkeypatch):
+    ai_service = AIService()
+    ai_service.request_timeout_seconds = 0.01
+    ai_service.allow_ai_stub = False
+
+    async def _slow_completion(**kwargs):
+        await asyncio.sleep(0.05)
+
+    monkeypatch.setattr(ai_module, "acompletion", _slow_completion)
+
+    with pytest.raises(TimeoutError, match="timed out"):
+        await ai_service.generate(
+            prompt="timeout test",
+            model="qwen3.5-plus",
+            max_tokens=10,
+        )
+
+
+@pytest.mark.asyncio
+async def test_generate_timeout_returns_stub_when_enabled(monkeypatch):
+    ai_service = AIService()
+    ai_service.request_timeout_seconds = 0.01
+    ai_service.allow_ai_stub = True
+
+    async def _slow_completion(**kwargs):
+        await asyncio.sleep(0.05)
+
+    monkeypatch.setattr(ai_module, "acompletion", _slow_completion)
+
+    result = await ai_service.generate(
+        prompt="timeout test",
+        route_task="outline_generation",
+        max_tokens=10,
+    )
+    assert result["content"].startswith("AI stub response")
+    assert result["route"]["failure_reason"] == "timeout"
 
 
 @pytest.mark.integration
