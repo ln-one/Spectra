@@ -11,6 +11,7 @@ import pytest
 
 import services.ai as ai_module
 from services.ai import AIService, _resolve_model_name
+from services.ai.model_router import ModelRouteFailureReason
 
 
 class TestModelNameResolve:
@@ -76,7 +77,31 @@ async def test_generate_timeout_returns_stub_when_enabled(monkeypatch):
         max_tokens=10,
     )
     assert result["content"].startswith("AI stub response")
-    assert result["route"]["failure_reason"] == "timeout"
+    assert result["route"]["failure_reason"] == ModelRouteFailureReason.TIMEOUT.value
+
+
+@pytest.mark.asyncio
+async def test_generate_completion_error_returns_stub_with_canonical_reason(
+    monkeypatch,
+):
+    ai_service = AIService()
+    ai_service.allow_ai_stub = True
+
+    async def _boom_completion(**kwargs):
+        raise RuntimeError("provider blew up")
+
+    monkeypatch.setattr(ai_module, "acompletion", _boom_completion)
+
+    result = await ai_service.generate(
+        prompt="error test",
+        route_task="outline_generation",
+        max_tokens=10,
+    )
+    assert result["content"].startswith("AI stub response")
+    assert (
+        result["route"]["failure_reason"]
+        == ModelRouteFailureReason.COMPLETION_ERROR.value
+    )
 
 
 @pytest.mark.integration

@@ -26,6 +26,15 @@ class ModelRouteReason(str, Enum):
     UNKNOWN_TASK_FALLBACK_TO_HEAVY = "unknown_task_fallback_to_heavy"
 
 
+class ModelRouteFailureReason(str, Enum):
+    """Canonical failure vocabulary for AI routing/execution metadata."""
+
+    TIMEOUT = "timeout"
+    COMPLETION_ERROR = "completion_error"
+    FALLBACK_TIMEOUT = "fallback_timeout"
+    FALLBACK_COMPLETION_ERROR = "fallback_completion_error"
+
+
 class ModelRouteTask(str, Enum):
     """Supported task labels for model routing decisions."""
 

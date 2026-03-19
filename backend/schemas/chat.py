@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -88,6 +88,25 @@ class VoiceMessageResponse(BaseModel):
     suggestions: Optional[list[str]] = Field(None, description="后续建议")
 
 
+class ChatRouteDecision(BaseModel):
+    task: str = Field(..., description="路由任务类型")
+    complexity: str = Field(..., description="路由复杂度等级")
+    selected_model: str = Field(..., description="路由选中的主模型")
+    fallback_model: str = Field(..., description="路由回退模型")
+    reason: str = Field(..., description="路由选择原因")
+    failure_reason: Optional[str] = Field(None, description="执行失败原因")
+    original_model: Optional[str] = Field(None, description="失败前原始模型")
+    fallback_triggered: Optional[bool] = Field(None, description="是否发生回退")
+    latency_ms: Optional[float] = Field(None, description="路由链路耗时")
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _normalize_enum_values(cls, value):
+        if isinstance(value, Enum):
+            return value.value
+        return value
+
+
 class ChatObservability(BaseModel):
     request_id: str = Field(..., description="请求追踪 ID")
     route_task: str = Field(..., description="聊天侧任务路由类型")
@@ -101,7 +120,7 @@ class ChatObservability(BaseModel):
     mechanical_pattern_hit: Optional[bool] = Field(
         None, description="是否命中过于机械的回复模式"
     )
-    route_decision: Optional[dict[str, Any]] = Field(
+    route_decision: Optional[ChatRouteDecision] = Field(
         None, description="模型路由决策详情"
     )
     prompt_template_version: Optional[str] = Field(None, description="prompt 模板版本")
@@ -113,3 +132,10 @@ class ChatObservability(BaseModel):
         if isinstance(value, Enum):
             return value.value
         return str(value)
+
+    @field_validator("route_decision", mode="before")
+    @classmethod
+    def _normalize_route_decision(cls, value):
+        if value == {}:
+            return None
+        return value

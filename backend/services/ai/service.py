@@ -16,7 +16,11 @@ from services.ai.intents import (
     parse_modify_intent_by_keywords,
 )
 from services.ai.model_resolution import _resolve_model_name
-from services.ai.model_router import ModelRouter, ModelRouteTask
+from services.ai.model_router import (
+    ModelRouteFailureReason,
+    ModelRouter,
+    ModelRouteTask,
+)
 from services.ai.rag_context import retrieve_rag_context
 from services.courseware_ai import CoursewareAIMixin
 
@@ -24,6 +28,26 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
+
+
+def _with_route_failure(
+    route_decision,
+    *,
+    failure_reason: ModelRouteFailureReason,
+    latency_ms: float,
+    fallback_triggered: bool = False,
+    original_model: str | None = None,
+) -> dict | None:
+    route_info = route_decision.to_dict() if route_decision else None
+    if route_info is None:
+        return None
+    route_info["failure_reason"] = failure_reason.value
+    route_info["latency_ms"] = latency_ms
+    if fallback_triggered:
+        route_info["fallback_triggered"] = True
+    if original_model:
+        route_info["original_model"] = original_model
+    return route_info
 
 
 class AIService(CoursewareAIMixin):
@@ -145,11 +169,16 @@ class AIService(CoursewareAIMixin):
                         else None
                     )
                     fallback_triggered = True
-                    route_info = route_decision.to_dict() if route_decision else {}
-                    route_info["fallback_triggered"] = True
-                    route_info["original_model"] = resolved_model
-                    route_info["failure_reason"] = "timeout"
-                    route_info["latency_ms"] = _elapsed_ms()
+                    route_info = (
+                        _with_route_failure(
+                            route_decision,
+                            failure_reason=ModelRouteFailureReason.TIMEOUT,
+                            latency_ms=_elapsed_ms(),
+                            fallback_triggered=True,
+                            original_model=resolved_model,
+                        )
+                        or {}
+                    )
                     return {
                         "content": content,
                         "model": fallback_resolved,
@@ -168,10 +197,11 @@ class AIService(CoursewareAIMixin):
 
             if self.allow_ai_stub:
                 latency_ms = _elapsed_ms()
-                route_info = route_decision.to_dict() if route_decision else None
-                if route_info is not None:
-                    route_info["failure_reason"] = "timeout"
-                    route_info["latency_ms"] = latency_ms
+                route_info = _with_route_failure(
+                    route_decision,
+                    failure_reason=ModelRouteFailureReason.TIMEOUT,
+                    latency_ms=latency_ms,
+                )
                 return {
                     "content": f"AI stub response for prompt: {prompt[:50]}...",
                     "model": resolved_model,
@@ -210,11 +240,16 @@ class AIService(CoursewareAIMixin):
                         else None
                     )
                     fallback_triggered = True
-                    route_info = route_decision.to_dict() if route_decision else {}
-                    route_info["fallback_triggered"] = True
-                    route_info["original_model"] = resolved_model
-                    route_info["failure_reason"] = str(e)
-                    route_info["latency_ms"] = _elapsed_ms()
+                    route_info = (
+                        _with_route_failure(
+                            route_decision,
+                            failure_reason=ModelRouteFailureReason.COMPLETION_ERROR,
+                            latency_ms=_elapsed_ms(),
+                            fallback_triggered=True,
+                            original_model=resolved_model,
+                        )
+                        or {}
+                    )
                     return {
                         "content": content,
                         "model": fallback_resolved,
@@ -233,10 +268,11 @@ class AIService(CoursewareAIMixin):
 
             if self.allow_ai_stub:
                 latency_ms = _elapsed_ms()
-                route_info = route_decision.to_dict() if route_decision else None
-                if route_info is not None:
-                    route_info["failure_reason"] = str(e)
-                    route_info["latency_ms"] = latency_ms
+                route_info = _with_route_failure(
+                    route_decision,
+                    failure_reason=ModelRouteFailureReason.COMPLETION_ERROR,
+                    latency_ms=latency_ms,
+                )
                 return {
                     "content": f"AI stub response for prompt: {prompt[:50]}...",
                     "model": resolved_model,
