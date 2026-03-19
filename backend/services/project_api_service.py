@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi.encoders import jsonable_encoder
 
-from services import db_service
+from services.database import db_service
 from services.file_upload_service import serialize_upload
 from utils.exceptions import ForbiddenException, NotFoundException
 from utils.responses import success_response

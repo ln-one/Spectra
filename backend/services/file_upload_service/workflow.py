@@ -2,7 +2,8 @@ from typing import Optional
 
 from fastapi import BackgroundTasks, Request, UploadFile
 
-from services import db_service, file_service
+from services.database import db_service
+from services.file import file_service
 from utils.responses import success_response
 
 from .access import (

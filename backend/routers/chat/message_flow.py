@@ -1,4 +1,4 @@
-from services import db_service
+from services.database import db_service
 
 from .shared import logger, rerank_by_chapter
 

@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import Message
-from services import db_service
+from services.database import db_service
 from utils.exceptions import ErrorCode, ForbiddenException
 
 router = APIRouter(prefix="/chat", tags=["Chat"])

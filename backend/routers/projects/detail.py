@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from schemas import ProjectUpdate
-from services import db_service
+from services.database import db_service
 from services.project_api_service import (
     get_owned_project,
     get_project_files_response,

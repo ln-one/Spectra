@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from services import db_service
+from services.database import db_service
 from services.file_upload_service import serialize_upload
 from utils.exceptions import ForbiddenException
 

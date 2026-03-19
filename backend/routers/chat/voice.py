@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 from fastapi import Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.encoders import jsonable_encoder
 
-from services import db_service
+from services.database import db_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException
 from utils.responses import success_response

@@ -7,8 +7,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from schemas.chat import SendMessageRequest
-from services import db_service
 from services.ai import ai_service
+from services.database import db_service
 from services.model_router import ModelRouteTask
 from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 from utils.dependencies import get_current_user

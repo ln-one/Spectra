@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from services import db_service
+from services.database import db_service
 from utils.exceptions import ForbiddenException, NotFoundException
 
 _DEFAULT_EXTENSIONS = {
