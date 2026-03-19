@@ -12,6 +12,7 @@ from routers.generate_sessions.shared import (
     CONTRACT_VERSION,
     get_session_service,
     get_task_queue_service,
+    load_session_snapshot_or_raise,
     parse_idempotency_key,
 )
 from services.application.access import get_owned_project
@@ -23,7 +24,6 @@ from utils.exceptions import (
     APIException,
     ErrorCode,
     ForbiddenException,
-    NotFoundException,
     UnauthorizedException,
 )
 from utils.responses import success_response
@@ -161,14 +161,7 @@ async def get_generation_session(
 ):
     """查询生成会话完整快照。"""
     svc = get_session_service()
-    try:
-        payload = await svc.get_session_snapshot(session_id, user_id)
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
+    payload = await load_session_snapshot_or_raise(svc, session_id, user_id)
 
     return success_response(data=payload, message="查询成功")
 
@@ -193,14 +186,7 @@ async def get_session_events(
             raise UnauthorizedException(message="缺少认证信息")
     svc = get_session_service()
 
-    try:
-        await svc.get_session_snapshot(session_id, user_id)
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
+    await load_session_snapshot_or_raise(svc, session_id, user_id)
 
     if accept == "application/json":
         events = await svc.get_events(session_id, user_id, cursor=cursor)

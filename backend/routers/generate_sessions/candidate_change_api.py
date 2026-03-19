@@ -10,11 +10,14 @@ from routers.generate_sessions.candidate_changes import (
     parse_candidate_change_payload,
     serialize_candidate_change,
 )
-from routers.generate_sessions.shared import get_session_service, parse_idempotency_key
+from routers.generate_sessions.shared import (
+    get_session_service,
+    load_session_snapshot_or_raise,
+    parse_idempotency_key,
+)
 from services.database import db_service
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
-from utils.exceptions import ErrorCode, ForbiddenException, NotFoundException
 from utils.responses import success_response
 
 router = APIRouter()
@@ -34,14 +37,7 @@ async def submit_session_candidate_change(
     parse_candidate_change_payload(body.get("payload"), "payload")
     parsed_idempotency_key = parse_idempotency_key(idempotency_key)
     svc = _get_session_service()
-    try:
-        snapshot = await svc.get_session_snapshot(session_id, user_id)
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
+    snapshot = await load_session_snapshot_or_raise(svc, session_id, user_id)
 
     cache_key = None
     if parsed_idempotency_key:
@@ -78,14 +74,7 @@ async def list_session_candidate_changes(
 ):
     """按 session 查询 project-space candidate changes。"""
     svc = _get_session_service()
-    try:
-        snapshot = await svc.get_session_snapshot(session_id, user_id)
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
+    snapshot = await load_session_snapshot_or_raise(svc, session_id, user_id)
 
     changes = await project_space_service.get_candidate_changes(
         project_id=snapshot["session"]["project_id"],

@@ -13,13 +13,14 @@ from routers.generate_sessions.candidate_changes import (
     resolve_session_artifact_binding,
 )
 from routers.generate_sessions.shared import (
+    execute_session_command_or_raise,
     get_session_service,
+    load_session_snapshot_or_raise,
     parse_idempotency_key,
     raise_conflict,
     validate_optional_positive_int,
     validate_positive_int,
 )
-from services.generation_session_service import ConflictError
 from services.platform.state_transition_guard import GenerationCommandType
 from services.preview_helpers import (
     build_export_payload,
@@ -34,7 +35,6 @@ from utils.dependencies import get_current_user
 from utils.exceptions import (
     APIException,
     ErrorCode,
-    ForbiddenException,
     NotFoundException,
 )
 from utils.responses import success_response
@@ -54,14 +54,7 @@ _build_artifact_anchor = build_session_artifact_anchor
 
 async def _get_snapshot(session_id: str, user_id: str) -> dict:
     svc = _get_session_service()
-    try:
-        return await svc.get_session_snapshot(session_id, user_id)
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
+    return await load_session_snapshot_or_raise(svc, session_id, user_id)
 
 
 async def _resolve_anchor(session_id: str, snapshot: dict, artifact_id: Optional[str]):
@@ -140,21 +133,13 @@ async def modify_session_preview(
     }
 
     svc = _get_session_service()
-    try:
-        result = await svc.execute_command(
-            session_id=session_id,
-            user_id=user_id,
-            command=generation_command,
-            idempotency_key=parsed_idempotency_key,
-        )
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
-    except ConflictError as exc:
-        _raise_conflict(str(exc))
+    result = await execute_session_command_or_raise(
+        svc,
+        session_id=session_id,
+        user_id=user_id,
+        command=generation_command,
+        idempotency_key=parsed_idempotency_key,
+    )
 
     snapshot = await _get_snapshot(session_id, user_id)
     anchor = await _resolve_anchor(session_id, snapshot, body.get("artifact_id"))

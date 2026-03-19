@@ -6,11 +6,13 @@ from uuid import UUID
 from fastapi import Request, status
 
 from services.database import db_service
-from services.generation_session_service import GenerationSessionService
+from services.generation_session_service import ConflictError, GenerationSessionService
 from services.platform.state_transition_guard import GenerationCommandType
 from utils.exceptions import (
     APIException,
     ErrorCode,
+    ForbiddenException,
+    NotFoundException,
 )
 
 CONTRACT_VERSION = "2026-03"
@@ -70,6 +72,52 @@ def validate_command_payload(command: dict):
             command.get("expected_render_version"),
             "expected_render_version",
         )
+
+
+async def load_session_snapshot_or_raise(
+    svc: GenerationSessionService,
+    session_id: str,
+    user_id: str,
+) -> dict:
+    try:
+        return await svc.get_session_snapshot(session_id, user_id)
+    except ValueError as exc:
+        raise _not_found_session() from exc
+    except PermissionError as exc:
+        raise _forbidden_session_access() from exc
+
+
+async def execute_session_command_or_raise(
+    svc: GenerationSessionService,
+    *,
+    session_id: str,
+    user_id: str,
+    command: dict,
+    idempotency_key: Optional[str] = None,
+    task_queue_service=None,
+):
+    try:
+        return await svc.execute_command(
+            session_id=session_id,
+            user_id=user_id,
+            command=command,
+            idempotency_key=idempotency_key,
+            task_queue_service=task_queue_service,
+        )
+    except ValueError as exc:
+        raise _not_found_session() from exc
+    except PermissionError as exc:
+        raise _forbidden_session_access() from exc
+    except ConflictError as exc:
+        raise_conflict(str(exc))
+
+
+def _not_found_session():
+    return NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
+
+
+def _forbidden_session_access():
+    return ForbiddenException(message="无权访问该会话", error_code=ErrorCode.FORBIDDEN)
 
 
 def raise_conflict(msg: str):

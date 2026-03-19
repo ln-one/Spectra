@@ -10,6 +10,7 @@ from routers.generate_sessions.candidate_changes import (
     parse_candidate_change_payload,
 )
 from routers.generate_sessions.shared import (
+    execute_session_command_or_raise,
     get_session_service,
     get_task_queue_service,
     parse_idempotency_key,
@@ -55,22 +56,14 @@ async def execute_session_command(
     validate_command_payload(command)
 
     svc = _get_session_service()
-    try:
-        result = await svc.execute_command(
-            session_id=session_id,
-            user_id=user_id,
-            command=command,
-            idempotency_key=parse_idempotency_key(idempotency_key),
-            task_queue_service=get_task_queue_service(request),
-        )
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
-    except ConflictError as exc:
-        raise_conflict(str(exc))
+    result = await execute_session_command_or_raise(
+        svc,
+        session_id=session_id,
+        user_id=user_id,
+        command=command,
+        idempotency_key=parse_idempotency_key(idempotency_key),
+        task_queue_service=get_task_queue_service(request),
+    )
 
     return success_response(data=result, message="命令已执行")
 
@@ -138,22 +131,14 @@ async def confirm_outline(
     }
 
     svc = _get_session_service()
-    try:
-        result = await svc.execute_command(
-            session_id=session_id,
-            user_id=user_id,
-            command=generation_command,
-            idempotency_key=parsed_idempotency_key,
-            task_queue_service=get_task_queue_service(request),
-        )
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
-    except ConflictError as exc:
-        raise_conflict(str(exc))
+    result = await execute_session_command_or_raise(
+        svc,
+        session_id=session_id,
+        user_id=user_id,
+        command=generation_command,
+        idempotency_key=parsed_idempotency_key,
+        task_queue_service=get_task_queue_service(request),
+    )
 
     candidate_change = await attach_auto_candidate_change(
         session_id=session_id,
@@ -193,25 +178,17 @@ async def redraft_outline(
     validate_positive_int(base_version, "base_version")
 
     svc = _get_session_service()
-    try:
-        result = await svc.execute_command(
-            session_id=session_id,
-            user_id=user_id,
-            command={
-                "command_type": GenerationCommandType.REDRAFT_OUTLINE.value,
-                "instruction": instruction,
-                "base_version": base_version,
-            },
-            idempotency_key=parse_idempotency_key(idempotency_key),
-        )
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
-    except ConflictError as exc:
-        raise_conflict(str(exc))
+    result = await execute_session_command_or_raise(
+        svc,
+        session_id=session_id,
+        user_id=user_id,
+        command={
+            "command_type": GenerationCommandType.REDRAFT_OUTLINE.value,
+            "instruction": instruction,
+            "base_version": base_version,
+        },
+        idempotency_key=parse_idempotency_key(idempotency_key),
+    )
 
     return success_response(data=result, message="大纲重写请求已接受")
 
@@ -225,24 +202,16 @@ async def resume_session(
     """恢复中断会话。"""
     body = body or {}
     svc = _get_session_service()
-    try:
-        result = await svc.execute_command(
-            session_id=session_id,
-            user_id=user_id,
-            command={
-                "command_type": GenerationCommandType.RESUME_SESSION.value,
-                "cursor": body.get("cursor"),
-                "last_known_state": body.get("last_known_state"),
-            },
-        )
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
-    except ConflictError as exc:
-        raise_conflict(str(exc))
+    result = await execute_session_command_or_raise(
+        svc,
+        session_id=session_id,
+        user_id=user_id,
+        command={
+            "command_type": GenerationCommandType.RESUME_SESSION.value,
+            "cursor": body.get("cursor"),
+            "last_known_state": body.get("last_known_state"),
+        },
+    )
 
     return success_response(data=result, message="会话已恢复")
 
@@ -270,25 +239,17 @@ async def regenerate_slide(
     )
 
     svc = _get_session_service()
-    try:
-        result = await svc.execute_command(
-            session_id=session_id,
-            user_id=user_id,
-            command={
-                "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
-                "slide_id": slide_id,
-                "patch": patch,
-                "expected_render_version": body.get("expected_render_version"),
-            },
-            idempotency_key=parse_idempotency_key(idempotency_key),
-        )
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
-    except ConflictError as exc:
-        raise_conflict(str(exc))
+    result = await execute_session_command_or_raise(
+        svc,
+        session_id=session_id,
+        user_id=user_id,
+        command={
+            "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
+            "slide_id": slide_id,
+            "patch": patch,
+            "expected_render_version": body.get("expected_render_version"),
+        },
+        idempotency_key=parse_idempotency_key(idempotency_key),
+    )
 
     return success_response(data=result, message="局部重绘请求已接受")
