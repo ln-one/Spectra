@@ -7,6 +7,11 @@ from schemas.project_space import (
 )
 from utils.exceptions import ConflictException, NotFoundException, ValidationException
 
+from .permission_semantics import (
+    normalize_project_member_role,
+    normalize_project_member_status,
+)
+
 
 async def get_project_members(service, project_id: str, user_id: str):
     await service.check_project_permission(project_id, user_id, ProjectPermission.VIEW)
@@ -33,7 +38,7 @@ async def create_project_member(
     return await service.db.create_project_member(
         project_id=project_id,
         user_id=target_user_id,
-        role=ProjectMemberRole(role),
+        role=normalize_project_member_role(role),
         permissions=permissions,
     )
 
@@ -55,9 +60,9 @@ async def update_project_member(
         raise NotFoundException(f"Member {member_id} not found in project {project_id}")
     return await service.db.update_project_member(
         member_id=member_id,
-        role=ProjectMemberRole(role) if role is not None else None,
+        role=normalize_project_member_role(role) if role is not None else None,
         permissions=permissions,
-        status=ProjectMemberStatus(status) if status is not None else None,
+        status=normalize_project_member_status(status) if status is not None else None,
     )
 
 

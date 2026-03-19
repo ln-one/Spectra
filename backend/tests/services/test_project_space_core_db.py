@@ -100,3 +100,44 @@ async def test_update_candidate_change_status_persists_review_comment():
             "payload": '{"review": {"accepted_version_id": "v-001"}}',
         },
     )
+
+
+@pytest.mark.asyncio
+async def test_create_project_member_applies_role_default_permissions():
+    service = DatabaseService()
+    create_member = AsyncMock(return_value=SimpleNamespace(id="m-001"))
+    service.db = SimpleNamespace(projectmember=SimpleNamespace(create=create_member))
+
+    await service.create_project_member(
+        project_id="p-001",
+        user_id="u-002",
+        role="editor",
+        permissions=None,
+    )
+
+    assert create_member.await_args.kwargs["data"] == {
+        "projectId": "p-001",
+        "userId": "u-002",
+        "role": "editor",
+        "permissions": '{"can_view": true, "can_reference": true, "can_collaborate": true, "can_manage": false}',
+    }
+
+
+@pytest.mark.asyncio
+async def test_update_project_member_normalizes_permissions_and_status():
+    service = DatabaseService()
+    update_member = AsyncMock(return_value=SimpleNamespace(id="m-001"))
+    service.db = SimpleNamespace(projectmember=SimpleNamespace(update=update_member))
+
+    await service.update_project_member(
+        member_id="m-001",
+        role="viewer",
+        permissions={"can_view": 1, "unknown": True},
+        status="disabled",
+    )
+
+    assert update_member.await_args.kwargs["data"] == {
+        "role": "viewer",
+        "permissions": '{"can_view": true}',
+        "status": "disabled",
+    }

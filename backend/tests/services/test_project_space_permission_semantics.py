@@ -1,8 +1,12 @@
 from schemas.project_space import ProjectPermission
 from services.project_space_service.permission_semantics import (
+    default_project_permissions_for_role,
     has_project_permission,
+    normalize_project_member_role,
+    normalize_project_member_status,
     normalize_project_permission,
     normalize_project_permissions,
+    resolve_project_member_permissions,
 )
 
 
@@ -36,3 +40,33 @@ def test_has_project_permission_accepts_enum_or_string():
 
 def test_normalize_project_permission_returns_enum():
     assert normalize_project_permission("can_manage") is ProjectPermission.MANAGE
+
+
+def test_default_project_permissions_for_editor_role():
+    payload = default_project_permissions_for_role("editor")
+
+    assert payload == {
+        "can_view": True,
+        "can_reference": True,
+        "can_collaborate": True,
+        "can_manage": False,
+    }
+
+
+def test_resolve_project_member_permissions_overrides_role_defaults():
+    payload = resolve_project_member_permissions(
+        "viewer",
+        {"can_reference": True},
+    )
+
+    assert payload == {
+        "can_view": True,
+        "can_reference": True,
+        "can_collaborate": False,
+        "can_manage": False,
+    }
+
+
+def test_member_role_and_status_normalizers_return_enums():
+    assert normalize_project_member_role("owner").value == "owner"
+    assert normalize_project_member_status("disabled").value == "disabled"
