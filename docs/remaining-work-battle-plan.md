@@ -182,6 +182,8 @@
 - `/Users/ln1/Projects/Spectra/docs/deployment-env-contract.md`
 - `/Users/ln1/Projects/Spectra/backend/scripts/deploy_release_record.py`
 - `/Users/ln1/Projects/Spectra/docs/release-records/README.md`
+- `/Users/ln1/Projects/Spectra/backend/scripts/incident_record.py`
+- `/Users/ln1/Projects/Spectra/docs/incident-records/README.md`
 
 完成标志：
 

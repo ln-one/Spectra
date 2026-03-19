@@ -258,6 +258,14 @@ docker compose up -d --build
 建议统一记到：
 - changelog
 - freeze 文档
+
+也建议生成一份 incident 记录：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/incident_record.py \
+  --title "Short incident title" \
+  --owner <name>
+```
 - 或专门 incident 记录文档
 
 ---
