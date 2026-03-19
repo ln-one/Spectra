@@ -185,6 +185,10 @@
 - 项目空间 review 事务一致性测试
 - 并发下的 idempotency / session update 测试
 
+建议先运行：
+
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_readiness_audit.py`
+
 ---
 
 ## 七、部署前准备

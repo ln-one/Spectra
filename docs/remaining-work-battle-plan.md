@@ -184,6 +184,7 @@
 - `/Users/ln1/Projects/Spectra/docs/release-records/README.md`
 - `/Users/ln1/Projects/Spectra/backend/scripts/incident_record.py`
 - `/Users/ln1/Projects/Spectra/docs/incident-records/README.md`
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_readiness_audit.py`
 
 完成标志：
 
