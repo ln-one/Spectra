@@ -30,7 +30,7 @@ async def execute_rag_indexing_task(
     session_id: Optional[str] = None,
 ):
     from services.database import DatabaseService
-    from services.rag_indexing_service import index_upload_file_for_rag
+    from services.media.rag_indexing import index_upload_file_for_rag
 
     db = DatabaseService()
     db_connected = False

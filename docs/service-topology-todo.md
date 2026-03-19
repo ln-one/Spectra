@@ -7,13 +7,17 @@
 - `/Users/ln1/Projects/Spectra/backend/services/media/audio.py`
 - `/Users/ln1/Projects/Spectra/backend/services/media/video.py`
 - `/Users/ln1/Projects/Spectra/backend/services/media/web_search.py`
+- `/Users/ln1/Projects/Spectra/backend/services/media/embedding.py`
+- `/Users/ln1/Projects/Spectra/backend/services/media/vector.py`
+- `/Users/ln1/Projects/Spectra/backend/services/media/rag_indexing.py`
 - `/Users/ln1/Projects/Spectra/backend/services/media/__init__.py`
 
 本次同步完成：
 
 - 生产代码导入迁移到 `services.media.*`
 - 相关测试导入与 patch 路径同步迁移
-- `media` 作为独立分组开始承接音频、视频、搜索等内容能力
+- `media` 作为独立分组开始承接音频、视频、搜索、向量化、索引等内容能力
+- `architecture_guard` warning 已从 7 降到 1
 
 ## 当前建议的顶层分区
 
@@ -49,12 +53,12 @@
 - `audio.py`
 - `video.py`
 - `web_search.py`
+- `embedding.py`
+- `vector.py`
+- `rag_indexing.py`
 
 待继续收口：
 
-- `embedding_service.py`
-- `vector_service.py`
-- `rag_indexing_service.py`
 - `rag_service/`
 - `network_resource_strategy/`
 
@@ -75,15 +79,15 @@
 
 优先做低打扰迁移：
 
-1. 收口 `/Users/ln1/Projects/Spectra/backend/services/embedding_service.py`
-2. 收口 `/Users/ln1/Projects/Spectra/backend/services/vector_service.py`
-3. 收口 `/Users/ln1/Projects/Spectra/backend/services/rag_indexing_service.py`
+1. 继续评估是否将 `/Users/ln1/Projects/Spectra/backend/services/rag_service/` 迁入 `media`
+2. 继续评估是否将 `/Users/ln1/Projects/Spectra/backend/services/network_resource_strategy/` 迁入 `media`
+3. 评估 `/Users/ln1/Projects/Spectra/backend/services/quality_service.py` 的最终归属（`media` 或 `platform`）
 
 原因：
 
-- 与当前业务主链路耦合相对较低
-- 与 `media` 分组语义一致
-- 迁移后可以明显减少 `services/` 根目录平铺项
+- 第一批 `media` 收口已经覆盖音频、视频、搜索、向量、索引核心能力
+- 接下来应优先处理剩余边界仍然清楚的能力模块
+- 需要避免过早迁移仍可能被主流程频繁引用的模块
 
 ## 暂不建议现在大动的部分
 

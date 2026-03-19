@@ -2,7 +2,7 @@ from typing import Optional
 
 from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
 from services.database import db_service
-from services.rag_indexing_service import index_upload_file_for_rag
+from services.media.rag_indexing import index_upload_file_for_rag
 from services.rag_service import rag_service
 from utils.exceptions import ForbiddenException, NotFoundException
 from utils.responses import success_response

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
-from services.vector_service import Collection
+from services.media.vector import Collection
 
 
 async def search(

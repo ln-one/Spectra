@@ -53,7 +53,7 @@ TOP_LEVEL_SERVICE_ALLOWLIST = {
 }
 
 
-@dataclass(slots=True)
+@dataclass
 class Finding:
     level: str
     path: Path

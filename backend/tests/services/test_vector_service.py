@@ -7,7 +7,7 @@ VectorService 单元测试
 import pytest
 from chromadb.errors import InternalError
 
-from services.vector_service import VectorService
+from services.media.vector import VectorService
 
 
 @pytest.fixture

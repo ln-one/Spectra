@@ -2,14 +2,14 @@
 
 from typing import Optional
 
-from services.embedding_service import EmbeddingService, embedding_service
+from services.media.embedding import EmbeddingService, embedding_service
+from services.media.vector import VectorService, vector_service
 from services.rag_service.indexing import (
     delete_project_index,
     delete_upload_index,
     index_chunks,
 )
 from services.rag_service.retrieval import get_chunk_detail, search
-from services.vector_service import VectorService, vector_service
 
 
 class RAGService:

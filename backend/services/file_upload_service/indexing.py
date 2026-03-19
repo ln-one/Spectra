@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import BackgroundTasks, Request
 
 from services.database import db_service
-from services.rag_indexing_service import index_upload_file_for_rag as index_upload
+from services.media.rag_indexing import index_upload_file_for_rag as index_upload
 
 logger = logging.getLogger(__name__)
 _SYNC_RAG_INDEXING = os.getenv("SYNC_RAG_INDEXING", "false").lower() == "true"
