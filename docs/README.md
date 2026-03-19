@@ -23,6 +23,8 @@
 - [冻结期重构 TODO](./freeze-refactor-todo.md)
 - [冗余审计报告](./redundancy-audit.md)
 - [Legacy Surface Map](./legacy-surface-map.md)
+- [PostgreSQL 迁移检查清单](./postgres-migration-checklist.md)
+- [部署拓扑草案](./deployment-topology.md)
 
 ## 4. 规划与比赛
 
