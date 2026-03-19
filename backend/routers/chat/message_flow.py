@@ -4,7 +4,8 @@ from schemas.common import (
 )
 from services.database import db_service
 
-from .shared import logger, rerank_by_chapter
+from .refine_context import rerank_by_chapter
+from .shared import logger
 
 
 async def load_rag_context(

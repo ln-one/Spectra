@@ -158,6 +158,46 @@ def test_send_message_scopes_recent_messages_by_session(client, monkeypatch, _as
     )
 
 
+def test_send_message_persists_card_refine_metadata(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user"),
+            _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+        ]
+    )
+    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+    generate_mock = AsyncMock(return_value={"content": "assistant reply"})
+    monkeypatch.setattr(ai_service, "generate", generate_mock)
+
+    resp = client.post(
+        "/api/v1/chat/messages",
+        json={
+            "project_id": "p-001",
+            "content": "把这段改得更自然一点",
+            "metadata": {
+                "card_id": "speaker_notes",
+                "source_artifact_id": "a-ppt-001",
+                "selected_script_segment": "slide-3:transition",
+            },
+        },
+    )
+
+    assert resp.status_code == 200
+    saved_user_metadata = create_mock.await_args_list[0].kwargs["metadata"]
+    assert saved_user_metadata["card_id"] == "speaker_notes"
+    assert saved_user_metadata["source_artifact_id"] == "a-ppt-001"
+    prompt = generate_mock.await_args.kwargs["prompt"]
+    assert "speaker_notes" in prompt
+    assert "slide-3:transition" in prompt
+
+
 def test_send_message_converts_numeric_marker_to_cite_tag(
     client, monkeypatch, _as_user
 ):

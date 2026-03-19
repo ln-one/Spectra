@@ -190,6 +190,9 @@
 - `interactive_quick_quiz`
 - `knowledge_mindmap`
 - `demonstration_animations`
+- `interactive_games`
+- `speaker_notes`
+- `classroom_qa_simulator`
 
 这意味着 foundation-ready 的四张卡片，已经从：
 
@@ -205,6 +208,12 @@
   现在可以把卡片配置正式写入 artifact `content`
 - `word_document`
   现在可以把文档细分配置正式写入 create-session `options`
+
+同时：
+
+- refine 预览里附带的 `metadata`
+  现在可以被 `/api/v1/chat/messages` 正式接收并进入 prompt 语境
+  不再只是“给前端看的占位字段”
 
 ## 8. 直接执行
 

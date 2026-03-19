@@ -279,3 +279,5 @@
    从“预演脚本原型可执行”推进到“虚拟学生多轮问答正式执行”
 3. 再把 `speaker_notes`
    从“source-binding + 初始执行可用”推进到“提词器段落级 refine 正式执行”
+4. 继续把 `chat` 的 refine metadata
+   从“预览里可见”推进到“正式进入 prompt 语境与持久化记录”

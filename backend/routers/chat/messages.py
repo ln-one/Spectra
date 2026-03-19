@@ -15,6 +15,11 @@ from utils.dependencies import get_current_user
 from utils.exceptions import APIException
 from utils.responses import error_response, success_response
 
+from .citation_utils import (
+    align_citations_with_content,
+    append_citation_markers,
+    sanitize_cite_tags,
+)
 from .message_flow import build_history_payload, load_rag_context
 from .observability import (
     FEW_SHOT_VERSION,
@@ -23,13 +28,11 @@ from .observability import (
     prompt_hash,
     response_hash,
 )
+from .refine_context import build_card_context_hint
 from .shared import (
-    align_citations_with_content,
-    append_citation_markers,
     logger,
     normalize_markdown_paragraphs,
     router,
-    sanitize_cite_tags,
     to_message,
     verify_project_ownership,
 )
@@ -55,15 +58,16 @@ async def send_message(
                 return cached_response
 
         session_id = body.session_id
+        user_message_metadata = {
+            **(body.metadata or {}),
+            **({"idempotency_key": key_str} if key_str else {}),
+            **({"session_id": session_id} if session_id else {}),
+        } or None
         await db_service.create_conversation_message(
             project_id=body.project_id,
             role="user",
             content=body.content,
-            metadata={
-                **({"idempotency_key": key_str} if key_str else {}),
-                **({"session_id": session_id} if session_id else {}),
-            }
-            or None,
+            metadata=user_message_metadata,
             session_id=session_id,
         )
 
@@ -85,6 +89,9 @@ async def send_message(
             message_hints.append(selected_files_hint)
         if not rag_hit and session_id:
             message_hints.append("未命中项目资料，请优先提示用户补充可检索素材。")
+        card_context_hint = build_card_context_hint(body.metadata)
+        if card_context_hint:
+            message_hints.append(card_context_hint)
         user_message_for_prompt = body.content
         if message_hints:
             user_message_for_prompt = f"{body.content}\n\n系统提示：\n" + "\n".join(

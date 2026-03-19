@@ -55,6 +55,10 @@ class SendMessageRequest(BaseModel):
         ),
     )
     content: str = Field(..., min_length=1, max_length=10000, description="消息内容")
+    metadata: Optional[dict] = Field(
+        None,
+        description="可选上下文元数据，用于卡片 refine、选区锚点或来源绑定等场景。",
+    )
     history: Optional[list[Message]] = Field(None, description="对话历史")
     rag_source_ids: Optional[list[str]] = Field(
         None,

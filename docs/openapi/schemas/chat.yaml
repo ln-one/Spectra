@@ -31,6 +31,10 @@ SendMessageRequest:
       type: string
       minLength: 1
       maxLength: 10000
+    metadata:
+      type: object
+      additionalProperties: true
+      description: Optional context metadata for card refine, selection anchors, or source bindings
     history:
       type: array
       items:
