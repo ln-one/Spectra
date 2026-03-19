@@ -23,6 +23,30 @@
 
 ---
 
+## 架构守门说明
+
+为避免结构在后续迭代中反弹，已新增轻量守门脚本：
+
+- `/Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py`
+
+执行方式：
+
+```bash
+python3 backend/scripts/architecture_guard.py
+```
+
+规则采用分级提醒，而不是硬性一刀切：
+
+- `>300 行`：warning，提示复查单一职责
+- `>500 行`：error，默认建议拆分
+- `>800 行`：critical，列为优先重构项
+- 新增根目录平铺 `*_service.py`：warning
+- 生产代码新增 `from services import ...`：warning
+
+这样既能保护当前重构成果，也不会过度打断尚在开发中的功能迭代。
+
+---
+
 ## 优先级 P0
 
 ### 1. 收敛 `services/__init__.py` 的隐性耦合
