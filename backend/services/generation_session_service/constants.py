@@ -33,3 +33,9 @@ class DispatchFallbackReason(str, Enum):
 
 class DispatchMode(str, Enum):
     LOCAL_ASYNC = "local_async"
+
+
+class SessionOutputType(str, Enum):
+    PPT = "ppt"
+    WORD = "word"
+    BOTH = "both"

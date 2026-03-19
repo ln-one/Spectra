@@ -15,6 +15,7 @@ from routers.generate_sessions.shared import (
     parse_idempotency_key,
 )
 from services.database import db_service
+from services.generation_session_service.constants import SessionOutputType
 from services.platform.state_transition_guard import GenerationState
 from utils.dependencies import get_current_user, get_current_user_optional
 from utils.exceptions import (
@@ -101,7 +102,11 @@ async def create_generation_session(
             message="project_id 和 output_type 为必填字段",
         )
 
-    allowed_output_types = {"ppt", "word", "both"}
+    allowed_output_types = {
+        SessionOutputType.PPT.value,
+        SessionOutputType.WORD.value,
+        SessionOutputType.BOTH.value,
+    }
     if output_type not in allowed_output_types:
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,

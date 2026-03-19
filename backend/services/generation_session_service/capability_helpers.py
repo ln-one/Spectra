@@ -7,12 +7,14 @@ from typing import Optional
 
 from services.project_space_service.artifact_semantics import get_artifact_capability
 
+from .constants import SessionOutputType
+
 logger = logging.getLogger(__name__)
 
 _SESSION_TO_TASK_TYPE = {
-    "ppt": "pptx",
-    "word": "docx",
-    "both": "both",
+    SessionOutputType.PPT.value: "pptx",
+    SessionOutputType.WORD.value: "docx",
+    SessionOutputType.BOTH.value: "both",
     "pptx": "pptx",
     "docx": "docx",
 }

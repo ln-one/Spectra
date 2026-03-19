@@ -15,6 +15,7 @@ from services.database import db_service
 from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
+    SessionOutputType,
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
@@ -94,7 +95,7 @@ async def test_create_session_returns_quickly_and_schedules_outline(
                     "/api/v1/generate/sessions",
                     json={
                         "project_id": "p-001",
-                        "output_type": "ppt",
+                        "output_type": SessionOutputType.PPT.value,
                         "options": {"pages": 10},
                     },
                 )
@@ -312,7 +313,10 @@ async def test_idempotency_prevents_duplicate_creation(app):
                 client = TestClient(app)
                 response = client.post(
                     "/api/v1/generate/sessions",
-                    json={"project_id": "p-001", "output_type": "ppt"},
+                    json={
+                        "project_id": "p-001",
+                        "output_type": SessionOutputType.PPT.value,
+                    },
                     headers={"Idempotency-Key": "123e4567-e89b-12d3-a456-426614174000"},
                 )
 

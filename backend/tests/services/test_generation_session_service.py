@@ -17,6 +17,7 @@ from services.generation_session_service import (
 from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
+    SessionOutputType,
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import (
@@ -28,7 +29,7 @@ from services.platform.state_transition_guard import (
 
 def _fake_session(
     state: str = GenerationState.AWAITING_OUTLINE_CONFIRM.value,
-    output_type: str = "both",
+    output_type: str = SessionOutputType.BOTH.value,
     options: Optional[str] = None,
 ):
     now = datetime.now(timezone.utc)
@@ -178,11 +179,12 @@ async def test_execute_command_returns_transition_payload(monkeypatch):
 @pytest.mark.anyio
 async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monkeypatch):
     session_before = _fake_session(
-        output_type="word",
+        output_type=SessionOutputType.WORD.value,
         options='{"template_config": {"style": "gaia"}}',
     )
     session_after = _fake_session(
-        state=GenerationState.GENERATING_CONTENT.value, output_type="word"
+        state=GenerationState.GENERATING_CONTENT.value,
+        output_type=SessionOutputType.WORD.value,
     )
     created_task = SimpleNamespace(id="task-101")
 
@@ -232,9 +234,10 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
 
 @pytest.mark.anyio
 async def test_execute_command_fallbacks_to_local_when_queue_unavailable(monkeypatch):
-    session_before = _fake_session(output_type="ppt")
+    session_before = _fake_session(output_type=SessionOutputType.PPT.value)
     session_after = _fake_session(
-        state=GenerationState.GENERATING_CONTENT.value, output_type="ppt"
+        state=GenerationState.GENERATING_CONTENT.value,
+        output_type=SessionOutputType.PPT.value,
     )
 
     db = SimpleNamespace(
@@ -270,9 +273,10 @@ async def test_execute_command_fallbacks_to_local_when_queue_unavailable(monkeyp
 
 @pytest.mark.anyio
 async def test_execute_command_fallbacks_to_local_when_enqueue_fails(monkeypatch):
-    session_before = _fake_session(output_type="ppt")
+    session_before = _fake_session(output_type=SessionOutputType.PPT.value)
     session_after = _fake_session(
-        state=GenerationState.GENERATING_CONTENT.value, output_type="ppt"
+        state=GenerationState.GENERATING_CONTENT.value,
+        output_type=SessionOutputType.PPT.value,
     )
 
     db = SimpleNamespace(
@@ -544,7 +548,7 @@ async def test_create_session_returns_quickly_without_waiting_for_outline():
     session_ref = await service.create_session(
         project_id="p-001",
         user_id="u-001",
-        output_type="ppt",
+        output_type=SessionOutputType.PPT.value,
         options={"pages": 10},
         task_queue_service=None,
     )
