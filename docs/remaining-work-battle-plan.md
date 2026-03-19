@@ -237,7 +237,8 @@
 1. 资源域闭环
 2. 生成域稳态化
 3. AI / Citation 收口
-4. PostgreSQL / 部署前准备
+4. 为 Studio 卡片功能补齐 card-ready 协议层
+5. PostgreSQL / 部署前准备
 
 这条顺序的理由很简单：
 

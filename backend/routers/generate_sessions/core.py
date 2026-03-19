@@ -237,6 +237,9 @@ async def get_capabilities(
 ):
     """返回服务端当前支持的契约版本、特性开关与弃用信息。"""
     from services.generation_session_service import _default_capabilities
+    from services.generation_session_service.card_capabilities import (
+        get_studio_card_capabilities,
+    )
     from services.platform.state_transition_guard import (
         VALID_COMMANDS,
         VALID_STATES,
@@ -254,6 +257,7 @@ async def get_capabilities(
                 "supported_commands": sorted(VALID_COMMANDS),
             },
             "capabilities": _default_capabilities(),
+            "studio_cards": get_studio_card_capabilities(),
             "state_machine": {
                 "states": sorted(VALID_STATES),
                 "terminal_states": [

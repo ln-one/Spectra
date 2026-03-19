@@ -426,3 +426,18 @@ async def test_export_response_contains_unified_artifact_anchor(app, _as_user):
     }
     assert body["data"]["artifact_id"] == "art-777"
     assert body["data"]["based_on_version_id"] == "ver-888"
+
+
+@pytest.mark.anyio
+async def test_get_capabilities_includes_studio_card_readiness(app, _as_user):
+    client = TestClient(app)
+
+    response = client.get("/api/v1/generate/capabilities")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    studio_cards = {card["id"]: card for card in data["studio_cards"]}
+
+    assert studio_cards["word_document"]["primary_capabilities"] == ["word", "handout"]
+    assert studio_cards["interactive_games"]["readiness"] == "protocol_pending"
+    assert studio_cards["classroom_qa_simulator"]["context_mode"] == "session"
