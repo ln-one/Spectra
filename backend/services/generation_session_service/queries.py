@@ -4,6 +4,7 @@ import json
 from typing import Optional
 
 from schemas.generation import build_generation_result_payload
+from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.capability_helpers import _default_capabilities
 from services.generation_session_service.serialization_helpers import (
     _to_generation_event,
@@ -25,14 +26,12 @@ async def get_session_snapshot(
     contract_version: str,
     schema_version: int,
 ) -> dict:
-    session = await db.generationsession.find_unique(
-        where={"id": session_id},
+    session = await get_owned_session(
+        db=db,
+        session_id=session_id,
+        user_id=user_id,
         include={"outlineVersions": True, "tasks": True},
     )
-    if session is None:
-        raise ValueError(f"Session not found: {session_id}")
-    if session.userId != user_id:
-        raise PermissionError("无权访问该会话")
 
     outline = None
     if session.outlineVersions:
@@ -113,21 +112,12 @@ async def get_session_runtime_state(
     session_id: str,
     user_id: str,
 ) -> dict:
-    session = await db.generationsession.find_unique(
-        where={"id": session_id},
-        select={
-            "userId": True,
-            "state": True,
-            "lastCursor": True,
-            "updatedAt": True,
-        },
+    session = await get_owned_session(
+        db=db,
+        session_id=session_id,
+        user_id=user_id,
+        select={"userId": True, "state": True, "lastCursor": True, "updatedAt": True},
     )
-    if session is None:
-        raise ValueError(f"Session not found: {session_id}")
-
-    owner_id = session.get("userId") if isinstance(session, dict) else session.userId
-    if owner_id != user_id:
-        raise PermissionError("无权访问该会话")
 
     state = session.get("state") if isinstance(session, dict) else session.state
     last_cursor = (
@@ -151,11 +141,7 @@ async def get_events(
     cursor: Optional[str] = None,
     limit: int = 50,
 ) -> list[dict]:
-    session = await db.generationsession.find_unique(where={"id": session_id})
-    if session is None:
-        raise ValueError(f"Session not found: {session_id}")
-    if session.userId != user_id:
-        raise PermissionError("无权访问该会话")
+    await get_owned_session(db=db, session_id=session_id, user_id=user_id)
 
     where: dict = {"sessionId": session_id}
     if cursor:

@@ -5,6 +5,7 @@ import logging
 import uuid
 from typing import Awaitable, Callable, Optional
 
+from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.capability_helpers import (
     _extract_template_config,
     _is_queue_worker_available,
@@ -45,11 +46,7 @@ async def load_and_validate_session(
     user_id: str,
     command: dict,
 ):
-    session = await db.generationsession.find_unique(where={"id": session_id})
-    if session is None:
-        raise ValueError(f"Session not found: {session_id}")
-    if session.userId != user_id:
-        raise PermissionError("无权访问该会话")
+    session = await get_owned_session(db=db, session_id=session_id, user_id=user_id)
 
     command_type = command.get("command_type", "")
     if command_type in execution_trigger_commands:
