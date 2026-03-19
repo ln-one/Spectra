@@ -10,6 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from services.file_upload_service import FileType, normalize_file_type
+
 from .base import BaseParseProvider
 
 
@@ -24,8 +26,9 @@ class LocalProvider(BaseParseProvider):
     ) -> tuple[str, dict[str, Any]]:
         path = Path(filepath)
         ext = path.suffix.lower()
+        normalized_file_type = normalize_file_type(file_type)
 
-        if file_type == "pdf" or ext == ".pdf":
+        if normalized_file_type == FileType.PDF or ext == ".pdf":
             return self._extract_pdf(path)
 
         # 纯文本类型（txt/md/csv）优先按扩展名短路，避免错误走 _extract_docx
@@ -33,10 +36,10 @@ class LocalProvider(BaseParseProvider):
             text = path.read_text(encoding="utf-8", errors="replace")
             return text, {"text_length": len(text)}
 
-        if file_type == "word" or ext in {".docx", ".doc"}:
+        if normalized_file_type == FileType.WORD or ext in {".docx", ".doc"}:
             return self._extract_docx(path)
 
-        if file_type == "ppt" or ext in {".pptx", ".ppt"}:
+        if normalized_file_type == FileType.PPT or ext in {".pptx", ".ppt"}:
             return self._extract_pptx(path)
 
         # 未知类型：尝试按文本读取

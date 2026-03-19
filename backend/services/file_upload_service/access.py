@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 from typing import Optional
 
 from services.database import db_service
@@ -36,44 +37,89 @@ ALLOWED_EXTENSIONS = _DEFAULT_EXTENSIONS | _EXTRA_EXTENSIONS
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(100 * 1024 * 1024)))
 
 
+class FileType(str, Enum):
+    PDF = "pdf"
+    WORD = "word"
+    PPT = "ppt"
+    VIDEO = "video"
+    IMAGE = "image"
+    OTHER = "other"
+
+
+_MIME_FILE_TYPE_MAP = {
+    "application/pdf": FileType.PDF,
+    "application/msword": FileType.WORD,
+    "application/vnd.ms-powerpoint": FileType.PPT,
+}
+
+_EXTENSION_FILE_TYPE_MAP = {
+    "pdf": FileType.PDF,
+    "docx": FileType.WORD,
+    "doc": FileType.WORD,
+    "txt": FileType.WORD,
+    "md": FileType.WORD,
+    "csv": FileType.WORD,
+    "pptx": FileType.PPT,
+    "ppt": FileType.PPT,
+    "mp4": FileType.VIDEO,
+    "mov": FileType.VIDEO,
+    "avi": FileType.VIDEO,
+    "webm": FileType.VIDEO,
+    "jpg": FileType.IMAGE,
+    "jpeg": FileType.IMAGE,
+    "png": FileType.IMAGE,
+    "gif": FileType.IMAGE,
+    "webp": FileType.IMAGE,
+}
+
+_LEGACY_FILE_TYPE_ALIASES = {
+    "document": FileType.WORD,
+    "docx": FileType.WORD,
+    "doc": FileType.WORD,
+    "text": FileType.WORD,
+    "txt": FileType.WORD,
+    "md": FileType.WORD,
+    "csv": FileType.WORD,
+    "presentation": FileType.PPT,
+    "pptx": FileType.PPT,
+    "other": FileType.OTHER,
+}
+
+
+def normalize_file_type(file_type: str | FileType) -> FileType:
+    if isinstance(file_type, FileType):
+        return file_type
+
+    normalized = (file_type or "").strip().lower()
+    if normalized in FileType._value2member_map_:
+        return FileType(normalized)
+
+    alias = _LEGACY_FILE_TYPE_ALIASES.get(normalized)
+    if alias is not None:
+        return alias
+
+    return FileType.PDF
+
+
 def resolve_file_type(filename: str, mime_type: Optional[str] = None) -> str:
     ext = filename.split(".")[-1].lower() if "." in filename else ""
     if mime_type:
-        if mime_type == "application/pdf":
-            return "pdf"
-        if mime_type.startswith("text/"):
-            return "word"
-        if "wordprocessingml" in mime_type or mime_type in {"application/msword"}:
-            return "word"
-        if "presentationml" in mime_type or mime_type in {
-            "application/vnd.ms-powerpoint"
-        }:
-            return "ppt"
-        if mime_type.startswith("video/"):
-            return "video"
-        if mime_type.startswith("image/"):
-            return "image"
+        normalized_mime = mime_type.strip().lower()
+        if normalized_mime.startswith("text/"):
+            return FileType.WORD.value
+        if normalized_mime.startswith("video/"):
+            return FileType.VIDEO.value
+        if normalized_mime.startswith("image/"):
+            return FileType.IMAGE.value
+        if "wordprocessingml" in normalized_mime:
+            return FileType.WORD.value
+        if "presentationml" in normalized_mime:
+            return FileType.PPT.value
+        mapped_mime = _MIME_FILE_TYPE_MAP.get(normalized_mime)
+        if mapped_mime is not None:
+            return mapped_mime.value
 
-    file_type_map = {
-        "pdf": "pdf",
-        "docx": "word",
-        "doc": "word",
-        "txt": "word",
-        "md": "word",
-        "csv": "word",
-        "pptx": "ppt",
-        "ppt": "ppt",
-        "mp4": "video",
-        "mov": "video",
-        "avi": "video",
-        "webm": "video",
-        "jpg": "image",
-        "jpeg": "image",
-        "png": "image",
-        "gif": "image",
-        "webp": "image",
-    }
-    return file_type_map.get(ext, "pdf")
+    return _EXTENSION_FILE_TYPE_MAP.get(ext, FileType.PDF).value
 
 
 async def verify_project_access(project_id: str, user_id: str):

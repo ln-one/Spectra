@@ -13,6 +13,7 @@ import os
 import uuid
 from typing import Any
 
+from services.file_upload_service import FileType, normalize_file_type
 from services.parsers import get_parser
 
 from .direct_extractors import (
@@ -29,12 +30,13 @@ def extract_text_for_rag(
     filepath: str, filename: str, file_type: str
 ) -> tuple[str, dict[str, Any]]:
     """从文件中提取可用于 RAG 的文本及解析详情。"""
+    normalized_file_type = normalize_file_type(file_type)
     details: dict[str, Any] = {}
 
-    if file_type == "image":
+    if normalized_file_type == FileType.IMAGE:
         return extract_image_placeholder(filename)
 
-    if file_type == "video":
+    if normalized_file_type == FileType.VIDEO:
         return extract_video_placeholder(filepath, filename)
 
     plain_text = extract_plain_text(filepath)
@@ -51,15 +53,17 @@ def extract_text_for_rag(
         if parser.name != primary_provider_name and primary_provider_name != "local":
             raise ValueError(f"provider_unavailable:{primary_provider_name}")
 
-        if not parser.supports(file_type) and parser.name != "local":
+        if not parser.supports(normalized_file_type.value) and parser.name != "local":
             logger.warning(
                 "Provider %s 不支持 file_type=%s，尝试 fallback chain",
                 parser.name,
-                file_type,
+                normalized_file_type.value,
             )
-            raise ValueError(f"unsupported_file_type:{file_type}")
+            raise ValueError(f"unsupported_file_type:{normalized_file_type.value}")
 
-        text, parse_details = parser.extract_text(filepath, filename, file_type)
+        text, parse_details = parser.extract_text(
+            filepath, filename, normalized_file_type.value
+        )
         if text and len(text.strip()) > 0:
             details.update(parse_details)
             details["capability_status"] = build_available_status(parser.name, trace_id)
@@ -77,7 +81,7 @@ def extract_text_for_rag(
         return extract_with_fallback(
             filepath=filepath,
             filename=filename,
-            file_type=file_type,
+            file_type=normalized_file_type.value,
             trace_id=trace_id,
             details=details,
             primary_provider_name=primary_provider_name,
