@@ -8,6 +8,7 @@ from schemas.project_member_semantics import (
     resolve_project_member_permissions,
 )
 from schemas.project_space import (
+    ArtifactType,
     ArtifactVisibility,
     CandidateChangeStatus,
     ChangeType,
@@ -138,14 +139,18 @@ class ProjectSpaceMixin:
     async def get_project_artifacts(
         self,
         project_id: str,
-        type_filter: Optional[str] = None,
-        visibility_filter: Optional[str] = None,
+        type_filter: Optional[ArtifactType | str] = None,
+        visibility_filter: Optional[ArtifactVisibility | str] = None,
         owner_user_id_filter: Optional[str] = None,
         based_on_version_id_filter: Optional[str] = None,
     ):
         where: dict = {"projectId": project_id}
         if type_filter:
-            where["type"] = type_filter
+            where["type"] = (
+                type_filter.value
+                if isinstance(type_filter, ArtifactType)
+                else ArtifactType(type_filter).value
+            )
         if visibility_filter:
             where["visibility"] = _normalize_artifact_visibility(visibility_filter)
         if owner_user_id_filter:
@@ -190,13 +195,17 @@ class ProjectSpaceMixin:
     async def get_candidate_changes(
         self,
         project_id: str,
-        status: Optional[str] = None,
+        status: Optional[CandidateChangeStatus | str] = None,
         proposer_user_id: Optional[str] = None,
         session_id: Optional[str] = None,
     ):
         where: dict = {"projectId": project_id}
         if status:
-            where["status"] = status
+            where["status"] = (
+                status.value
+                if isinstance(status, CandidateChangeStatus)
+                else CandidateChangeStatus(status).value
+            )
         if proposer_user_id:
             where["proposerUserId"] = proposer_user_id
         if session_id:

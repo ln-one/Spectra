@@ -1,6 +1,10 @@
 from typing import Optional
 
-from schemas.project_space import ProjectPermission, ReferenceMode
+from schemas.project_space import (
+    CandidateChangeStatus,
+    ProjectPermission,
+    ReferenceMode,
+)
 from utils.exceptions import NotFoundException, ValidationException
 
 
@@ -138,7 +142,7 @@ async def get_candidate_changes(
     service,
     project_id: str,
     user_id: str,
-    status: Optional[str] = None,
+    status: Optional[CandidateChangeStatus | str] = None,
     proposer_user_id: Optional[str] = None,
     session_id: Optional[str] = None,
 ):

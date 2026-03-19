@@ -1,5 +1,7 @@
 from typing import Optional
 
+from schemas.project_space import ArtifactType, ArtifactVisibility
+
 from .artifact_semantics import normalize_artifact_visibility
 from .artifacts import create_artifact_with_file, get_artifact_storage_path
 
@@ -43,8 +45,8 @@ async def get_project_version(service, version_id: str):
 async def get_project_artifacts(
     service,
     project_id: str,
-    type_filter: Optional[str] = None,
-    visibility_filter: Optional[str] = None,
+    type_filter: Optional[ArtifactType | str] = None,
+    visibility_filter: Optional[ArtifactVisibility | str] = None,
     owner_user_id_filter: Optional[str] = None,
     based_on_version_id_filter: Optional[str] = None,
 ):

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from schemas.project_space import CandidateChangeStatus
+
 from .reference_validation import check_dag_cycle, validate_reference_creation
 from .references import create_candidate_change as create_candidate_change_record
 from .references import create_project_reference as create_project_reference_record
@@ -98,7 +100,7 @@ class ProjectSpaceReferenceAPIMixin:
         self,
         project_id: str,
         user_id: str,
-        status: Optional[str] = None,
+        status: Optional[CandidateChangeStatus | str] = None,
         proposer_user_id: Optional[str] = None,
         session_id: Optional[str] = None,
     ):

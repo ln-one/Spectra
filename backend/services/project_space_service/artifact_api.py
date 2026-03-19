@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from schemas.project_space import ArtifactType, ArtifactVisibility
+
 from .project_records import (
     create_artifact_with_file_response,
     get_artifact,
@@ -54,8 +56,8 @@ class ProjectSpaceArtifactAPIMixin:
     async def get_project_artifacts(
         self,
         project_id: str,
-        type_filter: Optional[str] = None,
-        visibility_filter: Optional[str] = None,
+        type_filter: Optional[ArtifactType | str] = None,
+        visibility_filter: Optional[ArtifactVisibility | str] = None,
         owner_user_id_filter: Optional[str] = None,
         based_on_version_id_filter: Optional[str] = None,
     ):
