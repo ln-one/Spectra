@@ -7,7 +7,9 @@ import routers.generate_sessions.candidate_change_api as candidate_change_router
 import routers.generate_sessions.commands as generate_sessions_commands_router
 import routers.generate_sessions.preview as generate_sessions_preview_router
 from main import app
+from schemas.project_space import CandidateChangeStatus
 from services.database import db_service
+from services.platform.state_transition_guard import GenerationState
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
 from utils.exceptions import ErrorCode
@@ -27,7 +29,7 @@ def _snapshot():
         "session": {
             "session_id": "s-candidate-001",
             "project_id": "p-candidate-001",
-            "state": "SUCCESS",
+            "state": GenerationState.SUCCESS.value,
             "render_version": 4,
         },
         "session_artifacts": [
@@ -56,7 +58,7 @@ def _fake_change(payload: str):
         payload=payload,
         sessionId="s-candidate-001",
         baseVersionId="v-010",
-        status="pending",
+        status=CandidateChangeStatus.PENDING.value,
         reviewComment=None,
         proposerUserId=_USER_ID,
         createdAt="2026-03-18T09:00:00Z",
@@ -69,7 +71,7 @@ def _confirm_result():
         "session": {
             "session_id": "s-candidate-001",
             "project_id": "p-candidate-001",
-            "state": "GENERATING_CONTENT",
+            "state": GenerationState.GENERATING_CONTENT.value,
         }
     }
 

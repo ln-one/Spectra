@@ -5,6 +5,7 @@ import pytest
 
 import routers.generate_sessions.preview as generate_sessions_preview_router
 from main import app
+from services.platform.state_transition_guard import GenerationState
 from utils.dependencies import get_current_user
 
 _USER_ID = "u-preview-001"
@@ -17,7 +18,7 @@ def _as_user():
     app.dependency_overrides.pop(get_current_user, None)
 
 
-def _snapshot(render_version: int = 3, state: str = "SUCCESS"):
+def _snapshot(render_version: int = 3, state: str = GenerationState.SUCCESS.value):
     return {
         "session": {
             "session_id": "s-preview-001",

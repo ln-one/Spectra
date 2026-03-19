@@ -16,6 +16,8 @@ from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
 )
+from services.platform.generation_event_constants import GenerationEventType
+from services.platform.state_transition_guard import GenerationState
 from utils.dependencies import get_current_user
 
 
@@ -43,7 +45,7 @@ def mock_db_service():
         id="s-001",
         projectId="p-001",
         userId="u-001",
-        state="DRAFTING_OUTLINE",
+        state=GenerationState.DRAFTING_OUTLINE.value,
         outputType="ppt",
         options=None,
         clientSessionId=None,
@@ -103,7 +105,7 @@ async def test_create_session_returns_quickly_and_schedules_outline(
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
-    assert data["data"]["session"]["state"] == "DRAFTING_OUTLINE"
+    assert data["data"]["session"]["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert data["data"]["session"]["session_id"] == "s-001"
 
 
@@ -123,7 +125,10 @@ async def test_sse_events_sequence_success_path():
         ),
         generationsession=SimpleNamespace(
             find_unique=AsyncMock(
-                return_value={"state": "DRAFTING_OUTLINE", "currentOutlineVersion": 0}
+                return_value={
+                    "state": GenerationState.DRAFTING_OUTLINE.value,
+                    "currentOutlineVersion": 0,
+                }
             ),
             update=AsyncMock(),
         ),
@@ -150,13 +155,28 @@ async def test_sse_events_sequence_success_path():
     event_calls = [
         call.kwargs["data"] for call in mock_db.sessionevent.create.await_args_list
     ]
-    progress_events = [e for e in event_calls if e["eventType"] == "progress.updated"]
-    outline_events = [e for e in event_calls if e["eventType"] == "outline.updated"]
-    state_events = [e for e in event_calls if e["eventType"] == "state.changed"]
+    progress_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.PROGRESS_UPDATED.value
+    ]
+    outline_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.OUTLINE_UPDATED.value
+    ]
+    state_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.STATE_CHANGED.value
+    ]
 
     assert progress_events
     assert outline_events
-    assert any(e["state"] == "AWAITING_OUTLINE_CONFIRM" for e in state_events)
+    assert any(
+        e["state"] == GenerationState.AWAITING_OUTLINE_CONFIRM.value
+        for e in state_events
+    )
     payload = json.loads(outline_events[0]["payload"])
     assert payload["version"] == 1
     assert payload["change_reason"] == "drafted_async"
@@ -180,8 +200,14 @@ async def test_sse_events_sequence_failure_path():
         generationsession=SimpleNamespace(
             find_unique=AsyncMock(
                 side_effect=[
-                    {"state": "DRAFTING_OUTLINE", "currentOutlineVersion": 0},
-                    {"state": "DRAFTING_OUTLINE", "currentOutlineVersion": 0},
+                    {
+                        "state": GenerationState.DRAFTING_OUTLINE.value,
+                        "currentOutlineVersion": 0,
+                    },
+                    {
+                        "state": GenerationState.DRAFTING_OUTLINE.value,
+                        "currentOutlineVersion": 0,
+                    },
                 ]
             ),
             update=AsyncMock(),
@@ -204,7 +230,11 @@ async def test_sse_events_sequence_failure_path():
     event_calls = [
         call.kwargs["data"] for call in mock_db.sessionevent.create.await_args_list
     ]
-    failed_events = [e for e in event_calls if e["eventType"] == "task.failed"]
+    failed_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.TASK_FAILED.value
+    ]
     assert len(failed_events) == 1
     failed_payload = json.loads(failed_events[0]["payload"])
     assert failed_payload["stage"] == "outline_draft"
@@ -226,7 +256,7 @@ async def test_sse_events_sequence_failure_path():
         if "state" in (call.kwargs.get("data") or {})
     ]
     assert any(
-        update.get("state") == "AWAITING_OUTLINE_CONFIRM"
+        update.get("state") == GenerationState.AWAITING_OUTLINE_CONFIRM.value
         and update.get("stateReason")
         == OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY
         for update in state_updates
@@ -298,7 +328,7 @@ async def test_preview_response_contains_unified_artifact_anchor(app, _as_user):
         get_session_snapshot=AsyncMock(
             return_value={
                 "session": {
-                    "state": "SUCCESS",
+                    "state": GenerationState.SUCCESS.value,
                     "project_id": "p-001",
                     "render_version": 3,
                 }
@@ -347,7 +377,7 @@ async def test_export_response_contains_unified_artifact_anchor(app, _as_user):
         get_session_snapshot=AsyncMock(
             return_value={
                 "session": {
-                    "state": "SUCCESS",
+                    "state": GenerationState.SUCCESS.value,
                     "project_id": "p-001",
                     "render_version": 2,
                 },
