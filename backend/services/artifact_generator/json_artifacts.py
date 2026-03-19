@@ -2,6 +2,8 @@ import json
 import logging
 from typing import Any, Dict
 
+from schemas.project_space import ArtifactType
+
 logger = logging.getLogger(__name__)
 
 
@@ -9,7 +11,9 @@ class ArtifactJsonMixin:
     async def generate_mindmap(
         self, content: Dict[str, Any], project_id: str, artifact_id: str
     ) -> str:
-        storage_path = self.get_storage_path(project_id, "mindmap", artifact_id)
+        storage_path = self.get_storage_path(
+            project_id, ArtifactType.MINDMAP.value, artifact_id
+        )
         mindmap_data = {
             "title": content.get("title", "思维导图"),
             "nodes": content.get("nodes", []),
@@ -31,7 +35,9 @@ class ArtifactJsonMixin:
     async def generate_outline(
         self, content: Dict[str, Any], project_id: str, artifact_id: str
     ) -> str:
-        storage_path = self.get_storage_path(project_id, "summary", artifact_id)
+        storage_path = self.get_storage_path(
+            project_id, ArtifactType.SUMMARY.value, artifact_id
+        )
         outline_data = {
             "title": content.get("title", "课程大纲"),
             "sections": content.get("sections", []),
@@ -45,7 +51,9 @@ class ArtifactJsonMixin:
     async def generate_quiz(
         self, content: Dict[str, Any], project_id: str, artifact_id: str
     ) -> str:
-        storage_path = self.get_storage_path(project_id, "exercise", artifact_id)
+        storage_path = self.get_storage_path(
+            project_id, ArtifactType.EXERCISE.value, artifact_id
+        )
         quiz_data = {
             "title": content.get("title", "练习题"),
             "questions": content.get("questions", []),
@@ -63,7 +71,9 @@ class ArtifactJsonMixin:
     async def generate_summary(
         self, content: Dict[str, Any], project_id: str, artifact_id: str
     ) -> str:
-        storage_path = self.get_storage_path(project_id, "summary", artifact_id)
+        storage_path = self.get_storage_path(
+            project_id, ArtifactType.SUMMARY.value, artifact_id
+        )
         summary_data = {
             "title": content.get("title", "课程总结"),
             "summary": content.get("summary", ""),

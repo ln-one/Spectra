@@ -12,6 +12,7 @@ from utils.exceptions import ValidationException
 from .artifact_semantics import (
     ARTIFACT_MODE_KIND_MAP,
     SUPPORTED_FILE_ARTIFACT_TYPES,
+    ArtifactMetadataKind,
     default_artifact_content,
     get_artifact_capability,
     normalize_artifact_type,
@@ -59,9 +60,15 @@ def normalize_artifact_content(
         normalized.setdefault("title", title)
         normalized["kind"] = kind
 
-    if artifact_type == ArtifactType.SUMMARY.value and mode == "outline":
+    if (
+        artifact_type == ArtifactType.SUMMARY.value
+        and mode == ArtifactMetadataKind.OUTLINE.value
+    ):
         normalized["nodes"] = normalized.get("nodes") or []
-    elif artifact_type == ArtifactType.HTML.value and mode == "animation_storyboard":
+    elif (
+        artifact_type == ArtifactType.HTML.value
+        and mode == ArtifactMetadataKind.ANIMATION_STORYBOARD.value
+    ):
         normalized["html"] = incoming.get("html") or _build_animation_storyboard_html(
             normalized
         )
