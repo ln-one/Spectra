@@ -111,9 +111,10 @@
 
 ### `classroom_qa_simulator`
 
-- `readiness`: `protocol_pending`
+- `readiness`: `foundation_ready`
 - `execution_mode`: `composite`
-- `context_mode`: `session`
+- `context_mode`: `hybrid`
+- 说明：summary artifact 预演脚本与初始执行已具备，虚拟学生多轮问答仍待补齐
 
 ## 5. 集成建议
 
@@ -231,7 +232,8 @@
 
 - `speaker_notes`
 
-而 `interactive_games / classroom_qa_simulator` 仍保持诚实的 `protocol_pending`，不会假装已经完成。
+而 `classroom_qa_simulator` 现在也已具备 foundation-ready 的预演原型协议；
+更深的虚拟学生多轮问答仍诚实保留为后续协议。
 
 ## 9. 源成果绑定
 

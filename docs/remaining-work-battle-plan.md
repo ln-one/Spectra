@@ -275,7 +275,7 @@
 
 1. 再把 `word_document / interactive_quick_quiz / knowledge_mindmap / demonstration_animations`
    从“初始一键落地执行”推进到“refine 协议也能正式执行”
-2. 继续把 `classroom_qa_simulator / interactive_games`
-   这些组合型卡片的专用协议
+2. 继续把 `classroom_qa_simulator`
+   从“预演脚本原型可执行”推进到“虚拟学生多轮问答正式执行”
 3. 再把 `speaker_notes`
    从“source-binding + 初始执行可用”推进到“提词器段落级 refine 正式执行”

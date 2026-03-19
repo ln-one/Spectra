@@ -240,12 +240,12 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
     StudioCardCapability(
         id="classroom_qa_simulator",
         title="学情预演",
-        readiness=StudioCardReadiness.PROTOCOL_PENDING,
-        context_mode=StudioCardContextMode.SESSION,
+        readiness=StudioCardReadiness.FOUNDATION_READY,
+        context_mode=StudioCardContextMode.HYBRID,
         execution_mode=StudioCardExecutionMode.COMPOSITE,
         primary_capabilities=["qa_simulator", "chat"],
         related_capabilities=["rag", "summary", "outline"],
-        artifact_types=[],
+        artifact_types=["summary"],
         supports_chat_refine=True,
         config_fields=[
             StudioCardConfigField(
@@ -275,6 +275,6 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
             StudioCardAction(type="generate", label="启动预演"),
             StudioCardAction(type="chat_refine", label="调整虚拟学生提问风格"),
         ],
-        notes="依赖 chat/session/rag 组合能力，虚拟学生协议与评估回路尚未正式建模。",
+        notes="预演脚本原型与初始执行已具备，虚拟学生协议与评估回路仍待补齐。",
     ),
 )

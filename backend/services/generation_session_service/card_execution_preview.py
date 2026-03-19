@@ -211,8 +211,23 @@ def build_studio_card_execution_preview(
     if card_id == "classroom_qa_simulator":
         return StudioCardExecutionPreview(
             card_id=card_id,
-            readiness=StudioCardReadiness.PROTOCOL_PENDING,
+            readiness=StudioCardReadiness.FOUNDATION_READY,
             initial_request=StudioCardResolvedRequest(
+                method="POST",
+                endpoint=f"/api/v1/projects/{project_id}/artifacts",
+                payload={
+                    "type": ArtifactType.SUMMARY.value,
+                    "visibility": artifact_visibility,
+                    "content": {
+                        "kind": "classroom_qa_simulator",
+                        "student_profiles": cfg.get("student_profiles", []),
+                        "question_focus": cfg.get("question_focus"),
+                        "turns": cfg.get("turns", 3),
+                    },
+                },
+                notes="学情预演当前先落成 summary artifact 预演脚本，作为后续虚拟问答回路的稳定输入。",
+            ),
+            refine_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/chat/messages",
                 payload={
@@ -220,11 +235,11 @@ def build_studio_card_execution_preview(
                     "message": "",
                     "metadata": {
                         "card_id": card_id,
-                        "student_profiles": cfg.get("student_profiles", []),
+                        "active_student_profile": cfg.get("active_student_profile"),
                         "question_focus": cfg.get("question_focus"),
                     },
                 },
-                notes="学情预演当前仍主要依赖 chat/session/rag 组合语义。",
+                notes="多轮虚拟学生追问仍先复用 chat 路径承托。",
             ),
         )
 
