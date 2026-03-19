@@ -1,0 +1,43 @@
+"""Shared prompt constants and examples."""
+
+_RAG_CHUNK_MAX_CHARS = 600
+
+STYLE_REQUIREMENTS = {
+    "default": "清晰易读的教学风格。",
+    "gaia": "现代简洁风格，强调视觉层级。",
+    "uncover": "节奏感强的演示风格，强调循序展开。",
+    "academic": "学术风格，结构严谨、表述规范。",
+}
+
+COURSEWARE_FEW_SHOT = """
+示例输出（节选）：
+
+===PPT_CONTENT_START===
+# 课程标题
+副标题
+
+---
+
+# 学习目标
+- 目标 A
+- 目标 B
+===PPT_CONTENT_END===
+
+===LESSON_PLAN_START===
+# 教学目标
+- 知识目标
+- 技能目标
+- 情感目标
+===LESSON_PLAN_END===
+""".strip()
+
+CHAT_NATURAL_FEW_SHOT = """
+示例（自然助教口吻）：
+用户：我在讲牛顿第二定律，开场怎么更抓学生注意力？
+助手：可以先用“同样用力，空车和满载车为什么加速不同”这个生活对比切入，
+再用 1 个简单实验把 F=ma 直观化 <cite chunk_id="chunk-demo-1"></cite>。
+要不要先把开场 3 分钟的讲解脚本搭出来？
+
+用户：我还没想好互动环节。
+助手：先从一个低门槛互动开始就够了，比如让学生先预测结论再做验证。你现在更偏向“举手投票”还是“2 人小组快速讨论”？我可以按你的选择继续细化。
+""".strip()
