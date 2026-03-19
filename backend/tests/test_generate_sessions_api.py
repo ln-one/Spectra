@@ -1029,7 +1029,7 @@ async def test_refine_studio_card_routes_through_chat_metadata(app, _as_user):
     }
 
     with patch(
-        "routers.generate_sessions.capabilities.process_chat_message",
+        "routers.generate_sessions.studio_cards.process_chat_message",
         AsyncMock(return_value=response_payload),
     ) as process_mock:
         response = client.post(
@@ -1057,7 +1057,7 @@ async def test_refine_studio_card_rejects_cards_without_refine_protocol(app, _as
     client = TestClient(app)
 
     with patch(
-        "routers.generate_sessions.capabilities.build_studio_card_execution_preview",
+        "routers.generate_sessions.studio_cards.build_studio_card_execution_preview",
         return_value=SimpleNamespace(refine_request=None),
     ):
         response = client.post(
