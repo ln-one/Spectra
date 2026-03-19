@@ -204,7 +204,7 @@ export function ProjectHeader({
             className="group flex items-center gap-2 px-3 py-1.5 -ml-1.5 rounded-xl hover:bg-zinc-100/60 transition-all duration-300"
           >
             <h1 className="text-[30px] leading-[1.05] font-bold text-zinc-800 tracking-tight truncate max-w-[320px]">
-              {project?.name ?? "加载�?.."}
+              {project?.name ?? "加载中..."}
             </h1>
             <div className="flex items-center justify-center px-1.5 py-0.5 rounded-md bg-zinc-100 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-x-2 group-hover:translate-x-0">
               <span className="text-[18px] font-medium text-zinc-500">

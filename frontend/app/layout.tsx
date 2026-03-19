@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { AuthBootstrap } from "@/components/auth/AuthBootstrap";
 import { Toaster } from "@/components/ui/toaster";
 import { NotificationProvider } from "@/components/notification-provider";
 
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
+        <AuthBootstrap />
         {children}
         <Toaster />
         <NotificationProvider />
