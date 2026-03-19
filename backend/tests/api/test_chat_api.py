@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock
 import pytest
 
 from main import app
-from services import db_service
 from services.ai import ai_service
+from services.database import db_service
 from services.rag_service import rag_service
 from utils.dependencies import get_current_user
 

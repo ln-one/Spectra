@@ -13,7 +13,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from main import app
-from services import db_service
+from services.database import db_service
 from utils.dependencies import get_current_user
 
 _USER_ID = "u-test"

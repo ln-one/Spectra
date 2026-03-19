@@ -15,20 +15,18 @@ File:
 
 Current consumers:
 - Production code: none
-- Tests/scripts still using `from services import ...`:
-  - `/Users/ln1/Projects/Spectra/backend/tests/api/test_projects_api.py`
-  - `/Users/ln1/Projects/Spectra/backend/tests/api/test_observability.py`
-  - `/Users/ln1/Projects/Spectra/backend/tests/api/test_files_api.py`
-  - `/Users/ln1/Projects/Spectra/backend/tests/api/test_rag_api.py`
-  - `/Users/ln1/Projects/Spectra/backend/tests/api/test_contract_regression.py`
-  - `/Users/ln1/Projects/Spectra/backend/tests/api/test_chat_api.py`
-  - `/Users/ln1/Projects/Spectra/backend/tests/services/test_rag_indexing_service.py`
+- In-repo tests/scripts still using `from services import ...`: none
+- In-repo tests still using `import services.<module>` for direct module patching:
+  - `/Users/ln1/Projects/Spectra/backend/tests/ai/test_dashscope_connectivity.py`
+  - `/Users/ln1/Projects/Spectra/backend/tests/services/test_file_parser.py`
+  - `/Users/ln1/Projects/Spectra/backend/tests/services/test_capability_health.py`
+  - `/Users/ln1/Projects/Spectra/backend/tests/services/test_auth_service.py`
   - `/Users/ln1/Projects/Spectra/backend/tests/test_model_router.py`
 
 Assessment:
 - Keep for now.
 - No longer needed for production runtime wiring.
-- Safe next step is shrinking tests and scripts off it, not deleting it immediately.
+- The next safe step is shrinking direct test patching off package imports before deleting the bridge.
 
 ### Routers compatibility package
 

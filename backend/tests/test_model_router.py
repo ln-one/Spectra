@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services import ai as ai_module
+import services.ai as ai_module
 from services.ai import AIService
 from services.ai.model_router import ModelRouter, ModelRouteTask
 
