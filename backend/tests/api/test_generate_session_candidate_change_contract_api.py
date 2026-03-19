@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+import routers.generate_sessions.candidate_change_api as candidate_change_router
 import routers.generate_sessions.commands as generate_sessions_commands_router
 import routers.generate_sessions.preview as generate_sessions_preview_router
 from main import app
@@ -93,9 +94,7 @@ def _cached_change():
 
 def test_submit_session_candidate_change_success(client, monkeypatch, _as_user):
     svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
-    monkeypatch.setattr(
-        generate_sessions_commands_router, "_get_session_service", lambda: svc
-    )
+    monkeypatch.setattr(candidate_change_router, "_get_session_service", lambda: svc)
     monkeypatch.setattr(
         db_service,
         "get_project",
@@ -138,9 +137,7 @@ def test_submit_session_candidate_change_idempotency_hit_returns_cached(
     client, monkeypatch, _as_user
 ):
     svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
-    monkeypatch.setattr(
-        generate_sessions_commands_router, "_get_session_service", lambda: svc
-    )
+    monkeypatch.setattr(candidate_change_router, "_get_session_service", lambda: svc)
     monkeypatch.setattr(
         db_service,
         "get_idempotency_response",

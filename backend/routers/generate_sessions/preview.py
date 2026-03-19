@@ -51,6 +51,27 @@ _load_preview_material = load_session_preview_material
 _build_artifact_anchor = build_session_artifact_anchor
 
 
+async def _get_snapshot(session_id: str, user_id: str) -> dict:
+    svc = _get_session_service()
+    try:
+        return await svc.get_session_snapshot(session_id, user_id)
+    except ValueError:
+        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
+    except PermissionError:
+        raise ForbiddenException(
+            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
+        )
+
+
+async def _resolve_anchor(session_id: str, snapshot: dict, artifact_id: Optional[str]):
+    bound_artifact = await _resolve_session_artifact_binding(
+        project_id=snapshot["session"]["project_id"],
+        session_id=session_id,
+        artifact_id=artifact_id,
+    )
+    return _build_artifact_anchor(session_id, bound_artifact)
+
+
 @router.get("/sessions/{session_id}/preview")
 async def get_session_preview(
     session_id: str,
@@ -58,15 +79,7 @@ async def get_session_preview(
     user_id: str = Depends(get_current_user),
 ):
     """获取会话预览（session 作用域）。"""
-    svc = _get_session_service()
-    try:
-        snapshot = await svc.get_session_snapshot(session_id, user_id)
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
+    snapshot = await _get_snapshot(session_id, user_id)
 
     try:
         ensure_previewable_state(snapshot)
@@ -78,13 +91,8 @@ async def get_session_preview(
         )
 
     project_id = snapshot["session"]["project_id"]
-    bound_artifact = await _resolve_session_artifact_binding(
-        project_id=project_id,
-        session_id=session_id,
-        artifact_id=artifact_id,
-    )
     task, slides, lesson_plan, _ = await _load_preview_material(session_id, project_id)
-    anchor = _build_artifact_anchor(session_id, bound_artifact)
+    anchor = await _resolve_anchor(session_id, snapshot, artifact_id)
 
     return success_response(
         data=build_preview_payload(
@@ -147,13 +155,8 @@ async def modify_session_preview(
     except ConflictError as exc:
         _raise_conflict(str(exc))
 
-    snapshot = await svc.get_session_snapshot(session_id, user_id)
-    bound_artifact = await _resolve_session_artifact_binding(
-        project_id=snapshot["session"]["project_id"],
-        session_id=session_id,
-        artifact_id=body.get("artifact_id"),
-    )
-    anchor = _build_artifact_anchor(session_id, bound_artifact)
+    snapshot = await _get_snapshot(session_id, user_id)
+    anchor = await _resolve_anchor(session_id, snapshot, body.get("artifact_id"))
 
     payload = build_modify_payload(
         session_id=session_id,
@@ -187,24 +190,11 @@ async def get_session_slide_preview(
     user_id: str = Depends(get_current_user),
 ):
     """获取单页幻灯片预览（session 作用域）。"""
-    svc = _get_session_service()
-    try:
-        snapshot = await svc.get_session_snapshot(session_id, user_id)
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
+    snapshot = await _get_snapshot(session_id, user_id)
 
     project_id = snapshot["session"]["project_id"]
-    bound_artifact = await _resolve_session_artifact_binding(
-        project_id=project_id,
-        session_id=session_id,
-        artifact_id=artifact_id,
-    )
     _, slides, lesson_plan, _ = await _load_preview_material(session_id, project_id)
-    anchor = _build_artifact_anchor(session_id, bound_artifact)
+    anchor = await _resolve_anchor(session_id, snapshot, artifact_id)
 
     try:
         selected_slide, teaching_plan, related_slides = resolve_slide_preview(
@@ -241,15 +231,7 @@ async def export_session(
     body = body or {}
     parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
     parsed_idempotency_key = _parse_idempotency_key(idempotency_key)
-    svc = _get_session_service()
-    try:
-        snapshot = await svc.get_session_snapshot(session_id, user_id)
-    except ValueError:
-        raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
-    except PermissionError:
-        raise ForbiddenException(
-            message="无权访问该会话", error_code=ErrorCode.FORBIDDEN
-        )
+    snapshot = await _get_snapshot(session_id, user_id)
 
     expected_render_version = body.get("expected_render_version")
     if expected_render_version is not None:
@@ -266,15 +248,10 @@ async def export_session(
         _raise_conflict(str(exc))
 
     project_id = snapshot["session"]["project_id"]
-    bound_artifact = await _resolve_session_artifact_binding(
-        project_id=project_id,
-        session_id=session_id,
-        artifact_id=body.get("artifact_id"),
-    )
     task, slides, lesson_plan, content = await _load_preview_material(
         session_id, project_id
     )
-    anchor = _build_artifact_anchor(session_id, bound_artifact)
+    anchor = await _resolve_anchor(session_id, snapshot, body.get("artifact_id"))
     export_format = str(body.get("format") or "markdown")
     payload = build_export_payload(
         session_id=session_id,
