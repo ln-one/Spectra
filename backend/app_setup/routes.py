@@ -2,16 +2,14 @@
 
 from fastapi import APIRouter, FastAPI
 
-from routers import (
-    auth_router,
-    chat_router,
-    files_router,
-    generate_sessions_router,
-    health_router,
-    project_space_router,
-    projects_router,
-    rag_router,
-)
+from routers.auth import router as auth_router
+from routers.chat import router as chat_router
+from routers.files import router as files_router
+from routers.generate_sessions import router as generate_sessions_router
+from routers.health import router as health_router
+from routers.project_space import router as project_space_router
+from routers.projects import router as projects_router
+from routers.rag import router as rag_router
 
 
 def register_routes(app: FastAPI) -> None:

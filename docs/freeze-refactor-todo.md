@@ -129,6 +129,8 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py
 
 ### 2. 清理兼容层
 
+执行参考：`/Users/ln1/Projects/Spectra/docs/legacy-interface-retirement-plan.md`
+
 重点关注：
 - `/Users/ln1/Projects/Spectra/backend/services/__init__.py`
 - 各模块 `__init__.py` 中历史兼容出口
