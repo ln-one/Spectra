@@ -1,226 +1,33 @@
-"use client";
+﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { projectsApi } from "@/lib/sdk";
-import { TokenStorage } from "@/lib/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
   Plus,
   FolderOpen,
-  Clock,
-  ChevronRight,
   Search,
   Grid3X3,
   List,
-  MoreVertical,
-  Trash2,
-  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-interface Project {
-  id: string;
-  name: string;
-  subject?: string;
-  grade_level?: string;
-  status: string;
-  created_at: string;
-}
-
-const statusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "草稿", color: "bg-zinc-100 text-zinc-600" },
-  active: { label: "进行中", color: "bg-blue-50 text-blue-600" },
-  completed: { label: "已完成", color: "bg-emerald-50 text-emerald-600" },
-  archived: { label: "已归档", color: "bg-zinc-50 text-zinc-500" },
-};
-
-function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "今天";
-  if (diffDays === 1) return "昨天";
-  if (diffDays < 7) return `${diffDays} 天前`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} 周前`;
-  return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
-}
-
-function ProjectCard({
-  project,
-  onClick,
-}: {
-  project: Project;
-  onClick: () => void;
-}) {
-  const status = statusConfig[project.status] || statusConfig.draft;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      whileHover={{ y: -2 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-      onClick={onClick}
-      className="group relative bg-white rounded-2xl border border-zinc-100 p-5 cursor-pointer hover:shadow-lg hover:border-zinc-200 transition-all duration-200"
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100 flex items-center justify-center group-hover:from-zinc-100 group-hover:to-zinc-150 transition-colors">
-          <FolderOpen className="w-6 h-6 text-zinc-400 group-hover:text-zinc-500 transition-colors" />
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-zinc-100 transition-all"
-            >
-              <MoreVertical className="w-4 h-4 text-zinc-400" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem className="gap-2">
-              <Settings className="w-4 h-4" />
-              设置
-            </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600">
-              <Trash2 className="w-4 h-4" />
-              删除
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <h3 className="font-semibold text-zinc-900 mb-1 truncate">
-        {project.name}
-      </h3>
-
-      {project.subject && (
-        <p className="text-sm text-zinc-500 mb-3">
-          {project.grade_level && `${project.grade_level} · `}
-          {project.subject}
-        </p>
-      )}
-
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-zinc-50">
-        <span
-          className={cn(
-            "text-xs font-medium px-2.5 py-1 rounded-full",
-            status.color
-          )}
-        >
-          {status.label}
-        </span>
-        <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-          <Clock className="w-3.5 h-3.5" />
-          {formatDate(project.created_at)}
-        </div>
-      </div>
-
-      <div className="absolute right-4 bottom-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        <ChevronRight className="w-5 h-5 text-zinc-300" />
-      </div>
-    </motion.div>
-  );
-}
-
-function ProjectListItem({
-  project,
-  onClick,
-}: {
-  project: Project;
-  onClick: () => void;
-}) {
-  const status = statusConfig[project.status] || statusConfig.draft;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 12 }}
-      onClick={onClick}
-      className="group flex items-center gap-4 p-4 bg-white rounded-xl border border-zinc-100 cursor-pointer hover:border-zinc-200 hover:shadow-sm transition-all duration-200"
-    >
-      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-zinc-50 to-zinc-100 flex items-center justify-center shrink-0">
-        <FolderOpen className="w-5 h-5 text-zinc-400" />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-zinc-900 truncate">{project.name}</h3>
-        {project.subject && (
-          <p className="text-sm text-zinc-500">
-            {project.grade_level && `${project.grade_level} · `}
-            {project.subject}
-          </p>
-        )}
-      </div>
-
-      <span
-        className={cn(
-          "text-xs font-medium px-2.5 py-1 rounded-full shrink-0",
-          status.color
-        )}
-      >
-        {status.label}
-      </span>
-
-      <div className="flex items-center gap-1.5 text-xs text-zinc-400 shrink-0">
-        <Clock className="w-3.5 h-3.5" />
-        {formatDate(project.created_at)}
-      </div>
-
-      <ChevronRight className="w-5 h-5 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-    </motion.div>
-  );
-}
+import { ProjectCard, ProjectListItem } from "./ProjectItems";
+import { useProjectsPageState } from "./useProjectsPageState";
 
 export default function ProjectsPage() {
-  const router = useRouter();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-
-  const fetchProjects = useCallback(async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
-    try {
-      const response = await projectsApi.getProjects();
-      setProjects(response?.data?.projects ?? []);
-    } catch (error) {
-      console.error("Failed to fetch projects:", error);
-      const message = error instanceof Error ? error.message : "加载项目失败";
-      setErrorMessage(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const token = TokenStorage.getAccessToken();
-    if (!token) {
-      router.push("/auth/login");
-      return;
-    }
-
-    fetchProjects();
-  }, [router, fetchProjects]);
-
-  const filteredProjects = projects.filter((project) =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const {
+    router,
+    projects,
+    isLoading,
+    errorMessage,
+    searchQuery,
+    setSearchQuery,
+    viewMode,
+    setViewMode,
+    filteredProjects,
+    fetchProjects,
+  } = useProjectsPageState();
 
   if (isLoading) {
     return (
@@ -263,9 +70,7 @@ export default function ProjectsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-zinc-900">我的项目</h1>
-              <p className="text-sm text-zinc-500 mt-0.5">
-                {projects.length} 个项目
-              </p>
+              <p className="text-sm text-zinc-500 mt-0.5">{projects.length} 个项目</p>
             </div>
             <Button
               onClick={() => router.push("/projects/new")}
@@ -321,38 +126,35 @@ export default function ProjectsPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-24"
+            className="rounded-3xl border border-zinc-100 bg-white p-12 text-center"
           >
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-6 shadow-inner">
-              <FolderOpen className="w-10 h-10 text-zinc-300" />
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center mb-4">
+              <FolderOpen className="w-8 h-8 text-zinc-400" />
             </div>
-            <h2 className="text-xl font-semibold text-zinc-900 mb-2">
-              还没有项目
-            </h2>
-            <p className="text-zinc-500 mb-6 text-center max-w-sm">
-              创建你的第一个项目，开始使用 Spectra 的强大功能
-            </p>
+            <h2 className="text-xl font-semibold text-zinc-900">还没有项目</h2>
+            <p className="text-zinc-500 mt-2 mb-6">创建第一个项目开始使用 Spectra</p>
             <Button
               onClick={() => router.push("/projects/new")}
-              className="gap-2 bg-zinc-900 hover:bg-zinc-800 rounded-full px-6"
+              className="rounded-full px-6 bg-zinc-900 hover:bg-zinc-800"
             >
-              <Plus className="w-4 h-4" />
-              创建第一个项目
+              <Plus className="w-4 h-4 mr-2" />
+              新建项目
             </Button>
           </motion.div>
         ) : filteredProjects.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-16"
-          >
-            <Search className="w-12 h-12 text-zinc-300 mb-4" />
-            <p className="text-zinc-500">没有找到匹配的项目</p>
-          </motion.div>
+          <div className="rounded-2xl border border-zinc-100 bg-white p-10 text-center text-zinc-500">
+            没有匹配的项目
+          </div>
         ) : (
           <AnimatePresence mode="popLayout">
             {viewMode === "grid" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <motion.div
+                key="grid"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
+              >
                 {filteredProjects.map((project) => (
                   <ProjectCard
                     key={project.id}
@@ -360,9 +162,15 @@ export default function ProjectsPage() {
                     onClick={() => router.push(`/projects/${project.id}`)}
                   />
                 ))}
-              </div>
+              </motion.div>
             ) : (
-              <div className="space-y-2">
+              <motion.div
+                key="list"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-3"
+              >
                 {filteredProjects.map((project) => (
                   <ProjectListItem
                     key={project.id}
@@ -370,22 +178,10 @@ export default function ProjectsPage() {
                     onClick={() => router.push(`/projects/${project.id}`)}
                   />
                 ))}
-              </div>
+              </motion.div>
             )}
           </AnimatePresence>
         )}
-      </div>
-
-      <div className="fixed bottom-6 left-6">
-        <button
-          onClick={() => {
-            TokenStorage.clearTokens();
-            router.push("/auth/login");
-          }}
-          className="text-sm text-zinc-400 hover:text-zinc-600 transition-colors"
-        >
-          退出登录
-        </button>
       </div>
     </div>
   );

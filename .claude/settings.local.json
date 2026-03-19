@@ -21,7 +21,8 @@
       "Bash(black .:*)",
       "Bash(black:*)",
       "Bash(dos2unix:*)",
-      "Bash(flake8:*)"
+      "Bash(flake8:*)",
+      "Bash(xargs wc -l)"
     ]
   }
 }

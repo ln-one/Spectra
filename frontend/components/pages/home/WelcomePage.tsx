@@ -1,9 +1,7 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Loader2,
   Sparkles,
@@ -17,11 +15,9 @@ import {
   Star,
   Users,
   ChevronRight,
-  X,
   Play,
 } from "lucide-react";
 
-import { TokenStorage } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,6 +37,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useWelcomePageState } from "./useWelcomePageState";
+import { VideoModal } from "./VideoModal";
 
 // 功能特色数据
 const features = [
@@ -860,24 +858,8 @@ function LoadingState() {
 }
 
 export default function WelcomePage() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [showVideoModal, setShowVideoModal] = useState(false);
-
-  useEffect(() => {
-    const token = TokenStorage.getAccessToken();
-    // 已登录用户重定向到项目页面
-    if (token) {
-      router.push("/projects");
-      return;
-    }
-
-    const frame = requestAnimationFrame(() => {
-      setIsLoading(false);
-    });
-
-    return () => cancelAnimationFrame(frame);
-  }, [router]);
+  const { isLoading, showVideoModal, openVideoModal, closeVideoModal } =
+    useWelcomePageState();
 
   // 加载中
   if (isLoading) {
@@ -888,52 +870,16 @@ export default function WelcomePage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <HeroSection onShowVideo={() => setShowVideoModal(true)} />
+      <HeroSection onShowVideo={openVideoModal} />
       <StatsSection />
       <FeaturesSection />
       <WorkflowSection />
       <TestimonialsSection />
-      <CTASection onShowVideo={() => setShowVideoModal(true)} />
+      <CTASection onShowVideo={openVideoModal} />
       <Footer />
 
-      {/* 视频弹窗 */}
-      <AnimatePresence>
-        {showVideoModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-            onClick={() => setShowVideoModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="relative w-full max-w-4xl mx-4 bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                <h3 className="text-lg font-semibold text-white">产品演示</h3>
-                <button
-                  onClick={() => setShowVideoModal(false)}
-                  className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="aspect-video bg-zinc-800 flex flex-col items-center justify-center">
-                <div className="w-20 h-20 rounded-full bg-zinc-700 flex items-center justify-center mb-4">
-                  <Play className="w-8 h-8 text-zinc-400 ml-1" />
-                </div>
-                <p className="text-zinc-400 text-lg">演示视频暂未上线</p>
-                <p className="text-zinc-500 text-sm mt-2">敬请期待</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <VideoModal open={showVideoModal} onClose={closeVideoModal} />
     </div>
   );
 }
+

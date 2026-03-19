@@ -1,9 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
 import { TokenStorage } from "@/lib/auth";
 import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
@@ -18,36 +17,8 @@ import {
   StudioPanel,
 } from "@/components/project";
 import { LightRays } from "@/components/ui/light-rays";
-
-const springConfig = {
-  type: "spring",
-  stiffness: 280,
-  damping: 28,
-  mass: 1,
-} as const;
-
-const PAGE_GAP = 24;
-const PANEL_GAP = 12;
-const HEADER_TO_PANEL_GAP = 0;
-const PANEL_TOP_INSET = 0;
-const MIN_RESIZABLE_PANEL_WIDTH = 85;
-const MIN_EXPANDED_RIGHT_PANEL_WIDTH = 260;
-const COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX = 126;
-const COLLAPSED_SOURCES_WIDTH_PX = 85;
-const COLLAPSED_SOURCES_TRIGGER_WIDTH_PX = 180;
-const EXPANDED_SOURCES_COMFORT_WIDTH_PX = 280;
-const SOURCES_TITLE_SAFE_MIN_WIDTH_PX = 214;
-
-function formatSessionTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { ProjectDetailLoading, ProjectDetailNotFound } from "./ProjectDetailStates";
+import { COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX, COLLAPSED_SOURCES_TRIGGER_WIDTH_PX, COLLAPSED_SOURCES_WIDTH_PX, EXPANDED_SOURCES_COMFORT_WIDTH_PX, HEADER_TO_PANEL_GAP, MIN_EXPANDED_RIGHT_PANEL_WIDTH, MIN_RESIZABLE_PANEL_WIDTH, PAGE_GAP, PANEL_GAP, PANEL_TOP_INSET, SOURCES_TITLE_SAFE_MIN_WIDTH_PX, formatSessionTime, springConfig } from "./constants";
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -97,7 +68,7 @@ export default function ProjectDetailPage() {
   const sessionOptions: SessionSwitcherItem[] = generationHistory.map(
     (item) => ({
       sessionId: item.id,
-      title: `会话 ${item.id.slice(-6)}`,
+      title: `浼氳瘽 ${item.id.slice(-6)}`,
       updatedAt: formatSessionTime(item.createdAt),
     })
   );
@@ -218,12 +189,12 @@ export default function ProjectDetailPage() {
       await fetchGenerationHistory(projectId);
       await handleChangeSession(newSessionId);
       toast({
-        title: "已创建新会话",
-        description: `会话 ID：${newSessionId.slice(0, 8)}...`,
+        title: "宸插垱寤烘柊浼氳瘽",
+        description: `浼氳瘽 ID锛?{newSessionId.slice(0, 8)}...`,
       });
     } catch (error) {
       toast({
-        title: "创建会话失败",
+        title: "鍒涘缓浼氳瘽澶辫触",
         description: getErrorMessage(error),
         variant: "destructive",
       });
@@ -508,50 +479,11 @@ export default function ProjectDetailPage() {
   );
 
   if (isLoading) {
-    return (
-      <div className="h-screen bg-zinc-100 flex items-center justify-center relative overflow-hidden">
-        <LightRays
-          count={8}
-          color="rgba(180, 200, 255, 0.15)"
-          blur={40}
-          speed={16}
-          length="80vh"
-          className="opacity-70"
-        />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="flex flex-col items-center gap-3 relative z-10"
-        >
-          <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
-          <span className="text-sm text-zinc-500">加载中...</span>
-        </motion.div>
-      </div>
-    );
+    return <ProjectDetailLoading />;
   }
 
   if (!project) {
-    return (
-      <div className="h-screen bg-zinc-100 flex items-center justify-center relative overflow-hidden">
-        <LightRays
-          count={8}
-          color="rgba(180, 200, 255, 0.15)"
-          blur={40}
-          speed={16}
-          length="80vh"
-          className="opacity-70"
-        />
-        <div className="text-center relative z-10">
-          <p className="text-zinc-600">项目不存在</p>
-          <button
-            onClick={() => router.push("/projects")}
-            className="mt-4 px-4 py-2 bg-zinc-900 text-white text-sm rounded-full hover:bg-zinc-800 transition-colors"
-          >
-            返回项目列表
-          </button>
-        </div>
-      </div>
-    );
+    return <ProjectDetailNotFound onBack={() => router.push("/projects")} />;
   }
 
   const sourcesWidth = sourcesWidthPercent;
@@ -718,7 +650,7 @@ export default function ProjectDetailPage() {
 
       <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
         <p className="text-[10px] text-zinc-400">
-          Spectra 输出内容可能存在偏差，请在课堂使用前进行复核。
+          Spectra 杈撳嚭鍐呭鍙兘瀛樺湪鍋忓樊锛岃鍦ㄨ鍫備娇鐢ㄥ墠杩涜澶嶆牳銆?
         </p>
       </div>
 
@@ -730,3 +662,5 @@ export default function ProjectDetailPage() {
     </div>
   );
 }
+
+
