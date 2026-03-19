@@ -5,6 +5,10 @@ import logging
 from typing import Awaitable, Callable, Optional
 
 from schemas.generation import TaskStatus
+from services.generation_session_service.constants import (
+    DispatchFallbackReason,
+    DispatchMode,
+)
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 from services.task_executor.constants import (
@@ -59,7 +63,7 @@ def schedule_enqueued_task_watchdog(
             project_id=project_id,
             task_type=task_type,
             template_config=template_config,
-            fallback_reason="rq_job_failed_fallback_local_execution",
+            fallback_reason=DispatchFallbackReason.RQ_JOB_FAILED.value,
             enqueue_error=(enqueue_error or "")[:400],
         )
         if not scheduled:
@@ -109,7 +113,7 @@ async def schedule_local_execution(
                 state_reason=fallback_reason,
                 payload={
                     "task_id": task_id,
-                    "dispatch": "local_async",
+                    "dispatch": DispatchMode.LOCAL_ASYNC.value,
                     "reason": fallback_reason,
                     "enqueue_error": enqueue_error,
                 },

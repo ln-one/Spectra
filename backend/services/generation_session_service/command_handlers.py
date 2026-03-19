@@ -5,6 +5,7 @@ from typing import Awaitable, Callable, Optional
 
 from schemas.generation import TaskStatus
 from services.generation_session_service.capability_helpers import _normalize_task_type
+from services.generation_session_service.constants import SessionLifecycleReason
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationCommandType
 
@@ -198,7 +199,7 @@ async def handle_confirm_outline(
         payload={
             "confirmed": True,
             "task_id": task.id,
-            "reason": "outline_confirmed",
+            "reason": SessionLifecycleReason.OUTLINE_CONFIRMED.value,
         },
     )
     return task.id

@@ -10,6 +10,7 @@ from services.generation_session_service.capability_helpers import (
     _is_queue_worker_available,
     _normalize_task_type,
 )
+from services.generation_session_service.constants import DispatchFallbackReason
 from services.generation_session_service.serialization_helpers import _to_session_ref
 from services.platform.task_recovery import TaskRecoveryService
 
@@ -87,9 +88,9 @@ async def dispatch_created_task(
 
     if task_queue_service is None or not worker_available:
         fallback_reason = (
-            "task_queue_unavailable_fallback_local_execution"
+            DispatchFallbackReason.TASK_QUEUE_UNAVAILABLE.value
             if task_queue_service is None
-            else "task_queue_no_worker_fallback_local_execution"
+            else DispatchFallbackReason.TASK_QUEUE_NO_WORKER.value
         )
         scheduled = await schedule_local_execution(
             session_id=session_id,
@@ -149,11 +150,11 @@ async def dispatch_created_task(
             project_id=session.projectId,
             task_type=task_type,
             template_config=template_config,
-            fallback_reason="task_enqueue_failed_fallback_local_execution",
+            fallback_reason=DispatchFallbackReason.TASK_ENQUEUE_FAILED.value,
             enqueue_error=str(enqueue_err),
         )
         if scheduled:
-            warnings.append("task_enqueue_failed_fallback_local_execution")
+            warnings.append(DispatchFallbackReason.TASK_ENQUEUE_FAILED.value)
             return warnings
 
         await mark_dispatch_failed(

@@ -3,6 +3,7 @@
 import json
 from typing import Optional
 
+from services.generation_session_service.constants import SessionLifecycleReason
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
@@ -41,7 +42,7 @@ async def create_session(
         event_type=GenerationEventType.STATE_CHANGED.value,
         state=GenerationState.DRAFTING_OUTLINE.value,
         progress=0,
-        payload={"reason": "session_created"},
+        payload={"reason": SessionLifecycleReason.SESSION_CREATED.value},
     )
 
     await schedule_outline_draft_task(

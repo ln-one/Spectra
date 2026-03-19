@@ -7,6 +7,7 @@ from typing import Awaitable, Callable, Optional
 
 from services.ai import ai_service
 from services.generation_session_service.constants import (
+    OutlineChangeReason,
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
 )
@@ -157,7 +158,7 @@ async def _persist_success(*, db, session_id: str, outline_doc: dict) -> None:
             "sessionId": session_id,
             "version": 1,
             "outlineData": json.dumps(outline_doc),
-            "changeReason": "drafted_async",
+            "changeReason": OutlineChangeReason.DRAFTED_ASYNC.value,
         }
     )
     await db.generationsession.update(
@@ -178,7 +179,7 @@ async def _emit_outline_success(append_event, session_id: str, trace_id: str) ->
         progress=100,
         payload={
             "version": 1,
-            "change_reason": "drafted_async",
+            "change_reason": OutlineChangeReason.DRAFTED_ASYNC.value,
             "trace_id": trace_id,
         },
     )
@@ -249,7 +250,7 @@ async def _persist_failure_fallback(
             "sessionId": session_id,
             "version": 1,
             "outlineData": json.dumps(empty_outline),
-            "changeReason": "draft_failed_fallback_empty",
+            "changeReason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
         }
     )
     await db.generationsession.update(
@@ -271,7 +272,7 @@ async def _emit_outline_failure_state(
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         payload={
             "version": 1,
-            "change_reason": "draft_failed_fallback_empty",
+            "change_reason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
             "trace_id": trace_id,
         },
     )
