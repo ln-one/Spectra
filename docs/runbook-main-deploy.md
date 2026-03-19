@@ -34,6 +34,14 @@
    - 发布人
    - 是否涉及 schema / env / topology 变化
 
+建议生成一份发布记录：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_release_record.py \
+  --operator <name> \
+  --notes "Short rollout summary"
+```
+
 ---
 
 ## 二、发布前检查
@@ -79,6 +87,13 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py
 
 ```bash
 python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py --skip-network
+```
+
+如果要先生成发布记录骨架：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_release_record.py \
+  --operator <name>
 ```
 
 ---

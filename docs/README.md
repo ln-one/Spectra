@@ -33,6 +33,8 @@
 - [故障响应 Runbook](./runbook-incident-response.md)
 - `backend/scripts/deploy_preflight.py` - 发布前环境与网络预检
 - `backend/scripts/deploy_smoke_check.py` - 发布后基础链路 smoke check
+- `backend/scripts/deploy_release_record.py` - 生成 main 发布记录骨架
+- [发布记录目录](./release-records/README.md)
 
 ## 4. 规划与比赛
 

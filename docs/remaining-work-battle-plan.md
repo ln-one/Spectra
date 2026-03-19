@@ -180,6 +180,8 @@
 - `/Users/ln1/Projects/Spectra/backend/scripts/deploy_smoke_check.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py`
 - `/Users/ln1/Projects/Spectra/docs/deployment-env-contract.md`
+- `/Users/ln1/Projects/Spectra/backend/scripts/deploy_release_record.py`
+- `/Users/ln1/Projects/Spectra/docs/release-records/README.md`
 
 完成标志：
 
