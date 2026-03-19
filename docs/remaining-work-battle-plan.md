@@ -257,9 +257,10 @@
 2. `GET /api/v1/generate/studio-cards` 已暴露完整卡片目录
 3. `GET /api/v1/generate/studio-cards/{card_id}/execution-plan` 已暴露卡片执行绑定与协议缺口
 4. `POST /api/v1/generate/studio-cards/{card_id}/execution-preview` 已暴露配置到正式请求的映射预览
-5. `POST /api/v1/generate/studio-cards/{card_id}/execute` 已支持四张 `foundation_ready` 卡片的初始一键落地
+5. `POST /api/v1/generate/studio-cards/{card_id}/execute` 已支持 `word_document / interactive_quick_quiz / knowledge_mindmap / demonstration_animations / interactive_games / speaker_notes / classroom_qa_simulator` 的初始一键落地
 6. `GET /api/v1/generate/studio-cards/{card_id}/sources` 已开始暴露组合型卡片的 source-binding 候选
 7. `speaker_notes` 已推进到 `foundation_ready`，支持 `pptx` source-binding + 初始执行
+8. `interactive_games` 已具备正式 `refine_request`，可通过统一 `/studio-cards/{card_id}/refine` 通道进入 chat 语义回环
 5. 卡片协议已正式包含：
    - `readiness`
    - `context_mode`
@@ -273,13 +274,13 @@
 
 下一步重点：
 
-1. 再把 `word_document / interactive_quick_quiz / knowledge_mindmap / demonstration_animations`
-   从“初始一键落地执行”推进到“refine 协议也能正式执行”
+1. 再把 `word_document / interactive_quick_quiz / knowledge_mindmap / demonstration_animations / classroom_qa_simulator`
+   从“已有 refine_request”推进到“refine 协议正式执行”
 2. 继续把 `classroom_qa_simulator`
    从“预演脚本原型可执行”推进到“虚拟学生多轮问答正式执行”
 3. 再把 `speaker_notes`
-   从“source-binding + 初始执行可用”推进到“提词器段落级 refine 正式执行”
+   从“source-binding + refine 正式执行”推进到“提词器段落级 patch 协议成形”
 4. 继续把 `chat` 的 refine metadata
-   从“预览里可见”推进到“正式进入 prompt 语境与持久化记录”
+   从“已进入 prompt 语境与持久化记录”推进到“更稳定的 selection/source patch 语义”
 5. 把 `studio-cards/{card_id}/refine`
-   从“统一 chat 通道已打通”推进到“更多卡片具备正式 refine 执行能力”
+   从“统一 chat 通道已打通”推进到“更多卡片具备正式 refine 执行能力与稳定 payload”

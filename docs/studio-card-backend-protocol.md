@@ -160,7 +160,7 @@
 
 ### 当前重点
 
-`foundation_ready` 的四张卡片已经开始暴露 `execution-plan`：
+`foundation_ready` 的核心卡片现在都已经开始暴露 `execution-plan`：
 
 - `word_document`
 - `interactive_quick_quiz`
@@ -194,7 +194,7 @@
 - `speaker_notes`
 - `classroom_qa_simulator`
 
-这意味着 foundation-ready 的四张卡片，已经从：
+这意味着这些 foundation-ready 卡片，已经从：
 
 - “执行绑定已知”
 
@@ -245,6 +245,8 @@
 
 - `speaker_notes`
   的段落改写现在已经不只是“有预览”，而是能真正走 refine 执行通道
+- `interactive_games`
+  现在也已经具备正式 `refine_request`，游戏规则热更新可以走统一 refine 通道
 - 其他带 `refine_request` 的卡片，也可以沿同一路径继续收口
 
 执行结果会明确返回：
@@ -254,16 +256,19 @@
 - `session` 或 `artifact`
 - `request_preview`
 
-这意味着前端现在不只可以读取执行计划，也可以直接把四张 `foundation_ready` 卡片真正落成：
+这意味着前端现在不只可以读取执行计划，也可以直接把多张 `foundation_ready` 卡片真正落成：
 
 - 文档卡片 -> session
-- quiz / mindmap / animation 卡片 -> artifact
+- quiz / mindmap / animation / game / classroom-simulator 卡片 -> artifact
+- speaker-notes 卡片 -> 绑定 source artifact 后创建 session
 
 现在已经进入 `foundation_ready` 的包括：
 
+- `interactive_games`
 - `speaker_notes`
+- `classroom_qa_simulator`
 
-而 `classroom_qa_simulator` 现在也已具备 foundation-ready 的预演原型协议；
+而 `classroom_qa_simulator` 当前仍然是以“预演脚本原型”承托学情预演；
 更深的虚拟学生多轮问答仍诚实保留为后续协议。
 
 ## 9. 源成果绑定

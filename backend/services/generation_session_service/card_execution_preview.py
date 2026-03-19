@@ -221,6 +221,20 @@ def build_studio_card_execution_preview(
                 },
                 notes="互动游戏当前通过 HTML artifact 原型承托，配置已正式映射到 content。",
             ),
+            refine_request=StudioCardResolvedRequest(
+                method="POST",
+                endpoint="/api/v1/chat/messages",
+                payload={
+                    "project_id": project_id,
+                    "message": "",
+                    "metadata": {
+                        "card_id": card_id,
+                        "game_pattern": cfg.get("game_pattern", "freeform"),
+                        "sandbox_patch": cfg.get("sandbox_patch"),
+                    },
+                },
+                notes="游戏规则热更新当前先复用 chat 路径，并显式保留 sandbox patch 语义。",
+            ),
         )
 
     if card_id == "classroom_qa_simulator":

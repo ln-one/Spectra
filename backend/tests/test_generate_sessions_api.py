@@ -617,6 +617,32 @@ async def test_preview_studio_card_execution_returns_bound_classroom_payload(
 
 
 @pytest.mark.anyio
+async def test_preview_studio_card_execution_returns_bound_interactive_game_refine_payload(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/interactive_games/execution-preview",
+        json={
+            "project_id": "p-001",
+            "config": {
+                "game_pattern": "concept_match",
+                "sandbox_patch": {"replace": ["规则说明"]},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    preview = response.json()["data"]["execution_preview"]
+    assert preview["refine_request"]["endpoint"] == "/api/v1/chat/messages"
+    metadata = preview["refine_request"]["payload"]["metadata"]
+    assert metadata["card_id"] == "interactive_games"
+    assert metadata["game_pattern"] == "concept_match"
+    assert metadata["sandbox_patch"] == {"replace": ["规则说明"]}
+
+
+@pytest.mark.anyio
 async def test_preview_studio_card_execution_returns_bound_speaker_notes_refine_payload(
     app, _as_user
 ):
