@@ -20,6 +20,7 @@ from routers.generate_sessions.shared import (
     validate_positive_int,
 )
 from services.generation_session_service import ConflictError
+from services.platform.state_transition_guard import GenerationCommandType
 from services.preview_helpers import (
     build_export_payload,
     build_modify_payload,
@@ -132,7 +133,7 @@ async def modify_session_preview(
 
     parsed_idempotency_key = _parse_idempotency_key(idempotency_key)
     generation_command = {
-        "command_type": "REGENERATE_SLIDE",
+        "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
         "slide_id": slide_id,
         "patch": patch,
         "expected_render_version": body.get("expected_render_version"),

@@ -1,5 +1,6 @@
 from typing import Optional
 
+from schemas.project_space import ReferenceRelationType
 from schemas.projects import ProjectCreate, ProjectReferenceMode
 from utils.exceptions import APIException, NotFoundException, ValidationException
 
@@ -50,7 +51,7 @@ class ProjectMixin:
                 await self.create_project_reference(
                     project_id=project.id,
                     target_project_id=base_project_id,
-                    relation_type="base",
+                    relation_type=ReferenceRelationType.BASE.value,
                     mode=reference_mode_value,
                     pinned_version_id=pinned_version_id,
                     priority=0,

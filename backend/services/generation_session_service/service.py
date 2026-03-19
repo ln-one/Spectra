@@ -22,6 +22,7 @@ from services.generation_session_service.outline_helpers import (
 from services.generation_session_service.query_api import SessionQueryMixin
 from services.generation_session_service.task_runtime import SessionTaskRuntimeMixin
 from services.platform.state_transition_guard import (
+    GenerationCommandType,
     StateTransitionGuard,
     state_transition_guard,
 )
@@ -43,9 +44,9 @@ __all__ = [
     "_extract_outline_style",
 ]
 _EXECUTION_TRIGGER_COMMANDS = {
-    "CONFIRM_OUTLINE",
-    "RESUME_SESSION",
-    "REGENERATE_SLIDE",
+    GenerationCommandType.CONFIRM_OUTLINE.value,
+    GenerationCommandType.RESUME_SESSION.value,
+    GenerationCommandType.REGENERATE_SLIDE.value,
 }
 
 

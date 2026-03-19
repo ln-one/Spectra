@@ -3,6 +3,7 @@
 from typing import Optional, Set
 
 from schemas.project_space import ReferenceMode, ReferenceRelationType
+from schemas.projects import ProjectVisibility
 from utils.exceptions import (
     ConflictException,
     ForbiddenException,
@@ -60,11 +61,15 @@ async def validate_reference_creation(
     if not getattr(target_project, "isReferenceable", True):
         raise ValidationException(f"Target not referenceable: {target_project_id}")
 
-    target_visibility = getattr(target_project, "visibility", "private")
+    target_visibility = getattr(
+        target_project,
+        "visibility",
+        ProjectVisibility.PRIVATE.value,
+    )
     source_owner_id = getattr(source_project, "userId", None)
     target_owner_id = getattr(target_project, "userId", None)
     if (
-        target_visibility != "shared"
+        target_visibility != ProjectVisibility.SHARED.value
         and source_owner_id
         and target_owner_id
         and source_owner_id != target_owner_id
@@ -73,12 +78,12 @@ async def validate_reference_creation(
             "Target project is private across owners unless visibility is shared."
         )
 
-    if relation_type == "base":
+    if relation_type == ReferenceRelationType.BASE.value:
         existing_base = await db.get_base_reference(project_id)
         if existing_base:
             raise ConflictException("Project already has an active base reference.")
 
-    if mode == "pinned" and not pinned_version_id:
+    if mode == ReferenceMode.PINNED.value and not pinned_version_id:
         raise ValidationException("mode=pinned requires pinned_version_id")
 
     if pinned_version_id:

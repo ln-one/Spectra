@@ -56,7 +56,7 @@ async def update_project_reference(
             f"Reference {reference_id} not found in project {project_id}"
         )
 
-    if mode == "pinned" and not pinned_version_id:
+    if mode == ReferenceMode.PINNED.value and not pinned_version_id:
         raise ValidationException("mode=pinned requires pinned_version_id")
 
     if mode == ReferenceMode.FOLLOW.value and pinned_version_id is None:
