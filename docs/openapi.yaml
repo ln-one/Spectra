@@ -1067,6 +1067,45 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/generate/studio-cards/{card_id}/refine:
+    post:
+      summary: 执行单张 Studio 卡片 refine
+      operationId: postGenerateStudioCardRefine
+      description: 通过统一 chat 通道执行已暴露 refine 协议的卡片局部改写。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioCardRefineRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardRefineResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/generate/studio-cards/{card_id}/sources:
     get:
       summary: 获取 Studio 卡片可绑定源成果
@@ -3865,6 +3904,67 @@ components:
           properties:
             execution_result:
               $ref: '#/components/schemas/StudioCardExecutionResult'
+        message:
+          type: string
+    StudioCardRefineRequest:
+      type: object
+      required:
+        - project_id
+        - message
+      properties:
+        project_id:
+          type: string
+        session_id:
+          type: string
+        message:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        visibility:
+          type: string
+          enum:
+            - private
+            - project-visible
+            - shared
+        source_artifact_id:
+          type: string
+        rag_source_ids:
+          type: array
+          items:
+            type: string
+    StudioCardRefineResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - card_id
+            - message
+            - refine_request
+          properties:
+            card_id:
+              type: string
+            session_id:
+              type: string
+            message:
+              $ref: '#/components/schemas/Message'
+            rag_hit:
+              type: boolean
+            suggestions:
+              type: array
+              items:
+                type: string
+            observability:
+              $ref: '#/components/schemas/ChatObservability'
+            refine_request:
+              $ref: '#/components/schemas/StudioCardResolvedRequest'
         message:
           type: string
     StudioCardSourceArtifact:

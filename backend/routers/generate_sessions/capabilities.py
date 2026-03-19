@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
 
+from routers.chat.runtime import process_chat_message
 from routers.generate_sessions.shared import (
     CONTRACT_VERSION,
     get_session_service,
     get_task_queue_service,
 )
+from schemas.chat import SendMessageRequest
 from schemas.studio_cards import StudioCardExecutionPreviewRequest
 from services.generation_session_service import _default_capabilities
 from services.generation_session_service.card_capabilities import (
@@ -155,6 +157,62 @@ async def execute_studio_card(
         data={"execution_result": result.model_dump(mode="json")},
         message="Studio 卡片执行成功",
     )
+
+
+@router.post("/studio-cards/{card_id}/refine")
+async def refine_studio_card(
+    card_id: str,
+    body: dict,
+    user_id: str = Depends(get_current_user),
+):
+    """通过统一的 chat refine 通道执行卡片局部改写。"""
+    project_id = body.get("project_id")
+    message = body.get("message")
+    if not project_id:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="project_id 为必填字段",
+        )
+    if not message:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="message 为必填字段",
+        )
+
+    preview = build_studio_card_execution_preview(
+        card_id=card_id,
+        project_id=project_id,
+        config=body.get("config"),
+        visibility=body.get("visibility"),
+        source_artifact_id=body.get("source_artifact_id"),
+    )
+    if preview is None:
+        raise NotFoundException(
+            message="Studio 卡片不存在",
+            error_code=ErrorCode.NOT_FOUND,
+        )
+    if preview.refine_request is None:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="该 Studio 卡片当前尚未暴露 refine 协议",
+        )
+
+    payload = preview.refine_request.payload
+    chat_body = SendMessageRequest(
+        project_id=project_id,
+        session_id=body.get("session_id"),
+        content=message,
+        metadata=payload.get("metadata"),
+        rag_source_ids=body.get("rag_source_ids"),
+    )
+    result = await process_chat_message(chat_body, user_id=user_id)
+    result["data"]["card_id"] = card_id
+    result["data"]["refine_request"] = preview.refine_request.model_dump(mode="json")
+    result["message"] = "Studio 卡片 refine 成功"
+    return result
 
 
 @router.get("/studio-cards/{card_id}/sources")

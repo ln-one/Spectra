@@ -361,6 +361,45 @@
       '409':
         $ref: '../components/responses.yaml#/Conflict'
 
+/api/v1/generate/studio-cards/{card_id}/refine:
+  post:
+    summary: 执行单张 Studio 卡片 refine
+    operationId: postGenerateStudioCardRefine
+    description: 通过统一 chat 通道执行已暴露 refine 协议的卡片局部改写。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate-capabilities.yaml#/StudioCardRefineRequest'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardRefineResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
 /api/v1/generate/studio-cards/{card_id}/sources:
   get:
     summary: 获取 Studio 卡片可绑定源成果

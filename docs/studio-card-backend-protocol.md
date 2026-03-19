@@ -226,6 +226,27 @@
 - `knowledge_mindmap`
 - `demonstration_animations`
 
+## 9. Refine 执行
+
+`refine` 用来把卡片从“知道如何改”推进到“后端帮你通过统一 chat 通道真正执行改写”。
+
+当前已经支持：
+
+- `POST /api/v1/generate/studio-cards/{card_id}/refine`
+
+它的原则是：
+
+- 卡片先通过 `execution-preview` 生成正式 `refine_request`
+- 后端再把其中的 `metadata`
+  作为正式上下文送入 `/api/v1/chat/messages`
+- 因此 refine 不再只是前端拼 prompt，而是进入系统自己的语义回环
+
+这意味着：
+
+- `speaker_notes`
+  的段落改写现在已经不只是“有预览”，而是能真正走 refine 执行通道
+- 其他带 `refine_request` 的卡片，也可以沿同一路径继续收口
+
 执行结果会明确返回：
 
 - `transport`

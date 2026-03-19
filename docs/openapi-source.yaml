@@ -73,6 +73,8 @@ paths:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1execution-preview'
   /api/v1/generate/studio-cards/{card_id}/execute:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1execute'
+  /api/v1/generate/studio-cards/{card_id}/refine:
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1refine'
   /api/v1/generate/studio-cards/{card_id}/sources:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1sources'
 

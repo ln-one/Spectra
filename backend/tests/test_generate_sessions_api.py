@@ -979,3 +979,65 @@ async def test_execute_studio_card_requires_source_artifact_for_speaker_notes(
     assert response.status_code == 400
     payload = response.json()
     assert payload["detail"]["code"] == "INVALID_INPUT"
+
+
+@pytest.mark.anyio
+async def test_refine_studio_card_routes_through_chat_metadata(app, _as_user):
+    client = TestClient(app)
+    response_payload = {
+        "success": True,
+        "data": {
+            "session_id": "s-001",
+            "message": {
+                "id": "m-001",
+                "role": "assistant",
+                "content": "已改写过渡语",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "citations": [],
+            },
+            "rag_hit": False,
+            "suggestions": ["继续优化"],
+            "observability": {"route_task": "chat_response"},
+        },
+        "message": "消息发送成功",
+    }
+
+    with patch(
+        "routers.generate_sessions.capabilities.process_chat_message",
+        AsyncMock(return_value=response_payload),
+    ) as process_mock:
+        response = client.post(
+            "/api/v1/generate/studio-cards/speaker_notes/refine",
+            json={
+                "project_id": "p-001",
+                "message": "把这一段改得更自然一些",
+                "source_artifact_id": "a-ppt-001",
+                "config": {"selected_script_segment": "slide-3:transition"},
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["message"] == "Studio 卡片 refine 成功"
+    assert body["data"]["card_id"] == "speaker_notes"
+    assert body["data"]["refine_request"]["endpoint"] == "/api/v1/chat/messages"
+    chat_body = process_mock.await_args.args[0]
+    assert chat_body.metadata["source_artifact_id"] == "a-ppt-001"
+    assert chat_body.metadata["selected_script_segment"] == "slide-3:transition"
+
+
+@pytest.mark.anyio
+async def test_refine_studio_card_rejects_cards_without_refine_protocol(app, _as_user):
+    client = TestClient(app)
+
+    with patch(
+        "routers.generate_sessions.capabilities.build_studio_card_execution_preview",
+        return_value=SimpleNamespace(refine_request=None),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/word_document/refine",
+            json={"project_id": "p-001", "message": "请改写"},
+        )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "RESOURCE_CONFLICT"
