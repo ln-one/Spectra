@@ -1,6 +1,11 @@
 import json
 from typing import Optional
 
+from schemas.project_reference_semantics import (
+    normalize_reference_mode,
+    normalize_reference_relation_type,
+    normalize_reference_status,
+)
 from schemas.project_space import ChangeType, ReferenceRelationType, ReferenceStatus
 
 
@@ -18,8 +23,8 @@ class ProjectSpaceReferenceMixin:
         data = {
             "projectId": project_id,
             "targetProjectId": target_project_id,
-            "relationType": relation_type,
-            "mode": mode,
+            "relationType": normalize_reference_relation_type(relation_type).value,
+            "mode": normalize_reference_mode(mode).value,
             "priority": priority,
         }
         if pinned_version_id:
@@ -30,7 +35,7 @@ class ProjectSpaceReferenceMixin:
 
     async def get_project_references(self, project_id: str):
         return await self.db.projectreference.find_many(
-            where={"projectId": project_id, "status": ReferenceStatus.ACTIVE},
+            where={"projectId": project_id, "status": ReferenceStatus.ACTIVE.value},
             order={"priority": "asc"},
         )
 
@@ -47,13 +52,13 @@ class ProjectSpaceReferenceMixin:
     ):
         data = {}
         if mode is not None:
-            data["mode"] = mode
+            data["mode"] = normalize_reference_mode(mode).value
         if pinned_version_id is not None:
             data["pinnedVersionId"] = pinned_version_id
         if priority is not None:
             data["priority"] = priority
         if status is not None:
-            data["status"] = status
+            data["status"] = normalize_reference_status(status).value
         return await self.db.projectreference.update(
             where={"id": reference_id}, data=data
         )
@@ -61,15 +66,15 @@ class ProjectSpaceReferenceMixin:
     async def delete_project_reference(self, reference_id: str):
         return await self.db.projectreference.update(
             where={"id": reference_id},
-            data={"status": ReferenceStatus.DISABLED},
+            data={"status": ReferenceStatus.DISABLED.value},
         )
 
     async def get_base_reference(self, project_id: str):
         return await self.db.projectreference.find_first(
             where={
                 "projectId": project_id,
-                "relationType": ReferenceRelationType.BASE,
-                "status": ReferenceStatus.ACTIVE,
+                "relationType": ReferenceRelationType.BASE.value,
+                "status": ReferenceStatus.ACTIVE.value,
             }
         )
 

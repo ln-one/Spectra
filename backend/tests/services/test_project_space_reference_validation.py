@@ -137,3 +137,25 @@ async def test_validate_reference_creation_accepts_cross_owner_shared_target():
         mode="follow",
         pinned_version_id=None,
     )
+
+
+def test_resolve_reference_pin_state_follow_clears_pin():
+    from schemas.project_reference_semantics import resolve_reference_pin_state
+    from schemas.project_space import ReferenceMode
+
+    mode, pinned_version_id = resolve_reference_pin_state(
+        ReferenceMode.FOLLOW, "v-stale"
+    )
+
+    assert mode is ReferenceMode.FOLLOW
+    assert pinned_version_id is None
+
+
+def test_normalize_reference_status_accepts_enum_and_string():
+    from schemas.project_reference_semantics import normalize_reference_status
+    from schemas.project_space import ReferenceStatus
+
+    assert normalize_reference_status("active") is ReferenceStatus.ACTIVE
+    assert (
+        normalize_reference_status(ReferenceStatus.DISABLED) is ReferenceStatus.DISABLED
+    )

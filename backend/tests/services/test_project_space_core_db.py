@@ -155,3 +155,29 @@ async def test_get_project_members_filters_active_member_status():
         "where": {"projectId": "p-001", "status": "active"},
         "order": {"createdAt": "asc"},
     }
+
+
+@pytest.mark.asyncio
+async def test_update_project_reference_normalizes_mode_and_status():
+    service = DatabaseService()
+    update_reference = AsyncMock(return_value=SimpleNamespace(id="r-001"))
+    service.db = SimpleNamespace(
+        projectreference=SimpleNamespace(update=update_reference)
+    )
+
+    await service.update_project_reference(
+        reference_id="r-001",
+        mode="follow",
+        pinned_version_id=None,
+        priority=2,
+        status="disabled",
+    )
+
+    assert update_reference.await_args.kwargs == {
+        "where": {"id": "r-001"},
+        "data": {
+            "mode": "follow",
+            "priority": 2,
+            "status": "disabled",
+        },
+    }

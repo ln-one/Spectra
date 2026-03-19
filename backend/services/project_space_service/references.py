@@ -1,5 +1,10 @@
 from typing import Optional
 
+from schemas.project_reference_semantics import (
+    normalize_reference_mode,
+    normalize_reference_status,
+    resolve_reference_pin_state,
+)
 from schemas.project_space import (
     CandidateChangeStatus,
     ProjectPermission,
@@ -21,18 +26,21 @@ async def create_project_reference(
     await service.check_project_permission(
         project_id, user_id, ProjectPermission.MANAGE
     )
+    normalized_mode, pinned_version_id = resolve_reference_pin_state(
+        mode, pinned_version_id
+    )
     await service.validate_reference_creation(
         project_id=project_id,
         target_project_id=target_project_id,
         relation_type=relation_type,
-        mode=mode,
+        mode=normalized_mode.value,
         pinned_version_id=pinned_version_id,
     )
     return await service.db.create_project_reference(
         project_id=project_id,
         target_project_id=target_project_id,
         relation_type=relation_type,
-        mode=mode,
+        mode=normalized_mode.value,
         pinned_version_id=pinned_version_id,
         priority=priority,
         created_by=user_id,
@@ -64,11 +72,21 @@ async def update_project_reference(
             f"Reference {reference_id} not found in project {project_id}"
         )
 
+    if mode is not None:
+        try:
+            normalized_mode = normalize_reference_mode(mode)
+        except ValueError as exc:
+            raise ValidationException("mode 仅支持 follow 或 pinned") from exc
+        mode = normalized_mode.value
+
+    if status is not None:
+        try:
+            status = normalize_reference_status(status).value
+        except ValueError as exc:
+            raise ValidationException("status 仅支持 active 或 disabled") from exc
+
     if mode == ReferenceMode.PINNED.value and not pinned_version_id:
         raise ValidationException("mode=pinned requires pinned_version_id")
-
-    if mode == ReferenceMode.FOLLOW.value and pinned_version_id is None:
-        pinned_version_id = None
 
     if pinned_version_id:
         version = await service.db.get_project_version(pinned_version_id)
@@ -78,8 +96,8 @@ async def update_project_reference(
                 f"target project {reference.targetProjectId}"
             )
 
-    if mode == ReferenceMode.FOLLOW.value:
-        pinned_version_id = None
+    if mode is not None:
+        _, pinned_version_id = resolve_reference_pin_state(mode, pinned_version_id)
 
     return await service.db.update_project_reference(
         reference_id=reference_id,
