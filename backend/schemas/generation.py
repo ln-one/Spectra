@@ -32,6 +32,34 @@ class GenerationType(str, Enum):
     BOTH = "both"
 
 
+_GENERATION_TYPE_ALIASES = {
+    GenerationType.PPTX.value: GenerationType.PPTX,
+    GenerationType.DOCX.value: GenerationType.DOCX,
+    GenerationType.BOTH.value: GenerationType.BOTH,
+}
+
+
+def normalize_generation_type(value: str | GenerationType) -> GenerationType:
+    """Normalize task/output type labels into the formal generation vocabulary."""
+
+    if isinstance(value, GenerationType):
+        return value
+    normalized = _GENERATION_TYPE_ALIASES.get(str(value or "").strip().lower())
+    if normalized is None:
+        raise ValueError(f"Unsupported generation type: {value}")
+    return normalized
+
+
+def requires_pptx_output(value: str | GenerationType) -> bool:
+    generation_type = normalize_generation_type(value)
+    return generation_type in {GenerationType.PPTX, GenerationType.BOTH}
+
+
+def requires_docx_output(value: str | GenerationType) -> bool:
+    generation_type = normalize_generation_type(value)
+    return generation_type in {GenerationType.DOCX, GenerationType.BOTH}
+
+
 class GenerateRequest(BaseModel):
     """课件生成请求"""
 

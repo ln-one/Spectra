@@ -8,7 +8,13 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-from schemas.generation import TaskStatus
+from schemas.generation import (
+    GenerationType,
+    TaskStatus,
+    normalize_generation_type,
+    requires_docx_output,
+    requires_pptx_output,
+)
 from services.platform.state_transition_guard import GenerationState
 
 from .constants import TaskFailureStateReason
@@ -92,24 +98,26 @@ async def render_generation_outputs(
         else None
     )
 
-    if context.task_type in ["pptx", "both"]:
+    generation_type = normalize_generation_type(context.task_type)
+
+    if requires_pptx_output(generation_type):
         logger.info("Generating PPTX for task %s", context.task_id)
         pptx_path = await generation_service.generate_pptx(
             courseware_content, context.task_id, tpl_config
         )
         logger.info("PPTX generated: %s", pptx_path)
-        output_urls["pptx"] = export_endpoint or pptx_path
+        output_urls[GenerationType.PPTX.value] = export_endpoint or pptx_path
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 60
         )
 
-    if context.task_type in ["docx", "both"]:
+    if requires_docx_output(generation_type):
         logger.info("Generating DOCX for task %s", context.task_id)
         docx_path = await generation_service.generate_docx(
             courseware_content, context.task_id, tpl_config
         )
         logger.info("DOCX generated: %s", docx_path)
-        output_urls["docx"] = export_endpoint or docx_path
+        output_urls[GenerationType.DOCX.value] = export_endpoint or docx_path
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 90
         )

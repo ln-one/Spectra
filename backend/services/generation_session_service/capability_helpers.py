@@ -5,6 +5,7 @@ import logging
 import os
 from typing import Optional
 
+from schemas.generation import GenerationType
 from services.project_space_service.artifact_semantics import (
     resolve_capability_from_artifact,
 )
@@ -14,11 +15,11 @@ from .constants import SessionOutputType
 logger = logging.getLogger(__name__)
 
 _SESSION_TO_TASK_TYPE = {
-    SessionOutputType.PPT.value: "pptx",
-    SessionOutputType.WORD.value: "docx",
-    SessionOutputType.BOTH.value: "both",
-    "pptx": "pptx",
-    "docx": "docx",
+    SessionOutputType.PPT.value: GenerationType.PPTX.value,
+    SessionOutputType.WORD.value: GenerationType.DOCX.value,
+    SessionOutputType.BOTH.value: GenerationType.BOTH.value,
+    GenerationType.PPTX.value: GenerationType.PPTX.value,
+    GenerationType.DOCX.value: GenerationType.DOCX.value,
 }
 
 
