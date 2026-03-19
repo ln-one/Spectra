@@ -248,3 +248,27 @@
 - 最后再去推部署和商业化底座
 
 这样整个系统会更像一个真正的产品，而不是把部署工作压在语义还漂的系统上。
+
+### Studio 卡片协议当前进展
+
+已落地：
+
+1. `GET /api/v1/generate/capabilities` 已暴露 `studio_cards`
+2. `GET /api/v1/generate/studio-cards` 已暴露完整卡片目录
+3. 卡片协议已正式包含：
+   - `readiness`
+   - `context_mode`
+   - `execution_mode`
+   - `session_output_type`
+   - `requires_source_artifact`
+   - `supports_chat_refine`
+   - `supports_selection_context`
+   - `config_fields`
+   - `actions`
+
+下一步重点：
+
+1. 优先把 `word_document / interactive_quick_quiz / knowledge_mindmap / demonstration_animations`
+   这四张 `foundation_ready` 卡片推进到可直接落地的后端执行协议
+2. 再处理 `speaker_notes / classroom_qa_simulator / interactive_games`
+   这些组合型卡片的专用协议

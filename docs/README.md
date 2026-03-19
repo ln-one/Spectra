@@ -22,6 +22,7 @@
 - [工程规范](./standards/README.md)
 - [冻结期重构 TODO](./freeze-refactor-todo.md)
 - [剩余工作战役清单](./remaining-work-battle-plan.md)
+- [Studio 卡片后端协议](./studio-card-backend-protocol.md)
 - [冗余审计报告](./redundancy-audit.md)
 - [Legacy Surface Map](./legacy-surface-map.md)
 - [Legacy Interface Retirement Plan](./legacy-interface-retirement-plan.md)

@@ -461,3 +461,27 @@ async def test_get_studio_cards_returns_card_protocol_catalog(app, _as_user):
         cards["interactive_quick_quiz"]["config_fields"][0]["key"] == "question_count"
     )
     assert cards["speaker_notes"]["config_fields"][0]["type"] == "reference"
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_returns_protocol_detail(app, _as_user):
+    client = TestClient(app)
+
+    response = client.get("/api/v1/generate/studio-cards/word_document")
+
+    assert response.status_code == 200
+    card = response.json()["data"]["studio_card"]
+    assert card["id"] == "word_document"
+    assert card["session_output_type"] == "word"
+    assert card["supports_chat_refine"] is True
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_returns_404_for_unknown_card(app, _as_user):
+    client = TestClient(app)
+
+    response = client.get("/api/v1/generate/studio-cards/unknown_card")
+
+    assert response.status_code == 404
+    payload = response.json()
+    assert payload["detail"]["code"] == "NOT_FOUND"

@@ -279,6 +279,15 @@ _CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
     ),
 )
 
+_CARD_CAPABILITY_BY_ID = {card.id: card for card in _CARD_CAPABILITIES}
+
 
 def get_studio_card_capabilities() -> list[dict]:
     return [card.model_dump(mode="json") for card in _CARD_CAPABILITIES]
+
+
+def get_studio_card_capability(card_id: str) -> dict | None:
+    card = _CARD_CAPABILITY_BY_ID.get(card_id)
+    if card is None:
+        return None
+    return card.model_dump(mode="json")

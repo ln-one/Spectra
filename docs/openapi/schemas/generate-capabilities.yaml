@@ -243,3 +243,18 @@ StudioCardsCatalogResponse:
             $ref: '#/StudioCardCapability'
     message:
       type: string
+
+StudioCardDetailResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [studio_card]
+      properties:
+        studio_card:
+          $ref: '#/StudioCardCapability'
+    message:
+      type: string

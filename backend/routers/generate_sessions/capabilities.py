@@ -6,6 +6,7 @@ from routers.generate_sessions.shared import CONTRACT_VERSION
 from services.generation_session_service import _default_capabilities
 from services.generation_session_service.card_capabilities import (
     get_studio_card_capabilities,
+    get_studio_card_capability,
 )
 from services.platform.state_transition_guard import (
     VALID_COMMANDS,
@@ -14,6 +15,7 @@ from services.platform.state_transition_guard import (
     state_transition_guard,
 )
 from utils.dependencies import get_current_user
+from utils.exceptions import ErrorCode, NotFoundException
 from utils.responses import success_response
 
 router = APIRouter()
@@ -27,6 +29,25 @@ async def get_studio_cards(
     return success_response(
         data={"studio_cards": get_studio_card_capabilities()},
         message="Studio 卡片目录获取成功",
+    )
+
+
+@router.get("/studio-cards/{card_id}")
+async def get_studio_card(
+    card_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """返回单张 Studio 卡片的协议细节。"""
+    card = get_studio_card_capability(card_id)
+    if card is None:
+        raise NotFoundException(
+            message="Studio 卡片不存在",
+            error_code=ErrorCode.NOT_FOUND,
+        )
+
+    return success_response(
+        data={"studio_card": card},
+        message="Studio 卡片详情获取成功",
     )
 
 
