@@ -8,6 +8,7 @@ from fastapi import BackgroundTasks, Request, UploadFile
 from services import db_service, file_service
 from services.rag_indexing_service import index_upload_file_for_rag
 from utils.exceptions import ForbiddenException, NotFoundException
+from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
 _SYNC_RAG_INDEXING = os.getenv("SYNC_RAG_INDEXING", "false").lower() == "true"
@@ -183,6 +184,81 @@ async def save_and_record_upload(file: UploadFile, project_id: str):
     )
 
 
+async def _prepare_uploaded_file(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    file: UploadFile,
+    project_id: str,
+    session_id: Optional[str],
+) -> dict:
+    upload = await save_and_record_upload(file, project_id)
+    await db_service.update_upload_status(upload.id, status="parsing")
+    latest = await db_service.get_file(upload.id)
+    if _SYNC_RAG_INDEXING:
+        await index_upload_for_rag(latest, project_id, session_id)
+    else:
+        dispatch_rag_indexing(request, background_tasks, latest, project_id, session_id)
+    return serialize_upload(latest)
+
+
+async def upload_file_response(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    file: UploadFile,
+    project_id: str,
+    session_id: Optional[str],
+    user_id: str,
+):
+    await verify_project_access(project_id, user_id)
+    file_payload = await _prepare_uploaded_file(
+        request=request,
+        background_tasks=background_tasks,
+        file=file,
+        project_id=project_id,
+        session_id=session_id,
+    )
+    return success_response(
+        data={"file": file_payload},
+        message="文件上传成功",
+    )
+
+
+async def batch_upload_files_response(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    files: list[UploadFile],
+    project_id: str,
+    session_id: Optional[str],
+    user_id: str,
+):
+    await verify_project_access(project_id, user_id)
+
+    uploaded_files = []
+    failed = []
+    for file in files:
+        try:
+            uploaded_files.append(
+                await _prepare_uploaded_file(
+                    request=request,
+                    background_tasks=background_tasks,
+                    file=file,
+                    project_id=project_id,
+                    session_id=session_id,
+                )
+            )
+        except Exception as exc:
+            failed.append({"filename": file.filename, "error": str(exc)})
+
+    return success_response(
+        data={
+            "files": uploaded_files,
+            "total": len(uploaded_files),
+            "failed": failed or None,
+        },
+        message="批量上传完成",
+    )
+
+
 def validate_upload_file(filename: str):
     ext = filename.split(".")[-1].lower() if "." in filename else ""
     if not ext or ext not in ALLOWED_EXTENSIONS:
@@ -250,9 +326,11 @@ def serialize_upload(upload: Any) -> dict:
 
 __all__ = [
     "_SYNC_RAG_INDEXING",
+    "batch_upload_files_response",
     "dispatch_rag_indexing",
     "index_upload_for_rag",
     "save_and_record_upload",
     "serialize_upload",
+    "upload_file_response",
     "verify_project_access",
 ]
