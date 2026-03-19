@@ -4,7 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from services.database import db_service
-from services.redis_manager import RedisConnectionManager
+from services.platform.redis_manager import RedisConnectionManager
 
 logger = logging.getLogger(__name__)
 redis_manager = RedisConnectionManager.from_env()

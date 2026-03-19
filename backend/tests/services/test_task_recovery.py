@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.task_recovery import TaskRecoveryService
+from services.platform.task_recovery import TaskRecoveryService
 
 
 @pytest.mark.asyncio

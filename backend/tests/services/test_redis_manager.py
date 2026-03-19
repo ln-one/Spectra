@@ -6,7 +6,7 @@ import pytest
 from fakeredis import FakeRedis
 from redis.exceptions import ConnectionError
 
-from services.redis_manager import RedisConnectionManager
+from services.platform.redis_manager import RedisConnectionManager
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def fake_redis(monkeypatch):
     def mock_redis(*args, **kwargs):
         return FakeRedis(decode_responses=kwargs.get("decode_responses", True))
 
-    monkeypatch.setattr("services.redis_manager.Redis", mock_redis)
+    monkeypatch.setattr("services.platform.redis_manager.Redis", mock_redis)
 
 
 @pytest.mark.asyncio
@@ -40,7 +40,7 @@ async def test_connect_failure(redis_manager, monkeypatch):
     def mock_redis_fail(*args, **kwargs):
         raise ConnectionError("Connection refused")
 
-    monkeypatch.setattr("services.redis_manager.Redis", mock_redis_fail)
+    monkeypatch.setattr("services.platform.redis_manager.Redis", mock_redis_fail)
 
     with pytest.raises(ConnectionError) as exc_info:
         await redis_manager.connect()

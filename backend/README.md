@@ -35,6 +35,7 @@ FastAPI 后端，当前已经从“单文件偏大、根目录平铺”演进到
 - `media/rag_indexing.py`
 
 ### platform
+- `platform/`
 - `ai/`
 - `prompt_service/`
 - `database/`

@@ -21,7 +21,10 @@ from services.generation_session_service.helpers import (
 from services.generation_session_service.lifecycle import create_session
 from services.generation_session_service.query_api import SessionQueryMixin
 from services.generation_session_service.task_runtime import SessionTaskRuntimeMixin
-from services.state_transition_guard import StateTransitionGuard, state_transition_guard
+from services.platform.state_transition_guard import (
+    StateTransitionGuard,
+    state_transition_guard,
+)
 
 if TYPE_CHECKING:
     from prisma import Prisma

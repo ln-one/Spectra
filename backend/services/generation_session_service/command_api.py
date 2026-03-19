@@ -10,7 +10,7 @@ from services.generation_session_service.command_execution import (
     save_cached_command_response,
 )
 from services.generation_session_service.command_handlers import dispatch_command
-from services.state_transition_guard import TransitionResult
+from services.platform.state_transition_guard import TransitionResult
 
 
 class SessionCommandMixin:

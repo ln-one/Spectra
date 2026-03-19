@@ -242,7 +242,7 @@ async def get_capabilities(
 ):
     """返回服务端当前支持的契约版本、特性开关与弃用信息。"""
     from services.generation_session_service import _default_capabilities
-    from services.state_transition_guard import (
+    from services.platform.state_transition_guard import (
         VALID_COMMANDS,
         VALID_STATES,
         state_transition_guard,

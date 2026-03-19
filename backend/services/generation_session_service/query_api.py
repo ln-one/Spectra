@@ -14,7 +14,7 @@ from services.generation_session_service.queries import (
 )
 
 if TYPE_CHECKING:
-    from services.state_transition_guard import StateTransitionGuard
+    from services.platform.state_transition_guard import StateTransitionGuard
 else:
     StateTransitionGuard = Any
 

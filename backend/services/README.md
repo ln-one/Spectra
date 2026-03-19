@@ -40,6 +40,7 @@
 
 面向平台基础设施：
 
+- `platform/`
 - `ai/`
 - `prompt_service/`
 - `database/`

@@ -14,7 +14,7 @@ from services.generation_session_service import (
     _build_outline_requirements,
     _extract_outline_style,
 )
-from services.state_transition_guard import TransitionResult
+from services.platform.state_transition_guard import TransitionResult
 
 
 def _fake_session(
@@ -112,7 +112,7 @@ async def test_execute_command_rejects_when_session_task_is_running(monkeypatch)
     service = GenerationSessionService(db=db)
 
     monkeypatch.setattr(
-        "services.task_recovery.TaskRecoveryService.is_session_already_running",
+        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
         AsyncMock(return_value=True),
     )
 
@@ -143,7 +143,7 @@ async def test_execute_command_returns_transition_payload(monkeypatch):
     service._dispatch_command = AsyncMock(return_value=None)
 
     monkeypatch.setattr(
-        "services.task_recovery.TaskRecoveryService.is_session_already_running",
+        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
         AsyncMock(return_value=False),
     )
     monkeypatch.setattr(
@@ -193,7 +193,7 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
     queue.enqueue_generation_task.return_value = SimpleNamespace(id="rq-1")
 
     monkeypatch.setattr(
-        "services.task_recovery.TaskRecoveryService.is_session_already_running",
+        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
         AsyncMock(return_value=False),
     )
     monkeypatch.setattr(
@@ -236,7 +236,7 @@ async def test_execute_command_fallbacks_to_local_when_queue_unavailable(monkeyp
     service._schedule_local_execution = AsyncMock(return_value=True)
 
     monkeypatch.setattr(
-        "services.task_recovery.TaskRecoveryService.is_session_already_running",
+        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
         AsyncMock(return_value=False),
     )
     monkeypatch.setattr(
@@ -275,7 +275,7 @@ async def test_execute_command_fallbacks_to_local_when_enqueue_fails(monkeypatch
     queue.enqueue_generation_task.side_effect = RuntimeError("redis down")
 
     monkeypatch.setattr(
-        "services.task_recovery.TaskRecoveryService.is_session_already_running",
+        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
         AsyncMock(return_value=False),
     )
     monkeypatch.setattr(

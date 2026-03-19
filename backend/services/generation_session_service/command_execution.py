@@ -11,7 +11,7 @@ from services.generation_session_service.helpers import (
     _normalize_task_type,
     _to_session_ref,
 )
-from services.task_recovery import TaskRecoveryService
+from services.platform.task_recovery import TaskRecoveryService
 
 logger = logging.getLogger(__name__)
 

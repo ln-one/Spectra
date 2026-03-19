@@ -1,6 +1,6 @@
 """Unit tests for StateTransitionGuard."""
 
-from services.state_transition_guard import StateTransitionGuard
+from services.platform.state_transition_guard import StateTransitionGuard
 
 
 def test_validate_allows_confirm_outline_from_awaiting():

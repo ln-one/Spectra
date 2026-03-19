@@ -1,6 +1,6 @@
 # Service Topology TODO
 
-## 已完成的第一批收口
+## 已完成的主要收口
 
 已将一部分内容能力服务从 `/Users/ln1/Projects/Spectra/backend/services/` 根目录收进媒体分组：
 
@@ -17,7 +17,19 @@
 - 生产代码导入迁移到 `services.media.*`
 - 相关测试导入与 patch 路径同步迁移
 - `media` 作为独立分组开始承接音频、视频、搜索、向量化、索引等内容能力
-- `architecture_guard` warning 已从 7 降到 1
+- `architecture_guard` warning 已从 7 降到 0
+
+后续又继续完成了：
+
+- `application/`
+  - `/Users/ln1/Projects/Spectra/backend/services/application/project_api.py`
+  - `/Users/ln1/Projects/Spectra/backend/services/application/file_management.py`
+- `platform/`
+  - `/Users/ln1/Projects/Spectra/backend/services/platform/redis_manager.py`
+  - `/Users/ln1/Projects/Spectra/backend/services/platform/state_transition_guard.py`
+  - `/Users/ln1/Projects/Spectra/backend/services/platform/task_recovery.py`
+- `quality_service/`
+  - `/Users/ln1/Projects/Spectra/backend/services/quality_service/`
 
 ## 当前建议的顶层分区
 
@@ -25,10 +37,10 @@
 
 面向 router / use-case 的接口编排层。
 
-建议归入：
+当前已基本收口：
 
 - `file_upload_service/`
-- `project_api_service.py`
+- `application/project_api.py`
 - `rag_api_service/`
 - `project_space_service/`
 
@@ -66,28 +78,30 @@
 
 平台级基础设施与通用能力。
 
-建议归入：
+当前已基本收口：
 
 - `ai/`
 - `prompt_service/`
 - `database/`
 - `task_queue/`
+- `platform/`
 - `auth_service.py`
-- `file_management_service.py`
+- `application/file_management.py`
 
 ## 下一批推荐动作
 
-优先做低打扰迁移：
+优先做低打扰精修：
 
-1. 继续评估是否将 `/Users/ln1/Projects/Spectra/backend/services/rag_service/` 迁入 `media`
-2. 继续评估是否将 `/Users/ln1/Projects/Spectra/backend/services/network_resource_strategy/` 迁入 `media`
-3. 评估 `/Users/ln1/Projects/Spectra/backend/services/quality_service.py` 的最终归属（`media` 或 `platform`）
+1. 继续清理 `/Users/ln1/Projects/Spectra/backend/services/__init__.py` 的兼容导出
+2. 继续减少生产代码里对兼容导出的依赖
+3. 评估是否将 `/Users/ln1/Projects/Spectra/backend/services/rag_service/` 和 `/Users/ln1/Projects/Spectra/backend/services/network_resource_strategy/` 进一步并入 `media`
+4. 持续把 timeout / failure reason / worker recovery 的稳定性语义补齐
 
 原因：
 
-- 第一批 `media` 收口已经覆盖音频、视频、搜索、向量、索引核心能力
-- 接下来应优先处理剩余边界仍然清楚的能力模块
-- 需要避免过早迁移仍可能被主流程频繁引用的模块
+- 当前根目录平铺和超阈值问题已基本清零
+- 下一阶段更值得做的是兼容层瘦身和稳定性治理
+- 继续迁移时仍要避免过早碰高频主业务链路
 
 ## 暂不建议现在大动的部分
 

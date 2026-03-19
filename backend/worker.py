@@ -32,7 +32,7 @@ async def _run_recovery_scan():
     Run one recovery pass on worker startup to mark stale processing tasks.
     """
     from services.database import DatabaseService
-    from services.task_recovery import TaskRecoveryService
+    from services.platform.task_recovery import TaskRecoveryService
 
     db_service = DatabaseService()
     await db_service.connect()
