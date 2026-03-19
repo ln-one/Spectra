@@ -1,3 +1,4 @@
+import html
 import re
 
 
@@ -6,9 +7,11 @@ def build_cite_tag(item: dict) -> str:
     if not chunk_id:
         return ""
     filename = item.get("filename")
-    attrs = [f'chunk_id="{chunk_id}"']
+    escaped_chunk_id = html.escape(str(chunk_id), quote=True)
+    attrs = [f'chunk_id="{escaped_chunk_id}"']
     if filename:
-        attrs.append(f'filename="{filename}"')
+        escaped_filename = html.escape(str(filename), quote=True)
+        attrs.append(f'filename="{escaped_filename}"')
     return "<cite " + " ".join(attrs) + "></cite>"
 
 
