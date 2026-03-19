@@ -95,10 +95,12 @@ async function refreshAccessToken(): Promise<boolean> {
     }
     return refreshSuccess;
   } catch {
+    TokenStorage.clearTokens();
     return false;
   } finally {
     isRefreshing = false;
     if (!refreshSuccess) {
+      TokenStorage.clearTokens();
       onTokenRefreshed("");
     }
   }

@@ -33,6 +33,12 @@ export interface RegisterRequest {
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 const TOKEN_EXPIRY_KEY = "token_expiry";
+export const AUTH_STATE_CHANGE_EVENT = "spectra:auth-state-changed";
+
+function emitAuthStateChange(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(AUTH_STATE_CHANGE_EVENT));
+}
 
 export const TokenStorage = {
   setAccessToken(token: string, expiresIn?: number): void {
@@ -51,12 +57,15 @@ export const TokenStorage = {
       } else {
         localStorage.removeItem(TOKEN_EXPIRY_KEY);
       }
+      emitAuthStateChange();
     } catch (error) {
       console.error("Failed to set access token:", error);
       try {
         document.cookie = `access_token=${token}; ${cookieOptions}`;
+        emitAuthStateChange();
       } catch {
         localStorage.setItem(ACCESS_TOKEN_KEY, token);
+        emitAuthStateChange();
       }
     }
   },
@@ -100,6 +109,7 @@ export const TokenStorage = {
     if (typeof window === "undefined") return;
     try {
       localStorage.setItem(REFRESH_TOKEN_KEY, token);
+      emitAuthStateChange();
     } catch (error) {
       console.error("Failed to set refresh token:", error);
     }
@@ -129,6 +139,7 @@ export const TokenStorage = {
         "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       document.cookie =
         "refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      emitAuthStateChange();
     } catch (error) {
       console.error("Failed to clear tokens:", error);
     }

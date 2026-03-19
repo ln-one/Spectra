@@ -8,12 +8,10 @@ import {
   ChevronDown,
   Layers,
   Loader2,
-  Pencil,
   Plus,
   Settings,
   Share2,
   Sparkles,
-  Trash2,
   User,
   X,
 } from "lucide-react";
@@ -62,10 +60,6 @@ export function ProjectHeader({
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Session editing state
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
-  const [editingSessionTitle, setEditingSessionTitle] = useState("");
-  const sessionInputRef = useRef<HTMLInputElement>(null);
   const [isSessionMenuOpen, setIsSessionMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -74,13 +68,6 @@ export function ProjectHeader({
       inputRef.current.select();
     }
   }, [isEditing]);
-
-  useEffect(() => {
-    if (editingSessionId && sessionInputRef.current) {
-      sessionInputRef.current.focus();
-      sessionInputRef.current.select();
-    }
-  }, [editingSessionId]);
 
   const normalizedActiveSessionId =
     activeSessionId ??
@@ -113,34 +100,6 @@ export function ProjectHeader({
   ) => {
     if (event.key === "Enter") handleSaveEdit();
     if (event.key === "Escape") handleCancelEdit();
-  };
-
-  // Session management handlers
-  const handleStartEditSession = (session: SessionSwitcherItem) => {
-    setEditingSessionId(session.sessionId);
-    setEditingSessionTitle(session.title);
-  };
-
-  const handleSaveSessionEdit = () => {
-    // TODO: Implement session rename API call
-    setEditingSessionId(null);
-    setEditingSessionTitle("");
-  };
-
-  const handleCancelSessionEdit = () => {
-    setEditingSessionId(null);
-    setEditingSessionTitle("");
-  };
-
-  const handleDeleteSession = (_sessionId: string) => {
-    // TODO: Implement session delete API call
-  };
-
-  const handleSessionInputKeyDown = (
-    event: React.KeyboardEvent<HTMLInputElement>
-  ) => {
-    if (event.key === "Enter") handleSaveSessionEdit();
-    if (event.key === "Escape") handleCancelSessionEdit();
   };
 
   return (
@@ -313,89 +272,24 @@ export function ProjectHeader({
                           {session.sessionId === normalizedActiveSessionId && (
                             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-emerald-500 rounded-r-full" />
                           )}
-                          {editingSessionId === session.sessionId ? (
-                            <div className="flex items-center gap-1.5 flex-1">
-                              <Input
-                                ref={sessionInputRef}
-                                value={editingSessionTitle}
-                                onChange={(e) =>
-                                  setEditingSessionTitle(e.target.value)
-                                }
-                                onKeyDown={handleSessionInputKeyDown}
-                                className="h-7 text-[13px] font-semibold border-0 focus-visible:ring-0 focus-visible:outline-none px-2 flex-1"
-                              />
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                onClick={handleSaveSessionEdit}
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"
-                                onClick={handleCancelSessionEdit}
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() =>
-                                  onChangeSession(session.sessionId)
-                                }
-                                className="flex items-center justify-between gap-3 flex-1 text-left"
-                              >
-                                <span
-                                  className={cn(
-                                    "text-[13px] font-semibold truncate",
-                                    session.sessionId ===
-                                      normalizedActiveSessionId
-                                      ? "text-zinc-800"
-                                      : "text-zinc-700"
-                                  )}
-                                >
-                                  {session.title}
-                                </span>
-                                <span className="text-[10px] text-zinc-400 font-medium tracking-wide shrink-0">
-                                  {session.updatedAt}
-                                </span>
-                              </button>
-                              <div
-                                className={cn(
-                                  "flex items-center gap-0.5 transition-opacity",
-                                  session.sessionId ===
-                                    normalizedActiveSessionId
-                                    ? "opacity-100"
-                                    : "opacity-0 group-hover/session:opacity-100"
-                                )}
-                              >
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
-                                  onClick={() =>
-                                    handleStartEditSession(session)
-                                  }
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50"
-                                  onClick={() =>
-                                    handleDeleteSession(session.sessionId)
-                                  }
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </div>
-                            </>
-                          )}
+                          <button
+                            onClick={() => onChangeSession(session.sessionId)}
+                            className="flex items-center justify-between gap-3 flex-1 text-left"
+                          >
+                            <span
+                              className={cn(
+                                "text-[13px] font-semibold truncate",
+                                session.sessionId === normalizedActiveSessionId
+                                  ? "text-zinc-800"
+                                  : "text-zinc-700"
+                              )}
+                            >
+                              {session.title}
+                            </span>
+                            <span className="text-[10px] text-zinc-400 font-medium tracking-wide shrink-0">
+                              {session.updatedAt}
+                            </span>
+                          </button>
                         </div>
                       ))}
                       <DropdownMenuSeparator className="my-2 bg-zinc-200/60" />
