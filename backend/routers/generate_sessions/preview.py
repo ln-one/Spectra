@@ -6,9 +6,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query, status
 
 from routers.generate_sessions.shared import (
+    attach_auto_candidate_change,
     build_session_artifact_anchor,
     get_session_service,
     load_session_preview_material,
+    parse_candidate_change_payload,
     parse_idempotency_key,
     raise_conflict,
     resolve_session_artifact_binding,
@@ -103,6 +105,7 @@ async def modify_session_preview(
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
     """修改预览内容（转发给 REGENERATE_SLIDE command）。"""
+    parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
     slide_id = body.get("slide_id")
     patch = body.get("patch")
     if not slide_id or not patch:
@@ -117,18 +120,21 @@ async def modify_session_preview(
         "expected_render_version",
     )
 
+    parsed_idempotency_key = _parse_idempotency_key(idempotency_key)
+    generation_command = {
+        "command_type": "REGENERATE_SLIDE",
+        "slide_id": slide_id,
+        "patch": patch,
+        "expected_render_version": body.get("expected_render_version"),
+    }
+
     svc = _get_session_service()
     try:
         result = await svc.execute_command(
             session_id=session_id,
             user_id=user_id,
-            command={
-                "command_type": "REGENERATE_SLIDE",
-                "slide_id": slide_id,
-                "patch": patch,
-                "expected_render_version": body.get("expected_render_version"),
-            },
-            idempotency_key=_parse_idempotency_key(idempotency_key),
+            command=generation_command,
+            idempotency_key=parsed_idempotency_key,
         )
     except ValueError:
         raise NotFoundException(message="会话不存在", error_code=ErrorCode.NOT_FOUND)
@@ -147,15 +153,28 @@ async def modify_session_preview(
     )
     anchor = _build_artifact_anchor(session_id, bound_artifact)
 
-    return success_response(
-        data=build_modify_payload(
-            session_id=session_id,
-            snapshot=snapshot,
-            anchor=anchor,
-            result=result if isinstance(result, dict) else None,
-        ),
-        message="预览修改请求已接受",
+    payload = build_modify_payload(
+        session_id=session_id,
+        snapshot=snapshot,
+        anchor=anchor,
+        result=result if isinstance(result, dict) else None,
     )
+    candidate_change = await attach_auto_candidate_change(
+        session_id=session_id,
+        user_id=user_id,
+        snapshot=snapshot,
+        body=body,
+        candidate_change_body=body.get("candidate_change"),
+        idempotency_key=parsed_idempotency_key,
+        cache_scope="preview_modify_candidate_change",
+        generation_command=generation_command,
+        generation_result=result if isinstance(result, dict) else payload,
+        trigger="preview_modify",
+    )
+    if candidate_change is not None:
+        payload["candidate_change"] = candidate_change
+
+    return success_response(data=payload, message="预览修改请求已接受")
 
 
 @router.get("/sessions/{session_id}/preview/slides/{slide_id}")
@@ -214,9 +233,12 @@ async def export_session(
     session_id: str,
     body: Optional[dict] = None,
     user_id: str = Depends(get_current_user),
+    idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
     """导出课件文件（session 作用域）。"""
     body = body or {}
+    parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
+    parsed_idempotency_key = _parse_idempotency_key(idempotency_key)
     svc = _get_session_service()
     try:
         snapshot = await svc.get_session_snapshot(session_id, user_id)
@@ -251,18 +273,35 @@ async def export_session(
         session_id, project_id
     )
     anchor = _build_artifact_anchor(session_id, bound_artifact)
-
-    return success_response(
-        data=build_export_payload(
-            session_id=session_id,
-            snapshot=snapshot,
-            task=task,
-            slides=slides,
-            lesson_plan=lesson_plan,
-            content=content,
-            anchor=anchor,
-            export_format=str(body.get("format") or "markdown"),
-            include_sources=bool(body.get("include_sources", True)),
-        ),
-        message="导出成功",
+    export_format = str(body.get("format") or "markdown")
+    payload = build_export_payload(
+        session_id=session_id,
+        snapshot=snapshot,
+        task=task,
+        slides=slides,
+        lesson_plan=lesson_plan,
+        content=content,
+        anchor=anchor,
+        export_format=export_format,
+        include_sources=bool(body.get("include_sources", True)),
     )
+    candidate_change = await attach_auto_candidate_change(
+        session_id=session_id,
+        user_id=user_id,
+        snapshot=snapshot,
+        body=body,
+        candidate_change_body=body.get("candidate_change"),
+        idempotency_key=parsed_idempotency_key,
+        cache_scope="preview_export_candidate_change",
+        generation_command={
+            "command_type": "EXPORT_PREVIEW",
+            "format": export_format,
+            "include_sources": bool(body.get("include_sources", True)),
+        },
+        generation_result=payload,
+        trigger="preview_export",
+    )
+    if candidate_change is not None:
+        payload["candidate_change"] = candidate_change
+
+    return success_response(data=payload, message="导出成功")

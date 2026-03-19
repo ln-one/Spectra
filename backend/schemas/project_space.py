@@ -205,6 +205,8 @@ class CandidateChange(CandidateChangeBase):
     id: str
     project_id: str
     status: str = "pending"
+    review_comment: Optional[str] = None
+    accepted_version_id: Optional[str] = None
     proposer_user_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime

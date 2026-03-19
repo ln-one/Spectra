@@ -42,7 +42,12 @@ async def review_candidate_change(
 
         payload = change.payload
         if isinstance(payload, str):
-            payload = json.loads(payload) if payload else {}
+            try:
+                payload = json.loads(payload) if payload else {}
+            except json.JSONDecodeError:
+                payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
 
         new_version = await db.create_project_version(
             project_id=change.projectId,
@@ -53,8 +58,19 @@ async def review_candidate_change(
             created_by=reviewer_user_id,
         )
         await db.update_project_current_version(change.projectId, new_version.id)
+        review_payload = dict(payload)
+        review_payload["review"] = {
+            "action": "accept",
+            "accepted_version_id": new_version.id,
+            "reviewer_user_id": reviewer_user_id,
+        }
+        if review_comment is not None:
+            review_payload["review"]["review_comment"] = review_comment
         updated_change = await db.update_candidate_change_status(
-            change_id, "accepted", review_comment
+            change_id,
+            "accepted",
+            review_comment,
+            payload=review_payload,
         )
         logger.info(
             f"Accepted candidate change {change_id}, created version {new_version.id}"

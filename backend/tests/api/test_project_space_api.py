@@ -73,16 +73,22 @@ def _fake_reference(reference_id: str = "r-001", status: str = "active"):
     )
 
 
-def _fake_change(change_id: str = "c-001", status: str = "pending"):
+def _fake_change(
+    change_id: str = "c-001",
+    status: str = "pending",
+    payload: str = '{"k":"v"}',
+    review_comment: str | None = None,
+):
     return SimpleNamespace(
         id=change_id,
         projectId=_PROJECT_ID,
         title="candidate change",
         summary="summary",
-        payload='{"k":"v"}',
+        payload=payload,
         sessionId="s-001",
         baseVersionId="v-001",
         status=status,
+        reviewComment=review_comment,
         proposerUserId=_USER_ID,
         createdAt=_NOW,
         updatedAt=_NOW,
@@ -369,7 +375,12 @@ def test_review_candidate_change_success_passes_review_comment(
         AsyncMock(return_value=True),
     )
     review_change = AsyncMock(
-        return_value=_fake_change(change_id="c-007", status="accepted")
+        return_value=_fake_change(
+            change_id="c-007",
+            status="accepted",
+            payload='{"review": {"accepted_version_id": "v-002"}}',
+            review_comment="looks good",
+        )
     )
     monkeypatch.setattr(project_space_service, "review_candidate_change", review_change)
 
@@ -382,6 +393,8 @@ def test_review_candidate_change_success_passes_review_comment(
     assert body["success"] is True
     assert body["data"]["change"]["id"] == "c-007"
     assert body["data"]["change"]["status"] == "accepted"
+    assert body["data"]["change"]["review_comment"] == "looks good"
+    assert body["data"]["change"]["accepted_version_id"] == "v-002"
     review_change.assert_awaited_once_with(
         project_id=_PROJECT_ID,
         change_id="c-007",

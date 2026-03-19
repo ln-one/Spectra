@@ -88,15 +88,22 @@ def to_project_reference_model(reference) -> ProjectReference:
 
 
 def to_candidate_change_model(change) -> CandidateChange:
+    payload = safe_parse_json(change.payload)
+    review = payload.get("review") if isinstance(payload, dict) else None
+    accepted_version_id = None
+    if isinstance(review, dict):
+        accepted_version_id = review.get("accepted_version_id")
     return CandidateChange(
         id=change.id,
         project_id=change.projectId,
         title=change.title,
         summary=change.summary,
-        payload=safe_parse_json(change.payload),
+        payload=payload,
         session_id=change.sessionId,
         base_version_id=change.baseVersionId,
         status=change.status,
+        review_comment=getattr(change, "reviewComment", None),
+        accepted_version_id=accepted_version_id,
         proposer_user_id=change.proposerUserId,
         created_at=change.createdAt,
         updated_at=change.updatedAt,

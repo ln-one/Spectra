@@ -6,8 +6,6 @@ New production code should prefer explicit module imports instead of
 
 from importlib import import_module
 
-from . import media as _media_package
-
 _SERVICE_EXPORTS = {
     "AIService": (".ai", "AIService"),
     "ai_service": (".ai", "ai_service"),
@@ -23,6 +21,7 @@ _SERVICE_EXPORTS = {
     "rag_service": (".rag_service", "rag_service"),
     "VectorService": (".media.vector", "VectorService"),
     "vector_service": (".media.vector", "vector_service"),
+    "rag_indexing": (".media", "rag_indexing"),
     "rag_indexing_service": (".media", "rag_indexing"),
 }
 
@@ -41,11 +40,9 @@ __all__ = [
     "RAGService",
     "prompt_service",
     "PromptService",
+    "rag_indexing",
     "rag_indexing_service",
 ]
-
-
-rag_indexing = _media_package.rag_indexing
 
 
 def __getattr__(name):

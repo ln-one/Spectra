@@ -83,6 +83,82 @@
       '409':
         $ref: '../components/responses.yaml#/Conflict'
 
+/api/v1/generate/sessions/{session_id}/candidate-change:
+  post:
+    summary: 为当前会话提交候选变更
+    operationId: postGenerateSessionsBySessionIdCandidateChange
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/project-space.yaml#/CandidateChangeRequest'
+    responses:
+      '200':
+        description: 候选变更提交成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/project-space.yaml#/CandidateChangeResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+  get:
+    summary: 获取当前会话的候选变更列表
+    operationId: getGenerateSessionsBySessionIdCandidateChange
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [pending, accepted, rejected]
+      - name: proposer_user_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 候选变更列表
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/project-space.yaml#/CandidateChangesResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
 /api/v1/generate/sessions/{session_id}/outline/redraft:
   post:
     summary: 请求 AI 重写大纲

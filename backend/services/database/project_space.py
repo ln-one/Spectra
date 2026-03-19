@@ -203,10 +203,13 @@ class ProjectSpaceMixin:
         change_id: str,
         status: str,
         review_comment: Optional[str] = None,
+        payload: Optional[dict] = None,
     ):
         data = {"status": status}
         if review_comment is not None:
             data["reviewComment"] = review_comment
+        if payload is not None:
+            data["payload"] = json.dumps(payload)
         return await self.db.candidatechange.update(where={"id": change_id}, data=data)
 
     async def get_project_members(self, project_id: str):

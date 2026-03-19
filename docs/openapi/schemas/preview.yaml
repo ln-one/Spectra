@@ -26,6 +26,8 @@ PreviewResponse:
           type: integer
           minimum: 1
           description: 当前可预览渲染版本
+        artifact_anchor:
+          $ref: "#/ArtifactAnchor"
         slides:
           type: array
           items:
@@ -152,6 +154,8 @@ ModifySessionRequest:
       type: integer
       minimum: 1
       description: 并发控制版本（防止覆盖更新）
+    candidate_change:
+      $ref: "./project-space.yaml#/CandidateChangeRequest"
 
 ModifyResponse:
   type: object
@@ -182,6 +186,10 @@ ModifyResponse:
           type: string
           description: 修改任务基于的正式版本 ID
           nullable: true
+        artifact_anchor:
+          $ref: "#/ArtifactAnchor"
+        candidate_change:
+          $ref: "./project-space.yaml#/CandidateChange"
     message:
       type: string
 
@@ -202,6 +210,8 @@ SlideDetailResponse:
         teaching_plan:
           $ref: '#/SlidePlan'
           description: 该幻灯片对应的教学计划
+        artifact_anchor:
+          $ref: "#/ArtifactAnchor"
         related_slides:
           type: array
           items:
@@ -238,6 +248,8 @@ ExportRequest:
       minimum: 1
       description: |
         可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。
+    candidate_change:
+      $ref: "./project-space.yaml#/CandidateChangeRequest"
 
 ExportResponse:
   type: object
@@ -263,6 +275,8 @@ ExportResponse:
           type: string
           description: 导出基于的正式版本 ID
           nullable: true
+        artifact_anchor:
+          $ref: "#/ArtifactAnchor"
         content:
           type: string
           description: 导出的内容
@@ -271,5 +285,21 @@ ExportResponse:
         render_version:
           type: integer
           minimum: 1
+        candidate_change:
+          $ref: "./project-space.yaml#/CandidateChange"
     message:
       type: string
+
+
+ArtifactAnchor:
+  type: object
+  properties:
+    session_id:
+      type: string
+      nullable: true
+    artifact_id:
+      type: string
+      nullable: true
+    based_on_version_id:
+      type: string
+      nullable: true

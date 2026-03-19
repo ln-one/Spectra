@@ -89,9 +89,14 @@ async def test_update_candidate_change_status_persists_review_comment():
         change_id="c-001",
         status="accepted",
         review_comment="looks good",
+        payload={"review": {"accepted_version_id": "v-001"}},
     )
 
     update_change.assert_awaited_once_with(
         where={"id": "c-001"},
-        data={"status": "accepted", "reviewComment": "looks good"},
+        data={
+            "status": "accepted",
+            "reviewComment": "looks good",
+            "payload": '{"review": {"accepted_version_id": "v-001"}}',
+        },
     )

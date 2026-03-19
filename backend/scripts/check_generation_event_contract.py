@@ -12,9 +12,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OPENAPI_ENUM_FILE = ROOT / "docs" / "openapi" / "schemas" / "generate-core.yaml"
-SCAN_FILES = [
-    ROOT / "backend" / "services" / "generation_session_service" / "service.py",
-    ROOT / "backend" / "services" / "task_executor" / "generation.py",
+SCAN_TARGETS = [
+    ROOT / "backend" / "services" / "generation_session_service",
+    ROOT / "backend" / "services" / "task_executor",
     ROOT / "backend" / "services" / "task_recovery.py",
 ]
 
@@ -58,12 +58,22 @@ def _extract_code_literals(path: Path) -> set[str]:
     return values
 
 
+def _iter_scan_files() -> list[Path]:
+    files: list[Path] = []
+    for target in SCAN_TARGETS:
+        if target.is_dir():
+            files.extend(sorted(target.rglob("*.py")))
+        else:
+            files.append(target)
+    return files
+
+
 def main() -> int:
     openapi_values = _extract_openapi_enum(OPENAPI_ENUM_FILE)
 
     code_values: set[str] = set()
     missing_files = []
-    for file_path in SCAN_FILES:
+    for file_path in _iter_scan_files():
         if not file_path.exists():
             missing_files.append(file_path.as_posix())
             continue
