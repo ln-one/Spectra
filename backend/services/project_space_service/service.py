@@ -1,17 +1,25 @@
 """Project Space service orchestrator."""
 
-import json
 import logging
 from typing import Optional
 
 from services.database import db_service
-from utils.exceptions import ForbiddenException, NotFoundException
 
-from .artifacts import create_artifact_with_file, get_artifact_storage_path
+from .access import check_project_exists, check_project_permission
 from .members import create_project_member as create_project_member_record
 from .members import delete_project_member as delete_project_member_record
 from .members import get_project_members as get_project_members_list
 from .members import update_project_member as update_project_member_record
+from .project_records import (
+    create_artifact_with_file_response,
+    get_artifact,
+    get_artifact_storage_path_response,
+    get_idempotency_response,
+    get_project_artifacts,
+    get_project_version,
+    get_project_versions,
+    save_idempotency_response,
+)
 from .reference_validation import check_dag_cycle, validate_reference_creation
 from .references import create_candidate_change as create_candidate_change_record
 from .references import create_project_reference as create_project_reference_record
@@ -34,39 +42,17 @@ class ProjectSpaceService:
     async def check_project_permission(
         self, project_id: str, user_id: str, permission: str = "can_view"
     ) -> bool:
-        project = await self.db.get_project(project_id)
-        if not project:
-            raise NotFoundException(f"Project {project_id} not found")
-
-        if project.userId == user_id:
-            return True
-
-        member = await self.db.get_project_member_by_user(project_id, user_id)
-        if member:
-            permissions = member.permissions
-            if isinstance(permissions, str):
-                try:
-                    permissions = json.loads(permissions) if permissions else {}
-                except json.JSONDecodeError:
-                    permissions = {}
-            if isinstance(permissions, dict) and permissions.get(permission, False):
-                return True
-
-        raise ForbiddenException(
-            "User "
-            f"{user_id} doesn't have {permission} permission on project {project_id}"
-        )
+        return await check_project_permission(self, project_id, user_id, permission)
 
     async def check_project_exists(self, project_id: str) -> bool:
-        project = await self.db.get_project(project_id)
-        if not project:
-            raise NotFoundException(f"Project {project_id} not found")
-        return True
+        return await check_project_exists(self, project_id)
 
     async def get_artifact_storage_path(
         self, project_id: str, artifact_type: str, artifact_id: str
     ) -> str:
-        return await get_artifact_storage_path(project_id, artifact_type, artifact_id)
+        return await get_artifact_storage_path_response(
+            self, project_id, artifact_type, artifact_id
+        )
 
     async def create_artifact_with_file(
         self,
@@ -78,8 +64,8 @@ class ProjectSpaceService:
         based_on_version_id: Optional[str] = None,
         content: Optional[dict] = None,
     ):
-        return await create_artifact_with_file(
-            db=self.db,
+        return await create_artifact_with_file_response(
+            self,
             project_id=project_id,
             artifact_type=artifact_type,
             visibility=visibility,
@@ -90,10 +76,10 @@ class ProjectSpaceService:
         )
 
     async def get_project_versions(self, project_id: str):
-        return await self.db.get_project_versions(project_id)
+        return await get_project_versions(self, project_id)
 
     async def get_project_version(self, version_id: str):
-        return await self.db.get_project_version(version_id)
+        return await get_project_version(self, version_id)
 
     async def get_project_artifacts(
         self,
@@ -103,7 +89,8 @@ class ProjectSpaceService:
         owner_user_id_filter: Optional[str] = None,
         based_on_version_id_filter: Optional[str] = None,
     ):
-        return await self.db.get_project_artifacts(
+        return await get_project_artifacts(
+            self,
             project_id,
             type_filter,
             visibility_filter,
@@ -112,7 +99,7 @@ class ProjectSpaceService:
         )
 
     async def get_artifact(self, artifact_id: str):
-        return await self.db.get_artifact(artifact_id)
+        return await get_artifact(self, artifact_id)
 
     async def create_project_reference(
         self,
@@ -263,10 +250,10 @@ class ProjectSpaceService:
         )
 
     async def get_idempotency_response(self, key: str):
-        return await self.db.get_idempotency_response(key)
+        return await get_idempotency_response(self, key)
 
     async def save_idempotency_response(self, key: str, response: dict):
-        return await self.db.save_idempotency_response(key, response)
+        return await save_idempotency_response(self, key, response)
 
     async def check_dag_cycle(self, project_id: str, new_target_id: str) -> bool:
         return await check_dag_cycle(self.db, project_id, new_target_id)
