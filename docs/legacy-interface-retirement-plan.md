@@ -37,13 +37,11 @@ File:
 
 Current consumers:
 - Production code: none after `/Users/ln1/Projects/Spectra/backend/app_setup/routes.py` switched to explicit imports
-- Tests still using router package exports:
-  - `/Users/ln1/Projects/Spectra/backend/tests/api/test_files_api.py`
-  - `/Users/ln1/Projects/Spectra/backend/tests/api/test_contract_regression.py`
+- In-repo tests/scripts: none
 
 Assessment:
-- Keep as a test/compat bridge for now.
-- Candidate for deletion earlier than `services/__init__.py` because its usage surface is much smaller.
+- No longer needed by repository code paths.
+- Candidate for the next cleanup PR once we confirm no external tooling depends on `from routers import ...` imports.
 
 ### Generation-session helper bridge
 

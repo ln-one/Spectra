@@ -7,9 +7,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+import routers.files as files_router
 from main import app
-from routers import files as files_router
-from services import db_service, file_service
+from services.database import db_service
+from services.file import file_service
 from utils.dependencies import get_current_user
 
 _NOW = datetime.now(timezone.utc)
