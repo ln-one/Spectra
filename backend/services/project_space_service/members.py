@@ -1,5 +1,6 @@
 from typing import Optional
 
+from schemas.project_space import ProjectMemberRole, ProjectMemberStatus
 from utils.exceptions import ConflictException, NotFoundException, ValidationException
 
 
@@ -13,7 +14,7 @@ async def create_project_member(
     project_id: str,
     user_id: str,
     target_user_id: str,
-    role: str,
+    role: ProjectMemberRole | str,
     permissions: Optional[dict] = None,
 ):
     await service.check_project_permission(project_id, user_id, "can_manage")
@@ -26,7 +27,7 @@ async def create_project_member(
     return await service.db.create_project_member(
         project_id=project_id,
         user_id=target_user_id,
-        role=role,
+        role=ProjectMemberRole(role),
         permissions=permissions,
     )
 
@@ -36,9 +37,9 @@ async def update_project_member(
     project_id: str,
     member_id: str,
     user_id: str,
-    role: Optional[str] = None,
+    role: Optional[ProjectMemberRole | str] = None,
     permissions: Optional[dict] = None,
-    status: Optional[str] = None,
+    status: Optional[ProjectMemberStatus | str] = None,
 ):
     await service.check_project_permission(project_id, user_id, "can_manage")
     member = await service.db.get_project_member(member_id)
@@ -46,9 +47,9 @@ async def update_project_member(
         raise NotFoundException(f"Member {member_id} not found in project {project_id}")
     return await service.db.update_project_member(
         member_id=member_id,
-        role=role,
+        role=ProjectMemberRole(role) if role is not None else None,
         permissions=permissions,
-        status=status,
+        status=ProjectMemberStatus(status) if status is not None else None,
     )
 
 

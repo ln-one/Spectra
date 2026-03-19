@@ -537,6 +537,24 @@ def test_update_project_member_persists_idempotency(client, monkeypatch, _as_use
     save_idempotency.assert_awaited_once()
 
 
+def test_create_project_member_rejects_invalid_role_at_schema_layer(client, _as_user):
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/members",
+        json={"user_id": "u-member-001", "role": "maintainer"},
+    )
+
+    assert resp.status_code == 400
+
+
+def test_update_project_member_rejects_invalid_status_at_schema_layer(client, _as_user):
+    resp = client.patch(
+        f"/api/v1/projects/{_PROJECT_ID}/members/m-007",
+        json={"status": "paused"},
+    )
+
+    assert resp.status_code == 400
+
+
 def test_delete_project_member_returns_simple_success(client, monkeypatch, _as_user):
     delete_member = AsyncMock(return_value=None)
     monkeypatch.setattr(

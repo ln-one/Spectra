@@ -4,6 +4,8 @@ from typing import Optional
 from schemas.project_space import (
     CandidateChangeStatus,
     ChangeType,
+    ProjectMemberRole,
+    ProjectMemberStatus,
     ReferenceRelationType,
     ReferenceStatus,
 )
@@ -247,7 +249,7 @@ class ProjectSpaceMixin:
             where={
                 "projectId": project_id,
                 "userId": user_id,
-                "status": ReferenceStatus.ACTIVE,
+                "status": ProjectMemberStatus.ACTIVE,
             }
         )
 
@@ -255,10 +257,13 @@ class ProjectSpaceMixin:
         self,
         project_id: str,
         user_id: str,
-        role: str,
+        role: ProjectMemberRole | str,
         permissions: Optional[dict],
     ):
-        data = {"projectId": project_id, "userId": user_id, "role": role}
+        normalized_role = (
+            role if isinstance(role, ProjectMemberRole) else ProjectMemberRole(role)
+        )
+        data = {"projectId": project_id, "userId": user_id, "role": normalized_role}
         if permissions:
             data["permissions"] = json.dumps(permissions)
         return await self.db.projectmember.create(data=data)
@@ -266,17 +271,23 @@ class ProjectSpaceMixin:
     async def update_project_member(
         self,
         member_id: str,
-        role: Optional[str] = None,
+        role: Optional[ProjectMemberRole | str] = None,
         permissions: Optional[dict] = None,
-        status: Optional[str] = None,
+        status: Optional[ProjectMemberStatus | str] = None,
     ):
         data = {}
         if role is not None:
-            data["role"] = role
+            data["role"] = (
+                role if isinstance(role, ProjectMemberRole) else ProjectMemberRole(role)
+            )
         if permissions is not None:
             data["permissions"] = json.dumps(permissions)
         if status is not None:
-            data["status"] = status
+            data["status"] = (
+                status
+                if isinstance(status, ProjectMemberStatus)
+                else ProjectMemberStatus(status)
+            )
         return await self.db.projectmember.update(where={"id": member_id}, data=data)
 
     async def delete_project_member(self, member_id: str):

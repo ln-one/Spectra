@@ -72,6 +72,17 @@ class CandidateChangeReviewAction(str, Enum):
     REJECT = "reject"
 
 
+class ProjectMemberRole(str, Enum):
+    OWNER = "owner"
+    EDITOR = "editor"
+    VIEWER = "viewer"
+
+
+class ProjectMemberStatus(str, Enum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+
+
 class ProjectVersion(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -267,7 +278,7 @@ class ProjectMemberPermissions(BaseModel):
 
 class ProjectMemberBase(BaseModel):
     user_id: str
-    role: str = "viewer"
+    role: ProjectMemberRole = ProjectMemberRole.VIEWER
     permissions: Optional[ProjectMemberPermissions] = None
 
 
@@ -276,9 +287,9 @@ class ProjectMemberCreate(ProjectMemberBase):
 
 
 class ProjectMemberUpdate(BaseModel):
-    role: Optional[str] = None
+    role: Optional[ProjectMemberRole] = None
     permissions: Optional[ProjectMemberPermissions] = None
-    status: Optional[str] = None
+    status: Optional[ProjectMemberStatus] = None
 
 
 class ProjectMember(ProjectMemberBase):
@@ -286,7 +297,7 @@ class ProjectMember(ProjectMemberBase):
 
     id: str
     project_id: str
-    status: str = "active"
+    status: ProjectMemberStatus = ProjectMemberStatus.ACTIVE
     created_at: datetime
 
 
