@@ -20,8 +20,9 @@ from pathlib import Path
 
 from services.project_space_service.artifact_semantics import (
     ALL_PROJECT_CAPABILITIES,
-    CAPABILITY_ARTIFACT_MAPPING,
-    WAVE1_ENTRY_ROUTE_MAPPING,
+    get_capability_artifact_expectation,
+    get_wave1_entry_rule,
+    normalize_project_capability,
 )
 
 
@@ -116,11 +117,13 @@ def _capability_loop_pass(sample: dict) -> bool:
 
 
 def _capability_artifact_mapping_pass(sample: dict) -> bool:
-    capability = str(sample.get("capability", "") or "").strip().lower()
+    capability = normalize_project_capability(
+        str(sample.get("capability", "") or "").strip().lower()
+    )
     if not capability:
         return False
 
-    expected = CAPABILITY_ARTIFACT_MAPPING.get(capability)
+    expected = get_capability_artifact_expectation(capability)
     if not expected:
         return False
 
@@ -140,8 +143,10 @@ def _capability_artifact_mapping_pass(sample: dict) -> bool:
 
 
 def _wave1_entry_semantics_pass(sample: dict) -> bool:
-    capability = str(sample.get("capability", "") or "").strip().lower()
-    expected = WAVE1_ENTRY_ROUTE_MAPPING.get(capability)
+    capability = normalize_project_capability(
+        str(sample.get("capability", "") or "").strip().lower()
+    )
+    expected = get_wave1_entry_rule(capability)
     if not expected:
         return True
 
@@ -201,7 +206,9 @@ def compute_metrics(
 
     for idx, sample in enumerate(samples, start=1):
         sample_id = sample.get("id", f"sample-{idx}")
-        capability = str(sample.get("capability", "") or "").strip().lower()
+        capability = normalize_project_capability(
+            str(sample.get("capability", "") or "").strip().lower()
+        )
         if capability:
             covered_capabilities.add(capability)
 

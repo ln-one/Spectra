@@ -3,8 +3,32 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from enum import Enum
 
 from schemas.project_space import ArtifactType
+
+
+class ProjectCapability(str, Enum):
+    PPT = "ppt"
+    WORD = "word"
+    MINDMAP = "mindmap"
+    OUTLINE = "outline"
+    QUIZ = "quiz"
+    SUMMARY = "summary"
+    ANIMATION = "animation"
+    HANDOUT = "handout"
+
+
+class ArtifactMetadataKind(str, Enum):
+    OUTLINE = "outline"
+    HANDOUT = "handout"
+    ANIMATION_STORYBOARD = "animation_storyboard"
+
+
+class EntryRoute(str, Enum):
+    SESSION_FIRST = "session-first"
+    ARTIFACT_LITE = "artifact-lite"
+
 
 ARTIFACT_EXTENSION_MAP: dict[str, str] = {
     ArtifactType.PPTX.value: "pptx",
@@ -33,13 +57,13 @@ ARTIFACT_MEDIA_TYPE_MAP: dict[str, str] = {
 }
 
 ARTIFACT_CAPABILITY_MAP: dict[str, str] = {
-    ArtifactType.PPTX.value: "ppt",
-    ArtifactType.DOCX.value: "word",
-    ArtifactType.MINDMAP.value: "mindmap",
-    ArtifactType.SUMMARY.value: "summary",
-    ArtifactType.EXERCISE.value: "quiz",
-    ArtifactType.HTML.value: "animation",
-    ArtifactType.GIF.value: "animation",
+    ArtifactType.PPTX.value: ProjectCapability.PPT.value,
+    ArtifactType.DOCX.value: ProjectCapability.WORD.value,
+    ArtifactType.MINDMAP.value: ProjectCapability.MINDMAP.value,
+    ArtifactType.SUMMARY.value: ProjectCapability.SUMMARY.value,
+    ArtifactType.EXERCISE.value: ProjectCapability.QUIZ.value,
+    ArtifactType.HTML.value: ProjectCapability.ANIMATION.value,
+    ArtifactType.GIF.value: ProjectCapability.ANIMATION.value,
     ArtifactType.MP4.value: "video",
 }
 
@@ -61,42 +85,89 @@ DEFAULT_ARTIFACT_CONTENT: dict[str, dict] = {
 }
 
 ARTIFACT_MODE_KIND_MAP: dict[tuple[str, str], tuple[str, str]] = {
-    (ArtifactType.SUMMARY.value, "outline"): ("课程大纲", "outline"),
-    (ArtifactType.DOCX.value, "handout"): ("教学讲义", "handout"),
-    (ArtifactType.HTML.value, "animation_storyboard"): (
+    (
+        ArtifactType.SUMMARY.value,
+        ArtifactMetadataKind.OUTLINE.value,
+    ): ("课程大纲", ArtifactMetadataKind.OUTLINE.value),
+    (
+        ArtifactType.DOCX.value,
+        ArtifactMetadataKind.HANDOUT.value,
+    ): ("教学讲义", ArtifactMetadataKind.HANDOUT.value),
+    (
+        ArtifactType.HTML.value,
+        ArtifactMetadataKind.ANIMATION_STORYBOARD.value,
+    ): (
         "Animation Storyboard",
-        "animation_storyboard",
+        ArtifactMetadataKind.ANIMATION_STORYBOARD.value,
     ),
 }
 
 CAPABILITY_ARTIFACT_MAPPING: dict[str, dict[str, str]] = {
-    "ppt": {"artifact_type": ArtifactType.PPTX.value},
-    "word": {"artifact_type": ArtifactType.DOCX.value},
-    "mindmap": {"artifact_type": ArtifactType.MINDMAP.value},
-    "outline": {
+    ProjectCapability.PPT.value: {"artifact_type": ArtifactType.PPTX.value},
+    ProjectCapability.WORD.value: {"artifact_type": ArtifactType.DOCX.value},
+    ProjectCapability.MINDMAP.value: {"artifact_type": ArtifactType.MINDMAP.value},
+    ProjectCapability.OUTLINE.value: {
         "artifact_type": ArtifactType.SUMMARY.value,
-        "metadata_kind": "outline",
+        "metadata_kind": ArtifactMetadataKind.OUTLINE.value,
     },
-    "quiz": {"artifact_type": ArtifactType.EXERCISE.value},
-    "summary": {"artifact_type": ArtifactType.SUMMARY.value},
-    "animation": {
+    ProjectCapability.QUIZ.value: {"artifact_type": ArtifactType.EXERCISE.value},
+    ProjectCapability.SUMMARY.value: {"artifact_type": ArtifactType.SUMMARY.value},
+    ProjectCapability.ANIMATION.value: {
         "artifact_type": ArtifactType.HTML.value,
-        "metadata_kind": "animation_storyboard",
+        "metadata_kind": ArtifactMetadataKind.ANIMATION_STORYBOARD.value,
     },
-    "handout": {
+    ProjectCapability.HANDOUT.value: {
         "artifact_type": ArtifactType.DOCX.value,
-        "metadata_kind": "handout",
+        "metadata_kind": ArtifactMetadataKind.HANDOUT.value,
     },
 }
 
 WAVE1_ENTRY_ROUTE_MAPPING: dict[str, dict[str, str | bool]] = {
-    "ppt": {"entry_route": "session-first", "session_required": True},
-    "word": {"entry_route": "session-first", "session_required": True},
-    "outline": {"entry_route": "session-first", "session_required": True},
-    "summary": {"entry_route": "artifact-lite", "session_required": False},
+    ProjectCapability.PPT.value: {
+        "entry_route": EntryRoute.SESSION_FIRST.value,
+        "session_required": True,
+    },
+    ProjectCapability.WORD.value: {
+        "entry_route": EntryRoute.SESSION_FIRST.value,
+        "session_required": True,
+    },
+    ProjectCapability.OUTLINE.value: {
+        "entry_route": EntryRoute.SESSION_FIRST.value,
+        "session_required": True,
+    },
+    ProjectCapability.SUMMARY.value: {
+        "entry_route": EntryRoute.ARTIFACT_LITE.value,
+        "session_required": False,
+    },
 }
 
 ALL_PROJECT_CAPABILITIES: tuple[str, ...] = tuple(CAPABILITY_ARTIFACT_MAPPING.keys())
+
+
+def normalize_project_capability(capability: ProjectCapability | str) -> str:
+    return (
+        capability.value
+        if isinstance(capability, ProjectCapability)
+        else str(capability)
+    )
+
+
+def normalize_entry_route(entry_route: EntryRoute | str) -> str:
+    return (
+        entry_route.value if isinstance(entry_route, EntryRoute) else str(entry_route)
+    )
+
+
+def get_capability_artifact_expectation(
+    capability: ProjectCapability | str,
+) -> dict[str, str] | None:
+    return CAPABILITY_ARTIFACT_MAPPING.get(normalize_project_capability(capability))
+
+
+def get_wave1_entry_rule(
+    capability: ProjectCapability | str,
+) -> dict[str, str | bool] | None:
+    return WAVE1_ENTRY_ROUTE_MAPPING.get(normalize_project_capability(capability))
 
 
 def normalize_artifact_type(artifact_type: ArtifactType | str) -> str:

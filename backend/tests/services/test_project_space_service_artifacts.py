@@ -4,6 +4,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from services.project_space_service import ProjectSpaceService
+from services.project_space_service.artifact_semantics import (
+    ArtifactMetadataKind,
+    ProjectCapability,
+)
 
 
 @pytest.mark.asyncio
@@ -37,10 +41,16 @@ async def test_create_artifact_summary_outline_sets_metadata(monkeypatch):
     )
 
     payload = generate_summary.await_args.args[0]
-    assert payload["kind"] == "outline"
+    assert payload["kind"] == ArtifactMetadataKind.OUTLINE.value
     assert payload["nodes"] == []
-    assert create_artifact.await_args.kwargs["metadata"]["kind"] == "outline"
-    assert create_artifact.await_args.kwargs["metadata"]["capability"] == "summary"
+    assert (
+        create_artifact.await_args.kwargs["metadata"]["kind"]
+        == ArtifactMetadataKind.OUTLINE.value
+    )
+    assert (
+        create_artifact.await_args.kwargs["metadata"]["capability"]
+        == ProjectCapability.SUMMARY.value
+    )
 
 
 @pytest.mark.asyncio
@@ -74,9 +84,15 @@ async def test_create_artifact_handout_docx_sets_metadata(monkeypatch):
     )
 
     payload = generate_docx.await_args.args[0]
-    assert payload["kind"] == "handout"
-    assert create_artifact.await_args.kwargs["metadata"]["kind"] == "handout"
-    assert create_artifact.await_args.kwargs["metadata"]["capability"] == "word"
+    assert payload["kind"] == ArtifactMetadataKind.HANDOUT.value
+    assert (
+        create_artifact.await_args.kwargs["metadata"]["kind"]
+        == ArtifactMetadataKind.HANDOUT.value
+    )
+    assert (
+        create_artifact.await_args.kwargs["metadata"]["capability"]
+        == ProjectCapability.WORD.value
+    )
 
 
 @pytest.mark.asyncio
@@ -114,6 +130,10 @@ async def test_create_artifact_animation_storyboard_uses_html(monkeypatch):
     assert "Storyboard" in html_content
     assert "Scene 1" in html_content
     assert (
-        create_artifact.await_args.kwargs["metadata"]["kind"] == "animation_storyboard"
+        create_artifact.await_args.kwargs["metadata"]["kind"]
+        == ArtifactMetadataKind.ANIMATION_STORYBOARD.value
     )
-    assert create_artifact.await_args.kwargs["metadata"]["capability"] == "animation"
+    assert (
+        create_artifact.await_args.kwargs["metadata"]["capability"]
+        == ProjectCapability.ANIMATION.value
+    )
