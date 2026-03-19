@@ -127,7 +127,7 @@ async def execute_outline_draft_local(
 async def _emit_outline_progress(append_event, session_id: str, trace_id: str) -> None:
     await append_event(
         session_id=session_id,
-        event_type="progress.updated",
+        event_type=GenerationEventType.PROGRESS_UPDATED.value,
         state=GenerationState.DRAFTING_OUTLINE.value,
         progress=15,
         payload={"stage": "outline_draft", "trace_id": trace_id},
@@ -173,7 +173,7 @@ async def _persist_success(*, db, session_id: str, outline_doc: dict) -> None:
 async def _emit_outline_success(append_event, session_id: str, trace_id: str) -> None:
     await append_event(
         session_id=session_id,
-        event_type="outline.updated",
+        event_type=GenerationEventType.OUTLINE_UPDATED.value,
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         progress=100,
         payload={
@@ -267,7 +267,7 @@ async def _emit_outline_failure_state(
 ) -> None:
     await append_event(
         session_id=session_id,
-        event_type="outline.updated",
+        event_type=GenerationEventType.OUTLINE_UPDATED.value,
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         payload={
             "version": 1,

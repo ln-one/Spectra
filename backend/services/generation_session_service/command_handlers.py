@@ -110,7 +110,7 @@ async def handle_update_outline(
     )
     await append_event(
         session_id=session.id,
-        event_type="outline.updated",
+        event_type=GenerationEventType.OUTLINE_UPDATED.value,
         state=new_state,
         payload={"version": new_version, "change_reason": change_reason},
     )
@@ -228,7 +228,7 @@ async def handle_regenerate_slide(
     )
     await append_event(
         session_id=session.id,
-        event_type="slide.updated",
+        event_type=GenerationEventType.SLIDE_UPDATED.value,
         state=new_state,
         payload={
             "slide_id": slide_id,
@@ -258,7 +258,7 @@ async def handle_resume_session(
     )
     await append_event(
         session_id=session.id,
-        event_type="session.recovered",
+        event_type=GenerationEventType.SESSION_RECOVERED.value,
         state=new_state,
         payload={"resumed_from_cursor": cursor},
     )

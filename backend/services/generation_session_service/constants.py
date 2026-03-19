@@ -3,14 +3,6 @@ from __future__ import annotations
 from enum import Enum
 
 
-class GenerationErrorCode(str, Enum):
-    WORKER_INTERRUPTED = "WORKER_INTERRUPTED"
-
-
-class GenerationStateReason(str, Enum):
-    WORKER_INTERRUPTED = "worker_interrupted"
-
-
 class OutlineGenerationErrorCode(str, Enum):
     TIMEOUT = "OUTLINE_GENERATION_TIMEOUT"
     FAILED = "OUTLINE_GENERATION_FAILED"
