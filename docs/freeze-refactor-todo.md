@@ -28,11 +28,36 @@
 - OpenAPI source / target 契约已经重新对齐
 - `backend/scripts/check_generation_event_contract.py` 已扩展到目录级扫描
 - `backend/scripts/architecture_guard.py` 已可用于冻结期持续自检
+- `architecture_guard` 当前已回到：
+  - `Warnings: 0`
+  - `Errors: 0`
+  - `Critical: 0`
+- `services/` 顶层已经进一步收口，形成了更明确的分区骨架：
+  - `application/`
+  - `generation/`
+  - `media/`
+  - `platform/`
+- 稳定性基线已补齐第一轮关键能力：
+  - AI completion 显式 timeout
+  - outline draft timeout 失败语义
+  - generation task timeout failure code / state reason
+- 慢集成测试已完成第一轮提速：
+  - `/Users/ln1/Projects/Spectra/backend/tests/ai/test_ai_service_integration.py`
+    默认不再依赖真实 AI / RAG 外部链路
 
 这意味着冻结期不是“从混乱状态开始重构”，而是：
 
 - 在已经完成第一轮结构收口的基础上
 - 继续做第二轮：去冗余、稳态治理、数据层准备、部署前整理
+
+当前更准确的阶段判断是：
+
+- 大文件与平铺问题已基本不再是主要矛盾
+- 下一阶段重点转为：
+  - 兼容层瘦身
+  - 冗余删除
+  - 稳定性与可观测性补强
+  - PostgreSQL / Docker / 多机部署前置准备
 
 ---
 

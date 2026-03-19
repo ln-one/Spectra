@@ -104,6 +104,16 @@
   - `vector.py`
   - `rag_indexing.py`
 - Added `/Users/ln1/Projects/Spectra/docs/service-topology-todo.md` to track staged grouping work and remaining candidates.
+- Grouped application-oriented orchestration helpers under `/Users/ln1/Projects/Spectra/backend/services/application/`:
+  - `project_api.py`
+  - `file_management.py`
+- Grouped platform/infrastructure services under `/Users/ln1/Projects/Spectra/backend/services/platform/`:
+  - `redis_manager.py`
+  - `state_transition_guard.py`
+  - `task_recovery.py`
+- Moved model routing into the AI package:
+  - `/Users/ln1/Projects/Spectra/backend/services/ai/model_router.py`
+- Reduced `/Users/ln1/Projects/Spectra/backend/services/` root to a much smaller set of true base modules and compatibility exports.
 
 ### Frontend
 
@@ -118,12 +128,33 @@
   - `>500` lines => error
   - `>800` lines => critical
 - Used the guard to drive cleanup of flat service modules; warnings were reduced from `7` to `1`.
+- Continued cleanup until the guard returned:
+  - `Warnings: 0`
+  - `Errors: 0`
+  - `Critical: 0`
 - Improved Docker dev build performance:
   - added `/Users/ln1/Projects/Spectra/frontend/.dockerignore`
   - added `/Users/ln1/Projects/Spectra/backend/.dockerignore`
   - optimized `/Users/ln1/Projects/Spectra/frontend/Dockerfile.dev`
   - optimized `/Users/ln1/Projects/Spectra/backend/Dockerfile.dev`
 - Preserved validation discipline throughout the refactor by repeatedly running targeted API/service tests, frontend checks, and backend full test suites.
+
+### Stability Hardening
+
+- Added explicit AI completion timeout handling in `/Users/ln1/Projects/Spectra/backend/services/ai/service.py`.
+- Added timeout-focused tests in `/Users/ln1/Projects/Spectra/backend/tests/ai/test_dashscope_connectivity.py`.
+- Standardized timeout failure semantics for outline drafting and generation task execution:
+  - stable `error_code`
+  - stable `stateReason`
+  - clearer fallback behavior
+- Added coverage in:
+  - `/Users/ln1/Projects/Spectra/backend/tests/services/test_generation_session_service.py`
+  - `/Users/ln1/Projects/Spectra/backend/tests/services/test_task_executor_error_handling.py`
+
+### Test Suite Improvements
+
+- Reduced runtime and flakiness in `/Users/ln1/Projects/Spectra/backend/tests/ai/test_ai_service_integration.py` by stubbing live AI/RAG dependencies for the default integration path.
+- Removed archived legacy tests from the active path and kept the main backend suite focused on maintained coverage.
 
 ### Documentation
 

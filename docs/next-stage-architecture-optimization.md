@@ -15,6 +15,14 @@
 
 项目已经从“高耦合、平铺、少数巨型文件主导”的状态，进入到“模块化基础已建立，但架构边界仍需统一”的阶段。
 
+截至当前阶段，这里的几项基础工作已经实质落地：
+
+- `main.py` 已拆成 `/Users/ln1/Projects/Spectra/backend/app_setup/`
+- 大型 router / service 已完成第一轮 package 化
+- `services/` 已开始形成 `application / generation / media / platform` 分区
+- `architecture_guard.py` 当前已清零告警
+- AI / outline / task 执行链路已补第一轮 timeout 语义
+
 接下来最值得做的，不是继续机械拆分，而是解决以下三类问题：
 
 1. 隐性依赖仍然存在
