@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from schemas.projects import ProjectReferenceMode, ProjectVisibility
+from schemas.project_vocabulary import ProjectReferenceMode, ProjectVisibility
 
 
 def normalize_project_visibility(
@@ -23,6 +23,21 @@ def normalize_project_reference_mode(
         if isinstance(value, ProjectReferenceMode)
         else ProjectReferenceMode(value)
     )
+
+
+def normalize_project_referenceable(value: bool | None) -> bool:
+    return bool(value)
+
+
+def validate_project_sharing_rules(
+    visibility: ProjectVisibility | str | None,
+    is_referenceable: bool | None,
+) -> tuple[ProjectVisibility, bool]:
+    normalized_visibility = normalize_project_visibility(visibility)
+    normalized_referenceable = normalize_project_referenceable(is_referenceable)
+    if normalized_visibility == ProjectVisibility.PRIVATE and normalized_referenceable:
+        raise ValueError("private 项目不能直接设置为可引用")
+    return normalized_visibility, normalized_referenceable
 
 
 def is_project_referenceable(project: Any) -> bool:

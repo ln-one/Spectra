@@ -5,20 +5,13 @@ Request and response models for project endpoints.
 """
 
 from datetime import datetime
-from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic_core import PydanticCustomError
 
-
-class ProjectVisibility(str, Enum):
-    PRIVATE = "private"
-    SHARED = "shared"
-
-
-class ProjectReferenceMode(str, Enum):
-    FOLLOW = "follow"
-    PINNED = "pinned"
+from schemas.project_semantics import validate_project_sharing_rules
+from schemas.project_vocabulary import ProjectReferenceMode, ProjectVisibility
 
 
 class ProjectBase(BaseModel):
@@ -40,6 +33,14 @@ class ProjectCreate(ProjectBase):
     visibility: Optional[ProjectVisibility] = Field(default=ProjectVisibility.PRIVATE)
     is_referenceable: Optional[bool] = Field(default=False)  # 是否可被引用
 
+    @model_validator(mode="after")
+    def _validate_sharing_rules(self):
+        try:
+            validate_project_sharing_rules(self.visibility, self.is_referenceable)
+        except ValueError as exc:
+            raise PydanticCustomError("project_sharing_rules", str(exc))
+        return self
+
 
 class ProjectUpdate(BaseModel):
     """更新项目请求"""
@@ -51,6 +52,15 @@ class ProjectUpdate(BaseModel):
     # Project Space 扩展字段
     visibility: Optional[ProjectVisibility] = None  # private/shared
     is_referenceable: Optional[bool] = None  # 是否可被引用
+
+    @model_validator(mode="after")
+    def _validate_sharing_rules(self):
+        if self.visibility is not None and self.is_referenceable is not None:
+            try:
+                validate_project_sharing_rules(self.visibility, self.is_referenceable)
+            except ValueError as exc:
+                raise PydanticCustomError("project_sharing_rules", str(exc))
+        return self
 
 
 class Project(ProjectBase):

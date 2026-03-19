@@ -3,15 +3,20 @@ from typing import Optional
 from schemas.generation import TaskStatus
 from schemas.project_semantics import (
     normalize_project_reference_mode,
-    normalize_project_visibility,
+    validate_project_sharing_rules,
 )
 from schemas.project_space import ReferenceRelationType
-from schemas.projects import ProjectCreate, ProjectReferenceMode
+from schemas.project_vocabulary import ProjectReferenceMode
+from schemas.projects import ProjectCreate
 from utils.exceptions import APIException, NotFoundException, ValidationException
 
 
 class ProjectMixin:
     async def create_project(self, project_data: ProjectCreate, user_id: str):
+        visibility, is_referenceable = validate_project_sharing_rules(
+            getattr(project_data, "visibility", None),
+            getattr(project_data, "is_referenceable", None),
+        )
         data = {
             "name": project_data.name,
             "description": project_data.description,
@@ -20,11 +25,9 @@ class ProjectMixin:
         if getattr(project_data, "grade_level", None) is not None:
             data["gradeLevel"] = project_data.grade_level
         if getattr(project_data, "visibility", None) is not None:
-            data["visibility"] = normalize_project_visibility(
-                project_data.visibility
-            ).value
+            data["visibility"] = visibility.value
         if getattr(project_data, "is_referenceable", None) is not None:
-            data["isReferenceable"] = project_data.is_referenceable
+            data["isReferenceable"] = is_referenceable
 
         project = await self.db.project.create(data=data)
 
@@ -98,13 +101,28 @@ class ProjectMixin:
         visibility: Optional[str] = None,
         is_referenceable: Optional[bool] = None,
     ):
+        existing = await self.get_project(project_id)
+        if existing is None:
+            raise NotFoundException(message=f"项目不存在: {project_id}")
+        resolved_visibility, resolved_referenceable = validate_project_sharing_rules(
+            (
+                visibility
+                if visibility is not None
+                else getattr(existing, "visibility", None)
+            ),
+            (
+                is_referenceable
+                if is_referenceable is not None
+                else getattr(existing, "isReferenceable", None)
+            ),
+        )
         data: dict = {"name": name, "description": description}
         if grade_level is not None:
             data["gradeLevel"] = grade_level
         if visibility is not None:
-            data["visibility"] = normalize_project_visibility(visibility).value
+            data["visibility"] = resolved_visibility.value
         if is_referenceable is not None:
-            data["isReferenceable"] = is_referenceable
+            data["isReferenceable"] = resolved_referenceable
         return await self.db.project.update(where={"id": project_id}, data=data)
 
     async def delete_project(self, project_id: str):

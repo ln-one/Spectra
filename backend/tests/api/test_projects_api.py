@@ -146,6 +146,34 @@ def test_update_project_rejects_invalid_visibility(client, _as_user):
     assert resp.status_code == 400
 
 
+def test_create_project_rejects_private_referenceable_combo(client, _as_user):
+    resp = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Private Ref",
+            "description": "desc",
+            "visibility": "private",
+            "is_referenceable": True,
+        },
+    )
+
+    assert resp.status_code == 400
+
+
+def test_update_project_rejects_private_referenceable_combo(client, _as_user):
+    resp = client.put(
+        f"/api/v1/projects/{_PROJECT_ID}",
+        json={
+            "name": "Updated",
+            "description": "new desc",
+            "visibility": "private",
+            "is_referenceable": True,
+        },
+    )
+
+    assert resp.status_code == 400
+
+
 def test_update_project_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     _mock(monkeypatch, db_service, "get_idempotency_response", None)
