@@ -112,6 +112,7 @@ class StudioCardExecutionPreviewRequest(BaseModel):
     config: dict = Field(default_factory=dict)
     visibility: Optional[str] = None
     source_artifact_id: Optional[str] = None
+    client_session_id: Optional[str] = None
 
 
 class StudioCardResolvedRequest(BaseModel):
@@ -133,3 +134,24 @@ class StudioCardExecutionPreviewResponse(BaseModel):
     success: bool = True
     data: dict
     message: str = "Studio 卡片执行预览获取成功"
+
+
+class StudioCardExecutionResultKind(str, Enum):
+    SESSION = "session"
+    ARTIFACT = "artifact"
+
+
+class StudioCardExecutionResult(BaseModel):
+    card_id: str
+    readiness: StudioCardReadiness
+    transport: StudioCardTransport
+    resource_kind: StudioCardExecutionResultKind
+    session: Optional[dict] = None
+    artifact: Optional[dict] = None
+    request_preview: StudioCardResolvedRequest
+
+
+class StudioCardExecutionResponse(BaseModel):
+    success: bool = True
+    data: dict
+    message: str = "Studio 卡片执行成功"

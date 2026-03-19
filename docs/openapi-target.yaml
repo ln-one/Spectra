@@ -1028,6 +1028,45 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/generate/studio-cards/{card_id}/execute:
+    post:
+      summary: 执行单张 Studio 卡片
+      operationId: postGenerateStudioCardExecute
+      description: 对已达到 foundation-ready 的卡片直接执行初始动作，返回实际落地的 session 或 artifact。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioCardExecutionPreviewRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardExecutionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/preview:
     get:
       summary: 获取会话级课件预览
@@ -4298,6 +4337,8 @@ components:
             - shared
         source_artifact_id:
           type: string
+        client_session_id:
+          type: string
     StudioCardResolvedRequest:
       type: object
       required:
@@ -4351,6 +4392,61 @@ components:
           properties:
             execution_preview:
               $ref: '#/components/schemas/StudioCardExecutionPreview'
+        message:
+          type: string
+    StudioCardExecutionResult:
+      type: object
+      required:
+        - card_id
+        - readiness
+        - transport
+        - resource_kind
+        - request_preview
+      properties:
+        card_id:
+          type: string
+        readiness:
+          type: string
+          enum:
+            - ready
+            - foundation_ready
+            - protocol_pending
+        transport:
+          type: string
+          enum:
+            - session_create
+            - artifact_create
+            - chat_message
+            - artifact_reference
+        resource_kind:
+          type: string
+          enum:
+            - session
+            - artifact
+        session:
+          type: object
+          additionalProperties: true
+        artifact:
+          type: object
+          additionalProperties: true
+        request_preview:
+          $ref: '#/components/schemas/StudioCardResolvedRequest'
+    StudioCardExecutionResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - execution_result
+          properties:
+            execution_result:
+              $ref: '#/components/schemas/StudioCardExecutionResult'
         message:
           type: string
     ArtifactAnchor:

@@ -321,3 +321,42 @@
         $ref: '../components/responses.yaml#/Forbidden'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/studio-cards/{card_id}/execute:
+  post:
+    summary: 执行单张 Studio 卡片
+    operationId: postGenerateStudioCardExecute
+    description: 对已达到 foundation-ready 的卡片直接执行初始动作，返回实际落地的 session 或 artifact。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionPreviewRequest'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'

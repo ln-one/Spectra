@@ -15,6 +15,8 @@
   - 返回单张卡片当前可落地的后端执行绑定与协议缺口
 - `POST /api/v1/generate/studio-cards/{card_id}/execution-preview`
   - 根据卡片配置返回可直接调用的后端请求预览
+- `POST /api/v1/generate/studio-cards/{card_id}/execute`
+  - 对 `foundation_ready` 卡片直接执行初始动作并返回实际落地结果
 
 ## 2. 卡片目录字段
 
@@ -199,3 +201,28 @@
   现在可以把卡片配置正式写入 artifact `content`
 - `word_document`
   现在可以把文档细分配置正式写入 create-session `options`
+
+## 8. 直接执行
+
+`execute` 用来把前端卡片从“知道怎么调”推进到“后端帮你直接落地”。
+
+当前已经支持初始执行：
+
+- `word_document`
+- `interactive_quick_quiz`
+- `knowledge_mindmap`
+- `demonstration_animations`
+
+执行结果会明确返回：
+
+- `transport`
+- `resource_kind`
+- `session` 或 `artifact`
+- `request_preview`
+
+这意味着前端现在不只可以读取执行计划，也可以直接把四张 `foundation_ready` 卡片真正落成：
+
+- 文档卡片 -> session
+- quiz / mindmap / animation 卡片 -> artifact
+
+而 `speaker_notes / interactive_games / classroom_qa_simulator` 仍保持诚实的 `protocol_pending`，不会假装已经完成。

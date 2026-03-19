@@ -337,6 +337,8 @@ StudioCardExecutionPreviewRequest:
       enum: [private, project-visible, shared]
     source_artifact_id:
       type: string
+    client_session_id:
+      type: string
 
 StudioCardResolvedRequest:
   type: object
@@ -380,5 +382,44 @@ StudioCardExecutionPreviewResponse:
       properties:
         execution_preview:
           $ref: '#/StudioCardExecutionPreview'
+    message:
+      type: string
+
+StudioCardExecutionResult:
+  type: object
+  required: [card_id, readiness, transport, resource_kind, request_preview]
+  properties:
+    card_id:
+      type: string
+    readiness:
+      type: string
+      enum: [ready, foundation_ready, protocol_pending]
+    transport:
+      type: string
+      enum: [session_create, artifact_create, chat_message, artifact_reference]
+    resource_kind:
+      type: string
+      enum: [session, artifact]
+    session:
+      type: object
+      additionalProperties: true
+    artifact:
+      type: object
+      additionalProperties: true
+    request_preview:
+      $ref: '#/StudioCardResolvedRequest'
+
+StudioCardExecutionResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [execution_result]
+      properties:
+        execution_result:
+          $ref: '#/StudioCardExecutionResult'
     message:
       type: string

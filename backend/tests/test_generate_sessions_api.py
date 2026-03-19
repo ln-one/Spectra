@@ -597,3 +597,115 @@ async def test_preview_studio_card_execution_requires_project_id(app, _as_user):
     assert response.status_code == 400
     payload = response.json()
     assert payload["detail"]["code"] == "INVALID_INPUT"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_creates_word_session(app, _as_user):
+    client = TestClient(app)
+    session_ref = {
+        "session_id": "s-card-001",
+        "project_id": "p-001",
+        "output_type": "word",
+        "state": GenerationState.DRAFTING_OUTLINE.value,
+    }
+
+    with (
+        patch(
+            "services.generation_session_service.GenerationSessionService.create_session",
+            AsyncMock(return_value=session_ref),
+        ) as create_session_mock,
+        patch(
+            "services.generation_session_service.card_execution_runtime.get_owned_project",
+            AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/word_document/execute",
+            json={
+                "project_id": "p-001",
+                "client_session_id": "client-card-001",
+                "config": {
+                    "document_variant": "student_handout",
+                    "teaching_model": "scaffolded",
+                    "grade_band": "high",
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    result = response.json()["data"]["execution_result"]
+    assert result["resource_kind"] == "session"
+    assert result["session"]["session_id"] == "s-card-001"
+    assert result["request_preview"]["payload"]["options"]["document_variant"] == (
+        "student_handout"
+    )
+    create_session_mock.assert_awaited_once()
+    kwargs = create_session_mock.await_args.kwargs
+    assert kwargs["output_type"] == "word"
+    assert kwargs["client_session_id"] == "client-card-001"
+    assert kwargs["options"]["document_variant"] == "student_handout"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_creates_quiz_artifact(app, _as_user):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-card-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="exercise",
+        visibility="project-visible",
+        storagePath="uploads/artifacts/a-card-001.json",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/interactive_quick_quiz/execute",
+            json={
+                "project_id": "p-001",
+                "visibility": "project-visible",
+                "config": {
+                    "question_count": 8,
+                    "difficulty": "hard",
+                    "humorous_distractors": True,
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    result = response.json()["data"]["execution_result"]
+    assert result["resource_kind"] == "artifact"
+    assert result["artifact"]["id"] == "a-card-001"
+    assert result["artifact"]["type"] == "exercise"
+    create_artifact_mock.assert_awaited_once()
+    kwargs = create_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_type"] == "exercise"
+    assert kwargs["visibility"] == "project-visible"
+    assert kwargs["content"]["question_count"] == 8
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_rejects_protocol_pending_card(app, _as_user):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/interactive_games/execute",
+        json={"project_id": "p-001", "config": {"game_pattern": "freeform"}},
+    )
+
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["detail"]["code"] == "RESOURCE_CONFLICT"

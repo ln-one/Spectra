@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
-from routers.generate_sessions.shared import CONTRACT_VERSION
+from routers.generate_sessions.shared import (
+    CONTRACT_VERSION,
+    get_session_service,
+    get_task_queue_service,
+)
+from schemas.studio_cards import StudioCardExecutionPreviewRequest
 from services.generation_session_service import _default_capabilities
 from services.generation_session_service.card_capabilities import (
     get_studio_card_capabilities,
@@ -11,6 +16,9 @@ from services.generation_session_service.card_capabilities import (
 )
 from services.generation_session_service.card_execution_preview import (
     build_studio_card_execution_preview,
+)
+from services.generation_session_service.card_execution_runtime import (
+    execute_studio_card_initial_request,
 )
 from services.platform.state_transition_guard import (
     VALID_COMMANDS,
@@ -104,6 +112,42 @@ async def preview_studio_card_execution(
     return success_response(
         data={"execution_preview": preview.model_dump(mode="json")},
         message="Studio 卡片执行预览获取成功",
+    )
+
+
+@router.post("/studio-cards/{card_id}/execute")
+async def execute_studio_card(
+    card_id: str,
+    body: dict,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    """执行已达到 foundation-ready 的 Studio 卡片初始动作。"""
+    project_id = body.get("project_id")
+    if not project_id:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="project_id 为必填字段",
+        )
+
+    result = await execute_studio_card_initial_request(
+        card_id=card_id,
+        body=StudioCardExecutionPreviewRequest(
+            project_id=project_id,
+            config=body.get("config") or {},
+            visibility=body.get("visibility"),
+            source_artifact_id=body.get("source_artifact_id"),
+            client_session_id=body.get("client_session_id"),
+        ),
+        user_id=user_id,
+        session_service=get_session_service(),
+        task_queue_service=get_task_queue_service(request),
+    )
+
+    return success_response(
+        data={"execution_result": result.model_dump(mode="json")},
+        message="Studio 卡片执行成功",
     )
 
 
