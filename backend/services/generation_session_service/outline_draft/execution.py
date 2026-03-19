@@ -6,7 +6,7 @@ import uuid
 from typing import Awaitable, Callable, Optional
 
 from services.ai import ai_service
-from services.generation_session_service.helpers import (
+from services.generation_session_service.outline_helpers import (
     _build_outline_requirements,
     _courseware_outline_to_document,
 )

@@ -5,12 +5,12 @@ import logging
 import uuid
 from typing import Awaitable, Callable, Optional
 
-from services.generation_session_service.helpers import (
+from services.generation_session_service.capability_helpers import (
     _extract_template_config,
     _is_queue_worker_available,
     _normalize_task_type,
-    _to_session_ref,
 )
+from services.generation_session_service.serialization_helpers import _to_session_ref
 from services.platform.task_recovery import TaskRecoveryService
 
 logger = logging.getLogger(__name__)

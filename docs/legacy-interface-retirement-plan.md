@@ -104,7 +104,7 @@ Success condition:
 
 Run `python3 /Users/ln1/Projects/Spectra/backend/scripts/compat_surface_audit.py` before each compatibility-retirement PR to capture the remaining bridge usage surface.
 
-As of the current freeze baseline, the most meaningful remaining internal bridge is `services.generation_session_service.helpers`, which is still imported by several generation-session modules.
+As of the current freeze baseline, the old `services.generation_session_service.helpers` import fan-out has been removed from generation-session internals; remaining compatibility work is now concentrated in test patch imports and the top-level `services` package bridge.
 
 ## Guardrails
 

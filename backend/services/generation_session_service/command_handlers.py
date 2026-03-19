@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Awaitable, Callable, Optional
 
-from services.generation_session_service.helpers import _normalize_task_type
+from services.generation_session_service.capability_helpers import _normalize_task_type
 
 
 async def dispatch_command(

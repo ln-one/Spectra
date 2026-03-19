@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from services.generation_session_service.helpers import (
-    _default_capabilities,
+from services.generation_session_service.capability_helpers import _default_capabilities
+from services.generation_session_service.serialization_helpers import (
     _to_generation_event,
     _to_session_ref,
 )

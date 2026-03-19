@@ -12,13 +12,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
+from services.generation_session_service.capability_helpers import _default_capabilities
 from services.generation_session_service.command_api import SessionCommandMixin
-from services.generation_session_service.helpers import (
+from services.generation_session_service.lifecycle import create_session
+from services.generation_session_service.outline_helpers import (
     _build_outline_requirements,
-    _default_capabilities,
     _extract_outline_style,
 )
-from services.generation_session_service.lifecycle import create_session
 from services.generation_session_service.query_api import SessionQueryMixin
 from services.generation_session_service.task_runtime import SessionTaskRuntimeMixin
 from services.platform.state_transition_guard import (

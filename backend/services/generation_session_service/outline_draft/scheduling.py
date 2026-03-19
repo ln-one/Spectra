@@ -5,7 +5,9 @@ import logging
 import os
 from typing import Awaitable, Callable, Optional
 
-from services.generation_session_service.helpers import _is_queue_worker_available
+from services.generation_session_service.capability_helpers import (
+    _is_queue_worker_available,
+)
 
 logger = logging.getLogger(__name__)
 
