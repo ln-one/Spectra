@@ -74,7 +74,9 @@ const itemVariants = {
 interface GenerationConfigPanelProps {
   variant?: "default" | "compact";
   onBack?: () => void;
-  onGenerate?: (config: GenerationConfig) => Promise<void> | void;
+  onGenerate?: (
+    config: GenerationConfig
+  ) => Promise<string | void | null> | string | void | null;
 }
 
 export interface GenerationConfig {
@@ -208,13 +210,16 @@ export function GenerationConfigPanel({
     setShowOutlineEditor(false);
     setIsCreatingSession(true);
     try {
-      await onGenerate?.({
+      const creationResult = await onGenerate?.({
         prompt: prompt.trim(),
         pageCount,
         outlineStyle,
       });
 
+      const sessionIdFromCallback =
+        typeof creationResult === "string" ? creationResult : null;
       const sessionIdFromStore =
+        sessionIdFromCallback ||
         useProjectStore.getState().generationSession?.session?.session_id;
       if (!sessionIdFromStore) {
         throw new Error("generation session was not created");

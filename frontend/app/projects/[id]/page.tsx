@@ -139,25 +139,38 @@ export default function ProjectDetailPage() {
   ]);
 
   useEffect(() => {
-    if (generationHistory.length === 0) return;
-
     const allSessionIds = generationHistory.map((item) => item.id);
-    const preferredSessionId =
+    const preferredSessionId = querySessionId
+      ? allSessionIds.includes(querySessionId)
+        ? querySessionId
+        : null
+      : null;
+
+    if (!preferredSessionId) {
+      if (activeSessionId !== null) {
+        setActiveSessionId(null);
+      }
+      void fetchMessages(projectId, null);
+      void fetchArtifactHistory(projectId, null);
+      return;
+    }
+
+    const nextSessionId =
       querySessionId && allSessionIds.includes(querySessionId)
         ? querySessionId
-        : allSessionIds[0];
+        : preferredSessionId;
 
-    if (preferredSessionId && preferredSessionId !== activeSessionId) {
-      setActiveSessionId(preferredSessionId);
-      void fetchArtifactHistory(projectId, preferredSessionId);
+    if (nextSessionId && nextSessionId !== activeSessionId) {
+      setActiveSessionId(nextSessionId);
+      void fetchArtifactHistory(projectId, nextSessionId);
     }
 
-    if (preferredSessionId) {
-      void fetchMessages(projectId, preferredSessionId);
+    if (nextSessionId) {
+      void fetchMessages(projectId, nextSessionId);
     }
 
-    if (preferredSessionId && querySessionId !== preferredSessionId) {
-      updateSessionInUrl(preferredSessionId);
+    if (nextSessionId && querySessionId !== nextSessionId) {
+      updateSessionInUrl(nextSessionId);
     }
   }, [
     generationHistory,

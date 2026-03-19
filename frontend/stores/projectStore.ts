@@ -178,7 +178,7 @@ interface ProjectState {
     projectId: string,
     tool: GenerationTool,
     options?: GenerationOptions
-  ) => Promise<void>;
+  ) => Promise<string | null>;
   fetchGenerationHistory: (projectId: string) => Promise<void>;
   fetchArtifactHistory: (
     projectId: string,
@@ -480,7 +480,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
       if (response?.data?.session) {
         const sessionId = response.data.session.session_id;
-        set({ activeSessionId: sessionId });
+        set({
+          activeSessionId: sessionId,
+          generationSession: {
+            session: response.data.session,
+            options: normalizedOptions,
+          } as SessionStatePayload,
+        });
 
         const historyItem: GenerationHistory = {
           id: sessionId,
@@ -502,7 +508,6 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         } catch (sessionError) {
           const message = getErrorMessage(sessionError);
           set((state) => ({
-            generationSession: null,
             generationHistory: state.generationHistory.map((h) =>
               h.id === sessionId ? { ...h, status: "failed" as const } : h
             ),
@@ -514,7 +519,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
             variant: "destructive",
           });
         }
+
+        return sessionId;
       }
+
+      return null;
     } catch (error) {
       const message = getErrorMessage(error);
       set({ error: createApiError({ code: "GENERATION_FAILED", message }) });
@@ -523,6 +532,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         description: message,
         variant: "destructive",
       });
+      throw error;
     }
   },
 
