@@ -5,6 +5,7 @@ from typing import Awaitable, Callable, Optional
 
 from schemas.generation import TaskStatus
 from services.generation_session_service.capability_helpers import _normalize_task_type
+from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationCommandType
 
 
@@ -138,7 +139,7 @@ async def handle_redraft_outline(
     )
     await append_event(
         session_id=session.id,
-        event_type="state.changed",
+        event_type=GenerationEventType.STATE_CHANGED.value,
         state=new_state,
         payload={"instruction": instruction, "base_version": base_version},
     )
@@ -192,7 +193,7 @@ async def handle_confirm_outline(
     )
     await append_event(
         session_id=session.id,
-        event_type="state.changed",
+        event_type=GenerationEventType.STATE_CHANGED.value,
         state=new_state,
         payload={
             "confirmed": True,

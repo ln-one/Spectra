@@ -3,6 +3,9 @@
 import json
 from typing import Optional
 
+from services.platform.generation_event_constants import GenerationEventType
+from services.platform.state_transition_guard import GenerationState
+
 from .helpers import _to_session_ref
 
 
@@ -26,7 +29,7 @@ async def create_session(
             "outputType": output_type,
             "options": json.dumps(options) if options else None,
             "clientSessionId": client_session_id,
-            "state": "DRAFTING_OUTLINE",
+            "state": GenerationState.DRAFTING_OUTLINE.value,
             "renderVersion": 0,
             "currentOutlineVersion": 0,
             "resumable": True,
@@ -35,8 +38,8 @@ async def create_session(
 
     await append_event(
         session_id=session.id,
-        event_type="state.changed",
-        state="DRAFTING_OUTLINE",
+        event_type=GenerationEventType.STATE_CHANGED.value,
+        state=GenerationState.DRAFTING_OUTLINE.value,
         progress=0,
         payload={"reason": "session_created"},
     )

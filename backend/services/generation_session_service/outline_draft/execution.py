@@ -15,6 +15,7 @@ from services.generation_session_service.outline_helpers import (
     _courseware_outline_to_document,
 )
 from services.platform.generation_event_constants import GenerationEventType
+from services.platform.state_transition_guard import GenerationState
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,10 @@ async def execute_outline_draft_local(
             if isinstance(session, dict)
             else session.currentOutlineVersion
         )
-        if state != "DRAFTING_OUTLINE" or (current_outline_version or 0) >= 1:
+        if (
+            state != GenerationState.DRAFTING_OUTLINE.value
+            or (current_outline_version or 0) >= 1
+        ):
             logger.info(
                 "Outline draft skipped due to non-drafting session state: "
                 "session=%s state=%s current_outline_version=%s",
@@ -124,7 +128,7 @@ async def _emit_outline_progress(append_event, session_id: str, trace_id: str) -
     await append_event(
         session_id=session_id,
         event_type="progress.updated",
-        state="DRAFTING_OUTLINE",
+        state=GenerationState.DRAFTING_OUTLINE.value,
         progress=15,
         payload={"stage": "outline_draft", "trace_id": trace_id},
     )
@@ -159,7 +163,7 @@ async def _persist_success(*, db, session_id: str, outline_doc: dict) -> None:
     await db.generationsession.update(
         where={"id": session_id},
         data={
-            "state": "AWAITING_OUTLINE_CONFIRM",
+            "state": GenerationState.AWAITING_OUTLINE_CONFIRM.value,
             "stateReason": OutlineGenerationStateReason.DRAFTED_ASYNC.value,
             "currentOutlineVersion": 1,
         },
@@ -170,7 +174,7 @@ async def _emit_outline_success(append_event, session_id: str, trace_id: str) ->
     await append_event(
         session_id=session_id,
         event_type="outline.updated",
-        state="AWAITING_OUTLINE_CONFIRM",
+        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         progress=100,
         payload={
             "version": 1,
@@ -180,8 +184,8 @@ async def _emit_outline_success(append_event, session_id: str, trace_id: str) ->
     )
     await append_event(
         session_id=session_id,
-        event_type="state.changed",
-        state="AWAITING_OUTLINE_CONFIRM",
+        event_type=GenerationEventType.STATE_CHANGED.value,
+        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         state_reason=OutlineGenerationStateReason.DRAFTED_ASYNC.value,
         payload={"trace_id": trace_id},
     )
@@ -200,7 +204,7 @@ async def _is_concurrently_completed(db, session_id: str, trace_id: str) -> bool
                 else latest.currentOutlineVersion
             )
             if (
-                latest_state == "AWAITING_OUTLINE_CONFIRM"
+                latest_state == GenerationState.AWAITING_OUTLINE_CONFIRM.value
                 and (latest_outline_version or 0) >= 1
             ):
                 logger.info(
@@ -225,7 +229,7 @@ async def _emit_outline_failure(
     await append_event(
         session_id=session_id,
         event_type=GenerationEventType.TASK_FAILED.value,
-        state="DRAFTING_OUTLINE",
+        state=GenerationState.DRAFTING_OUTLINE.value,
         payload={
             "stage": "outline_draft",
             "error_code": error_code,
@@ -251,7 +255,7 @@ async def _persist_failure_fallback(
     await db.generationsession.update(
         where={"id": session_id},
         data={
-            "state": "AWAITING_OUTLINE_CONFIRM",
+            "state": GenerationState.AWAITING_OUTLINE_CONFIRM.value,
             "stateReason": failure_state_reason,
             "currentOutlineVersion": 1,
         },
@@ -264,7 +268,7 @@ async def _emit_outline_failure_state(
     await append_event(
         session_id=session_id,
         event_type="outline.updated",
-        state="AWAITING_OUTLINE_CONFIRM",
+        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         payload={
             "version": 1,
             "change_reason": "draft_failed_fallback_empty",
@@ -273,8 +277,8 @@ async def _emit_outline_failure_state(
     )
     await append_event(
         session_id=session_id,
-        event_type="state.changed",
-        state="AWAITING_OUTLINE_CONFIRM",
+        event_type=GenerationEventType.STATE_CHANGED.value,
+        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         state_reason=failure_state_reason,
         payload={"trace_id": trace_id},
     )

@@ -104,8 +104,8 @@ async def schedule_local_execution(
         try:
             await append_event(
                 session_id=session_id,
-                event_type="state.changed",
-                state="GENERATING_CONTENT",
+                event_type=GenerationEventType.STATE_CHANGED.value,
+                state=GenerationState.GENERATING_CONTENT.value,
                 state_reason=fallback_reason,
                 payload={
                     "task_id": task_id,

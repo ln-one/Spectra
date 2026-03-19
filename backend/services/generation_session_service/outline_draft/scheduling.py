@@ -8,6 +8,7 @@ from typing import Awaitable, Callable, Optional
 from services.generation_session_service.capability_helpers import (
     _is_queue_worker_available,
 )
+from services.platform.state_transition_guard import GenerationState
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,10 @@ def schedule_outline_draft_watchdog(
             if isinstance(session, dict)
             else session.currentOutlineVersion
         )
-        if state != "DRAFTING_OUTLINE" or (current_outline_version or 0) >= 1:
+        if (
+            state != GenerationState.DRAFTING_OUTLINE.value
+            or (current_outline_version or 0) >= 1
+        ):
             return
 
         logger.warning(
