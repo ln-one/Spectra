@@ -14,6 +14,20 @@ from services.generation_session_service.helpers import (
 logger = logging.getLogger(__name__)
 
 
+def _classify_outline_failure(exc: Exception) -> tuple[str, str, str]:
+    if isinstance(exc, TimeoutError):
+        return (
+            "OUTLINE_GENERATION_TIMEOUT",
+            "大纲生成超时，请稍后重试。",
+            "outline_draft_timed_out_fallback_empty",
+        )
+    return (
+        "OUTLINE_GENERATION_FAILED",
+        "大纲生成失败，请稍后重试。",
+        "outline_draft_failed_fallback_empty",
+    )
+
+
 async def execute_outline_draft_local(
     *,
     db,
@@ -69,16 +83,36 @@ async def execute_outline_draft_local(
         if await _is_concurrently_completed(db, session_id, trace_id):
             return
 
+        error_code, error_message, failure_state_reason = _classify_outline_failure(
+            draft_err
+        )
+
         logger.error(
-            "Outline draft failed: session=%s trace_id=%s error=%s",
+            "Outline draft failed: session=%s trace_id=%s error_code=%s error=%s",
             session_id,
             trace_id,
+            error_code,
             draft_err,
             exc_info=True,
         )
-        await _emit_outline_failure(append_event, session_id, draft_err, trace_id)
-        await _persist_failure_fallback(db=db, session_id=session_id)
-        await _emit_outline_failure_state(append_event, session_id, trace_id)
+        await _emit_outline_failure(
+            append_event,
+            session_id,
+            error_code,
+            error_message,
+            trace_id,
+        )
+        await _persist_failure_fallback(
+            db=db,
+            session_id=session_id,
+            failure_state_reason=failure_state_reason,
+        )
+        await _emit_outline_failure_state(
+            append_event,
+            session_id,
+            trace_id,
+            failure_state_reason=failure_state_reason,
+        )
 
 
 async def _emit_outline_progress(append_event, session_id: str, trace_id: str) -> None:
@@ -177,7 +211,11 @@ async def _is_concurrently_completed(db, session_id: str, trace_id: str) -> bool
 
 
 async def _emit_outline_failure(
-    append_event, session_id: str, draft_err: Exception, trace_id: str
+    append_event,
+    session_id: str,
+    error_code: str,
+    error_message: str,
+    trace_id: str,
 ) -> None:
     await append_event(
         session_id=session_id,
@@ -185,15 +223,17 @@ async def _emit_outline_failure(
         state="DRAFTING_OUTLINE",
         payload={
             "stage": "outline_draft",
-            "error_code": "OUTLINE_GENERATION_FAILED",
-            "error_message": str(draft_err),
+            "error_code": error_code,
+            "error_message": error_message,
             "retryable": True,
             "trace_id": trace_id,
         },
     )
 
 
-async def _persist_failure_fallback(*, db, session_id: str) -> None:
+async def _persist_failure_fallback(
+    *, db, session_id: str, failure_state_reason: str
+) -> None:
     empty_outline = {"version": 1, "nodes": [], "summary": None}
     await db.outlineversion.create(
         data={
@@ -207,14 +247,14 @@ async def _persist_failure_fallback(*, db, session_id: str) -> None:
         where={"id": session_id},
         data={
             "state": "AWAITING_OUTLINE_CONFIRM",
-            "stateReason": "outline_draft_failed_fallback_empty",
+            "stateReason": failure_state_reason,
             "currentOutlineVersion": 1,
         },
     )
 
 
 async def _emit_outline_failure_state(
-    append_event, session_id: str, trace_id: str
+    append_event, session_id: str, trace_id: str, failure_state_reason: str
 ) -> None:
     await append_event(
         session_id=session_id,
@@ -230,6 +270,6 @@ async def _emit_outline_failure_state(
         session_id=session_id,
         event_type="state.changed",
         state="AWAITING_OUTLINE_CONFIRM",
-        state_reason="outline_draft_failed_fallback_empty",
+        state_reason=failure_state_reason,
         payload={"trace_id": trace_id},
     )

@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
 from .common import sync_session_terminal_state
 
 logger = logging.getLogger(__name__)
+
+
+def _classify_generation_error(exc) -> tuple[str, str]:
+    if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
+        return "TASK_EXECUTION_TIMEOUT", "生成任务执行超时"
+    return "TASK_EXECUTION_FAILED", f"{type(exc).__name__}: {str(exc)}"
 
 
 async def get_retries_left(task_id: str) -> int:
@@ -47,7 +54,7 @@ async def handle_retryable_error(db_service, context, exc) -> None:
     if retries_left > 0:
         return
 
-    error_msg = f"{type(exc).__name__}: {str(exc)}"
+    error_code, error_msg = _classify_generation_error(exc)
     await db_service.update_generation_task_status(
         task_id=context.task_id,
         status="failed",
@@ -59,8 +66,13 @@ async def handle_retryable_error(db_service, context, exc) -> None:
             task_id=context.task_id,
             session_id=context.session_id,
             state="FAILED",
-            state_reason="task_failed_retry_exhausted",
+            state_reason=(
+                "task_failed_timeout_retry_exhausted"
+                if error_code == "TASK_EXECUTION_TIMEOUT"
+                else "task_failed_retry_exhausted"
+            ),
             error_message=error_msg,
+            error_code=error_code,
             retryable=True,
         )
     except Exception as sync_err:
@@ -74,7 +86,7 @@ async def handle_retryable_error(db_service, context, exc) -> None:
 
 
 async def handle_permanent_error(db_service, context, exc) -> None:
-    error_msg = f"{type(exc).__name__}: {str(exc)}"
+    error_code, error_msg = _classify_generation_error(exc)
     logger.error(
         "Permanent error in task %s: %s: %s",
         context.task_id,
@@ -101,8 +113,13 @@ async def handle_permanent_error(db_service, context, exc) -> None:
             task_id=context.task_id,
             session_id=context.session_id,
             state="FAILED",
-            state_reason="task_failed_permanent_error",
+            state_reason=(
+                "task_failed_timeout"
+                if error_code == "TASK_EXECUTION_TIMEOUT"
+                else "task_failed_permanent_error"
+            ),
             error_message=error_msg,
+            error_code=error_code,
             retryable=False,
         )
     except Exception as sync_err:
@@ -139,7 +156,7 @@ async def handle_unknown_error(db_service, context, exc) -> None:
             logger.error("Failed to increment retry count: %s", db_error)
         raise exc
 
-    error_msg = f"{type(exc).__name__}: {str(exc)}"
+    error_code, error_msg = _classify_generation_error(exc)
     await db_service.update_generation_task_status(
         task_id=context.task_id,
         status="failed",
@@ -151,8 +168,13 @@ async def handle_unknown_error(db_service, context, exc) -> None:
             task_id=context.task_id,
             session_id=context.session_id,
             state="FAILED",
-            state_reason="task_failed_unknown_error",
+            state_reason=(
+                "task_failed_timeout_unknown"
+                if error_code == "TASK_EXECUTION_TIMEOUT"
+                else "task_failed_unknown_error"
+            ),
             error_message=error_msg,
+            error_code=error_code,
             retryable=True,
         )
     except Exception as sync_err:

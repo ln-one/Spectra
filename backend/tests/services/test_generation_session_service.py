@@ -1,9 +1,10 @@
 """Unit tests for GenerationSessionService."""
 
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Optional
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -692,6 +693,54 @@ async def test_schedule_outline_draft_task_uses_rq_when_available():
         options={"pages": 10},
         priority="default",
         timeout=300,
+    )
+
+
+@pytest.mark.anyio
+async def test_outline_timeout_emits_stable_timeout_reason():
+    db = SimpleNamespace(
+        project=SimpleNamespace(find_unique=AsyncMock(return_value=SimpleNamespace())),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                side_effect=[
+                    {"state": "DRAFTING_OUTLINE", "currentOutlineVersion": 0},
+                    {"state": "DRAFTING_OUTLINE", "currentOutlineVersion": 0},
+                ]
+            ),
+            update=AsyncMock(),
+        ),
+        outlineversion=SimpleNamespace(create=AsyncMock()),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+
+    service = GenerationSessionService(db=db)
+
+    with patch("services.generation_session_service.ai_service") as mock_ai:
+        mock_ai.generate_outline = AsyncMock(side_effect=TimeoutError("provider stuck"))
+        await service._execute_outline_draft_local(
+            session_id="s-001",
+            project_id="p-001",
+            options={"pages": 10},
+        )
+
+    event_calls = [
+        call.kwargs["data"] for call in db.sessionevent.create.await_args_list
+    ]
+    failed_events = [e for e in event_calls if e["eventType"] == "task.failed"]
+    assert len(failed_events) == 1
+    failed_payload = json.loads(failed_events[0]["payload"])
+    assert failed_payload["error_code"] == "OUTLINE_GENERATION_TIMEOUT"
+    assert failed_payload["error_message"] == "大纲生成超时，请稍后重试。"
+
+    state_updates = [
+        call.kwargs["data"]
+        for call in db.generationsession.update.await_args_list
+        if "state" in (call.kwargs.get("data") or {})
+    ]
+    assert any(
+        update.get("state") == "AWAITING_OUTLINE_CONFIRM"
+        and update.get("stateReason") == "outline_draft_timed_out_fallback_empty"
+        for update in state_updates
     )
 
 
