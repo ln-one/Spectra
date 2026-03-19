@@ -21,9 +21,9 @@
 当前项目的主要问题已经不再是“超大单文件”，而是：
 
 - 第一轮重构后留下的兼容出口
-- 旧时代归档脚本/测试仍在仓库中
-- 少量仅为测试 patch 服务的 wrapper
+- 少量仓库噪音（缓存目录、系统文件、旧审计结论）
 - 部分 legacy 契约与文档仍然保留
+- 少数基础能力仍留在 `services/` 根目录
 
 这意味着当前最合适的动作不是“全局大删”，而是：
 
@@ -37,39 +37,23 @@
 
 这些项目已经产生明确负担，且删除风险低。
 
-### 1. `backend/archived/` 下的旧测试脚本
+### 1. 仓库内的无意义缓存与系统文件
 
 文件：
-- `/Users/ln1/Projects/Spectra/backend/archived/test_generation_standalone.py`
-- `/Users/ln1/Projects/Spectra/backend/archived/test_phase2a_generation.py`
-- `/Users/ln1/Projects/Spectra/backend/archived/test_phase2b_simple.py`
-- `/Users/ln1/Projects/Spectra/backend/archived/test_chroma.py`
-- `/Users/ln1/Projects/Spectra/backend/archived/test_phase2b_e2e.py`
-- `/Users/ln1/Projects/Spectra/backend/archived/test_phase2b_api.py`
-- `/Users/ln1/Projects/Spectra/backend/archived/test_chroma_multi.py`
-
-理由：
-- 它们依赖已经迁移或消失的旧路径，例如 `services.generation_service`、`services.template_service`
-- 直接运行 `pytest backend -q` 会被这些归档旧测试打断
-- 当前主测试套已经不依赖它们
-
-建议：
-- 冻结期直接删除
-- 如果确实想留历史样例，转为纯文档或搬到 `docs/archived/`
-
-### 2. 仓库内的无意义系统文件
-
-文件：
-- `/Users/ln1/Projects/Spectra/docs/openapi/.DS_Store`
 - `/Users/ln1/Projects/Spectra/backend/archived/__pycache__/` 及同类缓存目录
+- 仓库根目录或子目录中的 `.DS_Store`
+
+现状：
+- 旧归档测试本体已经删除，只剩缓存目录
+- 当前仓库扫描已看不到需要继续保留的 `.DS_Store`，后续只需防止重新出现
 
 理由：
 - 无业务价值
 - 只增加噪音
 
 建议：
-- 直接删除
-- 同时补 `.gitignore` / 清理缓存
+- 直接删除缓存目录
+- 继续靠 `.gitignore` / 日常清理防止回流
 
 ---
 
@@ -84,21 +68,15 @@
 
 现状：
 - 仍承担根级兼容导出
-- 生产代码里还残留少量通过它做延迟取模块的用法
-
-证据：
-- 生产代码仍有：
-  - `/Users/ln1/Projects/Spectra/backend/services/ai/service.py`
-  - `/Users/ln1/Projects/Spectra/backend/services/task_executor/generation_error_handling.py`
-  - `/Users/ln1/Projects/Spectra/backend/services/generation_session_service/task_runtime.py`
+- 当前生产代码中的 `from services import ...` 已基本清零，主要剩文档和 guard 规则本身仍在提及该模式
 
 判断：
 - 现在不建议直接删
-- 但应标记为“兼容层，不允许继续新增依赖”
+- 但它已经更明确地退化成“兼容层，不允许继续新增依赖”
 
 冻结期动作：
-- 清掉剩余生产代码中的 `from services import ...`
-- 等生产代码完全脱离后，再考虑精简导出
+- 统计是否还有测试或脚本依赖这些兼容别名
+- 后续在不破坏 patch 习惯的前提下继续瘦身导出
 
 ### 2. `backend/routers/__init__.py`
 
@@ -116,28 +94,7 @@
 - 暂不删除
 - 后续统一 app 装配层时再评估是否仍需要根级 router 聚合出口
 
-### 3. `generate_sessions/shared.py` 里的测试兼容 wrapper
-
-文件：
-- `/Users/ln1/Projects/Spectra/backend/routers/generate_sessions/shared.py`
-
-具体函数：
-- `build_session_artifact_anchor(...)`
-- `without_sources(...)`
-- `load_session_preview_material(...)`
-
-现状：
-- 主要是“给测试 patch 和旧调用习惯兜底”的薄 wrapper
-
-判断：
-- 暂时有用
-- 但属于典型“可弃用保留”项
-
-冻结期动作：
-- 先统计测试是否仍需要 patch 这些名字
-- 如果测试可以直接 patch 新函数，下一轮可删
-
-### 4. `generate-session` 的 deprecated 兼容接口契约
+### 3. 旧式 OpenAPI / deprecated 会话契约
 
 文件：
 - `/Users/ln1/Projects/Spectra/docs/openapi/paths/generate-session-core.yaml`
@@ -147,8 +104,8 @@
 - 仍保留了一批 `deprecated: true` 的兼容 session 接口
 
 判断：
-- 这些目前仍有现实价值，因为前后端和测试还可能依赖
-- 但应该进入淘汰清单，不再继续扩展
+- 当前仍有现实桥接价值
+- 但不适合继续扩展
 
 冻结期动作：
 - 列出仍被谁调用
@@ -177,22 +134,22 @@
 - 先梳理是否还需要兼容旧生成任务契约
 - 在 legacy API 真正移除前暂时保留
 
-### 2. `quality_service.py`
+### 2. `quality_service/`
 
-文件：
-- `/Users/ln1/Projects/Spectra/backend/services/quality_service.py`
+目录：
+- `/Users/ln1/Projects/Spectra/backend/services/quality_service/`
 
 现状：
-- 仍是顶层单文件
-- 被 `test_phase4_preview` 等路径使用
+- 已完成 package 化，不再是顶层单文件 warning
+- 目前仍主要服务于 preview / quality 检查链路
 
 判断：
-- 它不是明显死代码
-- 目前更像“归属待定模块”，不是应立即删除的冗余
+- 不是冗余项
+- 当前更像“已收口完毕、后续再决定更高层归属”的稳定模块
 
 冻结期动作：
-- 保留
-- 等后续决定归入 `generation`、`platform` 或 `evaluation` 再收口
+- 暂时保留当前位置
+- 等后续决定是否合并进 `generation/` 或单独形成 `evaluation/` 再调整
 
 ### 3. `generation_session_service/helpers.py`
 
@@ -232,11 +189,11 @@
 
 按收益 / 风险比排序：
 
-1. 删除 `backend/archived/` 旧测试脚本
-2. 删除 `.DS_Store`、`__pycache__` 等无意义文件
-3. 统计并收缩 `generate_sessions/shared.py` 的测试兼容 wrapper
-4. 继续清生产代码里的 `from services import ...`
-5. 给 legacy OpenAPI/旧接口列一份淘汰表，而不是继续默默保留
+1. 删除 `backend/archived/__pycache__/` 等无意义缓存目录
+2. 继续瘦身 `backend/services/__init__.py` 的兼容导出
+3. 给 legacy OpenAPI/旧接口列一份淘汰表，而不是继续默默保留
+4. 继续梳理哪些基础能力应长期保留在 `services/` 根目录
+5. 为 `docs/archived/` 补总索引，减少误用过期方案的成本
 
 ---
 
@@ -244,16 +201,16 @@
 
 ### 第一批可以直接开做
 
-1. 清理 `backend/archived/` 测试
-2. 清理仓库噪音文件
-3. 补一份 `docs/legacy-surface-map.md`
-4. 清生产代码中的剩余 `from services import ...`
+1. 清理 `backend/archived/__pycache__/` 和后续新出现的仓库噪音文件
+2. 补一份 `docs/legacy-surface-map.md`，标清仍在桥接中的 legacy surface
+3. 评估 `backend/services/__init__.py` 的兼容别名使用面
+4. 梳理 `services/` 根目录剩余基础能力的长期归属
 
 ### 第二批再做
 
-1. 清 `generate_sessions/shared.py` 的兼容 wrapper
-2. 评估 `services/__init__.py` 的精简方案
-3. 给 deprecated session 接口制定移除顺序
+1. 给 deprecated session 接口制定移除顺序
+2. 为 `docs/archived/` 增加总索引和醒目标记
+3. 在兼容层瘦身后同步更新 guard / standards / README
 
 ---
 
