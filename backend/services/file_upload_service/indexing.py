@@ -7,6 +7,8 @@ from fastapi import BackgroundTasks, Request
 from services.database import db_service
 from services.media.rag_indexing import index_upload_file_for_rag as index_upload
 
+from .constants import UploadStatus
+
 logger = logging.getLogger(__name__)
 _SYNC_RAG_INDEXING = os.getenv("SYNC_RAG_INDEXING", "false").lower() == "true"
 
@@ -16,7 +18,7 @@ async def index_upload_for_rag(
     project_id: str,
     session_id: Optional[str] = None,
 ):
-    await db_service.update_upload_status(upload.id, status="parsing")
+    await db_service.update_upload_status(upload.id, status=UploadStatus.PARSING.value)
 
     try:
         parse_result = await index_upload(
@@ -30,7 +32,7 @@ async def index_upload_for_rag(
         )
         await db_service.update_upload_status(
             upload.id,
-            status="ready",
+            status=UploadStatus.READY.value,
             parse_result=parse_result,
             error_message=None,
         )
@@ -44,7 +46,7 @@ async def index_upload_for_rag(
         )
         await db_service.update_upload_status(
             upload.id,
-            status="failed",
+            status=UploadStatus.FAILED.value,
             error_message=str(exc),
         )
 

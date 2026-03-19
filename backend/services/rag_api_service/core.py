@@ -2,6 +2,7 @@ from typing import Optional
 
 from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
 from services.database import db_service
+from services.file_upload_service.constants import UploadStatus
 from services.media.rag_indexing import index_upload_file_for_rag
 from services.rag_service import rag_service
 from utils.exceptions import ForbiddenException, NotFoundException
@@ -73,7 +74,7 @@ async def index_file_response(request: RAGIndexRequest, user_id: str):
     )
     await db_service.update_upload_status(
         upload.id,
-        status="ready",
+        status=UploadStatus.READY.value,
         parse_result=parse_result,
         error_message=None,
     )
@@ -81,7 +82,7 @@ async def index_file_response(request: RAGIndexRequest, user_id: str):
         data={
             "file_id": upload.id,
             "project_id": upload.projectId,
-            "status": "ready",
+            "status": UploadStatus.READY.value,
             "parse_result": parse_result,
         },
         message="文件索引完成",

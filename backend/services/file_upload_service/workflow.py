@@ -12,6 +12,7 @@ from .access import (
     validate_upload_file,
     verify_project_access,
 )
+from .constants import UploadStatus
 from .indexing import _SYNC_RAG_INDEXING, dispatch_rag_indexing, index_upload_for_rag
 from .serialization import serialize_upload
 
@@ -43,7 +44,7 @@ async def _prepare_uploaded_file(
     session_id: Optional[str],
 ) -> dict:
     upload = await save_and_record_upload(file, project_id)
-    await db_service.update_upload_status(upload.id, status="parsing")
+    await db_service.update_upload_status(upload.id, status=UploadStatus.PARSING.value)
     latest = await db_service.get_file(upload.id)
     if _SYNC_RAG_INDEXING:
         await index_upload_for_rag(latest, project_id, session_id)

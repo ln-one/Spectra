@@ -1,5 +1,6 @@
 from typing import Optional
 
+from schemas.generation import TaskStatus
 from schemas.project_space import ReferenceRelationType
 from schemas.projects import ProjectCreate, ProjectReferenceMode
 from utils.exceptions import APIException, NotFoundException, ValidationException
@@ -148,7 +149,7 @@ class ProjectMixin:
             where={"projectId": project_id}
         )
         completed_count = await self.db.generationtask.count(
-            where={"projectId": project_id, "status": "completed"}
+            where={"projectId": project_id, "status": TaskStatus.COMPLETED}
         )
         total_file_size = 0
         aggregate_available = False

@@ -30,6 +30,7 @@ async def execute_rag_indexing_task(
     session_id: Optional[str] = None,
 ):
     from services.database import DatabaseService
+    from services.file_upload_service.constants import UploadStatus
     from services.media.rag_indexing import index_upload_file_for_rag
 
     db = DatabaseService()
@@ -43,7 +44,7 @@ async def execute_rag_indexing_task(
             logger.error("rag_indexing_task: file not found: %s", file_id)
             return
 
-        await db.update_upload_status(upload.id, status="parsing")
+        await db.update_upload_status(upload.id, status=UploadStatus.PARSING.value)
         parse_result = await index_upload_file_for_rag(
             upload=upload,
             project_id=project_id,
@@ -55,7 +56,7 @@ async def execute_rag_indexing_task(
         )
         await db.update_upload_status(
             upload.id,
-            status="ready",
+            status=UploadStatus.READY.value,
             parse_result=parse_result,
             error_message=None,
         )
@@ -72,7 +73,9 @@ async def execute_rag_indexing_task(
         )
         try:
             await db.update_upload_status(
-                file_id, status="failed", error_message=str(exc)
+                file_id,
+                status=UploadStatus.FAILED.value,
+                error_message=str(exc),
             )
         except Exception:
             pass
