@@ -212,7 +212,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
     StudioCardCapability(
         id="speaker_notes",
         title="说课助手",
-        readiness=StudioCardReadiness.PROTOCOL_PENDING,
+        readiness=StudioCardReadiness.FOUNDATION_READY,
         context_mode=StudioCardContextMode.HYBRID,
         execution_mode=StudioCardExecutionMode.COMPOSITE,
         primary_capabilities=["ppt", "speaker_notes"],
@@ -235,7 +235,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
             StudioCardAction(type="generate", label="生成说课稿"),
             StudioCardAction(type="chat_refine", label="按选中段落改写过渡语"),
         ],
-        notes="依赖 PPT/session/artifact 组合语义，专用提词器协议尚未正式建模。",
+        notes="source-artifact 绑定与初始执行已具备，段落级提词器改写协议仍待补齐。",
     ),
     StudioCardCapability(
         id="classroom_qa_simulator",

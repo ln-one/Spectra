@@ -104,7 +104,7 @@
 
 ### `speaker_notes`
 
-- `readiness`: `protocol_pending`
+- `readiness`: `foundation_ready`
 - `execution_mode`: `composite`
 - `session_output_type`: `ppt`
 - `requires_source_artifact`: `true`
@@ -227,7 +227,11 @@
 - 文档卡片 -> session
 - quiz / mindmap / animation 卡片 -> artifact
 
-而 `speaker_notes / interactive_games / classroom_qa_simulator` 仍保持诚实的 `protocol_pending`，不会假装已经完成。
+现在已经进入 `foundation_ready` 的包括：
+
+- `speaker_notes`
+
+而 `interactive_games / classroom_qa_simulator` 仍保持诚实的 `protocol_pending`，不会假装已经完成。
 
 ## 9. 源成果绑定
 
@@ -248,3 +252,10 @@
 - `updated_at`
 
 这意味着组合型卡片虽然还没有完全 ready，但它们的 source-binding 已经开始拥有正式协议，而不是继续依赖前端猜测或硬编码。
+
+同时，`speaker_notes` 现在已经可以：
+
+- 先通过 `sources` 拉取可选 `pptx`
+- 再通过 `execute` 直接带 `source_artifact_id` 落地创建 session
+
+也就是说，它已经从纯粹的“协议待定”推进到了“组合协议基础可执行”。

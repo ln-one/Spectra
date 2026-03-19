@@ -171,7 +171,7 @@ def build_studio_card_execution_preview(
     if card_id == "speaker_notes":
         return StudioCardExecutionPreview(
             card_id=card_id,
-            readiness=StudioCardReadiness.PROTOCOL_PENDING,
+            readiness=StudioCardReadiness.FOUNDATION_READY,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint="/api/v1/generate/sessions",
@@ -184,7 +184,7 @@ def build_studio_card_execution_preview(
                         or cfg.get("source_artifact_id"),
                     },
                 },
-                notes="说课助手仍依赖 PPT artifact 与 session 组合语义。",
+                notes="说课助手当前通过 source-artifact + create-session 组合语义落地。",
             ),
         )
 

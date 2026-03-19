@@ -514,9 +514,10 @@ async def test_get_studio_card_execution_plan_returns_source_binding_when_needed
     assert response.status_code == 200
     plan = response.json()["data"]["execution_plan"]
     assert plan["source_binding"]["transport"] == "artifact_reference"
+    assert plan["source_binding"]["status"] == "ready"
     assert (
         plan["source_binding"]["endpoint"]
-        == "/api/v1/project-space/{project_id}/artifacts/{artifact_id}"
+        == "/api/v1/generate/studio-cards/{card_id}/sources"
     )
 
 
@@ -759,3 +760,65 @@ async def test_get_studio_card_sources_rejects_cards_without_source_binding(
     assert response.status_code == 409
     payload = response.json()
     assert payload["detail"]["code"] == "RESOURCE_CONFLICT"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_creates_speaker_notes_session(app, _as_user):
+    client = TestClient(app)
+    session_ref = {
+        "session_id": "s-speaker-001",
+        "project_id": "p-001",
+        "output_type": "ppt",
+        "state": GenerationState.DRAFTING_OUTLINE.value,
+    }
+    source_artifact = SimpleNamespace(id="a-ppt-001", projectId="p-001", type="pptx")
+
+    with (
+        patch(
+            "services.generation_session_service.card_execution_runtime.get_owned_project",
+            AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(return_value=source_artifact),
+        ),
+        patch(
+            "services.generation_session_service.GenerationSessionService.create_session",
+            AsyncMock(return_value=session_ref),
+        ) as create_session_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/speaker_notes/execute",
+            json={
+                "project_id": "p-001",
+                "source_artifact_id": "a-ppt-001",
+            },
+        )
+
+    assert response.status_code == 200
+    result = response.json()["data"]["execution_result"]
+    assert result["resource_kind"] == "session"
+    assert result["session"]["session_id"] == "s-speaker-001"
+    kwargs = create_session_mock.await_args.kwargs
+    assert kwargs["output_type"] == "ppt"
+    assert kwargs["options"]["source_artifact_id"] == "a-ppt-001"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_requires_source_artifact_for_speaker_notes(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    with patch(
+        "services.generation_session_service.card_execution_runtime.get_owned_project",
+        AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/speaker_notes/execute",
+            json={"project_id": "p-001"},
+        )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["detail"]["code"] == "INVALID_INPUT"

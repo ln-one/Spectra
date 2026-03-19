@@ -259,6 +259,7 @@
 4. `POST /api/v1/generate/studio-cards/{card_id}/execution-preview` 已暴露配置到正式请求的映射预览
 5. `POST /api/v1/generate/studio-cards/{card_id}/execute` 已支持四张 `foundation_ready` 卡片的初始一键落地
 6. `GET /api/v1/generate/studio-cards/{card_id}/sources` 已开始暴露组合型卡片的 source-binding 候选
+7. `speaker_notes` 已推进到 `foundation_ready`，支持 `pptx` source-binding + 初始执行
 5. 卡片协议已正式包含：
    - `readiness`
    - `context_mode`
@@ -274,5 +275,7 @@
 
 1. 再把 `word_document / interactive_quick_quiz / knowledge_mindmap / demonstration_animations`
    从“初始一键落地执行”推进到“refine 协议也能正式执行”
-2. 继续把 `speaker_notes / classroom_qa_simulator / interactive_games`
+2. 继续把 `classroom_qa_simulator / interactive_games`
    这些组合型卡片的专用协议
+3. 再把 `speaker_notes`
+   从“source-binding + 初始执行可用”推进到“提词器段落级 refine 正式执行”

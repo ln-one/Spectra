@@ -147,17 +147,17 @@ CARD_EXECUTION_PLANS: dict[str, StudioCardExecutionPlan] = {
     ),
     "speaker_notes": StudioCardExecutionPlan(
         card_id="speaker_notes",
-        readiness=StudioCardReadiness.PROTOCOL_PENDING,
+        readiness=StudioCardReadiness.FOUNDATION_READY,
         initial_binding=StudioCardExecutionBinding(
             transport=StudioCardTransport.SESSION_CREATE,
-            status=StudioCardBindingStatus.PENDING,
+            status=StudioCardBindingStatus.READY,
             method="POST",
             endpoint="/api/v1/generate/sessions",
             required_fields=["project_id", "output_type"],
-            bound_config_keys=["output_type"],
-            pending_config_keys=["source_artifact_id"],
+            bound_config_keys=["output_type", "source_artifact_id"],
+            pending_config_keys=[],
             result_fields=["session.session_id"],
-            notes="说课助手仍依赖 PPT/source artifact 的组合语义，尚未拥有独立生成协议。",
+            notes="说课助手当前通过 source-artifact + create-session 正式承托初始执行。",
         ),
         refine_binding=StudioCardExecutionBinding(
             transport=StudioCardTransport.CHAT_MESSAGE,
@@ -171,12 +171,12 @@ CARD_EXECUTION_PLANS: dict[str, StudioCardExecutionPlan] = {
         ),
         source_binding=StudioCardExecutionBinding(
             transport=StudioCardTransport.ARTIFACT_REFERENCE,
-            status=StudioCardBindingStatus.PARTIAL,
+            status=StudioCardBindingStatus.READY,
             method="GET",
-            endpoint="/api/v1/project-space/{project_id}/artifacts/{artifact_id}",
+            endpoint="/api/v1/generate/studio-cards/{card_id}/sources",
             required_fields=["project_id", "artifact_id"],
             result_fields=["artifact.id", "artifact.type", "artifact.metadata"],
-            notes="PPT artifact 读取已经存在，但说课助手如何消费该 artifact 仍待正式绑定。",
+            notes="PPT artifact 候选已可通过 card source-binding 协议正式获取。",
         ),
     ),
     "classroom_qa_simulator": StudioCardExecutionPlan(

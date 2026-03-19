@@ -13,6 +13,7 @@ from services.project_space_service import project_space_service
 from utils.exceptions import APIException, ErrorCode
 
 from .card_execution_preview import build_studio_card_execution_preview
+from .card_source_bindings import get_card_source_artifact_types
 
 
 def _artifact_result_payload(artifact) -> dict:
@@ -64,6 +65,28 @@ async def execute_studio_card_initial_request(
 
     if request_preview.endpoint == "/api/v1/generate/sessions":
         await get_owned_project(body.project_id, user_id)
+        source_artifact_id = (payload.get("options") or {}).get("source_artifact_id")
+        if source_artifact_id:
+            artifact = await project_space_service.get_artifact(source_artifact_id)
+            if not artifact or artifact.projectId != body.project_id:
+                raise APIException(
+                    status_code=404,
+                    error_code=ErrorCode.NOT_FOUND,
+                    message="源成果不存在",
+                )
+            allowed_types = get_card_source_artifact_types(card_id)
+            if allowed_types and artifact.type not in allowed_types:
+                raise APIException(
+                    status_code=400,
+                    error_code=ErrorCode.INVALID_INPUT,
+                    message="源成果类型与当前卡片不匹配",
+                )
+        elif card_id == "speaker_notes":
+            raise APIException(
+                status_code=400,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="speaker_notes 需要提供 source_artifact_id",
+            )
         session_ref = await session_service.create_session(
             project_id=body.project_id,
             user_id=user_id,
