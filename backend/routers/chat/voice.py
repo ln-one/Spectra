@@ -12,8 +12,8 @@ from utils.dependencies import get_current_user
 from utils.exceptions import APIException
 from utils.responses import success_response
 
+from .observability import build_observability_metadata
 from .shared import (
-    build_observability_metadata,
     dump_capability_status,
     logger,
     router,

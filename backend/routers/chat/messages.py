@@ -16,16 +16,18 @@ from utils.exceptions import APIException
 from utils.responses import error_response, success_response
 
 from .message_flow import build_history_payload, load_rag_context
-from .shared import (
+from .observability import (
     FEW_SHOT_VERSION,
     PROMPT_TEMPLATE_VERSION,
-    align_citations_with_content,
-    append_citation_markers,
     build_observability_metadata,
-    logger,
-    normalize_markdown_paragraphs,
     prompt_hash,
     response_hash,
+)
+from .shared import (
+    align_citations_with_content,
+    append_citation_markers,
+    logger,
+    normalize_markdown_paragraphs,
     router,
     sanitize_cite_tags,
     to_message,
