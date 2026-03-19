@@ -25,6 +25,8 @@
 - [Legacy Surface Map](./legacy-surface-map.md)
 - [PostgreSQL 迁移检查清单](./postgres-migration-checklist.md)
 - [部署拓扑草案](./deployment-topology.md)
+- [Main 分支部署 Runbook](./runbook-main-deploy.md)
+- [故障响应 Runbook](./runbook-incident-response.md)
 
 ## 4. 规划与比赛
 
