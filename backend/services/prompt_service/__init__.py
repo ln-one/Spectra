@@ -11,6 +11,15 @@ from .constants import _RAG_CHUNK_MAX_CHARS, STYLE_REQUIREMENTS
 from .courseware import build_courseware_prompt, build_modify_prompt
 from .intent import build_intent_prompt
 from .rag import format_rag_context as _format_rag_context
+from .semantics import (
+    PROMPT_OUTPUT_MARKERS,
+    PromptCitationStyle,
+    PromptOutputBlock,
+    build_conversation_history_section,
+    build_rag_reference_section,
+    build_session_scope_section,
+    output_block_marker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,5 +87,12 @@ __all__ = [
     "build_intent_prompt",
     "build_modify_prompt",
     "contains_mechanical_option_pattern",
+    "PromptCitationStyle",
+    "PromptOutputBlock",
+    "PROMPT_OUTPUT_MARKERS",
+    "build_rag_reference_section",
+    "build_conversation_history_section",
+    "build_session_scope_section",
+    "output_block_marker",
     "prompt_service",
 ]

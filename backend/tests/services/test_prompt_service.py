@@ -3,9 +3,16 @@ Prompt Service 测试
 """
 
 from services.prompt_service import (
+    PROMPT_OUTPUT_MARKERS,
+    PromptCitationStyle,
+    PromptOutputBlock,
     PromptService,
     _format_rag_context,
+    build_conversation_history_section,
+    build_rag_reference_section,
+    build_session_scope_section,
     contains_mechanical_option_pattern,
+    output_block_marker,
 )
 
 
@@ -158,3 +165,44 @@ class TestFormatRagContextOptimized:
         ]
         prompt = svc.build_chat_response_prompt("问题", "ask_question", rag_context=rag)
         assert '<cite chunk_id="..."></cite>' in prompt
+
+
+class TestPromptSemantics:
+    def test_build_rag_reference_section_for_chat_uses_cite_tag_instruction(self):
+        rag = [
+            {"content": "内容", "source": {"filename": "a.pdf", "chunk_id": "chunk-1"}}
+        ]
+        section = build_rag_reference_section(
+            rag, citation_style=PromptCitationStyle.INLINE_CITE_TAG
+        )
+        assert '<cite chunk_id="..."></cite>' in section
+        assert "参考资料（按相关度排序）" in section
+
+    def test_build_rag_reference_section_for_courseware_uses_source_index_instruction(
+        self,
+    ):
+        rag = [{"content": "内容", "source": {"filename": "a.pdf"}}]
+        section = build_rag_reference_section(
+            rag, citation_style=PromptCitationStyle.SOURCE_INDEX
+        )
+        assert "[来源1]" in section
+        assert "优先利用高相关度内容" in section
+
+    def test_history_and_session_sections_keep_prompt_vocabulary_stable(self):
+        history = [
+            {"role": "user", "content": "问题"},
+            {"role": "assistant", "content": "回答"},
+        ]
+        assert "Conversation history:" in build_conversation_history_section(history)
+        assert "session_id=s-001" in build_session_scope_section("s-001")
+
+    def test_output_block_markers_exposed_as_formal_semantics(self):
+        assert (
+            output_block_marker(PromptOutputBlock.PPT_CONTENT, start=True)
+            == "===PPT_CONTENT_START==="
+        )
+        assert (
+            output_block_marker(PromptOutputBlock.LESSON_PLAN, start=False)
+            == "===LESSON_PLAN_END==="
+        )
+        assert PromptOutputBlock.PPT_CONTENT in PROMPT_OUTPUT_MARKERS

@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Optional
 
 from .constants import COURSEWARE_FEW_SHOT, STYLE_REQUIREMENTS
-from .rag import format_rag_context
+from .semantics import (
+    PromptCitationStyle,
+    PromptOutputBlock,
+    build_rag_reference_section,
+    output_block_marker,
+)
 
 
 def build_courseware_prompt(
@@ -20,13 +25,9 @@ def build_courseware_prompt(
         template_style, STYLE_REQUIREMENTS["default"]
     )
 
-    rag_section = ""
-    if rag_context:
-        rag_section = (
-            "\n以下为从项目资料检索到的参考资料，请优先利用高相关度内容。\n"
-            "如引用资料，请在句末标注来源编号（如：[来源1]）。\n\n"
-            f"{format_rag_context(rag_context)}\n\n"
-        )
+    rag_section = build_rag_reference_section(
+        rag_context, citation_style=PromptCitationStyle.SOURCE_INDEX
+    )
 
     if outline_mode:
         if outline_slide_count and outline_slide_count > 0:
@@ -58,6 +59,11 @@ def build_courseware_prompt(
             f"5. Visual style: {style_instruction}"
         )
 
+        ppt_start = output_block_marker(PromptOutputBlock.PPT_CONTENT, start=True)
+    ppt_end = output_block_marker(PromptOutputBlock.PPT_CONTENT, start=False)
+    lesson_start = output_block_marker(PromptOutputBlock.LESSON_PLAN, start=True)
+    lesson_end = output_block_marker(PromptOutputBlock.LESSON_PLAN, start=False)
+
     return f"""你是资深学科教学设计师。
 请基于以下需求生成完整课件内容。
 {rag_section}
@@ -67,21 +73,21 @@ def build_courseware_prompt(
 
 输出格式：
 
-===PPT_CONTENT_START===
+{ppt_start}
 (Marp markdown slides)
 规则：
 {ppt_constraints}
   禁止在正文中出现标记词
   (PPT_CONTENT_START/END, LESSON_PLAN_START/END)。
-===PPT_CONTENT_END===
+{ppt_end}
 
-===LESSON_PLAN_START===
+{lesson_start}
 (详细教案 markdown)
 规则：
 1. 必须包含教学目标、教学重点、教学难点。
 2. 必须包含分阶段教学过程和时间安排。
 3. 必须包含板书设计与作业布置。
-===LESSON_PLAN_END===
+{lesson_end}
 
 {COURSEWARE_FEW_SHOT}
 

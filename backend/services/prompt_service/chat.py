@@ -6,7 +6,12 @@ import re
 from typing import Optional
 
 from .constants import CHAT_NATURAL_FEW_SHOT
-from .rag import format_rag_context
+from .semantics import (
+    PromptCitationStyle,
+    build_conversation_history_section,
+    build_rag_reference_section,
+    build_session_scope_section,
+)
 
 _MECHANICAL_OPTION_PATTERNS = [
     r"请选择\s*[A-Za-zＡ-Ｚａ-ｚ]([/\-、,，\s]*[A-Za-zＡ-Ｚａ-ｚ])+",
@@ -36,27 +41,11 @@ def build_chat_response_prompt(
     conversation_history: Optional[list[dict]] = None,
 ) -> str:
     """Build prompt for general chat responses."""
-    rag_section = ""
-    if rag_context:
-        rag_section = (
-            "\n参考资料（按相关度排序）：\n"
-            f"{format_rag_context(rag_context)}\n"
-            '若使用资料内容，请在对应句末插入 <cite chunk_id="..."></cite> 标签。\n'
-        )
-
-    history_section = ""
-    if conversation_history:
-        lines: list[str] = []
-        for msg in conversation_history[-5:]:
-            role = "User" if msg.get("role") == "user" else "Assistant"
-            lines.append(f"{role}: {msg.get('content', '')}")
-        history_section = "\nConversation history:\n" + "\n".join(lines) + "\n"
-    session_section = (
-        f"\n当前会话：session_id={session_id}\n"
-        "请仅基于该会话上下文进行回复与引用，不要混入其他会话信息。\n"
-        if session_id
-        else ""
+    rag_section = build_rag_reference_section(
+        rag_context, citation_style=PromptCitationStyle.INLINE_CITE_TAG
     )
+    history_section = build_conversation_history_section(conversation_history)
+    session_section = build_session_scope_section(session_id)
 
     return f"""你是 Spectra 教学助教，请与老师自然共创，不要机械应答。
 {history_section}{session_section}{rag_section}
