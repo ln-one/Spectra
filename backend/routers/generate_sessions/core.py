@@ -15,6 +15,7 @@ from routers.generate_sessions.shared import (
     parse_idempotency_key,
 )
 from services.database import db_service
+from services.platform.state_transition_guard import GenerationState
 from utils.dependencies import get_current_user, get_current_user_optional
 from utils.exceptions import (
     APIException,
@@ -221,7 +222,10 @@ async def get_session_events(
 
             try:
                 runtime_state = await svc.get_session_runtime_state(session_id, user_id)
-                if runtime_state["state"] in ("SUCCESS", "FAILED"):
+                if runtime_state["state"] in {
+                    GenerationState.SUCCESS.value,
+                    GenerationState.FAILED.value,
+                }:
                     break
             except Exception:
                 break
@@ -261,7 +265,10 @@ async def get_capabilities(
             "capabilities": _default_capabilities(),
             "state_machine": {
                 "states": sorted(VALID_STATES),
-                "terminal_states": ["SUCCESS", "FAILED"],
+                "terminal_states": [
+                    GenerationState.SUCCESS.value,
+                    GenerationState.FAILED.value,
+                ],
                 "transitions": transitions,
             },
             "deprecations": [

@@ -5,6 +5,8 @@ import logging
 from typing import Awaitable, Callable, Optional
 
 from schemas.generation import TaskStatus
+from services.platform.generation_event_constants import GenerationEventType
+from services.platform.state_transition_guard import GenerationState
 from services.task_executor.constants import (
     TaskExecutionErrorCode,
     TaskFailureStateReason,
@@ -145,7 +147,7 @@ async def mark_dispatch_failed(
     await db.generationsession.update(
         where={"id": session_id},
         data={
-            "state": "FAILED",
+            "state": GenerationState.FAILED.value,
             "errorCode": TaskExecutionErrorCode.DISPATCH_FAILED.value,
             "errorMessage": error_message,
             "errorRetryable": True,
@@ -154,8 +156,8 @@ async def mark_dispatch_failed(
     )
     await append_event(
         session_id=session_id,
-        event_type="state.changed",
-        state="FAILED",
+        event_type=GenerationEventType.STATE_CHANGED.value,
+        state=GenerationState.FAILED.value,
         state_reason=TaskFailureStateReason.DISPATCH_FAILED.value,
         payload={"task_id": task_id, "error": error_message},
     )

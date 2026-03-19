@@ -3,6 +3,7 @@ import json
 from typing import Optional
 
 from schemas.generation import TaskStatus
+from services.platform.state_transition_guard import GenerationState
 
 
 def build_artifact_anchor(session_id: str, artifact) -> dict:
@@ -17,14 +18,18 @@ def build_artifact_anchor(session_id: str, artifact) -> dict:
 
 def ensure_previewable_state(snapshot: dict) -> None:
     session_state = snapshot["session"]["state"]
-    if session_state not in ("SUCCESS", "RENDERING", "GENERATING_CONTENT"):
+    if session_state not in {
+        GenerationState.SUCCESS.value,
+        GenerationState.RENDERING.value,
+        GenerationState.GENERATING_CONTENT.value,
+    }:
         raise ValueError(f"当前状态 {session_state} 不支持预览，需等待生成完成")
 
 
 def ensure_exportable_state(
     snapshot: dict, expected_render_version: Optional[int]
 ) -> None:
-    if snapshot["session"]["state"] != "SUCCESS":
+    if snapshot["session"]["state"] != GenerationState.SUCCESS.value:
         raise ValueError("只有状态为 SUCCESS 的会话才能导出")
 
     if expected_render_version is None:

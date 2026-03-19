@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock
 import pytest
 
 from schemas.generation import TaskStatus
+from services.platform.generation_event_constants import GenerationEventType
 from services.platform.recovery_constants import (
     RecoveryErrorCode,
-    RecoveryEventType,
     RecoveryStateReason,
 )
 from services.platform.state_transition_guard import GenerationState
@@ -84,5 +84,5 @@ async def test_recover_stale_tasks_updates_task_and_session():
     assert session_update["state"] == GenerationState.FAILED.value
     assert session_update["errorCode"] == RecoveryErrorCode.WORKER_INTERRUPTED.value
     event_payload = db.sessionevent.create.await_args.kwargs["data"]
-    assert event_payload["eventType"] == RecoveryEventType.TASK_FAILED.value
+    assert event_payload["eventType"] == GenerationEventType.TASK_FAILED.value
     assert event_payload["stateReason"] == RecoveryStateReason.WORKER_INTERRUPTED.value

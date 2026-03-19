@@ -19,9 +19,9 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
 from schemas.generation import TaskStatus
+from services.platform.generation_event_constants import GenerationEventType
 from services.platform.recovery_constants import (
     RecoveryErrorCode,
-    RecoveryEventType,
     RecoveryStateReason,
 )
 from services.platform.state_transition_guard import GenerationState
@@ -132,7 +132,7 @@ class TaskRecoveryService:
                     await self._db.sessionevent.create(
                         data={
                             "sessionId": task.sessionId,
-                            "eventType": RecoveryEventType.TASK_FAILED.value,
+                            "eventType": GenerationEventType.TASK_FAILED.value,
                             "state": GenerationState.FAILED.value,
                             "stateReason": RecoveryStateReason.WORKER_INTERRUPTED.value,
                             "cursor": cursor,

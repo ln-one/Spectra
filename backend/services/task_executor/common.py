@@ -7,6 +7,9 @@ import threading
 import uuid
 from typing import Awaitable, Callable, Optional, TypeVar
 
+from services.platform.generation_event_constants import GenerationEventType
+from services.platform.state_transition_guard import GenerationState
+
 from .constants import TaskExecutionErrorCode
 
 logger = logging.getLogger(__name__)
@@ -35,9 +38,9 @@ async def sync_session_terminal_state(
         return
 
     cursor = str(uuid.uuid4())
-    if state == "SUCCESS":
+    if state == GenerationState.SUCCESS.value:
         session_data = {
-            "state": "SUCCESS",
+            "state": GenerationState.SUCCESS.value,
             "pptUrl": (output_urls or {}).get("pptx"),
             "wordUrl": (output_urls or {}).get("docx"),
             "progress": 100,
@@ -49,7 +52,7 @@ async def sync_session_terminal_state(
         payload = {"task_id": task_id, "output_urls": output_urls or {}}
     else:
         session_data = {
-            "state": "FAILED",
+            "state": GenerationState.FAILED.value,
             "errorCode": error_code or TaskExecutionErrorCode.FAILED.value,
             "errorMessage": error_message,
             "errorRetryable": retryable,
@@ -69,10 +72,10 @@ async def sync_session_terminal_state(
     await db_service.db.sessionevent.create(
         data={
             "sessionId": session_id,
-            "eventType": "state.changed",
+            "eventType": GenerationEventType.STATE_CHANGED.value,
             "state": state,
             "stateReason": state_reason,
-            "progress": 100 if state == "SUCCESS" else None,
+            "progress": 100 if state == GenerationState.SUCCESS.value else None,
             "cursor": cursor,
             "payload": json.dumps(payload),
             "schemaVersion": 1,

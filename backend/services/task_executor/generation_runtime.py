@@ -9,7 +9,9 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from schemas.generation import TaskStatus
+from services.platform.state_transition_guard import GenerationState
 
+from .constants import TaskFailureStateReason
 from .requirements import build_user_requirements, load_session_outline
 
 logger = logging.getLogger(__name__)
@@ -134,8 +136,8 @@ async def finalize_generation_success(
             db_service=db_service,
             task_id=context.task_id,
             session_id=context.session_id,
-            state="SUCCESS",
-            state_reason="task_completed",
+            state=GenerationState.SUCCESS.value,
+            state_reason=TaskFailureStateReason.COMPLETED.value,
             output_urls=output_urls,
         )
         if context.session_id:

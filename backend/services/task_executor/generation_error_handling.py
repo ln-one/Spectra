@@ -7,6 +7,7 @@ import logging
 import time
 
 from schemas.generation import TaskStatus
+from services.platform.state_transition_guard import GenerationState
 
 from .common import sync_session_terminal_state
 from .constants import TaskExecutionErrorCode, TaskFailureStateReason
@@ -68,7 +69,7 @@ async def handle_retryable_error(db_service, context, exc) -> None:
             db_service=db_service,
             task_id=context.task_id,
             session_id=context.session_id,
-            state="FAILED",
+            state=GenerationState.FAILED.value,
             state_reason=(
                 TaskFailureStateReason.FAILED_TIMEOUT_RETRY_EXHAUSTED.value
                 if error_code == TaskExecutionErrorCode.TIMEOUT.value
@@ -115,7 +116,7 @@ async def handle_permanent_error(db_service, context, exc) -> None:
             db_service=db_service,
             task_id=context.task_id,
             session_id=context.session_id,
-            state="FAILED",
+            state=GenerationState.FAILED.value,
             state_reason=(
                 TaskFailureStateReason.FAILED_TIMEOUT.value
                 if error_code == TaskExecutionErrorCode.TIMEOUT.value
@@ -170,7 +171,7 @@ async def handle_unknown_error(db_service, context, exc) -> None:
             db_service=db_service,
             task_id=context.task_id,
             session_id=context.session_id,
-            state="FAILED",
+            state=GenerationState.FAILED.value,
             state_reason=(
                 TaskFailureStateReason.FAILED_TIMEOUT_UNKNOWN.value
                 if error_code == TaskExecutionErrorCode.TIMEOUT.value

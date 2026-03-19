@@ -14,6 +14,7 @@ from services.generation_session_service.outline_helpers import (
     _build_outline_requirements,
     _courseware_outline_to_document,
 )
+from services.platform.generation_event_constants import GenerationEventType
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +224,7 @@ async def _emit_outline_failure(
 ) -> None:
     await append_event(
         session_id=session_id,
-        event_type="task.failed",
+        event_type=GenerationEventType.TASK_FAILED.value,
         state="DRAFTING_OUTLINE",
         payload={
             "stage": "outline_draft",
