@@ -1,0 +1,6 @@
+import os
+
+DEFAULT_RAG_INDEX_TIMEOUT = int(os.getenv("RQ_RAG_INDEX_TIMEOUT", "1800"))
+MAX_RAG_INDEX_TIMEOUT = int(os.getenv("RQ_RAG_INDEX_TIMEOUT_MAX", "3600"))
+RESULT_TTL = int(os.getenv("RQ_RESULT_TTL", "86400"))
+FAILURE_TTL = int(os.getenv("RQ_FAILURE_TTL", "604800"))
