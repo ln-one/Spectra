@@ -3,18 +3,25 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from schemas.common import SourceType, normalize_source_type
 
 
 class SourceReference(BaseModel):
     """来源引用（用于 citations 字段）。"""
 
     chunk_id: str = Field(..., description="分块 ID")
-    source_type: str = Field(..., description="来源类型：document/video/ai_generated")
+    source_type: SourceType = Field(..., description="来源类型")
     filename: str = Field(..., description="原始文件名")
     page_number: Optional[int] = Field(None, description="页码（文档场景）")
     timestamp: Optional[float] = Field(None, description="时间戳秒数（视频/语音场景）")
     score: Optional[float] = Field(None, description="相似度得分")
+
+    @field_validator("source_type", mode="before")
+    @classmethod
+    def _normalize_source_type(cls, value):
+        return normalize_source_type(value)
 
 
 class Message(BaseModel):

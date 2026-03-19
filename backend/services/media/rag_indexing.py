@@ -7,6 +7,7 @@ RAG Indexing Service
 import logging
 from typing import Any, Optional
 
+from schemas.common import normalize_source_type
 from services.chunking import split_text
 from services.database import db_service
 from services.file_parser import extract_text_for_rag
@@ -82,9 +83,10 @@ async def index_upload_file_for_rag(
         )
         await db.delete_parsed_chunks(upload.id)
 
+    normalized_source_type = normalize_source_type(upload.fileType).value
     base_metadata = {
         "filename": upload.filename,
-        "source_type": upload.fileType,
+        "source_type": normalized_source_type,
     }
     if session_id:
         base_metadata["session_id"] = session_id

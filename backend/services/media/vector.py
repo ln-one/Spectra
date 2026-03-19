@@ -51,6 +51,38 @@ class InMemoryCollection:
     def count(self) -> int:
         return len(self._docs)
 
+    def get(
+        self,
+        ids: Optional[List[str]] = None,
+        where: Optional[Dict[str, Any]] = None,
+        include: Optional[List[str]] = None,
+    ) -> Dict[str, List[Any]]:
+        def match_where(meta: Dict[str, Any]) -> bool:
+            if not where:
+                return True
+            if "$and" in where:
+                return all(match_where(cond) for cond in where["$and"])
+            for key, cond in where.items():
+                if "$eq" in cond and meta.get(key) != cond["$eq"]:
+                    return False
+                if "$in" in cond and meta.get(key) not in cond["$in"]:
+                    return False
+            return True
+
+        items = []
+        for doc_id, (doc, meta, _emb) in self._docs.items():
+            if ids is not None and doc_id not in ids:
+                continue
+            if not match_where(meta):
+                continue
+            items.append((doc_id, doc, meta))
+
+        return {
+            "ids": [item[0] for item in items],
+            "documents": [item[1] for item in items],
+            "metadatas": [item[2] for item in items],
+        }
+
     def query(
         self,
         query_embeddings: List[List[float]],

@@ -5,7 +5,7 @@
 """
 
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -57,7 +57,44 @@ class SourceType(str, Enum):
     DOCUMENT = "document"
     VIDEO = "video"
     AUDIO = "audio"
+    WEB = "web"
     AI_GENERATED = "ai_generated"
+
+
+_SOURCE_TYPE_ALIASES: dict[str, "SourceType"] = {}
+
+
+def normalize_source_type(value: Any) -> "SourceType":
+    """Normalize legacy file/source labels into the product source vocabulary."""
+
+    if isinstance(value, SourceType):
+        return value
+    raw = str(value or "document").strip().lower()
+    if not _SOURCE_TYPE_ALIASES:
+        _SOURCE_TYPE_ALIASES.update(
+            {
+                SourceType.DOCUMENT.value: SourceType.DOCUMENT,
+                SourceType.VIDEO.value: SourceType.VIDEO,
+                SourceType.AUDIO.value: SourceType.AUDIO,
+                SourceType.WEB.value: SourceType.WEB,
+                SourceType.AI_GENERATED.value: SourceType.AI_GENERATED,
+                "pdf": SourceType.DOCUMENT,
+                "word": SourceType.DOCUMENT,
+                "ppt": SourceType.DOCUMENT,
+                "image": SourceType.DOCUMENT,
+                "other": SourceType.DOCUMENT,
+                "doc": SourceType.DOCUMENT,
+                "docx": SourceType.DOCUMENT,
+                "pptx": SourceType.DOCUMENT,
+                "txt": SourceType.DOCUMENT,
+                "md": SourceType.DOCUMENT,
+                "csv": SourceType.DOCUMENT,
+                "webpage": SourceType.WEB,
+                "url": SourceType.WEB,
+                "link": SourceType.WEB,
+            }
+        )
+    return _SOURCE_TYPE_ALIASES.get(raw, SourceType.DOCUMENT)
 
 
 class SourceReference(BaseModel):

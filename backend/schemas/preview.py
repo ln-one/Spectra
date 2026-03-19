@@ -7,19 +7,10 @@ Preview Schemas - 预览相关 Pydantic 模型
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from schemas.common import SourceType, normalize_source_type
 from schemas.generation import TaskStatus
-
-
-class SourceType(str, Enum):
-    """来源类型"""
-
-    VIDEO = "video"
-    AUDIO = "audio"
-    WEB = "web"
-    DOCUMENT = "document"
-    AI_GENERATED = "ai_generated"
 
 
 class SourceReference(BaseModel):
@@ -31,6 +22,11 @@ class SourceReference(BaseModel):
     page_number: Optional[int] = Field(None, ge=1)
     timestamp: Optional[float] = Field(None, ge=0)
     preview_text: Optional[str] = None
+
+    @field_validator("source_type", mode="before")
+    @classmethod
+    def _normalize_source_type(cls, value):
+        return normalize_source_type(value)
 
 
 class Slide(BaseModel):

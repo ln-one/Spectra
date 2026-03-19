@@ -1,5 +1,6 @@
 from typing import Optional
 
+from schemas.common import normalize_source_type
 from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
 from services.media.vector import Collection
 
@@ -23,7 +24,10 @@ async def search(
         conditions.append({"session_id": {"$eq": session_id}})
     if filters:
         if filters.get("file_types"):
-            conditions.append({"source_type": {"$in": filters["file_types"]}})
+            normalized_types = sorted(
+                {normalize_source_type(v).value for v in filters["file_types"]}
+            )
+            conditions.append({"source_type": {"$in": normalized_types}})
         if filters.get("file_ids"):
             conditions.append({"upload_id": {"$in": filters["file_ids"]}})
     if len(conditions) == 1:
@@ -52,7 +56,9 @@ async def search(
                     score=round(score, 4),
                     source=SourceReference(
                         chunk_id=chunk_id,
-                        source_type=meta.get("source_type", "document"),
+                        source_type=normalize_source_type(
+                            meta.get("source_type", "document")
+                        ),
                         filename=meta.get("filename", ""),
                         page_number=meta.get("page_number"),
                     ),
@@ -94,7 +100,7 @@ async def _get_chunk_from_collection(service, chunk_id: str, project_id: str):
         content=content,
         source=SourceReference(
             chunk_id=chunk_id,
-            source_type=meta.get("source_type", "document"),
+            source_type=normalize_source_type(meta.get("source_type", "document")),
             filename=meta.get("filename", ""),
             page_number=meta.get("page_number"),
         ),
