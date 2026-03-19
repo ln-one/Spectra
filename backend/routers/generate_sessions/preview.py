@@ -5,15 +5,17 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, status
 
-from routers.generate_sessions.shared import (
+from routers.generate_sessions.candidate_changes import (
     attach_auto_candidate_change,
     build_session_artifact_anchor,
-    get_session_service,
     load_session_preview_material,
     parse_candidate_change_payload,
+    resolve_session_artifact_binding,
+)
+from routers.generate_sessions.shared import (
+    get_session_service,
     parse_idempotency_key,
     raise_conflict,
-    resolve_session_artifact_binding,
     validate_optional_positive_int,
     validate_positive_int,
 )
