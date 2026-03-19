@@ -962,6 +962,35 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/generate/studio-cards/{card_id}/execution-plan:
+    get:
+      summary: 获取单张 Studio 卡片执行协议
+      operationId: getGenerateStudioCardExecutionPlan
+      description: 返回单张 Studio 卡片当前可落地的后端执行绑定、缺口与结果字段。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardExecutionPlanResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/generate/sessions/{session_id}/preview:
     get:
       summary: 获取会话级课件预览
@@ -3506,6 +3535,92 @@ components:
           properties:
             studio_card:
               $ref: '#/components/schemas/StudioCardCapability'
+        message:
+          type: string
+    StudioCardExecutionBinding:
+      type: object
+      required:
+        - transport
+        - status
+        - method
+        - endpoint
+        - required_fields
+        - bound_config_keys
+        - pending_config_keys
+        - result_fields
+      properties:
+        transport:
+          type: string
+          enum:
+            - session_create
+            - artifact_create
+            - chat_message
+            - artifact_reference
+        status:
+          type: string
+          enum:
+            - ready
+            - partial
+            - pending
+        method:
+          type: string
+        endpoint:
+          type: string
+        required_fields:
+          type: array
+          items:
+            type: string
+        bound_config_keys:
+          type: array
+          items:
+            type: string
+        pending_config_keys:
+          type: array
+          items:
+            type: string
+        result_fields:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+    StudioCardExecutionPlan:
+      type: object
+      required:
+        - card_id
+        - readiness
+        - initial_binding
+      properties:
+        card_id:
+          type: string
+        readiness:
+          type: string
+          enum:
+            - ready
+            - foundation_ready
+            - protocol_pending
+        initial_binding:
+          $ref: '#/components/schemas/StudioCardExecutionBinding'
+        refine_binding:
+          $ref: '#/components/schemas/StudioCardExecutionBinding'
+        source_binding:
+          $ref: '#/components/schemas/StudioCardExecutionBinding'
+    StudioCardExecutionPlanResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - execution_plan
+          properties:
+            execution_plan:
+              $ref: '#/components/schemas/StudioCardExecutionPlan'
         message:
           type: string
     ArtifactAnchor:

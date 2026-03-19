@@ -485,3 +485,49 @@ async def test_get_studio_card_returns_404_for_unknown_card(app, _as_user):
     assert response.status_code == 404
     payload = response.json()
     assert payload["detail"]["code"] == "NOT_FOUND"
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_execution_plan_returns_protocol_bindings(app, _as_user):
+    client = TestClient(app)
+
+    response = client.get("/api/v1/generate/studio-cards/word_document/execution-plan")
+
+    assert response.status_code == 200
+    plan = response.json()["data"]["execution_plan"]
+    assert plan["card_id"] == "word_document"
+    assert plan["initial_binding"]["transport"] == "session_create"
+    assert plan["initial_binding"]["status"] == "partial"
+    assert plan["initial_binding"]["endpoint"] == "/api/v1/generate/sessions"
+    assert "document_variant" in plan["initial_binding"]["pending_config_keys"]
+    assert plan["refine_binding"]["transport"] == "chat_message"
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_execution_plan_returns_source_binding_when_needed(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.get("/api/v1/generate/studio-cards/speaker_notes/execution-plan")
+
+    assert response.status_code == 200
+    plan = response.json()["data"]["execution_plan"]
+    assert plan["source_binding"]["transport"] == "artifact_reference"
+    assert (
+        plan["source_binding"]["endpoint"]
+        == "/api/v1/project-space/{project_id}/artifacts/{artifact_id}"
+    )
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_execution_plan_returns_404_for_unknown_card(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.get("/api/v1/generate/studio-cards/unknown/execution-plan")
+
+    assert response.status_code == 404
+    payload = response.json()
+    assert payload["detail"]["code"] == "NOT_FOUND"

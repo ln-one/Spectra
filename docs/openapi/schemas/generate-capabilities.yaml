@@ -111,6 +111,39 @@ StudioCardAction:
     notes:
       type: string
 
+StudioCardExecutionBinding:
+  type: object
+  required: [transport, status, method, endpoint, required_fields, bound_config_keys, pending_config_keys, result_fields]
+  properties:
+    transport:
+      type: string
+      enum: [session_create, artifact_create, chat_message, artifact_reference]
+    status:
+      type: string
+      enum: [ready, partial, pending]
+    method:
+      type: string
+    endpoint:
+      type: string
+    required_fields:
+      type: array
+      items:
+        type: string
+    bound_config_keys:
+      type: array
+      items:
+        type: string
+    pending_config_keys:
+      type: array
+      items:
+        type: string
+    result_fields:
+      type: array
+      items:
+        type: string
+    notes:
+      type: string
+
 StudioCardCapability:
   type: object
   required:
@@ -256,5 +289,36 @@ StudioCardDetailResponse:
       properties:
         studio_card:
           $ref: '#/StudioCardCapability'
+    message:
+      type: string
+
+StudioCardExecutionPlan:
+  type: object
+  required: [card_id, readiness, initial_binding]
+  properties:
+    card_id:
+      type: string
+    readiness:
+      type: string
+      enum: [ready, foundation_ready, protocol_pending]
+    initial_binding:
+      $ref: '#/StudioCardExecutionBinding'
+    refine_binding:
+      $ref: '#/StudioCardExecutionBinding'
+    source_binding:
+      $ref: '#/StudioCardExecutionBinding'
+
+StudioCardExecutionPlanResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [execution_plan]
+      properties:
+        execution_plan:
+          $ref: '#/StudioCardExecutionPlan'
     message:
       type: string

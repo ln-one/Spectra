@@ -11,6 +11,8 @@
   - 返回完整卡片目录
 - `GET /api/v1/generate/studio-cards/{card_id}`
   - 返回单张卡片的协议细节
+- `GET /api/v1/generate/studio-cards/{card_id}/execution-plan`
+  - 返回单张卡片当前可落地的后端执行绑定与协议缺口
 
 ## 2. 卡片目录字段
 
@@ -125,3 +127,41 @@
 - 哪张卡片当前是否已达可落地成熟度
 
 这些判断应以后端协议为准。
+
+## 6. 执行协议
+
+`execution-plan` 会把每张卡片当前真实可走的后端路径说清楚，而不是让前端自行猜测。
+
+每张卡片会暴露：
+
+- `initial_binding`
+  - 当前第一步应该打到哪个接口
+- `refine_binding`
+  - 当前局部改写应依赖哪条链路
+- `source_binding`
+  - 当前是否需要先绑定某个 artifact/source
+
+### `status` 语义
+
+- `ready`
+  - 该绑定已经可以直接作为正式产品协议使用
+- `partial`
+  - 主通道已存在，但仍有配置字段或局部语义尚未绑定
+- `pending`
+  - 方向已确定，但专用协议还未完全落地
+
+### 当前重点
+
+`foundation_ready` 的四张卡片已经开始暴露 `execution-plan`：
+
+- `word_document`
+- `interactive_quick_quiz`
+- `knowledge_mindmap`
+- `demonstration_animations`
+
+这意味着前端现在不只是知道“卡片存在”，还知道：
+
+- 第一跳该打哪个后端入口
+- 哪些配置字段已经正式绑定
+- 哪些字段仍处于协议缺口
+- 最终应该从哪个结果字段里取回 session / artifact

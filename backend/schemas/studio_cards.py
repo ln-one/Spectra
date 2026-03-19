@@ -33,6 +33,19 @@ class StudioCardFieldType(str, Enum):
     REFERENCE = "reference"
 
 
+class StudioCardTransport(str, Enum):
+    SESSION_CREATE = "session_create"
+    ARTIFACT_CREATE = "artifact_create"
+    CHAT_MESSAGE = "chat_message"
+    ARTIFACT_REFERENCE = "artifact_reference"
+
+
+class StudioCardBindingStatus(str, Enum):
+    READY = "ready"
+    PARTIAL = "partial"
+    PENDING = "pending"
+
+
 class StudioCardConfigOption(BaseModel):
     value: str
     label: str
@@ -56,6 +69,18 @@ class StudioCardAction(BaseModel):
     notes: Optional[str] = None
 
 
+class StudioCardExecutionBinding(BaseModel):
+    transport: StudioCardTransport
+    status: StudioCardBindingStatus
+    method: str
+    endpoint: str
+    required_fields: List[str] = Field(default_factory=list)
+    bound_config_keys: List[str] = Field(default_factory=list)
+    pending_config_keys: List[str] = Field(default_factory=list)
+    result_fields: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
 class StudioCardCapability(BaseModel):
     id: str
     title: str
@@ -72,3 +97,11 @@ class StudioCardCapability(BaseModel):
     config_fields: List[StudioCardConfigField] = Field(default_factory=list)
     actions: List[StudioCardAction] = Field(default_factory=list)
     notes: Optional[str] = None
+
+
+class StudioCardExecutionPlan(BaseModel):
+    card_id: str
+    readiness: StudioCardReadiness
+    initial_binding: StudioCardExecutionBinding
+    refine_binding: Optional[StudioCardExecutionBinding] = None
+    source_binding: Optional[StudioCardExecutionBinding] = None

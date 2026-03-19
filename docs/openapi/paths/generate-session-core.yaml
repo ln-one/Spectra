@@ -255,3 +255,32 @@
         $ref: '../components/responses.yaml#/Forbidden'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/studio-cards/{card_id}/execution-plan:
+  get:
+    summary: 获取单张 Studio 卡片执行协议
+    operationId: getGenerateStudioCardExecutionPlan
+    description: 返回单张 Studio 卡片当前可落地的后端执行绑定、缺口与结果字段。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionPlanResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

@@ -7,6 +7,7 @@ from services.generation_session_service import _default_capabilities
 from services.generation_session_service.card_capabilities import (
     get_studio_card_capabilities,
     get_studio_card_capability,
+    get_studio_card_execution_plan,
 )
 from services.platform.state_transition_guard import (
     VALID_COMMANDS,
@@ -48,6 +49,25 @@ async def get_studio_card(
     return success_response(
         data={"studio_card": card},
         message="Studio 卡片详情获取成功",
+    )
+
+
+@router.get("/studio-cards/{card_id}/execution-plan")
+async def get_studio_card_execution_plan_detail(
+    card_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """返回单张 Studio 卡片当前可落地的后端执行协议。"""
+    plan = get_studio_card_execution_plan(card_id)
+    if plan is None:
+        raise NotFoundException(
+            message="Studio 卡片不存在",
+            error_code=ErrorCode.NOT_FOUND,
+        )
+
+    return success_response(
+        data={"execution_plan": plan},
+        message="Studio 卡片执行协议获取成功",
     )
 
 
