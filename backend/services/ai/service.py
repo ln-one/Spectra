@@ -9,6 +9,12 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
+from services.ai.completion_runtime import (
+    build_completion_payload,
+    build_stub_payload,
+    extract_completion_payload,
+    with_route_failure,
+)
 from services.ai.intents import (
     classify_intent,
     classify_intent_by_keywords,
@@ -28,26 +34,6 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
-
-
-def _with_route_failure(
-    route_decision,
-    *,
-    failure_reason: ModelRouteFailureReason,
-    latency_ms: float,
-    fallback_triggered: bool = False,
-    original_model: str | None = None,
-) -> dict | None:
-    route_info = route_decision.to_dict() if route_decision else None
-    if route_info is None:
-        return None
-    route_info["failure_reason"] = failure_reason.value
-    route_info["latency_ms"] = latency_ms
-    if fallback_triggered:
-        route_info["fallback_triggered"] = True
-    if original_model:
-        route_info["original_model"] = original_model
-    return route_info
 
 
 class AIService(CoursewareAIMixin):
@@ -126,22 +112,19 @@ class AIService(CoursewareAIMixin):
                 prompt=prompt,
                 max_tokens=max_tokens,
             )
-            content = response.choices[0].message.content
-            tokens_used = (
-                response.usage.total_tokens if hasattr(response, "usage") else None
-            )
+            content, tokens_used = extract_completion_payload(response)
             latency_ms = _elapsed_ms()
             route_info = route_decision.to_dict() if route_decision else None
             if route_info is not None:
                 route_info["latency_ms"] = latency_ms
-            return {
-                "content": content,
-                "model": resolved_model,
-                "tokens_used": tokens_used,
-                "route": route_info,
-                "fallback_triggered": fallback_triggered,
-                "latency_ms": latency_ms,
-            }
+            return build_completion_payload(
+                content=content,
+                model=resolved_model,
+                tokens_used=tokens_used,
+                route=route_info,
+                fallback_triggered=fallback_triggered,
+                latency_ms=latency_ms,
+            )
         except asyncio.TimeoutError as e:
             logger.warning(
                 "AI generation timed out after %.1fs with %s",
@@ -162,15 +145,10 @@ class AIService(CoursewareAIMixin):
                         prompt=prompt,
                         max_tokens=max_tokens,
                     )
-                    content = response.choices[0].message.content
-                    tokens_used = (
-                        response.usage.total_tokens
-                        if hasattr(response, "usage")
-                        else None
-                    )
+                    content, tokens_used = extract_completion_payload(response)
                     fallback_triggered = True
                     route_info = (
-                        _with_route_failure(
+                        with_route_failure(
                             route_decision,
                             failure_reason=ModelRouteFailureReason.TIMEOUT,
                             latency_ms=_elapsed_ms(),
@@ -179,14 +157,14 @@ class AIService(CoursewareAIMixin):
                         )
                         or {}
                     )
-                    return {
-                        "content": content,
-                        "model": fallback_resolved,
-                        "tokens_used": tokens_used,
-                        "route": route_info,
-                        "fallback_triggered": fallback_triggered,
-                        "latency_ms": route_info["latency_ms"],
-                    }
+                    return build_completion_payload(
+                        content=content,
+                        model=fallback_resolved,
+                        tokens_used=tokens_used,
+                        route=route_info,
+                        fallback_triggered=fallback_triggered,
+                        latency_ms=route_info["latency_ms"],
+                    )
                 except Exception as fallback_exc:
                     logger.error(
                         "Fallback to %s after timeout also failed: %s",
@@ -197,19 +175,18 @@ class AIService(CoursewareAIMixin):
 
             if self.allow_ai_stub:
                 latency_ms = _elapsed_ms()
-                route_info = _with_route_failure(
+                route_info = with_route_failure(
                     route_decision,
                     failure_reason=ModelRouteFailureReason.TIMEOUT,
                     latency_ms=latency_ms,
                 )
-                return {
-                    "content": f"AI stub response for prompt: {prompt[:50]}...",
-                    "model": resolved_model,
-                    "tokens_used": 0,
-                    "route": route_info,
-                    "fallback_triggered": fallback_triggered,
-                    "latency_ms": latency_ms,
-                }
+                return build_stub_payload(
+                    prompt=prompt,
+                    model=resolved_model,
+                    route=route_info,
+                    fallback_triggered=fallback_triggered,
+                    latency_ms=latency_ms,
+                )
             raise TimeoutError(
                 f"AI request timed out after {self.request_timeout_seconds:.1f}s"
             ) from e
@@ -233,15 +210,10 @@ class AIService(CoursewareAIMixin):
                         prompt=prompt,
                         max_tokens=max_tokens,
                     )
-                    content = response.choices[0].message.content
-                    tokens_used = (
-                        response.usage.total_tokens
-                        if hasattr(response, "usage")
-                        else None
-                    )
+                    content, tokens_used = extract_completion_payload(response)
                     fallback_triggered = True
                     route_info = (
-                        _with_route_failure(
+                        with_route_failure(
                             route_decision,
                             failure_reason=ModelRouteFailureReason.COMPLETION_ERROR,
                             latency_ms=_elapsed_ms(),
@@ -250,14 +222,14 @@ class AIService(CoursewareAIMixin):
                         )
                         or {}
                     )
-                    return {
-                        "content": content,
-                        "model": fallback_resolved,
-                        "tokens_used": tokens_used,
-                        "route": route_info,
-                        "fallback_triggered": fallback_triggered,
-                        "latency_ms": route_info["latency_ms"],
-                    }
+                    return build_completion_payload(
+                        content=content,
+                        model=fallback_resolved,
+                        tokens_used=tokens_used,
+                        route=route_info,
+                        fallback_triggered=fallback_triggered,
+                        latency_ms=route_info["latency_ms"],
+                    )
                 except Exception as fallback_exc:
                     logger.error(
                         "Fallback to %s also failed: %s",
@@ -268,19 +240,18 @@ class AIService(CoursewareAIMixin):
 
             if self.allow_ai_stub:
                 latency_ms = _elapsed_ms()
-                route_info = _with_route_failure(
+                route_info = with_route_failure(
                     route_decision,
                     failure_reason=ModelRouteFailureReason.COMPLETION_ERROR,
                     latency_ms=latency_ms,
                 )
-                return {
-                    "content": f"AI stub response for prompt: {prompt[:50]}...",
-                    "model": resolved_model,
-                    "tokens_used": 0,
-                    "route": route_info,
-                    "fallback_triggered": fallback_triggered,
-                    "latency_ms": latency_ms,
-                }
+                return build_stub_payload(
+                    prompt=prompt,
+                    model=resolved_model,
+                    route=route_info,
+                    fallback_triggered=fallback_triggered,
+                    latency_ms=latency_ms,
+                )
             raise
 
     async def classify_intent(self, user_message: str):
