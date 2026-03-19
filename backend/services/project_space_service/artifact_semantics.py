@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 from schemas.project_space import ArtifactType
 
 ARTIFACT_EXTENSION_MAP: dict[str, str] = {
@@ -43,12 +45,46 @@ ARTIFACT_CAPABILITY_MAP: dict[str, str] = {
 
 SUPPORTED_FILE_ARTIFACT_TYPES: tuple[str, ...] = tuple(ARTIFACT_EXTENSION_MAP.keys())
 
+DEFAULT_ARTIFACT_CONTENT: dict[str, dict] = {
+    ArtifactType.PPTX.value: {"title": "PPT demo", "slides": []},
+    ArtifactType.DOCX.value: {"title": "Teaching handout", "sections": []},
+    ArtifactType.MINDMAP.value: {"title": "Mindmap", "nodes": []},
+    ArtifactType.SUMMARY.value: {
+        "title": "Course summary",
+        "summary": "",
+        "key_points": [],
+    },
+    ArtifactType.EXERCISE.value: {"title": "Exercise", "questions": []},
+    ArtifactType.HTML.value: {"html": "<html><body>Empty</body></html>"},
+    ArtifactType.GIF.value: {"title": "Animation placeholder", "scenes": []},
+    ArtifactType.MP4.value: {"title": "Video placeholder"},
+}
+
+ARTIFACT_MODE_KIND_MAP: dict[tuple[str, str], tuple[str, str]] = {
+    (ArtifactType.SUMMARY.value, "outline"): ("课程大纲", "outline"),
+    (ArtifactType.DOCX.value, "handout"): ("教学讲义", "handout"),
+    (ArtifactType.HTML.value, "animation_storyboard"): (
+        "Animation Storyboard",
+        "animation_storyboard",
+    ),
+}
+
 
 def normalize_artifact_type(artifact_type: ArtifactType | str) -> str:
     return (
         artifact_type.value
         if isinstance(artifact_type, ArtifactType)
         else str(artifact_type)
+    )
+
+
+def default_artifact_content(artifact_type: ArtifactType | str) -> dict:
+    normalized = normalize_artifact_type(artifact_type)
+    return deepcopy(
+        DEFAULT_ARTIFACT_CONTENT.get(
+            normalized,
+            {"title": f"{normalized} artifact", "data": []},
+        )
     )
 
 

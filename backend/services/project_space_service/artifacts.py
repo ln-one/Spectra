@@ -5,12 +5,16 @@ import logging
 import uuid
 from typing import Any, Dict, Optional
 
+from schemas.project_space import ArtifactType
 from services.artifact_generator import artifact_generator
 from utils.exceptions import ValidationException
 
 from .artifact_semantics import (
+    ARTIFACT_MODE_KIND_MAP,
     SUPPORTED_FILE_ARTIFACT_TYPES,
+    default_artifact_content,
     get_artifact_capability,
+    normalize_artifact_type,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,26 +44,6 @@ def _build_animation_storyboard_html(content: Dict[str, Any]) -> str:
     )
 
 
-def default_artifact_content(artifact_type: str) -> Dict[str, Any]:
-    if artifact_type == "pptx":
-        return {"title": "PPT demo", "slides": []}
-    if artifact_type == "docx":
-        return {"title": "Teaching handout", "sections": []}
-    if artifact_type == "mindmap":
-        return {"title": "Mindmap", "nodes": []}
-    if artifact_type == "summary":
-        return {"title": "Course summary", "summary": "", "key_points": []}
-    if artifact_type == "exercise":
-        return {"title": "Exercise", "questions": []}
-    if artifact_type == "html":
-        return {"html": "<html><body>Empty</body></html>"}
-    if artifact_type == "gif":
-        return {"title": "Animation placeholder", "scenes": []}
-    if artifact_type == "mp4":
-        return {"title": "Video placeholder"}
-    return {"title": f"{artifact_type} artifact", "data": []}
-
-
 def normalize_artifact_content(
     artifact_type: str,
     content: Optional[Dict[str, Any]],
@@ -69,16 +53,15 @@ def normalize_artifact_content(
     normalized.update(incoming)
 
     mode = str(incoming.get("mode") or "").strip().lower()
-    if artifact_type == "summary" and mode == "outline":
-        normalized.setdefault("title", "课程大纲")
-        normalized["kind"] = "outline"
+    title_and_kind = ARTIFACT_MODE_KIND_MAP.get((artifact_type, mode))
+    if title_and_kind:
+        title, kind = title_and_kind
+        normalized.setdefault("title", title)
+        normalized["kind"] = kind
+
+    if artifact_type == ArtifactType.SUMMARY.value and mode == "outline":
         normalized["nodes"] = normalized.get("nodes") or []
-    elif artifact_type == "docx" and mode == "handout":
-        normalized.setdefault("title", "教学讲义")
-        normalized["kind"] = "handout"
-    elif artifact_type == "html" and mode == "animation_storyboard":
-        normalized.setdefault("title", "Animation Storyboard")
-        normalized["kind"] = "animation_storyboard"
+    elif artifact_type == ArtifactType.HTML.value and mode == "animation_storyboard":
         normalized["html"] = incoming.get("html") or _build_animation_storyboard_html(
             normalized
         )
@@ -121,9 +104,7 @@ async def create_artifact_with_file(
     content: Optional[Dict[str, Any]] = None,
 ) -> Any:
     """Create artifact record and generate the backing file."""
-    artifact_type = (
-        artifact_type.value if hasattr(artifact_type, "value") else str(artifact_type)
-    )
+    artifact_type = normalize_artifact_type(artifact_type)
     artifact_id = str(uuid.uuid4())
     storage_path = artifact_generator.get_storage_path(
         project_id, artifact_type, artifact_id
@@ -146,33 +127,33 @@ async def create_artifact_with_file(
         )
 
     try:
-        if artifact_type == "pptx":
+        if artifact_type == ArtifactType.PPTX.value:
             actual_path = await artifact_generator.generate_pptx(
                 normalized_content, project_id, artifact_id
             )
-        elif artifact_type == "docx":
+        elif artifact_type == ArtifactType.DOCX.value:
             actual_path = await artifact_generator.generate_docx(
                 normalized_content, project_id, artifact_id
             )
-        elif artifact_type == "mindmap":
+        elif artifact_type == ArtifactType.MINDMAP.value:
             actual_path = await artifact_generator.generate_mindmap(
                 normalized_content, project_id, artifact_id
             )
-        elif artifact_type == "summary":
+        elif artifact_type == ArtifactType.SUMMARY.value:
             actual_path = await artifact_generator.generate_summary(
                 normalized_content, project_id, artifact_id
             )
-        elif artifact_type == "exercise":
+        elif artifact_type == ArtifactType.EXERCISE.value:
             actual_path = await artifact_generator.generate_quiz(
                 normalized_content, project_id, artifact_id
             )
-        elif artifact_type == "html":
+        elif artifact_type == ArtifactType.HTML.value:
             actual_path = await artifact_generator.generate_html(
                 normalized_content.get("html", "<html><body>Empty</body></html>"),
                 project_id,
                 artifact_id,
             )
-        elif artifact_type == "gif":
+        elif artifact_type == ArtifactType.GIF.value:
             actual_path = await artifact_generator.generate_animation(
                 normalized_content, project_id, artifact_id
             )
