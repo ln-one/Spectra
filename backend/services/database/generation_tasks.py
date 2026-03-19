@@ -1,7 +1,7 @@
 import json
 from typing import Optional
 
-from schemas.generation import TaskStatus
+from schemas.generation import TaskStatus, normalize_generation_type
 
 
 class GenerationTaskMixin:
@@ -20,7 +20,7 @@ class GenerationTaskMixin:
             data={
                 "projectId": project_id,
                 "sessionId": session_id,
-                "taskType": task_type,
+                "taskType": normalize_generation_type(task_type).value,
                 "status": TaskStatus.PENDING,
                 "progress": 0,
                 "inputData": input_data,

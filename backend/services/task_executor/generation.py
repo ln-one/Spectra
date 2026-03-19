@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Optional
 
-from schemas.generation import TaskStatus
+from schemas.generation import TaskStatus, normalize_generation_type
 
 from .common import RETRYABLE_ERRORS, run_async_entrypoint
 from .generation_error_handling import (
@@ -30,11 +30,12 @@ def run_generation_task(
     template_config: Optional[dict] = None,
 ):
     """Sync wrapper for RQ workers."""
+    normalized_task_type = normalize_generation_type(task_type).value
     run_async_entrypoint(
         lambda: execute_generation_task(
             task_id=task_id,
             project_id=project_id,
-            task_type=task_type,
+            task_type=normalized_task_type,
             template_config=template_config,
         )
     )
@@ -48,10 +49,12 @@ async def execute_generation_task(
 ):
     from services.database import DatabaseService
 
+    normalized_task_type = normalize_generation_type(task_type).value
+
     context = GenerationExecutionContext(
         task_id=task_id,
         project_id=project_id,
-        task_type=task_type,
+        task_type=normalized_task_type,
         template_config=template_config,
     )
     db_service = DatabaseService()
@@ -66,7 +69,7 @@ async def execute_generation_task(
             extra={
                 "task_id": task_id,
                 "project_id": project_id,
-                "task_type": task_type,
+                "task_type": normalized_task_type,
             },
         )
 

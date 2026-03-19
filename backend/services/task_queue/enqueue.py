@@ -4,6 +4,7 @@ from typing import Optional
 from rq import Retry
 from rq.job import Job
 
+from schemas.generation import normalize_generation_type
 from services.task_queue.constants import (
     DEFAULT_RAG_INDEX_TIMEOUT,
     FAILURE_TTL,
@@ -40,11 +41,13 @@ def enqueue_generation_task(
 
     from services.task_executor import run_generation_task as execute_generation_task
 
+    normalized_task_type = normalize_generation_type(task_type).value
+
     job = _resolve_queue(service, priority).enqueue(
         execute_generation_task,
         task_id=task_id,
         project_id=project_id,
-        task_type=task_type,
+        task_type=normalized_task_type,
         template_config=template_config,
         job_timeout=timeout,
         retry=Retry(max=3, interval=[60, 300, 900]),
