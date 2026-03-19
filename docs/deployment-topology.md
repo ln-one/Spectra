@@ -238,6 +238,8 @@
 - `/Users/ln1/Projects/Spectra/docs/runbook-main-deploy.md`
 - `/Users/ln1/Projects/Spectra/docs/runbook-incident-response.md`
 - `/Users/ln1/Projects/Spectra/docs/postgres-migration-checklist.md`
+- `/Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py`
+- `/Users/ln1/Projects/Spectra/backend/scripts/deploy_smoke_check.py`
 
 ---
 

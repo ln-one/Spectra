@@ -69,6 +69,18 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py
 - JWT secret
 4. 若涉及 schema 变更，先确认 migration 策略
 
+建议先跑一遍部署前置检查：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py
+```
+
+如果只想先看环境变量是否齐全：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py --skip-network
+```
+
 ---
 
 ## 三、推荐发布顺序
