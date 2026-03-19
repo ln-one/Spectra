@@ -69,6 +69,35 @@ ARTIFACT_MODE_KIND_MAP: dict[tuple[str, str], tuple[str, str]] = {
     ),
 }
 
+CAPABILITY_ARTIFACT_MAPPING: dict[str, dict[str, str]] = {
+    "ppt": {"artifact_type": ArtifactType.PPTX.value},
+    "word": {"artifact_type": ArtifactType.DOCX.value},
+    "mindmap": {"artifact_type": ArtifactType.MINDMAP.value},
+    "outline": {
+        "artifact_type": ArtifactType.SUMMARY.value,
+        "metadata_kind": "outline",
+    },
+    "quiz": {"artifact_type": ArtifactType.EXERCISE.value},
+    "summary": {"artifact_type": ArtifactType.SUMMARY.value},
+    "animation": {
+        "artifact_type": ArtifactType.HTML.value,
+        "metadata_kind": "animation_storyboard",
+    },
+    "handout": {
+        "artifact_type": ArtifactType.DOCX.value,
+        "metadata_kind": "handout",
+    },
+}
+
+WAVE1_ENTRY_ROUTE_MAPPING: dict[str, dict[str, str | bool]] = {
+    "ppt": {"entry_route": "session-first", "session_required": True},
+    "word": {"entry_route": "session-first", "session_required": True},
+    "outline": {"entry_route": "session-first", "session_required": True},
+    "summary": {"entry_route": "artifact-lite", "session_required": False},
+}
+
+ALL_PROJECT_CAPABILITIES: tuple[str, ...] = tuple(CAPABILITY_ARTIFACT_MAPPING.keys())
+
 
 def normalize_artifact_type(artifact_type: ArtifactType | str) -> str:
     return (
@@ -101,6 +130,21 @@ def get_artifact_media_type(artifact_type: ArtifactType | str) -> str:
 def get_artifact_capability(artifact_type: ArtifactType | str) -> str:
     normalized = normalize_artifact_type(artifact_type)
     return ARTIFACT_CAPABILITY_MAP.get(normalized, normalized)
+
+
+def resolve_capability_from_artifact(
+    artifact_type: ArtifactType | str, metadata_kind: str | None = None
+) -> str:
+    normalized_type = normalize_artifact_type(artifact_type)
+    normalized_kind = str(metadata_kind or "").strip().lower()
+    for capability, expectation in CAPABILITY_ARTIFACT_MAPPING.items():
+        if expectation["artifact_type"] != normalized_type:
+            continue
+        expected_kind = expectation.get("metadata_kind")
+        if expected_kind and expected_kind != normalized_kind:
+            continue
+        return capability
+    return get_artifact_capability(normalized_type)
 
 
 def build_artifact_download_filename(

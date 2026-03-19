@@ -18,34 +18,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-ALL_CAPABILITIES = {
-    "ppt",
-    "word",
-    "mindmap",
-    "outline",
-    "quiz",
-    "summary",
-    "animation",
-    "handout",
-}
-
-CAPABILITY_ARTIFACT_MAPPING = {
-    "ppt": {"artifact_type": "pptx"},
-    "word": {"artifact_type": "docx"},
-    "mindmap": {"artifact_type": "mindmap"},
-    "outline": {"artifact_type": "summary", "metadata_kind": "outline"},
-    "quiz": {"artifact_type": "exercise"},
-    "summary": {"artifact_type": "summary"},
-    "animation": {"artifact_type": "html", "metadata_kind": "animation_storyboard"},
-    "handout": {"artifact_type": "docx", "metadata_kind": "handout"},
-}
-
-WAVE1_ENTRY_ROUTE_MAPPING = {
-    "ppt": {"entry_route": "session-first", "session_required": True},
-    "word": {"entry_route": "session-first", "session_required": True},
-    "outline": {"entry_route": "session-first", "session_required": True},
-    "summary": {"entry_route": "artifact-lite", "session_required": False},
-}
+from services.project_space_service.artifact_semantics import (
+    ALL_PROJECT_CAPABILITIES,
+    CAPABILITY_ARTIFACT_MAPPING,
+    WAVE1_ENTRY_ROUTE_MAPPING,
+)
 
 
 @dataclass
@@ -264,7 +241,8 @@ def compute_metrics(
     candidate_rate = candidate_pass / total
     loop_rate = loop_pass / total
     citation_rate = citation_pass / total
-    coverage_rate = len(covered_capabilities & ALL_CAPABILITIES) / len(ALL_CAPABILITIES)
+    all_capabilities = set(ALL_PROJECT_CAPABILITIES)
+    coverage_rate = len(covered_capabilities & all_capabilities) / len(all_capabilities)
     mapping_rate = mapping_pass / total
     wave1_entry_rate = wave1_entry_pass / total
 

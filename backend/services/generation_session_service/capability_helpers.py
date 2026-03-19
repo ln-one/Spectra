@@ -5,7 +5,9 @@ import logging
 import os
 from typing import Optional
 
-from services.project_space_service.artifact_semantics import get_artifact_capability
+from services.project_space_service.artifact_semantics import (
+    resolve_capability_from_artifact,
+)
 
 from .constants import SessionOutputType
 
@@ -31,18 +33,11 @@ def _parse_json_object(raw: Optional[str]) -> dict:
 
 
 def _resolve_capability_from_artifact(artifact_type: str, metadata: dict) -> str:
-    normalized_type = str(artifact_type or "").strip().lower()
     metadata_kind = str((metadata or {}).get("kind") or "").strip().lower()
-
-    if normalized_type == "summary" and metadata_kind == "outline":
-        return "outline"
-    if normalized_type == "docx" and metadata_kind == "handout":
-        return "handout"
-    if normalized_type == "html" and metadata_kind == "animation_storyboard":
-        return "animation"
-    if normalized_type:
-        return get_artifact_capability(normalized_type)
-    return normalized_type or "unknown"
+    normalized_type = str(artifact_type or "").strip().lower()
+    if not normalized_type:
+        return "unknown"
+    return resolve_capability_from_artifact(normalized_type, metadata_kind)
 
 
 def _default_capabilities() -> list[dict]:
