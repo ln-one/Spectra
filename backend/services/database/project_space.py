@@ -252,7 +252,7 @@ class ProjectSpaceMixin:
 
     async def get_project_members(self, project_id: str):
         return await self.db.projectmember.find_many(
-            where={"projectId": project_id, "status": ReferenceStatus.ACTIVE},
+            where={"projectId": project_id, "status": ProjectMemberStatus.ACTIVE},
             order={"createdAt": "asc"},
         )
 

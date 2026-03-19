@@ -187,6 +187,19 @@ def test_get_project_artifacts_with_filters_success(client, monkeypatch, _as_use
     )
 
 
+def test_get_project_artifacts_invalid_filter_400(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+
+    resp = client.get(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts?type=xls&visibility=private"
+    )
+    assert resp.status_code == 400
+
+
 def test_get_artifact_detail_success(client, monkeypatch, _as_user):
     monkeypatch.setattr(
         project_space_service,
@@ -364,6 +377,17 @@ def test_get_candidate_changes_with_filters_success(client, monkeypatch, _as_use
         proposer_user_id="u-ps-001",
         session_id="s-001",
     )
+
+
+def test_get_candidate_changes_invalid_status_filter_400(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/candidate-changes?status=merged")
+    assert resp.status_code == 400
 
 
 def test_review_candidate_change_success_passes_review_comment(

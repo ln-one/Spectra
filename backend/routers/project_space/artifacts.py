@@ -11,6 +11,8 @@ from schemas.project_space import (
     ArtifactCreate,
     ArtifactResponse,
     ArtifactsResponse,
+    ArtifactType,
+    ArtifactVisibility,
     ProjectPermission,
 )
 from services.project_space_service import project_space_service
@@ -35,8 +37,10 @@ logger = logging.getLogger(__name__)
 async def get_project_artifacts(
     project_id: str,
     user_id: str = Depends(get_current_user),
-    type: Optional[str] = Query(None, description="Artifact type filter"),
-    visibility: Optional[str] = Query(None, description="Visibility filter"),
+    type: Optional[ArtifactType] = Query(None, description="Artifact type filter"),
+    visibility: Optional[ArtifactVisibility] = Query(
+        None, description="Visibility filter"
+    ),
     owner_user_id: Optional[str] = Query(None, description="Owner user ID filter"),
     based_on_version_id: Optional[str] = Query(
         None, description="Based on version ID filter"
@@ -48,8 +52,8 @@ async def get_project_artifacts(
         )
         artifacts = await project_space_service.get_project_artifacts(
             project_id,
-            type_filter=type,
-            visibility_filter=visibility,
+            type_filter=type.value if type else None,
+            visibility_filter=visibility.value if visibility else None,
             owner_user_id_filter=owner_user_id,
             based_on_version_id_filter=based_on_version_id,
         )

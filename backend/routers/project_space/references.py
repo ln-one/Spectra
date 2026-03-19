@@ -10,6 +10,7 @@ from schemas.project_space import (
     CandidateChangeResponse,
     CandidateChangeReview,
     CandidateChangesResponse,
+    CandidateChangeStatus,
     ProjectPermission,
     ProjectReferenceCreate,
     ProjectReferenceResponse,
@@ -178,7 +179,7 @@ async def create_candidate_change(
 )
 async def get_candidate_changes(
     project_id: str,
-    status: Optional[str] = Query(None, description="Status filter"),
+    status: Optional[CandidateChangeStatus] = Query(None, description="Status filter"),
     proposer_user_id: Optional[str] = Query(
         None, description="Proposer user ID filter"
     ),
@@ -189,7 +190,7 @@ async def get_candidate_changes(
         changes = await project_space_service.get_candidate_changes(
             project_id=project_id,
             user_id=user_id,
-            status=status,
+            status=status.value if status else None,
             proposer_user_id=proposer_user_id,
             session_id=session_id,
         )

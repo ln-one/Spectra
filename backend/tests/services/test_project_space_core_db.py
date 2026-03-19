@@ -141,3 +141,17 @@ async def test_update_project_member_normalizes_permissions_and_status():
         "permissions": '{"can_view": true}',
         "status": "disabled",
     }
+
+
+@pytest.mark.asyncio
+async def test_get_project_members_filters_active_member_status():
+    service = DatabaseService()
+    find_many = AsyncMock(return_value=[])
+    service.db = SimpleNamespace(projectmember=SimpleNamespace(find_many=find_many))
+
+    await service.get_project_members("p-001")
+
+    assert find_many.await_args.kwargs == {
+        "where": {"projectId": "p-001", "status": "active"},
+        "order": {"createdAt": "asc"},
+    }
