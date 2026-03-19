@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Optional
 
+from schemas.generation import TaskStatus
 from services.database import db_service
 
 from .cache import load_preview_content, save_preview_content
@@ -16,7 +17,7 @@ async def get_or_generate_content(task, project) -> dict:
         return cached
 
     task_status = getattr(task, "status", None)
-    if task_status in {"pending", "processing"}:
+    if task_status in {TaskStatus.PENDING, TaskStatus.PROCESSING}:
         return {
             "title": project.name or "Generating",
             "markdown_content": "",

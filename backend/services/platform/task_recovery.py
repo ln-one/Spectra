@@ -18,6 +18,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
+from schemas.generation import TaskStatus
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -66,7 +68,7 @@ class TaskRecoveryService:
 
         stale_tasks = await self._db.generationtask.find_many(
             where={
-                "status": "processing",
+                "status": TaskStatus.PROCESSING,
                 "updatedAt": {"lt": threshold},
             }
         )
@@ -91,7 +93,7 @@ class TaskRecoveryService:
             await self._db.generationtask.update(
                 where={"id": task.id},
                 data={
-                    "status": "failed",
+                    "status": TaskStatus.FAILED,
                     "errorMessage": (
                         "[TaskRecovery] Worker 进程中断，任务未完成。"
                         "可通过 session resume 重新发起。"
@@ -162,7 +164,7 @@ class TaskRecoveryService:
         count = await self._db.generationtask.count(
             where={
                 "sessionId": session_id,
-                "status": {"in": ["processing", "pending"]},
+                "status": {"in": [TaskStatus.PROCESSING, TaskStatus.PENDING]},
             }
         )
         return count > 0
@@ -181,7 +183,7 @@ class TaskRecoveryService:
         """
         where: dict = {"sessionId": session_id}
         if not include_failed:
-            where["status"] = {"not": "failed"}
+            where["status"] = {"not": TaskStatus.FAILED}
 
         return await self._db.generationtask.find_many(
             where=where,
@@ -200,13 +202,13 @@ class TaskRecoveryService:
             True 表示重置成功，False 表示任务不存在或状态不是 failed。
         """
         task = await self._db.generationtask.find_unique(where={"id": task_id})
-        if not task or task.status != "failed":
+        if not task or task.status != TaskStatus.FAILED:
             return False
 
         await self._db.generationtask.update(
             where={"id": task_id},
             data={
-                "status": "pending",
+                "status": TaskStatus.PENDING,
                 "retryCount": task.retryCount + 1,
                 "errorMessage": None,
                 "rqJobId": None,

@@ -4,6 +4,7 @@ import asyncio
 import logging
 from typing import Awaitable, Callable, Optional
 
+from schemas.generation import TaskStatus
 from services.task_executor.constants import (
     TaskExecutionErrorCode,
     TaskFailureStateReason,
@@ -41,11 +42,11 @@ def schedule_enqueued_task_watchdog(
             )
             return
 
-        if not job_status or job_status.get("status") != "failed":
+        if not job_status or job_status.get("status") != TaskStatus.FAILED:
             return
 
         task = await db.generationtask.find_unique(where={"id": task_id})
-        if task is None or task.status != "pending":
+        if task is None or task.status != TaskStatus.PENDING:
             return
 
         exc_info = job_status.get("exc_info")
@@ -139,7 +140,7 @@ async def mark_dispatch_failed(
 ) -> None:
     await db.generationtask.update(
         where={"id": task_id},
-        data={"status": "failed", "errorMessage": error_message},
+        data={"status": TaskStatus.FAILED, "errorMessage": error_message},
     )
     await db.generationsession.update(
         where={"id": session_id},

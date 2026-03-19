@@ -4,6 +4,8 @@ import asyncio
 import logging
 from typing import Optional
 
+from schemas.generation import TaskStatus
+
 from .common import RETRYABLE_ERRORS, run_async_entrypoint
 from .generation_error_handling import (
     handle_permanent_error,
@@ -70,7 +72,7 @@ async def execute_generation_task(
 
         await db_service.update_generation_task_status(
             task_id=task_id,
-            status="processing",
+            status=TaskStatus.PROCESSING,
             progress=10,
         )
         task_record = await db_service.get_generation_task(task_id)
@@ -78,7 +80,9 @@ async def execute_generation_task(
 
         courseware_content = await build_generation_inputs(db_service, context)
         await cache_preview_content(task_id, courseware_content)
-        await db_service.update_generation_task_status(task_id, "processing", 30)
+        await db_service.update_generation_task_status(
+            task_id, TaskStatus.PROCESSING, 30
+        )
 
         output_urls = await render_generation_outputs(
             db_service=db_service,

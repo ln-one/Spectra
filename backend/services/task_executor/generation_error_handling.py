@@ -6,6 +6,8 @@ import asyncio
 import logging
 import time
 
+from schemas.generation import TaskStatus
+
 from .common import sync_session_terminal_state
 from .constants import TaskExecutionErrorCode, TaskFailureStateReason
 
@@ -58,7 +60,7 @@ async def handle_retryable_error(db_service, context, exc) -> None:
     error_code, error_msg = _classify_generation_error(exc)
     await db_service.update_generation_task_status(
         task_id=context.task_id,
-        status="failed",
+        status=TaskStatus.FAILED,
         error_message=error_msg,
     )
     try:
@@ -105,7 +107,7 @@ async def handle_permanent_error(db_service, context, exc) -> None:
 
     await db_service.update_generation_task_status(
         task_id=context.task_id,
-        status="failed",
+        status=TaskStatus.FAILED,
         error_message=error_msg,
     )
     try:
@@ -160,7 +162,7 @@ async def handle_unknown_error(db_service, context, exc) -> None:
     error_code, error_msg = _classify_generation_error(exc)
     await db_service.update_generation_task_status(
         task_id=context.task_id,
-        status="failed",
+        status=TaskStatus.FAILED,
         error_message=error_msg,
     )
     try:

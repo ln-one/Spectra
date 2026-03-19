@@ -2,6 +2,8 @@ import html
 import json
 from typing import Optional
 
+from schemas.generation import TaskStatus
+
 
 def build_artifact_anchor(session_id: str, artifact) -> dict:
     return {
@@ -86,7 +88,7 @@ def build_modify_payload(
         "session_id": session_id,
         "modify_task_id": (result.get("task_id") if isinstance(result, dict) else None)
         or f"modify-{session_id}",
-        "status": "pending",
+        "status": TaskStatus.PENDING,
         "render_version": snapshot["session"].get("render_version") or 1,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],

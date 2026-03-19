@@ -9,6 +9,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from schemas.generation import TaskStatus
+
 
 class SourceType(str, Enum):
     """来源类型"""
@@ -83,7 +85,7 @@ class ModifyResponse(BaseModel):
 
     session_id: Optional[str] = None
     modify_task_id: str
-    status: str = "pending"
+    status: TaskStatus = TaskStatus.PENDING
     render_version: Optional[int] = Field(None, ge=1)
     artifact_id: Optional[str] = None
     based_on_version_id: Optional[str] = None

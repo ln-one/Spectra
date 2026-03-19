@@ -1,6 +1,8 @@
 import json
 from typing import Optional
 
+from schemas.generation import TaskStatus
+
 
 class GenerationTaskMixin:
     async def create_generation_task(
@@ -19,7 +21,7 @@ class GenerationTaskMixin:
                 "projectId": project_id,
                 "sessionId": session_id,
                 "taskType": task_type,
-                "status": "pending",
+                "status": TaskStatus.PENDING,
                 "progress": 0,
                 "inputData": input_data,
             }
@@ -33,7 +35,7 @@ class GenerationTaskMixin:
     ):
         where: dict = {"projectId": project_id}
         if completed_only:
-            where["status"] = "completed"
+            where["status"] = TaskStatus.COMPLETED
         tasks = await self.db.generationtask.find_many(
             where=where,
             take=1,
@@ -44,12 +46,15 @@ class GenerationTaskMixin:
     async def update_generation_task_status(
         self,
         task_id: str,
-        status: str,
+        status: TaskStatus | str,
         progress: Optional[int] = None,
         output_urls: Optional[str] = None,
         error_message: Optional[str] = None,
     ):
-        update_data = {"status": status}
+        normalized_status = (
+            status if isinstance(status, TaskStatus) else TaskStatus(status)
+        )
+        update_data = {"status": normalized_status}
         if progress is not None:
             update_data["progress"] = progress
         if output_urls is not None:

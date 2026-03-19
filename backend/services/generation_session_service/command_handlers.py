@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Awaitable, Callable, Optional
 
+from schemas.generation import TaskStatus
 from services.generation_session_service.capability_helpers import _normalize_task_type
 from services.platform.state_transition_guard import GenerationCommandType
 
@@ -175,7 +176,7 @@ async def handle_confirm_outline(
             "projectId": session.projectId,
             "sessionId": session.id,
             "taskType": task_type,
-            "status": "pending",
+            "status": TaskStatus.PENDING,
             "progress": 0,
             "inputData": json.dumps(input_payload),
         }

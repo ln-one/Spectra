@@ -8,6 +8,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
+from schemas.generation import TaskStatus
+
 from .requirements import build_user_requirements, load_session_outline
 
 logger = logging.getLogger(__name__)
@@ -96,7 +98,7 @@ async def render_generation_outputs(
         logger.info("PPTX generated: %s", pptx_path)
         output_urls["pptx"] = export_endpoint or pptx_path
         await db_service.update_generation_task_status(
-            context.task_id, "processing", 60
+            context.task_id, TaskStatus.PROCESSING, 60
         )
 
     if context.task_type in ["docx", "both"]:
@@ -107,7 +109,7 @@ async def render_generation_outputs(
         logger.info("DOCX generated: %s", docx_path)
         output_urls["docx"] = export_endpoint or docx_path
         await db_service.update_generation_task_status(
-            context.task_id, "processing", 90
+            context.task_id, TaskStatus.PROCESSING, 90
         )
 
     return output_urls
@@ -122,7 +124,7 @@ async def finalize_generation_success(
 
     await db_service.update_generation_task_status(
         task_id=context.task_id,
-        status="completed",
+        status=TaskStatus.COMPLETED,
         progress=100,
         output_urls=json.dumps(output_urls),
     )
