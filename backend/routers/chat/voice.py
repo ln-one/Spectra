@@ -43,7 +43,7 @@ async def voice_message(
 
         import tempfile
 
-        from services.audio_service import transcribe_audio
+        from services.media.audio import transcribe_audio
 
         with tempfile.NamedTemporaryFile(
             delete=False, suffix=Path(audio.filename or "audio.wav").suffix

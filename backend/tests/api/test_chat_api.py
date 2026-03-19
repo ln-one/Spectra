@@ -482,7 +482,7 @@ def test_voice_message_no_token_401(client):
 def test_voice_message_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     monkeypatch.setattr(
-        "services.audio_service.transcribe_audio",
+        "services.media.audio.transcribe_audio",
         lambda *_args, **_kwargs: (
             "语音识别文本",
             0.91,

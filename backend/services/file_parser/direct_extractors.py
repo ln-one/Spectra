@@ -16,7 +16,7 @@ def extract_image_placeholder(filename: str) -> tuple[str, dict[str, Any]]:
 def extract_video_placeholder(
     filepath: str, filename: str
 ) -> tuple[str, dict[str, Any]]:
-    from services.video_service import create_video_sources, process_video
+    from services.media.video import create_video_sources, process_video
 
     segments, capability_status = process_video(filepath, filename)
     sources = [

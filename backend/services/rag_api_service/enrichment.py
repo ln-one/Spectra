@@ -6,13 +6,13 @@ import uuid
 from fastapi import UploadFile
 from fastapi.concurrency import run_in_threadpool
 
+from services.media.web_search import web_search_service
 from services.network_resource_strategy import (
     audio_segments_to_units,
     prepare_web_knowledge_units,
     video_segments_to_units,
 )
 from services.rag_service import ParsedChunkData, rag_service
-from services.web_search_service import web_search_service
 from utils.exceptions import ValidationException
 from utils.responses import success_response
 
@@ -135,7 +135,7 @@ async def transcribe_audio_response(
     audio_id = str(uuid.uuid4())
     tmp_path = await _save_upload_to_temp_file(file, suffix=".wav")
     try:
-        from services.audio_service import transcribe_audio
+        from services.media.audio import transcribe_audio
 
         text, confidence, duration, capability_status = await run_in_threadpool(
             transcribe_audio,
@@ -194,7 +194,7 @@ async def analyze_video_response(
     video_id = str(uuid.uuid4())
     tmp_path = await _save_upload_to_temp_file(file, suffix=".mp4")
     try:
-        from services.video_service import process_video
+        from services.media.video import process_video
 
         segments, capability_status = await run_in_threadpool(
             process_video,

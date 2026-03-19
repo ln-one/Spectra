@@ -6,7 +6,7 @@ import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from services.video_service import create_video_sources, process_video
+from services.media.video import create_video_sources, process_video
 
 
 def test_process_video_degraded_when_api_key_missing(monkeypatch):
