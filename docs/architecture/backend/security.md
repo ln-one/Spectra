@@ -1,5 +1,4 @@
 # Security Design
-<!-- REVIEW #B2 (P0): 文档中展示了 verify_project_access 的权限校验，但当前 projects/files/generate 路由仍有 TODO，资源归属校验未真正落地。 -->
 
 ## 权限检查
 
@@ -8,6 +7,9 @@
 每个用户只能访问自己的数据，通过 `userId` 字段实现数据隔离。
 
 ### 实现方案
+
+当前后端已经将项目归属校验收口到共享 helper，供 `projects / files / generate / chat / rag` 等入口复用，避免资源访问语义在多个路由中漂移。
+
 
 ```python
 # utils/dependencies.py
@@ -185,6 +187,9 @@ async def create_generation_task(
 - **接口级限流**：敏感接口（如生成）单独限流
 
 ### 实现方案
+
+当前后端已经将项目归属校验收口到共享 helper，供 `projects / files / generate / chat / rag` 等入口复用，避免资源访问语义在多个路由中漂移。
+
 
 使用 **slowapi** 库实现限流。
 

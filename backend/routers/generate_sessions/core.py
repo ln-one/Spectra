@@ -14,6 +14,7 @@ from routers.generate_sessions.shared import (
     get_task_queue_service,
     parse_idempotency_key,
 )
+from services.application.access import get_owned_project
 from services.database import db_service
 from services.generation_session_service.constants import SessionOutputType
 from services.platform.state_transition_guard import GenerationState
@@ -39,9 +40,7 @@ async def list_sessions(
 ):
     """返回项目内生成会话列表（按更新时间倒序）。"""
     try:
-        project = await db_service.get_project(project_id)
-        if not project or project.userId != user_id:
-            raise ForbiddenException(message="无权访问此项目")
+        await get_owned_project(project_id, user_id)
 
         skip = (page - 1) * limit
         sessions = await db_service.db.generationsession.find_many(
@@ -114,11 +113,12 @@ async def create_generation_session(
             message=f"output_type 必须是 {sorted(allowed_output_types)} 之一",
         )
 
-    project = await db_service.get_project(project_id)
-    if not project or project.userId != user_id:
+    try:
+        await get_owned_project(project_id, user_id)
+    except ForbiddenException as exc:
         raise ForbiddenException(
             message="无权访问该项目", error_code=ErrorCode.FORBIDDEN
-        )
+        ) from exc
 
     svc = get_session_service()
     task_queue_svc = get_task_queue_service(request)

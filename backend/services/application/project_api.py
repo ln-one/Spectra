@@ -3,21 +3,12 @@ from typing import Optional
 
 from fastapi.encoders import jsonable_encoder
 
+from services.application.access import get_owned_project
 from services.database import db_service
 from services.file_upload_service import serialize_upload
-from utils.exceptions import ForbiddenException, NotFoundException
 from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
-
-
-async def get_owned_project(project_id: str, user_id: str):
-    project = await db_service.get_project(project_id)
-    if not project:
-        raise NotFoundException(message=f"项目不存在: {project_id}")
-    if project.userId != user_id:
-        raise ForbiddenException(message="无权限访问此项目")
-    return project
 
 
 async def create_project_response(

@@ -7,8 +7,8 @@ from fastapi import APIRouter
 from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import Message
-from services.database import db_service
-from utils.exceptions import ErrorCode, ForbiddenException
+from services.application.access import get_owned_project
+from utils.exceptions import ErrorCode, ForbiddenException, NotFoundException
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 logger = logging.getLogger(__name__)
@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 
 async def verify_project_ownership(project_id: str, user_id: str):
     """Return project if owned by user, else raise 403."""
-    project = await db_service.get_project(project_id)
-    if not project or project.userId != user_id:
+    try:
+        return await get_owned_project(project_id, user_id)
+    except (ForbiddenException, NotFoundException) as exc:
         raise ForbiddenException(
             message="无权访问该项目",
             error_code=ErrorCode.FORBIDDEN,
-        )
-    return project
+        ) from exc
 
 
 def to_message(conv) -> dict:

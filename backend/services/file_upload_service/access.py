@@ -2,8 +2,7 @@ import os
 from enum import Enum
 from typing import Optional
 
-from services.database import db_service
-from utils.exceptions import ForbiddenException, NotFoundException
+from services.application.access import get_owned_project
 
 _DEFAULT_EXTENSIONS = {
     "pdf",
@@ -123,12 +122,7 @@ def resolve_file_type(filename: str, mime_type: Optional[str] = None) -> str:
 
 
 async def verify_project_access(project_id: str, user_id: str):
-    project = await db_service.get_project(project_id)
-    if not project:
-        raise NotFoundException(message=f"项目不存在: {project_id}")
-    if project.userId != user_id:
-        raise ForbiddenException(message="无权限访问此项目")
-    return project
+    return await get_owned_project(project_id, user_id)
 
 
 def validate_upload_file(filename: str):

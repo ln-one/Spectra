@@ -1,21 +1,11 @@
 import pathlib
 from typing import Callable
 
+from services.application.access import get_owned_file
 from services.database import db_service
 from services.file_upload_service import serialize_upload
 from utils.exceptions import ForbiddenException, NotFoundException
 from utils.responses import success_response
-
-
-async def get_owned_file(file_id: str, user_id: str):
-    file = await db_service.get_file(file_id)
-    if not file:
-        raise NotFoundException(message=f"文件不存在: {file_id}")
-
-    project = await db_service.get_project(file.projectId)
-    if not project or project.userId != user_id:
-        raise ForbiddenException(message="无权限访问此文件")
-    return file
 
 
 async def update_file_intent_response(file_id: str, usage_intent: str, user_id: str):
