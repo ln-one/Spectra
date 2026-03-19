@@ -2,20 +2,15 @@ import json
 import logging
 from typing import Any, Optional
 
+from .constants import UPLOAD_STATUS_PROGRESS
+
 logger = logging.getLogger(__name__)
 
 
 def derive_parse_progress(status: Optional[str]) -> Optional[int]:
     if not status:
         return None
-    status_l = status.lower()
-    if status_l in {"ready", "failed"}:
-        return 100
-    if status_l == "parsing":
-        return 50
-    if status_l == "uploading":
-        return 0
-    return None
+    return UPLOAD_STATUS_PROGRESS.get(status.lower())
 
 
 def safe_parse_json_object(value: Any) -> Optional[dict]:

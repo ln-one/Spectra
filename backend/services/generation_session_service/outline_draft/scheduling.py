@@ -9,6 +9,10 @@ from services.generation_session_service.capability_helpers import (
     _is_queue_worker_available,
 )
 from services.platform.state_transition_guard import GenerationState
+from services.task_queue.status_constants import (
+    CANCELABLE_QUEUE_JOB_STATUSES,
+    QueueJobStatus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,10 +103,13 @@ def schedule_outline_draft_watchdog(
             return
 
         status = (job_status or {}).get("status")
-        if status in {"started", "finished"}:
+        if status in {
+            QueueJobStatus.STARTED.value,
+            QueueJobStatus.FINISHED.value,
+        }:
             return
 
-        if status in {"queued", "scheduled", "deferred"}:
+        if status in CANCELABLE_QUEUE_JOB_STATUSES:
             try:
                 canceled = await asyncio.to_thread(
                     task_queue_service.cancel_job, rq_job_id

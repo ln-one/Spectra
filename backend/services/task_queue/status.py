@@ -5,6 +5,8 @@ from rq import Worker
 from rq.job import Job
 from rq.registry import FailedJobRegistry, FinishedJobRegistry, StartedJobRegistry
 
+from .status_constants import CANCELABLE_QUEUE_JOB_STATUSES, QueueJobStatus
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,7 +39,7 @@ def cancel_job(service, job_id: str) -> bool:
     try:
         job = Job.fetch(job_id, connection=service.redis_conn)
         status = normalize_status(job.get_status())
-        if status in ["queued", "scheduled", "deferred"]:
+        if status in CANCELABLE_QUEUE_JOB_STATUSES:
             job.cancel()
             logger.info("Canceled job: %s", job_id)
             return True
@@ -85,6 +87,10 @@ def get_queue_info(service) -> dict:
         return {
             "queues": {},
             "workers": {"count": 0, "active": []},
-            "jobs": {"started": 0, "finished": 0, "failed": 0},
+            "jobs": {
+                QueueJobStatus.STARTED.value: 0,
+                QueueJobStatus.FINISHED.value: 0,
+                QueueJobStatus.FAILED.value: 0,
+            },
             "error": str(e),
         }
