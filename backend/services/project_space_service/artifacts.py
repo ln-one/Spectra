@@ -8,18 +8,12 @@ from typing import Any, Dict, Optional
 from services.artifact_generator import artifact_generator
 from utils.exceptions import ValidationException
 
-logger = logging.getLogger(__name__)
+from .artifact_semantics import (
+    SUPPORTED_FILE_ARTIFACT_TYPES,
+    get_artifact_capability,
+)
 
-_ARTIFACT_CAPABILITY_MAP = {
-    "pptx": "ppt",
-    "docx": "word",
-    "mindmap": "mindmap",
-    "summary": "summary",
-    "exercise": "quiz",
-    "html": "animation",
-    "gif": "animation",
-    "mp4": "video",
-}
+logger = logging.getLogger(__name__)
 
 
 def _build_animation_storyboard_html(content: Dict[str, Any]) -> str:
@@ -98,7 +92,7 @@ def build_artifact_metadata(
 ) -> Dict[str, Any]:
     metadata: Dict[str, Any] = {
         "created_by": user_id,
-        "capability": _ARTIFACT_CAPABILITY_MAP.get(artifact_type, artifact_type),
+        "capability": get_artifact_capability(artifact_type),
     }
     kind = str(content.get("kind") or "").strip()
     if kind:
@@ -145,20 +139,10 @@ async def create_artifact_with_file(
 
     normalized_content = normalize_artifact_content(artifact_type, content)
 
-    supported_types = [
-        "pptx",
-        "docx",
-        "mindmap",
-        "summary",
-        "exercise",
-        "html",
-        "gif",
-        "mp4",
-    ]
-    if artifact_type not in supported_types:
+    if artifact_type not in SUPPORTED_FILE_ARTIFACT_TYPES:
         raise ValidationException(
             f"Artifact type '{artifact_type}' file generation not yet supported. "
-            f"Supported types: {', '.join(supported_types)}"
+            f"Supported types: {', '.join(SUPPORTED_FILE_ARTIFACT_TYPES)}"
         )
 
     try:

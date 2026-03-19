@@ -9,6 +9,10 @@ from fastapi.responses import FileResponse
 
 from schemas.project_space import ArtifactCreate, ArtifactResponse, ArtifactsResponse
 from services.project_space_service import project_space_service
+from services.project_space_service.artifact_semantics import (
+    build_artifact_download_filename,
+    get_artifact_media_type,
+)
 from utils.dependencies import get_current_user
 from utils.exceptions import NotFoundException
 
@@ -158,30 +162,8 @@ async def download_artifact(
                 f"Artifact file not found at {artifact.storagePath}"
             )
 
-        media_types = {
-            "pptx": PPTX_MIME,
-            "docx": DOCX_MIME,
-            "mindmap": "application/json",
-            "summary": "application/json",
-            "exercise": "application/json",
-            "html": "text/html",
-            "gif": "image/gif",
-            "mp4": "video/mp4",
-        }
-        extension_map = {
-            "pptx": "pptx",
-            "docx": "docx",
-            "mindmap": "json",
-            "summary": "json",
-            "exercise": "json",
-            "html": "html",
-            "gif": "gif",
-            "mp4": "mp4",
-        }
-        media_type = media_types.get(artifact.type, "application/octet-stream")
-        filename = (
-            f"{artifact.type}_{artifact.id}.{extension_map.get(artifact.type, 'bin')}"
-        )
+        media_type = get_artifact_media_type(artifact.type)
+        filename = build_artifact_download_filename(artifact.type, artifact.id)
         logger.info(f"Downloading artifact {artifact_id} from {artifact.storagePath}")
         return FileResponse(
             path=str(file_path), media_type=media_type, filename=filename

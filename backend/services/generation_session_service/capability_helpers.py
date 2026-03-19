@@ -5,6 +5,8 @@ import logging
 import os
 from typing import Optional
 
+from services.project_space_service.artifact_semantics import get_artifact_capability
+
 logger = logging.getLogger(__name__)
 
 _SESSION_TO_TASK_TYPE = {
@@ -13,15 +15,6 @@ _SESSION_TO_TASK_TYPE = {
     "both": "both",
     "pptx": "pptx",
     "docx": "docx",
-}
-
-_ARTIFACT_TYPE_TO_CAPABILITY = {
-    "pptx": "ppt",
-    "docx": "word",
-    "mindmap": "mindmap",
-    "summary": "summary",
-    "exercise": "quiz",
-    "html": "animation",
 }
 
 
@@ -45,8 +38,8 @@ def _resolve_capability_from_artifact(artifact_type: str, metadata: dict) -> str
         return "handout"
     if normalized_type == "html" and metadata_kind == "animation_storyboard":
         return "animation"
-    if normalized_type in _ARTIFACT_TYPE_TO_CAPABILITY:
-        return _ARTIFACT_TYPE_TO_CAPABILITY[normalized_type]
+    if normalized_type:
+        return get_artifact_capability(normalized_type)
     return normalized_type or "unknown"
 
 
