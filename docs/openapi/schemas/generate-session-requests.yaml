@@ -10,6 +10,9 @@ CreateGenerationSessionRequest:
       $ref: './generate-core.yaml#/GenerationOptions'
     client_session_id:
       type: string
+    bootstrap_only:
+      type: boolean
+      default: false
 
 CreateGenerationSessionResponse:
   type: object

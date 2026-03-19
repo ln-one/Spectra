@@ -210,6 +210,7 @@ export default function ProjectDetailPage() {
       const response = await generateApi.createSession({
         project_id: projectId,
         output_type: "both",
+        bootstrap_only: true,
       });
       const newSessionId = response.data?.session?.session_id;
       if (!newSessionId) return;

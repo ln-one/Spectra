@@ -2621,6 +2621,9 @@ components:
           $ref: '#/components/schemas/GenerationOptions'
         client_session_id:
           type: string
+        bootstrap_only:
+          type: boolean
+          default: false
     GenerateTaskStatus:
       type: string
       enum:

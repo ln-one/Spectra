@@ -61,6 +61,7 @@ def mock_db_service():
         get_project=AsyncMock(return_value=mock_project),
         generationsession=SimpleNamespace(
             create=AsyncMock(return_value=mock_session),
+            find_first=AsyncMock(return_value=None),
             find_unique=AsyncMock(return_value=mock_session),
             update=AsyncMock(),
         ),
@@ -108,6 +109,124 @@ async def test_create_session_returns_quickly_and_schedules_outline(
     assert data["success"] is True
     assert data["data"]["session"]["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert data["data"]["session"]["session_id"] == "s-001"
+
+
+@pytest.mark.anyio
+async def test_create_session_bootstrap_only_does_not_schedule_outline(
+    app, mock_db_service, _as_user
+):
+    idle_session = SimpleNamespace(
+        id="s-bootstrap-001",
+        projectId="p-001",
+        userId="u-001",
+        state=GenerationState.IDLE.value,
+        outputType="both",
+        options=None,
+        clientSessionId=None,
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+        stateReason=None,
+    )
+    mock_db_service.generationsession.find_first = AsyncMock(return_value=None)
+    mock_db_service.generationsession.create = AsyncMock(return_value=idle_session)
+
+    schedule_mock = AsyncMock()
+    with patch.object(db_service, "get_project", mock_db_service.get_project):
+        with patch.object(db_service, "db", mock_db_service):
+            with patch(
+                "services.generation_session_service.GenerationSessionService._schedule_outline_draft_task",
+                schedule_mock,
+            ):
+                client = TestClient(app)
+                response = client.post(
+                    "/api/v1/generate/sessions",
+                    json={
+                        "project_id": "p-001",
+                        "output_type": SessionOutputType.BOTH.value,
+                        "bootstrap_only": True,
+                    },
+                )
+
+    schedule_mock.assert_not_awaited()
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data"]["session"]["state"] == GenerationState.IDLE.value
+    assert data["data"]["session"]["session_id"] == "s-bootstrap-001"
+
+
+@pytest.mark.anyio
+async def test_create_session_reuses_current_session_when_client_session_id_matches(
+    app, mock_db_service, _as_user
+):
+    existing_session = SimpleNamespace(
+        id="s-existing-001",
+        projectId="p-001",
+        userId="u-001",
+        state=GenerationState.IDLE.value,
+        outputType="both",
+        options=None,
+        clientSessionId="s-existing-001",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+        stateReason=None,
+    )
+    started_session = SimpleNamespace(
+        id="s-existing-001",
+        projectId="p-001",
+        userId="u-001",
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        outputType="ppt",
+        options=json.dumps({"pages": 12}),
+        clientSessionId="s-existing-001",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+        stateReason=None,
+    )
+    mock_db_service.generationsession.find_first = AsyncMock(
+        return_value=existing_session
+    )
+    mock_db_service.generationsession.update = AsyncMock(return_value=started_session)
+
+    schedule_mock = AsyncMock()
+    with patch.object(db_service, "get_project", mock_db_service.get_project):
+        with patch.object(db_service, "db", mock_db_service):
+            with patch(
+                "services.generation_session_service.GenerationSessionService._schedule_outline_draft_task",
+                schedule_mock,
+            ):
+                client = TestClient(app)
+                response = client.post(
+                    "/api/v1/generate/sessions",
+                    json={
+                        "project_id": "p-001",
+                        "output_type": SessionOutputType.PPT.value,
+                        "client_session_id": "s-existing-001",
+                        "options": {"pages": 12},
+                    },
+                )
+
+    schedule_mock.assert_awaited_once()
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data"]["session"]["session_id"] == "s-existing-001"
+    assert data["data"]["session"]["state"] == GenerationState.DRAFTING_OUTLINE.value
+    update_calls = [
+        call.kwargs for call in mock_db_service.generationsession.update.await_args_list
+    ]
+    assert any(call["where"] == {"id": "s-existing-001"} for call in update_calls)
+    assert any(
+        call["data"].get("state") == GenerationState.DRAFTING_OUTLINE.value
+        for call in update_calls
+    )
 
 
 @pytest.mark.anyio

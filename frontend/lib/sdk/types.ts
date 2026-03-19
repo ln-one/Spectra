@@ -1447,6 +1447,7 @@ export interface components {
       output_type: components["schemas"]["GenerationSessionMode"];
       options?: components["schemas"]["GenerationOptions"];
       client_session_id?: string;
+      bootstrap_only?: boolean;
     };
     /** @enum {string} */
     GenerateTaskStatus: "pending" | "processing" | "completed" | "failed";

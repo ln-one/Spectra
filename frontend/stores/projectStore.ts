@@ -453,7 +453,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     options?: GenerationOptions
   ) => {
     try {
-      const { selectedFileIds } = get();
+      const { selectedFileIds, activeSessionId } = get();
       const normalizedOptions: GenerationOptions = {
         template: options?.template || "default",
         show_page_number: options?.show_page_number ?? true,
@@ -476,6 +476,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           rag_source_ids:
             selectedFileIds.length > 0 ? selectedFileIds : undefined,
         },
+        client_session_id: activeSessionId ?? undefined,
       });
 
       if (response?.data?.session) {

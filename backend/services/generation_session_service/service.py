@@ -79,6 +79,7 @@ class GenerationSessionService(
         output_type: str,
         options: Optional[dict] = None,
         client_session_id: Optional[str] = None,
+        bootstrap_only: bool = False,
         task_queue_service=None,
     ) -> dict:
         session_ref = await create_session(
@@ -88,6 +89,7 @@ class GenerationSessionService(
             output_type=output_type,
             options=options,
             client_session_id=client_session_id,
+            bootstrap_only=bootstrap_only,
             task_queue_service=task_queue_service,
             contract_version=self.CONTRACT_VERSION,
             schema_version=self.SCHEMA_VERSION,

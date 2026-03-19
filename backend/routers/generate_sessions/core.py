@@ -141,6 +141,7 @@ async def create_generation_session(
         output_type=output_type,
         options=body.get("options"),
         client_session_id=body.get("client_session_id"),
+        bootstrap_only=bool(body.get("bootstrap_only")),
         task_queue_service=task_queue_svc,
     )
 
