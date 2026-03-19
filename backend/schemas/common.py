@@ -5,7 +5,7 @@
 """
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from pydantic import BaseModel, Field
 
@@ -108,3 +108,59 @@ class SourceReference(BaseModel):
         None, description="时间戳（视频/音频场景，单位秒）"
     )
     content_preview: Optional[str] = Field(None, description="内容预览片段")
+
+
+def build_source_reference_payload(
+    *,
+    chunk_id: Any,
+    source_type: Any,
+    filename: Any,
+    page_number: Any = None,
+    timestamp: Any = None,
+    score: Any = None,
+    content_preview: Any = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "chunk_id": str(chunk_id),
+        "source_type": normalize_source_type(source_type).value,
+        "filename": str(filename or ""),
+    }
+    if page_number is not None:
+        payload["page_number"] = page_number
+    if timestamp is not None:
+        payload["timestamp"] = timestamp
+    if score is not None:
+        payload["score"] = score
+    if content_preview is not None:
+        payload["content_preview"] = content_preview
+    return payload
+
+
+def extract_source_reference_payload(
+    value: Mapping[str, Any] | BaseModel | Any,
+) -> dict[str, Any]:
+    if isinstance(value, BaseModel):
+        raw = value.model_dump()
+    elif isinstance(value, Mapping):
+        raw = dict(value)
+    else:
+        raw = {
+            "chunk_id": getattr(value, "chunk_id", None),
+            "source_type": getattr(value, "source_type", None),
+            "filename": getattr(value, "filename", None),
+            "page_number": getattr(value, "page_number", None),
+            "timestamp": getattr(value, "timestamp", None),
+            "content_preview": getattr(value, "content_preview", None)
+            or getattr(value, "preview_text", None),
+            "score": getattr(value, "score", None),
+        }
+
+    return build_source_reference_payload(
+        chunk_id=raw.get("chunk_id", ""),
+        source_type=raw.get("source_type"),
+        filename=raw.get("filename", ""),
+        page_number=raw.get("page_number"),
+        timestamp=raw.get("timestamp"),
+        score=raw.get("score"),
+        content_preview=raw.get("content_preview") or raw.get("preview_text"),
+    )

@@ -1,3 +1,7 @@
+from schemas.common import (
+    build_source_reference_payload,
+    extract_source_reference_payload,
+)
 from services.database import db_service
 
 from .shared import logger, rerank_by_chapter
@@ -46,32 +50,24 @@ async def load_rag_context(
         if rag_results:
             rag_hit = True
             citations = [
-                {
-                    "chunk_id": result.source.chunk_id,
-                    "source_type": result.source.source_type,
-                    "filename": result.source.filename,
-                    "page_number": result.source.page_number,
-                    "timestamp": getattr(result.source, "timestamp", None),
-                    "score": result.score,
-                }
+                build_source_reference_payload(
+                    chunk_id=result.source.chunk_id,
+                    source_type=result.source.source_type,
+                    filename=result.source.filename,
+                    page_number=result.source.page_number,
+                    timestamp=getattr(result.source, "timestamp", None),
+                    score=result.score,
+                )
                 for result in rag_results
             ]
             rag_payload = []
             for item in rag_results:
                 source_obj = getattr(item, "source", None)
-                source = {}
-                if source_obj is not None:
-                    for field in [
-                        "chunk_id",
-                        "source_type",
-                        "filename",
-                        "page_number",
-                        "timestamp",
-                        "preview_text",
-                    ]:
-                        value = getattr(source_obj, field, None)
-                        if value is not None:
-                            source[field] = value
+                source = (
+                    extract_source_reference_payload(source_obj)
+                    if source_obj is not None
+                    else {}
+                )
                 rag_payload.append(
                     {
                         "content": getattr(item, "content", ""),

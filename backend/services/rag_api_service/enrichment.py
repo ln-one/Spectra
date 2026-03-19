@@ -6,6 +6,7 @@ import uuid
 from fastapi import UploadFile
 from fastapi.concurrency import run_in_threadpool
 
+from schemas.common import extract_source_reference_payload
 from services.media.web_search import web_search_service
 from services.network_resource_strategy import (
     audio_segments_to_units,
@@ -24,17 +25,9 @@ _UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 def _build_index_metadata(unit: dict) -> dict:
     metadata = dict(unit.get("metadata") or {})
-    citation = dict(unit.get("citation") or {})
+    citation = unit.get("citation") or {}
     if citation:
-        metadata.update(
-            {
-                "chunk_id": citation.get("chunk_id"),
-                "source_type": citation.get("source_type"),
-                "filename": citation.get("filename"),
-                "page_number": citation.get("page_number"),
-                "timestamp": citation.get("timestamp"),
-            }
-        )
+        metadata.update(extract_source_reference_payload(citation))
     return {k: v for k, v in metadata.items() if v is not None}
 
 
