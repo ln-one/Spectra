@@ -158,7 +158,7 @@
 
 ### Documentation
 
-- Added `/Users/ln1/Projects/Spectra/docs/next-stage-architecture-optimization.md`.
+- Added a next-stage architecture optimization note (later consolidated into `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`).
 - Refreshed `/Users/ln1/Projects/Spectra/docs/standards/backend.md` to reflect current layering, `folder-as-module`, explicit import guidance, and guard usage.
 - Refreshed `/Users/ln1/Projects/Spectra/docs/standards/README.md`.
 - Refreshed `/Users/ln1/Projects/Spectra/README.md`.

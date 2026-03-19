@@ -5,6 +5,12 @@
 
 ## 1. 核心判断
 
+### Freeze refactor phase status
+
+The freeze-period structural refactor can now be treated as complete.
+The current document supersedes earlier freeze-period checklists and intermediate cleanup reports.
+
+
 当前系统已经不再缺“主干骨架”：
 
 - `project + session` 主链路已形成

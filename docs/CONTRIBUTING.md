@@ -4,13 +4,14 @@
 
 ## Architecture Philosophy
 
-See [Architecture Philosophy (architecture/PHILOSOPHY.md)](./architecture/PHILOSOPHY.md)
+See [Project Philosophy (project/SYSTEM_PHILOSOPHY_2026-03-19.md)](./project/SYSTEM_PHILOSOPHY_2026-03-19.md)
 
 Core Principles:
-- **Contract-First**: Contract-first development
-- **SSOT**: Single Source of Truth
-- **Separation of Concerns**: Clear responsibility boundaries
-- **DRY**: Don't Repeat Yourself
+- **Ontology First**: the system's core objects matter more than local tricks
+- **Contract-First**: shared interfaces are stabilized before expansion
+- **SSOT**: each shared semantic has one authoritative source
+- **Separation of Concerns**: boundaries must remain legible
+- **Recursive Continuity**: output should be able to become input again
 
 ## AI Collaboration
 

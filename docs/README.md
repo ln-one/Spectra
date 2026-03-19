@@ -1,59 +1,48 @@
-# Spectra 文档中心
+# Spectra Documentation
 
-> 更新时间：2026-03-19
-> 目标：入口清晰、状态明确、与代码一致。
+> Updated: 2026-03-19
+> Goal: a clean entry point, a clear status model, and documentation that matches the code.
 
-## 1. 核心入口
+## 1. Core Entry Points
 
-- [贡献规范](./CONTRIBUTING.md)
-- [架构理念（项目哲学）](./architecture/PHILOSOPHY.md)
-- [技术栈（MVP 对齐版）](./architecture/tech-stack.md)
-- [系统总览](./architecture/system/overview.md)
-- [OpenAPI 文档](./openapi/README.md)
+- [Project Philosophy (Canonical)](./project/SYSTEM_PHILOSOPHY_2026-03-19.md)
+- [Architecture Index](./architecture/README.md)
+- [Tech Stack](./architecture/tech-stack.md)
+- [OpenAPI Docs](./openapi/README.md)
+- [Contributing Guide](./CONTRIBUTING.md)
 
-## 2. 架构与决策
+## 2. Engineering and Delivery
 
-- [架构目录说明](./architecture/README.md)
-- [技术决策 ADR](./decisions/README.md)
+- [Guides](./guides/README.md)
+- [Standards](./standards/README.md)
+- [Remaining Work Battle Plan](./remaining-work-battle-plan.md)
+- [Studio Card Backend Protocol](./studio-card-backend-protocol.md)
+- [PostgreSQL Migration Checklist](./postgres-migration-checklist.md)
+- [Deployment Topology](./deployment-topology.md)
+- [Deployment Environment Contract](./deployment-env-contract.md)
+- [Main Deployment Runbook](./runbook-main-deploy.md)
+- [Incident Response Runbook](./runbook-incident-response.md)
 
-## 3. 工程与协作
+## 3. Operational Scripts
 
-- [开发指南](./guides/README.md)
-- [工程规范](./standards/README.md)
-- [冻结期重构 TODO](./freeze-refactor-todo.md)
-- [剩余工作战役清单](./remaining-work-battle-plan.md)
-- [Studio 卡片后端协议](./studio-card-backend-protocol.md)
-- [冗余审计报告](./redundancy-audit.md)
-- [Legacy Surface Map](./legacy-surface-map.md)
-- [Legacy Interface Retirement Plan](./legacy-interface-retirement-plan.md)
-- `backend/scripts/compat_surface_audit.py` - 扫描剩余兼容层导入面
-- [PostgreSQL 迁移检查清单](./postgres-migration-checklist.md)
-- [部署拓扑草案](./deployment-topology.md)
-- [部署环境变量契约](./deployment-env-contract.md)
-- [Main 分支部署 Runbook](./runbook-main-deploy.md)
-- [故障响应 Runbook](./runbook-incident-response.md)
-- `backend/scripts/deploy_preflight.py` - 发布前环境与网络预检
-- `backend/scripts/deploy_smoke_check.py` - 发布后基础链路 smoke check
-- `backend/scripts/deploy_release_record.py` - 生成 main 发布记录骨架
-- `backend/scripts/incident_record.py` - 生成故障复盘记录骨架
-- `backend/scripts/postgres_readiness_audit.py` - 输出 PostgreSQL 迁移前的模型与一致性风险快照
-- `backend/scripts/worker_queue_diagnose.py` - 快速诊断 worker / queue / stuck job 状态
-- [故障记录目录](./incident-records/README.md)
-- [发布记录目录](./release-records/README.md)
+- `backend/scripts/compat_surface_audit.py` - compatibility surface audit
+- `backend/scripts/deploy_preflight.py` - pre-deploy environment and network checks
+- `backend/scripts/deploy_smoke_check.py` - post-deploy smoke checks
+- `backend/scripts/deploy_release_record.py` - release record skeleton generator
+- `backend/scripts/incident_record.py` - incident record skeleton generator
+- `backend/scripts/postgres_readiness_audit.py` - PostgreSQL readiness audit
+- `backend/scripts/worker_queue_diagnose.py` - worker/queue/stuck-job diagnosis
 
-## 4. 规划与比赛
+## 4. Product Design and Historical Planning
 
-- [当前阶段计划（2026-03-09）](./project/PROJECT_SPACE_API_DRAFT_2026-03-09.md)
-- [系统哲学（2026-03-19）](./project/SYSTEM_PHILOSOPHY_2026-03-19.md)
-- [项目原始需求](./project/requirements.md)
-- [比赛材料](./competition/)
+- [Project Design Workspace](./project/README.md)
+- [Original Requirements](./project/requirements.md)
+- [Competition Materials](./competition/)
+- [Archived Documents](./archived/)
 
-## 5. 归档文档
+## 5. Status Labels
 
-- [历史归档（不维护）](./archived/)
-
-## 6. 文档状态定义
-
-- `已落地`：代码中已实现。
-- `规划中`：有方案但未接入主流程。
-- `历史文档`：保留背景，不作为当前实现依据。
+- `Canonical`: the highest-level source for a concept or worldview.
+- `Implemented`: reflected in the codebase today.
+- `In Progress`: active direction, but not fully complete.
+- `Archived`: kept for context, not for current implementation decisions.

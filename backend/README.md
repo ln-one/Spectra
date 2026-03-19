@@ -1,21 +1,22 @@
 # Backend
 
-FastAPI 后端，当前已经从“单文件偏大、根目录平铺”演进到“目录模块 + 分区收口”的结构。
+The FastAPI backend has moved from a flat, oversized structure into a package-oriented layout with clearer partitions and stronger semantic boundaries.
 
-## 当前重点目录
+## Key Directories
 
-- `/Users/ln1/Projects/Spectra/backend/main.py`：极薄入口
-- `/Users/ln1/Projects/Spectra/backend/app_setup/`：FastAPI 装配
-- `/Users/ln1/Projects/Spectra/backend/routers/`：HTTP 路由层
-- `/Users/ln1/Projects/Spectra/backend/services/`：业务与基础设施能力
-- `/Users/ln1/Projects/Spectra/backend/schemas/`：Pydantic 模型
-- `/Users/ln1/Projects/Spectra/backend/tests/`：pytest 测试
+- `/Users/ln1/Projects/Spectra/backend/main.py`: the thinnest possible entrypoint
+- `/Users/ln1/Projects/Spectra/backend/app_setup/`: FastAPI assembly
+- `/Users/ln1/Projects/Spectra/backend/routers/`: HTTP routing layer
+- `/Users/ln1/Projects/Spectra/backend/services/`: business and infrastructure capabilities
+- `/Users/ln1/Projects/Spectra/backend/schemas/`: Pydantic models
+- `/Users/ln1/Projects/Spectra/backend/tests/`: pytest suites
 
-## 当前服务分区方向
+## Current Service Partitions
 
 ### application
 - `file_upload_service/`
 - `application/project_api.py`
+- `application/file_management.py`
 - `rag_api_service/`
 - `project_space_service/`
 
@@ -42,9 +43,8 @@ FastAPI 后端，当前已经从“单文件偏大、根目录平铺”演进到
 - `database/`
 - `task_queue/`
 - `auth_service.py`
-- `application/file_management.py`
 
-## 常用命令
+## Common Commands
 
 ```bash
 cd backend
@@ -56,15 +56,16 @@ python3 scripts/architecture_guard.py
 uvicorn main:app --reload
 ```
 
-## 开发约束
+## Development Constraints
 
-- `router` 不承载复杂业务编排
-- 新生产代码优先显式导入，不默认使用 `from services import ...`
-- 单文件 `>300` 行进入复查，`>500` 行默认拆分
-- 新增模块优先采用 `folder-as-module`
+- routers should not accumulate complex business orchestration
+- new production code should prefer explicit imports over `from services import ...`
+- files above `300` lines deserve review; above `500` lines should normally be split
+- new modules should prefer the folder-as-module pattern when complexity warrants it
 
-更多说明见：
+## Read Alongside This
 
+- `/Users/ln1/Projects/Spectra/docs/project/SYSTEM_PHILOSOPHY_2026-03-19.md`
 - `/Users/ln1/Projects/Spectra/docs/standards/backend.md`
 - `/Users/ln1/Projects/Spectra/docs/service-topology-todo.md`
-- `/Users/ln1/Projects/Spectra/docs/next-stage-architecture-optimization.md`
+- `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`
