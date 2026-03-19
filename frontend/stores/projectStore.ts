@@ -1,21 +1,35 @@
 import { create } from "zustand";
-import type { components } from "@/lib/types/api";
-import { projectsApi, filesApi, chatApi, generateApi, ragApi } from "@/lib/sdk";
+import type { components as sdkComponents } from "@/lib/sdk/types";
+import {
+  projectsApi,
+  filesApi,
+  chatApi,
+  generateApi,
+  ragApi,
+  previewApi,
+  projectSpaceApi,
+} from "@/lib/sdk";
 import {
   ApiErrorShape,
   createApiError,
   getErrorMessage,
 } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
+import {
+  groupArtifactsByTool,
+  type ArtifactHistoryByTool,
+  type ArtifactHistoryItem,
+} from "@/lib/project-space/artifact-history";
 
-type Project = components["schemas"]["Project"];
-type UploadedFile = components["schemas"]["UploadedFile"];
-type Message = components["schemas"]["Message"];
-type OutlineDocument = components["schemas"]["OutlineDocument"];
-type GenerationOptions = components["schemas"]["GenerationOptions"];
-type SessionStatePayload = components["schemas"]["SessionStatePayload"];
-type SourceDetailResponse = components["schemas"]["SourceDetailResponse"];
+type Project = sdkComponents["schemas"]["Project"];
+type UploadedFile = sdkComponents["schemas"]["UploadedFile"];
+type Message = sdkComponents["schemas"]["Message"];
+type OutlineDocument = sdkComponents["schemas"]["OutlineDocument"];
+type GenerationOptions = sdkComponents["schemas"]["GenerationOptions"];
+type SessionStatePayload = sdkComponents["schemas"]["SessionStatePayload"];
+type SourceDetailResponse = sdkComponents["schemas"]["SourceDetailResponse"];
 type SourceDetail = SourceDetailResponse["data"];
+type Artifact = sdkComponents["schemas"]["Artifact"];
 
 export type LayoutMode = "normal" | "expanded";
 export type ExpandedTool =
@@ -48,58 +62,58 @@ export interface GenerationTool {
 export const GENERATION_TOOLS: GenerationTool[] = [
   {
     id: "ppt",
-    name: "PPT 课件",
-    description: "生成演示文稿",
+    name: "课件生成",
+    description: "自动生成结构化课件页面与讲解节奏",
     icon: "📊",
     type: "ppt",
   },
   {
     id: "word",
-    name: "Word 文档",
-    description: "生成文档资料",
+    name: "文档生成",
+    description: "输出教案、讲稿与课堂文档资料",
     icon: "📄",
     type: "word",
   },
   {
     id: "mindmap",
     name: "思维导图",
-    description: "生成知识图谱",
+    description: "提炼知识结构与章节关系图谱",
     icon: "🧠",
     type: "mindmap",
   },
   {
     id: "outline",
-    name: "课程大纲",
-    description: "生成课程大纲",
-    icon: "📋",
+    name: "互动游戏",
+    description: "生成课堂互动游戏与规则流程",
+    icon: "🎮",
     type: "outline",
   },
   {
     id: "quiz",
-    name: "测验题库",
-    description: "生成测验题目",
+    name: "随堂小测",
+    description: "快速生成课中测验题与答案解析",
     icon: "❓",
     type: "quiz",
   },
   {
     id: "summary",
-    name: "内容摘要",
-    description: "生成内容摘要",
-    icon: "📝",
+    name: "说课助手",
+    description: "生成讲解提示、追问建议与板书要点",
+    icon: "🎓",
     type: "summary",
   },
   {
     id: "animation",
-    name: "动画素材",
-    description: "生成动画资源",
+    name: "演示动画",
+    description: "生成演示动效脚本与动画分镜建议",
     icon: "🎬",
     type: "animation",
   },
   {
     id: "handout",
-    name: "讲义资料",
-    description: "生成讲义文档",
-    icon: "📖",
+    name: "学情预演",
+    description: "预演课堂反馈与学生掌握情况变化",
+    icon: "📈",
     type: "handout",
   },
 ];
@@ -121,6 +135,9 @@ interface ProjectState {
   selectedFileIds: string[];
   generationSession: SessionStatePayload | null;
   generationHistory: GenerationHistory[];
+  artifactHistoryByTool: ArtifactHistoryByTool;
+  currentSessionArtifacts: ArtifactHistoryItem[];
+  activeSessionId: string | null;
   lastFailedInput: string | null;
   activeSourceDetail: SourceDetail | null;
 
@@ -131,16 +148,31 @@ interface ProjectState {
   isMessagesLoading: boolean;
   isSending: boolean;
   isUploading: boolean;
+  uploadingCount: number;
   error: ApiErrorShape | null;
 
   fetchProject: (projectId: string) => Promise<void>;
   fetchFiles: (projectId: string) => Promise<void>;
-  fetchMessages: (projectId: string) => Promise<void>;
-  uploadFile: (file: File, projectId: string) => Promise<void>;
+  fetchMessages: (
+    projectId: string,
+    sessionId?: string | null
+  ) => Promise<void>;
+  uploadFile: (
+    file: File,
+    projectId: string,
+    options?: { onProgress?: (progress: number) => void }
+  ) => Promise<UploadedFile | void>;
   deleteFile: (fileId: string) => Promise<void>;
   toggleFileSelection: (fileId: string) => void;
-  sendMessage: (projectId: string, content: string) => Promise<void>;
-  focusSourceByChunk: (chunkId: string) => Promise<void>;
+  sendMessage: (
+    projectId: string,
+    content: string,
+    sessionId?: string | null
+  ) => Promise<void>;
+  focusSourceByChunk: (
+    chunkId: string,
+    projectId?: string | null
+  ) => Promise<void>;
   clearActiveSource: () => void;
   startGeneration: (
     projectId: string,
@@ -148,6 +180,12 @@ interface ProjectState {
     options?: GenerationOptions
   ) => Promise<void>;
   fetchGenerationHistory: (projectId: string) => Promise<void>;
+  fetchArtifactHistory: (
+    projectId: string,
+    sessionId?: string | null
+  ) => Promise<void>;
+  exportArtifact: (artifactId: string) => Promise<void>;
+  setActiveSessionId: (sessionId: string | null) => void;
   updateOutline: (sessionId: string, outline: OutlineDocument) => Promise<void>;
   confirmOutline: (sessionId: string) => Promise<void>;
   updateProjectName: (name: string) => Promise<void>;
@@ -164,6 +202,9 @@ const initialState = {
   selectedFileIds: [],
   generationSession: null,
   generationHistory: [],
+  artifactHistoryByTool: groupArtifactsByTool([]),
+  currentSessionArtifacts: [],
+  activeSessionId: null as string | null,
   lastFailedInput: null as string | null,
   activeSourceDetail: null as SourceDetail | null,
   layoutMode: "normal" as LayoutMode,
@@ -172,6 +213,7 @@ const initialState = {
   isMessagesLoading: false,
   isSending: false,
   isUploading: false,
+  uploadingCount: 0,
   error: null,
 };
 
@@ -202,18 +244,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     try {
       const response = await filesApi.getProjectFiles(projectId);
       if (response?.data?.files) {
-        const currentFiles = get().files;
         set({ files: response.data.files });
 
         let hasPending = false;
         response.data.files.forEach((file) => {
-          if (file.status === "ready") {
-            const oldFile = currentFiles.find((f) => f.id === file.id);
-            if (oldFile && oldFile.status !== "ready") {
-              // Automatically index file for RAG when it becomes ready
-              ragApi.indexFile({ file_id: file.id }).catch(console.error);
-            }
-          } else if (file.status === "parsing" || file.status === "uploading") {
+          if (file.status === "parsing" || file.status === "uploading") {
             hasPending = true;
           }
         });
@@ -235,11 +270,14 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }
   },
 
-  fetchMessages: async (projectId: string) => {
+  fetchMessages: async (projectId: string, sessionId?: string | null) => {
     set({ isMessagesLoading: true });
     try {
+      const effectiveSessionId =
+        sessionId ?? get().activeSessionId ?? undefined;
       const response = await chatApi.getMessages({
         project_id: projectId,
+        session_id: effectiveSessionId,
         limit: 50,
       });
       set({ messages: response?.data?.messages ?? [] });
@@ -250,24 +288,40 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         description: message,
         variant: "destructive",
       });
+    } finally {
+      set({ isMessagesLoading: false });
     }
   },
-
-  uploadFile: async (file: File, projectId: string) => {
-    set({ isUploading: true });
+  uploadFile: async (file: File, projectId: string, options) => {
+    set((state) => {
+      const nextUploadingCount = state.uploadingCount + 1;
+      return {
+        uploadingCount: nextUploadingCount,
+        isUploading: nextUploadingCount > 0,
+      };
+    });
     try {
-      await filesApi.uploadFile(file, projectId);
+      const activeSessionId = get().activeSessionId ?? undefined;
+      const response = await filesApi.uploadFile(
+        file,
+        projectId,
+        options?.onProgress,
+        activeSessionId
+      );
       await get().fetchFiles(projectId);
+      return response?.data?.file;
     } catch (error) {
       const message = getErrorMessage(error);
       set({ error: createApiError({ code: "UPLOAD_FAILED", message }) });
-      toast({
-        title: "文件上传失败",
-        description: message,
-        variant: "destructive",
-      });
+      throw error;
     } finally {
-      set({ isUploading: false });
+      set((state) => {
+        const nextUploadingCount = Math.max(0, state.uploadingCount - 1);
+        return {
+          uploadingCount: nextUploadingCount,
+          isUploading: nextUploadingCount > 0,
+        };
+      });
     }
   },
 
@@ -297,7 +351,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }));
   },
 
-  sendMessage: async (projectId: string, content: string) => {
+  sendMessage: async (
+    projectId: string,
+    content: string,
+    sessionId?: string | null
+  ) => {
     if (!content.trim()) return;
     set({ isSending: true, lastFailedInput: null });
     const tempId = `temp-${Date.now()}`;
@@ -311,12 +369,22 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       set((state) => ({ messages: [...state.messages, userMessage] }));
 
       const { selectedFileIds } = get();
+      const effectiveSessionId =
+        sessionId ?? get().activeSessionId ?? undefined;
       const response = await chatApi.sendMessage({
         project_id: projectId,
+        session_id: effectiveSessionId,
         content,
         rag_source_ids:
           selectedFileIds.length > 0 ? selectedFileIds : undefined,
       });
+
+      if (
+        response?.data?.session_id &&
+        response.data.session_id !== get().activeSessionId
+      ) {
+        set({ activeSessionId: response.data.session_id });
+      }
 
       if (response?.data?.message) {
         set((state) => ({
@@ -344,9 +412,12 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }
   },
 
-  focusSourceByChunk: async (chunkId: string) => {
+  focusSourceByChunk: async (chunkId: string, projectId?: string | null) => {
     try {
-      const response = await ragApi.getSourceDetail(chunkId);
+      const response = await ragApi.getSourceDetail(
+        chunkId,
+        projectId ?? undefined
+      );
       const detail = response?.data ?? null;
       set({ activeSourceDetail: detail });
       const fileId = detail?.file_info?.id;
@@ -357,7 +428,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
             : [...state.selectedFileIds, fileId],
         }));
       } else {
-        const currentProjectId = get().project?.id;
+        const currentProjectId = projectId ?? get().project?.id;
         if (currentProjectId) {
           await get().fetchFiles(currentProjectId);
         }
@@ -409,6 +480,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
       if (response?.data?.session) {
         const sessionId = response.data.session.session_id;
+        set({ activeSessionId: sessionId });
 
         const historyItem: GenerationHistory = {
           id: sessionId,
@@ -426,6 +498,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         try {
           const sessionResponse = await generateApi.getSession(sessionId);
           set({ generationSession: sessionResponse?.data ?? null });
+          await get().fetchArtifactHistory(projectId, sessionId);
         } catch (sessionError) {
           const message = getErrorMessage(sessionError);
           set((state) => ({
@@ -484,7 +557,12 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           title: tool?.name || "生成任务",
         };
       });
-      set({ generationHistory: history });
+      const activeSessionId =
+        get().activeSessionId ??
+        get().generationSession?.session?.session_id ??
+        (history.length > 0 ? history[0].id : null);
+      set({ generationHistory: history, activeSessionId });
+      await get().fetchArtifactHistory(projectId, activeSessionId);
     } catch (error) {
       const message = getErrorMessage(error);
       toast({
@@ -494,6 +572,118 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       });
     }
   },
+  fetchArtifactHistory: async (
+    projectId: string,
+    sessionId?: string | null
+  ) => {
+    try {
+      const response = await projectSpaceApi.getArtifacts(projectId);
+      const artifacts = ((response?.data?.artifacts ?? []) as Artifact[]) || [];
+      const effectiveSessionId =
+        sessionId ??
+        get().activeSessionId ??
+        get().generationSession?.session?.session_id ??
+        null;
+      const artifactHistoryByTool = groupArtifactsByTool(
+        artifacts,
+        effectiveSessionId
+      );
+      const currentSessionArtifacts = Object.values(artifactHistoryByTool)
+        .flat()
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      set({ artifactHistoryByTool, currentSessionArtifacts });
+    } catch (error) {
+      const message = getErrorMessage(error);
+      toast({
+        title: "获取成果历史失败",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  },
+
+  exportArtifact: async (artifactId: string) => {
+    const artifact = get().currentSessionArtifacts.find(
+      (item) => item.artifactId === artifactId
+    );
+    if (!artifact) {
+      toast({
+        title: "导出失败",
+        description: "未找到对应成果",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (artifact.storagePath) {
+      window.open(artifact.storagePath, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const sessionId =
+      artifact.sessionId ??
+      get().activeSessionId ??
+      get().generationSession?.session?.session_id ??
+      null;
+    if (!sessionId) {
+      toast({
+        title: "导出失败",
+        description: "缺少会话上下文，无法导出",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const format =
+        artifact.toolType === "summary" || artifact.toolType === "outline"
+          ? "markdown"
+          : "json";
+      const response = await previewApi.exportSessionPreview(sessionId, {
+        artifact_id: artifact.artifactId,
+        format,
+        include_sources: true,
+      });
+      const content = response?.data?.content ?? "";
+      if (!content) {
+        toast({
+          title: "导出失败",
+          description: "服务端未返回可下载内容",
+          variant: "destructive",
+        });
+        return;
+      }
+      const blob = new Blob([content], {
+        type:
+          format === "markdown"
+            ? "text/markdown;charset=utf-8"
+            : "application/json;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const ext = format === "markdown" ? "md" : "json";
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${artifact.toolType}-${artifact.artifactId.slice(0, 8)}.${ext}`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({
+        title: "导出成功",
+        description: "文件已开始下载",
+      });
+    } catch (error) {
+      const message = getErrorMessage(error);
+      toast({
+        title: "导出失败",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  },
+  setActiveSessionId: (sessionId: string | null) =>
+    set({ activeSessionId: sessionId }),
   updateOutline: async (sessionId: string, outline: OutlineDocument) => {
     const session = get().generationSession;
     const baseVersion = session?.outline?.version ?? 1;

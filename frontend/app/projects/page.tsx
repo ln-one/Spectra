@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { projectsApi } from "@/lib/sdk";
 import { TokenStorage } from "@/lib/auth";
@@ -189,8 +189,24 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  const fetchProjects = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const response = await projectsApi.getProjects();
+      setProjects(response?.data?.projects ?? []);
+    } catch (error) {
+      console.error("Failed to fetch projects:", error);
+      const message = error instanceof Error ? error.message : "加载项目失败";
+      setErrorMessage(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
@@ -199,19 +215,8 @@ export default function ProjectsPage() {
       return;
     }
 
-    const fetchProjects = async () => {
-      try {
-        const response = await projectsApi.getProjects();
-        setProjects(response?.data?.projects ?? []);
-      } catch (error) {
-        console.error("Failed to fetch projects:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchProjects();
-  }, [router]);
+  }, [router, fetchProjects]);
 
   const filteredProjects = projects.filter((project) =>
     project.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -223,6 +228,29 @@ export default function ProjectsPage() {
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
           <p className="text-sm text-zinc-500">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-6">
+        <div className="w-full max-w-xl rounded-2xl border border-red-100 bg-white p-6">
+          <h2 className="text-lg font-semibold text-zinc-900">项目加载失败</h2>
+          <p className="mt-2 text-sm text-zinc-600 break-all">{errorMessage}</p>
+          <div className="mt-4 flex items-center gap-3">
+            <Button onClick={fetchProjects} className="rounded-full px-5">
+              重试
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/auth/login")}
+              className="rounded-full px-5"
+            >
+              重新登录
+            </Button>
+          </div>
         </div>
       </div>
     );

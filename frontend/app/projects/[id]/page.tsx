@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { TokenStorage } from "@/lib/auth";
+import { generateApi } from "@/lib/sdk";
+import { getErrorMessage } from "@/lib/sdk/errors";
+import { toast } from "@/hooks/use-toast";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import {
-  ProjectHeader,
-  StudioPanel,
   ChatPanel,
+  LibraryDrawer,
+  ProjectHeader,
+  type SessionSwitcherItem,
   SourcesPanel,
+  StudioPanel,
 } from "@/components/project";
 import { LightRays } from "@/components/ui/light-rays";
 
@@ -23,12 +28,33 @@ const springConfig = {
 
 const PAGE_GAP = 24;
 const PANEL_GAP = 12;
-const MIN_RESIZABLE_PANEL_WIDTH = 96;
+const HEADER_TO_PANEL_GAP = 0;
+const PANEL_TOP_INSET = 0;
+const MIN_RESIZABLE_PANEL_WIDTH = 85;
+const MIN_EXPANDED_RIGHT_PANEL_WIDTH = 260;
+const COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX = 126;
+const COLLAPSED_SOURCES_WIDTH_PX = 85;
+const COLLAPSED_SOURCES_TRIGGER_WIDTH_PX = 180;
+const EXPANDED_SOURCES_COMFORT_WIDTH_PX = 280;
+const SOURCES_TITLE_SAFE_MIN_WIDTH_PX = 214;
+
+function formatSessionTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const projectId = params.id as string;
+  const querySessionId = searchParams.get("session");
 
   const {
     project,
@@ -38,18 +64,28 @@ export default function ProjectDetailPage() {
     fetchFiles,
     fetchMessages,
     fetchGenerationHistory,
+    fetchArtifactHistory,
+    setActiveSessionId,
+    generationHistory,
+    activeSessionId,
     reset,
   } = useProjectStore();
 
   const [studioWidth, setStudioWidth] = useState(25);
-  const [chatWidth, setChatWidth] = useState(50);
+  const [chatWidth, setChatWidth] = useState(52);
   const [expandedStudioWidth, setExpandedStudioWidth] = useState(70);
   const [expandedChatHeight, setExpandedChatHeight] = useState(50);
+  const [panelAreaWidth, setPanelAreaWidth] = useState(0);
+  const [panelAreaHeight, setPanelAreaHeight] = useState(0);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
 
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const panelAreaRef = useRef<HTMLDivElement | null>(null);
+  const previousChatWidthRef = useRef<number | null>(null);
+  const previousExpandedChatHeightRef = useRef<number | null>(null);
   const startSizesRef = useRef({
     studio: 0,
     chat: 0,
@@ -58,6 +94,24 @@ export default function ProjectDetailPage() {
   });
 
   const isExpanded = layoutMode === "expanded";
+  const sessionOptions: SessionSwitcherItem[] = generationHistory.map(
+    (item) => ({
+      sessionId: item.id,
+      title: `会话 ${item.id.slice(-6)}`,
+      updatedAt: formatSessionTime(item.createdAt),
+    })
+  );
+
+  const updateSessionInUrl = useCallback(
+    (sessionId: string) => {
+      const nextSearch = new URLSearchParams(searchParams.toString());
+      nextSearch.set("session", sessionId);
+      router.replace(`/projects/${projectId}?${nextSearch.toString()}`, {
+        scroll: false,
+      });
+    },
+    [projectId, router, searchParams]
+  );
 
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
@@ -66,10 +120,10 @@ export default function ProjectDetailPage() {
       return;
     }
 
-    fetchProject(projectId);
-    fetchFiles(projectId);
-    fetchMessages(projectId);
-    fetchGenerationHistory(projectId);
+    void fetchProject(projectId);
+    void fetchFiles(projectId);
+    void fetchMessages(projectId);
+    void fetchGenerationHistory(projectId);
 
     return () => {
       reset();
@@ -84,24 +138,223 @@ export default function ProjectDetailPage() {
     reset,
   ]);
 
+  useEffect(() => {
+    if (generationHistory.length === 0) return;
+
+    const allSessionIds = generationHistory.map((item) => item.id);
+    const preferredSessionId =
+      querySessionId && allSessionIds.includes(querySessionId)
+        ? querySessionId
+        : allSessionIds[0];
+
+    if (preferredSessionId && preferredSessionId !== activeSessionId) {
+      setActiveSessionId(preferredSessionId);
+      void fetchArtifactHistory(projectId, preferredSessionId);
+    }
+
+    if (preferredSessionId) {
+      void fetchMessages(projectId, preferredSessionId);
+    }
+
+    if (preferredSessionId && querySessionId !== preferredSessionId) {
+      updateSessionInUrl(preferredSessionId);
+    }
+  }, [
+    generationHistory,
+    querySessionId,
+    activeSessionId,
+    fetchArtifactHistory,
+    fetchMessages,
+    projectId,
+    setActiveSessionId,
+    updateSessionInUrl,
+  ]);
+
   const handleToolClick = async (_tool: GenerationTool) => {
-    // 会话创建仅在配置面板点击“开始生成”时触发，避免重复创建。
-    return;
+    // Session is created when user starts generation from config panel.
   };
+
+  const handleChangeSession = useCallback(
+    async (sessionId: string) => {
+      if (!sessionId || sessionId === "empty") return;
+      setActiveSessionId(sessionId);
+      updateSessionInUrl(sessionId);
+      await fetchMessages(projectId, sessionId);
+      await fetchArtifactHistory(projectId, sessionId);
+    },
+    [
+      fetchArtifactHistory,
+      fetchMessages,
+      projectId,
+      setActiveSessionId,
+      updateSessionInUrl,
+    ]
+  );
+
+  const handleCreateSession = useCallback(async () => {
+    setIsCreatingSession(true);
+    try {
+      const response = await generateApi.createSession({
+        project_id: projectId,
+        output_type: "both",
+      });
+      const newSessionId = response.data?.session?.session_id;
+      if (!newSessionId) return;
+
+      await fetchGenerationHistory(projectId);
+      await handleChangeSession(newSessionId);
+      toast({
+        title: "已创建新会话",
+        description: `会话 ID：${newSessionId.slice(0, 8)}...`,
+      });
+    } catch (error) {
+      toast({
+        title: "创建会话失败",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingSession(false);
+    }
+  }, [fetchGenerationHistory, handleChangeSession, projectId]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const target = panelAreaRef.current;
+    if (!target) return;
+
+    const syncSize = () => {
+      setPanelAreaWidth(target.clientWidth);
+      setPanelAreaHeight(target.clientHeight);
+    };
+    syncSize();
+
+    const observer = new ResizeObserver(syncSize);
+    observer.observe(target);
+    window.addEventListener("resize", syncSize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncSize);
+    };
+  }, [isLoading]);
+
+  const sourcesWidthPercent = 100 - studioWidth - chatWidth;
+  const effectivePanelAreaWidth =
+    panelAreaWidth > 0
+      ? panelAreaWidth
+      : typeof window !== "undefined"
+        ? window.innerWidth - PAGE_GAP * 2
+        : 0;
+  const sourcesWidthPx =
+    effectivePanelAreaWidth > 0
+      ? (effectivePanelAreaWidth * sourcesWidthPercent) / 100 -
+        (PAGE_GAP + PANEL_GAP / 2)
+      : 0;
+  const isSourcesCollapsedByWidth =
+    !isExpanded &&
+    sourcesWidthPx > 0 &&
+    sourcesWidthPx <= COLLAPSED_SOURCES_TRIGGER_WIDTH_PX;
+  const effectivePanelAreaHeight =
+    panelAreaHeight > 0
+      ? panelAreaHeight
+      : typeof window !== "undefined"
+        ? window.innerHeight - (HEADER_TO_PANEL_GAP + PAGE_GAP)
+        : 0;
+  const expandedSourcesHeightPx =
+    effectivePanelAreaHeight > 0
+      ? (effectivePanelAreaHeight * (100 - expandedChatHeight)) / 100 -
+        (PAGE_GAP + PANEL_GAP / 2)
+      : 0;
+  const isExpandedSourcesCollapsedByHeight =
+    isExpanded &&
+    expandedSourcesHeightPx > 0 &&
+    expandedSourcesHeightPx <= COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + 2;
+
+  const toggleSourcesCollapsed = useCallback(
+    (action: "collapse" | "expand" | "toggle" = "toggle") => {
+      if (isExpanded) return;
+
+      const containerWidth =
+        panelAreaRef.current?.clientWidth ?? window.innerWidth - PAGE_GAP * 2;
+      const minSourcesPercent =
+        ((MIN_RESIZABLE_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) /
+          containerWidth) *
+        100;
+      const maxChatBySources = Math.min(
+        75,
+        100 - studioWidth - minSourcesPercent
+      );
+
+      const applyTargetSourcesWidth = (targetWidthPx: number) => {
+        const targetSourcesPercent = Math.max(
+          minSourcesPercent,
+          ((targetWidthPx + PAGE_GAP + PANEL_GAP / 2) / containerWidth) * 100
+        );
+        const targetChat = 100 - studioWidth - targetSourcesPercent;
+        const nextChat = Math.max(30, Math.min(maxChatBySources, targetChat));
+        setChatWidth(nextChat);
+      };
+
+      const shouldExpand =
+        action === "expand" ||
+        (action === "toggle" && isSourcesCollapsedByWidth);
+
+      if (shouldExpand) {
+        if (previousChatWidthRef.current !== null) {
+          const restoredChat = Math.max(
+            30,
+            Math.min(maxChatBySources, previousChatWidthRef.current)
+          );
+          setChatWidth(restoredChat);
+          return;
+        }
+        applyTargetSourcesWidth(EXPANDED_SOURCES_COMFORT_WIDTH_PX);
+        return;
+      }
+
+      previousChatWidthRef.current = chatWidth;
+      applyTargetSourcesWidth(COLLAPSED_SOURCES_WIDTH_PX);
+    },
+    [chatWidth, isExpanded, isSourcesCollapsedByWidth, studioWidth]
+  );
+
+  const handleToggleExpandedSources = useCallback(() => {
+    if (!isExpanded) return;
+
+    const containerHeight =
+      panelAreaRef.current?.clientHeight ??
+      window.innerHeight - (HEADER_TO_PANEL_GAP + PAGE_GAP);
+    const maxChatByCollapsedSources =
+      100 -
+      ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
+        containerHeight) *
+        100;
+
+    if (!isExpandedSourcesCollapsedByHeight) {
+      previousExpandedChatHeightRef.current = expandedChatHeight;
+      setExpandedChatHeight(
+        Math.max(30, Math.min(92, maxChatByCollapsedSources))
+      );
+      return;
+    }
+
+    setExpandedChatHeight(previousExpandedChatHeightRef.current ?? 50);
+  }, [expandedChatHeight, isExpanded, isExpandedSourcesCollapsedByHeight]);
 
   const handleMouseDown = useCallback(
     (
-      e: React.MouseEvent,
+      event: React.MouseEvent,
       handle:
         | "studio-chat"
         | "chat-sources"
         | "expanded-studio-right"
         | "expanded-chat-sources"
     ) => {
-      e.preventDefault();
+      event.preventDefault();
       isDraggingRef.current = true;
-      startXRef.current = e.clientX;
-      startYRef.current = e.clientY;
+      startXRef.current = event.clientX;
+      startYRef.current = event.clientY;
       startSizesRef.current = {
         studio: studioWidth,
         chat: chatWidth,
@@ -118,22 +371,25 @@ export default function ProjectDetailPage() {
           panelAreaRef.current?.clientWidth ?? window.innerWidth - PAGE_GAP * 2;
         const containerHeight =
           panelAreaRef.current?.clientHeight ??
-          window.innerHeight - PAGE_GAP * 2;
+          window.innerHeight - (HEADER_TO_PANEL_GAP + PAGE_GAP);
         const deltaPercent = (deltaX / containerWidth) * 100;
         const deltaYPercent = (deltaY / containerHeight) * 100;
 
         if (handle === "studio-chat") {
-          const newStudio = Math.max(
+          const nextStudio = Math.max(
             15,
             Math.min(40, startSizesRef.current.studio + deltaPercent)
           );
-          const newChat = Math.max(
+          const nextChat = Math.max(
             30,
             Math.min(60, startSizesRef.current.chat - deltaPercent)
           );
-          setStudioWidth(newStudio);
-          setChatWidth(newChat);
-        } else if (handle === "chat-sources") {
+          setStudioWidth(nextStudio);
+          setChatWidth(nextChat);
+          return;
+        }
+
+        if (handle === "chat-sources") {
           const minSourcesPercent =
             ((MIN_RESIZABLE_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) /
               containerWidth) *
@@ -142,38 +398,87 @@ export default function ProjectDetailPage() {
             75,
             100 - startSizesRef.current.studio - minSourcesPercent
           );
-          const newChat = Math.max(
+          let nextChat = Math.max(
             30,
             Math.min(
               Math.max(30, maxChatBySources),
               startSizesRef.current.chat + deltaPercent
             )
           );
-          setChatWidth(newChat);
-        } else if (handle === "expanded-studio-right") {
+
+          const toChatBySourcesWidthPx = (targetWidthPx: number) => {
+            const targetSourcesPercent =
+              ((targetWidthPx + PAGE_GAP + PANEL_GAP / 2) / containerWidth) *
+              100;
+            const targetChat =
+              100 - startSizesRef.current.studio - targetSourcesPercent;
+            return Math.max(
+              30,
+              Math.min(Math.max(30, maxChatBySources), targetChat)
+            );
+          };
+
+          const startSourcesPercent =
+            100 - startSizesRef.current.studio - startSizesRef.current.chat;
+          const startSourcesWidthPx =
+            (containerWidth * startSourcesPercent) / 100 -
+            (PAGE_GAP + PANEL_GAP / 2);
+          const startedCollapsed =
+            startSourcesWidthPx <= COLLAPSED_SOURCES_TRIGGER_WIDTH_PX + 2;
+
+          const nextSourcesPercent =
+            100 - startSizesRef.current.studio - nextChat;
+          const nextSourcesWidthPx =
+            (containerWidth * nextSourcesPercent) / 100 -
+            (PAGE_GAP + PANEL_GAP / 2);
+
+          const collapseSnapThreshold = COLLAPSED_SOURCES_TRIGGER_WIDTH_PX + 4;
+          const expandSnapThreshold = COLLAPSED_SOURCES_TRIGGER_WIDTH_PX - 60;
+
+          if (deltaX > 0 && nextSourcesWidthPx <= collapseSnapThreshold) {
+            nextChat = toChatBySourcesWidthPx(COLLAPSED_SOURCES_WIDTH_PX);
+          } else if (
+            deltaX < 0 &&
+            startedCollapsed &&
+            nextSourcesWidthPx >= expandSnapThreshold
+          ) {
+            nextChat = toChatBySourcesWidthPx(SOURCES_TITLE_SAFE_MIN_WIDTH_PX);
+          }
+
+          setChatWidth(nextChat);
+          return;
+        }
+
+        if (handle === "expanded-studio-right") {
           const maxExpandedStudioByWidth =
             100 -
-            ((MIN_RESIZABLE_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) /
+            ((MIN_EXPANDED_RIGHT_PANEL_WIDTH + PAGE_GAP + PANEL_GAP / 2) /
               containerWidth) *
               100;
-          const newExpandedStudio = Math.max(
+          const nextExpandedStudio = Math.max(
             45,
             Math.min(
               Math.max(45, Math.min(92, maxExpandedStudioByWidth)),
               startSizesRef.current.expandedStudio + deltaPercent
             )
           );
-          setExpandedStudioWidth(newExpandedStudio);
-        } else {
-          const newExpandedChatHeight = Math.max(
-            30,
-            Math.min(
-              70,
-              startSizesRef.current.expandedChatHeight + deltaYPercent
-            )
-          );
-          setExpandedChatHeight(newExpandedChatHeight);
+          setExpandedStudioWidth(nextExpandedStudio);
+          return;
         }
+
+        const maxExpandedChatHeight =
+          100 -
+          ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
+            containerHeight) *
+            100;
+        const nextExpandedChatHeight = Math.max(
+          30,
+          Math.min(
+            Math.min(92, maxExpandedChatHeight),
+            startSizesRef.current.expandedChatHeight + deltaYPercent
+          )
+        );
+        setExpandedChatHeight(nextExpandedChatHeight);
       };
 
       const handleMouseUp = () => {
@@ -235,7 +540,7 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const sourcesWidth = 100 - studioWidth - chatWidth;
+  const sourcesWidth = sourcesWidthPercent;
 
   return (
     <div className="h-screen flex flex-col bg-zinc-100 overflow-hidden relative">
@@ -248,13 +553,25 @@ export default function ProjectDetailPage() {
         className="opacity-80"
       />
 
-      <ProjectHeader />
+      <ProjectHeader
+        sessions={sessionOptions}
+        activeSessionId={activeSessionId}
+        onChangeSession={handleChangeSession}
+        onCreateSession={handleCreateSession}
+        isCreatingSession={isCreatingSession}
+        onOpenLibrary={() => setIsLibraryOpen(true)}
+      />
 
-      <div className="flex-1 min-h-0 relative" style={{ padding: PAGE_GAP }}>
+      <div className="flex-1 min-h-0 relative">
         <motion.div
           ref={panelAreaRef}
-          className="absolute inset-0"
-          style={{ padding: PAGE_GAP }}
+          className="absolute"
+          style={{
+            top: HEADER_TO_PANEL_GAP,
+            right: 0,
+            bottom: 0,
+            left: 0,
+          }}
           initial={false}
         >
           <motion.div
@@ -263,11 +580,11 @@ export default function ProjectDetailPage() {
             initial={false}
             animate={{
               left: PAGE_GAP,
-              top: PAGE_GAP,
+              top: PANEL_TOP_INSET,
               width: isExpanded
                 ? `calc(${expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(${studioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
-              height: `calc(100% - ${PAGE_GAP * 2}px)`,
+              height: `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
             }}
             transition={springConfig}
           >
@@ -277,8 +594,8 @@ export default function ProjectDetailPage() {
           <motion.div
             className="absolute cursor-col-resize z-10"
             style={{
-              top: PAGE_GAP,
-              height: `calc(100% - ${PAGE_GAP * 2}px)`,
+              top: PANEL_TOP_INSET,
+              height: `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
             }}
             initial={false}
             animate={{
@@ -288,9 +605,9 @@ export default function ProjectDetailPage() {
               width: PANEL_GAP,
             }}
             transition={springConfig}
-            onMouseDown={(e) =>
+            onMouseDown={(event) =>
               handleMouseDown(
-                e,
+                event,
                 isExpanded ? "expanded-studio-right" : "studio-chat"
               )
             }
@@ -304,25 +621,25 @@ export default function ProjectDetailPage() {
               left: isExpanded
                 ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2}px)`
                 : `calc(${studioWidth}% + ${PANEL_GAP / 2}px)`,
-              top: PAGE_GAP,
+              top: PANEL_TOP_INSET,
               width: isExpanded
                 ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(${chatWidth}% - ${PANEL_GAP}px)`,
               height: isExpanded
-                ? `calc(${expandedChatHeight}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
-                : `calc(100% - ${PAGE_GAP * 2}px)`,
+                ? `calc(${expandedChatHeight}% - ${PANEL_TOP_INSET + PANEL_GAP / 2}px)`
+                : `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
             }}
             transition={springConfig}
           >
             <ChatPanel projectId={projectId} />
           </motion.div>
 
-          {!isExpanded && (
+          {!isExpanded ? (
             <motion.div
               className="absolute cursor-col-resize z-10"
               style={{
-                top: PAGE_GAP,
-                height: `calc(100% - ${PAGE_GAP * 2}px)`,
+                top: PANEL_TOP_INSET,
+                height: `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
               }}
               initial={false}
               animate={{
@@ -330,11 +647,11 @@ export default function ProjectDetailPage() {
                 width: PANEL_GAP,
               }}
               transition={springConfig}
-              onMouseDown={(e) => handleMouseDown(e, "chat-sources")}
+              onMouseDown={(event) => handleMouseDown(event, "chat-sources")}
             />
-          )}
+          ) : null}
 
-          {isExpanded && (
+          {isExpanded ? (
             <motion.div
               className="absolute cursor-row-resize z-10"
               style={{
@@ -347,9 +664,11 @@ export default function ProjectDetailPage() {
                 height: PANEL_GAP,
               }}
               transition={springConfig}
-              onMouseDown={(e) => handleMouseDown(e, "expanded-chat-sources")}
+              onMouseDown={(event) =>
+                handleMouseDown(event, "expanded-chat-sources")
+              }
             />
-          )}
+          ) : null}
 
           <motion.div
             layout
@@ -361,26 +680,39 @@ export default function ProjectDetailPage() {
                 : `calc(${studioWidth + chatWidth}% + ${PANEL_GAP / 2}px)`,
               top: isExpanded
                 ? `calc(${expandedChatHeight}% + ${PANEL_GAP / 2}px)`
-                : PAGE_GAP,
+                : PANEL_TOP_INSET,
               width: isExpanded
                 ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
                 : `calc(${sourcesWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
               height: isExpanded
                 ? `calc(${100 - expandedChatHeight}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
-                : `calc(100% - ${PAGE_GAP * 2}px)`,
+                : `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
             }}
             transition={springConfig}
           >
-            <SourcesPanel projectId={projectId} />
+            <SourcesPanel
+              projectId={projectId}
+              isCollapsed={isSourcesCollapsedByWidth}
+              onToggleCollapsed={toggleSourcesCollapsed}
+              isStudioExpanded={isExpanded}
+              isExpandedContentCollapsed={isExpandedSourcesCollapsedByHeight}
+              onToggleExpandedContentCollapsed={handleToggleExpandedSources}
+            />
           </motion.div>
         </motion.div>
       </div>
 
       <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
         <p className="text-[10px] text-zinc-400">
-          Spectra 提供的内容未必准确，因此请仔细核查回答内容。
+          Spectra 输出内容可能存在偏差，请在课堂使用前进行复核。
         </p>
       </div>
+
+      <LibraryDrawer
+        open={isLibraryOpen}
+        onOpenChange={setIsLibraryOpen}
+        projectId={projectId}
+      />
     </div>
   );
 }

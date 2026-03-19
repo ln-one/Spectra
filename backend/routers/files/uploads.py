@@ -67,7 +67,7 @@ async def upload_file(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload file",
+            detail=f"Failed to upload file: {exc}",
         )
 
 
@@ -114,5 +114,5 @@ async def batch_upload_files(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to batch upload files",
+            detail=f"Failed to batch upload files: {exc}",
         )

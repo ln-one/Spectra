@@ -64,6 +64,9 @@ function normalizeFileFromServer(raw: Record<string, unknown>): UploadedFile {
       raw.parseDetails ||
       {}) as UploadedFile["parse_details"],
     parse_result: parsedResult,
+    parse_error: (raw.parse_error || raw.parseError || undefined) as
+      | string
+      | undefined,
     usage_intent: (raw.usage_intent || raw.usageIntent || undefined) as
       | string
       | undefined,
@@ -82,7 +85,8 @@ export const filesApi = {
   async uploadFile(
     file: File,
     projectId: string,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    sessionId?: string
   ): Promise<UploadResponse> {
     if (file.size > MAX_FILE_SIZE) {
       throw new Error(
@@ -93,6 +97,9 @@ export const filesApi = {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("project_id", projectId);
+      if (sessionId) {
+        formData.append("session_id", sessionId);
+      }
 
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_BASE_URL}/api/v1/files`);
@@ -119,6 +126,16 @@ export const filesApi = {
             const parsed = JSON.parse(xhr.responseText);
             if (parsed?.data?.file) {
               parsed.data.file = normalizeFileFromServer(parsed.data.file);
+              // 检查后端返回的 file 状态是否为失败
+              if (parsed.data.file.status === "failed") {
+                const errorMsg = parsed.data.file.parse_error || "文件解析失败";
+                reject(new Error(errorMsg));
+                xhr.onprogress = null;
+                xhr.onload = null;
+                xhr.onerror = null;
+                xhr.upload.onprogress = null;
+                return;
+              }
             }
             resolve(parsed);
           } catch {
@@ -200,12 +217,13 @@ export const filesApi = {
   async batchUploadFiles(
     files: File[],
     projectId: string,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    sessionId?: string
   ): Promise<components["schemas"]["BatchUploadResponse"]> {
     for (const file of files) {
       if (file.size > MAX_FILE_SIZE) {
         throw new Error(
-          `文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（100MB）`
+          `文件 "${file.name}" 大小（${(file.size / 1048576).toFixed(1)}MB）超过限制（400MB）`
         );
       }
     }
@@ -215,6 +233,9 @@ export const filesApi = {
       formData.append("files", file);
     });
     formData.append("project_id", projectId);
+    if (sessionId) {
+      formData.append("session_id", sessionId);
+    }
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();

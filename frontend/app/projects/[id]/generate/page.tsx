@@ -32,7 +32,8 @@ import { useProjectStore } from "@/stores/projectStore";
 import { previewApi } from "@/lib/sdk/preview";
 import { generateApi } from "@/lib/sdk/generate";
 import { ApiError } from "@/lib/sdk/client";
-import { components } from "@/lib/types/api";
+import { toast } from "@/hooks/use-toast";
+import type { components } from "@/lib/sdk/types";
 
 type Slide = components["schemas"]["Slide"];
 
@@ -108,7 +109,11 @@ export default function GeneratePreviewPage() {
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
 
   const [slides, setSlides] = useState<Slide[]>([]);
+  const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [previewBlockedReason, setPreviewBlockedReason] = useState<
     string | null
   >(null);
@@ -120,10 +125,17 @@ export default function GeneratePreviewPage() {
     useProjectStore();
 
   const sessionIdFromQuery = searchParams?.get("session") || null;
+  const artifactIdFromQuery = searchParams?.get("artifact_id") || null;
   const activeSessionId =
     sessionIdFromQuery ||
     generationSession?.session.session_id ||
     (generationHistory.length > 0 ? generationHistory[0].id : null);
+
+  useEffect(() => {
+    if (artifactIdFromQuery) {
+      setCurrentArtifactId(artifactIdFromQuery);
+    }
+  }, [artifactIdFromQuery]);
 
   useEffect(() => {
     if (projectId) {
@@ -148,11 +160,22 @@ export default function GeneratePreviewPage() {
     }
     try {
       setPreviewBlockedReason(null);
-      const response = await previewApi.getSessionPreview(activeSessionId);
+      const response = await previewApi.getSessionPreview(activeSessionId, {
+        artifact_id: currentArtifactId ?? undefined,
+      });
       if (response.success && response.data.slides) {
         setSlides(response.data.slides.sort((a, b) => a.index - b.index));
+        setCurrentArtifactId(response.data.artifact_id ?? null);
       }
     } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        toast({
+          title: "版本已变化",
+          description: "版本变化，请刷新后重试。",
+          variant: "destructive",
+        });
+        return;
+      }
       if (error instanceof ApiError && error.message.includes("不支持预览")) {
         try {
           const sessionResp = await generateApi.getSession(activeSessionId);
@@ -173,7 +196,7 @@ export default function GeneratePreviewPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeSessionId]);
+  }, [activeSessionId, currentArtifactId]);
 
   useEffect(() => {
     loadSlides();
@@ -258,6 +281,39 @@ export default function GeneratePreviewPage() {
     }
   }, []);
 
+  const handleExport = useCallback(async () => {
+    if (!activeSessionId || isExporting) return;
+    try {
+      setIsExporting(true);
+      const response = await previewApi.exportSessionPreview(activeSessionId, {
+        artifact_id: currentArtifactId ?? undefined,
+        format: "html",
+        include_sources: true,
+      });
+      const content = response?.data?.content ?? "";
+      if (!content) return;
+      const blob = new Blob([content], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `preview-${activeSessionId.slice(0, 8)}.html`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        toast({
+          title: "版本已变化",
+          description: "版本变化，请刷新后重试。",
+          variant: "destructive",
+        });
+        return;
+      }
+      console.error("Failed to export preview:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [activeSessionId, currentArtifactId, isExporting]);
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="h-screen flex flex-col overflow-hidden bg-background text-foreground font-sans selection:bg-primary/20">
@@ -324,9 +380,11 @@ export default function GeneratePreviewPage() {
               variant="outline"
               size="sm"
               className="hidden sm:flex rounded-full h-9"
+              onClick={handleExport}
+              disabled={!activeSessionId || isExporting}
             >
               <Download className="w-4 h-4 mr-2" />
-              导出
+              {isExporting ? "导出中" : "导出"}
             </Button>
             <Button
               variant="outline"

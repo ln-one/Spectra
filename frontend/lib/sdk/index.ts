@@ -7,6 +7,7 @@ export * from "./generate";
 export * from "./preview";
 export * from "./rag";
 export * from "./health";
+export * from "./project-space";
 
 export { authApi } from "./auth";
 export { projectsApi } from "./projects";
@@ -16,3 +17,4 @@ export { generateApi } from "./generate";
 export { previewApi } from "./preview";
 export { ragApi } from "./rag";
 export { healthApi } from "./health";
+export { projectSpaceApi } from "./project-space";
