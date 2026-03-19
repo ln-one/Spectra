@@ -2,6 +2,7 @@ import json
 from typing import Optional
 
 from schemas.project_space import (
+    ArtifactVisibility,
     CandidateChangeStatus,
     ChangeType,
     ProjectMemberRole,
@@ -9,6 +10,14 @@ from schemas.project_space import (
     ReferenceRelationType,
     ReferenceStatus,
 )
+
+
+def _normalize_artifact_visibility(value: ArtifactVisibility | str) -> str:
+    return (
+        value.value
+        if isinstance(value, ArtifactVisibility)
+        else ArtifactVisibility(value).value
+    )
 
 
 class ProjectSpaceMixin:
@@ -132,7 +141,7 @@ class ProjectSpaceMixin:
         if type_filter:
             where["type"] = type_filter
         if visibility_filter:
-            where["visibility"] = visibility_filter
+            where["visibility"] = _normalize_artifact_visibility(visibility_filter)
         if owner_user_id_filter:
             where["ownerUserId"] = owner_user_id_filter
         if based_on_version_id_filter:
@@ -158,7 +167,7 @@ class ProjectSpaceMixin:
         data = {
             "projectId": project_id,
             "type": artifact_type,
-            "visibility": visibility,
+            "visibility": _normalize_artifact_visibility(visibility),
         }
         if session_id:
             data["sessionId"] = session_id

@@ -76,3 +76,64 @@ async def test_update_project_reference_follow_clears_stale_pinned_version():
         priority=3,
         status="active",
     )
+
+
+@pytest.mark.asyncio
+async def test_validate_reference_creation_rejects_cross_owner_private_target():
+    db = SimpleNamespace(
+        get_project=AsyncMock(
+            side_effect=[
+                SimpleNamespace(id="p-001", userId="u-001"),
+                SimpleNamespace(
+                    id="p-002",
+                    userId="u-002",
+                    visibility="private",
+                    isReferenceable=True,
+                ),
+            ]
+        ),
+        get_base_reference=AsyncMock(return_value=None),
+        get_project_version=AsyncMock(return_value=None),
+        get_project_references=AsyncMock(return_value=[]),
+    )
+
+    from utils.exceptions import ForbiddenException
+
+    with pytest.raises(ForbiddenException, match="private across owners"):
+        await validate_reference_creation(
+            db=db,
+            project_id="p-001",
+            target_project_id="p-002",
+            relation_type="auxiliary",
+            mode="follow",
+            pinned_version_id=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_validate_reference_creation_accepts_cross_owner_shared_target():
+    db = SimpleNamespace(
+        get_project=AsyncMock(
+            side_effect=[
+                SimpleNamespace(id="p-001", userId="u-001"),
+                SimpleNamespace(
+                    id="p-002",
+                    userId="u-002",
+                    visibility="shared",
+                    isReferenceable=True,
+                ),
+            ]
+        ),
+        get_base_reference=AsyncMock(return_value=None),
+        get_project_version=AsyncMock(return_value=None),
+        get_project_references=AsyncMock(return_value=[]),
+    )
+
+    await validate_reference_creation(
+        db=db,
+        project_id="p-001",
+        target_project_id="p-002",
+        relation_type="auxiliary",
+        mode="follow",
+        pinned_version_id=None,
+    )

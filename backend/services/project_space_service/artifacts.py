@@ -16,6 +16,7 @@ from .artifact_semantics import (
     default_artifact_content,
     get_artifact_capability,
     normalize_artifact_type,
+    normalize_artifact_visibility,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,7 @@ async def create_artifact_with_file(
 ) -> Any:
     """Create artifact record and generate the backing file."""
     artifact_type = normalize_artifact_type(artifact_type)
+    visibility = normalize_artifact_visibility(visibility).value
     artifact_id = str(uuid.uuid4())
     storage_path = artifact_generator.get_storage_path(
         project_id, artifact_type, artifact_id

@@ -13,7 +13,7 @@ import os
 import uuid
 from typing import Any
 
-from services.file_upload_service import FileType, normalize_file_type
+from services.file_upload_service.access import FileType, normalize_file_type
 from services.parsers import get_parser
 
 from .direct_extractors import (

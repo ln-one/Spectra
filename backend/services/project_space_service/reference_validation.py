@@ -3,13 +3,14 @@
 from typing import Optional, Set
 
 from schemas.project_space import ReferenceMode, ReferenceRelationType
-from schemas.projects import ProjectVisibility
 from utils.exceptions import (
     ConflictException,
     ForbiddenException,
     NotFoundException,
     ValidationException,
 )
+
+from .project_semantics import allows_cross_owner_reference, is_project_referenceable
 
 
 async def check_dag_cycle(db, project_id: str, new_target_id: str) -> bool:
@@ -58,22 +59,10 @@ async def validate_reference_creation(
     if not target_project:
         raise NotFoundException(f"Target project not found: {target_project_id}")
 
-    if not getattr(target_project, "isReferenceable", True):
+    if not is_project_referenceable(target_project):
         raise ValidationException(f"Target not referenceable: {target_project_id}")
 
-    target_visibility = getattr(
-        target_project,
-        "visibility",
-        ProjectVisibility.PRIVATE.value,
-    )
-    source_owner_id = getattr(source_project, "userId", None)
-    target_owner_id = getattr(target_project, "userId", None)
-    if (
-        target_visibility != ProjectVisibility.SHARED.value
-        and source_owner_id
-        and target_owner_id
-        and source_owner_id != target_owner_id
-    ):
+    if not allows_cross_owner_reference(source_project, target_project):
         raise ForbiddenException(
             "Target project is private across owners unless visibility is shared."
         )

@@ -1,5 +1,6 @@
 from typing import Optional
 
+from .artifact_semantics import normalize_artifact_visibility
 from .artifacts import create_artifact_with_file, get_artifact_storage_path
 
 
@@ -23,7 +24,7 @@ async def create_artifact_with_file_response(
         db=service.db,
         project_id=project_id,
         artifact_type=artifact_type,
-        visibility=visibility,
+        visibility=normalize_artifact_visibility(visibility).value,
         user_id=user_id,
         session_id=session_id,
         based_on_version_id=based_on_version_id,
@@ -50,7 +51,11 @@ async def get_project_artifacts(
     return await service.db.get_project_artifacts(
         project_id,
         type_filter,
-        visibility_filter,
+        (
+            normalize_artifact_visibility(visibility_filter).value
+            if visibility_filter
+            else None
+        ),
         owner_user_id_filter,
         based_on_version_id_filter,
     )

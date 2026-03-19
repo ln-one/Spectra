@@ -7,6 +7,9 @@ from services.project_space_service import ProjectSpaceService
 from services.project_space_service.artifact_semantics import (
     ArtifactMetadataKind,
     ProjectCapability,
+    is_artifact_project_visible,
+    is_artifact_shared,
+    normalize_artifact_visibility,
 )
 
 
@@ -137,3 +140,13 @@ async def test_create_artifact_animation_storyboard_uses_html(monkeypatch):
         create_artifact.await_args.kwargs["metadata"]["capability"]
         == ProjectCapability.ANIMATION.value
     )
+
+
+def test_normalize_artifact_visibility_defaults_private():
+    assert normalize_artifact_visibility(None).value == "private"
+
+
+def test_artifact_visibility_helpers_use_formal_vocabulary():
+    assert is_artifact_project_visible("project-visible") is True
+    assert is_artifact_shared("shared") is True
+    assert is_artifact_shared("private") is False

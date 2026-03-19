@@ -1,6 +1,10 @@
 from typing import Optional
 
 from schemas.generation import TaskStatus
+from schemas.project_semantics import (
+    normalize_project_reference_mode,
+    normalize_project_visibility,
+)
 from schemas.project_space import ReferenceRelationType
 from schemas.projects import ProjectCreate, ProjectReferenceMode
 from utils.exceptions import APIException, NotFoundException, ValidationException
@@ -16,7 +20,9 @@ class ProjectMixin:
         if getattr(project_data, "grade_level", None) is not None:
             data["gradeLevel"] = project_data.grade_level
         if getattr(project_data, "visibility", None) is not None:
-            data["visibility"] = project_data.visibility
+            data["visibility"] = normalize_project_visibility(
+                project_data.visibility
+            ).value
         if getattr(project_data, "is_referenceable", None) is not None:
             data["isReferenceable"] = project_data.is_referenceable
 
@@ -31,12 +37,10 @@ class ProjectMixin:
                         message=f"基底项目不存在: {base_project_id}"
                     )
 
-                reference_mode = getattr(
-                    project_data,
-                    "reference_mode",
-                    ProjectReferenceMode.FOLLOW,
+                reference_mode = normalize_project_reference_mode(
+                    getattr(project_data, "reference_mode", ProjectReferenceMode.FOLLOW)
                 )
-                reference_mode_value = getattr(reference_mode, "value", reference_mode)
+                reference_mode_value = reference_mode.value
 
                 pinned_version_id = None
                 if reference_mode_value == ProjectReferenceMode.PINNED.value:
@@ -98,7 +102,7 @@ class ProjectMixin:
         if grade_level is not None:
             data["gradeLevel"] = grade_level
         if visibility is not None:
-            data["visibility"] = visibility
+            data["visibility"] = normalize_project_visibility(visibility).value
         if is_referenceable is not None:
             data["isReferenceable"] = is_referenceable
         return await self.db.project.update(where={"id": project_id}, data=data)

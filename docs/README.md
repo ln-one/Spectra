@@ -41,6 +41,7 @@
 ## 4. 规划与比赛
 
 - [当前阶段计划（2026-03-09）](./project/PROJECT_SPACE_API_DRAFT_2026-03-09.md)
+- [系统哲学（2026-03-19）](./project/SYSTEM_PHILOSOPHY_2026-03-19.md)
 - [项目原始需求](./project/requirements.md)
 - [比赛材料](./competition/)
 

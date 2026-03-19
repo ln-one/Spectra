@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from enum import Enum
 
-from schemas.project_space import ArtifactType
+from schemas.project_space import ArtifactType, ArtifactVisibility
 
 
 class ProjectCapability(str, Enum):
@@ -176,6 +176,22 @@ def normalize_artifact_type(artifact_type: ArtifactType | str) -> str:
         if isinstance(artifact_type, ArtifactType)
         else str(artifact_type)
     )
+
+
+def normalize_artifact_visibility(
+    value: ArtifactVisibility | str | None,
+) -> ArtifactVisibility:
+    if value is None:
+        return ArtifactVisibility.PRIVATE
+    return value if isinstance(value, ArtifactVisibility) else ArtifactVisibility(value)
+
+
+def is_artifact_shared(value: ArtifactVisibility | str | None) -> bool:
+    return normalize_artifact_visibility(value) is ArtifactVisibility.SHARED
+
+
+def is_artifact_project_visible(value: ArtifactVisibility | str | None) -> bool:
+    return normalize_artifact_visibility(value) is ArtifactVisibility.PROJECT_VISIBLE
 
 
 def default_artifact_content(artifact_type: ArtifactType | str) -> dict:

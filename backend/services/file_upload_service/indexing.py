@@ -5,7 +5,6 @@ from typing import Optional
 from fastapi import BackgroundTasks, Request
 
 from services.database import db_service
-from services.media.rag_indexing import index_upload_file_for_rag as index_upload
 
 from .constants import UploadStatus
 
@@ -21,6 +20,10 @@ async def index_upload_for_rag(
     await db_service.update_upload_status(upload.id, status=UploadStatus.PARSING.value)
 
     try:
+        from services.media.rag_indexing import (
+            index_upload_file_for_rag as index_upload,
+        )
+
         parse_result = await index_upload(
             upload=upload,
             project_id=project_id,
