@@ -186,6 +186,21 @@ def build_studio_card_execution_preview(
                 },
                 notes="说课助手当前通过 source-artifact + create-session 组合语义落地。",
             ),
+            refine_request=StudioCardResolvedRequest(
+                method="POST",
+                endpoint="/api/v1/chat/messages",
+                payload={
+                    "project_id": project_id,
+                    "message": "",
+                    "metadata": {
+                        "card_id": card_id,
+                        "source_artifact_id": source_artifact_id
+                        or cfg.get("source_artifact_id"),
+                        "selected_script_segment": cfg.get("selected_script_segment"),
+                    },
+                },
+                notes="提词器段落级改写当前先复用 chat 路径，并显式绑定 source_artifact_id。",
+            ),
         )
 
     if card_id == "interactive_games":

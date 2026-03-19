@@ -161,13 +161,14 @@ CARD_EXECUTION_PLANS: dict[str, StudioCardExecutionPlan] = {
         ),
         refine_binding=StudioCardExecutionBinding(
             transport=StudioCardTransport.CHAT_MESSAGE,
-            status=StudioCardBindingStatus.PENDING,
+            status=StudioCardBindingStatus.PARTIAL,
             method="POST",
             endpoint="/api/v1/chat/messages",
             required_fields=["project_id", "message"],
+            bound_config_keys=["source_artifact_id"],
             pending_config_keys=["selected_script_segment"],
-            result_fields=["message"],
-            notes="段落级改写是目标能力，但卡片专用提词器协议仍待建模。",
+            result_fields=["message", "citations"],
+            notes="提词器段落改写已能承托到 chat，对段落锚点的正式协议仍待补齐。",
         ),
         source_binding=StudioCardExecutionBinding(
             transport=StudioCardTransport.ARTIFACT_REFERENCE,

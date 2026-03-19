@@ -617,6 +617,33 @@ async def test_preview_studio_card_execution_returns_bound_classroom_payload(
 
 
 @pytest.mark.anyio
+async def test_preview_studio_card_execution_returns_bound_speaker_notes_refine_payload(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/speaker_notes/execution-preview",
+        json={
+            "project_id": "p-001",
+            "source_artifact_id": "a-ppt-001",
+            "config": {"selected_script_segment": "slide-3:transition"},
+        },
+    )
+
+    assert response.status_code == 200
+    preview = response.json()["data"]["execution_preview"]
+    assert preview["refine_request"]["endpoint"] == "/api/v1/chat/messages"
+    assert preview["refine_request"]["payload"]["metadata"]["source_artifact_id"] == (
+        "a-ppt-001"
+    )
+    assert (
+        preview["refine_request"]["payload"]["metadata"]["selected_script_segment"]
+        == "slide-3:transition"
+    )
+
+
+@pytest.mark.anyio
 async def test_preview_studio_card_execution_requires_project_id(app, _as_user):
     client = TestClient(app)
 

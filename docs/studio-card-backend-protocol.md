@@ -108,6 +108,7 @@
 - `execution_mode`: `composite`
 - `session_output_type`: `ppt`
 - `requires_source_artifact`: `true`
+- 说明：`source-binding + 初始执行 + refine 预览` 已具备，段落锚点协议仍待补齐
 
 ### `classroom_qa_simulator`
 
