@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from schemas.generation import build_generation_result_payload
 from services.generation_session_service.capability_helpers import _default_capabilities
 from services.generation_session_service.serialization_helpers import (
     _to_generation_event,
@@ -84,11 +85,11 @@ async def get_session_snapshot(
         "session_artifact_groups": artifact_history["session_artifact_groups"],
         "allowed_actions": guard.get_allowed_actions(session.state),
         "result": (
-            {
-                "ppt_url": session.pptUrl,
-                "word_url": session.wordUrl,
-                "version": session.renderVersion,
-            }
+            build_generation_result_payload(
+                ppt_url=session.pptUrl,
+                word_url=session.wordUrl,
+                version=session.renderVersion,
+            )
             if session.state == GenerationState.SUCCESS.value
             else None
         ),

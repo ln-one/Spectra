@@ -7,6 +7,7 @@ import threading
 import uuid
 from typing import Awaitable, Callable, Optional, TypeVar
 
+from schemas.generation import build_session_output_fields
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
@@ -39,16 +40,16 @@ async def sync_session_terminal_state(
 
     cursor = str(uuid.uuid4())
     if state == GenerationState.SUCCESS.value:
+        output_fields = build_session_output_fields(output_urls)
         session_data = {
             "state": GenerationState.SUCCESS.value,
-            "pptUrl": (output_urls or {}).get("pptx"),
-            "wordUrl": (output_urls or {}).get("docx"),
             "progress": 100,
             "errorCode": None,
             "errorMessage": None,
             "errorRetryable": False,
             "resumable": True,
         }
+        session_data.update(output_fields)
         payload = {"task_id": task_id, "output_urls": output_urls or {}}
     else:
         session_data = {

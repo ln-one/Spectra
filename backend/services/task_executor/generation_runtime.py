@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from schemas.generation import (
-    GenerationType,
     TaskStatus,
+    build_task_output_urls,
     normalize_generation_type,
     requires_docx_output,
     requires_pptx_output,
@@ -106,7 +106,9 @@ async def render_generation_outputs(
             courseware_content, context.task_id, tpl_config
         )
         logger.info("PPTX generated: %s", pptx_path)
-        output_urls[GenerationType.PPTX.value] = export_endpoint or pptx_path
+        output_urls.update(
+            build_task_output_urls(pptx_url=export_endpoint or pptx_path)
+        )
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 60
         )
@@ -117,7 +119,9 @@ async def render_generation_outputs(
             courseware_content, context.task_id, tpl_config
         )
         logger.info("DOCX generated: %s", docx_path)
-        output_urls[GenerationType.DOCX.value] = export_endpoint or docx_path
+        output_urls.update(
+            build_task_output_urls(docx_url=export_endpoint or docx_path)
+        )
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 90
         )

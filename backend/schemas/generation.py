@@ -32,6 +32,13 @@ class GenerationType(str, Enum):
     BOTH = "both"
 
 
+class GenerationResultField(str, Enum):
+    """Public result payload field names for generation outputs."""
+
+    PPT_URL = "ppt_url"
+    WORD_URL = "word_url"
+
+
 _GENERATION_TYPE_ALIASES = {
     GenerationType.PPTX.value: GenerationType.PPTX,
     GenerationType.DOCX.value: GenerationType.DOCX,
@@ -58,6 +65,63 @@ def requires_pptx_output(value: str | GenerationType) -> bool:
 def requires_docx_output(value: str | GenerationType) -> bool:
     generation_type = normalize_generation_type(value)
     return generation_type in {GenerationType.DOCX, GenerationType.BOTH}
+
+
+def build_task_output_urls(
+    *,
+    pptx_url: Optional[str] = None,
+    docx_url: Optional[str] = None,
+) -> Dict[str, str]:
+    """Build canonical task output URLs keyed by formal generation type."""
+
+    output_urls: Dict[str, str] = {}
+    if pptx_url:
+        output_urls[GenerationType.PPTX.value] = pptx_url
+    if docx_url:
+        output_urls[GenerationType.DOCX.value] = docx_url
+    return output_urls
+
+
+def build_generation_result_payload(
+    *,
+    ppt_url: Optional[str] = None,
+    word_url: Optional[str] = None,
+    version: Optional[int] = None,
+) -> Dict[str, Optional[str] | Optional[int]]:
+    """Build the public session/result payload for generation outputs."""
+
+    return {
+        GenerationResultField.PPT_URL.value: ppt_url,
+        GenerationResultField.WORD_URL.value: word_url,
+        "version": version,
+    }
+
+
+def build_generation_result_payload_from_output_urls(
+    output_urls: Optional[Dict[str, str]],
+    *,
+    version: Optional[int] = None,
+) -> Dict[str, Optional[str] | Optional[int]]:
+    """Project internal task output URLs into the public result payload shape."""
+
+    urls = output_urls or {}
+    return build_generation_result_payload(
+        ppt_url=urls.get(GenerationType.PPTX.value),
+        word_url=urls.get(GenerationType.DOCX.value),
+        version=version,
+    )
+
+
+def build_session_output_fields(
+    output_urls: Optional[Dict[str, str]],
+) -> Dict[str, Optional[str]]:
+    """Map internal task output URLs to GenerationSession persistence fields."""
+
+    urls = output_urls or {}
+    return {
+        "pptUrl": urls.get(GenerationType.PPTX.value),
+        "wordUrl": urls.get(GenerationType.DOCX.value),
+    }
 
 
 class GenerateRequest(BaseModel):

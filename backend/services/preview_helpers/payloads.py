@@ -2,7 +2,7 @@ import html
 import json
 from typing import Optional
 
-from schemas.generation import TaskStatus
+from schemas.generation import TaskStatus, build_generation_result_payload
 from services.platform.state_transition_guard import GenerationState
 
 
@@ -158,7 +158,11 @@ def build_export_payload(
         normalized_format = "markdown"
         export_content = markdown_content
 
-    result = snapshot.get("result") or {}
+    result = build_generation_result_payload(
+        ppt_url=(snapshot.get("result") or {}).get("ppt_url"),
+        word_url=(snapshot.get("result") or {}).get("word_url"),
+        version=(snapshot.get("result") or {}).get("version"),
+    )
     return {
         "session_id": session_id,
         "task_id": task.id if task else None,
