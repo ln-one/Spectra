@@ -145,6 +145,18 @@ docker compose restart worker
 - queue/stuck job
 - worker 资源是否不足
 
+可以先直接跑：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/worker_queue_diagnose.py
+```
+
+它会快速告诉你：
+- worker 是否可见
+- started registry 里是否有疑似卡住任务
+- failed registry 是否开始堆积
+- high/default/low 队列积压情况
+
 ### D. 检索 / 引用异常
 
 检查顺序：

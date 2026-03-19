@@ -36,6 +36,7 @@
 - `backend/scripts/deploy_release_record.py` - 生成 main 发布记录骨架
 - `backend/scripts/incident_record.py` - 生成故障复盘记录骨架
 - `backend/scripts/postgres_readiness_audit.py` - 输出 PostgreSQL 迁移前的模型与一致性风险快照
+- `backend/scripts/worker_queue_diagnose.py` - 快速诊断 worker / queue / stuck job 状态
 - [故障记录目录](./incident-records/README.md)
 - [发布记录目录](./release-records/README.md)
 
