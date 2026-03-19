@@ -46,6 +46,9 @@ class AIService(CoursewareAIMixin):
         self.request_timeout_seconds = float(
             os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "60")
         )
+        self.chat_request_timeout_seconds = float(
+            os.getenv("CHAT_RESPONSE_TIMEOUT_SECONDS", "90")
+        )
         self.model_router = ModelRouter(
             heavy_model=self.large_model,
             light_model=self.small_model,
@@ -53,7 +56,12 @@ class AIService(CoursewareAIMixin):
         self.allow_ai_stub = os.getenv("ALLOW_AI_STUB", "false").lower() == "true"
 
     async def _run_completion(
-        self, *, model: str, prompt: str, max_tokens: Optional[int]
+        self,
+        *,
+        model: str,
+        prompt: str,
+        max_tokens: Optional[int],
+        timeout_seconds: float,
     ):
         from services.ai import acompletion
 
@@ -63,8 +71,18 @@ class AIService(CoursewareAIMixin):
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
             ),
-            timeout=self.request_timeout_seconds,
+            timeout=timeout_seconds,
         )
+
+    def _resolve_timeout_seconds(
+        self, route_task: Optional[ModelRouteTask | str]
+    ) -> float:
+        normalized_route_task = (
+            route_task.value if isinstance(route_task, ModelRouteTask) else route_task
+        )
+        if normalized_route_task == ModelRouteTask.CHAT_RESPONSE.value:
+            return self.chat_request_timeout_seconds
+        return self.request_timeout_seconds
 
     async def generate(
         self,
@@ -97,20 +115,23 @@ class AIService(CoursewareAIMixin):
         resolved_model = requested_model
         fallback_triggered = False
         fallback_model = route_decision.fallback_model if route_decision else None
+        timeout_seconds = self._resolve_timeout_seconds(route_task)
 
         try:
             resolved_model = _resolve_model_name(requested_model)
             logger.info(
                 "AI generate invoked: requested_model=%s resolved_model=%s "
-                "route_task=%s",
+                "route_task=%s timeout_seconds=%s",
                 requested_model,
                 resolved_model,
                 normalized_route_task,
+                timeout_seconds,
             )
             response = await self._run_completion(
                 model=resolved_model,
                 prompt=prompt,
                 max_tokens=max_tokens,
+                timeout_seconds=timeout_seconds,
             )
             content, tokens_used = extract_completion_payload(response)
             latency_ms = _elapsed_ms()
@@ -128,7 +149,7 @@ class AIService(CoursewareAIMixin):
         except asyncio.TimeoutError as e:
             logger.warning(
                 "AI generation timed out after %.1fs with %s",
-                self.request_timeout_seconds,
+                timeout_seconds,
                 resolved_model,
                 exc_info=True,
             )
@@ -144,6 +165,7 @@ class AIService(CoursewareAIMixin):
                         model=fallback_resolved,
                         prompt=prompt,
                         max_tokens=max_tokens,
+                        timeout_seconds=timeout_seconds,
                     )
                     content, tokens_used = extract_completion_payload(response)
                     fallback_triggered = True
@@ -188,7 +210,7 @@ class AIService(CoursewareAIMixin):
                     latency_ms=latency_ms,
                 )
             raise TimeoutError(
-                f"AI request timed out after {self.request_timeout_seconds:.1f}s"
+                f"AI request timed out after {timeout_seconds:.1f}s"
             ) from e
         except Exception as e:
             logger.warning(
@@ -209,6 +231,7 @@ class AIService(CoursewareAIMixin):
                         model=fallback_resolved,
                         prompt=prompt,
                         max_tokens=max_tokens,
+                        timeout_seconds=timeout_seconds,
                     )
                     content, tokens_used = extract_completion_payload(response)
                     fallback_triggered = True

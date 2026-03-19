@@ -80,6 +80,15 @@ async def test_generate_timeout_returns_stub_when_enabled(monkeypatch):
     assert result["route"]["failure_reason"] == ModelRouteFailureReason.TIMEOUT.value
 
 
+def test_chat_route_uses_chat_specific_timeout():
+    ai_service = AIService()
+    ai_service.request_timeout_seconds = 60
+    ai_service.chat_request_timeout_seconds = 90
+
+    assert ai_service._resolve_timeout_seconds("chat_response") == 90
+    assert ai_service._resolve_timeout_seconds("outline_generation") == 60
+
+
 @pytest.mark.asyncio
 async def test_generate_completion_error_returns_stub_with_canonical_reason(
     monkeypatch,

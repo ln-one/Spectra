@@ -157,10 +157,16 @@ async def process_chat_message(
             logger.error("AI generation failed in chat: %s", ai_exc, exc_info=True)
             if os.getenv("DEBUG", "false").lower() in {"1", "true", "yes", "on"}:
                 logger.warning("[DEV] AI error detail: %s", ai_exc)
-            assistant_content = (
-                "AI 服务暂时不可用，我已收到你的需求。你可以先补充更多细节，"
-                "我会在恢复后继续帮你完善。"
-            )
+            if isinstance(ai_exc, TimeoutError):
+                assistant_content = (
+                    "AI 回复这次有点慢，我已经收到你的需求。你可以先继续补充"
+                    "教学目标、重点难点或使用场景，我会在下一次响应里继续接上。"
+                )
+            else:
+                assistant_content = (
+                    "AI 服务暂时不可用，我已收到你的需求。你可以先补充更多细节，"
+                    "我会在恢复后继续帮你完善。"
+                )
 
         assistant_digest = assistant_digest or response_hash(assistant_content)
         assistant_content = sanitize_cite_tags(assistant_content, citations)
