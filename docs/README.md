@@ -30,6 +30,7 @@
 - [部署拓扑草案](./deployment-topology.md)
 - [Main 分支部署 Runbook](./runbook-main-deploy.md)
 - [故障响应 Runbook](./runbook-incident-response.md)
+- `backend/scripts/deploy_smoke_check.py` - 发布后基础链路 smoke check
 
 ## 4. 规划与比赛
 

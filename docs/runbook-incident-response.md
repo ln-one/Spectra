@@ -67,6 +67,13 @@
 3. 查看关键容器状态
 4. 查看 backend / worker 最近日志
 
+如果怀疑是发布后基础链路异常，先跑：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_smoke_check.py \
+  --base-url http://localhost:8000
+```
+
 命令示例：
 
 ```bash

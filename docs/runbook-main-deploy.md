@@ -162,6 +162,21 @@ docker compose logs --tail=100 worker
 - 登录链路正常
 - 一个最核心的项目/会话接口正常
 
+可以先跑轻量 smoke check：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_smoke_check.py \
+  --base-url http://localhost:8000
+```
+
+如果手头有演示环境 token，还可以补一条认证检查：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_smoke_check.py \
+  --base-url http://localhost:8000 \
+  --token <bearer-token>
+```
+
 ---
 
 ## 五、发布后检查
