@@ -1,4 +1,4 @@
-"""Parsing and normalization helpers for courseware AI."""
+"""课件内容解析、清洗与结构修正工具。"""
 
 import logging
 import re
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_marp_slides(markdown_content: str) -> list[dict]:
-    """Split Marp markdown into individual slides."""
+    """把 Marp Markdown 拆成逐页 slide 列表。"""
     content = sanitize_ppt_markdown(markdown_content).strip()
     frontmatter_match = re.match(r"^---\s*\n[\s\S]*?\n---\s*\n?", content)
     if frontmatter_match:
@@ -28,14 +28,14 @@ def parse_marp_slides(markdown_content: str) -> list[dict]:
 
 
 def reassemble_marp(frontmatter: str, slides: list[str]) -> str:
-    """Reassemble frontmatter and slide contents into Marp markdown."""
+    """把 frontmatter 与 slides 重新拼成 Marp Markdown。"""
     parts = [frontmatter.strip()] if frontmatter.strip() else []
     parts.extend(slide.strip() for slide in slides if slide.strip())
     return "\n\n---\n\n".join(parts) + "\n"
 
 
 def extract_frontmatter(markdown_content: str) -> str:
-    """Extract Marp frontmatter block."""
+    """提取 Marp frontmatter。"""
     frontmatter_match = re.match(r"^(---\s*\n[\s\S]*?\n---)\s*\n?", markdown_content)
     return frontmatter_match.group(1) if frontmatter_match else ""
 
@@ -45,7 +45,7 @@ def parse_courseware_response(
     content: str,
     user_requirements: str,
 ) -> CoursewareContent:
-    """Parse courseware content returned by the LLM."""
+    """解析 LLM 返回的课件内容。"""
     normalized_content = strip_outer_code_fence(content)
     ppt_content = extract_block(
         normalized_content,
@@ -92,7 +92,7 @@ def parse_courseware_response(
 
 
 def strip_outer_code_fence(content: str) -> str:
-    """Strip outer markdown code fence if present."""
+    """去掉最外层 Markdown 代码块包装。"""
     fence_match = re.match(
         r"^\s*```(?:markdown|md)?\s*(.*?)\s*```\s*$",
         content,
@@ -104,7 +104,7 @@ def strip_outer_code_fence(content: str) -> str:
 
 
 def extract_block(content: str, start_tag: str, end_tag: str) -> str:
-    """Extract marker block content with optional wrapper lines."""
+    """提取带标记边界的内容块。"""
     pattern = (
         rf"(?is)(?:^|\n)\s*(?:=+\s*)?{re.escape(start_tag)}(?:\s*=+)?\s*(?:\n|$)"
         rf"(.*?)"
@@ -227,7 +227,7 @@ def normalize_slide_with_outline(
 
 
 def heuristic_split_sections(content: str) -> tuple[str, str]:
-    """Split content heuristically when explicit markers are missing."""
+    """在缺少明确标记时，按启发式规则拆分课件与教案。"""
     lesson_heading = re.search(
         r"^\s*#\s*(教学目标|教案|Lesson Plan)\b.*$",
         content,
@@ -244,7 +244,7 @@ def heuristic_split_sections(content: str) -> tuple[str, str]:
 
 
 def get_fallback_courseware(user_requirements: str) -> CoursewareContent:
-    """Fallback courseware content when AI generation fails."""
+    """课件生成失败时返回兜底课件内容。"""
     title = user_requirements[:50] if user_requirements else "课程主题"
 
     return CoursewareContent(

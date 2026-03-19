@@ -1,4 +1,4 @@
-"""Outline generation helpers for courseware AI."""
+"""课件大纲生成相关逻辑。"""
 
 import json
 import logging
@@ -16,7 +16,7 @@ async def generate_outline(
     user_requirements: str,
     template_style: str = "default",
 ) -> CoursewareOutline:
-    """Generate a structured outline for courseware content."""
+    """根据需求生成结构化课件大纲。"""
     from services.prompt_service import STYLE_REQUIREMENTS, _format_rag_context
 
     rag_context = await ai_service._retrieve_rag_context(project_id, user_requirements)
@@ -82,7 +82,7 @@ async def generate_outline(
 
 
 def get_fallback_outline(user_requirements: str) -> CoursewareOutline:
-    """Fallback outline when outline generation fails."""
+    """大纲生成失败时的兜底结果。"""
     return CoursewareOutline(
         title=user_requirements[:50],
         sections=[

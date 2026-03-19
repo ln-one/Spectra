@@ -1,4 +1,4 @@
-"""Generation and modification workflows for courseware AI."""
+"""课件生成与修改工作流。"""
 
 import logging
 import os
@@ -27,7 +27,7 @@ async def modify_courseware(
     instruction: str,
     target_slides: Optional[list[int]] = None,
 ) -> CoursewareContent:
-    """Modify full or partial courseware markdown."""
+    """按整份或指定页修改课件内容。"""
     from services.prompt_service import prompt_service
 
     frontmatter = extract_frontmatter(current_content)
@@ -103,7 +103,7 @@ async def extract_structured_content(
     template_style: str = "default",
     outline: Optional[CoursewareOutline] = None,
 ) -> CoursewareContent:
-    """Generate courseware content from a confirmed outline and RAG context."""
+    """结合确认后的大纲与 RAG 上下文生成课件。"""
     from services.prompt_service import prompt_service
 
     if not outline:
@@ -154,7 +154,7 @@ async def generate_courseware_content(
     outline_document: Optional[dict] = None,
     outline_version: Optional[int] = None,
 ) -> CoursewareContent:
-    """Generate the PPT markdown and lesson plan markdown for a project."""
+    """生成课件 Markdown 与教案 Markdown。"""
     from services.prompt_service import prompt_service
 
     try:
@@ -234,7 +234,7 @@ async def generate_courseware_content(
 def merge_requirements_with_outline(
     user_requirements: str, outline_document: dict
 ) -> str:
-    """Append confirmed outline constraints into the raw requirements."""
+    """把确认后的大纲约束拼接回原始需求。"""
     nodes = (outline_document or {}).get("nodes") or []
     if not nodes:
         return user_requirements

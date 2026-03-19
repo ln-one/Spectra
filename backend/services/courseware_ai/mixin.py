@@ -1,4 +1,4 @@
-"""Courseware AI mixin composed from smaller workflow modules."""
+"""课件生成相关的 mixin 入口。"""
 
 from typing import Optional
 
@@ -29,7 +29,7 @@ from services.courseware_ai.parsing import (
 
 
 class CoursewareAIMixin:
-    """Courseware generation helpers mixed into AIService."""
+    """供 ``AIService`` 复用的课件生成能力集合。"""
 
     async def generate_outline(
         self,
