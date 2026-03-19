@@ -9,6 +9,9 @@ from services.generation_session_service.card_capabilities import (
     get_studio_card_capability,
     get_studio_card_execution_plan,
 )
+from services.generation_session_service.card_execution_preview import (
+    build_studio_card_execution_preview,
+)
 from services.platform.state_transition_guard import (
     VALID_COMMANDS,
     VALID_STATES,
@@ -16,7 +19,7 @@ from services.platform.state_transition_guard import (
     state_transition_guard,
 )
 from utils.dependencies import get_current_user
-from utils.exceptions import ErrorCode, NotFoundException
+from utils.exceptions import APIException, ErrorCode, NotFoundException
 from utils.responses import success_response
 
 router = APIRouter()
@@ -68,6 +71,39 @@ async def get_studio_card_execution_plan_detail(
     return success_response(
         data={"execution_plan": plan},
         message="Studio 卡片执行协议获取成功",
+    )
+
+
+@router.post("/studio-cards/{card_id}/execution-preview")
+async def preview_studio_card_execution(
+    card_id: str,
+    body: dict,
+    user_id: str = Depends(get_current_user),
+):
+    """根据卡片配置返回当前可直接调用的后端请求预览。"""
+    project_id = body.get("project_id")
+    if not project_id:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="project_id 为必填字段",
+        )
+    preview = build_studio_card_execution_preview(
+        card_id=card_id,
+        project_id=project_id,
+        config=body.get("config"),
+        visibility=body.get("visibility"),
+        source_artifact_id=body.get("source_artifact_id"),
+    )
+    if preview is None:
+        raise NotFoundException(
+            message="Studio 卡片不存在",
+            error_code=ErrorCode.NOT_FOUND,
+        )
+
+    return success_response(
+        data={"execution_preview": preview.model_dump(mode="json")},
+        message="Studio 卡片执行预览获取成功",
     )
 
 

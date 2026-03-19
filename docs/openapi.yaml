@@ -991,6 +991,43 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/generate/studio-cards/{card_id}/execution-preview:
+    post:
+      summary: 获取单张 Studio 卡片执行预览
+      operationId: postGenerateStudioCardExecutionPreview
+      description: 根据卡片配置返回当前可以直接调用的后端请求预览。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioCardExecutionPreviewRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardExecutionPreviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/generate/sessions/{session_id}/preview:
     get:
       summary: 获取会话级课件预览
@@ -3621,6 +3658,79 @@ components:
           properties:
             execution_plan:
               $ref: '#/components/schemas/StudioCardExecutionPlan'
+        message:
+          type: string
+    StudioCardExecutionPreviewRequest:
+      type: object
+      required:
+        - project_id
+      properties:
+        project_id:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        visibility:
+          type: string
+          enum:
+            - private
+            - project-visible
+            - shared
+        source_artifact_id:
+          type: string
+    StudioCardResolvedRequest:
+      type: object
+      required:
+        - method
+        - endpoint
+        - payload
+      properties:
+        method:
+          type: string
+        endpoint:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        notes:
+          type: string
+    StudioCardExecutionPreview:
+      type: object
+      required:
+        - card_id
+        - readiness
+        - initial_request
+      properties:
+        card_id:
+          type: string
+        readiness:
+          type: string
+          enum:
+            - ready
+            - foundation_ready
+            - protocol_pending
+        initial_request:
+          $ref: '#/components/schemas/StudioCardResolvedRequest'
+        refine_request:
+          $ref: '#/components/schemas/StudioCardResolvedRequest'
+        source_request:
+          $ref: '#/components/schemas/StudioCardResolvedRequest'
+    StudioCardExecutionPreviewResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - execution_preview
+          properties:
+            execution_preview:
+              $ref: '#/components/schemas/StudioCardExecutionPreview'
         message:
           type: string
     ArtifactAnchor:

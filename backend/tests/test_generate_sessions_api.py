@@ -497,9 +497,9 @@ async def test_get_studio_card_execution_plan_returns_protocol_bindings(app, _as
     plan = response.json()["data"]["execution_plan"]
     assert plan["card_id"] == "word_document"
     assert plan["initial_binding"]["transport"] == "session_create"
-    assert plan["initial_binding"]["status"] == "partial"
+    assert plan["initial_binding"]["status"] == "ready"
     assert plan["initial_binding"]["endpoint"] == "/api/v1/generate/sessions"
-    assert "document_variant" in plan["initial_binding"]["pending_config_keys"]
+    assert "document_variant" in plan["initial_binding"]["bound_config_keys"]
     assert plan["refine_binding"]["transport"] == "chat_message"
 
 
@@ -531,3 +531,69 @@ async def test_get_studio_card_execution_plan_returns_404_for_unknown_card(
     assert response.status_code == 404
     payload = response.json()
     assert payload["detail"]["code"] == "NOT_FOUND"
+
+
+@pytest.mark.anyio
+async def test_preview_studio_card_execution_returns_bound_word_payload(app, _as_user):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/word_document/execution-preview",
+        json={
+            "project_id": "p-001",
+            "config": {
+                "document_variant": "student_handout",
+                "teaching_model": "scaffolded",
+                "grade_band": "high",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    preview = response.json()["data"]["execution_preview"]
+    assert preview["initial_request"]["endpoint"] == "/api/v1/generate/sessions"
+    assert preview["initial_request"]["payload"]["output_type"] == "word"
+    assert (
+        preview["initial_request"]["payload"]["options"]["document_variant"]
+        == "student_handout"
+    )
+
+
+@pytest.mark.anyio
+async def test_preview_studio_card_execution_returns_bound_quiz_payload(app, _as_user):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/interactive_quick_quiz/execution-preview",
+        json={
+            "project_id": "p-001",
+            "visibility": "project-visible",
+            "config": {
+                "question_count": 8,
+                "difficulty": "hard",
+                "humorous_distractors": True,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    preview = response.json()["data"]["execution_preview"]
+    assert preview["initial_request"]["endpoint"] == "/api/v1/projects/p-001/artifacts"
+    assert preview["initial_request"]["payload"]["type"] == "exercise"
+    assert preview["initial_request"]["payload"]["visibility"] == "project-visible"
+    assert preview["initial_request"]["payload"]["content"]["question_count"] == 8
+    assert preview["initial_request"]["payload"]["content"]["difficulty"] == "hard"
+
+
+@pytest.mark.anyio
+async def test_preview_studio_card_execution_requires_project_id(app, _as_user):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/word_document/execution-preview",
+        json={"config": {}},
+    )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["detail"]["code"] == "INVALID_INPUT"

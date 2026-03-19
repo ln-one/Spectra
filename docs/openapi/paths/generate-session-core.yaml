@@ -284,3 +284,40 @@
         $ref: '../components/responses.yaml#/Forbidden'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/studio-cards/{card_id}/execution-preview:
+  post:
+    summary: 获取单张 Studio 卡片执行预览
+    operationId: postGenerateStudioCardExecutionPreview
+    description: 根据卡片配置返回当前可以直接调用的后端请求预览。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionPreviewRequest'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionPreviewResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'

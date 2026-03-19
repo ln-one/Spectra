@@ -256,7 +256,8 @@
 1. `GET /api/v1/generate/capabilities` 已暴露 `studio_cards`
 2. `GET /api/v1/generate/studio-cards` 已暴露完整卡片目录
 3. `GET /api/v1/generate/studio-cards/{card_id}/execution-plan` 已暴露卡片执行绑定与协议缺口
-4. 卡片协议已正式包含：
+4. `POST /api/v1/generate/studio-cards/{card_id}/execution-preview` 已暴露配置到正式请求的映射预览
+5. 卡片协议已正式包含：
    - `readiness`
    - `context_mode`
    - `execution_mode`
@@ -270,6 +271,9 @@
 下一步重点：
 
 1. 优先把 `word_document / interactive_quick_quiz / knowledge_mindmap / demonstration_animations`
-   这四张 `foundation_ready` 卡片从“执行绑定已知”推进到“配置字段真正绑定”
+   这四张 `foundation_ready` 卡片从“请求预览已可生成”推进到“真正一键落地执行”
+   当前已完成：
+   - 文档卡片配置 -> create-session `options`
+   - quiz/mindmap/animation 卡片配置 -> artifact `content`
 2. 再处理 `speaker_notes / classroom_qa_simulator / interactive_games`
    这些组合型卡片的专用协议

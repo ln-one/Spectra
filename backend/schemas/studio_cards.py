@@ -105,3 +105,31 @@ class StudioCardExecutionPlan(BaseModel):
     initial_binding: StudioCardExecutionBinding
     refine_binding: Optional[StudioCardExecutionBinding] = None
     source_binding: Optional[StudioCardExecutionBinding] = None
+
+
+class StudioCardExecutionPreviewRequest(BaseModel):
+    project_id: str
+    config: dict = Field(default_factory=dict)
+    visibility: Optional[str] = None
+    source_artifact_id: Optional[str] = None
+
+
+class StudioCardResolvedRequest(BaseModel):
+    method: str
+    endpoint: str
+    payload: dict = Field(default_factory=dict)
+    notes: Optional[str] = None
+
+
+class StudioCardExecutionPreview(BaseModel):
+    card_id: str
+    readiness: StudioCardReadiness
+    initial_request: StudioCardResolvedRequest
+    refine_request: Optional[StudioCardResolvedRequest] = None
+    source_request: Optional[StudioCardResolvedRequest] = None
+
+
+class StudioCardExecutionPreviewResponse(BaseModel):
+    success: bool = True
+    data: dict
+    message: str = "Studio 卡片执行预览获取成功"

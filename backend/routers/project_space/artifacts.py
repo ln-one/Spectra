@@ -117,7 +117,7 @@ async def create_artifact(
             user_id=user_id,
             session_id=body.session_id,
             based_on_version_id=body.based_on_version_id,
-            content={"mode": body.mode},
+            content={**(body.content or {}), "mode": body.mode},
         )
         logger.info(f"Created artifact {artifact.id} for project {project_id}")
         return ArtifactResponse(

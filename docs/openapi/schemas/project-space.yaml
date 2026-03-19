@@ -206,6 +206,9 @@ ArtifactCreateRequest:
     mode:
       type: string
       enum: [create, replace]
+    content:
+      type: object
+      additionalProperties: true
 
 ArtifactResponse:
   type: object

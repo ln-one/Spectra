@@ -132,6 +132,7 @@ class ArtifactBase(BaseModel):
 
 class ArtifactCreate(ArtifactBase):
     mode: Optional[str] = Field(default="create")
+    content: Optional[Dict[str, Any]] = None
 
 
 class Artifact(BaseModel):

@@ -322,3 +322,63 @@ StudioCardExecutionPlanResponse:
           $ref: '#/StudioCardExecutionPlan'
     message:
       type: string
+
+StudioCardExecutionPreviewRequest:
+  type: object
+  required: [project_id]
+  properties:
+    project_id:
+      type: string
+    config:
+      type: object
+      additionalProperties: true
+    visibility:
+      type: string
+      enum: [private, project-visible, shared]
+    source_artifact_id:
+      type: string
+
+StudioCardResolvedRequest:
+  type: object
+  required: [method, endpoint, payload]
+  properties:
+    method:
+      type: string
+    endpoint:
+      type: string
+    payload:
+      type: object
+      additionalProperties: true
+    notes:
+      type: string
+
+StudioCardExecutionPreview:
+  type: object
+  required: [card_id, readiness, initial_request]
+  properties:
+    card_id:
+      type: string
+    readiness:
+      type: string
+      enum: [ready, foundation_ready, protocol_pending]
+    initial_request:
+      $ref: '#/StudioCardResolvedRequest'
+    refine_request:
+      $ref: '#/StudioCardResolvedRequest'
+    source_request:
+      $ref: '#/StudioCardResolvedRequest'
+
+StudioCardExecutionPreviewResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [execution_preview]
+      properties:
+        execution_preview:
+          $ref: '#/StudioCardExecutionPreview'
+    message:
+      type: string

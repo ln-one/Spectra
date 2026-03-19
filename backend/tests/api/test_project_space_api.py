@@ -294,6 +294,44 @@ def test_create_artifact_invalid_type_400(client, monkeypatch, _as_user):
     assert resp.status_code == 400
 
 
+def test_create_artifact_passes_content_payload(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    create_artifact = AsyncMock(return_value=_fake_artifact(artifact_type="exercise"))
+    monkeypatch.setattr(
+        project_space_service,
+        "create_artifact_with_file",
+        create_artifact,
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts",
+        json={
+            "type": "exercise",
+            "visibility": "private",
+            "content": {"kind": "quiz", "question_count": 8, "difficulty": "hard"},
+        },
+    )
+    assert resp.status_code == 200
+    create_artifact.assert_awaited_once_with(
+        project_id=_PROJECT_ID,
+        artifact_type="exercise",
+        visibility="private",
+        user_id=_USER_ID,
+        session_id=None,
+        based_on_version_id=None,
+        content={
+            "kind": "quiz",
+            "question_count": 8,
+            "difficulty": "hard",
+            "mode": "create",
+        },
+    )
+
+
 def test_download_artifact_gif_success(client, monkeypatch, tmp_path, _as_user):
     gif_path = tmp_path / "demo.gif"
     gif_path.write_bytes(

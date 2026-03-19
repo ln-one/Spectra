@@ -13,6 +13,8 @@
   - 返回单张卡片的协议细节
 - `GET /api/v1/generate/studio-cards/{card_id}/execution-plan`
   - 返回单张卡片当前可落地的后端执行绑定与协议缺口
+- `POST /api/v1/generate/studio-cards/{card_id}/execution-preview`
+  - 根据卡片配置返回可直接调用的后端请求预览
 
 ## 2. 卡片目录字段
 
@@ -165,3 +167,35 @@
 - 哪些配置字段已经正式绑定
 - 哪些字段仍处于协议缺口
 - 最终应该从哪个结果字段里取回 session / artifact
+
+## 7. 执行预览
+
+`execution-preview` 用来把前端卡片配置真正绑定到后端请求。
+
+它解决的问题是：
+
+- 卡片配置不再只是“知道有哪些字段”
+- 前端不再需要自己拼接 create-session / create-artifact / chat 请求
+- 后端会明确告诉前端：当前配置会变成什么 payload
+
+当前已经能预览：
+
+- `word_document`
+- `interactive_quick_quiz`
+- `knowledge_mindmap`
+- `demonstration_animations`
+
+这意味着 foundation-ready 的四张卡片，已经从：
+
+- “执行绑定已知”
+
+继续推进到了：
+
+- “配置字段可映射成正式请求预览”
+
+同时：
+
+- `interactive_quick_quiz / knowledge_mindmap / demonstration_animations`
+  现在可以把卡片配置正式写入 artifact `content`
+- `word_document`
+  现在可以把文档细分配置正式写入 create-session `options`
