@@ -439,7 +439,7 @@ async def test_get_capabilities_includes_studio_card_readiness(app, _as_user):
     studio_cards = {card["id"]: card for card in data["studio_cards"]}
 
     assert studio_cards["word_document"]["primary_capabilities"] == ["word", "handout"]
-    assert studio_cards["interactive_games"]["readiness"] == "protocol_pending"
+    assert studio_cards["interactive_games"]["readiness"] == "foundation_ready"
     assert studio_cards["classroom_qa_simulator"]["context_mode"] == "session"
     assert studio_cards["speaker_notes"]["requires_source_artifact"] is True
     assert studio_cards["word_document"]["session_output_type"] == "word"
@@ -703,13 +703,63 @@ async def test_execute_studio_card_rejects_protocol_pending_card(app, _as_user):
     client = TestClient(app)
 
     response = client.post(
-        "/api/v1/generate/studio-cards/interactive_games/execute",
+        "/api/v1/generate/studio-cards/classroom_qa_simulator/execute",
         json={"project_id": "p-001", "config": {"game_pattern": "freeform"}},
     )
 
     assert response.status_code == 409
     payload = response.json()
     assert payload["detail"]["code"] == "RESOURCE_CONFLICT"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_creates_interactive_game_artifact(app, _as_user):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-game-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="html",
+        visibility="shared",
+        storagePath="uploads/artifacts/a-game-001.html",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/interactive_games/execute",
+            json={
+                "project_id": "p-001",
+                "visibility": "shared",
+                "config": {
+                    "game_pattern": "concept_match",
+                    "creative_brief": "围绕牛顿三定律生成连线游戏",
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    result = response.json()["data"]["execution_result"]
+    assert result["resource_kind"] == "artifact"
+    assert result["artifact"]["id"] == "a-game-001"
+    assert result["artifact"]["type"] == "html"
+    kwargs = create_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_type"] == "html"
+    assert kwargs["visibility"] == "shared"
+    assert kwargs["content"]["kind"] == "interactive_game"
+    assert kwargs["content"]["game_pattern"] == "concept_match"
 
 
 @pytest.mark.anyio

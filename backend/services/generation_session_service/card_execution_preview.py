@@ -191,7 +191,7 @@ def build_studio_card_execution_preview(
     if card_id == "interactive_games":
         return StudioCardExecutionPreview(
             card_id=card_id,
-            readiness=StudioCardReadiness.PROTOCOL_PENDING,
+            readiness=StudioCardReadiness.FOUNDATION_READY,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
@@ -204,7 +204,7 @@ def build_studio_card_execution_preview(
                         "creative_brief": cfg.get("creative_brief"),
                     },
                 },
-                notes="HTML artifact 可承托，但游戏专用协议仍未最终定型。",
+                notes="互动游戏当前通过 HTML artifact 原型承托，配置已正式映射到 content。",
             ),
         )
 

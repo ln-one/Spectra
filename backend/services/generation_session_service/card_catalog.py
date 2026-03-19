@@ -113,7 +113,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
     StudioCardCapability(
         id="interactive_games",
         title="互动游戏",
-        readiness=StudioCardReadiness.PROTOCOL_PENDING,
+        readiness=StudioCardReadiness.FOUNDATION_READY,
         context_mode=StudioCardContextMode.ARTIFACT,
         execution_mode=StudioCardExecutionMode.ARTIFACT_CREATE,
         primary_capabilities=["game", "html"],
@@ -143,7 +143,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
             StudioCardAction(type="generate", label="生成游戏原型"),
             StudioCardAction(type="chat_refine", label="在游戏上下文中热更新规则"),
         ],
-        notes="当前可承载 HTML artifact，但专用 game 生成协议尚未正式落地。",
+        notes="HTML artifact 与初始执行已具备，游戏热更新与 sandbox patch 协议仍待补齐。",
     ),
     StudioCardCapability(
         id="knowledge_mindmap",
