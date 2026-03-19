@@ -175,6 +175,12 @@
 4. `main` 分支自动部署 / 健康检查 / 回滚流程
 5. 配置一致性、内网通信、运维 runbook 继续补全
 
+当前已开始落地：
+
+- `/Users/ln1/Projects/Spectra/backend/scripts/deploy_smoke_check.py`
+- `/Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py`
+- `/Users/ln1/Projects/Spectra/docs/deployment-env-contract.md`
+
 完成标志：
 
 - 系统不再只适合本地演示

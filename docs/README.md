@@ -28,6 +28,7 @@
 - `backend/scripts/compat_surface_audit.py` - 扫描剩余兼容层导入面
 - [PostgreSQL 迁移检查清单](./postgres-migration-checklist.md)
 - [部署拓扑草案](./deployment-topology.md)
+- [部署环境变量契约](./deployment-env-contract.md)
 - [Main 分支部署 Runbook](./runbook-main-deploy.md)
 - [故障响应 Runbook](./runbook-incident-response.md)
 - `backend/scripts/deploy_preflight.py` - 发布前环境与网络预检
