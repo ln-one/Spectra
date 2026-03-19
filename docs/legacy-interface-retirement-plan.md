@@ -100,6 +100,12 @@ Do after freeze-period verification:
 Success condition:
 - No runtime path, SDK consumer, or regression suite depends on legacy generate-session contract files.
 
+## Audit Tool
+
+Run `python3 /Users/ln1/Projects/Spectra/backend/scripts/compat_surface_audit.py` before each compatibility-retirement PR to capture the remaining bridge usage surface.
+
+As of the current freeze baseline, the most meaningful remaining internal bridge is `services.generation_session_service.helpers`, which is still imported by several generation-session modules.
+
 ## Guardrails
 
 - Do not remove compatibility exports and contract surfaces in the same PR as functional behavior changes.

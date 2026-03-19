@@ -24,6 +24,7 @@
 - [冗余审计报告](./redundancy-audit.md)
 - [Legacy Surface Map](./legacy-surface-map.md)
 - [Legacy Interface Retirement Plan](./legacy-interface-retirement-plan.md)
+- `backend/scripts/compat_surface_audit.py` - 扫描剩余兼容层导入面
 - [PostgreSQL 迁移检查清单](./postgres-migration-checklist.md)
 - [部署拓扑草案](./deployment-topology.md)
 - [Main 分支部署 Runbook](./runbook-main-deploy.md)
