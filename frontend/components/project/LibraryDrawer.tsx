@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
@@ -262,7 +262,7 @@ export function LibraryDrawer({
   const [newReferenceTarget, setNewReferenceTarget] = useState("");
   const [newMemberUserId, setNewMemberUserId] = useState("");
 
-  const loadReferences = async () => {
+  const loadReferences = useCallback(async () => {
     setReferencesState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getReferences(projectId);
@@ -274,9 +274,9 @@ export function LibraryDrawer({
         error: formatLibraryError(error, "加载引用失败"),
       });
     }
-  };
+  }, [projectId]);
 
-  const loadVersions = async () => {
+  const loadVersions = useCallback(async () => {
     setVersionsState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getVersions(projectId);
@@ -288,9 +288,9 @@ export function LibraryDrawer({
         error: formatLibraryError(error, "加载版本失败"),
       });
     }
-  };
+  }, [projectId]);
 
-  const loadArtifacts = async () => {
+  const loadArtifacts = useCallback(async () => {
     setArtifactsState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getArtifacts(projectId);
@@ -302,9 +302,9 @@ export function LibraryDrawer({
         error: formatLibraryError(error, "加载工件失败"),
       });
     }
-  };
+  }, [projectId]);
 
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     setMembersState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getMembers(projectId);
@@ -316,9 +316,9 @@ export function LibraryDrawer({
         error: formatLibraryError(error, "加载成员失败"),
       });
     }
-  };
+  }, [projectId]);
 
-  const loadChanges = async () => {
+  const loadChanges = useCallback(async () => {
     setChangesState({ loading: true, error: null });
     try {
       const response = await projectSpaceApi.getCandidateChanges(projectId);
@@ -330,18 +330,27 @@ export function LibraryDrawer({
         error: formatLibraryError(error, "加载候选变更失败"),
       });
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     if (!open) return;
-    void Promise.all([
-      loadReferences(),
-      loadVersions(),
-      loadArtifacts(),
-      loadMembers(),
-      loadChanges(),
-    ]);
-  }, [open, projectId]);
+    queueMicrotask(() => {
+      void Promise.all([
+        loadReferences(),
+        loadVersions(),
+        loadArtifacts(),
+        loadMembers(),
+        loadChanges(),
+      ]);
+    });
+  }, [
+    loadArtifacts,
+    loadChanges,
+    loadMembers,
+    loadReferences,
+    loadVersions,
+    open,
+  ]);
 
   const handleAddReference = async () => {
     const targetId = newReferenceTarget.trim();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   GripVertical,
@@ -11,7 +11,7 @@ import {
   ArrowLeft,
   HelpCircle,
   Palette,
-  Image,
+  Image as ImageIcon,
   Tag,
   X,
   Clock,
@@ -195,28 +195,38 @@ export function OutlineEditorPanel({
     useProjectStore();
 
   const sessionId = generationSession?.session?.session_id || "";
-  const initialNodes = generationSession?.outline?.nodes || [];
+  const initialNodes = useMemo(
+    () => generationSession?.outline?.nodes || [],
+    [generationSession?.outline?.nodes]
+  );
   const expectedPages = Number(generationSession?.options?.pages || 0);
   const sessionState = generationSession?.session?.state || "";
 
   const [slides, setSlides] = useState<SlideCard[]>([]);
   const [isOutlineHydrating, setIsOutlineHydrating] = useState(false);
+  const [activeSlideId, setActiveSlideId] = useState<string>("");
 
   // Keep local slides in sync with server outline data for current session.
   useEffect(() => {
+    let frame = 0;
+
     if (!sessionId) {
-      setSlides([]);
-      setIsOutlineHydrating(false);
-      setActiveSlideId("");
-      return;
+      frame = requestAnimationFrame(() => {
+        setSlides([]);
+        setIsOutlineHydrating(false);
+        setActiveSlideId("");
+      });
+      return () => cancelAnimationFrame(frame);
     }
 
     const ready = expectedPages <= 0 || initialNodes.length >= expectedPages;
-    setIsOutlineHydrating(!ready);
     if (initialNodes.length === 0) {
-      setSlides([]);
-      setActiveSlideId("");
-      return;
+      frame = requestAnimationFrame(() => {
+        setIsOutlineHydrating(!ready);
+        setSlides([]);
+        setActiveSlideId("");
+      });
+      return () => cancelAnimationFrame(frame);
     }
 
     const mappedSlides = initialNodes.map((node) => ({
@@ -227,15 +237,19 @@ export function OutlineEditorPanel({
       estimatedMinutes: node.estimated_minutes,
     }));
 
-    setActiveSlideId((prev) =>
-      prev && mappedSlides.some((slide) => slide.id === prev)
-        ? prev
-        : mappedSlides[0]?.id || ""
-    );
-    setSlides(mappedSlides);
+    frame = requestAnimationFrame(() => {
+      setIsOutlineHydrating(!ready);
+      setActiveSlideId((prev) =>
+        prev && mappedSlides.some((slide) => slide.id === prev)
+          ? prev
+          : mappedSlides[0]?.id || ""
+      );
+      setSlides(mappedSlides);
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [sessionId, initialNodes, expectedPages]);
 
-  const [activeSlideId, setActiveSlideId] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
@@ -334,7 +348,7 @@ export function OutlineEditorPanel({
     [keywords]
   );
 
-  const handleStartGeneration = useCallback(async () => {
+  const handleStartGeneration = async () => {
     if (!sessionId) return;
     if (
       sessionState === "GENERATING_CONTENT" ||
@@ -393,20 +407,7 @@ export function OutlineEditorPanel({
       }
       setGenerationFailed(message);
     }
-  }, [
-    sessionId,
-    sessionState,
-    confirmOutline,
-    updateOutline,
-    generationSession?.outline?.version,
-    slides,
-    expectedPages,
-    aspectRatio,
-    detailLevel,
-    imageStyle,
-    isOutlineHydrating,
-    onPreview,
-  ]);
+  };
 
   const handleGoToPreview = useCallback(() => {
     onPreview?.();
@@ -804,7 +805,7 @@ export function OutlineEditorPanel({
 
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-zinc-600 flex items-center gap-1.5">
-                      <Image className="w-3.5 h-3.5" />
+                      <ImageIcon className="w-3.5 h-3.5" />
                       配图风格
                     </label>
                     <Select value={imageStyle} onValueChange={setImageStyle}>

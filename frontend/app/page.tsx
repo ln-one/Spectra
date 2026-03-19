@@ -596,7 +596,7 @@ function TestimonialsSection() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground leading-relaxed">
-                    "{testimonial.content}"
+                    &ldquo;{testimonial.content}&rdquo;
                   </p>
                 </CardContent>
               </Card>
@@ -869,8 +869,14 @@ export default function WelcomePage() {
     // 已登录用户重定向到项目页面
     if (token) {
       router.push("/projects");
+      return;
     }
-    setIsLoading(false);
+
+    const frame = requestAnimationFrame(() => {
+      setIsLoading(false);
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [router]);
 
   // 加载中

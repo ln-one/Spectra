@@ -112,46 +112,36 @@ export function NotificationProvider() {
 
   useEffect(() => {
     const currentIds = new Set(notifications.map((n) => n.id));
+    const dockTimers = dockTimersRef.current;
 
-    setDockedIds((prev) => {
-      const next: Record<string, boolean> = {};
-      Object.entries(prev).forEach(([id, docked]) => {
-        const notification = notifications.find((n) => n.id === id);
-        if (notification && isUploadInFlight(notification) && docked) {
-          next[id] = true;
-        }
-      });
-      return next;
-    });
-
-    Object.entries(dockTimersRef.current).forEach(([id, timer]) => {
+    Object.entries(dockTimers).forEach(([id, timer]) => {
       const notification = notifications.find((n) => n.id === id);
       if (!notification || !isUploadInFlight(notification)) {
         clearTimeout(timer);
-        delete dockTimersRef.current[id];
+        delete dockTimers[id];
       }
     });
 
     notifications.forEach((notification) => {
       if (!isUploadInFlight(notification)) return;
       if (dockedIds[notification.id]) return;
-      if (dockTimersRef.current[notification.id]) return;
+      if (dockTimers[notification.id]) return;
 
-      dockTimersRef.current[notification.id] = setTimeout(() => {
+      dockTimers[notification.id] = setTimeout(() => {
         setDockedIds((prev) => ({ ...prev, [notification.id]: true }));
-        delete dockTimersRef.current[notification.id];
+        delete dockTimers[notification.id];
       }, DOCK_AFTER_MS);
     });
 
     return () => {
-      Object.entries(dockTimersRef.current).forEach(([id, timer]) => {
+      Object.entries(dockTimers).forEach(([id, timer]) => {
         if (!currentIds.has(id)) {
           clearTimeout(timer);
-          delete dockTimersRef.current[id];
+          delete dockTimers[id];
         }
       });
     };
-  }, [notifications]);
+  }, [dockedIds, notifications]);
 
   const shouldDockMap = useMemo(() => {
     const map = new Map<string, boolean>();

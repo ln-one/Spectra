@@ -423,18 +423,24 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
 
   useEffect(() => {
     if (lastFailedInput) {
-      setInput(lastFailedInput);
+      const frame = requestAnimationFrame(() => {
+        setInput(lastFailedInput);
+      });
       clearLastFailedInput();
+      return () => cancelAnimationFrame(frame);
     }
   }, [lastFailedInput, clearLastFailedInput]);
 
   useEffect(() => {
-    if (!isMessagesLoading) {
+    if (!isMessagesLoading) return;
+    const resetFrame = requestAnimationFrame(() => {
       setLoadingTimedOut(false);
-      return;
-    }
+    });
     const timer = setTimeout(() => setLoadingTimedOut(true), 1800);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelAnimationFrame(resetFrame);
+      clearTimeout(timer);
+    };
   }, [isMessagesLoading]);
 
   const showLoading =

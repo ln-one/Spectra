@@ -634,9 +634,13 @@ export function SourcesPanel({
 
   useEffect(() => {
     const targetId = activeSourceDetail?.file_info?.id;
-    if (targetId) {
+    if (!targetId) return;
+
+    const frame = requestAnimationFrame(() => {
       setExpandedIds((prev) => ({ ...prev, [targetId]: true }));
-    }
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [activeSourceDetail?.file_info?.id, activeSourceDetail?.chunk_id]);
 
   const collapseFile = useCallback(
@@ -744,7 +748,7 @@ export function SourcesPanel({
     async (fileId: string) => {
       await deleteFile(fileId);
     },
-    [projectId, deleteFile]
+    [deleteFile]
   );
 
   const isHorizontalIconMode = isStudioExpanded && isExpandedContentCollapsed;
