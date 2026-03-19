@@ -17,6 +17,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from schemas.common import SourceType, normalize_source_type
+
 
 @dataclass
 class AuditMetrics:
@@ -42,15 +44,15 @@ def _tokenize(text: str) -> set[str]:
 
 
 def _has_locator(source: dict) -> bool:
-    source_type = source.get("source_type")
+    source_type = normalize_source_type(source.get("source_type"))
     page = source.get("page_number")
     ts = source.get("timestamp")
 
-    if source_type == "document":
+    if source_type == SourceType.DOCUMENT.value:
         return page is not None
-    if source_type == "video":
-        return bool(ts)
-    return page is not None or bool(ts)
+    if source_type in {SourceType.VIDEO.value, SourceType.AUDIO.value}:
+        return ts is not None
+    return page is not None or ts is not None
 
 
 def _is_readable_source(source: dict) -> bool:

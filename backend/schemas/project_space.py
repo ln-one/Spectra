@@ -83,6 +83,13 @@ class ProjectMemberStatus(str, Enum):
     DISABLED = "disabled"
 
 
+class ProjectPermission(str, Enum):
+    VIEW = "can_view"
+    REFERENCE = "can_reference"
+    COLLABORATE = "can_collaborate"
+    MANAGE = "can_manage"
+
+
 class ProjectVersion(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -274,6 +281,9 @@ class ProjectMemberPermissions(BaseModel):
     can_reference: bool = False
     can_collaborate: bool = False
     can_manage: bool = False
+
+
+PROJECT_PERMISSION_FIELDS = tuple(permission.value for permission in ProjectPermission)
 
 
 class ProjectMemberBase(BaseModel):

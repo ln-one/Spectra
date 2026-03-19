@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from schemas.project_space import ProjectPermission
+
 from .access import check_project_exists, check_project_permission
 from .members import create_project_member as create_project_member_record
 from .members import delete_project_member as delete_project_member_record
@@ -13,7 +15,10 @@ from .members import update_project_member as update_project_member_record
 
 class ProjectSpaceMemberAPIMixin:
     async def check_project_permission(
-        self, project_id: str, user_id: str, permission: str = "can_view"
+        self,
+        project_id: str,
+        user_id: str,
+        permission: ProjectPermission | str = ProjectPermission.VIEW,
     ) -> bool:
         return await check_project_permission(self, project_id, user_id, permission)
 
@@ -73,6 +78,9 @@ class ProjectSpaceMemberAPIMixin:
         )
 
     async def check_project_permission_with_member(
-        self, project_id: str, user_id: str, permission: str = "can_view"
+        self,
+        project_id: str,
+        user_id: str,
+        permission: ProjectPermission | str = ProjectPermission.VIEW,
     ) -> bool:
         return await self.check_project_permission(project_id, user_id, permission)

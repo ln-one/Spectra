@@ -10,6 +10,7 @@ from schemas.project_space import (
     CandidateChangeResponse,
     CandidateChangeReview,
     CandidateChangesResponse,
+    ProjectPermission,
     ProjectReferenceCreate,
     ProjectReferenceResponse,
     ProjectReferencesResponse,
@@ -219,7 +220,7 @@ async def review_candidate_change(
 ):
     try:
         await project_space_service.check_project_permission(
-            project_id, user_id, "can_manage"
+            project_id, user_id, ProjectPermission.MANAGE
         )
         updated_change = await project_space_service.review_candidate_change(
             project_id=project_id,

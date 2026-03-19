@@ -7,7 +7,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 
-from schemas.project_space import ArtifactCreate, ArtifactResponse, ArtifactsResponse
+from schemas.project_space import (
+    ArtifactCreate,
+    ArtifactResponse,
+    ArtifactsResponse,
+    ProjectPermission,
+)
 from services.project_space_service import project_space_service
 from services.project_space_service.artifact_semantics import (
     build_artifact_download_filename,
@@ -39,7 +44,7 @@ async def get_project_artifacts(
 ):
     try:
         await project_space_service.check_project_permission(
-            project_id, user_id, "can_view"
+            project_id, user_id, ProjectPermission.VIEW
         )
         artifacts = await project_space_service.get_project_artifacts(
             project_id,
@@ -70,7 +75,7 @@ async def get_artifact(
 ):
     try:
         await project_space_service.check_project_permission(
-            project_id, user_id, "can_view"
+            project_id, user_id, ProjectPermission.VIEW
         )
         artifact = await project_space_service.get_artifact(artifact_id)
         if not artifact or artifact.projectId != project_id:
@@ -99,7 +104,7 @@ async def create_artifact(
 ):
     try:
         await project_space_service.check_project_permission(
-            project_id, user_id, "can_collaborate"
+            project_id, user_id, ProjectPermission.COLLABORATE
         )
         artifact = await project_space_service.create_artifact_with_file(
             project_id=project_id,
@@ -146,7 +151,7 @@ async def download_artifact(
 ):
     try:
         await project_space_service.check_project_permission(
-            project_id, user_id, "can_view"
+            project_id, user_id, ProjectPermission.VIEW
         )
         artifact = await project_space_service.get_artifact(artifact_id)
         if not artifact or artifact.projectId != project_id:

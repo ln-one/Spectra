@@ -1,11 +1,15 @@
 from typing import Optional
 
-from schemas.project_space import ProjectMemberRole, ProjectMemberStatus
+from schemas.project_space import (
+    ProjectMemberRole,
+    ProjectMemberStatus,
+    ProjectPermission,
+)
 from utils.exceptions import ConflictException, NotFoundException, ValidationException
 
 
 async def get_project_members(service, project_id: str, user_id: str):
-    await service.check_project_permission(project_id, user_id, "can_view")
+    await service.check_project_permission(project_id, user_id, ProjectPermission.VIEW)
     return await service.db.get_project_members(project_id)
 
 
@@ -17,7 +21,9 @@ async def create_project_member(
     role: ProjectMemberRole | str,
     permissions: Optional[dict] = None,
 ):
-    await service.check_project_permission(project_id, user_id, "can_manage")
+    await service.check_project_permission(
+        project_id, user_id, ProjectPermission.MANAGE
+    )
     existing = await service.db.get_project_member_by_user(project_id, target_user_id)
     if existing:
         raise ConflictException(
@@ -41,7 +47,9 @@ async def update_project_member(
     permissions: Optional[dict] = None,
     status: Optional[ProjectMemberStatus | str] = None,
 ):
-    await service.check_project_permission(project_id, user_id, "can_manage")
+    await service.check_project_permission(
+        project_id, user_id, ProjectPermission.MANAGE
+    )
     member = await service.db.get_project_member(member_id)
     if not member or member.projectId != project_id:
         raise NotFoundException(f"Member {member_id} not found in project {project_id}")
@@ -59,7 +67,9 @@ async def delete_project_member(
     member_id: str,
     user_id: str,
 ):
-    await service.check_project_permission(project_id, user_id, "can_manage")
+    await service.check_project_permission(
+        project_id, user_id, ProjectPermission.MANAGE
+    )
     member = await service.db.get_project_member(member_id)
     if not member or member.projectId != project_id:
         raise NotFoundException(f"Member {member_id} not found in project {project_id}")

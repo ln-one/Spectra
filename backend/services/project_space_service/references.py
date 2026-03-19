@@ -1,6 +1,6 @@
 from typing import Optional
 
-from schemas.project_space import ReferenceMode
+from schemas.project_space import ProjectPermission, ReferenceMode
 from utils.exceptions import NotFoundException, ValidationException
 
 
@@ -14,7 +14,9 @@ async def create_project_reference(
     pinned_version_id: Optional[str] = None,
     priority: int = 0,
 ):
-    await service.check_project_permission(project_id, user_id, "can_manage")
+    await service.check_project_permission(
+        project_id, user_id, ProjectPermission.MANAGE
+    )
     await service.validate_reference_creation(
         project_id=project_id,
         target_project_id=target_project_id,
@@ -34,7 +36,7 @@ async def create_project_reference(
 
 
 async def get_project_references(service, project_id: str, user_id: str):
-    await service.check_project_permission(project_id, user_id, "can_view")
+    await service.check_project_permission(project_id, user_id, ProjectPermission.VIEW)
     return await service.db.get_project_references(project_id)
 
 
@@ -48,7 +50,9 @@ async def update_project_reference(
     priority: Optional[int] = None,
     status: Optional[str] = None,
 ):
-    await service.check_project_permission(project_id, user_id, "can_manage")
+    await service.check_project_permission(
+        project_id, user_id, ProjectPermission.MANAGE
+    )
 
     reference = await service.db.get_project_reference(reference_id)
     if not reference or reference.projectId != project_id:
@@ -88,7 +92,9 @@ async def delete_project_reference(
     reference_id: str,
     user_id: str,
 ):
-    await service.check_project_permission(project_id, user_id, "can_manage")
+    await service.check_project_permission(
+        project_id, user_id, ProjectPermission.MANAGE
+    )
     reference = await service.db.get_project_reference(reference_id)
     if not reference or reference.projectId != project_id:
         raise NotFoundException(
@@ -107,7 +113,9 @@ async def create_candidate_change(
     session_id: Optional[str] = None,
     base_version_id: Optional[str] = None,
 ):
-    await service.check_project_permission(project_id, user_id, "can_collaborate")
+    await service.check_project_permission(
+        project_id, user_id, ProjectPermission.COLLABORATE
+    )
     if base_version_id:
         base_version = await service.db.get_project_version(base_version_id)
         if not base_version or base_version.projectId != project_id:
@@ -134,7 +142,7 @@ async def get_candidate_changes(
     proposer_user_id: Optional[str] = None,
     session_id: Optional[str] = None,
 ):
-    await service.check_project_permission(project_id, user_id, "can_view")
+    await service.check_project_permission(project_id, user_id, ProjectPermission.VIEW)
     return await service.db.get_candidate_changes(
         project_id=project_id,
         status=status,
