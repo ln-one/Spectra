@@ -1,6 +1,6 @@
 # Spectra 文档中心
 
-> 更新时间：2026-03-02
+> 更新时间：2026-03-19
 > 目标：入口清晰、状态明确、与代码一致。
 
 ## 1. 核心入口
@@ -20,6 +20,9 @@
 
 - [开发指南](./guides/README.md)
 - [工程规范](./standards/README.md)
+- [冻结期重构 TODO](./freeze-refactor-todo.md)
+- [冗余审计报告](./redundancy-audit.md)
+- [Legacy Surface Map](./legacy-surface-map.md)
 
 ## 4. 规划与比赛
 
