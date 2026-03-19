@@ -15,6 +15,17 @@ class TaskComplexity(str, Enum):
     ADAPTIVE = "adaptive"
 
 
+class ModelRouteReason(str, Enum):
+    """Canonical reason vocabulary for model-routing decisions."""
+
+    LIGHTWEIGHT_TASK = "lightweight_task"
+    REASONING_OR_RAG_HEAVY_TASK = "reasoning_or_rag_heavy_task"
+    CHAT_WITH_RAG_CONTEXT = "chat_with_rag_context"
+    CHAT_PROMPT_TOO_LONG = "chat_prompt_too_long"
+    CHAT_LIGHTWEIGHT = "chat_lightweight"
+    UNKNOWN_TASK_FALLBACK_TO_HEAVY = "unknown_task_fallback_to_heavy"
+
+
 class ModelRouteTask(str, Enum):
     """Supported task labels for model routing decisions."""
 
@@ -90,7 +101,7 @@ class ModelRouter:
                     "complexity": TaskComplexity.LIGHT.value,
                     "default_model_tier": "light",
                     "fallback_model_tier": "heavy",
-                    "rule": "lightweight_task",
+                    "rule": ModelRouteReason.LIGHTWEIGHT_TASK.value,
                 }
             )
         for task in cls._ADAPTIVE_TASKS:
@@ -101,8 +112,9 @@ class ModelRouter:
                     "default_model_tier": "adaptive",
                     "fallback_model_tier": "heavy",
                     "rule": (
-                        "chat_with_rag_context | chat_prompt_too_long | "
-                        "chat_lightweight"
+                        f"{ModelRouteReason.CHAT_WITH_RAG_CONTEXT.value} | "
+                        f"{ModelRouteReason.CHAT_PROMPT_TOO_LONG.value} | "
+                        f"{ModelRouteReason.CHAT_LIGHTWEIGHT.value}"
                     ),
                 }
             )
@@ -113,7 +125,7 @@ class ModelRouter:
                     "complexity": TaskComplexity.HEAVY.value,
                     "default_model_tier": "heavy",
                     "fallback_model_tier": "heavy",
-                    "rule": "reasoning_or_rag_heavy_task",
+                    "rule": ModelRouteReason.REASONING_OR_RAG_HEAVY_TASK.value,
                 }
             )
         return rows
@@ -133,7 +145,7 @@ class ModelRouter:
                 complexity=TaskComplexity.LIGHT.value,
                 selected_model=self.light_model,
                 fallback_model=self.heavy_model,
-                reason="lightweight_task",
+                reason=ModelRouteReason.LIGHTWEIGHT_TASK.value,
             )
         if task_value in self._HEAVY_TASK_SET:
             return RouteDecision(
@@ -141,7 +153,7 @@ class ModelRouter:
                 complexity=TaskComplexity.HEAVY.value,
                 selected_model=self.heavy_model,
                 fallback_model=self.heavy_model,
-                reason="reasoning_or_rag_heavy_task",
+                reason=ModelRouteReason.REASONING_OR_RAG_HEAVY_TASK.value,
             )
         if task_value in self._ADAPTIVE_TASK_SET:
             if has_rag_context:
@@ -150,7 +162,7 @@ class ModelRouter:
                     complexity=TaskComplexity.ADAPTIVE.value,
                     selected_model=self.heavy_model,
                     fallback_model=self.heavy_model,
-                    reason="chat_with_rag_context",
+                    reason=ModelRouteReason.CHAT_WITH_RAG_CONTEXT.value,
                 )
             prompt_length = len((prompt or "").strip())
             if prompt_length >= self.chat_heavy_prompt_threshold:
@@ -159,19 +171,19 @@ class ModelRouter:
                     complexity=TaskComplexity.ADAPTIVE.value,
                     selected_model=self.heavy_model,
                     fallback_model=self.heavy_model,
-                    reason="chat_prompt_too_long",
+                    reason=ModelRouteReason.CHAT_PROMPT_TOO_LONG.value,
                 )
             return RouteDecision(
                 task=task_value,
                 complexity=TaskComplexity.ADAPTIVE.value,
                 selected_model=self.light_model,
                 fallback_model=self.heavy_model,
-                reason="chat_lightweight",
+                reason=ModelRouteReason.CHAT_LIGHTWEIGHT.value,
             )
         return RouteDecision(
             task=task_value or "unknown",
             complexity=TaskComplexity.HEAVY.value,
             selected_model=self.heavy_model,
             fallback_model=self.heavy_model,
-            reason="unknown_task_fallback_to_heavy",
+            reason=ModelRouteReason.UNKNOWN_TASK_FALLBACK_TO_HEAVY.value,
         )

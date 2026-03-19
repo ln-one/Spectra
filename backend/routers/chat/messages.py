@@ -113,7 +113,7 @@ async def send_message(
         try:
             ai_result = await ai_service.generate(
                 prompt=prompt,
-                route_task=ModelRouteTask.CHAT_RESPONSE.value,
+                route_task=ModelRouteTask.CHAT_RESPONSE,
                 has_rag_context=rag_hit,
                 max_tokens=500,
             )
@@ -143,7 +143,7 @@ async def send_message(
                 )
                 rewrite_result = await ai_service.generate(
                     prompt=rewrite_prompt,
-                    route_task=ModelRouteTask.SHORT_TEXT_POLISH.value,
+                    route_task=ModelRouteTask.SHORT_TEXT_POLISH,
                     max_tokens=500,
                 )
                 rewritten_content = (rewrite_result.get("content") or "").strip()

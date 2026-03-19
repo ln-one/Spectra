@@ -16,7 +16,7 @@ from services.ai.intents import (
     parse_modify_intent_by_keywords,
 )
 from services.ai.model_resolution import _resolve_model_name
-from services.ai.model_router import ModelRouter
+from services.ai.model_router import ModelRouter, ModelRouteTask
 from services.ai.rag_context import retrieve_rag_context
 from services.courseware_ai import CoursewareAIMixin
 
@@ -60,7 +60,7 @@ class AIService(CoursewareAIMixin):
         self,
         prompt: str,
         model: Optional[str] = None,
-        route_task: Optional[str] = None,
+        route_task: Optional[ModelRouteTask | str] = None,
         has_rag_context: bool = False,
         max_tokens: Optional[int] = 500,
     ) -> dict:
@@ -71,10 +71,13 @@ class AIService(CoursewareAIMixin):
 
         route_decision = None
         requested_model = model
+        normalized_route_task = (
+            route_task.value if isinstance(route_task, ModelRouteTask) else route_task
+        )
         if not requested_model:
-            if route_task:
+            if normalized_route_task:
                 route_decision = self.model_router.route(
-                    route_task,
+                    normalized_route_task,
                     prompt=prompt,
                     has_rag_context=has_rag_context,
                 )
@@ -92,7 +95,7 @@ class AIService(CoursewareAIMixin):
                 "route_task=%s",
                 requested_model,
                 resolved_model,
-                route_task,
+                normalized_route_task,
             )
             response = await self._run_completion(
                 model=resolved_model,
