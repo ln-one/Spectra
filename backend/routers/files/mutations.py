@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-import routers.files as files_package
 from services.file_management_service import (
     batch_delete_files_response,
     delete_file_response,
@@ -9,7 +8,7 @@ from services.file_management_service import (
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException
 
-from .shared import BatchDeleteRequest, UpdateFileIntentRequest, logger
+from .shared import BatchDeleteRequest, UpdateFileIntentRequest, cleanup_file, logger
 
 router = APIRouter()
 
@@ -46,7 +45,7 @@ async def update_file_intent(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update file intent: {exc}",
+            detail="Failed to update file intent",
         )
 
 
@@ -58,7 +57,7 @@ async def batch_delete_files(
     return await batch_delete_files_response(
         file_ids=request.file_ids,
         user_id=user_id,
-        cleanup_func=files_package.cleanup_file,
+        cleanup_func=cleanup_file,
     )
 
 
@@ -71,7 +70,7 @@ async def delete_file(
         file = await delete_file_response(
             file_id=file_id,
             user_id=user_id,
-            cleanup_func=files_package.cleanup_file,
+            cleanup_func=cleanup_file,
         )
         logger.info(
             "file_deleted",
@@ -97,5 +96,5 @@ async def delete_file(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete file: {exc}",
+            detail="Failed to delete file",
         )

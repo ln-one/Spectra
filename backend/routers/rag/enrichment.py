@@ -56,7 +56,7 @@ async def transcribe_audio_endpoint(
     except APIException:
         raise
     except Exception as exc:
-        raise handle_rag_error(f"音频转录失败: {str(exc)}", exc)
+        raise handle_rag_error("音频转录失败", exc)
 
 
 @router.post("/video-analyze")
@@ -77,4 +77,4 @@ async def analyze_video_endpoint(
     except APIException:
         raise
     except Exception as exc:
-        raise handle_rag_error(f"视频分析失败: {str(exc)}", exc)
+        raise handle_rag_error("视频分析失败", exc)

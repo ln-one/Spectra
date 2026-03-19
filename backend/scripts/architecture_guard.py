@@ -82,7 +82,8 @@ def iter_python_files() -> list[Path]:
 def check_file_lengths(paths: list[Path]) -> list[Finding]:
     findings: list[Finding] = []
     for path in paths:
-        line_count = sum(1 for _ in path.open("r", encoding="utf-8"))
+        with path.open("r", encoding="utf-8") as handle:
+            line_count = sum(1 for _ in handle)
         if line_count > 800:
             findings.append(
                 Finding("critical", path, f"{line_count} lines; split immediately")

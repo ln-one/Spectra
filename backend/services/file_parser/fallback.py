@@ -158,7 +158,7 @@ def extract_with_fallback(
             )
             continue
 
-    logger.error("所有解析器都失败，文件 %s", filename, exc_info=True)
+    logger.error("所有解析器都失败，文件 %s", filename, exc_info=exc)
     if last_empty_details:
         details.update(last_empty_details)
     details["capability_status"] = build_unavailable_status(
