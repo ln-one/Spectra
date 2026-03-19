@@ -62,6 +62,119 @@ StateMachineDeclaration:
       items:
         $ref: '#/StateTransitionRule'
 
+StudioCardConfigOption:
+  type: object
+  required: [value, label]
+  properties:
+    value:
+      type: string
+    label:
+      type: string
+    description:
+      type: string
+
+StudioCardConfigField:
+  type: object
+  required: [key, label, type, required]
+  properties:
+    key:
+      type: string
+    label:
+      type: string
+    type:
+      type: string
+      enum: [select, multiselect, boolean, integer, text, reference]
+    required:
+      type: boolean
+    options:
+      type: array
+      items:
+        $ref: '#/StudioCardConfigOption'
+    placeholder:
+      type: string
+    default_value:
+      oneOf:
+        - type: string
+        - type: integer
+        - type: boolean
+    notes:
+      type: string
+
+StudioCardAction:
+  type: object
+  required: [type, label]
+  properties:
+    type:
+      type: string
+    label:
+      type: string
+    notes:
+      type: string
+
+StudioCardCapability:
+  type: object
+  required:
+    [
+      id,
+      title,
+      readiness,
+      context_mode,
+      execution_mode,
+      primary_capabilities,
+      related_capabilities,
+      artifact_types,
+      requires_source_artifact,
+      supports_chat_refine,
+      supports_selection_context,
+      config_fields,
+      actions,
+    ]
+  properties:
+    id:
+      type: string
+    title:
+      type: string
+    readiness:
+      type: string
+      enum: [ready, foundation_ready, protocol_pending]
+    context_mode:
+      type: string
+      enum: [session, artifact, hybrid]
+    execution_mode:
+      type: string
+      enum: [session_command, artifact_create, composite]
+    primary_capabilities:
+      type: array
+      items:
+        type: string
+    related_capabilities:
+      type: array
+      items:
+        type: string
+    artifact_types:
+      type: array
+      items:
+        type: string
+    session_output_type:
+      type: string
+      enum: [ppt, word, both]
+    requires_source_artifact:
+      type: boolean
+    supports_chat_refine:
+      type: boolean
+    supports_selection_context:
+      type: boolean
+    config_fields:
+      type: array
+      items:
+        $ref: '#/StudioCardConfigField'
+    actions:
+      type: array
+      items:
+        $ref: '#/StudioCardAction'
+    notes:
+      type: string
+
 GenerationCapabilitiesResponse:
   type: object
   required: [success, data, message]
@@ -70,7 +183,7 @@ GenerationCapabilitiesResponse:
       type: boolean
     data:
       type: object
-      required: [contract_versions, default_contract_version, capabilities, state_machine, command_interface]
+      required: [contract_versions, default_contract_version, capabilities, studio_cards, state_machine, command_interface]
       properties:
         contract_versions:
           type: array
@@ -93,6 +206,10 @@ GenerationCapabilitiesResponse:
           type: array
           items:
             $ref: '#/CapabilityDeclaration'
+        studio_cards:
+          type: array
+          items:
+            $ref: '#/StudioCardCapability'
         state_machine:
           $ref: '#/StateMachineDeclaration'
         deprecations:
@@ -107,5 +224,22 @@ GenerationCapabilitiesResponse:
                 format: date-time
               replacement:
                 type: string
+    message:
+      type: string
+
+StudioCardsCatalogResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [studio_cards]
+      properties:
+        studio_cards:
+          type: array
+          items:
+            $ref: '#/StudioCardCapability'
     message:
       type: string

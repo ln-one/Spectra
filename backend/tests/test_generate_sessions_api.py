@@ -441,3 +441,23 @@ async def test_get_capabilities_includes_studio_card_readiness(app, _as_user):
     assert studio_cards["word_document"]["primary_capabilities"] == ["word", "handout"]
     assert studio_cards["interactive_games"]["readiness"] == "protocol_pending"
     assert studio_cards["classroom_qa_simulator"]["context_mode"] == "session"
+    assert studio_cards["speaker_notes"]["requires_source_artifact"] is True
+    assert studio_cards["word_document"]["session_output_type"] == "word"
+    assert studio_cards["knowledge_mindmap"]["supports_selection_context"] is True
+
+
+@pytest.mark.anyio
+async def test_get_studio_cards_returns_card_protocol_catalog(app, _as_user):
+    client = TestClient(app)
+
+    response = client.get("/api/v1/generate/studio-cards")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    cards = {card["id"]: card for card in data["studio_cards"]}
+
+    assert cards["word_document"]["execution_mode"] == "composite"
+    assert (
+        cards["interactive_quick_quiz"]["config_fields"][0]["key"] == "question_count"
+    )
+    assert cards["speaker_notes"]["config_fields"][0]["type"] == "reference"

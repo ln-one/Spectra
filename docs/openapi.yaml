@@ -911,6 +911,28 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/generate/studio-cards:
+    get:
+      summary: 获取 Studio 卡片协议目录
+      operationId: getGenerateStudioCards
+      description: 返回 Studio 卡片目录、成熟度、配置字段与上下文协议。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardsCatalogResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/generate/sessions/{session_id}/preview:
     get:
       summary: 获取会话级课件预览
@@ -3192,6 +3214,139 @@ components:
                   type: integer
         message:
           type: string
+    StudioCardConfigOption:
+      type: object
+      required:
+        - value
+        - label
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+    StudioCardConfigField:
+      type: object
+      required:
+        - key
+        - label
+        - type
+        - required
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum:
+            - select
+            - multiselect
+            - boolean
+            - integer
+            - text
+            - reference
+        required:
+          type: boolean
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioCardConfigOption'
+        placeholder:
+          type: string
+        default_value:
+          oneOf:
+            - type: string
+            - type: integer
+            - type: boolean
+        notes:
+          type: string
+    StudioCardAction:
+      type: object
+      required:
+        - type
+        - label
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+        notes:
+          type: string
+    StudioCardCapability:
+      type: object
+      required:
+        - id
+        - title
+        - readiness
+        - context_mode
+        - execution_mode
+        - primary_capabilities
+        - related_capabilities
+        - artifact_types
+        - requires_source_artifact
+        - supports_chat_refine
+        - supports_selection_context
+        - config_fields
+        - actions
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        readiness:
+          type: string
+          enum:
+            - ready
+            - foundation_ready
+            - protocol_pending
+        context_mode:
+          type: string
+          enum:
+            - session
+            - artifact
+            - hybrid
+        execution_mode:
+          type: string
+          enum:
+            - session_command
+            - artifact_create
+            - composite
+        primary_capabilities:
+          type: array
+          items:
+            type: string
+        related_capabilities:
+          type: array
+          items:
+            type: string
+        artifact_types:
+          type: array
+          items:
+            type: string
+        session_output_type:
+          type: string
+          enum:
+            - ppt
+            - word
+            - both
+        requires_source_artifact:
+          type: boolean
+        supports_chat_refine:
+          type: boolean
+        supports_selection_context:
+          type: boolean
+        config_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioCardConfigField'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioCardAction'
+        notes:
+          type: string
     StateTransitionRule:
       type: object
       required:
@@ -3239,6 +3394,7 @@ components:
             - contract_versions
             - default_contract_version
             - capabilities
+            - studio_cards
             - state_machine
             - command_interface
           properties:
@@ -3265,6 +3421,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/CapabilityDeclaration'
+            studio_cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/StudioCardCapability'
             state_machine:
               $ref: '#/components/schemas/StateMachineDeclaration'
             deprecations:
@@ -3279,6 +3439,26 @@ components:
                     format: date-time
                   replacement:
                     type: string
+        message:
+          type: string
+    StudioCardsCatalogResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - studio_cards
+          properties:
+            studio_cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/StudioCardCapability'
         message:
           type: string
     ArtifactAnchor:

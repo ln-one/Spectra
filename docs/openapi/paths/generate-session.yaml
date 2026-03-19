@@ -15,6 +15,9 @@
 /api/v1/generate/capabilities:
   $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1capabilities'
 
+/api/v1/generate/studio-cards:
+  $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1studio-cards'
+
 /api/v1/generate/sessions/{session_id}/outline:
   $ref: './generate-session-edit.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline'
 

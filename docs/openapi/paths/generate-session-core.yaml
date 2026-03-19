@@ -204,3 +204,25 @@
         $ref: '../components/responses.yaml#/Unauthorized'
       '403':
         $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/generate/studio-cards:
+  get:
+    summary: 获取 Studio 卡片协议目录
+    operationId: getGenerateStudioCards
+    description: 返回 Studio 卡片目录、成熟度、配置字段与上下文协议。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardsCatalogResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
