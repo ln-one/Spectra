@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -86,3 +86,30 @@ class VoiceMessageResponse(BaseModel):
     duration: float = Field(..., description="音频时长（秒）")
     message: Message = Field(..., description="自动创建的消息")
     suggestions: Optional[list[str]] = Field(None, description="后续建议")
+
+
+class ChatObservability(BaseModel):
+    request_id: str = Field(..., description="请求追踪 ID")
+    route_task: str = Field(..., description="聊天侧任务路由类型")
+    selected_model: str = Field(..., description="实际选中的模型")
+    has_rag_context: bool = Field(..., description="是否命中 RAG 上下文")
+    fallback_triggered: bool = Field(..., description="是否触发了降级回退")
+    latency_ms: Optional[float] = Field(None, description="链路耗时（毫秒）")
+    provider_model: Optional[str] = Field(None, description="底层 provider 模型")
+    prompt_hash: Optional[str] = Field(None, description="提示词摘要")
+    response_hash: Optional[str] = Field(None, description="响应摘要")
+    mechanical_pattern_hit: Optional[bool] = Field(
+        None, description="是否命中过于机械的回复模式"
+    )
+    route_decision: Optional[dict[str, Any]] = Field(
+        None, description="模型路由决策详情"
+    )
+    prompt_template_version: Optional[str] = Field(None, description="prompt 模板版本")
+    few_shot_version: Optional[str] = Field(None, description="few-shot 模板版本")
+
+    @field_validator("route_task", mode="before")
+    @classmethod
+    def _normalize_route_task(cls, value):
+        if isinstance(value, Enum):
+            return value.value
+        return str(value)

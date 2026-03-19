@@ -1,7 +1,8 @@
 import hashlib
 from typing import Optional
 
-from schemas.chat import ChatRouteTask
+from schemas.chat import ChatObservability, ChatRouteTask
+from services.ai.model_router import ModelRouteTask
 
 PROMPT_TEMPLATE_VERSION = "v1.0"
 FEW_SHOT_VERSION = "v1.0"
@@ -10,7 +11,7 @@ FEW_SHOT_VERSION = "v1.0"
 def build_observability_metadata(
     *,
     request_id: str,
-    route_task: ChatRouteTask | str,
+    route_task: ChatRouteTask | ModelRouteTask | str,
     selected_model: str,
     has_rag_context: bool,
     fallback_triggered: bool,
@@ -21,24 +22,19 @@ def build_observability_metadata(
     latency_ms: Optional[float] = None,
     route_decision: Optional[dict] = None,
 ) -> dict:
-    metadata = {
-        "request_id": request_id,
-        "route_task": getattr(route_task, "value", route_task),
-        "selected_model": selected_model,
-        "has_rag_context": has_rag_context,
-        "fallback_triggered": fallback_triggered,
-        "latency_ms": latency_ms,
-    }
-    if provider_model is not None:
-        metadata["provider_model"] = provider_model
-    if prompt_digest is not None:
-        metadata["prompt_hash"] = prompt_digest
-    if response_digest is not None:
-        metadata["response_hash"] = response_digest
-    if mechanical_pattern_hit is not None:
-        metadata["mechanical_pattern_hit"] = mechanical_pattern_hit
-    if route_decision:
-        metadata["route_decision"] = route_decision
+    metadata = ChatObservability(
+        request_id=request_id,
+        route_task=route_task,
+        selected_model=selected_model,
+        has_rag_context=has_rag_context,
+        fallback_triggered=fallback_triggered,
+        latency_ms=latency_ms,
+        provider_model=provider_model,
+        prompt_hash=prompt_digest,
+        response_hash=response_digest,
+        mechanical_pattern_hit=mechanical_pattern_hit,
+        route_decision=route_decision,
+    ).model_dump(exclude_none=True)
     return metadata
 
 
