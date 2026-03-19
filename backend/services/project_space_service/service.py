@@ -5,15 +5,20 @@ import logging
 from typing import Optional
 
 from services.database import db_service
-from utils.exceptions import (
-    ConflictException,
-    ForbiddenException,
-    NotFoundException,
-    ValidationException,
-)
+from utils.exceptions import ForbiddenException, NotFoundException
 
 from .artifacts import create_artifact_with_file, get_artifact_storage_path
+from .members import create_project_member as create_project_member_record
+from .members import delete_project_member as delete_project_member_record
+from .members import get_project_members as get_project_members_list
+from .members import update_project_member as update_project_member_record
 from .reference_validation import check_dag_cycle, validate_reference_creation
+from .references import create_candidate_change as create_candidate_change_record
+from .references import create_project_reference as create_project_reference_record
+from .references import delete_project_reference as delete_project_reference_record
+from .references import get_candidate_changes as get_candidate_changes_list
+from .references import get_project_references as get_project_references_list
+from .references import update_project_reference as update_project_reference_record
 from .review import review_candidate_change
 
 logger = logging.getLogger(__name__)
@@ -119,27 +124,19 @@ class ProjectSpaceService:
         pinned_version_id: Optional[str] = None,
         priority: int = 0,
     ):
-        await self.check_project_permission(project_id, user_id, "can_manage")
-        await self.validate_reference_creation(
+        return await create_project_reference_record(
+            self,
             project_id=project_id,
-            target_project_id=target_project_id,
-            relation_type=relation_type,
-            mode=mode,
-            pinned_version_id=pinned_version_id,
-        )
-        return await self.db.create_project_reference(
-            project_id=project_id,
+            user_id=user_id,
             target_project_id=target_project_id,
             relation_type=relation_type,
             mode=mode,
             pinned_version_id=pinned_version_id,
             priority=priority,
-            created_by=user_id,
         )
 
     async def get_project_references(self, project_id: str, user_id: str):
-        await self.check_project_permission(project_id, user_id, "can_view")
-        return await self.db.get_project_references(project_id)
+        return await get_project_references_list(self, project_id, user_id)
 
     async def update_project_reference(
         self,
@@ -151,27 +148,11 @@ class ProjectSpaceService:
         priority: Optional[int] = None,
         status: Optional[str] = None,
     ):
-        await self.check_project_permission(project_id, user_id, "can_manage")
-
-        reference = await self.db.get_project_reference(reference_id)
-        if not reference or reference.projectId != project_id:
-            raise NotFoundException(
-                f"Reference {reference_id} not found in project {project_id}"
-            )
-
-        if mode == "pinned" and not pinned_version_id:
-            raise ValidationException("mode=pinned requires pinned_version_id")
-
-        if pinned_version_id:
-            version = await self.db.get_project_version(pinned_version_id)
-            if not version or version.projectId != reference.targetProjectId:
-                raise ValidationException(
-                    f"pinned_version_id {pinned_version_id} does not belong to "
-                    f"target project {reference.targetProjectId}"
-                )
-
-        return await self.db.update_project_reference(
+        return await update_project_reference_record(
+            self,
+            project_id=project_id,
             reference_id=reference_id,
+            user_id=user_id,
             mode=mode,
             pinned_version_id=pinned_version_id,
             priority=priority,
@@ -184,13 +165,12 @@ class ProjectSpaceService:
         reference_id: str,
         user_id: str,
     ):
-        await self.check_project_permission(project_id, user_id, "can_manage")
-        reference = await self.db.get_project_reference(reference_id)
-        if not reference or reference.projectId != project_id:
-            raise NotFoundException(
-                f"Reference {reference_id} not found in project {project_id}"
-            )
-        return await self.db.delete_project_reference(reference_id)
+        return await delete_project_reference_record(
+            self,
+            project_id=project_id,
+            reference_id=reference_id,
+            user_id=user_id,
+        )
 
     async def create_candidate_change(
         self,
@@ -202,22 +182,15 @@ class ProjectSpaceService:
         session_id: Optional[str] = None,
         base_version_id: Optional[str] = None,
     ):
-        await self.check_project_permission(project_id, user_id, "can_collaborate")
-        if base_version_id:
-            base_version = await self.db.get_project_version(base_version_id)
-            if not base_version or base_version.projectId != project_id:
-                raise ValidationException(
-                    "base_version_id "
-                    f"{base_version_id} does not belong to project {project_id}"
-                )
-        return await self.db.create_candidate_change(
+        return await create_candidate_change_record(
+            self,
             project_id=project_id,
+            user_id=user_id,
             title=title,
             summary=summary,
             payload=payload,
             session_id=session_id,
             base_version_id=base_version_id,
-            proposer_user_id=user_id,
         )
 
     async def get_candidate_changes(
@@ -228,17 +201,17 @@ class ProjectSpaceService:
         proposer_user_id: Optional[str] = None,
         session_id: Optional[str] = None,
     ):
-        await self.check_project_permission(project_id, user_id, "can_view")
-        return await self.db.get_candidate_changes(
+        return await get_candidate_changes_list(
+            self,
             project_id=project_id,
+            user_id=user_id,
             status=status,
             proposer_user_id=proposer_user_id,
             session_id=session_id,
         )
 
     async def get_project_members(self, project_id: str, user_id: str):
-        await self.check_project_permission(project_id, user_id, "can_view")
-        return await self.db.get_project_members(project_id)
+        return await get_project_members_list(self, project_id, user_id)
 
     async def create_project_member(
         self,
@@ -248,16 +221,11 @@ class ProjectSpaceService:
         role: str,
         permissions: Optional[dict] = None,
     ):
-        await self.check_project_permission(project_id, user_id, "can_manage")
-        existing = await self.db.get_project_member_by_user(project_id, target_user_id)
-        if existing:
-            raise ConflictException(
-                "User "
-                f"{target_user_id} is already an active member of project {project_id}"
-            )
-        return await self.db.create_project_member(
+        return await create_project_member_record(
+            self,
             project_id=project_id,
-            user_id=target_user_id,
+            user_id=user_id,
+            target_user_id=target_user_id,
             role=role,
             permissions=permissions,
         )
@@ -271,14 +239,11 @@ class ProjectSpaceService:
         permissions: Optional[dict] = None,
         status: Optional[str] = None,
     ):
-        await self.check_project_permission(project_id, user_id, "can_manage")
-        member = await self.db.get_project_member(member_id)
-        if not member or member.projectId != project_id:
-            raise NotFoundException(
-                f"Member {member_id} not found in project {project_id}"
-            )
-        return await self.db.update_project_member(
+        return await update_project_member_record(
+            self,
+            project_id=project_id,
             member_id=member_id,
+            user_id=user_id,
             role=role,
             permissions=permissions,
             status=status,
@@ -290,18 +255,12 @@ class ProjectSpaceService:
         member_id: str,
         user_id: str,
     ):
-        await self.check_project_permission(project_id, user_id, "can_manage")
-        member = await self.db.get_project_member(member_id)
-        if not member or member.projectId != project_id:
-            raise NotFoundException(
-                f"Member {member_id} not found in project {project_id}"
-            )
-
-        project = await self.db.get_project(project_id)
-        if member.userId == project.userId:
-            raise ValidationException("Cannot delete project owner")
-
-        return await self.db.delete_project_member(member_id)
+        return await delete_project_member_record(
+            self,
+            project_id=project_id,
+            member_id=member_id,
+            user_id=user_id,
+        )
 
     async def get_idempotency_response(self, key: str):
         return await self.db.get_idempotency_response(key)
