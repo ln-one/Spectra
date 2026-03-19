@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
+from schemas.preview import SourceType
+
 from .text_utils import (
     build_text_fingerprint,
     compute_relevance_score,
@@ -95,13 +97,13 @@ def prepare_web_knowledge_units(
         chunk_id = f"web-{source_id}"
         citation = {
             "chunk_id": chunk_id,
-            "source_type": "web",
+            "source_type": SourceType.WEB.value,
             "filename": title or resource.get("canonical_url") or "web-resource",
         }
         units.append(
             {
                 "chunk_id": chunk_id,
-                "source_type": "web",
+                "source_type": SourceType.WEB.value,
                 "content": content,
                 "metadata": {
                     "resource_id": source_id,

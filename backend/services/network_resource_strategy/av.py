@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from schemas.preview import SourceType
+
 from .text_utils import clean_asr_text, normalize_whitespace
 
 
@@ -28,7 +30,7 @@ def audio_segments_to_units(
         units.append(
             {
                 "chunk_id": chunk_id,
-                "source_type": "audio",
+                "source_type": SourceType.AUDIO.value,
                 "content": cleaned,
                 "metadata": {
                     "audio_id": audio_id,
@@ -38,7 +40,7 @@ def audio_segments_to_units(
                 },
                 "citation": {
                     "chunk_id": chunk_id,
-                    "source_type": "audio",
+                    "source_type": SourceType.AUDIO.value,
                     "filename": filename,
                     "timestamp": start_ts,
                 },
@@ -83,7 +85,7 @@ def video_segments_to_units(
         units.append(
             {
                 "chunk_id": chunk_id,
-                "source_type": "video",
+                "source_type": SourceType.VIDEO.value,
                 "content": content.strip(),
                 "metadata": {
                     "video_id": video_id,
@@ -94,7 +96,7 @@ def video_segments_to_units(
                 },
                 "citation": {
                     "chunk_id": chunk_id,
-                    "source_type": "video",
+                    "source_type": SourceType.VIDEO.value,
                     "filename": filename,
                     "timestamp": start_ts,
                 },
