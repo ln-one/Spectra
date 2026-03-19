@@ -5,7 +5,7 @@ import logging
 import re
 
 from schemas.outline import CoursewareOutline, OutlineSection
-from services.model_router import ModelRouteTask
+from services.ai.model_router import ModelRouteTask
 
 logger = logging.getLogger(__name__)
 

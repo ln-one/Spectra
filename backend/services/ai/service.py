@@ -16,9 +16,9 @@ from services.ai.intents import (
     parse_modify_intent_by_keywords,
 )
 from services.ai.model_resolution import _resolve_model_name
+from services.ai.model_router import ModelRouter
 from services.ai.rag_context import retrieve_rag_context
 from services.courseware_ai import CoursewareAIMixin
-from services.model_router import ModelRouter
 
 logger = logging.getLogger(__name__)
 

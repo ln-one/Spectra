@@ -37,6 +37,7 @@ FastAPI 后端，当前已经从“单文件偏大、根目录平铺”演进到
 ### platform
 - `platform/`
 - `ai/`
+- `ai/model_router.py`
 - `prompt_service/`
 - `database/`
 - `task_queue/`

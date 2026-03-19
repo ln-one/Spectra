@@ -42,6 +42,7 @@
 
 - `platform/`
 - `ai/`
+- `ai/model_router.py`
 - `prompt_service/`
 - `database/`
 - `task_queue/`

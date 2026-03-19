@@ -7,13 +7,13 @@ from typing import Optional
 
 from schemas.generation import CoursewareContent
 from schemas.outline import CoursewareOutline
+from services.ai.model_router import ModelRouteTask
 from services.courseware_ai.parsing import (
     extract_frontmatter,
     parse_marp_slides,
     reassemble_marp,
     strip_outer_code_fence,
 )
-from services.model_router import ModelRouteTask
 
 logger = logging.getLogger(__name__)
 ALLOW_COURSEWARE_FALLBACK = (

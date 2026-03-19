@@ -11,7 +11,7 @@
 
 ## 2. 任务分层与映射
 
-当前实现位置：`backend/services/model_router.py`
+当前实现位置：`backend/services/ai/model_router.py`
 
 | route_task | complexity | 默认模型层级 | fallback 层级 | 规则 |
 |---|---|---|---|---|

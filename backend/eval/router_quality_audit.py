@@ -16,7 +16,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from services.model_router import ModelRouter
+from services.ai.model_router import ModelRouter
 
 NON_DEGRADABLE_TASKS = {
     "rag_deep_summary",
