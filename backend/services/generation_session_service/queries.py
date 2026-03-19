@@ -12,6 +12,7 @@ from services.generation_session_service.session_artifacts import (
     get_latest_session_candidate_change,
     get_session_artifact_history,
 )
+from services.platform.state_transition_guard import GenerationState
 
 
 async def get_session_snapshot(
@@ -88,7 +89,7 @@ async def get_session_snapshot(
                 "word_url": session.wordUrl,
                 "version": session.renderVersion,
             }
-            if session.state == "SUCCESS"
+            if session.state == GenerationState.SUCCESS.value
             else None
         ),
         "error": (
@@ -99,7 +100,7 @@ async def get_session_snapshot(
                 "fallback": None,
                 "transition_guard": "StateTransitionGuard",
             }
-            if session.state == "FAILED" and session.errorCode
+            if session.state == GenerationState.FAILED.value and session.errorCode
             else None
         ),
     }

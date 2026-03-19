@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from routers.generate_sessions import router as generate_sessions_router
+from schemas.generation import TaskStatus
 from schemas.intent import ModifyIntent, ModifyType
 from schemas.outline import CoursewareOutline, OutlineSection
 from schemas.preview import (
@@ -71,8 +72,8 @@ class TestPreviewSchemas:
             ModifyRequest(instruction="")
 
     def test_modify_response(self):
-        resp = ModifyResponse(modify_task_id="m1", status="completed")
-        assert resp.status == "completed"
+        resp = ModifyResponse(modify_task_id="m1", status=TaskStatus.COMPLETED)
+        assert resp.status == TaskStatus.COMPLETED
 
     def test_export_request_defaults(self):
         req = ExportRequest()

@@ -19,6 +19,12 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
 from schemas.generation import TaskStatus
+from services.platform.recovery_constants import (
+    RecoveryErrorCode,
+    RecoveryEventType,
+    RecoveryStateReason,
+)
+from services.platform.state_transition_guard import GenerationState
 
 logger = logging.getLogger(__name__)
 
@@ -107,13 +113,16 @@ class TaskRecoveryService:
                 session = await self._db.generationsession.find_unique(
                     where={"id": task.sessionId}
                 )
-                if session and session.state not in ("SUCCESS", "FAILED"):
+                if session and session.state not in (
+                    GenerationState.SUCCESS.value,
+                    GenerationState.FAILED.value,
+                ):
                     await self._db.generationsession.update(
                         where={"id": task.sessionId},
                         data={
-                            "state": "FAILED",
+                            "state": GenerationState.FAILED.value,
                             "resumable": True,
-                            "errorCode": "WORKER_INTERRUPTED",
+                            "errorCode": RecoveryErrorCode.WORKER_INTERRUPTED.value,
                             "errorMessage": "执行进程中断，可通过恢复继续。",
                             "errorRetryable": True,
                         },
@@ -123,12 +132,17 @@ class TaskRecoveryService:
                     await self._db.sessionevent.create(
                         data={
                             "sessionId": task.sessionId,
-                            "eventType": "task.failed",
-                            "state": "FAILED",
-                            "stateReason": "worker_interrupted",
+                            "eventType": RecoveryEventType.TASK_FAILED.value,
+                            "state": GenerationState.FAILED.value,
+                            "stateReason": RecoveryStateReason.WORKER_INTERRUPTED.value,
                             "cursor": cursor,
                             "payload": json.dumps(
-                                {"reason": "WORKER_INTERRUPTED", "retryable": True}
+                                {
+                                    "reason": (
+                                        RecoveryErrorCode.WORKER_INTERRUPTED.value
+                                    ),
+                                    "retryable": True,
+                                }
                             ),
                             "schemaVersion": 1,
                         }

@@ -3,22 +3,23 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from schemas.generation import TaskStatus
 from services.platform.state_transition_guard import GenerationState
 
 
 def _state_to_legacy_status(state: str) -> str:
     mapping = {
-        GenerationState.IDLE.value: "pending",
-        GenerationState.CONFIGURING.value: "pending",
-        GenerationState.ANALYZING.value: "processing",
-        GenerationState.DRAFTING_OUTLINE.value: "processing",
-        GenerationState.AWAITING_OUTLINE_CONFIRM.value: "processing",
-        GenerationState.GENERATING_CONTENT.value: "processing",
-        GenerationState.RENDERING.value: "processing",
-        GenerationState.SUCCESS.value: "completed",
-        GenerationState.FAILED.value: "failed",
+        GenerationState.IDLE.value: TaskStatus.PENDING.value,
+        GenerationState.CONFIGURING.value: TaskStatus.PENDING.value,
+        GenerationState.ANALYZING.value: TaskStatus.PROCESSING.value,
+        GenerationState.DRAFTING_OUTLINE.value: TaskStatus.PROCESSING.value,
+        GenerationState.AWAITING_OUTLINE_CONFIRM.value: TaskStatus.PROCESSING.value,
+        GenerationState.GENERATING_CONTENT.value: TaskStatus.PROCESSING.value,
+        GenerationState.RENDERING.value: TaskStatus.PROCESSING.value,
+        GenerationState.SUCCESS.value: TaskStatus.COMPLETED.value,
+        GenerationState.FAILED.value: TaskStatus.FAILED.value,
     }
-    return mapping.get(state, "pending")
+    return mapping.get(state, TaskStatus.PENDING.value)
 
 
 def _to_session_ref(
