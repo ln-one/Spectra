@@ -4,12 +4,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from schemas import ProjectUpdate
-from services.database import db_service
-from services.project_api_service import (
+from services.application.project_api import (
     get_owned_project,
     get_project_files_response,
     update_project_response,
 )
+from services.database import db_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException
 from utils.responses import success_response

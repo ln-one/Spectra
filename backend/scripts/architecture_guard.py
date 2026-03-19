@@ -48,8 +48,6 @@ EXPLICIT_IMPORT_ALLOWLIST = {
 
 TOP_LEVEL_SERVICE_ALLOWLIST = {
     BACKEND_ROOT / "services" / "auth_service.py",
-    BACKEND_ROOT / "services" / "file_management_service.py",
-    BACKEND_ROOT / "services" / "project_api_service.py",
 }
 
 

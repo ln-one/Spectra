@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from services.file_management_service import (
+from services.application.file_management import (
     batch_delete_files_response,
     delete_file_response,
     update_file_intent_response,

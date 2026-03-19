@@ -15,7 +15,7 @@ FastAPI 后端，当前已经从“单文件偏大、根目录平铺”演进到
 
 ### application
 - `file_upload_service/`
-- `project_api_service.py`
+- `application/project_api.py`
 - `rag_api_service/`
 - `project_space_service/`
 
@@ -40,7 +40,7 @@ FastAPI 后端，当前已经从“单文件偏大、根目录平铺”演进到
 - `database/`
 - `task_queue/`
 - `auth_service.py`
-- `file_management_service.py`
+- `application/file_management.py`
 
 ## 常用命令
 

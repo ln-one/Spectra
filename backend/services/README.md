@@ -9,7 +9,7 @@
 面向接口/用例编排：
 
 - `file_upload_service/`
-- `project_api_service.py`
+- `application/project_api.py`
 - `rag_api_service/`
 - `project_space_service/`
 
@@ -45,7 +45,7 @@
 - `database/`
 - `task_queue/`
 - `auth_service.py`
-- `file_management_service.py`
+- `application/file_management.py`
 
 ## 新增代码建议
 
