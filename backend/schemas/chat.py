@@ -1,11 +1,17 @@
 """Chat schema models aligned with OpenAPI contract."""
 
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
 from schemas.common import SourceType, normalize_source_type
+
+
+class ChatRouteTask(str, Enum):
+    CHAT_RESPONSE = "chat_response"
+    SPEECH_RECOGNITION = "speech_recognition"
 
 
 class SourceReference(BaseModel):

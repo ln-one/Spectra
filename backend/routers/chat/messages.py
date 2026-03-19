@@ -6,7 +6,7 @@ from fastapi import Depends, Header, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from schemas.chat import SendMessageRequest
+from schemas.chat import ChatRouteTask, SendMessageRequest
 from services.ai import ai_service
 from services.ai.model_router import ModelRouteTask
 from services.database import db_service
@@ -21,6 +21,7 @@ from .shared import (
     PROMPT_TEMPLATE_VERSION,
     align_citations_with_content,
     append_citation_markers,
+    build_observability_metadata,
     logger,
     normalize_markdown_paragraphs,
     prompt_hash,
@@ -161,22 +162,21 @@ async def send_message(
         assistant_content = append_citation_markers(assistant_content, citations)
         citations = align_citations_with_content(assistant_content, citations)
 
-        observability_metadata = {
-            "request_id": request_id,
-            "prompt_template_version": PROMPT_TEMPLATE_VERSION,
-            "few_shot_version": FEW_SHOT_VERSION,
-            "route_task": ModelRouteTask.CHAT_RESPONSE.value,
-            "selected_model": selected_model,
-            "provider_model": provider_model,
-            "has_rag_context": rag_hit,
-            "prompt_hash": prompt_digest,
-            "response_hash": assistant_digest,
-            "mechanical_pattern_hit": mechanical_pattern_hit,
-            "fallback_triggered": fallback_triggered,
-            "latency_ms": latency_ms,
-        }
-        if route_info:
-            observability_metadata["route_decision"] = route_info
+        observability_metadata = build_observability_metadata(
+            request_id=request_id,
+            route_task=ChatRouteTask.CHAT_RESPONSE,
+            selected_model=selected_model,
+            provider_model=provider_model,
+            has_rag_context=rag_hit,
+            prompt_digest=prompt_digest,
+            response_digest=assistant_digest,
+            mechanical_pattern_hit=mechanical_pattern_hit,
+            fallback_triggered=fallback_triggered,
+            latency_ms=latency_ms,
+            route_decision=route_info,
+        )
+        observability_metadata["prompt_template_version"] = PROMPT_TEMPLATE_VERSION
+        observability_metadata["few_shot_version"] = FEW_SHOT_VERSION
 
         full_metadata = {
             "citations": citations,

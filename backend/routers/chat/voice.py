@@ -6,12 +6,14 @@ from uuid import UUID, uuid4
 from fastapi import Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.encoders import jsonable_encoder
 
+from schemas.chat import ChatRouteTask
 from services.database import db_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException
 from utils.responses import success_response
 
 from .shared import (
+    build_observability_metadata,
     dump_capability_status,
     logger,
     router,
@@ -68,16 +70,16 @@ async def voice_message(
                 or "语音识别暂不可用，请改用文本输入或稍后重试。"
             )
 
-        observability_metadata = {
-            "request_id": str(uuid4()),
-            "route_task": "speech_recognition",
-            "selected_model": capability_status_payload.get("provider", "unknown"),
-            "has_rag_context": False,
-            "fallback_triggered": bool(
+        observability_metadata = build_observability_metadata(
+            request_id=str(uuid4()),
+            route_task=ChatRouteTask.SPEECH_RECOGNITION,
+            selected_model=capability_status_payload.get("provider", "unknown"),
+            has_rag_context=False,
+            fallback_triggered=bool(
                 capability_status_payload.get("fallback_used", False)
             ),
-            "latency_ms": latency_ms,
-        }
+            latency_ms=latency_ms,
+        )
 
         await db_service.create_conversation_message(
             project_id=project_id,
