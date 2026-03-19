@@ -709,3 +709,53 @@ async def test_execute_studio_card_rejects_protocol_pending_card(app, _as_user):
     assert response.status_code == 409
     payload = response.json()
     assert payload["detail"]["code"] == "RESOURCE_CONFLICT"
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_sources_returns_matching_artifacts(app, _as_user):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-ppt-001",
+        type="pptx",
+        metadata={"title": "牛顿定律课件"},
+        visibility="project-visible",
+        basedOnVersionId="v-001",
+        sessionId="s-001",
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_project_artifacts",
+            AsyncMock(return_value=[artifact]),
+        ) as get_project_artifacts_mock,
+    ):
+        response = client.get(
+            "/api/v1/generate/studio-cards/speaker_notes/sources?project_id=p-001"
+        )
+
+    assert response.status_code == 200
+    sources = response.json()["data"]["sources"]
+    assert sources[0]["id"] == "a-ppt-001"
+    assert sources[0]["type"] == "pptx"
+    assert sources[0]["title"] == "牛顿定律课件"
+    get_project_artifacts_mock.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_sources_rejects_cards_without_source_binding(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/generate/studio-cards/word_document/sources?project_id=p-001"
+    )
+
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["detail"]["code"] == "RESOURCE_CONFLICT"

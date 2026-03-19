@@ -423,3 +423,40 @@ StudioCardExecutionResponse:
           $ref: '#/StudioCardExecutionResult'
     message:
       type: string
+
+StudioCardSourceArtifact:
+  type: object
+  required: [id, type]
+  properties:
+    id:
+      type: string
+    type:
+      type: string
+    title:
+      type: string
+    visibility:
+      type: string
+    based_on_version_id:
+      type: string
+    session_id:
+      type: string
+    updated_at:
+      type: string
+      format: date-time
+
+StudioCardSourceOptionsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [sources]
+      properties:
+        sources:
+          type: array
+          items:
+            $ref: '#/StudioCardSourceArtifact'
+    message:
+      type: string

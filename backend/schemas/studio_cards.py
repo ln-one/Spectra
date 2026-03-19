@@ -155,3 +155,19 @@ class StudioCardExecutionResponse(BaseModel):
     success: bool = True
     data: dict
     message: str = "Studio 卡片执行成功"
+
+
+class StudioCardSourceArtifact(BaseModel):
+    id: str
+    type: str
+    title: Optional[str] = None
+    visibility: Optional[str] = None
+    based_on_version_id: Optional[str] = None
+    session_id: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class StudioCardSourceOptionsResponse(BaseModel):
+    success: bool = True
+    data: dict
+    message: str = "Studio 卡片源成果获取成功"

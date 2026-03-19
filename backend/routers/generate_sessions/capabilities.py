@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from routers.generate_sessions.shared import (
     CONTRACT_VERSION,
@@ -20,12 +20,18 @@ from services.generation_session_service.card_execution_preview import (
 from services.generation_session_service.card_execution_runtime import (
     execute_studio_card_initial_request,
 )
+from services.generation_session_service.card_source_bindings import (
+    get_card_source_artifact_types,
+    get_card_source_permission,
+    serialize_card_source_artifact,
+)
 from services.platform.state_transition_guard import (
     VALID_COMMANDS,
     VALID_STATES,
     GenerationState,
     state_transition_guard,
 )
+from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ErrorCode, NotFoundException
 from utils.responses import success_response
@@ -148,6 +154,49 @@ async def execute_studio_card(
     return success_response(
         data={"execution_result": result.model_dump(mode="json")},
         message="Studio 卡片执行成功",
+    )
+
+
+@router.get("/studio-cards/{card_id}/sources")
+async def get_studio_card_sources(
+    card_id: str,
+    project_id: str = Query(..., description="项目 ID"),
+    user_id: str = Depends(get_current_user),
+):
+    """返回 Studio 卡片当前可绑定的源成果列表。"""
+    artifact_types = get_card_source_artifact_types(card_id)
+    if not artifact_types:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="该 Studio 卡片当前不需要单独绑定源成果",
+        )
+
+    await project_space_service.check_project_permission(
+        project_id, user_id, get_card_source_permission(card_id)
+    )
+
+    sources = []
+    for artifact_type in artifact_types:
+        sources.extend(
+            await project_space_service.get_project_artifacts(
+                project_id,
+                type_filter=artifact_type,
+            )
+        )
+
+    sources.sort(
+        key=lambda artifact: getattr(artifact, "updatedAt", None) or "",
+        reverse=True,
+    )
+
+    return success_response(
+        data={
+            "sources": [
+                serialize_card_source_artifact(artifact) for artifact in sources
+            ]
+        },
+        message="Studio 卡片源成果获取成功",
     )
 
 

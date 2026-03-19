@@ -360,3 +360,37 @@
         $ref: '../components/responses.yaml#/NotFound'
       '409':
         $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/generate/studio-cards/{card_id}/sources:
+  get:
+    summary: 获取 Studio 卡片可绑定源成果
+    operationId: getGenerateStudioCardSources
+    description: 返回当前卡片可选的源成果列表，优先用于 source-artifact 驱动的组合型卡片。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: project_id
+        in: query
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardSourceOptionsResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'

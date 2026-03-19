@@ -17,6 +17,8 @@
   - 根据卡片配置返回可直接调用的后端请求预览
 - `POST /api/v1/generate/studio-cards/{card_id}/execute`
   - 对 `foundation_ready` 卡片直接执行初始动作并返回实际落地结果
+- `GET /api/v1/generate/studio-cards/{card_id}/sources`
+  - 返回当前卡片可绑定的源成果列表
 
 ## 2. 卡片目录字段
 
@@ -226,3 +228,23 @@
 - quiz / mindmap / animation 卡片 -> artifact
 
 而 `speaker_notes / interactive_games / classroom_qa_simulator` 仍保持诚实的 `protocol_pending`，不会假装已经完成。
+
+## 9. 源成果绑定
+
+`sources` 用来让前端不再自己推断“哪些 artifact 可以拿来作为这张卡片的输入”。
+
+当前已经支持：
+
+- `speaker_notes` -> `pptx`
+
+返回结果会尽量给出：
+
+- `id`
+- `type`
+- `title`
+- `visibility`
+- `based_on_version_id`
+- `session_id`
+- `updated_at`
+
+这意味着组合型卡片虽然还没有完全 ready，但它们的 source-binding 已经开始拥有正式协议，而不是继续依赖前端猜测或硬编码。
