@@ -119,6 +119,33 @@ def test_create_project_with_project_space_fields_success(
     assert body["data"]["project"]["isReferenceable"] is True
 
 
+def test_create_project_rejects_invalid_reference_mode(client, _as_user):
+    resp = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Project With Base",
+            "description": "desc",
+            "base_project_id": "base-001",
+            "reference_mode": "snapshot",
+        },
+    )
+
+    assert resp.status_code == 400
+
+
+def test_update_project_rejects_invalid_visibility(client, _as_user):
+    resp = client.put(
+        f"/api/v1/projects/{_PROJECT_ID}",
+        json={
+            "name": "Updated",
+            "description": "new desc",
+            "visibility": "public",
+        },
+    )
+
+    assert resp.status_code == 400
+
+
 def test_update_project_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     _mock(monkeypatch, db_service, "get_idempotency_response", None)

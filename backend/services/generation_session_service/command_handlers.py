@@ -4,6 +4,7 @@ import json
 from typing import Awaitable, Callable, Optional
 
 from services.generation_session_service.capability_helpers import _normalize_task_type
+from services.platform.state_transition_guard import GenerationCommandType
 
 
 async def dispatch_command(
@@ -18,7 +19,7 @@ async def dispatch_command(
     """Execute command-specific persistence and event updates."""
     command_type = command.get("command_type")
 
-    if command_type == "UPDATE_OUTLINE":
+    if command_type == GenerationCommandType.UPDATE_OUTLINE.value:
         await handle_update_outline(
             db=db,
             session=session,
@@ -28,7 +29,7 @@ async def dispatch_command(
             conflict_error_cls=conflict_error_cls,
         )
         return None
-    if command_type == "REDRAFT_OUTLINE":
+    if command_type == GenerationCommandType.REDRAFT_OUTLINE.value:
         await handle_redraft_outline(
             db=db,
             session=session,
@@ -38,7 +39,7 @@ async def dispatch_command(
             conflict_error_cls=conflict_error_cls,
         )
         return None
-    if command_type == "CONFIRM_OUTLINE":
+    if command_type == GenerationCommandType.CONFIRM_OUTLINE.value:
         return await handle_confirm_outline(
             db=db,
             session=session,
@@ -47,7 +48,7 @@ async def dispatch_command(
             append_event=append_event,
             conflict_error_cls=conflict_error_cls,
         )
-    if command_type == "REGENERATE_SLIDE":
+    if command_type == GenerationCommandType.REGENERATE_SLIDE.value:
         await handle_regenerate_slide(
             db=db,
             session=session,
@@ -57,7 +58,7 @@ async def dispatch_command(
             conflict_error_cls=conflict_error_cls,
         )
         return None
-    if command_type == "RESUME_SESSION":
+    if command_type == GenerationCommandType.RESUME_SESSION.value:
         await handle_resume_session(
             db=db,
             session=session,

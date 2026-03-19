@@ -21,6 +21,7 @@
 - [开发指南](./guides/README.md)
 - [工程规范](./standards/README.md)
 - [冻结期重构 TODO](./freeze-refactor-todo.md)
+- [剩余工作战役清单](./remaining-work-battle-plan.md)
 - [冗余审计报告](./redundancy-audit.md)
 - [Legacy Surface Map](./legacy-surface-map.md)
 - [Legacy Interface Retirement Plan](./legacy-interface-retirement-plan.md)

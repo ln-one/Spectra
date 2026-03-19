@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TemplateStyle(str, Enum):
@@ -39,19 +39,12 @@ class GenerateRequest(BaseModel):
     type: GenerationType = Field(GenerationType.BOTH, description="生成类型")
     template_config: Optional[TemplateConfig] = Field(None, description="模板配置")
 
-    @validator("project_id")
-    def validate_project_id(cls, v):
+    @field_validator("project_id")
+    @classmethod
+    def validate_project_id(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("project_id cannot be empty")
         return v
-
-
-class GenerateResponse(BaseModel):
-    """课件生成响应"""
-
-    task_id: str = Field(..., description="任务 ID")
-    status: str = Field("pending", description="任务状态")
-    message: str = Field("Generation task created", description="响应消息")
 
 
 class TaskStatus(str, Enum):
@@ -63,8 +56,18 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
 
 
+class GenerateResponse(BaseModel):
+    """课件生成响应"""
+
+    task_id: str = Field(..., description="任务 ID")
+    status: TaskStatus = Field(TaskStatus.PENDING, description="任务状态")
+    message: str = Field("Generation task created", description="响应消息")
+
+
 class GenerateStatusResponse(BaseModel):
     """任务状态查询响应"""
+
+    model_config = ConfigDict(from_attributes=True)
 
     task_id: str = Field(..., description="任务 ID")
     status: TaskStatus = Field(..., description="任务状态")
@@ -73,9 +76,6 @@ class GenerateStatusResponse(BaseModel):
     error: Optional[str] = Field(None, description="错误信息")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="更新时间")
-
-    class Config:
-        from_attributes = True
 
 
 class CoursewareContent(BaseModel):
@@ -92,16 +92,18 @@ class CoursewareContent(BaseModel):
     )
     lesson_plan_markdown: str = Field(..., description="教案的 Markdown 内容")
 
-    @validator("title")
-    def validate_title(cls, v):
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: str) -> str:
         if len(v) > 200:
             raise ValueError("Title too long (max 200 characters)")
         if not v.strip():
             raise ValueError("Title cannot be empty")
         return v
 
-    @validator("markdown_content", "lesson_plan_markdown")
-    def validate_markdown(cls, v):
+    @field_validator("markdown_content", "lesson_plan_markdown")
+    @classmethod
+    def validate_markdown(cls, v: str) -> str:
         if len(v) > 1_000_000:  # 1MB 限制
             raise ValueError("Markdown content too large (max 1MB)")
         # 检查潜在的注入攻击（不区分大小写）
@@ -128,8 +130,9 @@ class ModifyRequest(BaseModel):
         None, description="目标幻灯片页码（可选）"
     )
 
-    @validator("instruction")
-    def validate_instruction(cls, v):
+    @field_validator("instruction")
+    @classmethod
+    def validate_instruction(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("Instruction cannot be empty")
         if len(v) > 1000:

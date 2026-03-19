@@ -7,14 +7,15 @@ import logging
 import time
 
 from .common import sync_session_terminal_state
+from .constants import TaskExecutionErrorCode, TaskFailureStateReason
 
 logger = logging.getLogger(__name__)
 
 
 def _classify_generation_error(exc) -> tuple[str, str]:
     if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
-        return "TASK_EXECUTION_TIMEOUT", "生成任务执行超时"
-    return "TASK_EXECUTION_FAILED", f"{type(exc).__name__}: {str(exc)}"
+        return TaskExecutionErrorCode.TIMEOUT.value, "生成任务执行超时"
+    return TaskExecutionErrorCode.FAILED.value, f"{type(exc).__name__}: {str(exc)}"
 
 
 async def get_retries_left(task_id: str) -> int:
@@ -67,9 +68,9 @@ async def handle_retryable_error(db_service, context, exc) -> None:
             session_id=context.session_id,
             state="FAILED",
             state_reason=(
-                "task_failed_timeout_retry_exhausted"
-                if error_code == "TASK_EXECUTION_TIMEOUT"
-                else "task_failed_retry_exhausted"
+                TaskFailureStateReason.FAILED_TIMEOUT_RETRY_EXHAUSTED.value
+                if error_code == TaskExecutionErrorCode.TIMEOUT.value
+                else TaskFailureStateReason.FAILED_RETRY_EXHAUSTED.value
             ),
             error_message=error_msg,
             error_code=error_code,
@@ -114,9 +115,9 @@ async def handle_permanent_error(db_service, context, exc) -> None:
             session_id=context.session_id,
             state="FAILED",
             state_reason=(
-                "task_failed_timeout"
-                if error_code == "TASK_EXECUTION_TIMEOUT"
-                else "task_failed_permanent_error"
+                TaskFailureStateReason.FAILED_TIMEOUT.value
+                if error_code == TaskExecutionErrorCode.TIMEOUT.value
+                else TaskFailureStateReason.FAILED_PERMANENT_ERROR.value
             ),
             error_message=error_msg,
             error_code=error_code,
@@ -169,9 +170,9 @@ async def handle_unknown_error(db_service, context, exc) -> None:
             session_id=context.session_id,
             state="FAILED",
             state_reason=(
-                "task_failed_timeout_unknown"
-                if error_code == "TASK_EXECUTION_TIMEOUT"
-                else "task_failed_unknown_error"
+                TaskFailureStateReason.FAILED_TIMEOUT_UNKNOWN.value
+                if error_code == TaskExecutionErrorCode.TIMEOUT.value
+                else TaskFailureStateReason.FAILED_UNKNOWN_ERROR.value
             ),
             error_message=error_msg,
             error_code=error_code,

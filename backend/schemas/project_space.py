@@ -46,6 +46,32 @@ class ChangeType(str, Enum):
     IMPORT = "import"
 
 
+class ReferenceRelationType(str, Enum):
+    BASE = "base"
+    AUXILIARY = "auxiliary"
+
+
+class ReferenceMode(str, Enum):
+    FOLLOW = "follow"
+    PINNED = "pinned"
+
+
+class ReferenceStatus(str, Enum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+
+
+class CandidateChangeStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+class CandidateChangeReviewAction(str, Enum):
+    ACCEPT = "accept"
+    REJECT = "reject"
+
+
 class ProjectVersion(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -128,8 +154,8 @@ class ArtifactsResponse(BaseModel):
 
 class ProjectReferenceBase(BaseModel):
     target_project_id: str
-    relation_type: str
-    mode: str
+    relation_type: ReferenceRelationType
+    mode: ReferenceMode
     pinned_version_id: Optional[str] = None
     priority: int = Field(default=0)
 
@@ -139,10 +165,10 @@ class ProjectReferenceCreate(ProjectReferenceBase):
 
 
 class ProjectReferenceUpdate(BaseModel):
-    mode: Optional[str] = None
+    mode: Optional[ReferenceMode] = None
     pinned_version_id: Optional[str] = None
     priority: Optional[int] = None
-    status: Optional[str] = None
+    status: Optional[ReferenceStatus] = None
 
 
 class ProjectReference(ProjectReferenceBase):
@@ -150,7 +176,7 @@ class ProjectReference(ProjectReferenceBase):
 
     id: str
     project_id: str
-    status: str = "active"
+    status: ReferenceStatus = ReferenceStatus.ACTIVE
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -195,7 +221,7 @@ class CandidateChangeCreate(CandidateChangeBase):
 
 
 class CandidateChangeReview(BaseModel):
-    action: str
+    action: CandidateChangeReviewAction
     review_comment: Optional[str] = None
 
 
@@ -204,7 +230,7 @@ class CandidateChange(CandidateChangeBase):
 
     id: str
     project_id: str
-    status: str = "pending"
+    status: CandidateChangeStatus = CandidateChangeStatus.PENDING
     review_comment: Optional[str] = None
     accepted_version_id: Optional[str] = None
     proposer_user_id: Optional[str] = None

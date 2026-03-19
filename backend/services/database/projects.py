@@ -1,6 +1,6 @@
 from typing import Optional
 
-from schemas.projects import ProjectCreate
+from schemas.projects import ProjectCreate, ProjectReferenceMode
 from utils.exceptions import APIException, NotFoundException, ValidationException
 
 
@@ -29,14 +29,15 @@ class ProjectMixin:
                         message=f"基底项目不存在: {base_project_id}"
                     )
 
-                reference_mode = getattr(project_data, "reference_mode", "follow")
-                if reference_mode not in {"follow", "pinned"}:
-                    raise ValidationException(
-                        message="reference_mode 仅支持 follow 或 pinned"
-                    )
+                reference_mode = getattr(
+                    project_data,
+                    "reference_mode",
+                    ProjectReferenceMode.FOLLOW,
+                )
+                reference_mode_value = getattr(reference_mode, "value", reference_mode)
 
                 pinned_version_id = None
-                if reference_mode == "pinned":
+                if reference_mode_value == ProjectReferenceMode.PINNED.value:
                     pinned_version_id = getattr(base_project, "currentVersionId", None)
                     if not pinned_version_id:
                         raise ValidationException(
@@ -50,7 +51,7 @@ class ProjectMixin:
                     project_id=project.id,
                     target_project_id=base_project_id,
                     relation_type="base",
-                    mode=reference_mode,
+                    mode=reference_mode_value,
                     pinned_version_id=pinned_version_id,
                     priority=0,
                     created_by=user_id,

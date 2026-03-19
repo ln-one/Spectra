@@ -14,6 +14,8 @@ class SourceType(str, Enum):
     """来源类型"""
 
     VIDEO = "video"
+    AUDIO = "audio"
+    WEB = "web"
     DOCUMENT = "document"
     AI_GENERATED = "ai_generated"
 
@@ -24,8 +26,8 @@ class SourceReference(BaseModel):
     chunk_id: str
     source_type: SourceType = SourceType.AI_GENERATED
     filename: str = ""
-    page_number: Optional[int] = None
-    timestamp: Optional[str] = None
+    page_number: Optional[int] = Field(None, ge=1)
+    timestamp: Optional[float] = Field(None, ge=0)
     preview_text: Optional[str] = None
 
 

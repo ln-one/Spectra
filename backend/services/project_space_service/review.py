@@ -4,6 +4,11 @@ import json
 import logging
 from typing import Optional
 
+from schemas.project_space import (
+    CandidateChangeReviewAction,
+    CandidateChangeStatus,
+    ChangeType,
+)
 from utils.exceptions import ConflictException, NotFoundException, ValidationException
 
 logger = logging.getLogger(__name__)
@@ -13,7 +18,7 @@ async def review_candidate_change(
     db,
     project_id: str,
     change_id: str,
-    action: str,
+    action: CandidateChangeReviewAction | str,
     review_comment: Optional[str],
     reviewer_user_id: str,
 ):
@@ -25,10 +30,17 @@ async def review_candidate_change(
         raise NotFoundException(
             f"Candidate change {change_id} not found in project {project_id}"
         )
-    if change.status != "pending":
+    if change.status != CandidateChangeStatus.PENDING:
         raise ConflictException(f"Status conflict: {change.status}")
 
-    if action == "accept":
+    try:
+        normalized_action = CandidateChangeReviewAction(action)
+    except ValueError as exc:
+        raise ValidationException(
+            f"Invalid action: {action}. Only accept/reject are supported."
+        ) from exc
+
+    if normalized_action == CandidateChangeReviewAction.ACCEPT:
         project = await db.get_project(change.projectId)
         if not project:
             raise NotFoundException(f"Project not found: {change.projectId}")
@@ -53,14 +65,14 @@ async def review_candidate_change(
             project_id=change.projectId,
             parent_version_id=change.baseVersionId,
             summary=change.summary or change.title,
-            change_type="merge-change",
+            change_type=ChangeType.MERGE_CHANGE,
             snapshot_data=payload,
             created_by=reviewer_user_id,
         )
         await db.update_project_current_version(change.projectId, new_version.id)
         review_payload = dict(payload)
         review_payload["review"] = {
-            "action": "accept",
+            "action": CandidateChangeReviewAction.ACCEPT,
             "accepted_version_id": new_version.id,
             "reviewer_user_id": reviewer_user_id,
         }
@@ -68,7 +80,7 @@ async def review_candidate_change(
             review_payload["review"]["review_comment"] = review_comment
         updated_change = await db.update_candidate_change_status(
             change_id,
-            "accepted",
+            CandidateChangeStatus.ACCEPTED,
             review_comment,
             payload=review_payload,
         )
@@ -77,9 +89,9 @@ async def review_candidate_change(
         )
         return updated_change
 
-    if action == "reject":
+    if normalized_action == CandidateChangeReviewAction.REJECT:
         updated_change = await db.update_candidate_change_status(
-            change_id, "rejected", review_comment
+            change_id, CandidateChangeStatus.REJECTED, review_comment
         )
         logger.info(f"Rejected candidate change {change_id}")
         return updated_change

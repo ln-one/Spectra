@@ -59,6 +59,10 @@
   - 稳定性与可观测性补强
   - PostgreSQL / Docker / 多机部署前置准备
 
+当前剩余工作的战役拆分可参考：
+
+- `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`
+
 ---
 
 ## 冻结前原则

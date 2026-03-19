@@ -5,9 +5,20 @@ Request and response models for project endpoints.
 """
 
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class ProjectVisibility(str, Enum):
+    PRIVATE = "private"
+    SHARED = "shared"
+
+
+class ProjectReferenceMode(str, Enum):
+    FOLLOW = "follow"
+    PINNED = "pinned"
 
 
 class ProjectBase(BaseModel):
@@ -23,8 +34,10 @@ class ProjectCreate(ProjectBase):
 
     # Project Space 扩展字段
     base_project_id: Optional[str] = None  # 基底项目ID，创建时自动建立base引用
-    reference_mode: Optional[str] = Field(default="follow")  # follow/pinned，默认follow
-    visibility: Optional[str] = Field(default="private")  # private/shared
+    reference_mode: Optional[ProjectReferenceMode] = Field(
+        default=ProjectReferenceMode.FOLLOW
+    )
+    visibility: Optional[ProjectVisibility] = Field(default=ProjectVisibility.PRIVATE)
     is_referenceable: Optional[bool] = Field(default=False)  # 是否可被引用
 
 
@@ -36,7 +49,7 @@ class ProjectUpdate(BaseModel):
     grade_level: Optional[str] = None
 
     # Project Space 扩展字段
-    visibility: Optional[str] = None  # private/shared
+    visibility: Optional[ProjectVisibility] = None  # private/shared
     is_referenceable: Optional[bool] = None  # 是否可被引用
 
 
@@ -49,7 +62,9 @@ class Project(ProjectBase):
     status: Optional[str] = None
 
     # Project Space 扩展字段
-    visibility: Optional[str] = Field(default="private", alias="visibility")
+    visibility: Optional[ProjectVisibility] = Field(
+        default=ProjectVisibility.PRIVATE, alias="visibility"
+    )
     is_referenceable: Optional[bool] = Field(default=False, alias="isReferenceable")
     current_version_id: Optional[str] = Field(None, alias="currentVersionId")
 

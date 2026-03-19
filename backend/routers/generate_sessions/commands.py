@@ -19,6 +19,7 @@ from routers.generate_sessions.shared import (
     validate_positive_int,
 )
 from services.generation_session_service import ConflictError
+from services.platform.state_transition_guard import GenerationCommandType
 from utils.dependencies import get_current_user
 from utils.exceptions import (
     APIException,
@@ -131,7 +132,7 @@ async def confirm_outline(
     parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
     parsed_idempotency_key = parse_idempotency_key(idempotency_key)
     generation_command = {
-        "command_type": "CONFIRM_OUTLINE",
+        "command_type": GenerationCommandType.CONFIRM_OUTLINE.value,
         "continue_from_retrieval": body.get("continue_from_retrieval", True),
         "expected_state": body.get("expected_state"),
     }
@@ -197,7 +198,7 @@ async def redraft_outline(
             session_id=session_id,
             user_id=user_id,
             command={
-                "command_type": "REDRAFT_OUTLINE",
+                "command_type": GenerationCommandType.REDRAFT_OUTLINE.value,
                 "instruction": instruction,
                 "base_version": base_version,
             },
@@ -229,7 +230,7 @@ async def resume_session(
             session_id=session_id,
             user_id=user_id,
             command={
-                "command_type": "RESUME_SESSION",
+                "command_type": GenerationCommandType.RESUME_SESSION.value,
                 "cursor": body.get("cursor"),
                 "last_known_state": body.get("last_known_state"),
             },
@@ -274,7 +275,7 @@ async def regenerate_slide(
             session_id=session_id,
             user_id=user_id,
             command={
-                "command_type": "REGENERATE_SLIDE",
+                "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
                 "slide_id": slide_id,
                 "patch": patch,
                 "expected_render_version": body.get("expected_render_version"),

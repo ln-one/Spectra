@@ -443,6 +443,31 @@ def test_delete_reference_returns_simple_success(client, monkeypatch, _as_user):
     )
 
 
+def test_create_reference_rejects_invalid_mode_at_schema_layer(client, _as_user):
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/references",
+        json={
+            "target_project_id": "p-target-001",
+            "relation_type": "auxiliary",
+            "mode": "snapshot",
+            "priority": 0,
+        },
+    )
+
+    assert resp.status_code == 400
+
+
+def test_review_candidate_change_rejects_invalid_action_at_schema_layer(
+    client, _as_user
+):
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/candidate-changes/c-001/review",
+        json={"action": "reopen"},
+    )
+
+    assert resp.status_code == 400
+
+
 def test_create_project_member_idempotency_hit_returns_cached(
     client, monkeypatch, _as_user
 ):

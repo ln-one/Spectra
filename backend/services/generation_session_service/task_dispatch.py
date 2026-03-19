@@ -4,6 +4,11 @@ import asyncio
 import logging
 from typing import Awaitable, Callable, Optional
 
+from services.task_executor.constants import (
+    TaskExecutionErrorCode,
+    TaskFailureStateReason,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -140,7 +145,7 @@ async def mark_dispatch_failed(
         where={"id": session_id},
         data={
             "state": "FAILED",
-            "errorCode": "TASK_DISPATCH_FAILED",
+            "errorCode": TaskExecutionErrorCode.DISPATCH_FAILED.value,
             "errorMessage": error_message,
             "errorRetryable": True,
             "resumable": True,
@@ -150,6 +155,6 @@ async def mark_dispatch_failed(
         session_id=session_id,
         event_type="state.changed",
         state="FAILED",
-        state_reason="task_dispatch_failed",
+        state_reason=TaskFailureStateReason.DISPATCH_FAILED.value,
         payload={"task_id": task_id, "error": error_message},
     )

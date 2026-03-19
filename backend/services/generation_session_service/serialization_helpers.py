@@ -3,18 +3,20 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from services.platform.state_transition_guard import GenerationState
+
 
 def _state_to_legacy_status(state: str) -> str:
     mapping = {
-        "IDLE": "pending",
-        "CONFIGURING": "pending",
-        "ANALYZING": "processing",
-        "DRAFTING_OUTLINE": "processing",
-        "AWAITING_OUTLINE_CONFIRM": "processing",
-        "GENERATING_CONTENT": "processing",
-        "RENDERING": "processing",
-        "SUCCESS": "completed",
-        "FAILED": "failed",
+        GenerationState.IDLE.value: "pending",
+        GenerationState.CONFIGURING.value: "pending",
+        GenerationState.ANALYZING.value: "processing",
+        GenerationState.DRAFTING_OUTLINE.value: "processing",
+        GenerationState.AWAITING_OUTLINE_CONFIRM.value: "processing",
+        GenerationState.GENERATING_CONTENT.value: "processing",
+        GenerationState.RENDERING.value: "processing",
+        GenerationState.SUCCESS.value: "completed",
+        GenerationState.FAILED.value: "failed",
     }
     return mapping.get(state, "pending")
 

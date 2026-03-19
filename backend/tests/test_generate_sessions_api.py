@@ -12,6 +12,10 @@ from fastapi.testclient import TestClient
 
 from routers.generate_sessions import router as generate_sessions_router
 from services.database import db_service
+from services.generation_session_service.constants import (
+    OutlineGenerationErrorCode,
+    OutlineGenerationStateReason,
+)
 from utils.dependencies import get_current_user
 
 
@@ -204,7 +208,7 @@ async def test_sse_events_sequence_failure_path():
     assert len(failed_events) == 1
     failed_payload = json.loads(failed_events[0]["payload"])
     assert failed_payload["stage"] == "outline_draft"
-    assert failed_payload["error_code"] == "OUTLINE_GENERATION_FAILED"
+    assert failed_payload["error_code"] == OutlineGenerationErrorCode.FAILED
     assert failed_payload["retryable"] is True
     assert "trace_id" in failed_payload
     assert "error_message" in failed_payload
@@ -223,7 +227,8 @@ async def test_sse_events_sequence_failure_path():
     ]
     assert any(
         update.get("state") == "AWAITING_OUTLINE_CONFIRM"
-        and update.get("stateReason") == "outline_draft_failed_fallback_empty"
+        and update.get("stateReason")
+        == OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY
         for update in state_updates
     )
 

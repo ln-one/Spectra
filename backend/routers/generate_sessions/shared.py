@@ -7,6 +7,7 @@ from fastapi import Request, status
 
 from services.database import db_service
 from services.generation_session_service import GenerationSessionService
+from services.platform.state_transition_guard import GenerationCommandType
 from utils.exceptions import (
     APIException,
     ErrorCode,
@@ -59,9 +60,12 @@ def validate_command_payload(command: dict):
             message="command.command_type is required",
         )
 
-    if command_type in {"UPDATE_OUTLINE", "REDRAFT_OUTLINE"}:
+    if command_type in {
+        GenerationCommandType.UPDATE_OUTLINE.value,
+        GenerationCommandType.REDRAFT_OUTLINE.value,
+    }:
         validate_positive_int(command.get("base_version"), "base_version")
-    if command_type == "REGENERATE_SLIDE":
+    if command_type == GenerationCommandType.REGENERATE_SLIDE.value:
         validate_optional_positive_int(
             command.get("expected_render_version"),
             "expected_render_version",

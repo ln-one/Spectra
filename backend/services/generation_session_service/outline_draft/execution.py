@@ -6,6 +6,10 @@ import uuid
 from typing import Awaitable, Callable, Optional
 
 from services.ai import ai_service
+from services.generation_session_service.constants import (
+    OutlineGenerationErrorCode,
+    OutlineGenerationStateReason,
+)
 from services.generation_session_service.outline_helpers import (
     _build_outline_requirements,
     _courseware_outline_to_document,
@@ -17,14 +21,14 @@ logger = logging.getLogger(__name__)
 def _classify_outline_failure(exc: Exception) -> tuple[str, str, str]:
     if isinstance(exc, TimeoutError):
         return (
-            "OUTLINE_GENERATION_TIMEOUT",
+            OutlineGenerationErrorCode.TIMEOUT.value,
             "大纲生成超时，请稍后重试。",
-            "outline_draft_timed_out_fallback_empty",
+            OutlineGenerationStateReason.TIMED_OUT_FALLBACK_EMPTY.value,
         )
     return (
-        "OUTLINE_GENERATION_FAILED",
+        OutlineGenerationErrorCode.FAILED.value,
         "大纲生成失败，请稍后重试。",
-        "outline_draft_failed_fallback_empty",
+        OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY.value,
     )
 
 
@@ -155,7 +159,7 @@ async def _persist_success(*, db, session_id: str, outline_doc: dict) -> None:
         where={"id": session_id},
         data={
             "state": "AWAITING_OUTLINE_CONFIRM",
-            "stateReason": "outline_drafted_async",
+            "stateReason": OutlineGenerationStateReason.DRAFTED_ASYNC.value,
             "currentOutlineVersion": 1,
         },
     )
@@ -177,7 +181,7 @@ async def _emit_outline_success(append_event, session_id: str, trace_id: str) ->
         session_id=session_id,
         event_type="state.changed",
         state="AWAITING_OUTLINE_CONFIRM",
-        state_reason="outline_drafted_async",
+        state_reason=OutlineGenerationStateReason.DRAFTED_ASYNC.value,
         payload={"trace_id": trace_id},
     )
 

@@ -1,6 +1,13 @@
 import json
 from typing import Optional
 
+from schemas.project_space import (
+    CandidateChangeStatus,
+    ChangeType,
+    ReferenceRelationType,
+    ReferenceStatus,
+)
+
 
 class ProjectSpaceMixin:
     async def create_project_reference(
@@ -28,7 +35,7 @@ class ProjectSpaceMixin:
 
     async def get_project_references(self, project_id: str):
         return await self.db.projectreference.find_many(
-            where={"projectId": project_id, "status": "active"},
+            where={"projectId": project_id, "status": ReferenceStatus.ACTIVE},
             order={"priority": "asc"},
         )
 
@@ -59,12 +66,16 @@ class ProjectSpaceMixin:
     async def delete_project_reference(self, reference_id: str):
         return await self.db.projectreference.update(
             where={"id": reference_id},
-            data={"status": "disabled"},
+            data={"status": ReferenceStatus.DISABLED},
         )
 
     async def get_base_reference(self, project_id: str):
         return await self.db.projectreference.find_first(
-            where={"projectId": project_id, "relationType": "base", "status": "active"}
+            where={
+                "projectId": project_id,
+                "relationType": ReferenceRelationType.BASE,
+                "status": ReferenceStatus.ACTIVE,
+            }
         )
 
     async def get_project_versions(self, project_id: str):
@@ -85,7 +96,12 @@ class ProjectSpaceMixin:
         snapshot_data: Optional[dict],
         created_by: Optional[str],
     ):
-        data = {"projectId": project_id, "changeType": change_type}
+        normalized_change_type = (
+            change_type
+            if isinstance(change_type, ChangeType)
+            else ChangeType(change_type)
+        )
+        data = {"projectId": project_id, "changeType": normalized_change_type}
         if parent_version_id:
             data["parentVersionId"] = parent_version_id
         if summary:
@@ -201,11 +217,16 @@ class ProjectSpaceMixin:
     async def update_candidate_change_status(
         self,
         change_id: str,
-        status: str,
+        status: CandidateChangeStatus | str,
         review_comment: Optional[str] = None,
         payload: Optional[dict] = None,
     ):
-        data = {"status": status}
+        normalized_status = (
+            status
+            if isinstance(status, CandidateChangeStatus)
+            else CandidateChangeStatus(status)
+        )
+        data = {"status": normalized_status}
         if review_comment is not None:
             data["reviewComment"] = review_comment
         if payload is not None:
@@ -214,7 +235,7 @@ class ProjectSpaceMixin:
 
     async def get_project_members(self, project_id: str):
         return await self.db.projectmember.find_many(
-            where={"projectId": project_id, "status": "active"},
+            where={"projectId": project_id, "status": ReferenceStatus.ACTIVE},
             order={"createdAt": "asc"},
         )
 
@@ -223,7 +244,11 @@ class ProjectSpaceMixin:
 
     async def get_project_member_by_user(self, project_id: str, user_id: str):
         return await self.db.projectmember.find_first(
-            where={"projectId": project_id, "userId": user_id, "status": "active"}
+            where={
+                "projectId": project_id,
+                "userId": user_id,
+                "status": ReferenceStatus.ACTIVE,
+            }
         )
 
     async def create_project_member(

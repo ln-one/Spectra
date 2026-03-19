@@ -7,6 +7,8 @@ import threading
 import uuid
 from typing import Awaitable, Callable, Optional, TypeVar
 
+from .constants import TaskExecutionErrorCode
+
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
@@ -48,7 +50,7 @@ async def sync_session_terminal_state(
     else:
         session_data = {
             "state": "FAILED",
-            "errorCode": error_code or "TASK_EXECUTION_FAILED",
+            "errorCode": error_code or TaskExecutionErrorCode.FAILED.value,
             "errorMessage": error_message,
             "errorRetryable": retryable,
             "resumable": True,
@@ -56,7 +58,7 @@ async def sync_session_terminal_state(
         payload = {
             "task_id": task_id,
             "error": error_message,
-            "error_code": error_code or "TASK_EXECUTION_FAILED",
+            "error_code": error_code or TaskExecutionErrorCode.FAILED.value,
             "retryable": retryable,
         }
 

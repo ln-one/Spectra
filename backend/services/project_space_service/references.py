@@ -1,5 +1,6 @@
 from typing import Optional
 
+from schemas.project_space import ReferenceMode
 from utils.exceptions import NotFoundException, ValidationException
 
 
@@ -58,6 +59,9 @@ async def update_project_reference(
     if mode == "pinned" and not pinned_version_id:
         raise ValidationException("mode=pinned requires pinned_version_id")
 
+    if mode == ReferenceMode.FOLLOW.value and pinned_version_id is None:
+        pinned_version_id = None
+
     if pinned_version_id:
         version = await service.db.get_project_version(pinned_version_id)
         if not version or version.projectId != reference.targetProjectId:
@@ -65,6 +69,9 @@ async def update_project_reference(
                 f"pinned_version_id {pinned_version_id} does not belong to "
                 f"target project {reference.targetProjectId}"
             )
+
+    if mode == ReferenceMode.FOLLOW.value:
+        pinned_version_id = None
 
     return await service.db.update_project_reference(
         reference_id=reference_id,

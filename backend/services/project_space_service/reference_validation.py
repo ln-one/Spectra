@@ -2,6 +2,7 @@
 
 from typing import Optional, Set
 
+from schemas.project_space import ReferenceMode, ReferenceRelationType
 from utils.exceptions import (
     ConflictException,
     ForbiddenException,
@@ -39,6 +40,15 @@ async def validate_reference_creation(
     pinned_version_id: Optional[str],
 ):
     """Validate project reference creation rules."""
+    if relation_type not in {
+        ReferenceRelationType.BASE.value,
+        ReferenceRelationType.AUXILIARY.value,
+    }:
+        raise ValidationException("relation_type 仅支持 base 或 auxiliary")
+
+    if mode not in {ReferenceMode.FOLLOW.value, ReferenceMode.PINNED.value}:
+        raise ValidationException("mode 仅支持 follow 或 pinned")
+
     source_project = await db.get_project(project_id)
     if not source_project:
         raise NotFoundException(f"Project not found: {project_id}")

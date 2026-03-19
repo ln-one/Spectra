@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from services.task_executor.constants import TaskExecutionErrorCode
 from services.task_executor.generation_error_handling import handle_retryable_error
 
 
@@ -37,10 +38,10 @@ async def test_retryable_timeout_uses_stable_timeout_code():
         if "errorCode" in (call.kwargs.get("data") or {})
     ]
     assert len(session_updates) == 1
-    assert session_updates[0]["errorCode"] == "TASK_EXECUTION_TIMEOUT"
+    assert session_updates[0]["errorCode"] == TaskExecutionErrorCode.TIMEOUT.value
     assert session_updates[0]["errorMessage"] == "生成任务执行超时"
 
     event_payload = db_service.db.sessionevent.create.await_args.kwargs["data"][
         "payload"
     ]
-    assert "TASK_EXECUTION_TIMEOUT" in event_payload
+    assert TaskExecutionErrorCode.TIMEOUT.value in event_payload

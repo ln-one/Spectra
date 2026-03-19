@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -19,25 +20,30 @@ logger = logging.getLogger(__name__)
 # State & Command 枚举（与 OpenAPI GenerationState / GenerationCommandType 对齐）
 # ============================================================
 
-VALID_STATES = {
-    "IDLE",
-    "CONFIGURING",
-    "ANALYZING",
-    "DRAFTING_OUTLINE",
-    "AWAITING_OUTLINE_CONFIRM",
-    "GENERATING_CONTENT",
-    "RENDERING",
-    "SUCCESS",
-    "FAILED",
-}
 
-VALID_COMMANDS = {
-    "UPDATE_OUTLINE",
-    "REDRAFT_OUTLINE",
-    "CONFIRM_OUTLINE",
-    "REGENERATE_SLIDE",
-    "RESUME_SESSION",
-}
+class GenerationState(str, Enum):
+    IDLE = "IDLE"
+    CONFIGURING = "CONFIGURING"
+    ANALYZING = "ANALYZING"
+    DRAFTING_OUTLINE = "DRAFTING_OUTLINE"
+    AWAITING_OUTLINE_CONFIRM = "AWAITING_OUTLINE_CONFIRM"
+    GENERATING_CONTENT = "GENERATING_CONTENT"
+    RENDERING = "RENDERING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+
+class GenerationCommandType(str, Enum):
+    UPDATE_OUTLINE = "UPDATE_OUTLINE"
+    REDRAFT_OUTLINE = "REDRAFT_OUTLINE"
+    CONFIRM_OUTLINE = "CONFIRM_OUTLINE"
+    REGENERATE_SLIDE = "REGENERATE_SLIDE"
+    RESUME_SESSION = "RESUME_SESSION"
+
+
+VALID_STATES = {state.value for state in GenerationState}
+
+VALID_COMMANDS = {command.value for command in GenerationCommandType}
 
 # ============================================================
 # 状态转换规则表
@@ -48,39 +54,79 @@ VALID_COMMANDS = {
 # 每个命令允许从哪些状态发起 -> 转移后的新状态
 _TRANSITION_TABLE: dict[tuple[str, str], str] = {
     # UPDATE_OUTLINE：允许在等待确认或已有草稿时修改
-    ("UPDATE_OUTLINE", "AWAITING_OUTLINE_CONFIRM"): "AWAITING_OUTLINE_CONFIRM",
-    ("UPDATE_OUTLINE", "DRAFTING_OUTLINE"): "AWAITING_OUTLINE_CONFIRM",
+    (
+        GenerationCommandType.UPDATE_OUTLINE.value,
+        GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+    ): GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+    (
+        GenerationCommandType.UPDATE_OUTLINE.value,
+        GenerationState.DRAFTING_OUTLINE.value,
+    ): GenerationState.AWAITING_OUTLINE_CONFIRM.value,
     # REDRAFT_OUTLINE：AI 重写大纲
-    ("REDRAFT_OUTLINE", "AWAITING_OUTLINE_CONFIRM"): "DRAFTING_OUTLINE",
-    ("REDRAFT_OUTLINE", "DRAFTING_OUTLINE"): "DRAFTING_OUTLINE",
+    (
+        GenerationCommandType.REDRAFT_OUTLINE.value,
+        GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+    ): GenerationState.DRAFTING_OUTLINE.value,
+    (
+        GenerationCommandType.REDRAFT_OUTLINE.value,
+        GenerationState.DRAFTING_OUTLINE.value,
+    ): GenerationState.DRAFTING_OUTLINE.value,
     # CONFIRM_OUTLINE：确认大纲，触发内容生成
-    ("CONFIRM_OUTLINE", "AWAITING_OUTLINE_CONFIRM"): "GENERATING_CONTENT",
+    (
+        GenerationCommandType.CONFIRM_OUTLINE.value,
+        GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+    ): GenerationState.GENERATING_CONTENT.value,
     # REGENERATE_SLIDE：局部重绘，仅在 SUCCESS 或 RENDERING 后允许
-    ("REGENERATE_SLIDE", "SUCCESS"): "RENDERING",
-    ("REGENERATE_SLIDE", "RENDERING"): "RENDERING",
+    (
+        GenerationCommandType.REGENERATE_SLIDE.value,
+        GenerationState.SUCCESS.value,
+    ): GenerationState.RENDERING.value,
+    (
+        GenerationCommandType.REGENERATE_SLIDE.value,
+        GenerationState.RENDERING.value,
+    ): GenerationState.RENDERING.value,
     # RESUME_SESSION：从 FAILED 或任意中断态恢复
-    ("RESUME_SESSION", "FAILED"): "CONFIGURING",
-    ("RESUME_SESSION", "ANALYZING"): "ANALYZING",
-    ("RESUME_SESSION", "DRAFTING_OUTLINE"): "DRAFTING_OUTLINE",
-    ("RESUME_SESSION", "GENERATING_CONTENT"): "GENERATING_CONTENT",
-    ("RESUME_SESSION", "RENDERING"): "RENDERING",
+    (
+        GenerationCommandType.RESUME_SESSION.value,
+        GenerationState.FAILED.value,
+    ): GenerationState.CONFIGURING.value,
+    (
+        GenerationCommandType.RESUME_SESSION.value,
+        GenerationState.ANALYZING.value,
+    ): GenerationState.ANALYZING.value,
+    (
+        GenerationCommandType.RESUME_SESSION.value,
+        GenerationState.DRAFTING_OUTLINE.value,
+    ): GenerationState.DRAFTING_OUTLINE.value,
+    (
+        GenerationCommandType.RESUME_SESSION.value,
+        GenerationState.GENERATING_CONTENT.value,
+    ): GenerationState.GENERATING_CONTENT.value,
+    (
+        GenerationCommandType.RESUME_SESSION.value,
+        GenerationState.RENDERING.value,
+    ): GenerationState.RENDERING.value,
 }
 
 # 每个状态允许的下一步动作（用于 allowed_actions 响应字段）
 _ALLOWED_ACTIONS: dict[str, list[str]] = {
-    "IDLE": ["configure"],
-    "CONFIGURING": ["analyze", "cancel"],
-    "ANALYZING": ["resume_session", "cancel"],
-    "DRAFTING_OUTLINE": ["update_outline", "redraft_outline", "resume_session"],
-    "AWAITING_OUTLINE_CONFIRM": [
+    GenerationState.IDLE.value: ["configure"],
+    GenerationState.CONFIGURING.value: ["analyze", "cancel"],
+    GenerationState.ANALYZING.value: ["resume_session", "cancel"],
+    GenerationState.DRAFTING_OUTLINE.value: [
+        "update_outline",
+        "redraft_outline",
+        "resume_session",
+    ],
+    GenerationState.AWAITING_OUTLINE_CONFIRM.value: [
         "update_outline",
         "redraft_outline",
         "confirm_outline",
     ],
-    "GENERATING_CONTENT": ["resume_session", "cancel"],
-    "RENDERING": ["regenerate_slide", "resume_session"],
-    "SUCCESS": ["regenerate_slide", "export"],
-    "FAILED": ["resume_session"],
+    GenerationState.GENERATING_CONTENT.value: ["resume_session", "cancel"],
+    GenerationState.RENDERING.value: ["regenerate_slide", "resume_session"],
+    GenerationState.SUCCESS.value: ["regenerate_slide", "export"],
+    GenerationState.FAILED.value: ["resume_session"],
 }
 
 

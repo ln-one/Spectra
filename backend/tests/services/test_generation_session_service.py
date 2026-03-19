@@ -14,6 +14,10 @@ from services.generation_session_service import (
     _build_outline_requirements,
     _extract_outline_style,
 )
+from services.generation_session_service.constants import (
+    OutlineGenerationErrorCode,
+    OutlineGenerationStateReason,
+)
 from services.platform.state_transition_guard import TransitionResult
 
 
@@ -646,7 +650,7 @@ async def test_execute_outline_draft_local_failure_path():
     assert len(failed_events) == 1
     failed_payload = json.loads(failed_events[0]["payload"])
     assert failed_payload["stage"] == "outline_draft"
-    assert failed_payload["error_code"] == "OUTLINE_GENERATION_FAILED"
+    assert failed_payload["error_code"] == OutlineGenerationErrorCode.FAILED.value
     assert failed_payload["retryable"] is True
     assert "trace_id" in failed_payload
 
@@ -664,7 +668,8 @@ async def test_execute_outline_draft_local_failure_path():
     ]
     assert any(
         update.get("state") == "AWAITING_OUTLINE_CONFIRM"
-        and update.get("stateReason") == "outline_draft_failed_fallback_empty"
+        and update.get("stateReason")
+        == OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY.value
         for update in state_updates
     )
 
@@ -729,7 +734,7 @@ async def test_outline_timeout_emits_stable_timeout_reason():
     failed_events = [e for e in event_calls if e["eventType"] == "task.failed"]
     assert len(failed_events) == 1
     failed_payload = json.loads(failed_events[0]["payload"])
-    assert failed_payload["error_code"] == "OUTLINE_GENERATION_TIMEOUT"
+    assert failed_payload["error_code"] == OutlineGenerationErrorCode.TIMEOUT.value
     assert failed_payload["error_message"] == "大纲生成超时，请稍后重试。"
 
     state_updates = [
@@ -739,7 +744,8 @@ async def test_outline_timeout_emits_stable_timeout_reason():
     ]
     assert any(
         update.get("state") == "AWAITING_OUTLINE_CONFIRM"
-        and update.get("stateReason") == "outline_draft_timed_out_fallback_empty"
+        and update.get("stateReason")
+        == OutlineGenerationStateReason.TIMED_OUT_FALLBACK_EMPTY.value
         for update in state_updates
     )
 

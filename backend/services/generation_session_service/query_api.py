@@ -12,6 +12,7 @@ from services.generation_session_service.queries import (
 from services.generation_session_service.queries import (
     get_session_snapshot as query_session_snapshot,
 )
+from services.platform.state_transition_guard import GenerationCommandType
 
 if TYPE_CHECKING:
     from services.platform.state_transition_guard import StateTransitionGuard
@@ -79,7 +80,7 @@ class SessionQueryMixin:
             session_id=session_id,
             user_id=user_id,
             command={
-                "command_type": "UPDATE_OUTLINE",
+                "command_type": GenerationCommandType.UPDATE_OUTLINE.value,
                 "base_version": base_version,
                 "outline": outline_data,
                 "change_reason": change_reason,
