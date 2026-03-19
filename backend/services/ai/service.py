@@ -76,9 +76,9 @@ class AIService(CoursewareAIMixin):
                 resolved_model,
                 route_task,
             )
-            from services import ai as ai_module
+            from services.ai import acompletion
 
-            response = await ai_module.acompletion(
+            response = await acompletion(
                 model=resolved_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
@@ -114,9 +114,9 @@ class AIService(CoursewareAIMixin):
                         resolved_model,
                         fallback_resolved,
                     )
-                    from services import ai as ai_module
+                    from services.ai import acompletion
 
-                    response = await ai_module.acompletion(
+                    response = await acompletion(
                         model=fallback_resolved,
                         messages=[{"role": "user", "content": prompt}],
                         max_tokens=max_tokens,

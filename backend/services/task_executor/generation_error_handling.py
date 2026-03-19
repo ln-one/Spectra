@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 async def get_retries_left(task_id: str) -> int:
-    from services import task_executor as task_executor_module
+    from services.task_executor import get_current_job
 
     try:
-        current_job = task_executor_module.get_current_job()
+        current_job = get_current_job()
         return current_job.retries_left if current_job else 0
     except Exception as job_err:
         logger.error(
