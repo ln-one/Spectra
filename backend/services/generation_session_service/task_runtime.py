@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from importlib import import_module
 from typing import Any, Optional
 
 from services.generation_session_service.event_store import append_event
@@ -61,7 +62,7 @@ class SessionTaskRuntimeMixin:
         options: Optional[dict],
         trace_id: Optional[str] = None,
     ) -> None:
-        from services import generation_session_service as generation_session_module
+        generation_session_module = import_module("services.generation_session_service")
 
         await execute_outline_draft_local(
             db=self._db,
