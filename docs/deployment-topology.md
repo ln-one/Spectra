@@ -262,6 +262,7 @@
 
 - `python backend/scripts/docker_compose_topology_audit.py`
 - `python backend/scripts/docker_deploy_readiness_audit.py`
+- `python backend/scripts/distributed_deploy_audit.py`
 - `python backend/scripts/deployment_env_role_audit.py backend`
 - `python backend/scripts/deployment_env_role_audit.py worker`
 
