@@ -5,6 +5,7 @@ import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/stores/projectStore";
+import { useShallow } from "zustand/react/shallow";
 import { ASPECT_RATIO_OPTIONS } from "./constants";
 import type { OutlineEditorPanelProps, SlideCard } from "./types";
 
@@ -14,7 +15,14 @@ export function useOutlineEditorController({
   onPreview,
 }: OutlineEditorPanelProps) {
   const { generationSession, updateOutline, redraftOutline, confirmOutline } =
-    useProjectStore();
+    useProjectStore(
+      useShallow((state) => ({
+        generationSession: state.generationSession,
+        updateOutline: state.updateOutline,
+        redraftOutline: state.redraftOutline,
+        confirmOutline: state.confirmOutline,
+      }))
+    );
 
   const sessionId = generationSession?.session?.session_id || "";
   const initialNodes = useMemo(

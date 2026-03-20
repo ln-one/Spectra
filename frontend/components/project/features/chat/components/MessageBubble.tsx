@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useProjectStore } from "@/stores/projectStore";
+import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
 import { toCitationViewModels } from "@/lib/chat/citation-view-model";
 import type { ChatMessage } from "../types";
@@ -30,7 +31,11 @@ export function MessageBubble({
   projectId: string;
 }) {
   const isUser = message.role === "user";
-  const { focusSourceByChunk } = useProjectStore();
+  const { focusSourceByChunk } = useProjectStore(
+    useShallow((state) => ({
+      focusSourceByChunk: state.focusSourceByChunk,
+    }))
+  );
   const { body } = splitContentAndSources(message.content);
   const citations = useMemo(
     () => toCitationViewModels(message.citations),

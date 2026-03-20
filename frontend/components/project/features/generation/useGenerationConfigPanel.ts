@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { generateApi, ragApi } from "@/lib/sdk";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/stores/projectStore";
+import { useShallow } from "zustand/react/shallow";
 
 function pickRandom<T>(arr: T[], count: number): T[] {
   const copy = [...arr];
@@ -44,7 +45,14 @@ export function useGenerationConfigPanel({
   const params = useParams();
   const projectId = params.id as string;
   const { project, files, selectedFileIds, generationSession } =
-    useProjectStore();
+    useProjectStore(
+      useShallow((state) => ({
+        project: state.project,
+        files: state.files,
+        selectedFileIds: state.selectedFileIds,
+        generationSession: state.generationSession,
+      }))
+    );
 
   const [prompt, setPrompt] = useState("");
   const [pageCount, setPageCount] = useState<number>(12);

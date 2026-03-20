@@ -1,4 +1,5 @@
 import os
+import time
 from uuid import UUID, uuid4
 
 from fastapi.encoders import jsonable_encoder
@@ -63,7 +64,14 @@ async def process_chat_message(
     idempotency_key: UUID | None = None,
 ):
     try:
+        request_started = time.perf_counter()
+        stage_timings_ms: dict[str, float] = {}
+
+        stage_started = time.perf_counter()
         project = await verify_project_ownership(body.project_id, user_id)
+        stage_timings_ms["verify_project"] = round(
+            (time.perf_counter() - stage_started) * 1000, 2
+        )
         key_str = str(idempotency_key) if idempotency_key else None
         cache_key = (
             f"chat:messages:{user_id}:{body.project_id}:{body.session_id}:{key_str}"
@@ -71,20 +79,29 @@ async def process_chat_message(
             else None
         )
         if cache_key:
+            stage_started = time.perf_counter()
             cached_response = await db_service.get_idempotency_response(cache_key)
+            stage_timings_ms["idempotency_lookup"] = round(
+                (time.perf_counter() - stage_started) * 1000, 2
+            )
             if cached_response:
                 return cached_response
 
+        stage_started = time.perf_counter()
         session_id = await _ensure_chat_session(
             project_id=body.project_id,
             user_id=user_id,
             session_id=body.session_id,
+        )
+        stage_timings_ms["ensure_session"] = round(
+            (time.perf_counter() - stage_started) * 1000, 2
         )
         user_message_metadata = {
             **(body.metadata or {}),
             **({"idempotency_key": key_str} if key_str else {}),
             **({"session_id": session_id} if session_id else {}),
         } or None
+        stage_started = time.perf_counter()
         await db_service.create_conversation_message(
             project_id=body.project_id,
             role="user",
@@ -92,7 +109,11 @@ async def process_chat_message(
             metadata=user_message_metadata,
             session_id=session_id,
         )
+        stage_timings_ms["persist_user_message"] = round(
+            (time.perf_counter() - stage_started) * 1000, 2
+        )
 
+        stage_started = time.perf_counter()
         rag_results, citations, rag_hit, selected_files_hint, rag_payload = (
             await load_rag_context(
                 project_id=body.project_id,
@@ -101,9 +122,16 @@ async def process_chat_message(
                 rag_source_ids=body.rag_source_ids,
             )
         )
+        stage_timings_ms["load_rag_context"] = round(
+            (time.perf_counter() - stage_started) * 1000, 2
+        )
+        stage_started = time.perf_counter()
         history_payload = await build_history_payload(
             project_id=body.project_id,
             session_id=session_id,
+        )
+        stage_timings_ms["load_history"] = round(
+            (time.perf_counter() - stage_started) * 1000, 2
         )
 
         message_hints = []
@@ -140,11 +168,15 @@ async def process_chat_message(
         assistant_digest = ""
 
         try:
+            stage_started = time.perf_counter()
             ai_result = await ai_service.generate(
                 prompt=prompt,
                 route_task=ModelRouteTask.CHAT_RESPONSE,
                 has_rag_context=rag_hit,
                 max_tokens=500,
+            )
+            stage_timings_ms["ai_generate"] = round(
+                (time.perf_counter() - stage_started) * 1000, 2
             )
             assistant_content = (
                 ai_result.get("content") or "我已收到你的需求，我们继续完善课件内容。"
@@ -170,10 +202,14 @@ async def process_chat_message(
                     "给出 1-2 个具体可执行教学切入点：\n\n"
                     f"{assistant_content}"
                 )
+                stage_started = time.perf_counter()
                 rewrite_result = await ai_service.generate(
                     prompt=rewrite_prompt,
                     route_task=ModelRouteTask.SHORT_TEXT_POLISH,
                     max_tokens=500,
+                )
+                stage_timings_ms["ai_rewrite"] = round(
+                    (time.perf_counter() - stage_started) * 1000, 2
                 )
                 rewritten_content = (rewrite_result.get("content") or "").strip()
                 if rewritten_content:
@@ -221,6 +257,7 @@ async def process_chat_message(
             "session_id": session_id,
             **observability_metadata,
         }
+        stage_started = time.perf_counter()
         assistant_msg = await db_service.create_conversation_message(
             project_id=body.project_id,
             role="assistant",
@@ -229,6 +266,18 @@ async def process_chat_message(
                 full_metadata if (citations or session_id) else observability_metadata
             ),
             session_id=session_id,
+        )
+        stage_timings_ms["persist_assistant_message"] = round(
+            (time.perf_counter() - stage_started) * 1000, 2
+        )
+        total_duration_ms = round((time.perf_counter() - request_started) * 1000, 2)
+        logger.info(
+            "chat_pipeline project=%s session=%s rag_hit=%s total=%sms stages=%s",
+            body.project_id,
+            session_id,
+            rag_hit,
+            total_duration_ms,
+            stage_timings_ms,
         )
 
         msg_dict = to_message(assistant_msg)

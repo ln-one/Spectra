@@ -36,7 +36,12 @@ export function ProjectHeader({
   selectedThemePreset,
   onThemePresetChange,
 }: ProjectHeaderProps) {
-  const { user, logout } = useAuthStore();
+  const { user, logout } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      logout: state.logout,
+    }))
+  );
   const { project, updateProjectName } = useProjectStore(
     useShallow((state) => ({
       project: state.project,

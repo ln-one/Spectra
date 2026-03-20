@@ -5,6 +5,7 @@ import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
+import { useShallow } from "zustand/react/shallow";
 import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
 import { formatSessionTime } from "./constants";
 import { isThemePreset, PROJECT_THEME_STORAGE_KEY } from "./theme";
@@ -33,7 +34,22 @@ export function useProjectDetailController() {
     generationHistory,
     activeSessionId,
     reset,
-  } = useProjectStore();
+  } = useProjectStore(
+    useShallow((state) => ({
+      project: state.project,
+      isLoading: state.isLoading,
+      layoutMode: state.layoutMode,
+      fetchProject: state.fetchProject,
+      fetchFiles: state.fetchFiles,
+      fetchMessages: state.fetchMessages,
+      fetchGenerationHistory: state.fetchGenerationHistory,
+      fetchArtifactHistory: state.fetchArtifactHistory,
+      setActiveSessionId: state.setActiveSessionId,
+      generationHistory: state.generationHistory,
+      activeSessionId: state.activeSessionId,
+      reset: state.reset,
+    }))
+  );
 
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
