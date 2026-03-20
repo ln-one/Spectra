@@ -71,3 +71,9 @@ class ProjectSpaceArtifactMixin:
         if metadata:
             data["metadata"] = json.dumps(metadata)
         return await self.db.artifact.create(data=data)
+
+    async def update_artifact_metadata(self, artifact_id: str, metadata: dict):
+        return await self.db.artifact.update(
+            where={"id": artifact_id},
+            data={"metadata": json.dumps(metadata)},
+        )

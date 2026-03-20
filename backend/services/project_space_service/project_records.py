@@ -21,6 +21,7 @@ async def create_artifact_with_file_response(
     session_id: Optional[str] = None,
     based_on_version_id: Optional[str] = None,
     content: Optional[dict] = None,
+    artifact_mode: Optional[str] = None,
 ):
     return await create_artifact_with_file(
         db=service.db,
@@ -31,6 +32,7 @@ async def create_artifact_with_file_response(
         session_id=session_id,
         based_on_version_id=based_on_version_id,
         content=content,
+        artifact_mode=artifact_mode,
     )
 
 

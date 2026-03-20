@@ -1,6 +1,7 @@
 """Artifact helpers for Project Space service."""
 
 import html
+import json
 import logging
 import uuid
 from pathlib import Path
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 _ARTIFACT_SOURCE_TYPE = "ai_generated"
 _ACCRETION_CHUNK_SIZE = 500
 _ACCRETION_CHUNK_OVERLAP = 50
+_SUPPORTED_ARTIFACT_MODES = {"create", "replace"}
 
 
 def _stringify_nodes(nodes: list[dict]) -> list[str]:
@@ -119,6 +121,29 @@ def _derive_artifact_upload_filename(
     ).strip("-")
     prefix = safe_title or artifact_type or "artifact"
     return f"{prefix[:48]}-{artifact_id[:8]}.{artifact_type}"
+
+
+def _normalize_artifact_mode(mode: Optional[str]) -> str:
+    mode = str(mode or "create").strip().lower()
+    if mode not in _SUPPORTED_ARTIFACT_MODES:
+        raise ValidationException(
+            f"Unsupported artifact mode '{mode}'. "
+            f"Supported modes: {', '.join(sorted(_SUPPORTED_ARTIFACT_MODES))}"
+        )
+    return mode
+
+
+def _parse_artifact_metadata(raw_metadata: Any) -> Dict[str, Any]:
+    if isinstance(raw_metadata, dict):
+        return dict(raw_metadata)
+    if isinstance(raw_metadata, str) and raw_metadata.strip():
+        try:
+            parsed = json.loads(raw_metadata)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            logger.warning("artifact metadata is not valid JSON during replace flow")
+    return {}
 
 
 async def _silently_accrete_artifact(
@@ -285,6 +310,7 @@ def build_artifact_metadata(
     artifact_type: str,
     content: Dict[str, Any],
     user_id: str,
+    artifact_mode: str = "create",
 ) -> Dict[str, Any]:
     metadata: Dict[str, Any] = {
         "created_by": user_id,
@@ -296,6 +322,8 @@ def build_artifact_metadata(
     title = content.get("title")
     if isinstance(title, str) and title.strip():
         metadata["title"] = title.strip()
+    metadata["mode"] = artifact_mode
+    metadata["is_current"] = True
     return metadata
 
 
@@ -315,6 +343,7 @@ async def create_artifact_with_file(
     session_id: Optional[str] = None,
     based_on_version_id: Optional[str] = None,
     content: Optional[Dict[str, Any]] = None,
+    artifact_mode: Optional[str] = None,
 ) -> Any:
     """Create artifact record and generate the backing file."""
     artifact_type = normalize_artifact_type(artifact_type)
@@ -323,6 +352,8 @@ async def create_artifact_with_file(
     storage_path = artifact_generator.get_storage_path(
         project_id, artifact_type, artifact_id
     )
+
+    mode = _normalize_artifact_mode(artifact_mode)
 
     if based_on_version_id:
         version = await db.get_project_version(based_on_version_id)
@@ -340,6 +371,19 @@ async def create_artifact_with_file(
             based_on_version_id = current_version_id
 
     normalized_content = normalize_artifact_content(artifact_type, content)
+
+    replaced_artifact = None
+    if mode == "replace":
+        candidates = await db.get_project_artifacts(
+            project_id,
+            type_filter=artifact_type,
+            visibility_filter=visibility,
+            owner_user_id_filter=user_id,
+            based_on_version_id_filter=None,
+            session_id_filter=session_id,
+        )
+        if candidates:
+            replaced_artifact = candidates[0]
 
     if artifact_type not in SUPPORTED_FILE_ARTIFACT_TYPES:
         raise ValidationException(
@@ -387,6 +431,15 @@ async def create_artifact_with_file(
         logger.error(f"Failed to generate artifact file: {exc}")
         raise
 
+    metadata = build_artifact_metadata(
+        artifact_type,
+        normalized_content,
+        user_id,
+        artifact_mode=mode,
+    )
+    if replaced_artifact is not None:
+        metadata["replaces_artifact_id"] = replaced_artifact.id
+
     artifact = await db.create_artifact(
         project_id=project_id,
         artifact_type=artifact_type,
@@ -395,8 +448,15 @@ async def create_artifact_with_file(
         based_on_version_id=based_on_version_id,
         owner_user_id=user_id,
         storage_path=storage_path,
-        metadata=build_artifact_metadata(artifact_type, normalized_content, user_id),
+        metadata=metadata,
     )
+    if replaced_artifact is not None and hasattr(db, "update_artifact_metadata"):
+        replaced_metadata = _parse_artifact_metadata(
+            getattr(replaced_artifact, "metadata", None)
+        )
+        replaced_metadata["superseded_by_artifact_id"] = artifact.id
+        replaced_metadata["is_current"] = False
+        await db.update_artifact_metadata(replaced_artifact.id, replaced_metadata)
     try:
         await _silently_accrete_artifact(
             db=db,

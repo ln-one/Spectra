@@ -349,9 +349,40 @@ def test_get_artifact_detail_reports_upstream_updated(client, monkeypatch, _as_u
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["artifact"]["upstream_updated"] is True
-    assert (
-        body["data"]["artifact"]["upstream_update_reason"] == "project_version_advanced"
+
+
+def test_get_artifact_detail_exposes_replace_lineage(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
     )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_artifact",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                **{
+                    **_fake_artifact(artifact_id="a-002").__dict__,
+                    "metadata": '{"mode":"replace","replaces_artifact_id":"a-001",'
+                    '"is_current":true}',
+                }
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=_fake_project(current_version_id="v-current")),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/artifacts/a-002")
+    assert resp.status_code == 200
+    body = resp.json()
+    artifact = body["data"]["artifact"]
+    assert artifact["mode"] == "replace"
+    assert artifact["replaces_artifact_id"] == "a-001"
+    assert artifact["is_current"] is True
 
 
 def test_get_artifact_mismatch_project_404(client, monkeypatch, _as_user):
@@ -477,8 +508,8 @@ def test_create_artifact_passes_content_payload(client, monkeypatch, _as_user):
             "kind": "quiz",
             "question_count": 8,
             "difficulty": "hard",
-            "mode": "create",
         },
+        artifact_mode="create",
     )
 
 

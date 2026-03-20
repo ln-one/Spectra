@@ -277,3 +277,64 @@ async def test_create_artifact_preserves_explicit_based_on_version_id(monkeypatc
     assert (
         create_artifact.await_args.kwargs["based_on_version_id"] == "version-explicit"
     )
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_replace_marks_replacement_lineage(monkeypatch):
+    service = ProjectSpaceService()
+    previous_artifact = SimpleNamespace(
+        id="artifact-old",
+        projectId="project-001",
+        type="summary",
+        visibility="private",
+        sessionId="session-001",
+        ownerUserId="user-001",
+        metadata='{"created_by":"user-001","mode":"create","is_current":true}',
+    )
+    new_artifact = SimpleNamespace(
+        id="artifact-new",
+        projectId="project-001",
+        type="summary",
+        storagePath="generated/summary.json",
+    )
+    create_artifact = AsyncMock(return_value=new_artifact)
+    update_artifact_metadata = AsyncMock()
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        update_artifact_metadata=update_artifact_metadata,
+        get_project_artifacts=AsyncMock(return_value=[previous_artifact]),
+        get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001",
+                currentVersionId="version-001",
+            )
+        ),
+    )
+
+    generate_summary = AsyncMock(return_value="generated/summary.json")
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        generate_summary,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        session_id="session-001",
+        content={"title": "更新后摘要"},
+        artifact_mode="replace",
+    )
+
+    new_metadata = create_artifact.await_args.kwargs["metadata"]
+    assert new_metadata["mode"] == "replace"
+    assert new_metadata["replaces_artifact_id"] == "artifact-old"
+    assert new_metadata["is_current"] is True
+
+    update_artifact_metadata.assert_awaited_once()
+    assert update_artifact_metadata.await_args.args[0] == "artifact-old"
+    replaced_metadata = update_artifact_metadata.await_args.args[1]
+    assert replaced_metadata["superseded_by_artifact_id"] == "artifact-new"
+    assert replaced_metadata["is_current"] is False

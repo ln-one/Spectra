@@ -152,6 +152,10 @@ class Artifact(BaseModel):
     visibility: ArtifactVisibility
     storage_path: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    mode: Optional[str] = None
+    replaces_artifact_id: Optional[str] = None
+    superseded_by_artifact_id: Optional[str] = None
+    is_current: bool = True
     current_version_id: Optional[str] = None
     upstream_updated: bool = False
     upstream_update_reason: Optional[str] = None

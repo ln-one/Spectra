@@ -61,6 +61,7 @@ def to_project_version_model(
 
 def to_artifact_model(artifact, current_version_id: str | None = None) -> Artifact:
     based_on_version_id = getattr(artifact, "basedOnVersionId", None)
+    metadata = safe_parse_json(getattr(artifact, "metadata", None))
     upstream_updated = bool(
         based_on_version_id
         and current_version_id
@@ -75,7 +76,21 @@ def to_artifact_model(artifact, current_version_id: str | None = None) -> Artifa
         type=artifact.type,
         visibility=artifact.visibility,
         storage_path=artifact.storagePath,
-        metadata=safe_parse_json(artifact.metadata),
+        metadata=metadata,
+        mode=metadata.get("mode") if isinstance(metadata, dict) else None,
+        replaces_artifact_id=(
+            metadata.get("replaces_artifact_id") if isinstance(metadata, dict) else None
+        ),
+        superseded_by_artifact_id=(
+            metadata.get("superseded_by_artifact_id")
+            if isinstance(metadata, dict)
+            else None
+        ),
+        is_current=(
+            bool(metadata.get("is_current", True))
+            if isinstance(metadata, dict)
+            else True
+        ),
         current_version_id=current_version_id,
         upstream_updated=upstream_updated,
         upstream_update_reason=(
