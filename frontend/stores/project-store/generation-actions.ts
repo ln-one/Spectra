@@ -205,24 +205,45 @@ export function createGenerationActions({
           get().activeSessionId ??
           get().generationSession?.session?.session_id ??
           null;
-        if (!effectiveSessionId) {
-          set({
-            artifactHistoryByTool: groupArtifactsByTool([]),
-            currentSessionArtifacts: [],
-          });
-          return;
-        }
-        const artifactHistoryByTool = groupArtifactsByTool(
-          artifacts,
-          effectiveSessionId
-        );
-        const currentSessionArtifacts = Object.values(artifactHistoryByTool)
+        const allHistoryByTool = groupArtifactsByTool(artifacts);
+        const allArtifacts = Object.values(allHistoryByTool)
           .flat()
           .sort(
             (a, b) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
-        set({ artifactHistoryByTool, currentSessionArtifacts });
+
+        if (!effectiveSessionId) {
+          set({
+            artifactHistoryByTool: allHistoryByTool,
+            currentSessionArtifacts: allArtifacts,
+          });
+          return;
+        }
+
+        const sessionHistoryByTool = groupArtifactsByTool(
+          artifacts,
+          effectiveSessionId
+        );
+        const sessionArtifacts = Object.values(sessionHistoryByTool)
+          .flat()
+          .sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
+        if (sessionArtifacts.length === 0 && allArtifacts.length > 0) {
+          set({
+            artifactHistoryByTool: allHistoryByTool,
+            currentSessionArtifacts: allArtifacts,
+          });
+          return;
+        }
+
+        set({
+          artifactHistoryByTool: sessionHistoryByTool,
+          currentSessionArtifacts: sessionArtifacts,
+        });
       } catch (error) {
         const message = getErrorMessage(error);
         toast({
