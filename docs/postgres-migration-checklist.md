@@ -255,6 +255,10 @@ PostgreSQL 迁移不是“换个连接串”这么简单。
 - Execute Prisma shadow validation path:
   - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_prisma_validate.py --run`
+- End-to-end shadow flow (infra up -> Prisma validate/db push/generate -> optional live smoke -> teardown):
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_flow.py --run`
+- End-to-end shadow flow with app services and live smoke:
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_flow.py --run --with-app --live-smoke`
 - Aggregate rehearsal including Prisma shadow execution:
   - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py --run-prisma-shadow`
