@@ -269,5 +269,7 @@ PostgreSQL 迁移不是“换个连接串”这么简单。
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_env.py`
 - Render a PostgreSQL baseline SQL draft from the current Prisma schema:
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_baseline_diff.py --run`
+- Build a draft PostgreSQL baseline migration package:
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_baseline_package.py --run`
 - Tear down PostgreSQL shadow infra:
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_runtime.py --run --down`
