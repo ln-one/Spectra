@@ -1,8 +1,9 @@
 import { render, screen } from "@testing-library/react";
-import { SourcesPanel } from "@/components/project";
+import { SourcesPanel } from "@/components/project/features/sources/SourcesPanel";
 import { useProjectStore } from "@/stores/projectStore";
 
 jest.mock("@/stores/projectStore", () => ({
+  ...jest.requireActual("@/stores/projectStore"),
   useProjectStore: jest.fn(),
 }));
 
