@@ -25,6 +25,10 @@ def test_distributed_readiness_accepts_split_stack_inputs():
         "UPLOAD_DIR": "/var/lib/spectra/uploads",
         "ARTIFACT_STORAGE_DIR": "/var/lib/spectra/artifacts",
         "GENERATED_DIR": "/var/lib/spectra/generated",
+        "POSTGRES_BACKUP_DIR": "/var/lib/spectra/backups",
+        "POSTGRES_RESTORE_STAGING_DIR": "/var/lib/spectra/restore-staging",
+        "POSTGRES_BACKUP_RETENTION_DAYS": "14",
+        "POSTGRES_BACKUP_PREFIX": "spectra-demo",
         "WORKER_NAME": "worker-a",
         "WORKER_RECOVERY_SCAN": "true",
     }
@@ -43,6 +47,8 @@ services:
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
     depends_on:
       redis:
         condition: service_healthy
@@ -56,6 +62,8 @@ services:
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
     depends_on:
       redis:
         condition: service_healthy
@@ -116,3 +124,7 @@ services:
         for message in messages
     )
     assert any("[runtime] WARN" in message for message in messages)
+    assert any(
+        "[backend] PASS recommended POSTGRES_BACKUP_DIR configured" in message
+        for message in messages
+    )

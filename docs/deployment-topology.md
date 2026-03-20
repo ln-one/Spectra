@@ -165,6 +165,7 @@
 原则：
 - 不对公网开放
 - 明确 migration / backup / restore
+- 统一共享 backup / restore staging 路径（建议 `/var/lib/spectra/backups` 与 `/var/lib/spectra/restore-staging`）
 
 ### ChromaDB
 

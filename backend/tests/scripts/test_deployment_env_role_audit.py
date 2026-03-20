@@ -21,6 +21,10 @@ def test_backend_role_warns_for_recommended_values_only():
             "UPLOAD_DIR": "/var/lib/spectra/uploads",
             "ARTIFACT_STORAGE_DIR": "/var/lib/spectra/artifacts",
             "GENERATED_DIR": "/var/lib/spectra/generated",
+            "POSTGRES_BACKUP_DIR": "/var/lib/spectra/backups",
+            "POSTGRES_RESTORE_STAGING_DIR": "/var/lib/spectra/restore-staging",
+            "POSTGRES_BACKUP_RETENTION_DAYS": "14",
+            "POSTGRES_BACKUP_PREFIX": "spectra-demo",
         },
     )
 
@@ -34,6 +38,10 @@ def test_backend_role_warns_for_recommended_values_only():
     assert any(
         "PASS recommended UPLOAD_DIR configured" in message for message in messages
     )
+    assert any(
+        "PASS recommended POSTGRES_BACKUP_DIR configured" in message
+        for message in messages
+    )
 
 
 def test_worker_role_tracks_worker_specific_recommendations():
@@ -44,6 +52,10 @@ def test_worker_role_tracks_worker_specific_recommendations():
             "JWT_SECRET_KEY": "real-secret",
             "WORKER_NAME": "worker-a",
             "WORKER_RECOVERY_SCAN": "true",
+            "POSTGRES_BACKUP_DIR": "/var/lib/spectra/backups",
+            "POSTGRES_RESTORE_STAGING_DIR": "/var/lib/spectra/restore-staging",
+            "POSTGRES_BACKUP_RETENTION_DAYS": "14",
+            "POSTGRES_BACKUP_PREFIX": "spectra-demo",
         },
     )
 

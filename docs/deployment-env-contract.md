@@ -267,6 +267,9 @@
 - generation service 和 preview cache 默认会读取这个变量
 - Docker / 多机准备阶段建议挂到共享运行时卷，例如 `/var/lib/spectra/generated`
 
+补充：
+- PostgreSQL 备份与恢复 staging 目录也建议统一落在共享运行时卷下，例如 `/var/lib/spectra/backups` 与 `/var/lib/spectra/restore-staging`
+
 ---
 
 ## 七、解析 / 多媒体能力

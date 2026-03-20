@@ -16,6 +16,7 @@ REQUIRED_BASE_SERVICES = ("frontend", "backend", "worker", "redis", "chromadb")
 STATEFUL_SERVICES = ("redis", "chromadb", "postgres")
 RUNTIME_STORAGE_TARGET = "/var/lib/spectra"
 RUNTIME_STORAGE_ENVS = ("UPLOAD_DIR", "ARTIFACT_STORAGE_DIR", "GENERATED_DIR")
+BACKUP_STORAGE_ENVS = ("POSTGRES_BACKUP_DIR", "POSTGRES_RESTORE_STAGING_DIR")
 
 
 def _format(kind: str, message: str) -> str:
@@ -191,6 +192,29 @@ def evaluate_compose_topology(
             )
 
         for env_key in RUNTIME_STORAGE_ENVS:
+            env_value = _environment_value(service, env_key)
+            if env_value and env_value.startswith(f"{RUNTIME_STORAGE_TARGET}/"):
+                messages.append(
+                    _format(
+                        "PASS",
+                        (
+                            f"{name} configures `{env_key}` inside shared "
+                            "runtime storage"
+                        ),
+                    )
+                )
+            else:
+                messages.append(
+                    _format(
+                        "WARN",
+                        (
+                            f"{name} does not configure `{env_key}` under "
+                            "shared runtime storage"
+                        ),
+                    )
+                )
+
+        for env_key in BACKUP_STORAGE_ENVS:
             env_value = _environment_value(service, env_key)
             if env_value and env_value.startswith(f"{RUNTIME_STORAGE_TARGET}/"):
                 messages.append(

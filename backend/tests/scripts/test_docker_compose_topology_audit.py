@@ -32,6 +32,8 @@ services:
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
     depends_on:
       redis:
         condition: service_healthy
@@ -45,6 +47,8 @@ services:
       UPLOAD_DIR: /var/lib/spectra/uploads
       ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
       GENERATED_DIR: /var/lib/spectra/generated
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
     depends_on:
       redis:
         condition: service_healthy
@@ -99,5 +103,10 @@ services:
     )
     assert any(
         "worker configures `GENERATED_DIR` inside shared runtime storage" in message
+        for message in messages
+    )
+    assert any(
+        "backend configures `POSTGRES_BACKUP_DIR` inside shared runtime storage"
+        in message
         for message in messages
     )

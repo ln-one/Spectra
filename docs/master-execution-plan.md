@@ -258,6 +258,7 @@ Prepare the system for containerized, multi-service, multi-machine, cloud-capabl
   - storage assumptions
   - lingering local-runtime defaults in code and docs
 - formalize shared runtime storage (`/var/lib/spectra`) before later object-storage migration
+- formalize shared PostgreSQL backup / restore staging paths inside the same deployment contract
 - improve docs and scripts for distributed deployment
 
 ### Desired end state
