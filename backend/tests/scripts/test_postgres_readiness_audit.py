@@ -1,4 +1,8 @@
-from scripts.postgres_readiness_audit import analyze_hotspots, parse_schema
+from scripts.postgres_readiness_audit import (
+    analyze_hotspots,
+    parse_migration_lock_provider,
+    parse_schema,
+)
 
 
 def test_parse_schema_tracks_target_models_and_provider():
@@ -9,6 +13,12 @@ def test_parse_schema_tracks_target_models_and_provider():
     assert "Project" in models
     assert models["GenerationSession"].field_count > 0
     assert models["Project"].relation_fields > 0
+
+
+def test_parse_migration_lock_provider_tracks_current_baseline():
+    provider = parse_migration_lock_provider()
+
+    assert provider in {None, "sqlite", "postgresql"}
 
 
 def test_analyze_hotspots_returns_structured_risk_counts():

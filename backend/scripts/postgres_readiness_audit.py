@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "backend/prisma/schema.prisma"
+MIGRATION_LOCK = ROOT / "backend/prisma/migrations/migration_lock.toml"
 
 TARGET_MODELS = {
     "Project",
@@ -115,6 +116,18 @@ def parse_schema() -> tuple[str | None, dict[str, ModelRisk]]:
     return provider, {k: v for k, v in models.items() if k in TARGET_MODELS}
 
 
+def parse_migration_lock_provider() -> str | None:
+    if not MIGRATION_LOCK.exists():
+        return None
+
+    for raw_line in MIGRATION_LOCK.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        match = PROVIDER_RE.search(line)
+        if match:
+            return match.group(1)
+    return None
+
+
 def analyze_hotspots() -> dict[str, HotspotRisk]:
     counts: dict[str, HotspotRisk] = {}
     for name, files in HOTSPOT_PATTERNS.items():
@@ -136,12 +149,14 @@ def analyze_hotspots() -> dict[str, HotspotRisk]:
 
 def main() -> None:
     provider, models = parse_schema()
+    migration_lock_provider = parse_migration_lock_provider()
     hotspots = analyze_hotspots()
 
     print("PostgreSQL Readiness Audit")
     print(f"- Root: {ROOT}")
     print(f"- Prisma schema: {SCHEMA}")
     print(f"- Datasource provider: {provider or 'unknown'}")
+    print(f"- Migration lock provider: {migration_lock_provider or 'missing/unknown'}")
     print()
 
     if provider == "sqlite":
@@ -153,6 +168,16 @@ def main() -> None:
         print("[ok] Prisma datasource already points at postgresql.")
     else:
         print("[warning] Prisma datasource provider could not be classified.")
+
+    if migration_lock_provider == "sqlite":
+        print(
+            "[warning] Prisma migration lock is still sqlite; "
+            "a PostgreSQL baseline migration path still needs to be created."
+        )
+    elif migration_lock_provider == "postgresql":
+        print("[ok] Prisma migration lock already points at postgresql.")
+    else:
+        print("[warning] Prisma migration lock provider could not be classified.")
     print()
 
     print("Model Risk Snapshot")
@@ -185,6 +210,10 @@ def main() -> None:
     print(
         "- Re-run main backend suite against PostgreSQL shadow environment "
         "before switching main."
+    )
+    print(
+        "- Prepare a PostgreSQL Prisma migration baseline before changing the "
+        "main datasource provider."
     )
 
 

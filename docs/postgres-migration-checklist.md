@@ -29,6 +29,7 @@
 - SQLite 与 PostgreSQL 在事务、并发、大小写、默认值、JSON 行为上并不等价
 - Prisma schema 虽可帮助迁移，但不能自动消除业务层假设
 - 任务链路、幂等键、会话事件、candidate change 等新模型都需要真实数据库回归
+- `backend/prisma/migrations/migration_lock.toml` 目前仍是 SQLite 基线，正式切 provider 前还需要准备 PostgreSQL migration baseline
 
 ---
 
