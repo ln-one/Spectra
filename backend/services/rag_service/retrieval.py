@@ -1,8 +1,13 @@
+import logging
 from typing import Optional
 
+from prisma.errors import ClientNotConnectedError
 from schemas.common import normalize_source_type
 from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
+from services.database import db_service
 from services.media.vector import Collection
+
+logger = logging.getLogger(__name__)
 
 
 def _build_where_clause(
@@ -28,11 +33,31 @@ def _build_where_clause(
     return None
 
 
-def _build_rag_results(results) -> list[RAGResult]:
+def _build_rag_results(
+    results,
+    *,
+    source_project_id: str,
+    source_scope: str,
+    relation_type: Optional[str] = None,
+    reference_mode: Optional[str] = None,
+    reference_priority: Optional[int] = None,
+    pinned_version_id: Optional[str] = None,
+) -> list[RAGResult]:
     rag_results = []
     if results["ids"] and results["ids"][0]:
         for i, chunk_id in enumerate(results["ids"][0]):
-            meta = results["metadatas"][0][i] if results["metadatas"] else {}
+            raw_meta = results["metadatas"][0][i] if results["metadatas"] else {}
+            meta = dict(raw_meta or {})
+            meta.setdefault("source_project_id", source_project_id)
+            meta.setdefault("source_scope", source_scope)
+            if relation_type is not None:
+                meta.setdefault("reference_relation_type", relation_type)
+            if reference_mode is not None:
+                meta.setdefault("reference_mode", reference_mode)
+            if reference_priority is not None:
+                meta.setdefault("reference_priority", reference_priority)
+            if pinned_version_id is not None:
+                meta.setdefault("pinned_version_id", pinned_version_id)
             distance = results["distances"][0][i] if results["distances"] else 0
             score = max(0.0, min(1.0, 1.0 - distance))
             rag_results.append(
@@ -54,6 +79,61 @@ def _build_rag_results(results) -> list[RAGResult]:
     return rag_results
 
 
+async def _list_active_reference_targets(project_id: str) -> list[dict]:
+    try:
+        references = await db_service.get_project_references(project_id)
+    except ClientNotConnectedError:
+        return []
+    except Exception as exc:
+        logger.warning(
+            "reference target lookup failed for project %s: %s",
+            project_id,
+            exc,
+        )
+        return []
+    targets = []
+    for reference in references:
+        targets.append(
+            {
+                "source_project_id": reference.targetProjectId,
+                "source_scope": (
+                    "reference_base"
+                    if reference.relationType == "base"
+                    else "reference_auxiliary"
+                ),
+                "relation_type": reference.relationType,
+                "reference_mode": reference.mode,
+                "reference_priority": reference.priority,
+                "pinned_version_id": getattr(reference, "pinnedVersionId", None),
+            }
+        )
+    return targets
+
+
+def _sort_key(item: RAGResult) -> tuple[int, int, float]:
+    meta = item.metadata or {}
+    source_scope = meta.get("source_scope")
+    if source_scope == "local_session":
+        scope_rank = 0
+    elif source_scope == "local_project":
+        scope_rank = 1
+    elif source_scope == "reference_base":
+        scope_rank = 2
+    else:
+        scope_rank = 3
+    priority = int(meta.get("reference_priority") or 0)
+    return (scope_rank, priority, -item.score)
+
+
+def _query_collection(collection, query_embedding, top_k: int, where: Optional[dict]):
+    return collection.query(
+        query_embeddings=[query_embedding],
+        n_results=min(top_k, collection.count()),
+        where=where,
+        include=["documents", "metadatas", "distances"],
+    )
+
+
 async def search(
     service,
     project_id: str,
@@ -65,43 +145,61 @@ async def search(
 ) -> list[RAGResult]:
     collection = service._vector.get_collection_if_exists(project_id)
     if collection is None or collection.count() == 0:
-        return []
+        collection = None
 
     query_embedding = await service._embedding.embed_text(query)
     base_where = _build_where_clause(filters=filters)
     result_sets = []
     session_where = _build_where_clause(session_id=session_id, filters=filters)
 
-    if session_where is not None:
+    if collection is not None and session_where is not None:
         result_sets.append(
-            collection.query(
-                query_embeddings=[query_embedding],
-                n_results=min(top_k, collection.count()),
-                where=session_where,
-                include=["documents", "metadatas", "distances"],
+            (
+                _query_collection(collection, query_embedding, top_k, session_where),
+                {
+                    "source_project_id": project_id,
+                    "source_scope": "local_session",
+                },
             )
         )
-    result_sets.append(
-        collection.query(
-            query_embeddings=[query_embedding],
-            n_results=min(top_k, collection.count()),
-            where=base_where,
-            include=["documents", "metadatas", "distances"],
+    if collection is not None:
+        result_sets.append(
+            (
+                _query_collection(collection, query_embedding, top_k, base_where),
+                {
+                    "source_project_id": project_id,
+                    "source_scope": "local_project",
+                },
+            )
         )
-    )
+
+    if not (filters and filters.get("file_ids")):
+        for target in await _list_active_reference_targets(project_id):
+            target_collection = service._vector.get_collection_if_exists(
+                target["source_project_id"]
+            )
+            if target_collection is None or target_collection.count() == 0:
+                continue
+            result_sets.append(
+                (
+                    _query_collection(
+                        target_collection,
+                        query_embedding,
+                        top_k,
+                        base_where,
+                    ),
+                    target,
+                )
+            )
 
     merged_by_chunk: dict[str, RAGResult] = {}
-    for raw_result in result_sets:
-        for item in _build_rag_results(raw_result):
+    for raw_result, source_info in result_sets:
+        for item in _build_rag_results(raw_result, **source_info):
             existing = merged_by_chunk.get(item.chunk_id)
-            if existing is None or item.score > existing.score:
+            if existing is None or _sort_key(item) < _sort_key(existing):
                 merged_by_chunk[item.chunk_id] = item
 
-    rag_results = sorted(
-        merged_by_chunk.values(),
-        key=lambda item: item.score,
-        reverse=True,
-    )[:top_k]
+    rag_results = sorted(merged_by_chunk.values(), key=_sort_key)[:top_k]
 
     if score_threshold > 0.0:
         rag_results = [r for r in rag_results if r.score >= score_threshold]
@@ -110,7 +208,27 @@ async def search(
 
 async def get_chunk_detail(service, chunk_id: str, project_id: Optional[str] = None):
     if project_id:
-        return await _get_chunk_from_collection(service, chunk_id, project_id)
+        detail = await _get_chunk_from_collection(service, chunk_id, project_id)
+        if detail is not None:
+            return detail
+        for target in await _list_active_reference_targets(project_id):
+            detail = await _get_chunk_from_collection(
+                service, chunk_id, target["source_project_id"]
+            )
+            if detail is not None:
+                if detail.file_info is None:
+                    detail.file_info = {}
+                detail.file_info.update(
+                    {
+                        "source_project_id": target["source_project_id"],
+                        "source_scope": target["source_scope"],
+                        "reference_relation_type": target["relation_type"],
+                        "reference_mode": target["reference_mode"],
+                        "reference_priority": target["reference_priority"],
+                        "pinned_version_id": target["pinned_version_id"],
+                    }
+                )
+                return detail
     return None
 
 
