@@ -28,6 +28,11 @@ async def test_create_artifact_summary_outline_sets_metadata(monkeypatch):
     service.db = SimpleNamespace(
         create_artifact=create_artifact,
         get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001", currentVersionId="version-001"
+            )
+        ),
     )
 
     generate_summary = AsyncMock(return_value="generated/outline.json")
@@ -55,6 +60,7 @@ async def test_create_artifact_summary_outline_sets_metadata(monkeypatch):
         create_artifact.await_args.kwargs["metadata"]["capability"]
         == ProjectCapability.SUMMARY.value
     )
+    assert create_artifact.await_args.kwargs["based_on_version_id"] == "version-001"
 
 
 @pytest.mark.asyncio
@@ -71,6 +77,9 @@ async def test_create_artifact_handout_docx_sets_metadata(monkeypatch):
     service.db = SimpleNamespace(
         create_artifact=create_artifact,
         get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="project-001", currentVersionId=None)
+        ),
     )
 
     generate_docx = AsyncMock(return_value="generated/handout.docx")
@@ -113,6 +122,9 @@ async def test_create_artifact_animation_storyboard_uses_html(monkeypatch):
     service.db = SimpleNamespace(
         create_artifact=create_artifact,
         get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="project-001", currentVersionId=None)
+        ),
     )
 
     generate_html = AsyncMock(return_value="generated/storyboard.html")
@@ -170,6 +182,9 @@ async def test_create_artifact_silently_accretes_text_into_library(monkeypatch):
     service.db = SimpleNamespace(
         create_artifact=create_artifact,
         get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="project-001", currentVersionId=None)
+        ),
         create_upload=create_upload,
         update_file_intent=update_file_intent,
         update_upload_status=update_upload_status,
@@ -210,3 +225,46 @@ async def test_create_artifact_silently_accretes_text_into_library(monkeypatch):
     assert metadata["session_id"] == "session-001"
     parse_result = update_upload_status.await_args.kwargs["parse_result"]
     assert parse_result["silent_accretion"] is True
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_preserves_explicit_based_on_version_id(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="artifact-005",
+            projectId="project-001",
+            type="summary",
+            storagePath="generated/summary.json",
+        )
+    )
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(
+            return_value=SimpleNamespace(id="version-explicit", projectId="project-001")
+        ),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001", currentVersionId="version-current"
+            )
+        ),
+    )
+
+    generate_summary = AsyncMock(return_value="generated/summary.json")
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        generate_summary,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        based_on_version_id="version-explicit",
+        content={"mode": "outline", "title": "课程大纲"},
+    )
+
+    assert (
+        create_artifact.await_args.kwargs["based_on_version_id"] == "version-explicit"
+    )
