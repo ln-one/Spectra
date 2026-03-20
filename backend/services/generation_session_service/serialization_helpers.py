@@ -31,6 +31,7 @@ def _to_session_ref(
     return {
         "session_id": session.id,
         "project_id": session.projectId,
+        "base_version_id": getattr(session, "baseVersionId", None),
         "task_id": task_id,
         "state": session.state,
         "state_reason": session.stateReason,

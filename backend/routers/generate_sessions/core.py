@@ -56,6 +56,7 @@ async def list_sessions(
             {
                 "session_id": s.id,
                 "project_id": s.projectId,
+                "base_version_id": getattr(s, "baseVersionId", None),
                 "output_type": s.outputType,
                 "state": s.state,
                 "created_at": s.createdAt,

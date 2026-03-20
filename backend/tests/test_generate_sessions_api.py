@@ -60,6 +60,7 @@ def mock_db_service():
     )
     return SimpleNamespace(
         get_project=AsyncMock(return_value=mock_project),
+        project=SimpleNamespace(find_unique=AsyncMock(return_value=mock_project)),
         generationsession=SimpleNamespace(
             create=AsyncMock(return_value=mock_session),
             find_first=AsyncMock(return_value=None),

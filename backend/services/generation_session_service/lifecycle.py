@@ -24,6 +24,10 @@ async def create_session(
     append_event,
     schedule_outline_draft_task,
 ) -> dict:
+    project = await db.project.find_unique(where={"id": project_id})
+    project_base_version_id = (
+        getattr(project, "currentVersionId", None) if project is not None else None
+    )
     existing_session = None
     if client_session_id:
         existing_session = await db.generationsession.find_first(
@@ -40,6 +44,11 @@ async def create_session(
             "options": json.dumps(options) if options else None,
             "clientSessionId": client_session_id,
         }
+        if (
+            getattr(existing_session, "baseVersionId", None) is None
+            and project_base_version_id is not None
+        ):
+            update_data["baseVersionId"] = project_base_version_id
 
         if bootstrap_only:
             session = await db.generationsession.update(
@@ -95,6 +104,7 @@ async def create_session(
         data={
             "projectId": project_id,
             "userId": user_id,
+            "baseVersionId": project_base_version_id,
             "outputType": output_type,
             "options": json.dumps(options) if options else None,
             "clientSessionId": client_session_id,

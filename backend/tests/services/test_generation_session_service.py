@@ -31,12 +31,14 @@ def _fake_session(
     state: str = GenerationState.AWAITING_OUTLINE_CONFIRM.value,
     output_type: str = SessionOutputType.BOTH.value,
     options: Optional[str] = None,
+    base_version_id: Optional[str] = "ver-001",
 ):
     now = datetime.now(timezone.utc)
     return SimpleNamespace(
         id="s-001",
         projectId="p-001",
         userId="u-001",
+        baseVersionId=base_version_id,
         state=state,
         stateReason=None,
         progress=0,
@@ -479,6 +481,61 @@ async def test_get_session_snapshot_includes_latest_candidate_change():
 
 
 @pytest.mark.anyio
+async def test_create_session_reuses_project_current_version_as_base_when_missing():
+    existing_session = SimpleNamespace(
+        id="s-existing",
+        projectId="p-001",
+        userId="u-001",
+        baseVersionId=None,
+        state=GenerationState.IDLE.value,
+        stateReason=None,
+        outputType=SessionOutputType.PPT.value,
+        options=None,
+        clientSessionId="s-existing",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+    )
+    updated_payload = dict(existing_session.__dict__)
+    updated_payload["baseVersionId"] = "ver-current-002"
+    updated_payload["state"] = GenerationState.DRAFTING_OUTLINE.value
+    updated_session = SimpleNamespace(**updated_payload)
+    db = SimpleNamespace(
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="p-001",
+                    currentVersionId="ver-current-002",
+                )
+            )
+        ),
+        generationsession=SimpleNamespace(
+            find_first=AsyncMock(return_value=existing_session),
+            update=AsyncMock(return_value=updated_session),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+
+    service = GenerationSessionService(db=db)
+    service._schedule_outline_draft_task = AsyncMock()
+
+    session_ref = await service.create_session(
+        project_id="p-001",
+        user_id="u-001",
+        output_type=SessionOutputType.PPT.value,
+        client_session_id="s-existing",
+        options={"pages": 6},
+        task_queue_service=None,
+    )
+
+    assert session_ref["session_id"] == "s-existing"
+    assert session_ref["base_version_id"] == "ver-current-002"
+    db.project.find_unique.assert_awaited_once_with(where={"id": "p-001"})
+
+
+@pytest.mark.anyio
 async def test_get_session_runtime_state_uses_lightweight_select():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(
@@ -519,12 +576,21 @@ async def test_get_session_runtime_state_uses_lightweight_select():
 @pytest.mark.anyio
 async def test_create_session_returns_quickly_without_waiting_for_outline():
     db = SimpleNamespace(
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="p-001",
+                    currentVersionId="ver-current-001",
+                )
+            )
+        ),
         generationsession=SimpleNamespace(
             create=AsyncMock(
                 return_value=SimpleNamespace(
                     id="s-new",
                     projectId="p-001",
                     userId="u-001",
+                    baseVersionId="ver-current-001",
                     state=GenerationState.DRAFTING_OUTLINE.value,
                     stateReason=None,
                     outputType="ppt",
@@ -556,6 +622,7 @@ async def test_create_session_returns_quickly_without_waiting_for_outline():
     assert session_ref["session_id"] == "s-new"
     assert session_ref["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert session_ref["project_id"] == "p-001"
+    assert session_ref["base_version_id"] == "ver-current-001"
     db.sessionevent.create.assert_called_once()
     event_data = db.sessionevent.create.await_args.kwargs["data"]
     assert event_data["eventType"] == GenerationEventType.STATE_CHANGED.value
