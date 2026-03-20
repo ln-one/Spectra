@@ -16,6 +16,7 @@ async def generate_outline(
     user_requirements: str,
     template_style: str = "default",
     session_id: str | None = None,
+    rag_source_ids: list[str] | None = None,
 ) -> CoursewareOutline:
     """根据需求生成结构化课件大纲。"""
     from services.prompt_service import STYLE_REQUIREMENTS, _format_rag_context
@@ -24,6 +25,7 @@ async def generate_outline(
         project_id,
         user_requirements,
         session_id=session_id,
+        filters={"file_ids": rag_source_ids} if rag_source_ids else None,
     )
 
     rag_hint = ""

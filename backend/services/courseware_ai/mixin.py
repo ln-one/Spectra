@@ -37,9 +37,15 @@ class CoursewareAIMixin:
         user_requirements: str,
         template_style: str = "default",
         session_id: Optional[str] = None,
+        rag_source_ids: Optional[list[str]] = None,
     ) -> CoursewareOutline:
         return await generate_outline(
-            self, project_id, user_requirements, template_style, session_id
+            self,
+            project_id,
+            user_requirements,
+            template_style,
+            session_id,
+            rag_source_ids,
         )
 
     @staticmethod
@@ -75,6 +81,7 @@ class CoursewareAIMixin:
         template_style: str = "default",
         outline: Optional[CoursewareOutline] = None,
         session_id: Optional[str] = None,
+        rag_source_ids: Optional[list[str]] = None,
     ) -> CoursewareContent:
         return await extract_structured_content(
             self,
@@ -83,6 +90,7 @@ class CoursewareAIMixin:
             template_style,
             outline,
             session_id,
+            rag_source_ids,
         )
 
     async def generate_courseware_content(
@@ -93,6 +101,7 @@ class CoursewareAIMixin:
         outline_document: Optional[dict] = None,
         outline_version: Optional[int] = None,
         session_id: Optional[str] = None,
+        rag_source_ids: Optional[list[str]] = None,
     ) -> CoursewareContent:
         return await generate_courseware_content(
             self,
@@ -102,6 +111,7 @@ class CoursewareAIMixin:
             outline_document,
             outline_version,
             session_id,
+            rag_source_ids,
         )
 
     @staticmethod

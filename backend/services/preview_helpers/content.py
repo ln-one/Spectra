@@ -26,13 +26,26 @@ async def get_or_generate_content(task, project) -> dict:
 
     from services.ai import ai_service
 
-    messages = await db_service.get_recent_conversation_messages(project.id, limit=5)
+    session_id = getattr(task, "sessionId", None)
+    outline_document = None
+    outline_version = None
+    template_config = None
+    raw_template = getattr(task, "templateConfig", None)
+    if raw_template:
+        try:
+            template_config = json.loads(raw_template)
+        except (TypeError, json.JSONDecodeError):
+            logger.warning("Failed to decode templateConfig for task %s", task.id)
+            template_config = None
+
+    messages = await db_service.get_recent_conversation_messages(
+        project.id,
+        limit=5,
+        session_id=session_id,
+    )
     user_msgs = [message.content for message in messages if message.role == "user"]
     user_requirements = "\n".join(user_msgs) if user_msgs else project.name
 
-    outline_document = None
-    outline_version = None
-    session_id = getattr(task, "sessionId", None)
     if session_id:
         latest_outline = await db_service.db.outlineversion.find_first(
             where={"sessionId": session_id},
@@ -53,6 +66,8 @@ async def get_or_generate_content(task, project) -> dict:
         user_requirements=user_requirements,
         outline_document=outline_document,
         outline_version=outline_version,
+        session_id=session_id,
+        rag_source_ids=(template_config or {}).get("rag_source_ids"),
     )
     data = {
         "title": courseware.title,

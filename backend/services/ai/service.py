@@ -298,6 +298,7 @@ class AIService(CoursewareAIMixin):
         top_k: int = 5,
         score_threshold: float = 0.3,
         session_id: Optional[str] = None,
+        filters: Optional[dict] = None,
     ):
         return await retrieve_rag_context(
             self,
@@ -306,4 +307,5 @@ class AIService(CoursewareAIMixin):
             top_k=top_k,
             score_threshold=score_threshold,
             session_id=session_id,
+            filters=filters,
         )

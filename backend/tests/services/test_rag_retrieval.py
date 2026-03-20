@@ -84,3 +84,29 @@ async def test_search_keeps_project_shared_chunks_alongside_session_chunks():
     )
 
     assert [item.chunk_id for item in results] == ["chunk-session", "chunk-project"]
+
+
+@pytest.mark.asyncio
+async def test_search_combines_selected_file_filter_with_session_overlay():
+    collection = _FakeCollection()
+    service = SimpleNamespace(
+        _vector=_FakeVector(collection),
+        _embedding=_FakeEmbedding(),
+    )
+
+    await search(
+        service,
+        project_id="p-001",
+        query="生成课件",
+        top_k=5,
+        session_id="s-001",
+        filters={"file_ids": ["file-1"]},
+    )
+
+    session_query = collection.queries[0]
+    project_query = collection.queries[1]
+    assert session_query["where"]["$and"] == [
+        {"session_id": {"$eq": "s-001"}},
+        {"upload_id": {"$in": ["file-1"]}},
+    ]
+    assert project_query["where"] == {"upload_id": {"$in": ["file-1"]}}

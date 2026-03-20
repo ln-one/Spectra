@@ -41,6 +41,17 @@ async def get_messages(
 ):
     try:
         await verify_project_ownership(project_id, user_id)
+        if not session_id:
+            return success_response(
+                data={
+                    "session_id": None,
+                    "messages": [],
+                    "total": 0,
+                    "page": page,
+                    "limit": limit,
+                },
+                message="当前未绑定会话，返回空对话历史",
+            )
         messages, total = await db_service.get_conversations_paginated(
             project_id=project_id,
             page=page,

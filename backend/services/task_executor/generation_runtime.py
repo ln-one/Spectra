@@ -40,6 +40,11 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
         db_service,
         context.project_id,
         session_id=context.session_id,
+        rag_source_ids=(
+            context.template_config.get("rag_source_ids")
+            if context.template_config
+            else None
+        ),
     )
     outline_document, outline_version = await load_session_outline(
         db_service,
@@ -57,6 +62,11 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
         outline_document=outline_document,
         outline_version=outline_version,
         session_id=context.session_id,
+        rag_source_ids=(
+            context.template_config.get("rag_source_ids")
+            if context.template_config
+            else None
+        ),
     )
     return courseware_content
 

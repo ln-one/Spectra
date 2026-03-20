@@ -13,6 +13,7 @@ from utils.exceptions import APIException
 from utils.responses import success_response
 
 from .observability import build_observability_metadata
+from .runtime import _ensure_chat_session
 from .shared import (
     dump_capability_status,
     logger,
@@ -42,6 +43,12 @@ async def voice_message(
             cached_response = await db_service.get_idempotency_response(cache_key)
             if cached_response:
                 return cached_response
+
+        session_id = await _ensure_chat_session(
+            project_id=project_id,
+            user_id=user_id,
+            session_id=session_id,
+        )
 
         import tempfile
 

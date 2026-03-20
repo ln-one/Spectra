@@ -61,6 +61,26 @@ async def test_generate_outline_doc_includes_session_chat_requirements():
 
     assert outline["nodes"][0]["title"] == "实验导入（1）"
     assert ai_service.kwargs["session_id"] == "s-001"
+    assert ai_service.kwargs["rag_source_ids"] is None
     assert "请做成适合高一的牛顿第二定律课件" in ai_service.kwargs["user_requirements"]
     assert "希望更强调实验导入和习题" in ai_service.kwargs["user_requirements"]
     assert "目标页数：12" in ai_service.kwargs["user_requirements"]
+
+
+@pytest.mark.asyncio
+async def test_generate_outline_doc_passes_selected_sources():
+    db = SimpleNamespace(
+        project=SimpleNamespace(find_unique=_FakeFindProject()),
+        conversation=SimpleNamespace(find_many=_FakeFindMany()),
+    )
+    ai_service = _FakeAIService()
+
+    await _generate_outline_doc(
+        db=db,
+        session_id="s-001",
+        project_id="p-001",
+        options={"rag_source_ids": ["file-1", "file-2"]},
+        ai_service_obj=ai_service,
+    )
+
+    assert ai_service.kwargs["rag_source_ids"] == ["file-1", "file-2"]

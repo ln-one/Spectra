@@ -11,6 +11,7 @@ async def build_user_requirements(
     db_service,
     project_id: str,
     session_id: Optional[str] = None,
+    rag_source_ids: Optional[list[str]] = None,
 ) -> str:
     """Build user requirements text from project metadata and recent user messages."""
     project = await db_service.get_project(project_id)
@@ -32,6 +33,25 @@ async def build_user_requirements(
         requirements_parts.append("\n用户需求：")
         for msg in reversed(user_messages[-3:]):
             requirements_parts.append(f"- {msg.content}")
+
+    if rag_source_ids:
+        try:
+            selected_uploads = await db_service.db.upload.find_many(
+                where={"projectId": project_id, "id": {"in": rag_source_ids}},
+                select={"filename": True, "status": True},
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to resolve selected uploads for requirements: %s",
+                exc,
+            )
+        else:
+            if selected_uploads:
+                requirements_parts.append("\n本次限定参考资料：")
+                for upload in selected_uploads:
+                    requirements_parts.append(
+                        f"- {upload.filename}（状态：{upload.status}）"
+                    )
 
     return "\n".join(requirements_parts)
 

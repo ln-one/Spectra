@@ -200,6 +200,7 @@ async def _generate_outline_doc(
         user_requirements=requirement_text,
         template_style=template_style,
         session_id=session_id,
+        rag_source_ids=(options or {}).get("rag_source_ids"),
     )
     return _courseware_outline_to_document(
         outline,

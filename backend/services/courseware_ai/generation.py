@@ -103,6 +103,7 @@ async def extract_structured_content(
     template_style: str = "default",
     outline: Optional[CoursewareOutline] = None,
     session_id: Optional[str] = None,
+    rag_source_ids: Optional[list[str]] = None,
 ) -> CoursewareContent:
     """结合确认后的大纲与 RAG 上下文生成课件。"""
     from services.prompt_service import prompt_service
@@ -113,6 +114,7 @@ async def extract_structured_content(
             user_requirements,
             template_style,
             session_id=session_id,
+            rag_source_ids=rag_source_ids,
         )
 
     rag_context = await ai_service._retrieve_rag_context(
@@ -120,6 +122,7 @@ async def extract_structured_content(
         user_requirements,
         top_k=8,
         session_id=session_id,
+        filters={"file_ids": rag_source_ids} if rag_source_ids else None,
     )
 
     outline_guide = "\n".join(
@@ -157,6 +160,7 @@ async def generate_courseware_content(
     outline_document: Optional[dict] = None,
     outline_version: Optional[int] = None,
     session_id: Optional[str] = None,
+    rag_source_ids: Optional[list[str]] = None,
 ) -> CoursewareContent:
     """生成课件 Markdown 与教案 Markdown。"""
     from services.prompt_service import prompt_service
@@ -187,6 +191,7 @@ async def generate_courseware_content(
             project_id,
             user_requirements,
             session_id=session_id,
+            filters={"file_ids": rag_source_ids} if rag_source_ids else None,
         )
         if rag_context:
             logger.info(

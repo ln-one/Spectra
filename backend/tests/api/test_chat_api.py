@@ -470,11 +470,13 @@ def test_send_message_project_not_found_403(client, monkeypatch, _as_user):
 def test_get_messages_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     convs = [
-        _fake_conv(role="user", conv_id="c-001"),
-        _fake_conv(role="assistant", conv_id="c-002"),
+        _fake_conv(role="user", conv_id="c-001", sessionId="s-001"),
+        _fake_conv(role="assistant", conv_id="c-002", sessionId="s-001"),
     ]
     _mock(monkeypatch, db_service, "get_conversations_paginated", (convs, 2))
-    resp = client.get("/api/v1/chat/messages?project_id=p-001&page=1&limit=20")
+    resp = client.get(
+        "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["total"] == 2
@@ -510,12 +512,15 @@ def test_get_messages_includes_citations_from_metadata(client, monkeypatch, _as_
         _fake_conv(
             role="assistant",
             conv_id="c-001",
+            sessionId="s-001",
             metadata='{"citations":[{"chunk_id":"chunk-1","source_type":"document","filename":"notes.pdf","page_number":2,"score":0.92}]}',
         ),
     ]
     _mock(monkeypatch, db_service, "get_conversations_paginated", (convs, 1))
 
-    resp = client.get("/api/v1/chat/messages?project_id=p-001&page=1&limit=20")
+    resp = client.get(
+        "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["messages"][0]["citations"] == expected_citations
@@ -525,19 +530,40 @@ def test_get_messages_assistant_without_citations_returns_empty_array(
     client, monkeypatch, _as_user
 ):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
+    resp = client.get("/api/v1/chat/messages?project_id=p-001&page=1&limit=20")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["messages"] == []
+    assert body["data"]["total"] == 0
+
+
+def test_get_messages_with_session_returns_scoped_history(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
     convs = [
         _fake_conv(
             role="assistant",
             conv_id="c-001",
             metadata=None,
+            sessionId="s-001",
         )
     ]
-    _mock(monkeypatch, db_service, "get_conversations_paginated", (convs, 1))
+    paginated_mock = AsyncMock(return_value=(convs, 1))
+    monkeypatch.setattr(db_service, "get_conversations_paginated", paginated_mock)
 
-    resp = client.get("/api/v1/chat/messages?project_id=p-001&page=1&limit=20")
+    resp = client.get(
+        "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["messages"][0]["citations"] == []
+    paginated_mock.assert_awaited_once_with(
+        project_id="p-001",
+        page=1,
+        limit=20,
+        session_id="s-001",
+    )
 
 
 def test_get_messages_no_token_401(client):
@@ -568,6 +594,11 @@ def test_voice_message_no_token_401(client):
 def test_voice_message_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     monkeypatch.setattr(
+        GenerationSessionService,
+        "create_session",
+        AsyncMock(return_value={"session_id": "s-voice-001"}),
+    )
+    monkeypatch.setattr(
         "services.media.audio.transcribe_audio",
         lambda *_args, **_kwargs: (
             "语音识别文本",
@@ -584,19 +615,21 @@ def test_voice_message_success(client, monkeypatch, _as_user):
             ),
         ),
     )
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user", sessionId="s-voice-001"),
+            _fake_conv(
+                role="assistant",
+                content="voice assistant reply",
+                conv_id="c-ai",
+                sessionId="s-voice-001",
+            ),
+        ]
+    )
     monkeypatch.setattr(
         db_service,
         "create_conversation_message",
-        AsyncMock(
-            side_effect=[
-                _fake_conv(role="user", conv_id="c-user"),
-                _fake_conv(
-                    role="assistant",
-                    content="voice assistant reply",
-                    conv_id="c-ai",
-                ),
-            ]
-        ),
+        create_mock,
     )
 
     resp = client.post(
@@ -611,6 +644,8 @@ def test_voice_message_success(client, monkeypatch, _as_user):
     assert body["data"]["message"]["role"] == "assistant"
     assert body["data"]["message"]["content"] == "voice assistant reply"
     assert body["data"]["message"]["citations"] == []
+    assert body["data"]["session_id"] == "s-voice-001"
+    assert create_mock.await_args_list[0].kwargs["session_id"] == "s-voice-001"
     assert body["data"]["observability"]["route_task"] == "speech_recognition"
     assert body["data"]["observability"]["has_rag_context"] is False
     assert body["data"]["duration"] >= 1
