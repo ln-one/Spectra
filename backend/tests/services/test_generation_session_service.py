@@ -376,12 +376,13 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
         _fake_artifact(
             artifact_id="art-outline-001",
             artifact_type="summary",
-            metadata='{"kind":"outline"}',
+            metadata='{"kind":"outline","is_current":true}',
             based_on_version_id="ver-002",
         ),
         _fake_artifact(
             artifact_id="art-ppt-001",
             artifact_type="pptx",
+            metadata='{"is_current":false,"superseded_by_artifact_id":"art-ppt-002"}',
             based_on_version_id="ver-001",
         ),
         _fake_artifact(
@@ -417,7 +418,15 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert payload["session_artifacts"][0]["based_on_version_id"] == "ver-002"
     assert payload["session_artifacts"][0]["current_version_id"] == "ver-003"
     assert payload["session_artifacts"][0]["upstream_updated"] is True
+    assert payload["session_artifacts"][0]["is_current"] is True
     assert payload["session_artifacts"][0]["title"] == "outline-art-outl"
+    ppt_item = next(
+        item
+        for item in payload["session_artifacts"]
+        if item["artifact_id"] == "art-ppt-001"
+    )
+    assert ppt_item["is_current"] is False
+    assert ppt_item["superseded_by_artifact_id"] == "art-ppt-002"
 
     group_map = {
         group["capability"]: group["items"]
@@ -426,6 +435,7 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert set(group_map.keys()) == {"outline", "ppt", "summary"}
     assert group_map["outline"][0]["artifact_id"] == "art-outline-001"
     assert group_map["ppt"][0]["artifact_id"] == "art-ppt-001"
+    assert group_map["ppt"][0]["is_current"] is False
     assert group_map["summary"][0]["artifact_id"] == "art-summary-001"
 
     db.artifact.find_many.assert_awaited_once_with(

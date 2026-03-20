@@ -28,6 +28,7 @@ def serialize_card_source_artifact(
     title = None
     if metadata:
         title = metadata.get("title") or metadata.get("name")
+    is_current = bool((metadata or {}).get("is_current", True))
 
     updated_at = getattr(artifact, "updatedAt", None)
     based_on_version_id = getattr(artifact, "basedOnVersionId", None)
@@ -44,6 +45,9 @@ def serialize_card_source_artifact(
         "based_on_version_id": based_on_version_id,
         "current_version_id": current_version_id,
         "upstream_updated": upstream_updated,
+        "is_current": is_current,
+        "replaces_artifact_id": (metadata or {}).get("replaces_artifact_id"),
+        "superseded_by_artifact_id": (metadata or {}).get("superseded_by_artifact_id"),
         "session_id": getattr(artifact, "sessionId", None),
         "updated_at": updated_at.isoformat() if updated_at else None,
     }

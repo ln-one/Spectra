@@ -35,6 +35,17 @@ def _serialize_candidate_change(change) -> dict:
     return serialize_candidate_change(change, isoformat_datetimes=True)
 
 
+def _artifact_lineage_flags(
+    metadata: dict | None,
+) -> tuple[bool, str | None, str | None]:
+    payload = metadata or {}
+    return (
+        bool(payload.get("is_current", True)),
+        payload.get("replaces_artifact_id"),
+        payload.get("superseded_by_artifact_id"),
+    )
+
+
 async def get_latest_session_candidate_change(
     *, db, project_id: str, session_id: str
 ) -> Optional[dict]:
@@ -85,6 +96,9 @@ async def get_session_artifact_history(
             artifact_type=getattr(artifact, "type", ""),
             metadata=metadata,
         )
+        is_current, replaces_artifact_id, superseded_by_artifact_id = (
+            _artifact_lineage_flags(metadata)
+        )
         item = {
             "artifact_id": artifact.id,
             "type": getattr(artifact, "type", None),
@@ -101,6 +115,9 @@ async def get_session_artifact_history(
                 and current_version_id
                 and getattr(artifact, "basedOnVersionId", None) != current_version_id
             ),
+            "is_current": is_current,
+            "replaces_artifact_id": replaces_artifact_id,
+            "superseded_by_artifact_id": superseded_by_artifact_id,
             "artifact_anchor": build_artifact_anchor(session_id, artifact),
             "created_at": (
                 artifact.createdAt.isoformat()
@@ -117,6 +134,22 @@ async def get_session_artifact_history(
         history_items.append(item)
         grouped.setdefault(capability, []).append(item)
 
+    history_items.sort(
+        key=lambda item: (
+            not bool(item.get("is_current", True)),
+            item.get("updated_at") or "",
+        ),
+        reverse=False,
+    )
+    for items in grouped.values():
+        items.sort(
+            key=lambda item: (
+                not bool(item.get("is_current", True)),
+                item.get("updated_at") or "",
+            ),
+            reverse=False,
+        )
+
     grouped_items = [
         {
             "capability": capability,
@@ -126,18 +159,24 @@ async def get_session_artifact_history(
         }
         for capability, items in grouped.items()
     ]
-    latest_artifact = artifacts[0] if artifacts else None
+    latest_artifact = history_items[0] if history_items else None
     return {
         "session_artifacts": history_items,
         "session_artifact_groups": grouped_items,
-        "artifact_id": getattr(latest_artifact, "id", None),
-        "based_on_version_id": getattr(latest_artifact, "basedOnVersionId", None),
+        "artifact_id": latest_artifact.get("artifact_id") if latest_artifact else None,
+        "based_on_version_id": (
+            latest_artifact.get("based_on_version_id") if latest_artifact else None
+        ),
         "current_version_id": current_version_id,
         "upstream_updated": bool(
             latest_artifact
-            and getattr(latest_artifact, "basedOnVersionId", None)
+            and latest_artifact.get("based_on_version_id")
             and current_version_id
-            and getattr(latest_artifact, "basedOnVersionId", None) != current_version_id
+            and latest_artifact.get("based_on_version_id") != current_version_id
         ),
-        "artifact_anchor": build_artifact_anchor(session_id, latest_artifact),
+        "artifact_anchor": (
+            latest_artifact.get("artifact_anchor")
+            if latest_artifact
+            else build_artifact_anchor(session_id, None)
+        ),
     }

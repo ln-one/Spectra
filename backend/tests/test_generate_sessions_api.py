@@ -1086,6 +1086,7 @@ async def test_get_studio_card_sources_returns_matching_artifacts(app, _as_user)
     assert sources[0]["title"] == "牛顿定律课件"
     assert sources[0]["current_version_id"] is None
     assert sources[0]["upstream_updated"] is False
+    assert sources[0]["is_current"] is True
     get_project_artifacts_mock.assert_awaited_once()
 
 
@@ -1095,7 +1096,11 @@ async def test_get_studio_card_sources_reports_upstream_updated(app, _as_user):
     artifact = SimpleNamespace(
         id="a-ppt-002",
         type="pptx",
-        metadata={"title": "旧版本课件"},
+        metadata={
+            "title": "旧版本课件",
+            "is_current": False,
+            "superseded_by_artifact_id": "a-ppt-003",
+        },
         visibility="project-visible",
         basedOnVersionId="v-old",
         sessionId="s-001",
@@ -1124,6 +1129,8 @@ async def test_get_studio_card_sources_reports_upstream_updated(app, _as_user):
     source = response.json()["data"]["sources"][0]
     assert source["current_version_id"] == "v-new"
     assert source["upstream_updated"] is True
+    assert source["is_current"] is False
+    assert source["superseded_by_artifact_id"] == "a-ppt-003"
 
 
 @pytest.mark.anyio
