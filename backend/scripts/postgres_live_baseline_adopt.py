@@ -156,6 +156,9 @@ def main() -> int:
     print(f"archive_root={args.archive_root}")
     if args.tag:
         print(f"tag={args.tag}")
+    if not args.run:
+        print("Dry run only. Re-run with --run to apply adoption.")
+        return 0
 
     messages, exit_code = adopt_live_baseline(
         {},

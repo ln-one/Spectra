@@ -349,9 +349,7 @@ async def create_artifact_with_file(
     artifact_type = normalize_artifact_type(artifact_type)
     visibility = normalize_artifact_visibility(visibility).value
     artifact_id = str(uuid.uuid4())
-    storage_path = artifact_generator.get_storage_path(
-        project_id, artifact_type, artifact_id
-    )
+    storage_path = ""
 
     mode = _normalize_artifact_mode(artifact_mode)
 
