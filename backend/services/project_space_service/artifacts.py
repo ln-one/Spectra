@@ -129,6 +129,7 @@ async def _silently_accrete_artifact(
     artifact_type: str,
     visibility: str,
     session_id: Optional[str],
+    based_on_version_id: Optional[str],
     normalized_content: Dict[str, Any],
 ) -> None:
     if not all(
@@ -169,8 +170,11 @@ async def _silently_accrete_artifact(
     metadata = {
         "filename": filename,
         "source_type": _ARTIFACT_SOURCE_TYPE,
+        "source_project_id": project_id,
         "artifact_id": artifact.id,
         "artifact_type": artifact_type,
+        "artifact_visibility": visibility,
+        "based_on_version_id": based_on_version_id,
         "accretion": "silent",
     }
     if visibility == "private" and session_id:
@@ -212,7 +216,11 @@ async def _silently_accrete_artifact(
             "indexed_count": indexed_count,
             "text_length": len(text),
             "source_type": _ARTIFACT_SOURCE_TYPE,
+            "source_project_id": project_id,
             "artifact_id": artifact.id,
+            "artifact_type": artifact_type,
+            "artifact_visibility": visibility,
+            "based_on_version_id": based_on_version_id,
             "silent_accretion": True,
         },
         error_message=None,
@@ -397,6 +405,7 @@ async def create_artifact_with_file(
             artifact_type=artifact_type,
             visibility=visibility,
             session_id=session_id,
+            based_on_version_id=based_on_version_id,
             normalized_content=normalized_content,
         )
     except Exception as exc:

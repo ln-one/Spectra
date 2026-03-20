@@ -183,7 +183,10 @@ async def test_create_artifact_silently_accretes_text_into_library(monkeypatch):
         create_artifact=create_artifact,
         get_project_version=AsyncMock(return_value=None),
         get_project=AsyncMock(
-            return_value=SimpleNamespace(id="project-001", currentVersionId=None)
+            return_value=SimpleNamespace(
+                id="project-001",
+                currentVersionId="version-001",
+            )
         ),
         create_upload=create_upload,
         update_file_intent=update_file_intent,
@@ -222,8 +225,14 @@ async def test_create_artifact_silently_accretes_text_into_library(monkeypatch):
     metadata = create_parsed_chunks.await_args.kwargs["chunks"][0]["metadata"]
     assert metadata["artifact_id"] == "artifact-004"
     assert metadata["source_type"] == "ai_generated"
+    assert metadata["source_project_id"] == "project-001"
+    assert metadata["artifact_visibility"] == "private"
+    assert metadata["based_on_version_id"] == "version-001"
     assert metadata["session_id"] == "session-001"
     parse_result = update_upload_status.await_args.kwargs["parse_result"]
+    assert parse_result["source_project_id"] == "project-001"
+    assert parse_result["artifact_visibility"] == "private"
+    assert parse_result["based_on_version_id"] == "version-001"
     assert parse_result["silent_accretion"] is True
 
 
