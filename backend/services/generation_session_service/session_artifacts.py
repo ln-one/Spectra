@@ -64,6 +64,8 @@ async def get_session_artifact_history(
             "session_artifact_groups": [],
             "artifact_id": None,
             "based_on_version_id": None,
+            "current_version_id": None,
+            "upstream_updated": False,
             "artifact_anchor": build_artifact_anchor(session_id, None),
         }
 
@@ -71,6 +73,8 @@ async def get_session_artifact_history(
         where={"projectId": project_id, "sessionId": session_id},
         order={"updatedAt": "desc"},
     )
+    project = await db.get_project(project_id) if hasattr(db, "get_project") else None
+    current_version_id = getattr(project, "currentVersionId", None) if project else None
 
     history_items: list[dict] = []
     grouped: dict[str, list[dict]] = {}
@@ -91,6 +95,12 @@ async def get_session_artifact_history(
                 metadata=metadata,
             ),
             "based_on_version_id": getattr(artifact, "basedOnVersionId", None),
+            "current_version_id": current_version_id,
+            "upstream_updated": bool(
+                getattr(artifact, "basedOnVersionId", None)
+                and current_version_id
+                and getattr(artifact, "basedOnVersionId", None) != current_version_id
+            ),
             "artifact_anchor": build_artifact_anchor(session_id, artifact),
             "created_at": (
                 artifact.createdAt.isoformat()
@@ -122,5 +132,12 @@ async def get_session_artifact_history(
         "session_artifact_groups": grouped_items,
         "artifact_id": getattr(latest_artifact, "id", None),
         "based_on_version_id": getattr(latest_artifact, "basedOnVersionId", None),
+        "current_version_id": current_version_id,
+        "upstream_updated": bool(
+            latest_artifact
+            and getattr(latest_artifact, "basedOnVersionId", None)
+            and current_version_id
+            and getattr(latest_artifact, "basedOnVersionId", None) != current_version_id
+        ),
         "artifact_anchor": build_artifact_anchor(session_id, latest_artifact),
     }

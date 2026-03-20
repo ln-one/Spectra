@@ -223,6 +223,8 @@ async def get_studio_card_sources(
     await project_space_service.check_project_permission(
         project_id, user_id, get_card_source_permission(card_id)
     )
+    project = await project_space_service.db.get_project(project_id)
+    current_version_id = getattr(project, "currentVersionId", None) if project else None
 
     sources = []
     for artifact_type in artifact_types:
@@ -241,7 +243,10 @@ async def get_studio_card_sources(
     return success_response(
         data={
             "sources": [
-                serialize_card_source_artifact(artifact) for artifact in sources
+                serialize_card_source_artifact(
+                    artifact, current_version_id=current_version_id
+                )
+                for artifact in sources
             ]
         },
         message="Studio 卡片源成果获取成功",

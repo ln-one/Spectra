@@ -1052,6 +1052,10 @@ async def test_get_studio_card_sources_returns_matching_artifacts(app, _as_user)
             "services.project_space_service.project_space_service.get_project_artifacts",
             AsyncMock(return_value=[artifact]),
         ) as get_project_artifacts_mock,
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=None),
+        ),
     ):
         response = client.get(
             "/api/v1/generate/studio-cards/speaker_notes/sources?project_id=p-001"
@@ -1062,7 +1066,46 @@ async def test_get_studio_card_sources_returns_matching_artifacts(app, _as_user)
     assert sources[0]["id"] == "a-ppt-001"
     assert sources[0]["type"] == "pptx"
     assert sources[0]["title"] == "牛顿定律课件"
+    assert sources[0]["current_version_id"] is None
+    assert sources[0]["upstream_updated"] is False
     get_project_artifacts_mock.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_sources_reports_upstream_updated(app, _as_user):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-ppt-002",
+        type="pptx",
+        metadata={"title": "旧版本课件"},
+        visibility="project-visible",
+        basedOnVersionId="v-old",
+        sessionId="s-001",
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_project_artifacts",
+            AsyncMock(return_value=[artifact]),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-new")),
+        ),
+    ):
+        response = client.get(
+            "/api/v1/generate/studio-cards/speaker_notes/sources?project_id=p-001"
+        )
+
+    assert response.status_code == 200
+    source = response.json()["data"]["sources"][0]
+    assert source["current_version_id"] == "v-new"
+    assert source["upstream_updated"] is True
 
 
 @pytest.mark.anyio

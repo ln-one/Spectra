@@ -393,6 +393,9 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
         generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
         artifact=SimpleNamespace(find_many=AsyncMock(return_value=artifacts)),
         candidatechange=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="p-001", currentVersionId="ver-003")
+        ),
     )
     service = GenerationSessionService(db=db)
     service._guard.get_allowed_actions = Mock(return_value=["export"])
@@ -402,6 +405,8 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert len(payload["session_artifacts"]) == 3
     assert payload["artifact_id"] == "art-outline-001"
     assert payload["based_on_version_id"] == "ver-002"
+    assert payload["current_version_id"] == "ver-003"
+    assert payload["upstream_updated"] is True
     assert payload["artifact_anchor"] == {
         "session_id": "s-001",
         "artifact_id": "art-outline-001",
@@ -410,6 +415,8 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert payload["session_artifacts"][0]["artifact_id"] == "art-outline-001"
     assert payload["session_artifacts"][0]["capability"] == "outline"
     assert payload["session_artifacts"][0]["based_on_version_id"] == "ver-002"
+    assert payload["session_artifacts"][0]["current_version_id"] == "ver-003"
+    assert payload["session_artifacts"][0]["upstream_updated"] is True
     assert payload["session_artifacts"][0]["title"] == "outline-art-outl"
 
     group_map = {
@@ -432,6 +439,9 @@ async def test_get_session_snapshot_handles_missing_artifact_model():
     session = _fake_session(state=GenerationState.SUCCESS.value)
     db = SimpleNamespace(
         generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="p-001", currentVersionId="ver-003")
+        ),
     )
     service = GenerationSessionService(db=db)
     service._guard.get_allowed_actions = Mock(return_value=["export"])
@@ -440,6 +450,8 @@ async def test_get_session_snapshot_handles_missing_artifact_model():
 
     assert payload["artifact_id"] is None
     assert payload["based_on_version_id"] is None
+    assert payload["current_version_id"] is None
+    assert payload["upstream_updated"] is False
     assert payload["artifact_anchor"] == {
         "session_id": "s-001",
         "artifact_id": None,
