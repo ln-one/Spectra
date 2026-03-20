@@ -87,6 +87,7 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py
 
 ```bash
 python3 /Users/ln1/Projects/Spectra/backend/scripts/docker_deploy_readiness_audit.py
+python3 /Users/ln1/Projects/Spectra/backend/scripts/distributed_deploy_audit.py
 ```
 
 如果这次发布已经要求进入 PostgreSQL / 分布式拓扑基线：
@@ -94,6 +95,13 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/docker_deploy_readiness_audi
 ```bash
 python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py --require-postgres
 python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py
+```
+
+如果已经拉起 PostgreSQL shadow stack，还可以直接跑一轮 live smoke：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_smoke.py \
+  --base-url http://localhost:8000
 ```
 
 如果只想先看环境变量是否齐全：
