@@ -43,6 +43,10 @@ def test_cutover_audit_fails_for_local_sqlite_defaults():
             "PostgreSQL migration SQL audit",
             "WARN migrations still contain SQLite markers",
         ],
+        baseline_package_messages=[
+            "PostgreSQL baseline promotion audit",
+            "FAIL package missing",
+        ],
     )
 
     assert failures > 0
@@ -144,6 +148,12 @@ services:
             "PostgreSQL migration SQL audit",
             "PASS migration.sql has no SQLite-specific migration markers",
         ],
+        baseline_package_messages=[
+            "PostgreSQL baseline promotion audit",
+            "PASS package exists",
+            "PASS migration lock targets PostgreSQL",
+            "PASS baseline migration SQL populated",
+        ],
     )
 
     assert failures == 0
@@ -180,6 +190,14 @@ services:
         (
             "[baseline] PASS existing Prisma migration SQL is ready "
             "for PostgreSQL baseline work"
+        )
+        in m
+        for m in messages
+    )
+    assert any(
+        (
+            "[baseline] PASS PostgreSQL baseline package draft is "
+            "ready for promotion review"
         )
         in m
         for m in messages
@@ -276,6 +294,12 @@ services:
         migration_sql_messages=[
             "PostgreSQL migration SQL audit",
             "PASS migration.sql has no SQLite-specific migration markers",
+        ],
+        baseline_package_messages=[
+            "PostgreSQL baseline promotion audit",
+            "PASS package exists",
+            "PASS migration lock targets PostgreSQL",
+            "PASS baseline migration SQL populated",
         ],
         allow_local_postgres_host=True,
     )

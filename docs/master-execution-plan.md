@@ -222,6 +222,7 @@ Focus especially on:
 - keep that shadow env overlay rich enough to supply shared runtime storage paths and service-host defaults, so rehearsal warnings converge on real PostgreSQL blockers instead of empty local dev env gaps
 - keep a PostgreSQL baseline diff command ready to render a first-pass baseline SQL script from the current Prisma schema
 - keep a PostgreSQL baseline package command ready to scaffold a draft migration lock and baseline migration directory for review
+- keep a PostgreSQL baseline promotion audit ready so cutover rehearsal can distinguish draft-package readiness from true live migration adoption
 - keep a single cutover rehearsal command that can aggregate cutover audit, recovery drill, optional Prisma shadow execution, and a full end-to-end shadow flow
 - prepare rollback/runbook logic
 - keep a single cutover audit command that aggregates preflight, env contract, docker, backup/restore readiness, toolchain readiness, migration baseline readiness, and shadow-stack checks

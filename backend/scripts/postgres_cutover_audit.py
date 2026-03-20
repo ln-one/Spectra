@@ -14,6 +14,7 @@ except ModuleNotFoundError:
 
 ensure_backend_import_path()
 
+import scripts.postgres_baseline_promotion_audit as baseline_promotion_audit  # noqa: E402,E501
 from scripts import deploy_preflight as preflight_audit  # noqa: E402
 from scripts import distributed_deploy_audit as distributed_audit  # noqa: E402
 from scripts import postgres_backup_restore_audit as backup_audit  # noqa: E402
@@ -57,6 +58,7 @@ def evaluate_cutover_readiness(
     migration_lock_provider: str | None = None,
     migration_sql_messages: list[str] | None = None,
     allow_local_postgres_host: bool = False,
+    baseline_package_messages: list[str] | None = None,
 ) -> tuple[list[str], int]:
     messages = ["PostgreSQL cutover readiness audit"]
     failures = 0
@@ -121,6 +123,27 @@ def evaluate_cutover_readiness(
             )
         )
 
+    package_messages = baseline_package_messages or [
+        "PostgreSQL baseline promotion audit"
+    ]
+    package_failures = len([m for m in package_messages[1:] if m.startswith("FAIL ")])
+    messages.extend(_prefix("baseline-package", package_messages[1:]))
+    failures += package_failures
+    if package_failures:
+        messages.append(
+            (
+                "[baseline] FAIL PostgreSQL baseline package draft is "
+                "not ready for promotion"
+            )
+        )
+    else:
+        messages.append(
+            (
+                "[baseline] PASS PostgreSQL baseline package draft is "
+                "ready for promotion review"
+            )
+        )
+
     if shadow_compose_text is None:
         failures += 1
         messages.append("[shadow] FAIL postgres shadow compose override missing")
@@ -149,6 +172,11 @@ def main() -> int:
         shadow_compose_text=shadow_text,
         migration_lock_provider=readiness_audit.parse_migration_lock_provider(),
         migration_sql_messages=migration_sql_audit.evaluate_migration_sql()[0],
+        baseline_package_messages=(
+            baseline_promotion_audit.evaluate_baseline_promotion_readiness(os.environ)[
+                0
+            ]
+        ),
     )
     for message in messages:
         print(message)

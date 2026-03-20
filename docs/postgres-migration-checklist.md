@@ -200,6 +200,7 @@
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py`（把 cutover audit、recovery drill、可选 shadow smoke 串成一次完整 rehearsal；可配合 `--use-shadow-env --run-shadow-flow` 直接暴露真实 PostgreSQL baseline 阻塞项）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py`（会同时检查 migration lock 与 migration SQL baseline readiness）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_schema_variant.py`（生成不改动主 schema 的 PostgreSQL Prisma variant，用于 shadow 验证与 baseline 预演）
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_baseline_promotion_audit.py`（检查 draft baseline package 是否已经具备进入 live Prisma migration 评审的条件）
 
 建议影子环境使用：
 
@@ -225,6 +226,7 @@
 1. `backend/prisma/migrations/migration_lock.toml` 仍然是 SQLite 基线
 2. 现有 Prisma migration SQL 仍包含 SQLite-specific 迁移
 3. PostgreSQL baseline 还处于 draft/package 阶段，尚未正式接入 live migration 路径
+4. baseline package promotion 还未完成正式评审与接线
 
 也就是说，接下来的重点不再是继续扩 readiness 范围，而是把 baseline promotion 和实际迁移路径做实。
 

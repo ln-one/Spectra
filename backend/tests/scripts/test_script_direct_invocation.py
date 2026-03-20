@@ -44,3 +44,19 @@ def test_postgres_shadow_stack_runtime_runs_directly() -> None:
     assert result.returncode == 0
     assert "PostgreSQL shadow stack runtime" in result.stdout
     assert "Dry run only" in result.stdout
+
+
+def test_postgres_baseline_promotion_audit_runs_directly() -> None:
+    baseline_root = ROOT / "backend/prisma/postgres-baseline-package"
+    if baseline_root.exists():
+        result = _run_script(
+            ROOT / "backend/scripts/postgres_baseline_promotion_audit.py",
+        )
+        assert result.returncode == 0
+    else:
+        result = _run_script(
+            ROOT / "backend/scripts/postgres_baseline_promotion_audit.py",
+        )
+        assert result.returncode == 1
+
+    assert "PostgreSQL baseline promotion audit" in result.stdout
