@@ -73,3 +73,4 @@ temp/
 backend/chroma_data/
 chroma_data/
 backend/prisma/schema.postgres.prisma
+backend/prisma/postgres-baseline.sql
