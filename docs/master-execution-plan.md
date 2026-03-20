@@ -254,6 +254,7 @@ Prepare the system for containerized, multi-service, multi-machine, cloud-capabl
   - process-local state assumptions
   - API/worker same-host assumptions
   - storage assumptions
+  - lingering local-runtime defaults in code and docs
 - improve docs and scripts for distributed deployment
 
 ### Desired end state
