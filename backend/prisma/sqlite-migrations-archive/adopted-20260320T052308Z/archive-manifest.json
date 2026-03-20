@@ -1,0 +1,12 @@
+{
+  "adoption_tag": "adopted-20260320T052308Z",
+  "archived_live_entries": [
+    "20260221114842_init",
+    "20260302060243_add_rq_fields",
+    "20260306093000_session_first_c1_c5_c6",
+    "migration_lock.toml"
+  ],
+  "candidate_source": "/Users/ln1/Projects/Spectra/backend/prisma/postgres-live-baseline-candidate",
+  "note": "Legacy SQLite migration history was archived before adopting the PostgreSQL live baseline candidate.",
+  "strategy": "fresh-baseline-cutover"
+}

@@ -13,6 +13,9 @@ except ModuleNotFoundError:  # pragma: no cover - test/runtime fallback
 # Load environment variables (force backend/.env, independent of startup cwd)
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
+from services.runtime_env import normalize_database_url_for_host_runtime  # noqa: E402
+
+normalize_database_url_for_host_runtime()
 
 from fastapi import status  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402

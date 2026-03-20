@@ -1,3 +1,7 @@
+from services.prisma_runtime import ensure_generated_prisma_client_path
+
+ensure_generated_prisma_client_path()
+
 from prisma import Prisma
 
 from .files import FileMixin

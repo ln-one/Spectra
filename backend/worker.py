@@ -94,6 +94,10 @@ def main():
     base_dir = Path(__file__).resolve().parent
     load_dotenv(dotenv_path=base_dir / ".env", override=False)
 
+    from services.runtime_env import normalize_database_url_for_host_runtime
+
+    normalize_database_url_for_host_runtime()
+
     # 注册信号处理器
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)

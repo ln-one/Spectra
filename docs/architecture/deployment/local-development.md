@@ -110,7 +110,7 @@ services:
  - ./backend:/app
  - ./backend/uploads:/app/uploads
  environment:
- - DATABASE_URL=file:./dev.db
+ - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
  - JWT_SECRET_KEY=${JWT_SECRET_KEY}
  - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
  command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -118,9 +118,10 @@ services:
 
 ## 数据持久化
 
-**SQLite 数据库**：
-- 位置: `backend/prisma/dev.db`
-- 自动创建
+**PostgreSQL 数据库**：
+- 本机开发默认连接: `postgresql://spectra:spectra@127.0.0.1:5432/spectra`
+- Docker Compose 容器内连接: `postgresql://spectra:spectra@postgres:5432/spectra`
+- 通过 Docker Compose 启动并持久化到 `postgres_data` 卷
 
 **文件存储**：
 - 位置: `backend/uploads/`

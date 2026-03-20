@@ -29,6 +29,10 @@ from services.platform.state_transition_guard import GenerationState
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from services.prisma_runtime import ensure_generated_prisma_client_path
+
+    ensure_generated_prisma_client_path()
+
     from prisma import Prisma
 else:
     Prisma = Any
