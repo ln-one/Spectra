@@ -35,9 +35,15 @@ function normalizePath(input: string): string {
   }
 }
 
-function shouldSkipAuth(path: string): boolean {
+export function shouldSkipAuth(path: string): boolean {
   const pathname = normalizePath(path);
-  return pathname.startsWith("/api/v1/auth/") || pathname.startsWith("/auth/");
+  return (
+    pathname === "/api/v1/auth/login" ||
+    pathname === "/api/v1/auth/register" ||
+    pathname === "/api/v1/auth/refresh" ||
+    pathname === "/auth/login" ||
+    pathname === "/auth/register"
+  );
 }
 
 let isRefreshing = false;
