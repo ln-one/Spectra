@@ -80,23 +80,25 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           className="relative flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
           style={{ height: "52px" }}
         >
-          <div className="h-full shrink-0 overflow-hidden flex-col justify-center">
+          <div className="min-w-0 flex-1 overflow-hidden">
             <LayoutGroup>
               <motion.div
-                className="flex flex-col justify-center"
+                className="flex min-w-0 flex-col justify-center"
                 layout
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
               >
-                <CardTitle className="text-sm font-semibold leading-tight">
+                <CardTitle className="truncate text-sm font-semibold leading-tight">
                   <motion.span
+                    className="block truncate"
                     layout
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   >
                     {isExpanded ? TOOL_LABELS[expandedTool || "ppt"] : "Studio"}
                   </motion.span>
                 </CardTitle>
-                <CardDescription className="text-xs leading-tight text-[var(--project-text-muted)]">
+                <CardDescription className="truncate text-xs leading-tight text-[var(--project-text-muted)]">
                   <motion.span
+                    className="block truncate"
                     layout
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   >
