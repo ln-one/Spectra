@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TokenStorage } from "@/lib/auth";
+import { authService, TokenStorage } from "@/lib/auth";
 
 export function useWelcomePageState() {
   const router = useRouter();
@@ -8,17 +8,38 @@ export function useWelcomePageState() {
   const [showVideoModal, setShowVideoModal] = useState(false);
 
   useEffect(() => {
-    const token = TokenStorage.getAccessToken();
-    if (token) {
-      router.push("/projects");
-      return;
-    }
+    let cancelled = false;
 
-    const frame = requestAnimationFrame(() => {
-      setIsLoading(false);
-    });
+    const bootstrap = async () => {
+      let token = TokenStorage.getAccessToken();
+      if (!token && TokenStorage.getRefreshToken()) {
+        const refreshed = await authService.refreshToken();
+        if (cancelled) return;
+        if (refreshed) {
+          token = TokenStorage.getAccessToken();
+        }
+      }
 
-    return () => cancelAnimationFrame(frame);
+      if (token) {
+        router.push("/projects");
+        return;
+      }
+
+      const frame = requestAnimationFrame(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+      if (cancelled) {
+        cancelAnimationFrame(frame);
+      }
+    };
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   return {

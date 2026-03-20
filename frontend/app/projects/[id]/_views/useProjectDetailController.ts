@@ -1,16 +1,13 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { TokenStorage } from "@/lib/auth";
+import { authService, TokenStorage } from "@/lib/auth";
 import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
 import { formatSessionTime } from "./constants";
-import {
-  isThemePreset,
-  PROJECT_THEME_STORAGE_KEY,
-} from "./theme";
+import { isThemePreset, PROJECT_THEME_STORAGE_KEY } from "./theme";
 import { useProjectPanelLayout } from "./useProjectPanelLayout";
 
 export function useProjectDetailController() {
@@ -77,18 +74,35 @@ export function useProjectDetailController() {
   }, [selectedThemePreset]);
 
   useEffect(() => {
-    const token = TokenStorage.getAccessToken();
-    if (!token) {
-      router.push("/auth/login");
-      return;
-    }
+    let cancelled = false;
 
-    void fetchProject(projectId);
-    void fetchFiles(projectId);
-    void fetchMessages(projectId);
-    void fetchGenerationHistory(projectId);
+    const bootstrap = async () => {
+      let token = TokenStorage.getAccessToken();
+      if (!token && TokenStorage.getRefreshToken()) {
+        const refreshed = await authService.refreshToken();
+        if (cancelled) return;
+        if (refreshed) {
+          token = TokenStorage.getAccessToken();
+        }
+      }
+
+      if (!token) {
+        router.push("/auth/login");
+        return;
+      }
+
+      await Promise.all([
+        fetchProject(projectId),
+        fetchFiles(projectId),
+        fetchMessages(projectId),
+        fetchGenerationHistory(projectId),
+      ]);
+    };
+
+    void bootstrap();
 
     return () => {
+      cancelled = true;
       reset();
     };
   }, [

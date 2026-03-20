@@ -63,11 +63,15 @@ export const TokenStorage = {
   },
 
   getAccessTokenFromCookie(): string | null {
+    return this.getCookieValue(ACCESS_TOKEN_KEY);
+  },
+
+  getCookieValue(cookieName: string): string | null {
     if (typeof window === "undefined") return null;
     const cookies = document.cookie.split(";");
     for (const cookie of cookies) {
       const [name, ...valueParts] = cookie.trim().split("=");
-      if (name === "access_token") {
+      if (name === cookieName) {
         return valueParts.join("=") || null;
       }
     }
@@ -76,20 +80,30 @@ export const TokenStorage = {
 
   setRefreshToken(token: string): void {
     if (typeof window === "undefined") return;
+    const cookieOptions = "path=/; max-age=2592000; SameSite=Lax";
     try {
       localStorage.setItem(REFRESH_TOKEN_KEY, token);
+      document.cookie = `${REFRESH_TOKEN_KEY}=${token}; ${cookieOptions}`;
       emitAuthStateChange();
     } catch (error) {
       console.error("Failed to set refresh token:", error);
+      try {
+        document.cookie = `${REFRESH_TOKEN_KEY}=${token}; ${cookieOptions}`;
+        emitAuthStateChange();
+      } catch {
+        // no-op
+      }
     }
   },
 
   getRefreshToken(): string | null {
     if (typeof window === "undefined") return null;
     try {
-      return localStorage.getItem(REFRESH_TOKEN_KEY);
+      const fromStorage = localStorage.getItem(REFRESH_TOKEN_KEY);
+      if (fromStorage) return fromStorage;
+      return this.getCookieValue(REFRESH_TOKEN_KEY);
     } catch {
-      return null;
+      return this.getCookieValue(REFRESH_TOKEN_KEY);
     }
   },
 
