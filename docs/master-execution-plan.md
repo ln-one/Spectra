@@ -213,6 +213,7 @@ Focus especially on:
 - prepare validation scripts
 - prepare backup / restore execution helpers, not only audits
 - keep a dry-run PostgreSQL recovery drill ready for rollback rehearsals
+- keep a single cutover rehearsal command that can aggregate cutover audit, recovery drill, and optional shadow smoke
 - prepare rollback/runbook logic
 - keep a single cutover audit command that aggregates preflight, env contract, docker, backup/restore readiness, toolchain readiness, migration baseline readiness, and shadow-stack checks
 
