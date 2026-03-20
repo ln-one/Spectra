@@ -239,3 +239,18 @@ PostgreSQL 迁移不是“换个连接串”这么简单。
 - 审数据层假设
 - 补一致性与事务边界
 - 让测试先替我们踩坑
+# PostgreSQL Migration Checklist
+
+## Current validation chain
+
+- Render PostgreSQL Prisma schema variant:
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_schema_variant.py`
+- Dry-run Prisma shadow validation path:
+  - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_prisma_validate.py`
+- Execute Prisma shadow validation path:
+  - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_prisma_validate.py --run`
+- Aggregate rehearsal including Prisma shadow execution:
+  - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py --run-prisma-shadow`

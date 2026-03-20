@@ -22,6 +22,7 @@ from scripts import postgres_cutover_audit as cutover_audit  # noqa: E402
 from scripts import postgres_migration_sql_audit as migration_sql_audit  # noqa: E402
 from scripts import postgres_readiness_audit as readiness_audit  # noqa: E402
 from scripts import postgres_recovery_drill as recovery_drill  # noqa: E402
+from scripts import postgres_shadow_prisma_validate as shadow_prisma  # noqa: E402
 from scripts import postgres_shadow_smoke as shadow_smoke  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +39,7 @@ def evaluate_cutover_rehearsal(
     *,
     base_url: str | None = None,
     token: str | None = None,
+    run_prisma_shadow: bool = False,
     base_compose_text: str | None,
     shadow_compose_text: str | None,
     prisma_provider: str | None,
@@ -48,6 +50,9 @@ def evaluate_cutover_rehearsal(
     ),
     recovery_eval: Callable[..., tuple[list[str], int]] = (
         recovery_drill.evaluate_recovery_drill
+    ),
+    shadow_prisma_eval: Callable[..., tuple[list[str], int]] = (
+        shadow_prisma.evaluate_shadow_prisma_readiness
     ),
     shadow_eval: Callable[..., tuple[list[str], int]] = (
         shadow_smoke.evaluate_shadow_smoke
@@ -70,6 +75,31 @@ def evaluate_cutover_rehearsal(
     recovery_messages, recovery_failures = recovery_eval(env)
     messages.extend(_prefix("recovery", recovery_messages[1:]))
     failures += recovery_failures
+
+    shadow_prisma_messages, shadow_prisma_failures = shadow_prisma_eval(env)
+    messages.extend(_prefix("shadow-prisma", shadow_prisma_messages[1:]))
+    failures += shadow_prisma_failures
+
+    if run_prisma_shadow and shadow_prisma_failures == 0:
+        _, prisma_exit = shadow_prisma.execute_shadow_prisma_validation(env)
+        if prisma_exit == 0:
+            messages.append(
+                "[shadow-prisma] PASS Prisma shadow validate/db-push/generate completed"
+            )
+        else:
+            failures += 1
+            messages.append(
+                "[shadow-prisma] FAIL Prisma shadow validate/db-push/"
+                f"generate exited with code {prisma_exit}"
+            )
+    elif run_prisma_shadow:
+        messages.append(
+            "[shadow-prisma] WARN skipped execution because readiness checks failed"
+        )
+    else:
+        messages.append(
+            "[shadow-prisma] WARN execution skipped (re-run with --run-prisma-shadow)"
+        )
 
     if base_url:
         shadow_messages, shadow_failures = shadow_eval(
@@ -106,6 +136,14 @@ def main() -> int:
         default=None,
         help="Optional bearer token for authenticated smoke checks.",
     )
+    parser.add_argument(
+        "--run-prisma-shadow",
+        action="store_true",
+        help=(
+            "Execute Prisma validate/db push/generate against the "
+            "PostgreSQL shadow DB."
+        ),
+    )
     args = parser.parse_args()
 
     base_text = (
@@ -118,6 +156,7 @@ def main() -> int:
         os.environ,
         base_url=args.base_url,
         token=args.token,
+        run_prisma_shadow=args.run_prisma_shadow,
         base_compose_text=base_text,
         shadow_compose_text=shadow_text,
         prisma_provider=cutover_audit._read_prisma_provider(),

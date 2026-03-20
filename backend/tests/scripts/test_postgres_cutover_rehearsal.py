@@ -22,6 +22,10 @@ def test_cutover_rehearsal_aggregates_static_gates():
             ["PostgreSQL recovery drill", "FAIL recovery gate"],
             1,
         ),
+        shadow_prisma_eval=lambda env: (
+            ["PostgreSQL shadow Prisma validation readiness", "PASS prisma ready"],
+            0,
+        ),
         shadow_eval=lambda *args, **kwargs: (
             ["PostgreSQL shadow smoke", "PASS smoke"],
             0,
@@ -56,6 +60,10 @@ def test_cutover_rehearsal_can_include_live_shadow_smoke():
             0,
         ),
         recovery_eval=lambda env: (["PostgreSQL recovery drill", "PASS recovery"], 0),
+        shadow_prisma_eval=lambda env: (
+            ["PostgreSQL shadow Prisma validation readiness", "PASS prisma ready"],
+            0,
+        ),
         shadow_eval=lambda *args, **kwargs: (
             [
                 "PostgreSQL shadow smoke against http://localhost:8000",

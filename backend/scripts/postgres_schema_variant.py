@@ -11,21 +11,38 @@ DEFAULT_INPUT = ROOT / "backend/prisma/schema.prisma"
 DEFAULT_OUTPUT = ROOT / "backend/prisma/schema.postgres.prisma"
 SQLITE_PROVIDER = 'provider = "sqlite"'
 POSTGRES_PROVIDER = 'provider = "postgresql"'
+DATABASE_URL_ENV = 'url      = env("DATABASE_URL")'
 
 
-def render_postgres_schema_variant(schema_text: str) -> tuple[str, int]:
+def render_postgres_schema_variant(
+    schema_text: str,
+    *,
+    url_env_var: str = "DATABASE_URL",
+) -> tuple[str, int]:
     replacements = schema_text.count(SQLITE_PROVIDER)
-    if replacements == 0:
-        return schema_text, 0
-    return schema_text.replace(SQLITE_PROVIDER, POSTGRES_PROVIDER, 1), replacements
+    rendered = schema_text
+    if replacements:
+        rendered = rendered.replace(SQLITE_PROVIDER, POSTGRES_PROVIDER, 1)
+    if url_env_var != "DATABASE_URL":
+        rendered = rendered.replace(
+            DATABASE_URL_ENV,
+            f'url      = env("{url_env_var}")',
+            1,
+        )
+    return rendered, replacements
 
 
 def write_postgres_schema_variant(
     source: Path = DEFAULT_INPUT,
     target: Path = DEFAULT_OUTPUT,
+    *,
+    url_env_var: str = "DATABASE_URL",
 ) -> tuple[Path, int]:
     schema_text = source.read_text(encoding="utf-8")
-    rendered, replacements = render_postgres_schema_variant(schema_text)
+    rendered, replacements = render_postgres_schema_variant(
+        schema_text,
+        url_env_var=url_env_var,
+    )
     target.write_text(rendered, encoding="utf-8")
     return target, replacements
 
@@ -44,11 +61,17 @@ def main() -> int:
         default=DEFAULT_OUTPUT,
         help="Output PostgreSQL schema variant path",
     )
+    parser.add_argument(
+        "--url-env-var",
+        default="DATABASE_URL",
+        help="Datasource env var name to use in the rendered variant.",
+    )
     args = parser.parse_args()
 
     output_path, replacements = write_postgres_schema_variant(
         source=args.source,
         target=args.output,
+        url_env_var=args.url_env_var,
     )
     print(f"Rendered PostgreSQL schema variant to {output_path}")
     if replacements:

@@ -213,6 +213,7 @@ Focus especially on:
 - prepare migration scripts
 - prepare validation scripts
 - prepare backup / restore execution helpers, not only audits
+- keep a Prisma shadow validation command ready to render a PostgreSQL schema variant, validate it, push it to the shadow database, and regenerate the client
 - keep a dry-run PostgreSQL recovery drill ready for rollback rehearsals
 - keep a single cutover rehearsal command that can aggregate cutover audit, recovery drill, and optional shadow smoke
 - prepare rollback/runbook logic

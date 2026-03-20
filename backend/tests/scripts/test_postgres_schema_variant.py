@@ -31,3 +31,14 @@ def test_write_postgres_schema_variant_emits_output_file(tmp_path: Path) -> None
     assert replacements == 1
     assert output_path == target
     assert 'provider = "postgresql"' in target.read_text(encoding="utf-8")
+
+
+def test_render_postgres_schema_variant_can_retarget_shadow_env() -> None:
+    rendered, replacements = render_postgres_schema_variant(
+        'datasource db {\n  provider = "sqlite"\n  url      = env("DATABASE_URL")\n}\n',
+        url_env_var="POSTGRES_SHADOW_DATABASE_URL",
+    )
+
+    assert replacements == 1
+    assert 'provider = "postgresql"' in rendered
+    assert 'env("POSTGRES_SHADOW_DATABASE_URL")' in rendered

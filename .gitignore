@@ -72,3 +72,4 @@ backend/temp/
 temp/
 backend/chroma_data/
 chroma_data/
+backend/prisma/schema.postgres.prisma
