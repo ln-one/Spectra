@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import ANY, AsyncMock
 
 import pytest
 
@@ -88,6 +88,8 @@ async def test_review_candidate_change_reject_persists_review_comment():
         "c-001",
         CandidateChangeStatus.REJECTED,
         "not acceptable",
+        reviewed_by="u-001",
+        reviewed_at=ANY,
     )
 
 
@@ -123,11 +125,14 @@ async def test_review_candidate_change_accept_persists_accepted_version():
         "c-001",
         CandidateChangeStatus.ACCEPTED,
         "looks good",
+        reviewed_by="u-reviewer-001",
+        reviewed_at=ANY,
         payload={
             "review": {
                 "action": CandidateChangeReviewAction.ACCEPT,
                 "accepted_version_id": "v-002",
                 "reviewer_user_id": "u-reviewer-001",
+                "reviewed_at": ANY,
                 "review_comment": "looks good",
             }
         },

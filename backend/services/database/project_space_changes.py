@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Optional
 
 from schemas.project_space import CandidateChangeStatus
@@ -58,6 +59,8 @@ class ProjectSpaceChangeMixin:
         change_id: str,
         status: CandidateChangeStatus | str,
         review_comment: Optional[str] = None,
+        reviewed_by: Optional[str] = None,
+        reviewed_at: Optional[datetime] = None,
         payload: Optional[dict] = None,
     ):
         normalized_status = (
@@ -68,6 +71,10 @@ class ProjectSpaceChangeMixin:
         data = {"status": normalized_status}
         if review_comment is not None:
             data["reviewComment"] = review_comment
+        if reviewed_by is not None:
+            data["reviewedBy"] = reviewed_by
+        if reviewed_at is not None:
+            data["reviewedAt"] = reviewed_at
         if payload is not None:
             data["payload"] = json.dumps(payload)
         return await self.db.candidatechange.update(where={"id": change_id}, data=data)

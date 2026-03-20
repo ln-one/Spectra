@@ -78,6 +78,8 @@ def _fake_change(
     status: str = "pending",
     payload: str = '{"k":"v"}',
     review_comment: str | None = None,
+    reviewed_by: str | None = None,
+    reviewed_at=None,
 ):
     return SimpleNamespace(
         id=change_id,
@@ -89,6 +91,8 @@ def _fake_change(
         baseVersionId="v-001",
         status=status,
         reviewComment=review_comment,
+        reviewedBy=reviewed_by,
+        reviewedAt=reviewed_at,
         proposerUserId=_USER_ID,
         createdAt=_NOW,
         updatedAt=_NOW,
@@ -444,6 +448,8 @@ def test_review_candidate_change_success_passes_review_comment(
             status="accepted",
             payload='{"review": {"accepted_version_id": "v-002"}}',
             review_comment="looks good",
+            reviewed_by="u-001",
+            reviewed_at=_NOW,
         )
     )
     monkeypatch.setattr(project_space_service, "review_candidate_change", review_change)
@@ -458,6 +464,10 @@ def test_review_candidate_change_success_passes_review_comment(
     assert body["data"]["change"]["id"] == "c-007"
     assert body["data"]["change"]["status"] == "accepted"
     assert body["data"]["change"]["review_comment"] == "looks good"
+    assert body["data"]["change"]["reviewed_by"] == "u-001"
+    assert body["data"]["change"]["reviewed_at"] == _NOW.strftime(
+        "%Y-%m-%dT%H:%M:%S.%fZ"
+    )
     assert body["data"]["change"]["accepted_version_id"] == "v-002"
     review_change.assert_awaited_once_with(
         project_id=_PROJECT_ID,

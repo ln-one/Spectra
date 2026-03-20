@@ -65,6 +65,7 @@ class CandidateChangeStatus(str, Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    SUPERSEDED = "superseded"
 
 
 class CandidateChangeReviewAction(str, Enum):
@@ -251,6 +252,8 @@ class CandidateChange(CandidateChangeBase):
     project_id: str
     status: CandidateChangeStatus = CandidateChangeStatus.PENDING
     review_comment: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
     accepted_version_id: Optional[str] = None
     proposer_user_id: Optional[str] = None
     created_at: datetime

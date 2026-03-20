@@ -268,12 +268,15 @@ model CandidateChange {
   payload        String?  // JSON
   status         String   @default("pending") // pending/accepted/rejected
   proposerUserId String?
+  reviewedBy     String?
+  reviewedAt     DateTime?
   reviewComment  String?
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@index([projectId, status])
+  @@index([projectId, sessionId, status])
 }
 
 /// 项目成员与权限

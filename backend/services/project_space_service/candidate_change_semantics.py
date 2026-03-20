@@ -59,6 +59,11 @@ def serialize_candidate_change(change: Any, *, isoformat_datetimes: bool) -> dic
         "payload": payload,
         "status": change.status,
         "review_comment": getattr(change, "reviewComment", None),
+        "reviewed_by": getattr(change, "reviewedBy", None),
+        "reviewed_at": _serialize_datetime(
+            getattr(change, "reviewedAt", None),
+            isoformat=isoformat_datetimes,
+        ),
         "accepted_version_id": extract_accepted_version_id(payload),
         "proposer_user_id": change.proposerUserId,
         "created_at": _serialize_datetime(

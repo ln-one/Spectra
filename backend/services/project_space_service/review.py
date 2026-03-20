@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from schemas.project_space import (
@@ -71,10 +72,12 @@ async def review_candidate_change(
         )
         await db.update_project_current_version(change.projectId, new_version.id)
         review_payload = dict(payload)
+        reviewed_at = datetime.now(timezone.utc)
         review_payload["review"] = {
             "action": CandidateChangeReviewAction.ACCEPT,
             "accepted_version_id": new_version.id,
             "reviewer_user_id": reviewer_user_id,
+            "reviewed_at": reviewed_at.isoformat(),
         }
         if review_comment is not None:
             review_payload["review"]["review_comment"] = review_comment
@@ -82,6 +85,8 @@ async def review_candidate_change(
             change_id,
             CandidateChangeStatus.ACCEPTED,
             review_comment,
+            reviewed_by=reviewer_user_id,
+            reviewed_at=reviewed_at,
             payload=review_payload,
         )
         logger.info(
@@ -90,8 +95,13 @@ async def review_candidate_change(
         return updated_change
 
     if normalized_action == CandidateChangeReviewAction.REJECT:
+        reviewed_at = datetime.now(timezone.utc)
         updated_change = await db.update_candidate_change_status(
-            change_id, CandidateChangeStatus.REJECTED, review_comment
+            change_id,
+            CandidateChangeStatus.REJECTED,
+            review_comment,
+            reviewed_by=reviewer_user_id,
+            reviewed_at=reviewed_at,
         )
         logger.info(f"Rejected candidate change {change_id}")
         return updated_change
