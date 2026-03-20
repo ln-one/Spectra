@@ -242,6 +242,7 @@ Prepare the system for containerized, multi-service, multi-machine, cloud-capabl
 - continue improving deployment tooling:
   - preflight
   - role-aware env contract audits
+  - compose topology audits
   - smoke checks
   - worker diagnostics
   - release records

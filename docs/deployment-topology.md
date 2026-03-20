@@ -253,9 +253,17 @@
 - `/Users/ln1/Projects/Spectra/docs/runbook-main-deploy.md`
 - `/Users/ln1/Projects/Spectra/docs/runbook-incident-response.md`
 - `/Users/ln1/Projects/Spectra/docs/postgres-migration-checklist.md`
+- `/Users/ln1/Projects/Spectra/backend/scripts/docker_compose_topology_audit.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/docker_deploy_readiness_audit.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/deploy_smoke_check.py`
+
+建议在检查 Docker / 多机拓扑时先运行：
+
+- `python backend/scripts/docker_compose_topology_audit.py`
+- `python backend/scripts/docker_deploy_readiness_audit.py`
+- `python backend/scripts/deployment_env_role_audit.py backend`
+- `python backend/scripts/deployment_env_role_audit.py worker`
 
 ---
 

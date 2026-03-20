@@ -35,6 +35,7 @@
 - `backend/scripts/postgres_readiness_audit.py` - PostgreSQL readiness audit
 - `backend/scripts/postgres_shadow_stack_audit.py` - PostgreSQL shadow stack audit
 - `backend/scripts/postgres_cutover_audit.py` - PostgreSQL cutover readiness audit
+- `backend/scripts/docker_compose_topology_audit.py` - Docker Compose topology audit
 - `backend/scripts/docker_deploy_readiness_audit.py` - Docker/distributed deployment readiness audit
 - `backend/scripts/deployment_env_role_audit.py` - role-aware deployment env audit
 - `backend/scripts/worker_queue_diagnose.py` - worker/queue/stuck-job diagnosis
