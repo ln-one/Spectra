@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useProjectStore } from "@/stores/projectStore";
-import { ASPECT_RATIO_OPTIONS } from "../constants";
-import type { OutlineEditorPanelProps, SlideCard } from "../types";
+import { ASPECT_RATIO_OPTIONS } from "./constants";
+import type { OutlineEditorPanelProps, SlideCard } from "./types";
 
 export function useOutlineEditorController({
   topic = "课程大纲",

@@ -2,7 +2,7 @@
 
 import { CompactOutlineView } from "./components/CompactOutlineView";
 import { DefaultOutlineView } from "./components/DefaultOutlineView";
-import { useOutlineEditorController } from "./hooks/useOutlineEditorController";
+import { useOutlineEditorController } from "./useOutlineEditorController";
 import type { OutlineEditorPanelProps } from "./types";
 
 export type { OutlineEditorConfig, OutlineEditorPanelProps } from "./types";
