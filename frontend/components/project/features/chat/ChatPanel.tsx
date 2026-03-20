@@ -110,7 +110,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
       <Card className="h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <CardHeader
-          className="flex shrink-0 flex-row items-center justify-between space-y-0 px-4 py-0"
+          className="flex shrink-0 flex-row items-center justify-between space-y-0 overflow-hidden px-4 py-0"
           style={{ height: "52px" }}
         >
           <div className="min-w-0 flex-1 flex-col justify-center">
@@ -132,6 +132,21 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         </CardHeader>
 
         <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 h-7"
+            style={{
+              background:
+                "linear-gradient(180deg, var(--project-surface) 0%, color-mix(in srgb, var(--project-surface) 78%, transparent) 52%, rgba(255,255,255,0) 100%)",
+            }}
+          />
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[42px]"
+            style={{
+              background:
+                "linear-gradient(0deg, var(--project-surface) 0%, color-mix(in srgb, var(--project-surface) 78%, transparent) 52%, rgba(255,255,255,0) 100%)",
+            }}
+          />
+
           <ScrollArea className="h-full px-4">
             <AnimatePresence mode="wait">
               {showLoading ? (
