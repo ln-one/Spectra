@@ -33,10 +33,28 @@
 
 ---
 
+## Fresh Baseline Strategy
+
+当前主线采用：**PostgreSQL fresh baseline cutover**。
+
+这意味着：
+
+- 不要求保留现有 SQLite 历史记录
+- 不要求把旧开发/演示数据逐条迁入 PostgreSQL
+- PostgreSQL 将作为新的正式数据基线
+- 旧 SQLite migration 历史只作为历史参考，不再强制成为 live PostgreSQL migration 链的一部分
+
+因此，后续重点不是“复杂数据搬家”，而是：
+
+1. 扶正 PostgreSQL baseline package
+2. 明确 live Prisma migration adoption 方案
+3. 在 PostgreSQL 新库上跑核心链路回归
+4. 切换部署与运行环境
+
 ## 一、迁移前必须回答的问题
 
 1. 当前是否已经有必须保留的生产/演示数据
-2. 是“全量重建”还是“带数据迁移”
+2. 当前默认采用“全量重建 / fresh baseline”，除非后续明确要求保留历史数据
 3. PostgreSQL 是单机容器，还是独立实例
 4. Chroma / Redis / PostgreSQL 是否会分机部署
 5. 当前 `main` 分支是否允许在迁库期间短暂停机
@@ -145,11 +163,12 @@
 
 ### 推荐顺序
 
-1. 先在本地或单独容器拉起 PostgreSQL
-2. 跑 Prisma migration / schema sync
-3. 跑主测试套 + 关键集成测试
-4. 补 PostgreSQL 专项回归
-5. 最后再考虑演示环境切换
+1. 先确认 PostgreSQL baseline package 可 promotion
+2. 在本地或 shadow 环境拉起 PostgreSQL 新库
+3. 用 fresh baseline 初始化 PostgreSQL
+4. 跑主测试套 + 关键集成测试
+5. 补 PostgreSQL 专项回归
+6. 最后再考虑演示环境切换
 
 ### 建议阶段
 

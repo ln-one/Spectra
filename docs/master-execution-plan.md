@@ -211,8 +211,8 @@ Focus especially on:
 - keep a live PostgreSQL shadow smoke command ready once the shadow stack is up
 - keep auditing existing Prisma migration SQL for SQLite-specific constructs
 - keep a generated PostgreSQL Prisma schema variant ready so shadow validation can happen without mutating the main schema too early
-- prepare migration scripts
-- prepare validation scripts
+- prefer a fresh-baseline PostgreSQL adoption path when historical SQLite data does not need to be preserved
+- prepare baseline-promotion and validation scripts
 - prepare backup / restore execution helpers, not only audits
 - keep a Prisma shadow validation command ready to render a PostgreSQL schema variant, validate it, push it to the shadow database, and regenerate the client
 - keep a single PostgreSQL shadow flow command ready to bring infra up, execute Prisma shadow validation, optionally run live smoke, and tear the shadow stack down
@@ -223,6 +223,7 @@ Focus especially on:
 - keep a PostgreSQL baseline diff command ready to render a first-pass baseline SQL script from the current Prisma schema
 - keep a PostgreSQL baseline package command ready to scaffold a draft migration lock and baseline migration directory for review
 - keep a PostgreSQL baseline promotion audit ready so cutover rehearsal can distinguish draft-package readiness from true live migration adoption
+- assume fresh-baseline cutover by default unless product requirements later force historical SQLite data migration
 - keep a single cutover rehearsal command that can aggregate cutover audit, recovery drill, optional Prisma shadow execution, and a full end-to-end shadow flow
 - prepare rollback/runbook logic
 - keep a single cutover audit command that aggregates preflight, env contract, docker, backup/restore readiness, toolchain readiness, migration baseline readiness, and shadow-stack checks
