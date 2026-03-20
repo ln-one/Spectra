@@ -1,8 +1,7 @@
-﻿"use client";
+"use client";
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Bot, User } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
 import { toCitationViewModels } from "@/lib/chat/citation-view-model";
@@ -11,7 +10,7 @@ import { CitationBadge } from "./CitationBadge";
 import { MarkdownContent } from "./MarkdownContent";
 
 function splitContentAndSources(content: string): { body: string } {
-  const markers = ["\n\n来源：", "\n\n来源:"];
+  const markers = ["\n\n\u6765\u6e90\uff1a", "\n\n\u6765\u6e90:"];
   const idx = markers
     .map((marker) => content.indexOf(marker))
     .find((value) => value >= 0);
@@ -48,34 +47,11 @@ export function MessageBubble({
         stiffness: 400,
         damping: 30,
       }}
-      className={cn("flex gap-3", isUser ? "flex-row-reverse" : "flex-row")}
+      className={cn("flex", isUser ? "justify-end" : "justify-start")}
     >
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{
-          delay: index * 0.03 + 0.1,
-          type: "spring",
-          stiffness: 500,
-          damping: 30,
-        }}
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-sm",
-          isUser
-            ? "bg-[linear-gradient(135deg,var(--project-accent),var(--project-accent-hover))]"
-            : "bg-[var(--project-surface-muted)]"
-        )}
-      >
-        {isUser ? (
-          <User className="h-4 w-4 text-[var(--project-accent-text)]" />
-        ) : (
-          <Bot className="h-4 w-4 text-[var(--project-text-muted)]" />
-        )}
-      </motion.div>
-
       <div
         className={cn(
-          "flex max-w-[80%] flex-col gap-1.5",
+          "flex max-w-[82%] flex-col gap-1.5",
           isUser ? "items-end" : "items-start"
         )}
       >
@@ -96,7 +72,7 @@ export function MessageBubble({
             <div className="relative">
               <MarkdownContent content={body} isUser={isUser} />
               {citations.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
+                <div className="mt-1.5 flex flex-wrap gap-1">
                   {citations.map((citation, i) => (
                     <button
                       key={`${citation.chunkId}-${i}`}
@@ -104,7 +80,7 @@ export function MessageBubble({
                         focusSourceByChunk(citation.chunkId, projectId)
                       }
                       className="text-[10px] leading-none text-[var(--project-text-muted)] transition-colors hover:text-[var(--project-text-primary)]"
-                      aria-label={`引用 ${i + 1}`}
+                      aria-label={`\u5f15\u7528 ${i + 1}`}
                     >
                       <sup className="rounded border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-1 py-0.5">
                         {i + 1}
@@ -122,7 +98,7 @@ export function MessageBubble({
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.03 + 0.15 }}
-            className="mt-1 flex flex-wrap gap-1.5"
+            className="mt-0.5 flex flex-wrap gap-1.5"
           >
             {citations.map((citation, i) => (
               <CitationBadge
@@ -145,4 +121,3 @@ export function MessageBubble({
     </motion.div>
   );
 }
-

@@ -1,15 +1,14 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Send, Sparkles } from "lucide-react";
+import { ArrowUp, Loader2, Sparkles } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -23,6 +22,12 @@ import type { ChatMessage } from "./types";
 interface ChatPanelProps {
   projectId: string;
 }
+
+const CHAT_DESCRIPTION = "AI \u52a9\u624b\u5bf9\u8bdd";
+const THINKING_LABEL = "\u601d\u8003\u4e2d";
+const EMPTY_TITLE = "\u5f00\u59cb\u5bf9\u8bdd";
+const EMPTY_DESCRIPTION = "\u5411 AI \u52a9\u624b\u63d0\u95ee\u5173\u4e8e\u9879\u76ee\u7684\u5185\u5bb9";
+const INPUT_PLACEHOLDER = "\u8f93\u5165\u6d88\u606f...";
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
   const {
@@ -70,6 +75,15 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     };
   }, [isMessagesLoading]);
 
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    const textarea = textareaRef.current;
+    textarea.style.height = "0px";
+    const nextHeight = Math.min(textarea.scrollHeight, 176);
+    textarea.style.height = `${Math.max(nextHeight, 44)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > 176 ? "auto" : "hidden";
+  }, [input]);
+
   const showLoading =
     isMessagesLoading && !loadingTimedOut && messages.length === 0;
 
@@ -96,13 +110,13 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
       <Card className="h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <CardHeader
-          className="flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
+          className="flex shrink-0 flex-row items-center justify-between space-y-0 px-4 py-0"
           style={{ height: "52px" }}
         >
           <div className="min-w-0 flex-1 flex-col justify-center">
             <CardTitle className="text-sm font-semibold leading-tight">Chat</CardTitle>
             <CardDescription className="text-xs leading-tight text-[var(--project-text-muted)]">
-              AI 助手对话
+              {CHAT_DESCRIPTION}
             </CardDescription>
           </div>
           {isSending ? (
@@ -112,12 +126,12 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               className="flex items-center gap-1.5 text-xs text-[var(--project-text-muted)]"
             >
               <Loader2 className="h-3 w-3 animate-spin" />
-              <span>思考中</span>
+              <span>{THINKING_LABEL}</span>
             </motion.div>
           ) : null}
         </CardHeader>
 
-        <CardContent className="h-[calc(100%-132px)] p-0">
+        <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
           <ScrollArea className="h-full px-4">
             <AnimatePresence mode="wait">
               {showLoading ? (
@@ -127,21 +141,20 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.18 }}
-                  className="h-full py-4"
+                  className="h-full py-4 pb-28"
                 >
                   <div className="space-y-4">
                     {[0, 1, 2, 3].map((idx) => (
                       <div
                         key={idx}
-                        className={cn(
-                          "flex gap-3",
-                          idx % 2 === 0 ? "justify-start" : "justify-end"
-                        )}
+                        className={cn("flex", idx % 2 === 0 ? "justify-start" : "justify-end")}
                       >
-                        <div className="h-8 w-8 shrink-0 animate-pulse rounded-xl bg-[var(--project-surface-muted)]" />
                         <div className="w-[75%] space-y-2">
-                          <div className="h-3 animate-pulse rounded bg-[var(--project-surface-muted)]" />
-                          <div className="h-3 w-4/5 animate-pulse rounded bg-[var(--project-surface-muted)]" />
+                          <div className="h-3 w-16 animate-pulse rounded-full bg-[var(--project-surface-muted)]" />
+                          <div className="space-y-2 rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-4">
+                            <div className="h-3 animate-pulse rounded bg-[var(--project-surface-muted)]" />
+                            <div className="h-3 w-4/5 animate-pulse rounded bg-[var(--project-surface-muted)]" />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -165,10 +178,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                     <Sparkles className="h-7 w-7 text-[var(--project-text-muted)]" />
                   </motion.div>
                   <p className="text-sm font-semibold text-[var(--project-text-primary)]">
-                    开始对话
+                    {EMPTY_TITLE}
                   </p>
                   <p className="mb-4 mt-1 text-xs text-[var(--project-text-muted)]">
-                    向 AI 助手提问关于项目的内容
+                    {EMPTY_DESCRIPTION}
                   </p>
                   <div className="flex max-w-[280px] flex-wrap justify-center gap-2">
                     {SUGGESTIONS.map((suggestion) => (
@@ -189,7 +202,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-4 py-4"
+                  className="space-y-4 py-4 pb-28"
                 >
                   <AnimatePresence mode="popLayout">
                     {messages.map((message, index) => (
@@ -206,43 +219,41 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               )}
             </AnimatePresence>
           </ScrollArea>
-        </CardContent>
 
-        <CardFooter className="flex-col gap-2 border-t border-[var(--project-border)] px-4 py-3">
-          <div className="flex w-full items-end gap-2">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="输入消息..."
-              className="min-h-[44px] max-h-[120px] resize-none rounded-xl border-[var(--project-border)] bg-[var(--project-surface-elevated)] transition-colors focus:border-[var(--project-border-strong)] focus:ring-[var(--project-border)]"
-              rows={1}
-            />
-            <Button
-              size="icon"
-              onClick={() => void handleSend()}
-              disabled={!input.trim() || isSending}
-              className={cn(
-                "h-11 w-11 shrink-0 rounded-xl transition-all duration-200",
-                input.trim() && !isSending
-                  ? "bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-md hover:bg-[var(--project-accent-hover)] hover:shadow-lg"
-                  : "bg-[var(--project-surface-muted)] text-[var(--project-text-muted)]"
-              )}
-            >
-              {isSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
+          <div className="pointer-events-none absolute inset-x-4 bottom-3 z-20">
+            <div className="pointer-events-auto rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+              <div className="flex w-full items-end gap-2">
+                <Textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={INPUT_PLACEHOLDER}
+                  className="min-h-[44px] max-h-[176px] resize-none rounded-lg border-none bg-transparent px-2 py-1.5 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  rows={1}
+                />
+                <Button
+                  size="icon"
+                  onClick={() => void handleSend()}
+                  disabled={!input.trim() || isSending}
+                  className={cn(
+                    "h-10 w-10 shrink-0 rounded-lg transition-all duration-200",
+                    input.trim() && !isSending
+                      ? "bg-[var(--project-accent)] text-[var(--project-accent-text)] hover:bg-[var(--project-accent-hover)]"
+                      : "bg-[var(--project-surface-muted)] text-[var(--project-text-muted)]"
+                  )}
+                >
+                  {isSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
-          <p className="w-full text-center text-[10px] text-[var(--project-text-muted)]">
-            按 Enter 发送，Shift + Enter 换行
-          </p>
-        </CardFooter>
+        </CardContent>
       </Card>
     </div>
   );
 }
-

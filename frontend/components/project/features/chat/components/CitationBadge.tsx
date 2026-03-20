@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import type { CitationViewModel } from "@/lib/chat/citation-view-model";
 
 const sourceLabelMap: Record<CitationViewModel["sourceType"], string> = {
-  document: "文档",
-  web: "网页",
-  video: "视频",
-  audio: "音频",
+  document: "\u6587\u6863",
+  web: "\u7f51\u9875",
+  video: "\u89c6\u9891",
+  audio: "\u97f3\u9891",
   ai_generated: "AI",
 };
 
@@ -25,20 +25,24 @@ export function CitationBadge({
     <Badge
       variant="outline"
       onClick={onClick}
-      className="gap-1.5 px-2.5 py-1 text-[10px] font-medium cursor-pointer hover:bg-zinc-50 hover:border-zinc-300 transition-colors shadow-sm"
+      className="cursor-pointer gap-1.5 border-[var(--project-border)] bg-[var(--project-surface)] px-2.5 py-1 text-[10px] font-medium text-[var(--project-text-primary)] transition-colors hover:bg-[var(--project-surface-muted)]"
       title={citation.contentPreview || citation.filename}
     >
-      <span className="text-[10px] font-semibold text-zinc-700">{index + 1}</span>
-      <ExternalLink className="w-3 h-3" />
-      <span className="rounded bg-zinc-100 px-1 py-0.5 text-[9px] text-zinc-600">
+      <span className="text-[10px] font-semibold text-[var(--project-text-primary)]">
+        {index + 1}
+      </span>
+      <ExternalLink className="h-3 w-3 text-[var(--project-text-muted)]" />
+      <span className="rounded bg-[var(--project-surface-muted)] px-1 py-0.5 text-[9px] text-[var(--project-text-muted)]">
         {sourceLabelMap[citation.sourceType]}
       </span>
-      <span className="truncate max-w-[100px]">{citation.filename}</span>
+      <span className="max-w-[100px] truncate">{citation.filename}</span>
       {citation.pageNumber && (
-        <span className="text-zinc-400 font-normal">P{citation.pageNumber}</span>
+        <span className="font-normal text-[var(--project-text-muted)]">
+          P{citation.pageNumber}
+        </span>
       )}
       {typeof citation.timestamp === "number" && (
-        <span className="text-zinc-400 font-normal">
+        <span className="font-normal text-[var(--project-text-muted)]">
           {Math.round(citation.timestamp)}s
         </span>
       )}
