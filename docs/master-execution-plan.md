@@ -223,6 +223,7 @@ Focus especially on:
 - keep a PostgreSQL baseline diff command ready to render a first-pass baseline SQL script from the current Prisma schema
 - keep a PostgreSQL baseline package command ready to scaffold a draft migration lock and baseline migration directory for review
 - keep a PostgreSQL baseline promotion audit ready so cutover rehearsal can distinguish draft-package readiness from true live migration adoption
+- keep a PostgreSQL live-baseline candidate scaffold ready so fresh-baseline cutover can stage a real adoption tree before touching live Prisma migrations
 - assume fresh-baseline cutover by default unless product requirements later force historical SQLite data migration
 - keep a single cutover rehearsal command that can aggregate cutover audit, recovery drill, optional Prisma shadow execution, and a full end-to-end shadow flow
 - prepare rollback/runbook logic

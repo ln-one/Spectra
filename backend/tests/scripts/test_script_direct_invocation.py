@@ -60,3 +60,13 @@ def test_postgres_baseline_promotion_audit_runs_directly() -> None:
         assert result.returncode == 1
 
     assert "PostgreSQL baseline promotion audit" in result.stdout
+
+
+def test_postgres_live_baseline_candidate_runs_directly() -> None:
+    result = _run_script(
+        ROOT / "backend/scripts/postgres_live_baseline_candidate.py",
+    )
+
+    assert result.returncode == 0
+    assert "PostgreSQL live baseline candidate" in result.stdout
+    assert "Dry run only" in result.stdout

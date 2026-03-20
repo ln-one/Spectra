@@ -220,6 +220,7 @@
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py`（会同时检查 migration lock 与 migration SQL baseline readiness）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_schema_variant.py`（生成不改动主 schema 的 PostgreSQL Prisma variant，用于 shadow 验证与 baseline 预演）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_baseline_promotion_audit.py`（检查 draft baseline package 是否已经具备进入 live Prisma migration 评审的条件）
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_live_baseline_candidate.py`（基于 draft baseline package 生成 fresh-baseline live adoption candidate，并记录 legacy SQLite migration manifest）
 
 建议影子环境使用：
 
@@ -246,6 +247,7 @@
 2. 现有 Prisma migration SQL 仍包含 SQLite-specific 迁移
 3. PostgreSQL baseline 还处于 draft/package 阶段，尚未正式接入 live migration 路径
 4. baseline package promotion 还未完成正式评审与接线
+5. 还需要明确 live baseline candidate 的 adoption 入口
 
 也就是说，接下来的重点不再是继续扩 readiness 范围，而是把 baseline promotion 和实际迁移路径做实。
 
