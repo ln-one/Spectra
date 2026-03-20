@@ -93,6 +93,7 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/docker_deploy_readiness_audi
 
 ```bash
 python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py --require-postgres
+python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py
 ```
 
 如果只想先看环境变量是否齐全：

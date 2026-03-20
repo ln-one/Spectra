@@ -189,6 +189,7 @@
 
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_readiness_audit.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_audit.py`
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py`
 
 建议影子环境使用：
 
