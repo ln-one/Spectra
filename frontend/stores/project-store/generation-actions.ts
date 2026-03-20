@@ -12,7 +12,11 @@ import type {
   ProjectState,
   SessionStatePayload,
 } from "./types";
-import { GENERATION_TOOLS } from "./types";
+import {
+  mapSessionsToHistory,
+  normalizeGenerationOptions,
+  resolveOutputType,
+} from "./generation-actions.helpers";
 
 export function createGenerationActions({
   set,
@@ -35,23 +39,10 @@ export function createGenerationActions({
     ) => {
       try {
         const { selectedFileIds, activeSessionId } = get();
-        const normalizedOptions: GenerationOptions = {
-          template: options?.template || "default",
-          show_page_number: options?.show_page_number ?? true,
-          include_animations: options?.include_animations ?? false,
-          include_games: options?.include_games ?? false,
-          use_text_to_image: options?.use_text_to_image ?? false,
-          ...options,
-        };
+        const normalizedOptions = normalizeGenerationOptions(options);
         const response = await generateApi.createSession({
           project_id: projectId,
-          output_type:
-            tool.type === "ppt" ||
-            tool.type === "mindmap" ||
-            tool.type === "outline" ||
-            tool.type === "animation"
-              ? "ppt"
-              : "word",
+          output_type: resolveOutputType(tool),
           options: {
             ...normalizedOptions,
             rag_source_ids:
@@ -125,30 +116,7 @@ export function createGenerationActions({
           limit: 20,
         });
         const sessions = response?.data?.sessions ?? [];
-        const history: GenerationHistory[] = sessions.map((s) => {
-          let status: GenerationHistory["status"] = "processing";
-          if (s.state === "SUCCESS") status = "completed";
-          else if (s.state === "FAILED") status = "failed";
-          else if (s.state === "IDLE") status = "pending";
-
-          const toolId =
-            s.output_type === "ppt"
-              ? "ppt"
-              : s.output_type === "word"
-                ? "word"
-                : "ppt";
-          const tool = GENERATION_TOOLS.find((t) => t.id === toolId);
-
-          return {
-            id: s.session_id,
-            toolId,
-            toolName: tool?.name || "生成任务",
-            status,
-            sessionState: s.state,
-            createdAt: s.created_at,
-            title: tool?.name || "生成任务",
-          };
-        });
+        const history: GenerationHistory[] = mapSessionsToHistory(sessions);
         const activeSessionId =
           get().activeSessionId ??
           get().generationSession?.session?.session_id ??
