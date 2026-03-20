@@ -45,6 +45,7 @@ async def get_project_artifacts(
     based_on_version_id: Optional[str] = Query(
         None, description="Based on version ID filter"
     ),
+    session_id: Optional[str] = Query(None, description="Session ID filter"),
 ):
     try:
         await project_space_service.check_project_permission(
@@ -56,6 +57,7 @@ async def get_project_artifacts(
             visibility_filter=visibility.value if visibility else None,
             owner_user_id_filter=owner_user_id,
             based_on_version_id_filter=based_on_version_id,
+            session_id_filter=session_id,
         )
         return ArtifactsResponse(
             success=True,

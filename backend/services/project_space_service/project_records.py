@@ -49,6 +49,7 @@ async def get_project_artifacts(
     visibility_filter: Optional[ArtifactVisibility | str] = None,
     owner_user_id_filter: Optional[str] = None,
     based_on_version_id_filter: Optional[str] = None,
+    session_id_filter: Optional[str] = None,
 ):
     return await service.db.get_project_artifacts(
         project_id,
@@ -60,6 +61,7 @@ async def get_project_artifacts(
         ),
         owner_user_id_filter,
         based_on_version_id_filter,
+        session_id_filter,
     )
 
 

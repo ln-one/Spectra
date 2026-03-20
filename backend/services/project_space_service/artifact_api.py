@@ -60,6 +60,7 @@ class ProjectSpaceArtifactAPIMixin:
         visibility_filter: Optional[ArtifactVisibility | str] = None,
         owner_user_id_filter: Optional[str] = None,
         based_on_version_id_filter: Optional[str] = None,
+        session_id_filter: Optional[str] = None,
     ):
         return await get_project_artifacts(
             self,
@@ -68,6 +69,7 @@ class ProjectSpaceArtifactAPIMixin:
             visibility_filter,
             owner_user_id_filter,
             based_on_version_id_filter,
+            session_id_filter,
         )
 
     async def get_artifact(self, artifact_id: str):

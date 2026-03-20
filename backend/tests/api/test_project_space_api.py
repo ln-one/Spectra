@@ -173,7 +173,8 @@ def test_get_project_artifacts_with_filters_success(client, monkeypatch, _as_use
 
     resp = client.get(
         f"/api/v1/projects/{_PROJECT_ID}/artifacts"
-        "?type=summary&visibility=private&owner_user_id=u-ps-001&based_on_version_id=v-1"
+        "?type=summary&visibility=private&owner_user_id=u-ps-001"
+        "&based_on_version_id=v-1&session_id=s-001"
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -184,6 +185,7 @@ def test_get_project_artifacts_with_filters_success(client, monkeypatch, _as_use
         visibility_filter="private",
         owner_user_id_filter="u-ps-001",
         based_on_version_id_filter="v-1",
+        session_id_filter="s-001",
     )
 
 

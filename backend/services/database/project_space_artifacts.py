@@ -20,6 +20,7 @@ class ProjectSpaceArtifactMixin:
         visibility_filter: Optional[ArtifactVisibility | str] = None,
         owner_user_id_filter: Optional[str] = None,
         based_on_version_id_filter: Optional[str] = None,
+        session_id_filter: Optional[str] = None,
     ):
         where: dict = {"projectId": project_id}
         if type_filter:
@@ -34,6 +35,8 @@ class ProjectSpaceArtifactMixin:
             where["ownerUserId"] = owner_user_id_filter
         if based_on_version_id_filter:
             where["basedOnVersionId"] = based_on_version_id_filter
+        if session_id_filter:
+            where["sessionId"] = session_id_filter
         return await self.db.artifact.find_many(
             where=where, order={"createdAt": "desc"}
         )
