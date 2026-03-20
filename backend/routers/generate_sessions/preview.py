@@ -84,9 +84,11 @@ async def get_session_preview(
             message=str(exc),
         )
 
-    project_id = snapshot["session"]["project_id"]
-    task, slides, lesson_plan, _ = await _load_preview_material(session_id, project_id)
     anchor = await _resolve_anchor(session_id, snapshot, artifact_id)
+    project_id = snapshot["session"]["project_id"]
+    task, slides, lesson_plan, _ = await _load_preview_material(
+        session_id, project_id, anchor.get("artifact_id")
+    )
 
     return success_response(
         data=build_preview_payload(
@@ -178,9 +180,11 @@ async def get_session_slide_preview(
     """获取单页幻灯片预览（session 作用域）。"""
     snapshot = await _get_snapshot(session_id, user_id)
 
-    project_id = snapshot["session"]["project_id"]
-    _, slides, lesson_plan, _ = await _load_preview_material(session_id, project_id)
     anchor = await _resolve_anchor(session_id, snapshot, artifact_id)
+    project_id = snapshot["session"]["project_id"]
+    _, slides, lesson_plan, _ = await _load_preview_material(
+        session_id, project_id, anchor.get("artifact_id")
+    )
 
     try:
         selected_slide, teaching_plan, related_slides = resolve_slide_preview(
@@ -234,11 +238,11 @@ async def export_session(
     except RuntimeError as exc:
         _raise_conflict(str(exc))
 
+    anchor = await _resolve_anchor(session_id, snapshot, body.get("artifact_id"))
     project_id = snapshot["session"]["project_id"]
     task, slides, lesson_plan, content = await _load_preview_material(
-        session_id, project_id
+        session_id, project_id, anchor.get("artifact_id")
     )
-    anchor = await _resolve_anchor(session_id, snapshot, body.get("artifact_id"))
     export_format = str(body.get("format") or "markdown")
     payload = build_export_payload(
         session_id=session_id,

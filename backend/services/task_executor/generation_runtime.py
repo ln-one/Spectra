@@ -186,6 +186,7 @@ async def persist_generation_artifacts(
                     "status": "completed",
                     "output_type": "ppt" if artifact_type == "pptx" else "word",
                     "title": f"{artifact_type.upper()} · {context.task_id[:8]}",
+                    "task_id": context.task_id,
                     "is_current": True,
                 },
             )

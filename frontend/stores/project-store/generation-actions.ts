@@ -267,11 +267,6 @@ export function createGenerationActions({
         return;
       }
 
-      if (artifact.storagePath) {
-        window.open(artifact.storagePath, "_blank", "noopener,noreferrer");
-        return;
-      }
-
       const projectId = get().project?.id;
       if (projectId) {
         try {

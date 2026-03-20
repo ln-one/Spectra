@@ -1,6 +1,8 @@
 import json
 import logging
+from pathlib import Path
 from typing import Optional
+from uuid import UUID
 
 from schemas.generation import TaskStatus
 from services.database import db_service
@@ -78,13 +80,58 @@ async def get_or_generate_content(task, project) -> dict:
     return data
 
 
-async def load_preview_material(session_id: str, project_id: str):
-    tasks = await db_service.db.generationtask.find_many(
-        where={"sessionId": session_id},
-        order={"createdAt": "desc"},
-        take=1,
-    )
-    task = tasks[0] if tasks else None
+def _extract_task_id_from_artifact(artifact) -> Optional[str]:
+    metadata_raw = getattr(artifact, "metadata", None)
+    if metadata_raw:
+        try:
+            metadata = json.loads(metadata_raw)
+            task_id = metadata.get("task_id")
+            if isinstance(task_id, str) and task_id.strip():
+                return task_id.strip()
+        except (TypeError, json.JSONDecodeError):
+            pass
+
+    storage_path = getattr(artifact, "storagePath", None)
+    if not storage_path:
+        return None
+    stem = Path(storage_path).stem
+    try:
+        UUID(stem)
+    except ValueError:
+        return None
+    return stem
+
+
+async def _resolve_task_by_artifact(session_id: str, artifact_id: Optional[str]):
+    if not artifact_id:
+        return None
+    artifact = await db_service.db.artifact.find_unique(where={"id": artifact_id})
+    if not artifact:
+        return None
+    if getattr(artifact, "sessionId", None) != session_id:
+        return None
+
+    task_id = _extract_task_id_from_artifact(artifact)
+    if task_id:
+        task = await db_service.db.generationtask.find_unique(where={"id": task_id})
+        if task and getattr(task, "sessionId", None) == session_id:
+            return task
+    return None
+
+
+async def load_preview_material(
+    session_id: str,
+    project_id: str,
+    artifact_id: Optional[str] = None,
+):
+    task = await _resolve_task_by_artifact(session_id, artifact_id)
+    if task is None:
+        tasks = await db_service.db.generationtask.find_many(
+            where={"sessionId": session_id},
+            order={"createdAt": "desc"},
+            take=1,
+        )
+        task = tasks[0] if tasks else None
 
     slides: list[dict] = []
     lesson_plan: Optional[dict] = None
