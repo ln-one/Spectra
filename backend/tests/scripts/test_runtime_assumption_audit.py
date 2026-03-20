@@ -30,3 +30,27 @@ def test_find_hits_returns_empty_when_absent(tmp_path):
     )
 
     assert hits == []
+
+
+def test_find_hits_skips_tests_and_virtualenv_paths(tmp_path):
+    tests_target = tmp_path / "tests" / "demo.py"
+    tests_target.parent.mkdir(parents=True)
+    tests_target.write_text('DATABASE_URL = "file:./dev.db"\n', encoding="utf-8")
+
+    venv_target = tmp_path / ".venv" / "demo.py"
+    venv_target.parent.mkdir(parents=True)
+    venv_target.write_text('DATABASE_URL = "file:./dev.db"\n', encoding="utf-8")
+
+    active_target = tmp_path / "runtime.py"
+    active_target.write_text('DATABASE_URL = "file:./dev.db"\n', encoding="utf-8")
+
+    hits = _find_hits(
+        AssumptionPattern(
+            name="sqlite_default",
+            needle="file:./dev.db",
+            scope=(tmp_path,),
+        )
+    )
+
+    assert len(hits) == 1
+    assert str(active_target) in hits[0]

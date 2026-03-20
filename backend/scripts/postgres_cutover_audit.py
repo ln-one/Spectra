@@ -56,6 +56,7 @@ def evaluate_cutover_readiness(
     shadow_compose_text: str | None,
     migration_lock_provider: str | None = None,
     migration_sql_messages: list[str] | None = None,
+    allow_local_postgres_host: bool = False,
 ) -> tuple[list[str], int]:
     messages = ["PostgreSQL cutover readiness audit"]
     failures = 0
@@ -65,6 +66,7 @@ def evaluate_cutover_readiness(
         skip_network=True,
         timeout_seconds=0.1,
         require_postgres=True,
+        allow_local_host=allow_local_postgres_host,
     )
     messages.extend(_prefix("preflight", preflight_messages[1:]))
     failures += preflight_failures

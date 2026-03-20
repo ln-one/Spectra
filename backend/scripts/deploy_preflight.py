@@ -76,6 +76,7 @@ def _check_database_contract(
     database_url: str | None,
     *,
     require_postgres: bool,
+    allow_local_host: bool = False,
 ) -> tuple[list[str], int]:
     if not database_url:
         return [], 0
@@ -109,7 +110,7 @@ def _check_database_contract(
             )
         )
 
-    if require_postgres and host in LOCAL_HOSTS:
+    if require_postgres and host in LOCAL_HOSTS and not allow_local_host:
         messages.append(
             _format(
                 "FAIL",
@@ -118,6 +119,16 @@ def _check_database_contract(
             )
         )
         failures += 1
+    elif require_postgres and host in LOCAL_HOSTS:
+        messages.append(
+            _format(
+                "PASS",
+                (
+                    f"DATABASE_URL host `{host}` is local-only, but this is "
+                    "allowed for shadow rehearsal"
+                ),
+            )
+        )
     elif host in LOCAL_HOSTS:
         messages.append(
             _format(
@@ -173,6 +184,7 @@ def evaluate_preflight(
     skip_network: bool,
     timeout_seconds: float,
     require_postgres: bool = False,
+    allow_local_host: bool = False,
     tcp_check: Callable[[str, int, float], tuple[bool, str]] = _tcp_check,
 ) -> tuple[list[str], int]:
     messages = ["Deployment preflight"]
@@ -184,6 +196,7 @@ def evaluate_preflight(
     contract_messages, contract_failures = _check_database_contract(
         database_url,
         require_postgres=require_postgres,
+        allow_local_host=allow_local_host,
     )
     messages.extend(contract_messages)
     failures += contract_failures
@@ -244,6 +257,14 @@ def main() -> int:
             "or still points at a local-only host"
         ),
     )
+    parser.add_argument(
+        "--allow-local-host",
+        action="store_true",
+        help=(
+            "Allow localhost/127.0.0.1 DATABASE_URL hosts when "
+            "--require-postgres is enabled; intended for shadow rehearsal only."
+        ),
+    )
     args = parser.parse_args()
 
     messages, failures = evaluate_preflight(
@@ -251,6 +272,7 @@ def main() -> int:
         skip_network=args.skip_network,
         timeout_seconds=args.timeout_seconds,
         require_postgres=args.require_postgres,
+        allow_local_host=args.allow_local_host,
     )
     for message in messages:
         print(message)

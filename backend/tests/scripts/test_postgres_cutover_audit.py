@@ -185,3 +185,100 @@ services:
         for m in messages
     )
     assert any("[shadow] PASS postgres service declared" in m for m in messages)
+
+
+def test_cutover_audit_can_allow_local_postgres_host_for_shadow_rehearsal(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        cutover_audit,
+        "evaluate_postgres_toolchain",
+        lambda env: (
+            [
+                "PostgreSQL toolchain readiness audit",
+                "PASS PG_DUMP_BIN resolved via `pg_dump` (/usr/bin/pg_dump)",
+                "PASS PostgreSQL CLI toolchain available for backup/restore",
+            ],
+            0,
+        ),
+    )
+
+    messages, failures = cutover_audit.evaluate_cutover_readiness(
+        {
+            "DATABASE_URL": "postgresql://spectra:pass@127.0.0.1:5432/spectra_shadow",
+            "JWT_SECRET_KEY": "real-secret",
+            "DEFAULT_MODEL": "qwen-plus",
+            "LARGE_MODEL": "qwen-max",
+            "SMALL_MODEL": "qwen-turbo",
+            "REDIS_HOST": "redis.internal",
+            "REDIS_PORT": "6379",
+            "CHROMA_HOST": "chroma.internal",
+            "CHROMA_PORT": "8000",
+            "WORKER_NAME": "worker-a",
+            "WORKER_RECOVERY_SCAN": "true",
+            "NEXT_PUBLIC_API_URL": "https://api.ln1.fun",
+            "SYNC_RAG_INDEXING": "false",
+            "UPLOAD_DIR": "/var/lib/spectra/uploads",
+            "ARTIFACT_STORAGE_DIR": "/var/lib/spectra/artifacts",
+            "GENERATED_DIR": "/var/lib/spectra/generated",
+            "POSTGRES_BACKUP_DIR": "/var/lib/spectra/backups",
+            "POSTGRES_RESTORE_STAGING_DIR": "/var/lib/spectra/restore-staging",
+            "POSTGRES_BACKUP_RETENTION_DAYS": "14",
+            "POSTGRES_BACKUP_PREFIX": "spectra-demo",
+        },
+        prisma_provider="postgresql",
+        base_compose_text="""
+services:
+  frontend:
+    ports:
+      - "3000:3000"
+  backend:
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      UPLOAD_DIR: /var/lib/spectra/uploads
+      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
+      GENERATED_DIR: /var/lib/spectra/generated
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+  worker:
+    command: python worker.py
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      UPLOAD_DIR: /var/lib/spectra/uploads
+      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
+      GENERATED_DIR: /var/lib/spectra/generated
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+  chromadb:
+    ports:
+      - "127.0.0.1:8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+""",
+        shadow_compose_text=SHADOW_COMPOSE,
+        migration_lock_provider="postgresql",
+        migration_sql_messages=[
+            "PostgreSQL migration SQL audit",
+            "PASS migration.sql has no SQLite-specific migration markers",
+        ],
+        allow_local_postgres_host=True,
+    )
+
+    assert failures == 0
+    assert any("allowed for shadow rehearsal" in message for message in messages)

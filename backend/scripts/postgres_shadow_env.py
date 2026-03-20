@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Build a local PostgreSQL shadow environment overlay for rehearsals."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shlex
+import tempfile
+from pathlib import Path
+from typing import Mapping
+
+SHADOW_DATABASE_ENV = "POSTGRES_SHADOW_DATABASE_URL"
+DEFAULT_SHADOW_DATABASE_URL = (
+    "postgresql://spectra:spectra@127.0.0.1:5432/spectra_shadow"
+)
+DEFAULT_JWT_SECRET = "spectra-shadow-local-jwt-secret"
+DEFAULT_BASE_DIR = Path(tempfile.gettempdir()) / "spectra-shadow"
+
+
+def build_shadow_env_overlay(
+    env: Mapping[str, str],
+    *,
+    base_dir: Path = DEFAULT_BASE_DIR,
+) -> dict[str, str]:
+    shadow_database_url = (
+        env.get(SHADOW_DATABASE_ENV)
+        or env.get("DATABASE_URL")
+        or DEFAULT_SHADOW_DATABASE_URL
+    ).strip()
+    backup_dir = str(base_dir / "backups")
+    restore_dir = str(base_dir / "restore-staging")
+
+    overlay = {
+        "DATABASE_URL": shadow_database_url,
+        "JWT_SECRET_KEY": (env.get("JWT_SECRET_KEY") or DEFAULT_JWT_SECRET).strip(),
+        "POSTGRES_BACKUP_DIR": (env.get("POSTGRES_BACKUP_DIR") or backup_dir).strip(),
+        "POSTGRES_RESTORE_STAGING_DIR": (
+            env.get("POSTGRES_RESTORE_STAGING_DIR") or restore_dir
+        ).strip(),
+        "POSTGRES_BACKUP_RETENTION_DAYS": (
+            env.get("POSTGRES_BACKUP_RETENTION_DAYS") or "7"
+        ).strip(),
+        "POSTGRES_BACKUP_PREFIX": (
+            env.get("POSTGRES_BACKUP_PREFIX") or "spectra-shadow"
+        ).strip(),
+        "POSTGRES_BACKUP_USE_DOCKER": (
+            env.get("POSTGRES_BACKUP_USE_DOCKER") or "1"
+        ).strip(),
+    }
+    return overlay
+
+
+def merge_shadow_env(
+    env: Mapping[str, str],
+    *,
+    base_dir: Path = DEFAULT_BASE_DIR,
+) -> dict[str, str]:
+    merged = dict(env)
+    merged.update(build_shadow_env_overlay(env, base_dir=base_dir))
+    return merged
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--base-dir",
+        type=Path,
+        default=DEFAULT_BASE_DIR,
+        help="Base directory for generated backup and restore staging paths.",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("json", "exports"),
+        default="exports",
+        help="Output format for the generated environment overlay.",
+    )
+    args = parser.parse_args()
+
+    overlay = build_shadow_env_overlay(os.environ, base_dir=args.base_dir)
+    if args.format == "json":
+        print(json.dumps(overlay, indent=2, sort_keys=True))
+    else:
+        for key, value in overlay.items():
+            print(f"export {key}={shlex.quote(value)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

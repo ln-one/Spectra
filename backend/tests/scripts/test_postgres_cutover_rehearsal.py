@@ -122,3 +122,43 @@ def test_cutover_rehearsal_can_run_end_to_end_shadow_flow():
     assert any(
         "[shadow-flow] PASS validate/db-push/generate completed" in m for m in messages
     )
+
+
+def test_cutover_rehearsal_can_apply_shadow_env_overlay():
+    captured_env = {}
+
+    def fake_cutover(env, **kwargs):
+        captured_env.update(env)
+        return ["PostgreSQL cutover readiness audit", "PASS cutover"], 0
+
+    messages, failures = rehearsal.evaluate_cutover_rehearsal(
+        {"POSTGRES_SHADOW_DATABASE_URL": "postgresql://shadow-db"},
+        base_url=None,
+        token=None,
+        run_shadow_flow=False,
+        use_shadow_env=True,
+        base_compose_text="services: {}",
+        shadow_compose_text="services: {}",
+        prisma_provider="postgresql",
+        migration_lock_provider="postgresql",
+        migration_sql_messages=[
+            "PostgreSQL migration SQL audit",
+            "PASS no sqlite markers",
+        ],
+        cutover_eval=fake_cutover,
+        recovery_eval=lambda env: (["PostgreSQL recovery drill", "PASS recovery"], 0),
+        shadow_prisma_eval=lambda env: (
+            ["PostgreSQL shadow Prisma validation readiness", "PASS prisma ready"],
+            0,
+        ),
+        shadow_flow_eval=lambda *args, **kwargs: (["PostgreSQL shadow flow"], 0),
+        shadow_eval=lambda *args, **kwargs: (["PostgreSQL shadow smoke"], 0),
+    )
+
+    assert failures == 0
+    assert captured_env["DATABASE_URL"] == "postgresql://shadow-db"
+    assert captured_env["POSTGRES_BACKUP_USE_DOCKER"] == "1"
+    assert any(
+        "[env] PASS applied local PostgreSQL shadow rehearsal overlay" in m
+        for m in messages
+    )

@@ -22,6 +22,7 @@ from scripts import postgres_cutover_audit as cutover_audit  # noqa: E402
 from scripts import postgres_migration_sql_audit as migration_sql_audit  # noqa: E402
 from scripts import postgres_readiness_audit as readiness_audit  # noqa: E402
 from scripts import postgres_recovery_drill as recovery_drill  # noqa: E402
+from scripts import postgres_shadow_env as shadow_env  # noqa: E402
 from scripts import postgres_shadow_flow as shadow_flow  # noqa: E402
 from scripts import postgres_shadow_prisma_validate as shadow_prisma  # noqa: E402
 from scripts import postgres_shadow_smoke as shadow_smoke  # noqa: E402
@@ -42,6 +43,7 @@ def evaluate_cutover_rehearsal(
     token: str | None = None,
     run_prisma_shadow: bool = False,
     run_shadow_flow: bool = False,
+    use_shadow_env: bool = False,
     base_compose_text: str | None,
     shadow_compose_text: str | None,
     prisma_provider: str | None,
@@ -65,29 +67,33 @@ def evaluate_cutover_rehearsal(
 ) -> tuple[list[str], int]:
     messages = ["PostgreSQL cutover rehearsal"]
     failures = 0
+    effective_env = shadow_env.merge_shadow_env(env) if use_shadow_env else dict(env)
+    if use_shadow_env:
+        messages.append("[env] PASS applied local PostgreSQL shadow rehearsal overlay")
 
     cutover_messages, cutover_failures = cutover_eval(
-        env,
+        effective_env,
         prisma_provider=prisma_provider,
         base_compose_text=base_compose_text,
         shadow_compose_text=shadow_compose_text,
         migration_lock_provider=migration_lock_provider,
         migration_sql_messages=migration_sql_messages,
+        allow_local_postgres_host=use_shadow_env,
     )
     messages.extend(_prefix("cutover", cutover_messages[1:]))
     failures += cutover_failures
 
-    recovery_messages, recovery_failures = recovery_eval(env)
+    recovery_messages, recovery_failures = recovery_eval(effective_env)
     messages.extend(_prefix("recovery", recovery_messages[1:]))
     failures += recovery_failures
 
-    shadow_prisma_messages, shadow_prisma_failures = shadow_prisma_eval(env)
+    shadow_prisma_messages, shadow_prisma_failures = shadow_prisma_eval(effective_env)
     messages.extend(_prefix("shadow-prisma", shadow_prisma_messages[1:]))
     failures += shadow_prisma_failures
 
     if run_shadow_flow:
         flow_messages, flow_failures = shadow_flow_eval(
-            env,
+            effective_env,
             with_app=bool(base_url),
             base_url=base_url,
             token=token,
@@ -96,7 +102,7 @@ def evaluate_cutover_rehearsal(
         messages.extend(_prefix("shadow-flow", flow_messages[1:]))
         failures += flow_failures
     elif run_prisma_shadow and shadow_prisma_failures == 0:
-        _, prisma_exit = shadow_prisma.execute_shadow_prisma_validation(env)
+        _, prisma_exit = shadow_prisma.execute_shadow_prisma_validation(effective_env)
         if prisma_exit == 0:
             messages.append(
                 "[shadow-prisma] PASS Prisma shadow validate/db-push/generate completed"
@@ -118,7 +124,7 @@ def evaluate_cutover_rehearsal(
 
     if base_url:
         shadow_messages, shadow_failures = shadow_eval(
-            env,
+            effective_env,
             base_url=base_url,
             token=token,
             prisma_provider=prisma_provider,
@@ -167,6 +173,14 @@ def main() -> int:
             "run live smoke, and tear the stack down."
         ),
     )
+    parser.add_argument(
+        "--use-shadow-env",
+        action="store_true",
+        help=(
+            "Inject a local PostgreSQL shadow env overlay so rehearsal can use "
+            "shadow DATABASE_URL, backup paths, and Docker backup fallback."
+        ),
+    )
     args = parser.parse_args()
 
     base_text = (
@@ -181,6 +195,7 @@ def main() -> int:
         token=args.token,
         run_prisma_shadow=args.run_prisma_shadow,
         run_shadow_flow=args.run_shadow_flow,
+        use_shadow_env=args.use_shadow_env,
         base_compose_text=base_text,
         shadow_compose_text=shadow_text,
         prisma_provider=cutover_audit._read_prisma_provider(),

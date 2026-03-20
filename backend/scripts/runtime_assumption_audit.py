@@ -9,6 +9,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = ROOT / "backend"
 DOCS_ROOT = ROOT / "docs"
+EXCLUDED_PARTS = {
+    ".git",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    "tests",
+    "archived",
+}
 
 
 @dataclass(frozen=True)
@@ -52,9 +61,7 @@ def _iter_files(root: Path) -> list[Path]:
         path
         for path in root.rglob("*")
         if path.is_file()
-        and ".git" not in path.parts
-        and "__pycache__" not in path.parts
-        and "node_modules" not in path.parts
+        and not (set(path.parts) & EXCLUDED_PARTS)
         and path.suffix in {".py", ".md", ".yml", ".yaml", ".ts", ".tsx"}
     ]
 

@@ -61,6 +61,23 @@ def test_preflight_require_postgres_rejects_sqlite_and_local_host():
     )
 
 
+def test_preflight_can_allow_local_postgres_host_for_shadow_rehearsal():
+    messages, failures = evaluate_preflight(
+        {
+            "DATABASE_URL": "postgresql://spectra:pass@127.0.0.1:5432/spectra_shadow",
+            "JWT_SECRET_KEY": "real-secret",
+        },
+        skip_network=True,
+        timeout_seconds=0.1,
+        require_postgres=True,
+        allow_local_host=True,
+    )
+
+    assert failures == 0
+    assert any("uses PostgreSQL-compatible scheme" in message for message in messages)
+    assert any("allowed for shadow rehearsal" in message for message in messages)
+
+
 def test_preflight_require_postgres_rejects_non_postgres_scheme():
     messages, failures = evaluate_preflight(
         {
