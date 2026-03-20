@@ -206,6 +206,7 @@ Focus especially on:
 #### E3. Migration path
 - prepare provider/schema switch strategy
 - prepare local PostgreSQL validation environment
+- keep a Docker-based PostgreSQL shadow stack ready for validation and smoke checks
 - prepare migration scripts
 - prepare validation scripts
 - prepare rollback/runbook logic

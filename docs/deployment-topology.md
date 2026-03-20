@@ -219,7 +219,22 @@
 
 ---
 
-## 七、当前最大的部署障碍
+## 七、PostgreSQL 影子环境
+
+建议优先保留一套本地 / 演示用 PostgreSQL 影子栈，用于在不切主默认库的前提下验证真实部署路径。
+
+推荐命令：
+
+- `docker compose -f docker-compose.yml -f docker-compose.postgres-shadow.yml up -d postgres backend worker redis chromadb`
+- `python backend/scripts/postgres_shadow_stack_audit.py`
+
+目标：
+
+- 在 Docker 拓扑下提前暴露 PostgreSQL 相关问题
+- 让 API / worker / Redis / Chroma 的关系先在影子栈中跑通
+- 为真正切库前的 smoke 与回归准备环境
+
+## 八、当前最大的部署障碍
 
 按优先级排序：
 

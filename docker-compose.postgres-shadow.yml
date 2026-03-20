@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: spectra
+      POSTGRES_PASSWORD: spectra
+      POSTGRES_DB: spectra_shadow
+    volumes:
+      - postgres_shadow_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spectra -d spectra_shadow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: "8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+
+  worker:
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: "8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_shadow_data:

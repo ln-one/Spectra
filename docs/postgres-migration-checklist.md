@@ -188,6 +188,11 @@
 建议先运行：
 
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_readiness_audit.py`
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_audit.py`
+
+建议影子环境使用：
+
+- `docker compose -f docker-compose.yml -f docker-compose.postgres-shadow.yml up -d postgres backend worker redis chromadb`
 
 ---
 

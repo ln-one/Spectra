@@ -33,6 +33,7 @@
 - `backend/scripts/deploy_release_record.py` - release record skeleton generator
 - `backend/scripts/incident_record.py` - incident record skeleton generator
 - `backend/scripts/postgres_readiness_audit.py` - PostgreSQL readiness audit
+- `backend/scripts/postgres_shadow_stack_audit.py` - PostgreSQL shadow stack audit
 - `backend/scripts/docker_deploy_readiness_audit.py` - Docker/distributed deployment readiness audit
 - `backend/scripts/worker_queue_diagnose.py` - worker/queue/stuck-job diagnosis
 
