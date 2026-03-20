@@ -1,9 +1,5 @@
 from services.prisma_runtime import ensure_generated_prisma_client_path
 
-ensure_generated_prisma_client_path()
-
-from prisma import Prisma
-
 from .files import FileMixin
 from .generation_tasks import GenerationTaskMixin
 from .project_space import ProjectSpaceMixin
@@ -21,6 +17,9 @@ class DatabaseService(
     """Service for database operations using Prisma."""
 
     def __init__(self):
+        ensure_generated_prisma_client_path()
+        from prisma import Prisma
+
         self.db = Prisma()
 
     async def connect(self):
