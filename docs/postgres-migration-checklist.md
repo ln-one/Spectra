@@ -262,5 +262,8 @@ PostgreSQL 迁移不是“换个连接串”这么简单。
 - Aggregate rehearsal including Prisma shadow execution:
   - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py --run-prisma-shadow`
+- Aggregate rehearsal including the full shadow flow:
+  - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py --base-url http://127.0.0.1:8000 --run-shadow-flow`
 - Tear down PostgreSQL shadow infra:
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_runtime.py --run --down`

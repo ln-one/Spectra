@@ -22,6 +22,7 @@ from scripts import postgres_cutover_audit as cutover_audit  # noqa: E402
 from scripts import postgres_migration_sql_audit as migration_sql_audit  # noqa: E402
 from scripts import postgres_readiness_audit as readiness_audit  # noqa: E402
 from scripts import postgres_recovery_drill as recovery_drill  # noqa: E402
+from scripts import postgres_shadow_flow as shadow_flow  # noqa: E402
 from scripts import postgres_shadow_prisma_validate as shadow_prisma  # noqa: E402
 from scripts import postgres_shadow_smoke as shadow_smoke  # noqa: E402
 
@@ -40,6 +41,7 @@ def evaluate_cutover_rehearsal(
     base_url: str | None = None,
     token: str | None = None,
     run_prisma_shadow: bool = False,
+    run_shadow_flow: bool = False,
     base_compose_text: str | None,
     shadow_compose_text: str | None,
     prisma_provider: str | None,
@@ -53,6 +55,9 @@ def evaluate_cutover_rehearsal(
     ),
     shadow_prisma_eval: Callable[..., tuple[list[str], int]] = (
         shadow_prisma.evaluate_shadow_prisma_readiness
+    ),
+    shadow_flow_eval: Callable[..., tuple[list[str], int]] = (
+        shadow_flow.evaluate_shadow_flow
     ),
     shadow_eval: Callable[..., tuple[list[str], int]] = (
         shadow_smoke.evaluate_shadow_smoke
@@ -80,7 +85,17 @@ def evaluate_cutover_rehearsal(
     messages.extend(_prefix("shadow-prisma", shadow_prisma_messages[1:]))
     failures += shadow_prisma_failures
 
-    if run_prisma_shadow and shadow_prisma_failures == 0:
+    if run_shadow_flow:
+        flow_messages, flow_failures = shadow_flow_eval(
+            env,
+            with_app=bool(base_url),
+            base_url=base_url,
+            token=token,
+            include_live_smoke=bool(base_url),
+        )
+        messages.extend(_prefix("shadow-flow", flow_messages[1:]))
+        failures += flow_failures
+    elif run_prisma_shadow and shadow_prisma_failures == 0:
         _, prisma_exit = shadow_prisma.execute_shadow_prisma_validation(env)
         if prisma_exit == 0:
             messages.append(
@@ -144,6 +159,14 @@ def main() -> int:
             "PostgreSQL shadow DB."
         ),
     )
+    parser.add_argument(
+        "--run-shadow-flow",
+        action="store_true",
+        help=(
+            "Bring shadow infra up, run Prisma shadow validation, optionally "
+            "run live smoke, and tear the stack down."
+        ),
+    )
     args = parser.parse_args()
 
     base_text = (
@@ -157,6 +180,7 @@ def main() -> int:
         base_url=args.base_url,
         token=args.token,
         run_prisma_shadow=args.run_prisma_shadow,
+        run_shadow_flow=args.run_shadow_flow,
         base_compose_text=base_text,
         shadow_compose_text=shadow_text,
         prisma_provider=cutover_audit._read_prisma_provider(),

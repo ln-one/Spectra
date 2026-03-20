@@ -77,3 +77,48 @@ def test_cutover_rehearsal_can_include_live_shadow_smoke():
     assert any("[cutover] PASS cutover" in message for message in messages)
     assert any("[recovery] PASS recovery" in message for message in messages)
     assert any("[shadow-smoke] PASS live smoke" in message for message in messages)
+
+
+def test_cutover_rehearsal_can_run_end_to_end_shadow_flow():
+    messages, failures = rehearsal.evaluate_cutover_rehearsal(
+        {},
+        base_url="http://localhost:8000",
+        token="demo-token",
+        run_shadow_flow=True,
+        base_compose_text="services: {}",
+        shadow_compose_text="services: {}",
+        prisma_provider="postgresql",
+        migration_lock_provider="postgresql",
+        migration_sql_messages=[
+            "PostgreSQL migration SQL audit",
+            "PASS no sqlite markers",
+        ],
+        cutover_eval=lambda *args, **kwargs: (
+            ["PostgreSQL cutover readiness audit", "PASS cutover"],
+            0,
+        ),
+        recovery_eval=lambda env: (["PostgreSQL recovery drill", "PASS recovery"], 0),
+        shadow_prisma_eval=lambda env: (
+            ["PostgreSQL shadow Prisma validation readiness", "PASS prisma ready"],
+            0,
+        ),
+        shadow_flow_eval=lambda *args, **kwargs: (
+            [
+                "PostgreSQL shadow flow",
+                "PASS shadow stack is up",
+                "PASS validate/db-push/generate completed",
+                "PASS shadow stack removed",
+            ],
+            0,
+        ),
+        shadow_eval=lambda *args, **kwargs: (
+            ["PostgreSQL shadow smoke against http://localhost:8000", "PASS smoke"],
+            0,
+        ),
+    )
+
+    assert failures == 0
+    assert any("[shadow-flow] PASS shadow stack is up" in m for m in messages)
+    assert any(
+        "[shadow-flow] PASS validate/db-push/generate completed" in m for m in messages
+    )
