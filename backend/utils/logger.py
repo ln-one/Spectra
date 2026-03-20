@@ -66,8 +66,10 @@ def setup_logging(log_level: str = "INFO", log_format: str = "text") -> None:
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
-    # Create console handler
-    console_handler = logging.StreamHandler(sys.stdout)
+    # Use the original process stdout when available. This avoids pytest's
+    # temporary capture stream being closed before late atexit log events.
+    stream = getattr(sys, "__stdout__", sys.stdout)
+    console_handler = logging.StreamHandler(stream)
     console_handler.setLevel(getattr(logging, log_level.upper()))
 
     # Set formatter based on format type
@@ -92,6 +94,11 @@ def setup_logging(log_level: str = "INFO", log_format: str = "text") -> None:
 
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
+
+    # Third-party HTTP clients may emit debug logs during interpreter shutdown.
+    # Keep them at warning+ to avoid noisy/fragile teardown logging in CI.
+    for noisy_logger in ("httpcore", "httpx", "huggingface_hub"):
+        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
     # Log startup message
     logger = logging.getLogger(__name__)
