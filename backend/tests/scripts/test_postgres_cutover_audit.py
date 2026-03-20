@@ -47,6 +47,10 @@ def test_cutover_audit_fails_for_local_sqlite_defaults():
             "PostgreSQL baseline promotion audit",
             "FAIL package missing",
         ],
+        live_baseline_messages=[
+            "PostgreSQL live baseline adoption audit",
+            "FAIL candidate missing",
+        ],
     )
 
     assert failures > 0
@@ -154,6 +158,12 @@ services:
             "PASS migration lock targets PostgreSQL",
             "PASS baseline migration SQL populated",
         ],
+        live_baseline_messages=[
+            "PostgreSQL live baseline adoption audit",
+            "PASS candidate exists",
+            "PASS candidate migration lock targets PostgreSQL",
+            "PASS candidate migration SQL populated",
+        ],
     )
 
     assert failures == 0
@@ -199,6 +209,11 @@ services:
             "[baseline] PASS PostgreSQL baseline package draft is "
             "ready for promotion review"
         )
+        in m
+        for m in messages
+    )
+    assert any(
+        "[baseline] PASS PostgreSQL live baseline candidate is ready for adoption review"
         in m
         for m in messages
     )

@@ -318,3 +318,5 @@ PostgreSQL 迁移不是“换个连接串”这么简单。
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_baseline_package.py --run`
 - Tear down PostgreSQL shadow infra:
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_runtime.py --run --down`
+
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_live_baseline_adoption_audit.py`（检查 fresh-baseline live candidate 是否已经具备 adoption review 条件）

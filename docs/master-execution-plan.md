@@ -428,3 +428,5 @@ The purpose is to build a work that is:
 - demonstrably differentiated
 - philosophically alive
 - structurally complete enough to keep growing
+
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_live_baseline_adoption_audit.py`（检查 fresh-baseline live candidate 是否已经具备 adoption review 条件）

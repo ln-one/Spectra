@@ -62,6 +62,20 @@ def test_postgres_baseline_promotion_audit_runs_directly() -> None:
     assert "PostgreSQL baseline promotion audit" in result.stdout
 
 
+def test_postgres_live_baseline_adoption_audit_runs_directly() -> None:
+    result = _run_script(
+        ROOT / "backend/scripts/postgres_live_baseline_adoption_audit.py",
+    )
+
+    baseline_root = ROOT / "backend/prisma/postgres-live-baseline-candidate"
+    if baseline_root.exists():
+        assert result.returncode == 0
+    else:
+        assert result.returncode == 1
+
+    assert "PostgreSQL live baseline adoption audit" in result.stdout
+
+
 def test_postgres_live_baseline_candidate_runs_directly() -> None:
     result = _run_script(
         ROOT / "backend/scripts/postgres_live_baseline_candidate.py",

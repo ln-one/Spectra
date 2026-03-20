@@ -15,6 +15,7 @@ except ModuleNotFoundError:
 ensure_backend_import_path()
 
 import scripts.postgres_baseline_promotion_audit as baseline_promotion_audit  # noqa: E402,E501
+import scripts.postgres_live_baseline_adoption_audit as live_baseline_audit  # noqa: E402,E501
 from scripts import deploy_preflight as preflight_audit  # noqa: E402
 from scripts import distributed_deploy_audit as distributed_audit  # noqa: E402
 from scripts import postgres_backup_restore_audit as backup_audit  # noqa: E402
@@ -59,6 +60,7 @@ def evaluate_cutover_readiness(
     migration_sql_messages: list[str] | None = None,
     allow_local_postgres_host: bool = False,
     baseline_package_messages: list[str] | None = None,
+    live_baseline_messages: list[str] | None = None,
 ) -> tuple[list[str], int]:
     messages = ["PostgreSQL cutover readiness audit"]
     failures = 0
@@ -144,6 +146,29 @@ def evaluate_cutover_readiness(
             )
         )
 
+    candidate_messages = live_baseline_messages or [
+        "PostgreSQL live baseline adoption audit"
+    ]
+    candidate_failures = len(
+        [m for m in candidate_messages[1:] if m.startswith("FAIL ")]
+    )
+    messages.extend(_prefix("live-baseline", candidate_messages[1:]))
+    failures += candidate_failures
+    if candidate_failures:
+        messages.append(
+            (
+                "[baseline] FAIL PostgreSQL live baseline candidate is not ready "
+                "for adoption"
+            )
+        )
+    else:
+        messages.append(
+            (
+                "[baseline] PASS PostgreSQL live baseline candidate is ready "
+                "for adoption review"
+            )
+        )
+
     if shadow_compose_text is None:
         failures += 1
         messages.append("[shadow] FAIL postgres shadow compose override missing")
@@ -176,6 +201,9 @@ def main() -> int:
             baseline_promotion_audit.evaluate_baseline_promotion_readiness(os.environ)[
                 0
             ]
+        ),
+        live_baseline_messages=(
+            live_baseline_audit.evaluate_live_baseline_adoption_readiness(os.environ)[0]
         ),
     )
     for message in messages:
