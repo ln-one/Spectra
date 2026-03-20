@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { SourcesPanel } from "@/components/project/SourcesPanel";
+import { SourcesPanel } from "@/components/project";
 import { useProjectStore } from "@/stores/projectStore";
 
 jest.mock("@/stores/projectStore", () => ({
