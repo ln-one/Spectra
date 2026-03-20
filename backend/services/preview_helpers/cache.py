@@ -2,7 +2,9 @@ import json
 from pathlib import Path
 from typing import Optional
 
-GENERATED_DIR = Path("generated")
+from services.runtime_paths import get_generated_dir
+
+GENERATED_DIR = get_generated_dir()
 
 
 def cache_path(task_id: str) -> Path:
