@@ -1,1 +1,1 @@
-﻿export { default } from "@/components/pages/home/WelcomePage";
+﻿export { default } from "./_views/home/WelcomePage";

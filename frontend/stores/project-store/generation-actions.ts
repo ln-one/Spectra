@@ -1,7 +1,7 @@
 ﻿import { generateApi, previewApi, projectSpaceApi } from "@/lib/sdk";
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
-import { groupArtifactsByTool } from "@/lib/project-space/artifact-history";
+import { groupArtifactsByTool } from "@/lib/project-space";
 import type {
   Artifact,
   GenerationHistory,

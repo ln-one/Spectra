@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Clock, Download, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
+import type { ArtifactHistoryItem } from "@/lib/project-space";
 
 interface SessionArtifactsProps {
   groupedArtifacts: Array<[string, ArtifactHistoryItem[]]>;

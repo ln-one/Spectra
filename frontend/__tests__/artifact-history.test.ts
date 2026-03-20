@@ -1,7 +1,7 @@
-import {
+﻿import {
   groupArtifactsByTool,
   mapArtifactToToolType,
-} from "@/lib/project-space/artifact-history";
+} from "@/lib/project-space";
 import type { components } from "@/lib/sdk/types";
 
 type Artifact = components["schemas"]["Artifact"];

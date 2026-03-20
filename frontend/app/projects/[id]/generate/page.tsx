@@ -1,1 +1,1 @@
-﻿export { default } from "@/components/pages/projects/generate/GeneratePreviewPageView";
+﻿export { default } from "./_views/GeneratePreviewPageView";

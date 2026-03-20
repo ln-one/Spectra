@@ -16,8 +16,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { GenerationConfigPanel } from "@/components/project/GenerationConfigPanel";
-import { STUDIO_TOOL_COMPONENTS } from "../studio-tools";
-import type { StudioToolKey } from "../studio-tools";
+import { STUDIO_TOOL_COMPONENTS } from "./tools";
+import type { StudioToolKey } from "./tools";
 import {
   ICON_LAYOUT_TRANSITION,
   TOOL_COLORS,
