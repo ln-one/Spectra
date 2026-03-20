@@ -44,6 +44,26 @@ class TestFormatRagContext:
         assert "参考资料 1" in formatted
         assert "参考资料 2" in formatted
 
+    def test_scope_is_rendered_for_local_and_reference_sources(self):
+        results = [
+            {
+                "content": "会话内容",
+                "source": {"filename": "session.pdf"},
+                "metadata": {"source_scope": "local_session"},
+            },
+            {
+                "content": "基底内容",
+                "source": {"filename": "base.pdf"},
+                "metadata": {
+                    "source_scope": "reference_base",
+                    "reference_relation_type": "base",
+                },
+            },
+        ]
+        formatted = _format_rag_context(results)
+        assert "当前会话资料" in formatted
+        assert "主基底引用资料" in formatted
+
 
 class TestPromptService:
     """Prompt 模板测试"""
