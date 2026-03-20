@@ -30,6 +30,11 @@ export default function GeneratePreviewPage() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const slidesRef = useRef<HTMLDivElement>(null);
+  const activeSlideIndexRef = useRef(0);
+
+  useEffect(() => {
+    activeSlideIndexRef.current = activeSlideIndex;
+  }, [activeSlideIndex]);
 
   const sessionIdFromQuery = searchParams?.get("session") || null;
   const artifactIdFromQuery = searchParams?.get("artifact_id") || null;
@@ -55,12 +60,13 @@ export default function GeneratePreviewPage() {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    let rafId: number | null = null;
 
-    const handleScroll = () => {
+    const updateActiveSlideByViewport = () => {
       if (!containerRef.current) return;
       const slideElements =
         containerRef.current.querySelectorAll(".slide-card");
-      let currentActiveIndex = activeSlideIndex;
+      let currentActiveIndex = activeSlideIndexRef.current;
       const containerTop = containerRef.current.scrollTop;
       const containerCenter =
         containerTop + containerRef.current.clientHeight * 0.4;
@@ -78,17 +84,30 @@ export default function GeneratePreviewPage() {
         }
       });
 
-      if (currentActiveIndex !== activeSlideIndex) {
+      if (currentActiveIndex !== activeSlideIndexRef.current) {
         setActiveSlideIndex(currentActiveIndex);
       }
     };
 
+    const handleScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateActiveSlideByViewport();
+      });
+    };
+
     const container = containerRef.current;
     container.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
+    updateActiveSlideByViewport();
 
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [activeSlideIndex, slides]);
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [slides]);
 
   const scrollToSlide = useCallback((index: number) => {
     const slideElement = document.querySelector(`[data-index="${index}"]`);

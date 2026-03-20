@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useProjectStore } from "@/stores/projectStore";
+import { useShallow } from "zustand/react/shallow";
 import {
   COMPACT_MODE_WIDTH,
   HEADER_COMPACT_HYSTERESIS,
@@ -33,7 +34,17 @@ export function useSourcesPanelController({
     toggleFileSelection,
     activeSourceDetail,
     clearActiveSource,
-  } = useProjectStore();
+  } = useProjectStore(
+    useShallow((state) => ({
+      files: state.files,
+      selectedFileIds: state.selectedFileIds,
+      uploadFile: state.uploadFile,
+      deleteFile: state.deleteFile,
+      toggleFileSelection: state.toggleFileSelection,
+      activeSourceDetail: state.activeSourceDetail,
+      clearActiveSource: state.clearActiveSource,
+    }))
+  );
   const { addNotification, updateNotification, replaceNotification } =
     useNotificationStore();
 

@@ -37,6 +37,8 @@ class TestRequestIDMiddleware:
         resp = client.get("/health")
         assert resp.status_code == 200
         assert "X-Request-ID" in resp.headers
+        assert "X-Process-Time" in resp.headers
+        assert resp.headers["X-Process-Time"].endswith("ms")
         # Should be a valid UUID-like string
         rid = resp.headers["X-Request-ID"]
         assert len(rid) >= 32

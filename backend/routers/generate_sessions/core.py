@@ -42,14 +42,14 @@ async def list_sessions(
         await get_owned_project(project_id, user_id)
 
         skip = (page - 1) * limit
-        sessions = await db_service.db.generationsession.find_many(
-            where={"projectId": project_id},
-            skip=skip,
-            take=limit,
-            order={"updatedAt": "desc"},
-        )
-        total = await db_service.db.generationsession.count(
-            where={"projectId": project_id}
+        sessions, total = await asyncio.gather(
+            db_service.db.generationsession.find_many(
+                where={"projectId": project_id},
+                skip=skip,
+                take=limit,
+                order={"updatedAt": "desc"},
+            ),
+            db_service.db.generationsession.count(where={"projectId": project_id}),
         )
 
         payload = [

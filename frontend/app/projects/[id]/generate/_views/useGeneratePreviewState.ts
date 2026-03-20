@@ -6,6 +6,7 @@ import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
 import { toast } from "@/hooks/use-toast";
 import type { components } from "@/lib/sdk/types";
+import { useShallow } from "zustand/react/shallow";
 
 type Slide = components["schemas"]["Slide"];
 
@@ -33,7 +34,13 @@ export function useGeneratePreviewState({
   >(null);
 
   const { generationSession, generationHistory, fetchGenerationHistory } =
-    useProjectStore();
+    useProjectStore(
+      useShallow((state) => ({
+        generationSession: state.generationSession,
+        generationHistory: state.generationHistory,
+        fetchGenerationHistory: state.fetchGenerationHistory,
+      }))
+    );
 
   const activeSessionId =
     sessionIdFromQuery ||

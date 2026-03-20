@@ -473,7 +473,8 @@ def test_get_messages_success(client, monkeypatch, _as_user):
         _fake_conv(role="user", conv_id="c-001", sessionId="s-001"),
         _fake_conv(role="assistant", conv_id="c-002", sessionId="s-001"),
     ]
-    _mock(monkeypatch, db_service, "get_conversations_paginated", (convs, 2))
+    _mock(monkeypatch, db_service, "get_conversation_messages", convs)
+    _mock(monkeypatch, db_service, "count_conversation_messages", 2)
     resp = client.get(
         "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
     )
@@ -486,7 +487,8 @@ def test_get_messages_success(client, monkeypatch, _as_user):
 
 def test_get_messages_returns_session_scope_in_payload(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
-    _mock(monkeypatch, db_service, "get_conversations_paginated", ([], 0))
+    _mock(monkeypatch, db_service, "get_conversation_messages", [])
+    _mock(monkeypatch, db_service, "count_conversation_messages", 0)
 
     resp = client.get(
         "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
@@ -516,7 +518,8 @@ def test_get_messages_includes_citations_from_metadata(client, monkeypatch, _as_
             metadata='{"citations":[{"chunk_id":"chunk-1","source_type":"document","filename":"notes.pdf","page_number":2,"score":0.92}]}',
         ),
     ]
-    _mock(monkeypatch, db_service, "get_conversations_paginated", (convs, 1))
+    _mock(monkeypatch, db_service, "get_conversation_messages", convs)
+    _mock(monkeypatch, db_service, "count_conversation_messages", 1)
 
     resp = client.get(
         "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
@@ -549,8 +552,12 @@ def test_get_messages_with_session_returns_scoped_history(
             sessionId="s-001",
         )
     ]
-    paginated_mock = AsyncMock(return_value=(convs, 1))
-    monkeypatch.setattr(db_service, "get_conversations_paginated", paginated_mock)
+    conversation_messages_mock = AsyncMock(return_value=convs)
+    count_messages_mock = AsyncMock(return_value=1)
+    monkeypatch.setattr(
+        db_service, "get_conversation_messages", conversation_messages_mock
+    )
+    monkeypatch.setattr(db_service, "count_conversation_messages", count_messages_mock)
 
     resp = client.get(
         "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
@@ -558,10 +565,14 @@ def test_get_messages_with_session_returns_scoped_history(
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["messages"][0]["citations"] == []
-    paginated_mock.assert_awaited_once_with(
+    conversation_messages_mock.assert_awaited_once_with(
         project_id="p-001",
         page=1,
         limit=20,
+        session_id="s-001",
+    )
+    count_messages_mock.assert_awaited_once_with(
+        project_id="p-001",
         session_id="s-001",
     )
 

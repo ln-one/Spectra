@@ -373,6 +373,7 @@ model GenerationSession {
 
   @@index([projectId, state])
   @@index([projectId, baseVersionId])
+  @@index([projectId, updatedAt])
   @@index([userId, state])
   @@index([clientSessionId])
 }

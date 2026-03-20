@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
+import { useShallow } from "zustand/react/shallow";
 import { studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import type {
@@ -83,7 +84,22 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     setLayoutMode,
     setExpandedTool,
     startGeneration,
-  } = useProjectStore();
+  } = useProjectStore(
+    useShallow((state) => ({
+      project: state.project,
+      layoutMode: state.layoutMode,
+      expandedTool: state.expandedTool,
+      artifactHistoryByTool: state.artifactHistoryByTool,
+      currentSessionArtifacts: state.currentSessionArtifacts,
+      activeSessionId: state.activeSessionId,
+      setActiveSessionId: state.setActiveSessionId,
+      fetchArtifactHistory: state.fetchArtifactHistory,
+      exportArtifact: state.exportArtifact,
+      setLayoutMode: state.setLayoutMode,
+      setExpandedTool: state.setExpandedTool,
+      startGeneration: state.startGeneration,
+    }))
+  );
   const [hoveredToolId, setHoveredToolId] = useState<string | null>(null);
   const [toolDrafts, setToolDrafts] = useState<
     Partial<Record<StudioToolKey, ToolDraftState>>

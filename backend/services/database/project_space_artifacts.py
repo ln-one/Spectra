@@ -1,7 +1,21 @@
 import json
+import os
 from typing import Optional
 
 from schemas.project_space import ArtifactType, ArtifactVisibility
+
+_DEFAULT_ARTIFACT_LIST_LIMIT = 200
+
+
+def _artifact_list_limit() -> int:
+    raw = os.getenv("ARTIFACT_LIST_MAX_LIMIT", "").strip()
+    if not raw:
+        return _DEFAULT_ARTIFACT_LIST_LIMIT
+    try:
+        parsed = int(raw)
+        return parsed if parsed > 0 else _DEFAULT_ARTIFACT_LIST_LIMIT
+    except ValueError:
+        return _DEFAULT_ARTIFACT_LIST_LIMIT
 
 
 def _normalize_artifact_visibility(value: ArtifactVisibility | str) -> str:
@@ -37,8 +51,9 @@ class ProjectSpaceArtifactMixin:
             where["basedOnVersionId"] = based_on_version_id_filter
         if session_id_filter:
             where["sessionId"] = session_id_filter
+        list_limit = _artifact_list_limit()
         return await self.db.artifact.find_many(
-            where=where, order={"createdAt": "desc"}
+            where=where, take=list_limit, order={"createdAt": "desc"}
         )
 
     async def get_artifact(self, artifact_id: str):

@@ -1,5 +1,6 @@
 """Artifact routes for Project Space."""
 
+import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -57,17 +58,19 @@ async def get_project_artifacts(
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
-        project = await project_space_service.db.get_project(project_id)
+        project, artifacts = await asyncio.gather(
+            project_space_service.db.get_project(project_id),
+            project_space_service.get_project_artifacts(
+                project_id,
+                type_filter=type.value if type else None,
+                visibility_filter=visibility.value if visibility else None,
+                owner_user_id_filter=owner_user_id,
+                based_on_version_id_filter=based_on_version_id,
+                session_id_filter=session_id,
+            ),
+        )
         current_version_id = (
             getattr(project, "currentVersionId", None) if project else None
-        )
-        artifacts = await project_space_service.get_project_artifacts(
-            project_id,
-            type_filter=type.value if type else None,
-            visibility_filter=visibility.value if visibility else None,
-            owner_user_id_filter=owner_user_id,
-            based_on_version_id_filter=based_on_version_id,
-            session_id_filter=session_id,
         )
         serialized = [
             to_artifact_model(artifact, current_version_id=current_version_id)
