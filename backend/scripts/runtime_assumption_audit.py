@@ -36,7 +36,7 @@ PATTERNS = (
     ),
     AssumptionPattern(
         name="local_chroma_default",
-        needle="./chroma_data",
+        needle="chroma_data",
         scope=(BACKEND_ROOT, DOCS_ROOT),
     ),
     AssumptionPattern(

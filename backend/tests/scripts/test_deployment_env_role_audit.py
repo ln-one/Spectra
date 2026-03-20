@@ -18,6 +18,9 @@ def test_backend_role_warns_for_recommended_values_only():
         {
             "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
             "JWT_SECRET_KEY": "real-secret",
+            "UPLOAD_DIR": "/var/lib/spectra/uploads",
+            "ARTIFACT_STORAGE_DIR": "/var/lib/spectra/artifacts",
+            "GENERATED_DIR": "/var/lib/spectra/generated",
         },
     )
 
@@ -27,6 +30,9 @@ def test_backend_role_warns_for_recommended_values_only():
     )
     assert any(
         "WARN recommended DEFAULT_MODEL missing" in message for message in messages
+    )
+    assert any(
+        "PASS recommended UPLOAD_DIR configured" in message for message in messages
     )
 
 

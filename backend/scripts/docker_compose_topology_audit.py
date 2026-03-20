@@ -14,6 +14,8 @@ SHADOW_COMPOSE = ROOT / "docker-compose.postgres-shadow.yml"
 
 REQUIRED_BASE_SERVICES = ("frontend", "backend", "worker", "redis", "chromadb")
 STATEFUL_SERVICES = ("redis", "chromadb", "postgres")
+RUNTIME_STORAGE_TARGET = "/var/lib/spectra"
+RUNTIME_STORAGE_ENVS = ("UPLOAD_DIR", "ARTIFACT_STORAGE_DIR", "GENERATED_DIR")
 
 
 def _format(kind: str, message: str) -> str:
@@ -59,6 +61,20 @@ def _port_bindings(service: dict[str, Any]) -> list[str]:
     return results
 
 
+def _volume_bindings(service: dict[str, Any]) -> list[str]:
+    volumes = service.get("volumes") or []
+    results: list[str] = []
+    for volume in volumes:
+        if isinstance(volume, str):
+            results.append(volume)
+        elif isinstance(volume, dict):
+            source = str(volume.get("source") or "")
+            target = str(volume.get("target") or "")
+            if source and target:
+                results.append(f"{source}:{target}")
+    return results
+
+
 def _has_loopback_binding(bindings: list[str]) -> bool:
     return any(binding.startswith(("127.0.0.1:", "localhost:")) for binding in bindings)
 
@@ -78,6 +94,25 @@ def _database_url(service: dict[str, Any]) -> str | None:
             if isinstance(item, str) and item.startswith("DATABASE_URL="):
                 return item.partition("=")[2]
     return None
+
+
+def _environment_value(service: dict[str, Any], key: str) -> str | None:
+    environment = service.get("environment") or {}
+    if isinstance(environment, dict):
+        value = environment.get(key)
+        return str(value) if value is not None else None
+    if isinstance(environment, list):
+        for item in environment:
+            if isinstance(item, str) and item.startswith(f"{key}="):
+                return item.partition("=")[2]
+    return None
+
+
+def _mounts_runtime_storage(service: dict[str, Any]) -> bool:
+    return any(
+        binding.split(":")[-1] == RUNTIME_STORAGE_TARGET
+        for binding in _volume_bindings(service)
+    )
 
 
 def evaluate_compose_topology(
@@ -133,6 +168,50 @@ def evaluate_compose_topology(
                     _format("FAIL", f"{name} missing `{dependency}` dependency")
                 )
                 failures += 1
+
+        if _mounts_runtime_storage(service):
+            messages.append(
+                _format(
+                    "PASS",
+                    (
+                        f"{name} mounts shared runtime storage at "
+                        f"`{RUNTIME_STORAGE_TARGET}`"
+                    ),
+                )
+            )
+        else:
+            messages.append(
+                _format(
+                    "WARN",
+                    (
+                        f"{name} does not mount shared runtime storage at "
+                        f"`{RUNTIME_STORAGE_TARGET}`"
+                    ),
+                )
+            )
+
+        for env_key in RUNTIME_STORAGE_ENVS:
+            env_value = _environment_value(service, env_key)
+            if env_value and env_value.startswith(f"{RUNTIME_STORAGE_TARGET}/"):
+                messages.append(
+                    _format(
+                        "PASS",
+                        (
+                            f"{name} configures `{env_key}` inside shared "
+                            "runtime storage"
+                        ),
+                    )
+                )
+            else:
+                messages.append(
+                    _format(
+                        "WARN",
+                        (
+                            f"{name} does not configure `{env_key}` under "
+                            "shared runtime storage"
+                        ),
+                    )
+                )
 
     for name in STATEFUL_SERVICES:
         service = _service(base, name) or _service(shadow, name)

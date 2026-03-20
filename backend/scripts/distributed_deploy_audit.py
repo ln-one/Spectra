@@ -11,6 +11,7 @@ from scripts.deployment_env_role_audit import evaluate_role_contract
 from scripts.docker_compose_topology_audit import evaluate_compose_topology
 from scripts.docker_deploy_readiness_audit import evaluate_docker_readiness
 from scripts.postgres_cutover_audit import _read_prisma_provider
+from scripts.storage_deploy_readiness_audit import evaluate_storage_readiness
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE_COMPOSE = ROOT / "docker-compose.yml"
@@ -45,6 +46,10 @@ def evaluate_distributed_readiness(
     docker_messages, docker_failures = evaluate_docker_readiness(env, prisma_provider)
     messages.extend(_prefix("docker", docker_messages))
     failures += docker_failures
+
+    storage_messages, storage_failures = evaluate_storage_readiness(env)
+    messages.extend(_prefix("storage", storage_messages[1:]))
+    failures += storage_failures
 
     for role in ("backend", "worker"):
         role_messages, role_failures = evaluate_role_contract(role, env)

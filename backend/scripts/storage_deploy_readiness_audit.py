@@ -11,7 +11,7 @@ LOCAL_RUNTIME_DEFAULTS = {
     "UPLOAD_DIR": "uploads",
     "ARTIFACT_STORAGE_DIR": "uploads/artifacts",
     "GENERATED_DIR": "generated",
-    "CHROMA_PERSIST_DIR": "./chroma_data",
+    "CHROMA_PERSIST_DIR": "chroma_data",
 }
 
 

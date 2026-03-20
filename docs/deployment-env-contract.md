@@ -204,6 +204,7 @@
 - 演示环境和分布式部署建议显式配置
 - 不建议继续依赖 repo-local `uploads`
 - 后端 `FileService` 默认会读取这个变量
+- Docker / 多机准备阶段建议挂到共享运行时卷，例如 `/var/lib/spectra/uploads`
 
 ### `ARTIFACT_STORAGE_DIR`
 
@@ -216,6 +217,7 @@
 - 分布式部署建议显式配置到共享卷或明确挂载点
 - 不建议继续依赖默认 `uploads/artifacts`
 - artifact generator 默认会读取这个变量
+- Docker / 多机准备阶段建议挂到共享运行时卷，例如 `/var/lib/spectra/artifacts`
 
 ### `GENERATED_DIR`
 
@@ -228,6 +230,7 @@
 - 分布式部署建议显式配置
 - 至少要明确它是否走共享卷、临时卷或后续对象存储
 - generation service 和 preview cache 默认会读取这个变量
+- Docker / 多机准备阶段建议挂到共享运行时卷，例如 `/var/lib/spectra/generated`
 
 ---
 

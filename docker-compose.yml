@@ -38,6 +38,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/venv
+      - runtime_data:/var/lib/spectra
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=file:./dev.db
@@ -45,6 +46,9 @@ services:
       - REDIS_PORT=6379
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
+      - UPLOAD_DIR=/var/lib/spectra/uploads
+      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
+      - GENERATED_DIR=/var/lib/spectra/generated
     command: sh -c "prisma migrate deploy && prisma generate && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       redis:
@@ -59,6 +63,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/venv
+      - runtime_data:/var/lib/spectra
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=file:./dev.db
@@ -66,6 +71,9 @@ services:
       - REDIS_PORT=6379
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
+      - UPLOAD_DIR=/var/lib/spectra/uploads
+      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
+      - GENERATED_DIR=/var/lib/spectra/generated
     command: sh -c "prisma migrate deploy && prisma generate && python worker.py"
     depends_on:
       redis:
@@ -92,3 +100,4 @@ services:
 volumes:
   redis_data:
   chroma_data:
+  runtime_data:

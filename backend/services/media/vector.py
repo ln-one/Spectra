@@ -9,6 +9,8 @@ import os
 import socket
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+from services.runtime_paths import get_chroma_persist_dir
+
 try:
     import chromadb
     from chromadb.api.models.Collection import Collection as ChromaCollection
@@ -24,9 +26,6 @@ except Exception as exc:  # pragma: no cover - fallback for unsupported envs
     _CHROMA_IMPORT_ERROR = exc
 
 logger = logging.getLogger(__name__)
-
-# 持久化路径，从环境变量读取
-CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
 
 # Collection 名称前缀
 COLLECTION_PREFIX = "spectra_project_"
@@ -149,7 +148,7 @@ class VectorService:
         Args:
             persist_dir: 持久化目录路径，默认从环境变量读取
         """
-        self._persist_dir = persist_dir or CHROMA_PERSIST_DIR
+        self._persist_dir = persist_dir or str(get_chroma_persist_dir())
         self._client: Optional[Any] = None
         self._memory_collections: Dict[str, InMemoryCollection] = {}
 

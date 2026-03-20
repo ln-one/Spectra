@@ -8,7 +8,7 @@ def test_docker_readiness_flags_local_only_defaults():
             "REDIS_HOST": "localhost",
             "CHROMA_HOST": "127.0.0.1",
             "NEXT_PUBLIC_API_URL": "http://localhost:8000",
-            "CHROMA_PERSIST_DIR": "./chroma_data",
+            "CHROMA_PERSIST_DIR": "chroma_data",
             "SYNC_RAG_INDEXING": "true",
         },
         "sqlite",

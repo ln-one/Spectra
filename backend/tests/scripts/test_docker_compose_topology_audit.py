@@ -26,6 +26,12 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      UPLOAD_DIR: /var/lib/spectra/uploads
+      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
+      GENERATED_DIR: /var/lib/spectra/generated
     depends_on:
       redis:
         condition: service_healthy
@@ -33,6 +39,12 @@ services:
         condition: service_started
   worker:
     command: python worker.py
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      UPLOAD_DIR: /var/lib/spectra/uploads
+      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
+      GENERATED_DIR: /var/lib/spectra/generated
     depends_on:
       redis:
         condition: service_healthy
@@ -80,5 +92,12 @@ services:
     assert any("shadow override declares postgres" in message for message in messages)
     assert any(
         "shadow `backend` DATABASE_URL points at postgres service" in message
+        for message in messages
+    )
+    assert any(
+        "backend mounts shared runtime storage" in message for message in messages
+    )
+    assert any(
+        "worker configures `GENERATED_DIR` inside shared runtime storage" in message
         for message in messages
     )

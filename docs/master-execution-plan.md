@@ -255,6 +255,7 @@ Prepare the system for containerized, multi-service, multi-machine, cloud-capabl
   - API/worker same-host assumptions
   - storage assumptions
   - lingering local-runtime defaults in code and docs
+- formalize shared runtime storage (`/var/lib/spectra`) before later object-storage migration
 - improve docs and scripts for distributed deployment
 
 ### Desired end state

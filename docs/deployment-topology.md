@@ -30,6 +30,17 @@
 - 同时维护多套线上环境
 - 在弱机器上全功能高并发运行
 
+### 当前 Docker 阶段的共享运行时卷约定
+
+为了先清掉 repo-local 的路径假设，当前推荐让 `backend api` 与 `worker`
+共享挂载一块运行时卷到 `/var/lib/spectra`，并显式配置：
+
+- `UPLOAD_DIR=/var/lib/spectra/uploads`
+- `ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts`
+- `GENERATED_DIR=/var/lib/spectra/generated`
+
+这不是最终对象存储方案，但它能先把“单机目录就是系统边界”的思维拿掉。
+
 ---
 
 ## 一、推荐部署目标
