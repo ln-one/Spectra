@@ -3,10 +3,9 @@ from pathlib import Path
 from scripts.postgres_shadow_env import build_shadow_env_overlay, merge_shadow_env
 
 
-def test_build_shadow_env_overlay_uses_shadow_url_and_defaults(tmp_path: Path) -> None:
+def test_build_shadow_env_overlay_uses_shadow_url_and_defaults() -> None:
     overlay = build_shadow_env_overlay(
-        {"POSTGRES_SHADOW_DATABASE_URL": "postgresql://shadow-db"},
-        base_dir=tmp_path,
+        {"POSTGRES_SHADOW_DATABASE_URL": "postgresql://shadow-db"}
     )
 
     assert overlay["DATABASE_URL"] == "postgresql://shadow-db"
@@ -17,9 +16,13 @@ def test_build_shadow_env_overlay_uses_shadow_url_and_defaults(tmp_path: Path) -
     assert overlay["ARTIFACT_STORAGE_DIR"] == "/var/lib/spectra/artifacts"
     assert overlay["GENERATED_DIR"] == "/var/lib/spectra/generated"
     assert overlay["CHROMA_PERSIST_DIR"] == "/var/lib/spectra/chroma"
-    assert overlay["POSTGRES_BACKUP_DIR"] == str(tmp_path / "backups")
-    assert overlay["POSTGRES_RESTORE_STAGING_DIR"] == str(tmp_path / "restore-staging")
+    assert overlay["POSTGRES_BACKUP_DIR"] == "/var/lib/spectra/backups"
+    assert overlay["POSTGRES_RESTORE_STAGING_DIR"] == "/var/lib/spectra/restore-staging"
     assert overlay["POSTGRES_BACKUP_USE_DOCKER"] == "1"
+    assert overlay["DEFAULT_MODEL"] == "qwen-plus"
+    assert overlay["LARGE_MODEL"] == "qwen-max"
+    assert overlay["SMALL_MODEL"] == "qwen-turbo"
+    assert overlay["AI_REQUEST_TIMEOUT_SECONDS"] == "120"
     assert overlay["WORKER_NAME"] == "shadow-worker"
     assert overlay["WORKER_RECOVERY_SCAN"] == "true"
     assert overlay["SYNC_RAG_INDEXING"] == "false"

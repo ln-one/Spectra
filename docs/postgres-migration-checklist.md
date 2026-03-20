@@ -197,7 +197,7 @@
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_backup.py`（生成 cutover / drill 用 PostgreSQL 备份命令，支持 dry-run 与执行）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_restore.py`（生成 restore / rollback drill 用恢复命令，支持 dry-run 与执行）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_recovery_drill.py`（把 backup audit、toolchain、backup/restore dry-run 串成一次恢复演练）
-- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py`（把 cutover audit、recovery drill、可选 shadow smoke 串成一次完整 rehearsal）
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py`（把 cutover audit、recovery drill、可选 shadow smoke 串成一次完整 rehearsal；可配合 `--use-shadow-env --run-shadow-flow` 直接暴露真实 PostgreSQL baseline 阻塞项）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py`（会同时检查 migration lock 与 migration SQL baseline readiness）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_schema_variant.py`（生成不改动主 schema 的 PostgreSQL Prisma variant，用于 shadow 验证与 baseline 预演）
 
@@ -206,6 +206,27 @@
 - `docker compose -f docker-compose.yml -f docker-compose.postgres-shadow.yml up -d postgres backend worker redis chromadb`
 
 ---
+
+
+## 当前影子演练结论
+
+当前 `--use-shadow-env --run-shadow-flow` 演练已经可以稳定通过：
+
+- distributed readiness
+- backup / restore readiness
+- toolchain readiness（Docker fallback）
+- shadow stack readiness
+- Prisma shadow validate / db push / generate
+
+这意味着 PostgreSQL 主线的外围准备已经基本收口。
+
+当前仍然真正阻塞 cutover 的点已经收敛到：
+
+1. `backend/prisma/migrations/migration_lock.toml` 仍然是 SQLite 基线
+2. 现有 Prisma migration SQL 仍包含 SQLite-specific 迁移
+3. PostgreSQL baseline 还处于 draft/package 阶段，尚未正式接入 live migration 路径
+
+也就是说，接下来的重点不再是继续扩 readiness 范围，而是把 baseline promotion 和实际迁移路径做实。
 
 ## 七、部署前准备
 

@@ -7,7 +7,6 @@ import argparse
 import json
 import os
 import shlex
-import tempfile
 from pathlib import Path
 from typing import Mapping
 
@@ -16,8 +15,12 @@ DEFAULT_SHADOW_DATABASE_URL = (
     "postgresql://spectra:spectra@127.0.0.1:5432/spectra_shadow"
 )
 DEFAULT_JWT_SECRET = "spectra-shadow-local-jwt-secret"
-DEFAULT_BASE_DIR = Path(tempfile.gettempdir()) / "spectra-shadow"
 DEFAULT_RUNTIME_ROOT = "/var/lib/spectra"
+DEFAULT_BASE_DIR = Path(DEFAULT_RUNTIME_ROOT)
+DEFAULT_MODEL_NAME = "qwen-plus"
+DEFAULT_LARGE_MODEL_NAME = "qwen-max"
+DEFAULT_SMALL_MODEL_NAME = "qwen-turbo"
+DEFAULT_AI_TIMEOUT_SECONDS = "120"
 
 
 def build_shadow_env_overlay(
@@ -64,6 +67,12 @@ def build_shadow_env_overlay(
         ).strip(),
         "POSTGRES_BACKUP_USE_DOCKER": (
             env.get("POSTGRES_BACKUP_USE_DOCKER") or "1"
+        ).strip(),
+        "DEFAULT_MODEL": (env.get("DEFAULT_MODEL") or DEFAULT_MODEL_NAME).strip(),
+        "LARGE_MODEL": (env.get("LARGE_MODEL") or DEFAULT_LARGE_MODEL_NAME).strip(),
+        "SMALL_MODEL": (env.get("SMALL_MODEL") or DEFAULT_SMALL_MODEL_NAME).strip(),
+        "AI_REQUEST_TIMEOUT_SECONDS": (
+            env.get("AI_REQUEST_TIMEOUT_SECONDS") or DEFAULT_AI_TIMEOUT_SECONDS
         ).strip(),
         "WORKER_NAME": (env.get("WORKER_NAME") or "shadow-worker").strip(),
         "WORKER_RECOVERY_SCAN": (env.get("WORKER_RECOVERY_SCAN") or "true").strip(),

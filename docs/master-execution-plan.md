@@ -217,7 +217,8 @@ Focus especially on:
 - keep a Prisma shadow validation command ready to render a PostgreSQL schema variant, validate it, push it to the shadow database, and regenerate the client
 - keep a single PostgreSQL shadow flow command ready to bring infra up, execute Prisma shadow validation, optionally run live smoke, and tear the shadow stack down
 - keep a dry-run PostgreSQL recovery drill ready for rollback rehearsals
-- keep a local PostgreSQL shadow env overlay ready so cutover rehearsal can self-supply shadow DATABASE_URL, backup paths, and Docker toolchain fallback
+- keep a local PostgreSQL shadow env overlay ready so cutover rehearsal can self-supply shadow DATABASE_URL, shared runtime storage, model defaults, backup paths, and Docker toolchain fallback
+- treat the remaining PostgreSQL blockers as baseline-promotion work, not generic readiness work
 - keep that shadow env overlay rich enough to supply shared runtime storage paths and service-host defaults, so rehearsal warnings converge on real PostgreSQL blockers instead of empty local dev env gaps
 - keep a PostgreSQL baseline diff command ready to render a first-pass baseline SQL script from the current Prisma schema
 - keep a PostgreSQL baseline package command ready to scaffold a draft migration lock and baseline migration directory for review
