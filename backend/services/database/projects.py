@@ -8,10 +8,21 @@ from schemas.project_semantics import (
 from schemas.project_space import ReferenceRelationType
 from schemas.project_vocabulary import ProjectReferenceMode
 from schemas.projects import ProjectCreate
+from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
 from utils.exceptions import APIException, NotFoundException, ValidationException
 
 
 class ProjectMixin:
+    @staticmethod
+    def _project_file_where(project_id: str) -> dict:
+        return {
+            "projectId": project_id,
+            "OR": [
+                {"usageIntent": None},
+                {"usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}},
+            ],
+        }
+
     async def create_project(self, project_data: ProjectCreate, user_id: str):
         visibility, is_referenceable = validate_project_sharing_rules(
             getattr(project_data, "visibility", None),
@@ -163,7 +174,8 @@ class ProjectMixin:
 
     async def get_project_statistics(self, project_id: str) -> dict:
         project = await self.db.project.find_unique(where={"id": project_id})
-        files_count = await self.db.upload.count(where={"projectId": project_id})
+        file_where = self._project_file_where(project_id)
+        files_count = await self.db.upload.count(where=file_where)
         messages_count = await self.db.conversation.count(
             where={"projectId": project_id}
         )
@@ -178,7 +190,7 @@ class ProjectMixin:
         if hasattr(self.db.upload, "aggregate"):
             try:
                 size_agg = await self.db.upload.aggregate(
-                    where={"projectId": project_id},
+                    where=file_where,
                     _sum={"size": True},
                 )
                 aggregate_available = True
@@ -194,7 +206,7 @@ class ProjectMixin:
                 aggregate_available = False
         if not aggregate_available:
             uploads = await self.db.upload.find_many(
-                where={"projectId": project_id},
+                where=file_where,
                 select={"size": True},
             )
             total_file_size = sum(
