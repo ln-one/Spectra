@@ -78,7 +78,11 @@ def main() -> int:
         print("PASS datasource provider was rewritten from sqlite to postgresql")
         return 0
 
-    print("WARN source schema did not contain a sqlite datasource provider marker")
+    if POSTGRES_PROVIDER in output_path.read_text(encoding="utf-8"):
+        print("PASS source schema already targets postgresql; variant kept in sync")
+        return 0
+
+    print("WARN source schema did not contain a recognized datasource provider marker")
     return 1
 
 

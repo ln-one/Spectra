@@ -86,4 +86,5 @@ def test_execute_shadow_prisma_validation_stops_on_failure():
     )
 
     assert exit_code == 2
-    assert len(recorded) == 3
+    assert len(recorded) == 4
+    assert recorded[-1] == ["prisma", "generate", "--schema=prisma/schema.prisma"]

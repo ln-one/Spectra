@@ -120,11 +120,17 @@ def execute_shadow_prisma_validation(
     if SHADOW_DATABASE_ENV not in merged_env and merged_env.get("DATABASE_URL"):
         merged_env[SHADOW_DATABASE_ENV] = merged_env["DATABASE_URL"]
 
-    for command in commands:
-        code = runner(command, BACKEND_DIR, merged_env)
-        if code != 0:
-            return commands, code
-    return commands, 0
+    exit_code = 0
+    try:
+        for command in commands:
+            exit_code = runner(command, BACKEND_DIR, merged_env)
+            if exit_code != 0:
+                return commands, exit_code
+        return commands, 0
+    finally:
+        if schema_output == DEFAULT_SCHEMA_OUTPUT:
+            restore_command = ["prisma", "generate", "--schema=prisma/schema.prisma"]
+            runner(restore_command, BACKEND_DIR, dict(os.environ))
 
 
 def main() -> int:

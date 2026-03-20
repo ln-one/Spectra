@@ -42,3 +42,12 @@ def test_render_postgres_schema_variant_can_retarget_shadow_env() -> None:
     assert replacements == 1
     assert 'provider = "postgresql"' in rendered
     assert 'env("POSTGRES_SHADOW_DATABASE_URL")' in rendered
+
+
+def test_render_postgres_schema_variant_keeps_postgres_provider() -> None:
+    rendered, replacements = render_postgres_schema_variant(
+        'datasource db {\n  provider = "postgresql"\n  url      = env("DATABASE_URL")\n}\n'
+    )
+
+    assert replacements == 0
+    assert 'provider = "postgresql"' in rendered
