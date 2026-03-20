@@ -1,5 +1,8 @@
 # 剩余工作战役清单
 
+> 总执行图请优先参考：`/Users/ln1/Projects/Spectra/docs/master-execution-plan.md`
+> 本文档保留为当前活跃战役与产品化收尾清单。
+
 > 更新时间：2026-03-19
 > 目的：把 `docs/project/` 中的目标设计，映射成当前阶段真正还没完成、但最值得继续推进的工作。
 

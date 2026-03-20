@@ -15,7 +15,9 @@
 
 - [Guides](./guides/README.md)
 - [Standards](./standards/README.md)
+- [Master Execution Plan](./master-execution-plan.md)
 - [Remaining Work Battle Plan](./remaining-work-battle-plan.md)
+- [Optimization Work Packet](./optimization-work-packet.md)
 - [Studio Card Backend Protocol](./studio-card-backend-protocol.md)
 - [PostgreSQL Migration Checklist](./postgres-migration-checklist.md)
 - [Deployment Topology](./deployment-topology.md)
@@ -31,6 +33,7 @@
 - `backend/scripts/deploy_release_record.py` - release record skeleton generator
 - `backend/scripts/incident_record.py` - incident record skeleton generator
 - `backend/scripts/postgres_readiness_audit.py` - PostgreSQL readiness audit
+- `backend/scripts/docker_deploy_readiness_audit.py` - Docker/distributed deployment readiness audit
 - `backend/scripts/worker_queue_diagnose.py` - worker/queue/stuck-job diagnosis
 
 ## 4. Product Design and Historical Planning

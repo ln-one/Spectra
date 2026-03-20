@@ -57,6 +57,15 @@ class ModelRisk:
     created_updated_fields: int = 0
 
 
+@dataclass
+class HotspotRisk:
+    name: str
+    composite_operations: int = 0
+    json_operations: int = 0
+    upserts: int = 0
+    ordered_reads: int = 0
+
+
 def parse_schema() -> tuple[str | None, dict[str, ModelRisk]]:
     provider = None
     models: dict[str, ModelRisk] = {}
@@ -106,14 +115,22 @@ def parse_schema() -> tuple[str | None, dict[str, ModelRisk]]:
     return provider, {k: v for k, v in models.items() if k in TARGET_MODELS}
 
 
-def analyze_hotspots() -> dict[str, int]:
-    counts: dict[str, int] = {}
+def analyze_hotspots() -> dict[str, HotspotRisk]:
+    counts: dict[str, HotspotRisk] = {}
     for name, files in HOTSPOT_PATTERNS.items():
-        total = 0
+        risk = HotspotRisk(name=name)
         for path in files:
-            text = path.read_text()
-            total += text.count("find_") + text.count("create(") + text.count("update(")
-        counts[name] = total
+            text = path.read_text(encoding="utf-8")
+            risk.composite_operations += (
+                text.count("find_")
+                + text.count("create(")
+                + text.count("update(")
+                + text.count("delete(")
+            )
+            risk.json_operations += text.count("json.dumps") + text.count("json.loads")
+            risk.upserts += text.count("upsert(")
+            risk.ordered_reads += text.count('order={"') + text.count("order={")
+        counts[name] = risk
     return counts
 
 
@@ -149,8 +166,13 @@ def main() -> None:
     print()
 
     print("Consistency Hotspots")
-    for name, score in hotspots.items():
-        print(f"- {name}: composite db operations={score}")
+    for name in sorted(hotspots):
+        risk = hotspots[name]
+        print(
+            f"- {name}: composite_db_ops={risk.composite_operations}, "
+            f"json_ops={risk.json_operations}, upserts={risk.upserts}, "
+            f"ordered_reads={risk.ordered_reads}"
+        )
     print()
 
     print("Next Checks")
