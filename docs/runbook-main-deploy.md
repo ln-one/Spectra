@@ -109,6 +109,7 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_smoke.py \
 ```bash
 python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_backup.py
 python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_restore.py /path/to/backup.dump
+python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_recovery_drill.py
 ```
 
 如果只想先看环境变量是否齐全：

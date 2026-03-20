@@ -38,6 +38,7 @@
 - `backend/scripts/postgres_cutover_audit.py` - PostgreSQL cutover readiness audit
 - `backend/scripts/postgres_backup.py` - build or execute PostgreSQL backup commands for cutover drills
 - `backend/scripts/postgres_restore.py` - build or execute PostgreSQL restore commands for rollback drills
+- `backend/scripts/postgres_recovery_drill.py` - run a dry recovery rehearsal across backup/restore prerequisites and commands
 - `backend/scripts/docker_compose_topology_audit.py` - Docker Compose topology audit
 - `backend/scripts/docker_deploy_readiness_audit.py` - Docker/distributed deployment readiness audit
 - `backend/scripts/distributed_deploy_audit.py` - aggregate Docker/distributed deployment audit
