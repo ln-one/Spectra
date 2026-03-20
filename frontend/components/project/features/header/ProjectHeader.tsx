@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useShallow } from "zustand/react/shallow";
 import { HeaderActions } from "./components/HeaderActions";
 import { ProjectNameEditor } from "./components/ProjectNameEditor";
 import { SessionSwitcher } from "./components/SessionSwitcher";
@@ -36,18 +35,10 @@ export function ProjectHeader({
   selectedThemePreset,
   onThemePresetChange,
 }: ProjectHeaderProps) {
-  const { user, logout } = useAuthStore(
-    useShallow((state) => ({
-      user: state.user,
-      logout: state.logout,
-    }))
-  );
-  const { project, updateProjectName } = useProjectStore(
-    useShallow((state) => ({
-      project: state.project,
-      updateProjectName: state.updateProjectName,
-    }))
-  );
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const projectName = useProjectStore((state) => state.project?.name);
+  const updateProjectName = useProjectStore((state) => state.updateProjectName);
 
   return (
     <motion.header
@@ -72,7 +63,7 @@ export function ProjectHeader({
         </Link>
 
         <ProjectNameEditor
-          projectName={project?.name}
+          projectName={projectName}
           onSave={(name) => {
             void updateProjectName(name);
           }}
