@@ -93,7 +93,7 @@ async def render_generation_outputs(
     db_service,
     context: GenerationExecutionContext,
     courseware_content,
-) -> dict:
+) -> tuple[dict, dict]:
     from services.generation import generation_service
     from services.template import TemplateConfig
 
@@ -103,6 +103,7 @@ async def render_generation_outputs(
         else TemplateConfig()
     )
     output_urls = {}
+    artifact_paths: dict[str, str] = {}
     export_endpoint = (
         f"/api/v1/generate/sessions/{context.session_id}/preview/export"
         if context.session_id
@@ -117,6 +118,7 @@ async def render_generation_outputs(
             courseware_content, context.task_id, tpl_config
         )
         logger.info("PPTX generated: %s", pptx_path)
+        artifact_paths["pptx"] = pptx_path
         output_urls.update(
             build_task_output_urls(pptx_url=export_endpoint or pptx_path)
         )
@@ -130,6 +132,7 @@ async def render_generation_outputs(
             courseware_content, context.task_id, tpl_config
         )
         logger.info("DOCX generated: %s", docx_path)
+        artifact_paths["docx"] = docx_path
         output_urls.update(
             build_task_output_urls(docx_url=export_endpoint or docx_path)
         )
@@ -137,7 +140,64 @@ async def render_generation_outputs(
             context.task_id, TaskStatus.PROCESSING, 90
         )
 
-    return output_urls
+    return output_urls, artifact_paths
+
+
+async def persist_generation_artifacts(
+    db_service,
+    context: GenerationExecutionContext,
+    artifact_paths: dict[str, str],
+) -> None:
+    if not context.session_id:
+        return
+    if not artifact_paths:
+        return
+
+    try:
+        session = await db_service.db.generationsession.find_unique(
+            where={"id": context.session_id}
+        )
+    except Exception as exc:
+        logger.warning(
+            "skip_persist_generation_artifacts session lookup failed: %s",
+            exc,
+        )
+        return
+
+    if not session:
+        return
+
+    user_id = getattr(session, "userId", None)
+    base_version_id = getattr(session, "baseVersionId", None)
+    project_id = getattr(session, "projectId", None) or context.project_id
+
+    for artifact_type, storage_path in artifact_paths.items():
+        try:
+            await db_service.create_artifact(
+                project_id=project_id,
+                artifact_type=artifact_type,
+                visibility="private",
+                session_id=context.session_id,
+                based_on_version_id=base_version_id,
+                owner_user_id=user_id,
+                storage_path=storage_path,
+                metadata={
+                    "mode": "create",
+                    "status": "completed",
+                    "output_type": "ppt" if artifact_type == "pptx" else "word",
+                    "title": f"{artifact_type.upper()} · {context.task_id[:8]}",
+                    "is_current": True,
+                },
+            )
+        except Exception as exc:
+            logger.warning(
+                "persist_generation_artifact_failed task_id=%s session_id=%s "
+                "artifact_type=%s error=%s",
+                context.task_id,
+                context.session_id,
+                artifact_type,
+                exc,
+            )
 
 
 async def finalize_generation_success(

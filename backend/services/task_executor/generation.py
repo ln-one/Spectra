@@ -17,6 +17,7 @@ from .generation_runtime import (
     build_generation_inputs,
     cache_preview_content,
     finalize_generation_success,
+    persist_generation_artifacts,
     render_generation_outputs,
 )
 
@@ -87,10 +88,15 @@ async def execute_generation_task(
             task_id, TaskStatus.PROCESSING, 30
         )
 
-        output_urls = await render_generation_outputs(
+        output_urls, artifact_paths = await render_generation_outputs(
             db_service=db_service,
             context=context,
             courseware_content=courseware_content,
+        )
+        await persist_generation_artifacts(
+            db_service=db_service,
+            context=context,
+            artifact_paths=artifact_paths,
         )
         await finalize_generation_success(
             db_service=db_service,
