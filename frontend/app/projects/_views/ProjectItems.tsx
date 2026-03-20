@@ -1,4 +1,4 @@
-﻿import { motion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Clock,
   ChevronRight,
@@ -16,13 +16,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDate, Project, statusConfig } from "./project-types";
 
+interface ProjectCardProps {
+  project: Project;
+  onClick: () => void;
+  onDelete: () => void | Promise<void>;
+  isDeleting?: boolean;
+}
+
 export function ProjectCard({
   project,
   onClick,
-}: {
-  project: Project;
-  onClick: () => void;
-}) {
+  onDelete,
+  isDeleting = false,
+}: ProjectCardProps) {
   const status = statusConfig[project.status] || statusConfig.draft;
 
   return (
@@ -42,20 +48,40 @@ export function ProjectCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              onClick={(e) => e.stopPropagation()}
-              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-zinc-100 transition-all"
+              type="button"
+              disabled={isDeleting}
+              onClick={(event) => event.stopPropagation()}
+              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-zinc-100 transition-all disabled:cursor-not-allowed disabled:opacity-60"
             >
               <MoreVertical className="w-4 h-4 text-zinc-400" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem className="gap-2">
+          <DropdownMenuContent
+            align="end"
+            className="w-40"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <DropdownMenuItem
+              className="gap-2"
+              onSelect={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+            >
               <Settings className="w-4 h-4" />
               设置
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600">
+            <DropdownMenuItem
+              className="gap-2 text-red-600 focus:text-red-600"
+              disabled={isDeleting}
+              onSelect={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void onDelete();
+              }}
+            >
               <Trash2 className="w-4 h-4" />
-              删除
+              {isDeleting ? "删除中..." : "删除"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

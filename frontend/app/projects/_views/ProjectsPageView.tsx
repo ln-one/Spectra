@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Plus, FolderOpen, Search, Grid3X3, List } from "lucide-react";
@@ -13,12 +13,14 @@ export default function ProjectsPage() {
     router,
     projects,
     isLoading,
+    deletingProjectId,
     errorMessage,
     searchQuery,
     setSearchQuery,
     viewMode,
     setViewMode,
     filteredProjects,
+    handleDeleteProject,
     fetchProjects,
   } = useProjectsPageState();
 
@@ -157,6 +159,8 @@ export default function ProjectsPage() {
                     key={project.id}
                     project={project}
                     onClick={() => router.push(`/projects/${project.id}`)}
+                    onDelete={() => handleDeleteProject(project)}
+                    isDeleting={deletingProjectId === project.id}
                   />
                 ))}
               </motion.div>

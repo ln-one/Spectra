@@ -1,13 +1,16 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { projectsApi } from "@/lib/sdk";
 import { TokenStorage } from "@/lib/auth";
+import { toast } from "@/hooks/use-toast";
+import { projectsApi } from "@/lib/sdk";
+import { getErrorMessage } from "@/lib/sdk/errors";
 import type { Project } from "./project-types";
 
 export function useProjectsPageState() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -33,7 +36,7 @@ export function useProjectsPageState() {
       router.push("/auth/login");
       return;
     }
-    fetchProjects();
+    void fetchProjects();
   }, [router, fetchProjects]);
 
   const filteredProjects = useMemo(
@@ -44,16 +47,46 @@ export function useProjectsPageState() {
     [projects, searchQuery]
   );
 
+  const handleDeleteProject = useCallback(async (project: Project) => {
+    const confirmed = window.confirm(
+      `确认删除项目“${project.name}”吗？此操作无法撤销。`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingProjectId(project.id);
+    try {
+      await projectsApi.deleteProject(project.id);
+      setProjects((current) => current.filter((item) => item.id !== project.id));
+      toast({
+        title: "项目已删除",
+        description: `已删除“${project.name}”`,
+      });
+    } catch (error) {
+      console.error("Failed to delete project:", error);
+      toast({
+        title: "删除项目失败",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingProjectId(null);
+    }
+  }, []);
+
   return {
     router,
     projects,
     isLoading,
+    deletingProjectId,
     errorMessage,
     searchQuery,
     setSearchQuery,
     viewMode,
     setViewMode,
     filteredProjects,
+    handleDeleteProject,
     fetchProjects,
   };
 }
