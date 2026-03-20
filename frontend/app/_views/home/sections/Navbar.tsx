@@ -21,13 +21,22 @@ export function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-6">
-            <Link href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              href="#features"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
               功能
             </Link>
-            <Link href="#workflow" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              href="#workflow"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
               流程
             </Link>
-            <Link href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              href="#testimonials"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
               评价
             </Link>
           </div>

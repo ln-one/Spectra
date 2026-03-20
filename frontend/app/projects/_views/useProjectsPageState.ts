@@ -10,7 +10,9 @@ export function useProjectsPageState() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
+    null
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -76,7 +78,9 @@ export function useProjectsPageState() {
     setDeletingProjectId(project.id);
     try {
       await projectsApi.deleteProject(project.id);
-      setProjects((current) => current.filter((item) => item.id !== project.id));
+      setProjects((current) =>
+        current.filter((item) => item.id !== project.id)
+      );
       toast({
         title: "项目已删除",
         description: `已删除“${project.name}”`,

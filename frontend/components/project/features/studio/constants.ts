@@ -8,10 +8,7 @@ import {
   Presentation,
   Radar,
 } from "lucide-react";
-import {
-  GENERATION_TOOLS,
-  type GenerationTool,
-} from "@/stores/projectStore";
+import { GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
 
 export const TOOL_ICONS: Record<string, ElementType> = {
   ppt: Presentation,

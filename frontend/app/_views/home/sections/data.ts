@@ -1,4 +1,13 @@
-﻿import { BookOpen, Clock, FileText, Layers, Palette, Star, Users, Wand2 } from "lucide-react";
+﻿import {
+  BookOpen,
+  Clock,
+  FileText,
+  Layers,
+  Palette,
+  Star,
+  Users,
+  Wand2,
+} from "lucide-react";
 
 export const features = [
   {
@@ -67,7 +76,8 @@ export const testimonials = [
     role: "高中数学教师",
     avatar: "/avatars/teacher1.jpg",
     initials: "张",
-    content: "Spectra 让我的备课时间减少了一半，AI 生成的课件结构清晰，内容专业。",
+    content:
+      "Spectra 让我的备课时间减少了一半，AI 生成的课件结构清晰，内容专业。",
     rating: 5,
   },
   {

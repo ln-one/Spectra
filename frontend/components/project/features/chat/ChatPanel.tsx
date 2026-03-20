@@ -26,7 +26,8 @@ interface ChatPanelProps {
 const CHAT_DESCRIPTION = "AI \u52a9\u624b\u5bf9\u8bdd";
 const THINKING_LABEL = "\u601d\u8003\u4e2d";
 const EMPTY_TITLE = "\u5f00\u59cb\u5bf9\u8bdd";
-const EMPTY_DESCRIPTION = "\u5411 AI \u52a9\u624b\u63d0\u95ee\u5173\u4e8e\u9879\u76ee\u7684\u5185\u5bb9";
+const EMPTY_DESCRIPTION =
+  "\u5411 AI \u52a9\u624b\u63d0\u95ee\u5173\u4e8e\u9879\u76ee\u7684\u5185\u5bb9";
 const INPUT_PLACEHOLDER = "\u8f93\u5165\u6d88\u606f...";
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
@@ -107,14 +108,19 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   };
 
   return (
-    <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+    <div
+      className="h-full bg-transparent"
+      style={{ transform: "translateZ(0)" }}
+    >
       <Card className="h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <CardHeader
           className="flex shrink-0 flex-row items-center justify-between space-y-0 overflow-hidden px-4 py-0"
           style={{ height: "52px" }}
         >
           <div className="min-w-0 flex-1 flex-col justify-center">
-            <CardTitle className="text-sm font-semibold leading-tight">Chat</CardTitle>
+            <CardTitle className="text-sm font-semibold leading-tight">
+              Chat
+            </CardTitle>
             <CardDescription className="text-xs leading-tight text-[var(--project-text-muted)]">
               {CHAT_DESCRIPTION}
             </CardDescription>
@@ -136,7 +142,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             className="pointer-events-none absolute inset-x-0 top-0 z-10 h-7"
             style={{
               background:
-                "linear-gradient(180deg, var(--project-surface) 0%, color-mix(in srgb, var(--project-surface) 78%, transparent) 52%, rgba(255,255,255,0) 100%)",
+                "linear-gradient(180deg, var(--project-surface) 0%, color-mix(in srgb, var(--project-surface) 96%, transparent) 28%, color-mix(in srgb, var(--project-surface) 84%, transparent) 52%, color-mix(in srgb, var(--project-surface) 62%, transparent) 72%, color-mix(in srgb, var(--project-surface) 36%, transparent) 88%, rgba(255,255,255,0) 100%)",
             }}
           />
           <div
@@ -162,7 +168,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                     {[0, 1, 2, 3].map((idx) => (
                       <div
                         key={idx}
-                        className={cn("flex", idx % 2 === 0 ? "justify-start" : "justify-end")}
+                        className={cn(
+                          "flex",
+                          idx % 2 === 0 ? "justify-start" : "justify-end"
+                        )}
                       >
                         <div className="w-[75%] space-y-2">
                           <div className="h-3 w-16 animate-pulse rounded-full bg-[var(--project-surface-muted)]" />

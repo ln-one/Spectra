@@ -57,7 +57,9 @@ export function FileItem({
         onClick={onToggle}
         className={cn(
           "group relative flex cursor-pointer items-center justify-center overflow-visible rounded-xl p-2.5 transition-all duration-200",
-          isSelected ? "bg-[var(--project-surface)]" : "hover:bg-[var(--project-surface)]"
+          isSelected
+            ? "bg-[var(--project-surface)]"
+            : "hover:bg-[var(--project-surface)]"
         )}
         style={{ minHeight: "52px" }}
         title={compactHint}
@@ -237,7 +239,9 @@ export function FileItem({
               <span>引用片段</span>
               <div className="flex items-center gap-1.5">
                 {focusDetail.source?.source_type ? (
-                  <span>{getSourceTypeLabel(focusDetail.source.source_type)}</span>
+                  <span>
+                    {getSourceTypeLabel(focusDetail.source.source_type)}
+                  </span>
                 ) : null}
                 {focusDetail.source?.page_number ? (
                   <span>页码 P{focusDetail.source.page_number}</span>
@@ -250,10 +254,13 @@ export function FileItem({
             <div className="whitespace-pre-wrap text-[var(--project-text-primary)]">
               {focusDetail.content}
             </div>
-            {focusDetail.context?.previous_chunk || focusDetail.context?.next_chunk ? (
+            {focusDetail.context?.previous_chunk ||
+            focusDetail.context?.next_chunk ? (
               <div className="mt-2 border-t border-[var(--project-border)] pt-2 text-[10px] text-[var(--project-text-muted)]">
                 {focusDetail.context?.previous_chunk ? (
-                  <div className="mb-1">上文：{focusDetail.context.previous_chunk}</div>
+                  <div className="mb-1">
+                    上文：{focusDetail.context.previous_chunk}
+                  </div>
                 ) : null}
                 {focusDetail.context?.next_chunk ? (
                   <div>下文：{focusDetail.context.next_chunk}</div>
@@ -266,4 +273,3 @@ export function FileItem({
     </motion.div>
   );
 }
-

@@ -46,7 +46,10 @@ export function ProjectHeader({
       className="h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 lg:px-6 z-50 relative"
     >
       <div className="flex min-w-0 items-center gap-4">
-        <Link href="/projects" className="flex items-center gap-2 group relative">
+        <Link
+          href="/projects"
+          className="flex items-center gap-2 group relative"
+        >
           <motion.div
             whileHover={{ scale: 1.05, rotate: 5 }}
             whileTap={{ scale: 0.95 }}
@@ -83,4 +86,3 @@ export function ProjectHeader({
     </motion.header>
   );
 }
-

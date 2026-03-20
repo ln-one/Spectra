@@ -50,10 +50,14 @@ export function MarkdownContent({
         <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
       ),
       ul: ({ children }: { children?: React.ReactNode }) => (
-        <ul className="mb-2 ml-4 list-outside list-disc space-y-1">{children}</ul>
+        <ul className="mb-2 ml-4 list-outside list-disc space-y-1">
+          {children}
+        </ul>
       ),
       ol: ({ children }: { children?: React.ReactNode }) => (
-        <ol className="mb-2 ml-4 list-outside list-decimal space-y-1">{children}</ol>
+        <ol className="mb-2 ml-4 list-outside list-decimal space-y-1">
+          {children}
+        </ol>
       ),
       li: ({ children }: { children?: React.ReactNode }) => (
         <li className="text-sm leading-relaxed">{children}</li>
@@ -110,4 +114,3 @@ export function MarkdownContent({
     </ReactMarkdown>
   );
 }
-

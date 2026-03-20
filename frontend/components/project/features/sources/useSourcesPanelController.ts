@@ -66,7 +66,10 @@ export function useSourcesPanelController({
         const horizontalPadding = 32;
         const gap = 8;
         const availableInfoWidth =
-          width - horizontalPadding - headerActionsRef.current.offsetWidth - gap;
+          width -
+          horizontalPadding -
+          headerActionsRef.current.offsetWidth -
+          gap;
         setIsHeaderTight((prev) => {
           if (prev) {
             return (

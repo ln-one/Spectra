@@ -113,7 +113,9 @@ export function SourcesPanel({
                       <div className="-translate-y-1 flex min-w-max items-center gap-3 px-0.5 pb-1 pt-0">
                         <div
                           key={WEB_SOURCE_CARD_ID}
-                          ref={(element) => registerFileRef(WEB_SOURCE_CARD_ID, element)}
+                          ref={(element) =>
+                            registerFileRef(WEB_SOURCE_CARD_ID, element)
+                          }
                           className="shrink-0"
                         >
                           <WebSourceCard isCompact={true} />
@@ -131,7 +133,9 @@ export function SourcesPanel({
                               onDelete={() => handleDelete(file.id)}
                               isCompact={true}
                               isFocused={focusedFileId === file.id}
-                              focusDetail={focusedFileId === file.id ? focusPayload : null}
+                              focusDetail={
+                                focusedFileId === file.id ? focusPayload : null
+                              }
                               isExpanded={false}
                               onCollapse={() => collapseFile(file.id)}
                             />
@@ -180,7 +184,9 @@ export function SourcesPanel({
                     <AnimatePresence mode="popLayout">
                       <div
                         key={WEB_SOURCE_CARD_ID}
-                        ref={(element) => registerFileRef(WEB_SOURCE_CARD_ID, element)}
+                        ref={(element) =>
+                          registerFileRef(WEB_SOURCE_CARD_ID, element)
+                        }
                       >
                         <WebSourceCard isCompact={isEffectiveCompact} />
                       </div>
@@ -196,7 +202,9 @@ export function SourcesPanel({
                             onDelete={() => handleDelete(file.id)}
                             isCompact={isEffectiveCompact}
                             isFocused={focusedFileId === file.id}
-                            focusDetail={focusedFileId === file.id ? focusPayload : null}
+                            focusDetail={
+                              focusedFileId === file.id ? focusPayload : null
+                            }
                             isExpanded={!!expandedIds[file.id]}
                             onCollapse={() => collapseFile(file.id)}
                           />
@@ -213,4 +221,3 @@ export function SourcesPanel({
     </div>
   );
 }
-

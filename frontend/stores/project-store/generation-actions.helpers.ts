@@ -1,7 +1,13 @@
-﻿import type { GenerationHistory, GenerationOptions, GenerationTool } from "./types";
+﻿import type {
+  GenerationHistory,
+  GenerationOptions,
+  GenerationTool,
+} from "./types";
 import { GENERATION_TOOLS } from "./types";
 
-export function normalizeGenerationOptions(options?: GenerationOptions): GenerationOptions {
+export function normalizeGenerationOptions(
+  options?: GenerationOptions
+): GenerationOptions {
   return {
     template: options?.template || "default",
     show_page_number: options?.show_page_number ?? true,
@@ -35,7 +41,12 @@ export function mapSessionsToHistory(
     else if (s.state === "FAILED") status = "failed";
     else if (s.state === "IDLE") status = "pending";
 
-    const toolId = s.output_type === "ppt" ? "ppt" : s.output_type === "word" ? "word" : "ppt";
+    const toolId =
+      s.output_type === "ppt"
+        ? "ppt"
+        : s.output_type === "word"
+          ? "word"
+          : "ppt";
     const tool = GENERATION_TOOLS.find((t) => t.id === toolId);
 
     return {

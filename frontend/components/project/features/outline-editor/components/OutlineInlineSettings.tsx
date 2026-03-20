@@ -4,7 +4,13 @@ import { motion } from "framer-motion";
 import { Image as ImageIcon, Layers, Palette, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { DETAIL_LEVELS, IMAGE_STYLES, VISUAL_THEMES } from "../constants";
@@ -52,11 +58,18 @@ export function OutlineInlineSettings({
           <ToggleGroup
             type="single"
             value={detailLevel}
-            onValueChange={(value) => value && setDetailLevel(value as "brief" | "standard" | "detailed")}
+            onValueChange={(value) =>
+              value &&
+              setDetailLevel(value as "brief" | "standard" | "detailed")
+            }
             className="flex gap-1"
           >
             {DETAIL_LEVELS.map((level) => (
-              <ToggleGroupItem key={level.value} value={level.value} className="flex-1 h-9 text-xs data-[state=on]:bg-zinc-900 data-[state=on]:text-zinc-50 border border-zinc-200 hover:bg-zinc-100">
+              <ToggleGroupItem
+                key={level.value}
+                value={level.value}
+                className="flex-1 h-9 text-xs data-[state=on]:bg-zinc-900 data-[state=on]:text-zinc-50 border border-zinc-200 hover:bg-zinc-100"
+              >
                 {level.label}
               </ToggleGroupItem>
             ))}
@@ -123,7 +136,10 @@ export function OutlineInlineSettings({
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-zinc-100 text-zinc-700"
             >
               {keyword}
-              <button onClick={() => onRemoveKeyword(keyword)} className="hover:text-zinc-900">
+              <button
+                onClick={() => onRemoveKeyword(keyword)}
+                className="hover:text-zinc-900"
+              >
                 <X className="w-3 h-3" />
               </button>
             </motion.span>
@@ -136,7 +152,12 @@ export function OutlineInlineSettings({
               placeholder="添加关键词..."
               className="h-7 w-24 text-xs bg-white border-zinc-200"
             />
-            <Button variant="ghost" size="sm" onClick={onAddKeyword} className="h-7 px-2 text-xs text-zinc-500 hover:text-zinc-700">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddKeyword}
+              className="h-7 px-2 text-xs text-zinc-500 hover:text-zinc-700"
+            >
               +
             </Button>
           </div>

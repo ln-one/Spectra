@@ -90,7 +90,11 @@ export function DefaultOutlineView({
 }: DefaultOutlineViewProps) {
   return (
     <div className="h-full bg-gradient-to-br from-zinc-50 via-white to-zinc-100 flex flex-col font-sans overflow-hidden">
-      <DefaultOutlineNav topic={topic} slideCount={slides.length} onBack={onBack} />
+      <DefaultOutlineNav
+        topic={topic}
+        slideCount={slides.length}
+        onBack={onBack}
+      />
 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
         <motion.div
@@ -99,13 +103,22 @@ export function DefaultOutlineView({
           animate="visible"
           className="order-2 lg:order-1 flex-1 p-4 lg:p-8 h-full overflow-y-auto min-h-0"
         >
-          <motion.div variants={itemVariants} className="flex items-center justify-between mb-6">
+          <motion.div
+            variants={itemVariants}
+            className="flex items-center justify-between mb-6"
+          >
             <div>
               <h2 className="text-xl font-semibold text-zinc-800">大纲共创</h2>
-              <p className="text-sm text-zinc-500 mt-1">编辑并确认您的课件结构，AI 将根据此大纲生成内容</p>
+              <p className="text-sm text-zinc-500 mt-1">
+                编辑并确认您的课件结构，AI 将根据此大纲生成内容
+              </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 border-zinc-200">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 border-zinc-200"
+              >
                 <RefreshCw className="w-4 h-4 mr-1.5" />
                 重新生成
               </Button>
@@ -113,7 +126,10 @@ export function DefaultOutlineView({
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowSettings(!showSettings)}
-                className={cn("text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100", showSettings && "bg-zinc-100 text-zinc-700")}
+                className={cn(
+                  "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100",
+                  showSettings && "bg-zinc-100 text-zinc-700"
+                )}
               >
                 <Settings2 className="w-4 h-4" />
               </Button>

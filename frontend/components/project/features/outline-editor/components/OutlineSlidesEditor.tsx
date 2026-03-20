@@ -1,7 +1,15 @@
 ﻿"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Clock, Copy, GripVertical, Layers, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import {
+  Clock,
+  Copy,
+  GripVertical,
+  Layers,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,14 +61,18 @@ export function OutlineSlidesEditor({
             className={cn(
               "bg-white border rounded-2xl p-5 shadow-sm transition-all duration-200 group",
               "hover:shadow-lg hover:-translate-y-0.5",
-              activeSlideId === slide.id && "border-l-4 border-l-zinc-700 shadow-md",
+              activeSlideId === slide.id &&
+                "border-l-4 border-l-zinc-700 shadow-md",
               isGenerating && "opacity-60 pointer-events-none"
             )}
             onClick={() => !isGenerating && onSetActiveSlide(slide.id)}
           >
             <div className="flex items-start gap-4">
               <div className="flex flex-col items-center gap-2 shrink-0">
-                <motion.span className="text-xs font-bold text-zinc-400 bg-zinc-100 px-2.5 py-1 rounded-lg" whileHover={{ scale: 1.05 }}>
+                <motion.span
+                  className="text-xs font-bold text-zinc-400 bg-zinc-100 px-2.5 py-1 rounded-lg"
+                  whileHover={{ scale: 1.05 }}
+                >
                   {String(index + 1).padStart(2, "0")}
                 </motion.span>
                 <button className="cursor-grab text-zinc-300 hover:text-zinc-500 transition-colors">
@@ -71,7 +83,9 @@ export function OutlineSlidesEditor({
               <div className="flex-1 space-y-3 min-w-0">
                 <Input
                   value={slide.title}
-                  onChange={(event) => onUpdateSlide(slide.id, { title: event.target.value })}
+                  onChange={(event) =>
+                    onUpdateSlide(slide.id, { title: event.target.value })
+                  }
                   placeholder="输入幻灯片标题..."
                   className="text-base font-medium border-0 bg-transparent p-0 focus-visible:ring-0 shadow-none"
                   disabled={isGenerating || isOutlineHydrating}
@@ -86,7 +100,9 @@ export function OutlineSlidesEditor({
                     value={slide.keyPoints.join("\n")}
                     onChange={(event) =>
                       onUpdateSlide(slide.id, {
-                        keyPoints: event.target.value.split("\n").filter(Boolean),
+                        keyPoints: event.target.value
+                          .split("\n")
+                          .filter(Boolean),
                       })
                     }
                     placeholder="每行一个知识点..."
@@ -110,7 +126,11 @@ export function OutlineSlidesEditor({
               <div className="flex flex-col gap-1 shrink-0">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
                       <MoreHorizontal className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -126,7 +146,9 @@ export function OutlineSlidesEditor({
                         onDeleteSlide(slide.id);
                       }}
                       className="text-red-600 focus:text-red-600"
-                      disabled={slides.length <= 1 || isGenerating || isOutlineHydrating}
+                      disabled={
+                        slides.length <= 1 || isGenerating || isOutlineHydrating
+                      }
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       删除

@@ -59,4 +59,3 @@ export function WebSourceCard({ isCompact }: { isCompact: boolean }) {
     </motion.div>
   );
 }
-

@@ -1,7 +1,11 @@
 ﻿import { motion } from "framer-motion";
 import { Edit3, Image as ImageIcon, Layout, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function PreviewFloatingTools() {
   return (
@@ -14,7 +18,11 @@ export function PreviewFloatingTools() {
       <div className="bg-card/90 border shadow-xl rounded-full flex flex-col p-1.5 gap-1.5 backdrop-blur-xl">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10"
+            >
               <Edit3 className="w-4 h-4" />
             </Button>
           </TooltipTrigger>
@@ -22,7 +30,11 @@ export function PreviewFloatingTools() {
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10"
+            >
               <Layout className="w-4 h-4" />
             </Button>
           </TooltipTrigger>
@@ -30,7 +42,11 @@ export function PreviewFloatingTools() {
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10"
+            >
               <ImageIcon className="w-4 h-4" />
             </Button>
           </TooltipTrigger>
@@ -39,11 +55,18 @@ export function PreviewFloatingTools() {
         <div className="h-px w-5 mx-auto bg-border/80 my-1" />
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full text-violet-500 hover:text-violet-600 hover:bg-violet-50 w-10 h-10">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full text-violet-500 hover:text-violet-600 hover:bg-violet-50 w-10 h-10"
+            >
               <Sparkles className="w-4 h-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left" className="bg-violet-600 text-white border-violet-700">
+          <TooltipContent
+            side="left"
+            className="bg-violet-600 text-white border-violet-700"
+          >
             AI 润色
           </TooltipContent>
         </Tooltip>

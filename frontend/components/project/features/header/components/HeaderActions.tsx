@@ -91,7 +91,9 @@ export function HeaderActions({
             <DropdownMenuSubContent className="w-80 max-h-[360px] overflow-y-auto rounded-2xl border-zinc-200/80 bg-white/95 backdrop-blur-xl shadow-xl p-2">
               <DropdownMenuRadioGroup
                 value={selectedThemePreset}
-                onValueChange={(value) => onThemePresetChange(value as ThemePresetId)}
+                onValueChange={(value) =>
+                  onThemePresetChange(value as ThemePresetId)
+                }
               >
                 {THEME_PRESETS.map((theme) => (
                   <DropdownMenuRadioItem
@@ -178,4 +180,3 @@ export function HeaderActions({
     </div>
   );
 }
-

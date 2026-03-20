@@ -109,11 +109,36 @@ export function LibraryDrawer({
                 className="flex-1 min-h-0 flex flex-col"
               >
                 <TabsList className="grid grid-cols-5 w-full bg-zinc-200/50 backdrop-blur-md border border-zinc-200/80 rounded-xl p-1 gap-1 h-auto shrink-0">
-                  <TabsTrigger value="references" className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500">引用</TabsTrigger>
-                  <TabsTrigger value="versions" className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500">版本</TabsTrigger>
-                  <TabsTrigger value="artifacts" className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500">工件</TabsTrigger>
-                  <TabsTrigger value="members" className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500">成员</TabsTrigger>
-                  <TabsTrigger value="changes" className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500">变更</TabsTrigger>
+                  <TabsTrigger
+                    value="references"
+                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                  >
+                    引用
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="versions"
+                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                  >
+                    版本
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="artifacts"
+                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                  >
+                    工件
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="members"
+                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                  >
+                    成员
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="changes"
+                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                  >
+                    变更
+                  </TabsTrigger>
                 </TabsList>
 
                 <div className="flex-1 min-h-0 mt-4 overflow-auto scrollbar-hide pb-6">

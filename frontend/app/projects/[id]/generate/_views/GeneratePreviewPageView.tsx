@@ -53,10 +53,12 @@ export default function GeneratePreviewPage() {
 
     const handleScroll = () => {
       if (!containerRef.current) return;
-      const slideElements = containerRef.current.querySelectorAll(".slide-card");
+      const slideElements =
+        containerRef.current.querySelectorAll(".slide-card");
       let currentActiveIndex = activeSlideIndex;
       const containerTop = containerRef.current.scrollTop;
-      const containerCenter = containerTop + containerRef.current.clientHeight * 0.4;
+      const containerCenter =
+        containerTop + containerRef.current.clientHeight * 0.4;
 
       slideElements.forEach((el) => {
         const htmlEl = el as HTMLElement;
@@ -105,30 +107,44 @@ export default function GeneratePreviewPage() {
           onExport={handleExport}
         />
 
-        <main ref={containerRef} className="flex-1 overflow-y-auto bg-muted/20 relative scroll-smooth overflow-x-hidden p-4 md:p-8">
+        <main
+          ref={containerRef}
+          className="flex-1 overflow-y-auto bg-muted/20 relative scroll-smooth overflow-x-hidden p-4 md:p-8"
+        >
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full opacity-70">
               <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-              <p className="text-sm text-muted-foreground animate-pulse">正在加载课件内容...</p>
+              <p className="text-sm text-muted-foreground animate-pulse">
+                正在加载课件内容...
+              </p>
             </div>
           ) : slides.length === 0 ? (
             previewBlockedReason ? (
               <div className="flex flex-col items-center justify-center h-full opacity-90">
                 <ImageIcon className="w-12 h-12 text-muted-foreground/40 mb-4" />
-                <p className="text-sm text-muted-foreground mb-3">{previewBlockedReason}</p>
-                <Button onClick={() => router.push(`/projects/${projectId}`)} className="rounded-full">
+                <p className="text-sm text-muted-foreground mb-3">
+                  {previewBlockedReason}
+                </p>
+                <Button
+                  onClick={() => router.push(`/projects/${projectId}`)}
+                  className="rounded-full"
+                >
                   返回项目并继续生成
                 </Button>
               </div>
             ) : isSessionGenerating ? (
               <div className="flex flex-col items-center justify-center h-full opacity-80">
                 <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-                <p className="text-sm text-muted-foreground">正在按大纲生成课件，请稍候...</p>
+                <p className="text-sm text-muted-foreground">
+                  正在按大纲生成课件，请稍候...
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full opacity-70">
                 <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                <p className="text-sm text-muted-foreground">暂无幻灯片数据，请先生成。</p>
+                <p className="text-sm text-muted-foreground">
+                  暂无幻灯片数据，请先生成。
+                </p>
               </div>
             )
           ) : (
@@ -139,9 +155,16 @@ export default function GeneratePreviewPage() {
                     key={slide.id || `s-${i}`}
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.05 }}
+                    transition={{
+                      duration: 0.4,
+                      ease: "easeOut",
+                      delay: i * 0.05,
+                    }}
                   >
-                    <SlideCard slide={slide} isActive={activeSlideIndex === slide.index} />
+                    <SlideCard
+                      slide={slide}
+                      isActive={activeSlideIndex === slide.index}
+                    />
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -151,7 +174,11 @@ export default function GeneratePreviewPage() {
 
         <PreviewFloatingTools />
         {slides.length > 0 ? (
-          <PreviewSlideStrip slides={slides} activeSlideIndex={activeSlideIndex} onScrollToSlide={scrollToSlide} />
+          <PreviewSlideStrip
+            slides={slides}
+            activeSlideIndex={activeSlideIndex}
+            onScrollToSlide={scrollToSlide}
+          />
         ) : null}
       </div>
     </TooltipProvider>

@@ -11,7 +11,10 @@ interface ProjectNameEditorProps {
   onSave: (name: string) => void;
 }
 
-export function ProjectNameEditor({ projectName, onSave }: ProjectNameEditorProps) {
+export function ProjectNameEditor({
+  projectName,
+  onSave,
+}: ProjectNameEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -97,4 +100,3 @@ export function ProjectNameEditor({ projectName, onSave }: ProjectNameEditorProp
     </motion.button>
   );
 }
-

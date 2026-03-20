@@ -30,7 +30,8 @@ export function SessionSwitcher({
 }: SessionSwitcherProps) {
   const [isSessionMenuOpen, setIsSessionMenuOpen] = useState(false);
   const normalizedActiveSessionId =
-    activeSessionId ?? (sessions.length > 0 ? sessions[0].sessionId : undefined);
+    activeSessionId ??
+    (sessions.length > 0 ? sessions[0].sessionId : undefined);
   const activeSession = sessions.find(
     (session) => session.sessionId === normalizedActiveSessionId
   );
@@ -43,7 +44,10 @@ export function SessionSwitcher({
           onClick={() => setIsSessionMenuOpen(false)}
         />
       ) : null}
-      <DropdownMenu open={isSessionMenuOpen} onOpenChange={setIsSessionMenuOpen}>
+      <DropdownMenu
+        open={isSessionMenuOpen}
+        onOpenChange={setIsSessionMenuOpen}
+      >
         <DropdownMenuTrigger asChild>
           <motion.button
             whileHover={{ scale: 1.01 }}
@@ -153,4 +157,3 @@ export function SessionSwitcher({
     </div>
   );
 }
-

@@ -82,10 +82,14 @@ export function SourcesHeader({
         <>
           {!isHeaderCompact ? (
             <div className="min-w-0 flex-1 flex-col justify-center">
-              <CardTitle className="text-sm font-semibold leading-tight">Sources</CardTitle>
+              <CardTitle className="text-sm font-semibold leading-tight">
+                Sources
+              </CardTitle>
               <CardDescription className="truncate text-xs leading-tight text-[var(--project-text-muted)]">
                 {`${fileCount} 个文件 · ${selectedCount} 已选${
-                  uploadingTasksCount > 0 ? ` · 上传中 ${uploadingTasksCount} 个` : ""
+                  uploadingTasksCount > 0
+                    ? ` · 上传中 ${uploadingTasksCount} 个`
+                    : ""
                 }`}
               </CardDescription>
             </div>
@@ -159,4 +163,3 @@ export function SourcesHeader({
     </CardHeader>
   );
 }
-

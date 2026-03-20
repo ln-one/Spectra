@@ -13,7 +13,11 @@ interface PreviewSlideStripProps {
   onScrollToSlide: (index: number) => void;
 }
 
-export function PreviewSlideStrip({ slides, activeSlideIndex, onScrollToSlide }: PreviewSlideStripProps) {
+export function PreviewSlideStrip({
+  slides,
+  activeSlideIndex,
+  onScrollToSlide,
+}: PreviewSlideStripProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -39,7 +43,9 @@ export function PreviewSlideStrip({ slides, activeSlideIndex, onScrollToSlide }:
               <span
                 className={cn(
                   "text-[10px] font-bold z-10 truncate absolute top-1.5 left-2 bg-background/60 backdrop-blur rounded px-1.5",
-                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground group-hover:text-foreground"
                 )}
               >
                 {slide.index}

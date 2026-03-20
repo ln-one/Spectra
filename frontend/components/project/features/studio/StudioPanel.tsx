@@ -53,9 +53,13 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const groupedArtifacts = Object.entries(artifactHistoryByTool).filter(
     ([, items]) => items.length > 0
   );
-  const currentTool = GENERATION_TOOLS.find((tool) => tool.type === expandedTool);
+  const currentTool = GENERATION_TOOLS.find(
+    (tool) => tool.type === expandedTool
+  );
   const CurrentIcon = currentTool ? TOOL_ICONS[currentTool.id] : Sparkles;
-  const currentColor = currentTool ? TOOL_COLORS[currentTool.id] : TOOL_COLORS.ppt;
+  const currentColor = currentTool
+    ? TOOL_COLORS[currentTool.id]
+    : TOOL_COLORS.ppt;
   const ExpandedToolComponent =
     expandedTool && expandedTool !== "ppt"
       ? STUDIO_TOOL_COMPONENTS[expandedTool as StudioToolKey]
@@ -74,7 +78,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   };
 
   return (
-    <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+    <div
+      className="h-full bg-transparent"
+      style={{ transform: "translateZ(0)" }}
+    >
       <Card className="h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <CardHeader
           className="relative flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
@@ -145,7 +152,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                 }}
                 transition={{ layout: ICON_LAYOUT_TRANSITION }}
               >
-                <CurrentIcon className="h-4.5 w-4.5" style={{ color: currentColor.primary }} />
+                <CurrentIcon
+                  className="h-4.5 w-4.5"
+                  style={{ color: currentColor.primary }}
+                />
               </motion.div>
             </div>
           ) : null}
@@ -158,7 +168,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                 "absolute inset-0",
                 isExpanded ? "pointer-events-none" : "pointer-events-auto"
               )}
-              animate={{ opacity: isExpanded ? 0 : 1, scale: isExpanded ? 0.985 : 1 }}
+              animate={{
+                opacity: isExpanded ? 0 : 1,
+                scale: isExpanded ? 0.985 : 1,
+              }}
               transition={{ duration: 0.2 }}
             >
               <ScrollArea className="h-full">
@@ -264,4 +277,3 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 }
 
 export { StudioPanel as StudioExpandedPanel };
-

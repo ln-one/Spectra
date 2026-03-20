@@ -10,7 +10,8 @@ export function useOutlineEditorController({
   isBootstrapping = false,
   onPreview,
 }: OutlineEditorPanelProps) {
-  const { generationSession, updateOutline, confirmOutline } = useProjectStore();
+  const { generationSession, updateOutline, confirmOutline } =
+    useProjectStore();
 
   const sessionId = generationSession?.session?.session_id || "";
   const initialNodes = useMemo(
@@ -27,9 +28,9 @@ export function useOutlineEditorController({
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
   const [generationFailed, setGenerationFailed] = useState<string | null>(null);
-  const [detailLevel, setDetailLevel] = useState<"brief" | "standard" | "detailed">(
-    "standard"
-  );
+  const [detailLevel, setDetailLevel] = useState<
+    "brief" | "standard" | "detailed"
+  >("standard");
   const [visualTheme, setVisualTheme] = useState("tech-blue");
   const [imageStyle, setImageStyle] = useState("flat");
   const [aspectRatio, setAspectRatio] =
@@ -173,7 +174,9 @@ export function useOutlineEditorController({
     }
 
     if (expectedPages > 0 && slides.length < expectedPages) {
-      setGenerationFailed(`大纲尚未生成完成：${slides.length}/${expectedPages} 页`);
+      setGenerationFailed(
+        `大纲尚未生成完成：${slides.length}/${expectedPages} 页`
+      );
       return;
     }
 

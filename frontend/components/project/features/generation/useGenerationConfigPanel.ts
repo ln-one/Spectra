@@ -37,7 +37,9 @@ interface UseGenerationConfigPanelArgs {
   ) => Promise<string | void | null> | string | void | null;
 }
 
-export function useGenerationConfigPanel({ onGenerate }: UseGenerationConfigPanelArgs) {
+export function useGenerationConfigPanel({
+  onGenerate,
+}: UseGenerationConfigPanelArgs) {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
@@ -65,7 +67,9 @@ export function useGenerationConfigPanel({ onGenerate }: UseGenerationConfigPane
     if (!projectId) return;
     setLoadingSuggestions(true);
     try {
-      const readyFiles = files.filter((file) => file.status === "ready").map((file) => file.id);
+      const readyFiles = files
+        .filter((file) => file.status === "ready")
+        .map((file) => file.id);
       const filters =
         selectedFileIds.length > 0
           ? { file_ids: selectedFileIds }
@@ -145,7 +149,8 @@ export function useGenerationConfigPanel({ onGenerate }: UseGenerationConfigPane
       let lastSessionState: string | undefined;
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const sessionResponse = await generateApi.getSession(sessionIdFromStore);
+        const sessionResponse =
+          await generateApi.getSession(sessionIdFromStore);
         const latestSession = sessionResponse?.data ?? null;
         const state = latestSession?.session?.state;
         const currentPages = latestSession?.outline?.nodes?.length || 0;
@@ -163,7 +168,9 @@ export function useGenerationConfigPanel({ onGenerate }: UseGenerationConfigPane
           state === "RENDERING" ||
           state === "SUCCESS"
         ) {
-          router.push(`/projects/${projectId}/generate?session=${sessionIdFromStore}`);
+          router.push(
+            `/projects/${projectId}/generate?session=${sessionIdFromStore}`
+          );
           return;
         }
         if (state === "FAILED") {
