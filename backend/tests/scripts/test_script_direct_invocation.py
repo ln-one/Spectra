@@ -34,3 +34,13 @@ def test_postgres_cutover_rehearsal_runs_directly_without_shadow_smoke() -> None
     assert result.returncode == 1
     assert "PostgreSQL cutover rehearsal" in result.stdout
     assert "[shadow-smoke] WARN live shadow smoke skipped" in result.stdout
+
+
+def test_postgres_shadow_stack_runtime_runs_directly() -> None:
+    result = _run_script(
+        ROOT / "backend/scripts/postgres_shadow_stack_runtime.py",
+    )
+
+    assert result.returncode == 0
+    assert "PostgreSQL shadow stack runtime" in result.stdout
+    assert "Dry run only" in result.stdout

@@ -207,6 +207,7 @@ Focus especially on:
 - prepare provider/schema switch strategy
 - prepare local PostgreSQL validation environment
 - keep a Docker-based PostgreSQL shadow stack ready for validation and smoke checks
+- keep a direct shadow stack runtime command ready to bring PostgreSQL validation infrastructure up and down on demand
 - keep a live PostgreSQL shadow smoke command ready once the shadow stack is up
 - keep auditing existing Prisma migration SQL for SQLite-specific constructs
 - keep a generated PostgreSQL Prisma schema variant ready so shadow validation can happen without mutating the main schema too early

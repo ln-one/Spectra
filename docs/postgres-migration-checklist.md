@@ -245,6 +245,10 @@ PostgreSQL 迁移不是“换个连接串”这么简单。
 
 - Render PostgreSQL Prisma schema variant:
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_schema_variant.py`
+- Bring up PostgreSQL shadow infra:
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_runtime.py --run`
+- Bring up PostgreSQL shadow infra with backend/worker:
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_runtime.py --run --with-app`
 - Dry-run Prisma shadow validation path:
   - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_prisma_validate.py`
@@ -254,3 +258,5 @@ PostgreSQL 迁移不是“换个连接串”这么简单。
 - Aggregate rehearsal including Prisma shadow execution:
   - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py --run-prisma-shadow`
+- Tear down PostgreSQL shadow infra:
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_runtime.py --run --down`
