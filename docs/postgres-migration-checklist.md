@@ -199,6 +199,7 @@
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_recovery_drill.py`（把 backup audit、toolchain、backup/restore dry-run 串成一次恢复演练）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py`（把 cutover audit、recovery drill、可选 shadow smoke 串成一次完整 rehearsal）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py`（会同时检查 migration lock 与 migration SQL baseline readiness）
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_schema_variant.py`（生成不改动主 schema 的 PostgreSQL Prisma variant，用于 shadow 验证与 baseline 预演）
 
 建议影子环境使用：
 

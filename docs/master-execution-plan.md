@@ -209,6 +209,7 @@ Focus especially on:
 - keep a Docker-based PostgreSQL shadow stack ready for validation and smoke checks
 - keep a live PostgreSQL shadow smoke command ready once the shadow stack is up
 - keep auditing existing Prisma migration SQL for SQLite-specific constructs
+- keep a generated PostgreSQL Prisma schema variant ready so shadow validation can happen without mutating the main schema too early
 - prepare migration scripts
 - prepare validation scripts
 - prepare backup / restore execution helpers, not only audits
