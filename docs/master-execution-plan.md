@@ -211,6 +211,7 @@ Focus especially on:
 - keep auditing existing Prisma migration SQL for SQLite-specific constructs
 - prepare migration scripts
 - prepare validation scripts
+- prepare backup / restore execution helpers, not only audits
 - prepare rollback/runbook logic
 - keep a single cutover audit command that aggregates preflight, env contract, docker, backup/restore readiness, toolchain readiness, migration baseline readiness, and shadow-stack checks
 

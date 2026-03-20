@@ -254,6 +254,28 @@
 建议：
 - 建议按环境/项目显式配置，例如 `spectra-demo`
 
+### `PG_DUMP_BIN`
+### `PG_RESTORE_BIN`
+### `PSQL_BIN`
+
+用途：
+- PostgreSQL backup / restore / rollback drill 的 CLI toolchain
+
+建议：
+- 如果机器本身安装了 PostgreSQL CLI，建议显式配置
+- 若不配置，则默认分别回落到 `pg_dump` / `pg_restore` / `psql`
+
+### `POSTGRES_BACKUP_USE_DOCKER`
+### `POSTGRES_TOOLCHAIN_IMAGE`
+### `DOCKER_BIN`
+
+用途：
+- 当宿主机没有 PostgreSQL CLI 时，允许 backup / restore drill 走 Docker fallback
+
+建议：
+- 如果启用 `POSTGRES_BACKUP_USE_DOCKER=true`，则应保证 `docker` 可用
+- `POSTGRES_TOOLCHAIN_IMAGE` 默认为 `postgres:16-alpine`
+
 ### `GENERATED_DIR`
 
 用途：

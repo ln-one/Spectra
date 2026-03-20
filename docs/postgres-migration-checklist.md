@@ -194,6 +194,8 @@
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_smoke.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_backup_restore_audit.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_toolchain_audit.py`（检查 `pg_dump / pg_restore / psql` 或 Docker fallback 是否可用于 cutover）
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_backup.py`（生成 cutover / drill 用 PostgreSQL 备份命令，支持 dry-run 与执行）
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_restore.py`（生成 restore / rollback drill 用恢复命令，支持 dry-run 与执行）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py`（会同时检查 migration lock 与 migration SQL baseline readiness）
 
 建议影子环境使用：

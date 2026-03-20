@@ -104,6 +104,13 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_smoke.py \
   --base-url http://localhost:8000
 ```
 
+如果要先演练 backup / restore 命令，也可以先做 dry-run：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_backup.py
+python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_restore.py /path/to/backup.dump
+```
+
 如果只想先看环境变量是否齐全：
 
 ```bash
