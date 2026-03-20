@@ -357,6 +357,13 @@
 python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py
 ```
 
+按角色检查环境变量是否齐备：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deployment_env_role_audit.py backend
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deployment_env_role_audit.py worker
+```
+
 部署后运行：
 
 ```bash

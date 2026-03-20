@@ -101,6 +101,13 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py --requir
 python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py --skip-network
 ```
 
+如果要按角色检查 API / worker 的环境变量契约：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deployment_env_role_audit.py backend
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deployment_env_role_audit.py worker
+```
+
 如果要先生成发布记录骨架：
 
 ```bash

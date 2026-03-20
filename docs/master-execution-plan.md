@@ -240,6 +240,7 @@ Prepare the system for containerized, multi-service, multi-machine, cloud-capabl
   - artifact/file storage
 - continue improving deployment tooling:
   - preflight
+  - role-aware env contract audits
   - smoke checks
   - worker diagnostics
   - release records
