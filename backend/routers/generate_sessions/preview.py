@@ -197,6 +197,7 @@ async def get_session_slide_preview(
     return success_response(
         data=build_slide_preview_payload(
             session_id=session_id,
+            snapshot=snapshot,
             anchor=anchor,
             selected_slide=selected_slide,
             teaching_plan=teaching_plan,

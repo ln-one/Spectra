@@ -85,6 +85,8 @@ class ModifyResponse(BaseModel):
     render_version: Optional[int] = Field(None, ge=1)
     artifact_id: Optional[str] = None
     based_on_version_id: Optional[str] = None
+    current_version_id: Optional[str] = None
+    upstream_updated: bool = False
 
 
 class SlideDetailData(BaseModel):
@@ -120,6 +122,8 @@ class ExportData(BaseModel):
     task_id: Optional[str] = None
     artifact_id: Optional[str] = None
     based_on_version_id: Optional[str] = None
+    current_version_id: Optional[str] = None
+    upstream_updated: bool = False
     content: str
     format: str
     render_version: Optional[int] = Field(None, ge=1)

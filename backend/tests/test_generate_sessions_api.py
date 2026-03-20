@@ -890,6 +890,10 @@ async def test_execute_studio_card_creates_quiz_artifact(app, _as_user):
             "services.project_space_service.project_space_service.create_artifact_with_file",
             AsyncMock(return_value=artifact),
         ) as create_artifact_mock,
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/interactive_quick_quiz/execute",
@@ -909,6 +913,8 @@ async def test_execute_studio_card_creates_quiz_artifact(app, _as_user):
     assert result["resource_kind"] == "artifact"
     assert result["artifact"]["id"] == "a-card-001"
     assert result["artifact"]["type"] == "exercise"
+    assert result["artifact"]["current_version_id"] == "v-current"
+    assert result["artifact"]["upstream_updated"] is False
     create_artifact_mock.assert_awaited_once()
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "exercise"
@@ -955,6 +961,10 @@ async def test_execute_studio_card_creates_interactive_game_artifact(app, _as_us
             "services.project_space_service.project_space_service.create_artifact_with_file",
             AsyncMock(return_value=artifact),
         ) as create_artifact_mock,
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/interactive_games/execute",
@@ -973,6 +983,8 @@ async def test_execute_studio_card_creates_interactive_game_artifact(app, _as_us
     assert result["resource_kind"] == "artifact"
     assert result["artifact"]["id"] == "a-game-001"
     assert result["artifact"]["type"] == "html"
+    assert result["artifact"]["current_version_id"] == "v-current"
+    assert result["artifact"]["upstream_updated"] is False
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "html"
     assert kwargs["visibility"] == "shared"
@@ -1005,6 +1017,10 @@ async def test_execute_studio_card_creates_classroom_simulator_artifact(app, _as
             "services.project_space_service.project_space_service.create_artifact_with_file",
             AsyncMock(return_value=artifact),
         ) as create_artifact_mock,
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/classroom_qa_simulator/execute",
@@ -1024,6 +1040,8 @@ async def test_execute_studio_card_creates_classroom_simulator_artifact(app, _as
     assert result["resource_kind"] == "artifact"
     assert result["artifact"]["id"] == "a-sim-001"
     assert result["artifact"]["type"] == "summary"
+    assert result["artifact"]["current_version_id"] == "v-current"
+    assert result["artifact"]["upstream_updated"] is False
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "summary"
     assert kwargs["content"]["kind"] == "classroom_qa_simulator"

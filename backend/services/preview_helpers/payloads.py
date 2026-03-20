@@ -76,6 +76,8 @@ def build_preview_payload(
         "task_id": task.id if task else None,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
+        "current_version_id": snapshot.get("current_version_id"),
+        "upstream_updated": bool(snapshot.get("upstream_updated")),
         "artifact_anchor": anchor,
         "render_version": snapshot["session"].get("render_version") or 1,
         "slides": slides,
@@ -97,6 +99,8 @@ def build_modify_payload(
         "render_version": snapshot["session"].get("render_version") or 1,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
+        "current_version_id": snapshot.get("current_version_id"),
+        "upstream_updated": bool(snapshot.get("upstream_updated")),
         "artifact_anchor": anchor,
     }
     if isinstance(result, dict):
@@ -106,6 +110,7 @@ def build_modify_payload(
 
 def build_slide_preview_payload(
     session_id: str,
+    snapshot: dict,
     anchor: dict,
     selected_slide: dict,
     teaching_plan: Optional[dict],
@@ -115,6 +120,8 @@ def build_slide_preview_payload(
         "session_id": session_id,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
+        "current_version_id": snapshot.get("current_version_id"),
+        "upstream_updated": bool(snapshot.get("upstream_updated")),
         "artifact_anchor": anchor,
         "slide": selected_slide,
         "teaching_plan": teaching_plan,
@@ -168,6 +175,8 @@ def build_export_payload(
         "task_id": task.id if task else None,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
+        "current_version_id": snapshot.get("current_version_id"),
+        "upstream_updated": bool(snapshot.get("upstream_updated")),
         "artifact_anchor": anchor,
         "content": export_content,
         "format": normalized_format,

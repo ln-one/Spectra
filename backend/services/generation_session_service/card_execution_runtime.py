@@ -16,12 +16,21 @@ from .card_execution_preview import build_studio_card_execution_preview
 from .card_source_bindings import get_card_source_artifact_types
 
 
-def _artifact_result_payload(artifact) -> dict:
+def _artifact_result_payload(
+    artifact, *, current_version_id: str | None = None
+) -> dict:
+    based_on_version_id = artifact.basedOnVersionId
     return {
         "id": artifact.id,
         "project_id": artifact.projectId,
         "session_id": artifact.sessionId,
-        "based_on_version_id": artifact.basedOnVersionId,
+        "based_on_version_id": based_on_version_id,
+        "current_version_id": current_version_id,
+        "upstream_updated": bool(
+            based_on_version_id
+            and current_version_id
+            and based_on_version_id != current_version_id
+        ),
         "owner_user_id": artifact.ownerUserId,
         "type": artifact.type,
         "visibility": artifact.visibility,
@@ -117,12 +126,18 @@ async def execute_studio_card_initial_request(
             based_on_version_id=payload.get("based_on_version_id"),
             content=payload.get("content"),
         )
+        project = await project_space_service.db.get_project(body.project_id)
+        current_version_id = (
+            getattr(project, "currentVersionId", None) if project else None
+        )
         return StudioCardExecutionResult(
             card_id=card_id,
             readiness=preview.readiness,
             transport=StudioCardTransport.ARTIFACT_CREATE,
             resource_kind=StudioCardExecutionResultKind.ARTIFACT,
-            artifact=_artifact_result_payload(artifact),
+            artifact=_artifact_result_payload(
+                artifact, current_version_id=current_version_id
+            ),
             request_preview=request_preview,
         )
 
