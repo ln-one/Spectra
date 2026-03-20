@@ -1,7 +1,7 @@
 import {
   dedupeGenerationHistory,
   resolvePreferredSessionId,
-} from "@/components/pages/projects/detail/useProjectDetailController";
+} from "@/app/projects/[id]/_views/useProjectPanelLayout";
 import type { GenerationHistory } from "@/stores/projectStore";
 
 const history = (ids: string[]): GenerationHistory[] =>
