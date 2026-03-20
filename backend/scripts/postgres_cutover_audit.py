@@ -13,6 +13,7 @@ from scripts.postgres_backup_restore_audit import evaluate_backup_restore_readin
 from scripts.postgres_migration_sql_audit import evaluate_migration_sql
 from scripts.postgres_readiness_audit import parse_migration_lock_provider
 from scripts.postgres_shadow_stack_audit import evaluate_shadow_stack
+from scripts.postgres_toolchain_audit import evaluate_postgres_toolchain
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "backend/prisma/schema.prisma"
@@ -71,6 +72,10 @@ def evaluate_cutover_readiness(
     backup_messages, backup_failures = evaluate_backup_restore_readiness(env)
     messages.extend(_prefix("backup", backup_messages[1:]))
     failures += backup_failures
+
+    toolchain_messages, toolchain_failures = evaluate_postgres_toolchain(env)
+    messages.extend(_prefix("toolchain", toolchain_messages[1:]))
+    failures += toolchain_failures
 
     if migration_lock_provider != "postgresql":
         failures += 1

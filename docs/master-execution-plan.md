@@ -212,7 +212,7 @@ Focus especially on:
 - prepare migration scripts
 - prepare validation scripts
 - prepare rollback/runbook logic
-- keep a single cutover audit command that aggregates preflight, env contract, docker, backup/restore readiness, migration baseline readiness, and shadow-stack checks
+- keep a single cutover audit command that aggregates preflight, env contract, docker, backup/restore readiness, toolchain readiness, migration baseline readiness, and shadow-stack checks
 
 #### E4. Execute migration when ready
 Once conditions are met, proceed to:

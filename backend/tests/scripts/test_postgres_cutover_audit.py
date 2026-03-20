@@ -1,4 +1,4 @@
-from scripts.postgres_cutover_audit import evaluate_cutover_readiness
+import scripts.postgres_cutover_audit as cutover_audit
 
 SHADOW_COMPOSE = """
 services:
@@ -26,7 +26,7 @@ volumes:
 
 
 def test_cutover_audit_fails_for_local_sqlite_defaults():
-    messages, failures = evaluate_cutover_readiness(
+    messages, failures = cutover_audit.evaluate_cutover_readiness(
         {
             "DATABASE_URL": "file:./dev.db",
             "JWT_SECRET_KEY": "change-me",
@@ -51,8 +51,21 @@ def test_cutover_audit_fails_for_local_sqlite_defaults():
     )
 
 
-def test_cutover_audit_passes_with_shadow_stack_and_postgres_env():
-    messages, failures = evaluate_cutover_readiness(
+def test_cutover_audit_passes_with_shadow_stack_and_postgres_env(monkeypatch):
+    monkeypatch.setattr(
+        cutover_audit,
+        "evaluate_postgres_toolchain",
+        lambda env: (
+            [
+                "PostgreSQL toolchain readiness audit",
+                "PASS PG_DUMP_BIN resolved via `pg_dump` (/usr/bin/pg_dump)",
+                "PASS PostgreSQL CLI toolchain available for backup/restore",
+            ],
+            0,
+        ),
+    )
+
+    messages, failures = cutover_audit.evaluate_cutover_readiness(
         {
             "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
             "JWT_SECRET_KEY": "real-secret",
@@ -154,6 +167,7 @@ services:
         "[backup] PASS POSTGRES_BACKUP_DIR points to shared backup path" in m
         for m in messages
     )
+    assert any("[toolchain] PASS PG_DUMP_BIN resolved" in m for m in messages)
     assert any(
         "[baseline] PASS Prisma migration lock already targets PostgreSQL" in m
         for m in messages

@@ -193,6 +193,7 @@
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_audit.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_smoke.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_backup_restore_audit.py`
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_toolchain_audit.py`（检查 `pg_dump / pg_restore / psql` 或 Docker fallback 是否可用于 cutover）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py`（会同时检查 migration lock 与 migration SQL baseline readiness）
 
 建议影子环境使用：
