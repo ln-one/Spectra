@@ -34,7 +34,11 @@ export function createGenerationActions({
       options?: GenerationOptions
     ) => {
       try {
-        const { selectedFileIds, activeSessionId } = get();
+        const { selectedFileIds, activeSessionId, generationSession } = get();
+        const currentSessionId =
+          activeSessionId ??
+          generationSession?.session?.session_id ??
+          undefined;
         const normalizedOptions: GenerationOptions = {
           template: options?.template || "default",
           show_page_number: options?.show_page_number ?? true,
@@ -57,7 +61,7 @@ export function createGenerationActions({
             rag_source_ids:
               selectedFileIds.length > 0 ? selectedFileIds : undefined,
           },
-          client_session_id: activeSessionId ?? undefined,
+          client_session_id: currentSessionId,
         });
 
         if (response?.data?.session) {

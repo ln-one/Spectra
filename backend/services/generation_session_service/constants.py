@@ -21,6 +21,7 @@ class OutlineChangeReason(str, Enum):
 
 class SessionLifecycleReason(str, Enum):
     SESSION_CREATED = "session_created"
+    SESSION_REUSED = "session_reused"
     OUTLINE_CONFIRMED = "outline_confirmed"
 
 

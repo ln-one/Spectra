@@ -70,7 +70,7 @@ async def create_session(
                 event_type=GenerationEventType.STATE_CHANGED.value,
                 state=GenerationState.DRAFTING_OUTLINE.value,
                 progress=0,
-                payload={"reason": SessionLifecycleReason.SESSION_CREATED.value},
+                payload={"reason": SessionLifecycleReason.SESSION_REUSED.value},
             )
             await schedule_outline_draft_task(
                 session_id=session.id,

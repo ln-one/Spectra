@@ -15,6 +15,7 @@ from services.database import db_service
 from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
+    SessionLifecycleReason,
     SessionOutputType,
 )
 from services.platform.generation_event_constants import GenerationEventType
@@ -226,6 +227,20 @@ async def test_create_session_reuses_current_session_when_client_session_id_matc
     assert any(
         call["data"].get("state") == GenerationState.DRAFTING_OUTLINE.value
         for call in update_calls
+    )
+    event_calls = [
+        call.kwargs["data"]
+        for call in mock_db_service.sessionevent.create.await_args_list
+    ]
+    state_change_events = [
+        event
+        for event in event_calls
+        if event["eventType"] == GenerationEventType.STATE_CHANGED.value
+    ]
+    assert any(
+        json.loads(event["payload"]).get("reason")
+        == SessionLifecycleReason.SESSION_REUSED.value
+        for event in state_change_events
     )
 
 

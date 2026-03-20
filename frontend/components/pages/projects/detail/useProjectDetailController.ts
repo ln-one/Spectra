@@ -4,7 +4,11 @@ import { TokenStorage } from "@/lib/auth";
 import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
-import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
+import {
+  useProjectStore,
+  type GenerationHistory,
+  type GenerationTool,
+} from "@/stores/projectStore";
 import type { SessionSwitcherItem } from "@/components/project";
 import {
   COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX,
@@ -19,6 +23,21 @@ import {
   SOURCES_TITLE_SAFE_MIN_WIDTH_PX,
   formatSessionTime,
 } from "./constants";
+
+export function resolvePreferredSessionId(
+  querySessionId: string | null,
+  generationHistory: GenerationHistory[],
+  activeSessionId: string | null
+): string | null {
+  const allSessionIds = generationHistory.map((item) => item.id);
+  if (querySessionId && allSessionIds.includes(querySessionId)) {
+    return querySessionId;
+  }
+  if (activeSessionId && allSessionIds.includes(activeSessionId)) {
+    return activeSessionId;
+  }
+  return generationHistory.length > 0 ? generationHistory[0].id : null;
+}
 
 export function useProjectDetailController() {
   const params = useParams();
@@ -112,37 +131,30 @@ export function useProjectDetailController() {
   ]);
 
   useEffect(() => {
-    const allSessionIds = generationHistory.map((item) => item.id);
-    const preferredSessionId = querySessionId
-      ? allSessionIds.includes(querySessionId)
-        ? querySessionId
-        : null
-      : null;
+    const nextSessionId = resolvePreferredSessionId(
+      querySessionId,
+      generationHistory,
+      activeSessionId
+    );
 
-    if (!preferredSessionId) {
+    if (!nextSessionId) {
       if (activeSessionId !== null) {
         setActiveSessionId(null);
       }
+      useProjectStore.setState({ generationSession: null });
       void fetchMessages(projectId, null);
       void fetchArtifactHistory(projectId, null);
       return;
     }
 
-    const nextSessionId =
-      querySessionId && allSessionIds.includes(querySessionId)
-        ? querySessionId
-        : preferredSessionId;
-
-    if (nextSessionId && nextSessionId !== activeSessionId) {
+    if (nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
     }
 
-    if (nextSessionId) {
-      void fetchMessages(projectId, nextSessionId);
-    }
+    void fetchMessages(projectId, nextSessionId);
 
-    if (nextSessionId && querySessionId !== nextSessionId) {
+    if (querySessionId !== nextSessionId) {
       updateSessionInUrl(nextSessionId);
     }
   }, [
@@ -156,6 +168,36 @@ export function useProjectDetailController() {
     updateSessionInUrl,
   ]);
 
+  useEffect(() => {
+    if (!activeSessionId) {
+      useProjectStore.setState({ generationSession: null });
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncGenerationSession = async () => {
+      try {
+        const response = await generateApi.getSession(activeSessionId);
+        if (!cancelled) {
+          useProjectStore.setState({
+            generationSession: response?.data ?? null,
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          useProjectStore.setState({ generationSession: null });
+        }
+      }
+    };
+
+    void syncGenerationSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSessionId]);
+
   const handleToolClick = async (_tool: GenerationTool) => {
     // Session is created when user starts generation from config panel.
   };
@@ -165,8 +207,10 @@ export function useProjectDetailController() {
       if (!sessionId || sessionId === "empty") return;
       setActiveSessionId(sessionId);
       updateSessionInUrl(sessionId);
-      await fetchMessages(projectId, sessionId);
-      await fetchArtifactHistory(projectId, sessionId);
+      await Promise.allSettled([
+        fetchMessages(projectId, sessionId),
+        fetchArtifactHistory(projectId, sessionId),
+      ]);
     },
     [
       fetchArtifactHistory,
