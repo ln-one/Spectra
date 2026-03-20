@@ -7,13 +7,22 @@ import os
 from pathlib import Path
 from typing import Mapping
 
-from scripts.deploy_preflight import evaluate_preflight
-from scripts.distributed_deploy_audit import evaluate_distributed_readiness
-from scripts.postgres_backup_restore_audit import evaluate_backup_restore_readiness
-from scripts.postgres_migration_sql_audit import evaluate_migration_sql
-from scripts.postgres_readiness_audit import parse_migration_lock_provider
-from scripts.postgres_shadow_stack_audit import evaluate_shadow_stack
-from scripts.postgres_toolchain_audit import evaluate_postgres_toolchain
+try:
+    from scripts._script_bootstrap import ensure_backend_import_path
+except ModuleNotFoundError:
+    from _script_bootstrap import ensure_backend_import_path
+
+ensure_backend_import_path()
+
+from scripts import deploy_preflight as preflight_audit  # noqa: E402
+from scripts import distributed_deploy_audit as distributed_audit  # noqa: E402
+from scripts import postgres_backup_restore_audit as backup_audit  # noqa: E402
+from scripts import postgres_migration_sql_audit as migration_sql_audit  # noqa: E402
+from scripts import postgres_readiness_audit as readiness_audit  # noqa: E402
+from scripts import postgres_shadow_stack_audit as shadow_stack_audit  # noqa: E402
+from scripts import postgres_toolchain_audit as toolchain_audit  # noqa: E402
+
+evaluate_postgres_toolchain = toolchain_audit.evaluate_postgres_toolchain
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "backend/prisma/schema.prisma"
@@ -51,7 +60,7 @@ def evaluate_cutover_readiness(
     messages = ["PostgreSQL cutover readiness audit"]
     failures = 0
 
-    preflight_messages, preflight_failures = evaluate_preflight(
+    preflight_messages, preflight_failures = preflight_audit.evaluate_preflight(
         env,
         skip_network=True,
         timeout_seconds=0.1,
@@ -60,16 +69,20 @@ def evaluate_cutover_readiness(
     messages.extend(_prefix("preflight", preflight_messages[1:]))
     failures += preflight_failures
 
-    distributed_messages, distributed_failures = evaluate_distributed_readiness(
-        env,
-        prisma_provider=prisma_provider,
-        base_compose_text=base_compose_text,
-        shadow_compose_text=shadow_compose_text,
+    distributed_messages, distributed_failures = (
+        distributed_audit.evaluate_distributed_readiness(
+            env,
+            prisma_provider=prisma_provider,
+            base_compose_text=base_compose_text,
+            shadow_compose_text=shadow_compose_text,
+        )
     )
     messages.extend(_prefix("distributed", distributed_messages[1:]))
     failures += distributed_failures
 
-    backup_messages, backup_failures = evaluate_backup_restore_readiness(env)
+    backup_messages, backup_failures = backup_audit.evaluate_backup_restore_readiness(
+        env
+    )
     messages.extend(_prefix("backup", backup_messages[1:]))
     failures += backup_failures
 
@@ -110,7 +123,9 @@ def evaluate_cutover_readiness(
         failures += 1
         messages.append("[shadow] FAIL postgres shadow compose override missing")
     else:
-        shadow_messages, shadow_failures = evaluate_shadow_stack(shadow_compose_text)
+        shadow_messages, shadow_failures = shadow_stack_audit.evaluate_shadow_stack(
+            shadow_compose_text
+        )
         messages.extend(_prefix("shadow", shadow_messages))
         failures += shadow_failures
 
@@ -130,8 +145,8 @@ def main() -> int:
         prisma_provider=provider,
         base_compose_text=base_text,
         shadow_compose_text=shadow_text,
-        migration_lock_provider=parse_migration_lock_provider(),
-        migration_sql_messages=evaluate_migration_sql()[0],
+        migration_lock_provider=readiness_audit.parse_migration_lock_provider(),
+        migration_sql_messages=migration_sql_audit.evaluate_migration_sql()[0],
     )
     for message in messages:
         print(message)

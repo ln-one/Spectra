@@ -8,11 +8,15 @@ import os
 from pathlib import Path
 from typing import Callable, Mapping
 
-from scripts.deploy_smoke_check import run_smoke_checks
-from scripts.postgres_cutover_audit import (
-    _read_prisma_provider,
-    evaluate_cutover_readiness,
-)
+try:
+    from scripts._script_bootstrap import ensure_backend_import_path
+except ModuleNotFoundError:
+    from _script_bootstrap import ensure_backend_import_path
+
+ensure_backend_import_path()
+
+from scripts import deploy_smoke_check as smoke_check  # noqa: E402
+from scripts import postgres_cutover_audit as cutover_audit  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE_COMPOSE = ROOT / "docker-compose.yml"
@@ -32,8 +36,10 @@ def evaluate_shadow_smoke(
     base_compose_text: str | None,
     shadow_compose_text: str | None,
     include_cutover_audit: bool = True,
-    cutover_eval: Callable[..., tuple[list[str], int]] = evaluate_cutover_readiness,
-    smoke_eval: Callable[..., tuple[list[str], int]] = run_smoke_checks,
+    cutover_eval: Callable[..., tuple[list[str], int]] = (
+        cutover_audit.evaluate_cutover_readiness
+    ),
+    smoke_eval: Callable[..., tuple[list[str], int]] = smoke_check.run_smoke_checks,
 ) -> tuple[list[str], int]:
     messages = [f"PostgreSQL shadow smoke against {base_url}"]
     failures = 0
@@ -84,7 +90,7 @@ def main() -> int:
         os.environ,
         base_url=args.base_url.rstrip("/"),
         token=args.token,
-        prisma_provider=_read_prisma_provider(),
+        prisma_provider=cutover_audit._read_prisma_provider(),
         base_compose_text=base_text,
         shadow_compose_text=shadow_text,
         include_cutover_audit=not args.skip_cutover_audit,

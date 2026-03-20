@@ -7,7 +7,14 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from scripts.postgres_migration_sql_audit import evaluate_migration_sql
+try:
+    from scripts._script_bootstrap import ensure_backend_import_path
+except ModuleNotFoundError:
+    from _script_bootstrap import ensure_backend_import_path
+
+ensure_backend_import_path()
+
+from scripts import postgres_migration_sql_audit as migration_sql_audit  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "backend/prisma/schema.prisma"
@@ -153,7 +160,7 @@ def main() -> None:
     provider, models = parse_schema()
     migration_lock_provider = parse_migration_lock_provider()
     hotspots = analyze_hotspots()
-    migration_sql_messages, _ = evaluate_migration_sql()
+    migration_sql_messages, _ = migration_sql_audit.evaluate_migration_sql()
 
     print("PostgreSQL Readiness Audit")
     print(f"- Root: {ROOT}")

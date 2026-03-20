@@ -1,0 +1,36 @@
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def _run_script(path: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(path), *args],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_postgres_readiness_audit_runs_directly() -> None:
+    result = _run_script(
+        ROOT / "backend/scripts/postgres_readiness_audit.py",
+    )
+
+    assert result.returncode == 0
+    assert "PostgreSQL Readiness Audit" in result.stdout
+
+
+def test_postgres_cutover_rehearsal_runs_directly_without_shadow_smoke() -> None:
+    result = _run_script(
+        ROOT / "backend/scripts/postgres_cutover_rehearsal.py",
+    )
+
+    assert result.returncode == 1
+    assert "PostgreSQL cutover rehearsal" in result.stdout
+    assert "[shadow-smoke] WARN live shadow smoke skipped" in result.stdout

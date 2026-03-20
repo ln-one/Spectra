@@ -11,14 +11,18 @@ import os
 from pathlib import Path
 from typing import Callable, Mapping
 
-from scripts.postgres_cutover_audit import (
-    _read_prisma_provider,
-    evaluate_cutover_readiness,
-)
-from scripts.postgres_migration_sql_audit import evaluate_migration_sql
-from scripts.postgres_readiness_audit import parse_migration_lock_provider
-from scripts.postgres_recovery_drill import evaluate_recovery_drill
-from scripts.postgres_shadow_smoke import evaluate_shadow_smoke
+try:
+    from scripts._script_bootstrap import ensure_backend_import_path
+except ModuleNotFoundError:
+    from _script_bootstrap import ensure_backend_import_path
+
+ensure_backend_import_path()
+
+from scripts import postgres_cutover_audit as cutover_audit  # noqa: E402
+from scripts import postgres_migration_sql_audit as migration_sql_audit  # noqa: E402
+from scripts import postgres_readiness_audit as readiness_audit  # noqa: E402
+from scripts import postgres_recovery_drill as recovery_drill  # noqa: E402
+from scripts import postgres_shadow_smoke as shadow_smoke  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE_COMPOSE = ROOT / "docker-compose.yml"
@@ -39,9 +43,15 @@ def evaluate_cutover_rehearsal(
     prisma_provider: str | None,
     migration_lock_provider: str | None,
     migration_sql_messages: list[str] | None,
-    cutover_eval: Callable[..., tuple[list[str], int]] = evaluate_cutover_readiness,
-    recovery_eval: Callable[..., tuple[list[str], int]] = evaluate_recovery_drill,
-    shadow_eval: Callable[..., tuple[list[str], int]] = evaluate_shadow_smoke,
+    cutover_eval: Callable[..., tuple[list[str], int]] = (
+        cutover_audit.evaluate_cutover_readiness
+    ),
+    recovery_eval: Callable[..., tuple[list[str], int]] = (
+        recovery_drill.evaluate_recovery_drill
+    ),
+    shadow_eval: Callable[..., tuple[list[str], int]] = (
+        shadow_smoke.evaluate_shadow_smoke
+    ),
 ) -> tuple[list[str], int]:
     messages = ["PostgreSQL cutover rehearsal"]
     failures = 0
@@ -110,9 +120,9 @@ def main() -> int:
         token=args.token,
         base_compose_text=base_text,
         shadow_compose_text=shadow_text,
-        prisma_provider=_read_prisma_provider(),
-        migration_lock_provider=parse_migration_lock_provider(),
-        migration_sql_messages=evaluate_migration_sql()[0],
+        prisma_provider=cutover_audit._read_prisma_provider(),
+        migration_lock_provider=readiness_audit.parse_migration_lock_provider(),
+        migration_sql_messages=migration_sql_audit.evaluate_migration_sql()[0],
     )
     for message in messages:
         print(message)

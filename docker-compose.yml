@@ -53,10 +53,6 @@ services:
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
       - POSTGRES_BACKUP_PREFIX=spectra-dev
-      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
-      - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
-      - POSTGRES_BACKUP_RETENTION_DAYS=14
-      - POSTGRES_BACKUP_PREFIX=spectra-dev
     command: sh -c "prisma migrate deploy && prisma generate && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       redis:
@@ -82,6 +78,10 @@ services:
       - UPLOAD_DIR=/var/lib/spectra/uploads
       - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
       - GENERATED_DIR=/var/lib/spectra/generated
+      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
+      - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
+      - POSTGRES_BACKUP_RETENTION_DAYS=14
+      - POSTGRES_BACKUP_PREFIX=spectra-dev
     command: sh -c "prisma migrate deploy && prisma generate && python worker.py"
     depends_on:
       redis:

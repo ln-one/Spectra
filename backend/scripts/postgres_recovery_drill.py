@@ -8,10 +8,19 @@ import os
 from datetime import datetime
 from typing import Mapping
 
-from scripts.postgres_backup import build_backup_command, build_backup_path
-from scripts.postgres_backup_restore_audit import evaluate_backup_restore_readiness
-from scripts.postgres_restore import build_restore_command, stage_restore_input
-from scripts.postgres_toolchain_audit import evaluate_postgres_toolchain
+try:
+    from scripts._script_bootstrap import ensure_backend_import_path
+except ModuleNotFoundError:
+    from _script_bootstrap import ensure_backend_import_path
+
+ensure_backend_import_path()
+
+from scripts import postgres_backup as backup_script  # noqa: E402
+from scripts import postgres_backup_restore_audit as backup_audit  # noqa: E402
+from scripts import postgres_restore as restore_script  # noqa: E402
+from scripts import postgres_toolchain_audit as toolchain_audit  # noqa: E402
+
+evaluate_postgres_toolchain = toolchain_audit.evaluate_postgres_toolchain
 
 
 def _prefix(section: str, messages: list[str]) -> list[str]:
@@ -26,8 +35,8 @@ def evaluate_recovery_drill(
     messages = ["PostgreSQL recovery drill"]
     failures = 0
 
-    backup_audit_messages, backup_audit_failures = evaluate_backup_restore_readiness(
-        env
+    backup_audit_messages, backup_audit_failures = (
+        backup_audit.evaluate_backup_restore_readiness(env)
     )
     messages.extend(_prefix("backup-audit", backup_audit_messages[1:]))
     failures += backup_audit_failures
@@ -45,13 +54,13 @@ def evaluate_recovery_drill(
         )
         return messages, failures
 
-    backup_path = build_backup_path(env, now=now)
-    backup_command = build_backup_command(env, output_path=backup_path)
+    backup_path = backup_script.build_backup_path(env, now=now)
+    backup_command = backup_script.build_backup_command(env, output_path=backup_path)
     messages.append(f"[drill] PASS backup artifact would be created at `{backup_path}`")
     messages.append(f"[drill] PASS backup command prepared: {' '.join(backup_command)}")
 
-    staged_path = stage_restore_input(backup_path, env)
-    restore_command = build_restore_command(env, backup_path=backup_path)
+    staged_path = restore_script.stage_restore_input(backup_path, env)
+    restore_command = restore_script.build_restore_command(env, backup_path=backup_path)
     messages.append(f"[drill] PASS restore staging path resolves to `{staged_path}`")
     messages.append(
         f"[drill] PASS restore command prepared: {' '.join(restore_command)}"
