@@ -145,6 +145,12 @@ docker compose restart worker
 - queue/stuck job
 - worker 资源是否不足
 
+如果怀疑是多机 / Docker 拓扑本身的问题，也可以先跑：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/docker_deploy_readiness_audit.py
+```
+
 可以先直接跑：
 
 ```bash

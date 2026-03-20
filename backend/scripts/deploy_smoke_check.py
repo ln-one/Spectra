@@ -8,6 +8,7 @@ import json
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,23 @@ def _run_check(base_url: str, check: Check, token: str | None) -> tuple[bool, st
     return True, f"PASS {check.name}: HTTP 200"
 
 
+def run_smoke_checks(
+    *,
+    base_url: str,
+    token: str | None,
+    checks: tuple[Check, ...] = CHECKS,
+    run_check: Callable[[str, Check, str | None], tuple[bool, str]] = _run_check,
+) -> tuple[list[str], int]:
+    messages = [f"Deployment smoke check against {base_url}"]
+    failures = 0
+    for check in checks:
+        ok, message = run_check(base_url, check, token)
+        messages.append(message)
+        if not ok:
+            failures += 1
+    return messages, failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -73,13 +91,9 @@ def main() -> int:
     args = parser.parse_args()
 
     base_url = args.base_url.rstrip("/")
-    failures = 0
-    print(f"Deployment smoke check against {base_url}")
-    for check in CHECKS:
-        ok, message = _run_check(base_url, check, args.token)
+    messages, failures = run_smoke_checks(base_url=base_url, token=args.token)
+    for message in messages:
         print(message)
-        if not ok:
-            failures += 1
 
     return 1 if failures else 0
 

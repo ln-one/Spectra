@@ -83,6 +83,12 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py
 python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py
 ```
 
+如果要先审分布式 / Docker readiness：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/docker_deploy_readiness_audit.py
+```
+
 如果只想先看环境变量是否齐全：
 
 ```bash

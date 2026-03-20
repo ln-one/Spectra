@@ -7,7 +7,7 @@ import argparse
 import os
 import socket
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Callable, Iterable, Mapping
 from urllib.parse import urlparse
 
 
@@ -61,12 +61,15 @@ def _database_socket_target(database_url: str) -> tuple[str, int] | None:
     return parsed.hostname, parsed.port or 5432
 
 
-def _iter_env_results(checks: Iterable[EnvCheck]) -> tuple[list[str], int]:
+def _iter_env_results(
+    checks: Iterable[EnvCheck],
+    env_get: Callable[[str], str | None] = os.getenv,
+) -> tuple[list[str], int]:
     messages: list[str] = []
     failures = 0
 
     for check in checks:
-        value = os.getenv(check.key)
+        value = env_get(check.key)
         if value:
             if check.key == "JWT_SECRET_KEY" and _is_placeholder_secret(value):
                 messages.append(
@@ -96,6 +99,54 @@ def _iter_env_results(checks: Iterable[EnvCheck]) -> tuple[list[str], int]:
     return messages, failures
 
 
+def evaluate_preflight(
+    env: Mapping[str, str],
+    *,
+    skip_network: bool,
+    timeout_seconds: float,
+    tcp_check: Callable[[str, int, float], tuple[bool, str]] = _tcp_check,
+) -> tuple[list[str], int]:
+    messages = ["Deployment preflight"]
+    env_messages, failures = _iter_env_results(ENV_CHECKS, env.get)
+
+    messages.extend(env_messages)
+
+    if skip_network:
+        return messages, failures
+
+    database_url = env.get("DATABASE_URL")
+    if database_url:
+        target = _database_socket_target(database_url)
+        if target is None:
+            messages.append(
+                _format("FAIL", "DATABASE_URL could not be parsed into host/port")
+            )
+            failures += 1
+        else:
+            ok, message = tcp_check(*target, timeout_seconds)
+            messages.append(message)
+            if not ok:
+                failures += 1
+
+    redis_host = env.get("REDIS_HOST")
+    redis_port = env.get("REDIS_PORT")
+    if redis_host and redis_port:
+        ok, message = tcp_check(redis_host, int(redis_port), timeout_seconds)
+        messages.append(message)
+        if not ok:
+            failures += 1
+
+    chroma_host = env.get("CHROMA_HOST")
+    chroma_port = env.get("CHROMA_PORT")
+    if chroma_host and chroma_port:
+        ok, message = tcp_check(chroma_host, int(chroma_port), timeout_seconds)
+        messages.append(message)
+        if not ok:
+            failures += 1
+
+    return messages, failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -111,45 +162,13 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    print("Deployment preflight")
-    env_messages, failures = _iter_env_results(ENV_CHECKS)
-    for message in env_messages:
+    messages, failures = evaluate_preflight(
+        os.environ,
+        skip_network=args.skip_network,
+        timeout_seconds=args.timeout_seconds,
+    )
+    for message in messages:
         print(message)
-
-    if args.skip_network:
-        return 1 if failures else 0
-
-    database_url = os.getenv("DATABASE_URL")
-    if database_url:
-        target = _database_socket_target(database_url)
-        if target is None:
-            print(_format("FAIL", "DATABASE_URL could not be parsed into host/port"))
-            failures += 1
-        else:
-            ok, message = _tcp_check(*target, timeout_seconds=args.timeout_seconds)
-            print(message)
-            if not ok:
-                failures += 1
-
-    redis_host = os.getenv("REDIS_HOST")
-    redis_port = os.getenv("REDIS_PORT")
-    if redis_host and redis_port:
-        ok, message = _tcp_check(
-            redis_host, int(redis_port), timeout_seconds=args.timeout_seconds
-        )
-        print(message)
-        if not ok:
-            failures += 1
-
-    chroma_host = os.getenv("CHROMA_HOST")
-    chroma_port = os.getenv("CHROMA_PORT")
-    if chroma_host and chroma_port:
-        ok, message = _tcp_check(
-            chroma_host, int(chroma_port), timeout_seconds=args.timeout_seconds
-        )
-        print(message)
-        if not ok:
-            failures += 1
 
     return 1 if failures else 0
 
