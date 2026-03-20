@@ -579,9 +579,18 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       onOpenArtifact={(item) => {
                         if (!project) return;
                         if (item.sessionId) setActiveSessionId(item.sessionId);
+                        const query = new URLSearchParams();
+                        const targetSessionId =
+                          item.sessionId ?? activeSessionId ?? "";
+                        if (targetSessionId) {
+                          query.set("session", targetSessionId);
+                        }
+                        if (item.artifactId) {
+                          query.set("artifact_id", item.artifactId);
+                        }
                         router.push(
-                          `/projects/${project.id}/generate?session=${
-                            item.sessionId ?? activeSessionId ?? ""
+                          `/projects/${project.id}/generate${
+                            query.toString() ? `?${query.toString()}` : ""
                           }`
                         );
                       }}
