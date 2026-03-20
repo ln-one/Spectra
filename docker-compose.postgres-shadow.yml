@@ -27,10 +27,6 @@ services:
       POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
       POSTGRES_BACKUP_RETENTION_DAYS: "14"
       POSTGRES_BACKUP_PREFIX: spectra-shadow
-      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
-      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
-      POSTGRES_BACKUP_RETENTION_DAYS: "14"
-      POSTGRES_BACKUP_PREFIX: spectra-shadow
     depends_on:
       redis:
         condition: service_healthy
@@ -47,6 +43,10 @@ services:
       REDIS_PORT: "6379"
       CHROMA_HOST: chromadb
       CHROMA_PORT: "8000"
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
+      POSTGRES_BACKUP_RETENTION_DAYS: "14"
+      POSTGRES_BACKUP_PREFIX: spectra-shadow
     depends_on:
       redis:
         condition: service_healthy

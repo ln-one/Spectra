@@ -16,6 +16,45 @@ services:
     assert any("stateful service `redis` missing" in message for message in messages)
 
 
+def test_compose_topology_rejects_duplicate_environment_keys():
+    base_compose = """
+services:
+  frontend:
+    ports:
+      - "3000:3000"
+  backend:
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    environment:
+      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
+      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+  worker:
+    command: python worker.py
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+  redis:
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+  chromadb:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+"""
+
+    messages, failures = evaluate_compose_topology(base_compose, None)
+
+    assert failures > 0
+    assert any(
+        "backend declares duplicate environment keys" in message for message in messages
+    )
+
+
 def test_compose_topology_accepts_split_runtime_and_shadow_postgres():
     base_compose = """
 services:

@@ -11,12 +11,16 @@ services:
   backend:
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
     depends_on:
       postgres:
         condition: service_healthy
   worker:
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
     depends_on:
       postgres:
         condition: service_healthy

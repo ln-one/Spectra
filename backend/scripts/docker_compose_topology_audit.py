@@ -109,6 +109,29 @@ def _environment_value(service: dict[str, Any], key: str) -> str | None:
     return None
 
 
+def _environment_keys(service: dict[str, Any]) -> list[str]:
+    environment = service.get("environment") or {}
+    if isinstance(environment, dict):
+        return [str(key) for key in environment.keys()]
+    if isinstance(environment, list):
+        keys: list[str] = []
+        for item in environment:
+            if isinstance(item, str) and "=" in item:
+                keys.append(item.partition("=")[0])
+        return keys
+    return []
+
+
+def _duplicate_keys(keys: list[str]) -> list[str]:
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for key in keys:
+        if key in seen and key not in duplicates:
+            duplicates.append(key)
+        seen.add(key)
+    return duplicates
+
+
 def _mounts_runtime_storage(service: dict[str, Any]) -> bool:
     return any(
         binding.split(":")[-1] == RUNTIME_STORAGE_TARGET
@@ -160,6 +183,20 @@ def evaluate_compose_topology(
         service = _service(base, name)
         if not service:
             continue
+        duplicate_env_keys = _duplicate_keys(_environment_keys(service))
+        if duplicate_env_keys:
+            failures += 1
+            messages.append(
+                _format(
+                    "FAIL",
+                    (
+                        f"{name} declares duplicate environment keys: "
+                        f"{', '.join(sorted(duplicate_env_keys))}"
+                    ),
+                )
+            )
+        else:
+            messages.append(_format("PASS", f"{name} environment keys are unique"))
         dependencies = _depends_on_names(service)
         for dependency in ("redis", "chromadb"):
             if dependency in dependencies:

@@ -7,6 +7,11 @@ def test_shadow_stack_flags_missing_requirements():
     assert failures > 0
     assert any("FAIL postgres service declared" in message for message in messages)
     assert any("FAIL worker override declared" in message for message in messages)
+    assert any(
+        "FAIL backend shadow override missing shared-storage `POSTGRES_BACKUP_DIR`"
+        in message
+        for message in messages
+    )
 
 
 def test_shadow_stack_accepts_expected_override_shape():
@@ -21,9 +26,13 @@ services:
   backend:
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
   worker:
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
 volumes:
   postgres_shadow_data:
 """
@@ -38,5 +47,10 @@ volumes:
     )
     assert any(
         "PASS worker DATABASE_URL points to postgres shadow" in message
+        for message in messages
+    )
+    assert any(
+        "PASS worker shadow override configures `POSTGRES_BACKUP_DIR` in shared storage"
+        in message
         for message in messages
     )
