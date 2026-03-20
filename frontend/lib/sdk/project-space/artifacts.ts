@@ -22,9 +22,12 @@ export async function getArtifacts(
       message: "mock artifacts",
     };
   }
-  const result = await sdkClient.GET("/api/v1/projects/{project_id}/artifacts", {
-    params: { path: { project_id: projectId }, query: params },
-  });
+  const result = await sdkClient.GET(
+    "/api/v1/projects/{project_id}/artifacts",
+    {
+      params: { path: { project_id: projectId }, query: params },
+    }
+  );
   return unwrap<ArtifactsResponse>(result);
 }
 
@@ -80,9 +83,12 @@ export async function createArtifact(
       message: "mock create artifact",
     };
   }
-  const result = await sdkClient.POST("/api/v1/projects/{project_id}/artifacts", {
-    params: { path: { project_id: projectId } },
-    body: data,
-  });
+  const result = await sdkClient.POST(
+    "/api/v1/projects/{project_id}/artifacts",
+    {
+      params: { path: { project_id: projectId } },
+      body: data,
+    }
+  );
   return unwrap<ArtifactResponse>(result);
 }

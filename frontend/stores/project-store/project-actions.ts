@@ -1,9 +1,16 @@
 ﻿import { projectsApi } from "@/lib/sdk";
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
-import { initialState, type ProjectStoreContext, type ProjectState } from "./types";
+import {
+  initialState,
+  type ProjectStoreContext,
+  type ProjectState,
+} from "./types";
 
-export function createProjectActions({ set, get }: ProjectStoreContext): Pick<
+export function createProjectActions({
+  set,
+  get,
+}: ProjectStoreContext): Pick<
   ProjectState,
   "fetchProject" | "updateProjectName" | "reset"
 > {
@@ -62,4 +69,3 @@ export function createProjectActions({ set, get }: ProjectStoreContext): Pick<
     },
   };
 }
-

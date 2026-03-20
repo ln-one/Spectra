@@ -18,9 +18,12 @@ export async function getReferences(
       message: "mock references",
     };
   }
-  const result = await sdkClient.GET("/api/v1/projects/{project_id}/references", {
-    params: { path: { project_id: projectId } },
-  });
+  const result = await sdkClient.GET(
+    "/api/v1/projects/{project_id}/references",
+    {
+      params: { path: { project_id: projectId } },
+    }
+  );
   return unwrap<ProjectReferencesResponse>(result);
 }
 
@@ -46,11 +49,14 @@ export async function createReference(
     };
   }
   const headers = withIdempotency({}, true);
-  const result = await sdkClient.POST("/api/v1/projects/{project_id}/references", {
-    params: { path: { project_id: projectId } },
-    body: data,
-    headers,
-  });
+  const result = await sdkClient.POST(
+    "/api/v1/projects/{project_id}/references",
+    {
+      params: { path: { project_id: projectId } },
+      body: data,
+      headers,
+    }
+  );
   return unwrap<ProjectReferenceResponse>(result);
 }
 

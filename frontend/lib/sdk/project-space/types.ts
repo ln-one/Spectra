@@ -23,7 +23,8 @@ export type ProjectMembersResponse =
   components["schemas"]["ProjectMembersResponse"];
 export type ProjectMemberResponse =
   components["schemas"]["ProjectMemberResponse"];
-export type ProjectMemberRequest = components["schemas"]["ProjectMemberRequest"];
+export type ProjectMemberRequest =
+  components["schemas"]["ProjectMemberRequest"];
 export type ProjectMemberUpdateRequest =
   components["schemas"]["ProjectMemberUpdateRequest"];
 
@@ -36,4 +37,5 @@ export type CandidateChangeRequest =
 export type CandidateChangeReviewRequest =
   components["schemas"]["CandidateChangeReviewRequest"];
 
-export type SimpleSuccessResponse = components["schemas"]["SimpleSuccessResponse"];
+export type SimpleSuccessResponse =
+  components["schemas"]["SimpleSuccessResponse"];

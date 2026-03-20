@@ -3,10 +3,10 @@ import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import type { Message, ProjectStoreContext, ProjectState } from "./types";
 
-export function createChatActions({ set, get }: ProjectStoreContext): Pick<
-  ProjectState,
-  "fetchMessages" | "sendMessage"
-> {
+export function createChatActions({
+  set,
+  get,
+}: ProjectStoreContext): Pick<ProjectState, "fetchMessages" | "sendMessage"> {
   return {
     fetchMessages: async (projectId: string, sessionId?: string | null) => {
       set({ isMessagesLoading: true });

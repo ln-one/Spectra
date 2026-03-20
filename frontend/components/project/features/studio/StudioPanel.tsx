@@ -533,4 +533,3 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 }
 
 export { StudioPanel as StudioExpandedPanel };
-

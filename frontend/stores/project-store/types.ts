@@ -205,6 +205,10 @@ export const initialState = {
 };
 
 export type ProjectStoreContext = {
-  set: (partial: Partial<ProjectState> | ((state: ProjectState) => Partial<ProjectState>)) => void;
+  set: (
+    partial:
+      | Partial<ProjectState>
+      | ((state: ProjectState) => Partial<ProjectState>)
+  ) => void;
   get: () => ProjectState;
 };

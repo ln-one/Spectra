@@ -25,11 +25,7 @@ export function ProjectDetailLoading() {
   );
 }
 
-export function ProjectDetailNotFound({
-  onBack,
-}: {
-  onBack: () => void;
-}) {
+export function ProjectDetailNotFound({ onBack }: { onBack: () => void }) {
   return (
     <div className="h-screen bg-zinc-100 flex items-center justify-center relative overflow-hidden">
       <LightRays

@@ -3,11 +3,24 @@
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
-import { ChevronsDown, ChevronsUp, File, PanelRightClose, PanelRightOpen, Upload } from "lucide-react";
+import {
+  ChevronsDown,
+  ChevronsUp,
+  File,
+  PanelRightClose,
+  PanelRightOpen,
+  Upload,
+} from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { cn } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import {

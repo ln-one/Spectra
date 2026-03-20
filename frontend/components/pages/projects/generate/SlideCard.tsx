@@ -32,7 +32,9 @@ export function SlideCard({
 
       <div className="flex-1 prose prose-lg dark:prose-invert max-w-none text-muted-foreground prose-h1:text-foreground prose-h2:text-foreground prose-h3:text-foreground prose-strong:text-foreground">
         {slide.content ? (
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{slide.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {slide.content}
+          </ReactMarkdown>
         ) : (
           <div className="flex items-center justify-center h-full opacity-50">
             <Loader2 className="w-8 h-8 animate-spin" />

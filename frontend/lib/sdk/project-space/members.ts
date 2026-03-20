@@ -7,7 +7,9 @@ import type {
   ProjectMembersResponse,
 } from "./types";
 
-export async function getMembers(projectId: string): Promise<ProjectMembersResponse> {
+export async function getMembers(
+  projectId: string
+): Promise<ProjectMembersResponse> {
   if (MOCK_MODE) {
     return {
       success: true,

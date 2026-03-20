@@ -1,14 +1,7 @@
 ﻿"use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Loader2,
-  Plus,
-  FolderOpen,
-  Search,
-  Grid3X3,
-  List,
-} from "lucide-react";
+import { Loader2, Plus, FolderOpen, Search, Grid3X3, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +63,9 @@ export default function ProjectsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-zinc-900">我的项目</h1>
-              <p className="text-sm text-zinc-500 mt-0.5">{projects.length} 个项目</p>
+              <p className="text-sm text-zinc-500 mt-0.5">
+                {projects.length} 个项目
+              </p>
             </div>
             <Button
               onClick={() => router.push("/projects/new")}
@@ -132,7 +127,9 @@ export default function ProjectsPage() {
               <FolderOpen className="w-8 h-8 text-zinc-400" />
             </div>
             <h2 className="text-xl font-semibold text-zinc-900">还没有项目</h2>
-            <p className="text-zinc-500 mt-2 mb-6">创建第一个项目开始使用 Spectra</p>
+            <p className="text-zinc-500 mt-2 mb-6">
+              创建第一个项目开始使用 Spectra
+            </p>
             <Button
               onClick={() => router.push("/projects/new")}
               className="rounded-full px-6 bg-zinc-900 hover:bg-zinc-800"

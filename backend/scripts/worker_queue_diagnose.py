@@ -11,22 +11,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable
 
-BACKEND_ROOT = Path(__file__).resolve().parents[1]
-if str(BACKEND_ROOT) not in sys.path:
-    sys.path.insert(0, str(BACKEND_ROOT))
-
-from rq.job import Job
-from rq.registry import FailedJobRegistry, StartedJobRegistry
-
-from services.platform.redis_manager import RedisConnectionManager
-from services.task_queue import TaskQueueService
-from services.task_queue.status_constants import QueueJobStatus
-
 
 @dataclass(frozen=True)
 class RegistrySummary:
     queue: str
-    status: QueueJobStatus
+    status: str
     count: int
     oldest_age_seconds: float | None
     sample_job_ids: tuple[str, ...]
@@ -36,10 +25,10 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-def _job_timestamp(job: Job, status: QueueJobStatus) -> datetime | None:
-    if status is QueueJobStatus.STARTED:
+def _job_timestamp(job, status: str) -> datetime | None:
+    if status == "started":
         return job.started_at or job.created_at
-    if status is QueueJobStatus.FAILED:
+    if status == "failed":
         return job.ended_at or job.started_at or job.created_at
     return job.created_at
 
@@ -56,9 +45,11 @@ def summarize_registry(
     registry,
     *,
     queue: str,
-    status: QueueJobStatus,
+    status: str,
     sample_limit: int = 3,
 ) -> RegistrySummary:
+    from rq.job import Job
+
     job_ids = list(registry.get_job_ids())
     oldest_age_seconds: float | None = None
     sample_ids: list[str] = []
@@ -101,7 +92,7 @@ def evaluate_health(
 
     for summary in registry_summaries:
         age = summary.oldest_age_seconds
-        if summary.status is QueueJobStatus.STARTED:
+        if summary.status == "started":
             if summary.count and age and age >= stuck_started_threshold_seconds:
                 failures += 1
                 messages.append(
@@ -114,7 +105,7 @@ def evaluate_health(
                     "PASS started-registry: "
                     f"queue={summary.queue} count={summary.count}"
                 )
-        elif summary.status is QueueJobStatus.FAILED:
+        elif summary.status == "failed":
             level = "WARN" if summary.count else "PASS"
             suffix = (
                 f" oldest_age={age:.0f}s sample={list(summary.sample_job_ids)}"
@@ -141,6 +132,15 @@ def evaluate_health(
 
 
 async def _diagnose(args: argparse.Namespace) -> int:
+    backend_root = Path(__file__).resolve().parents[1]
+    if str(backend_root) not in sys.path:
+        sys.path.insert(0, str(backend_root))
+
+    from rq.registry import FailedJobRegistry, StartedJobRegistry
+
+    from services.platform.redis_manager import RedisConnectionManager
+    from services.task_queue import TaskQueueService
+
     manager = RedisConnectionManager.from_env()
     try:
         await manager.connect()
@@ -158,14 +158,14 @@ async def _diagnose(args: argparse.Namespace) -> int:
                 summarize_registry(
                     StartedJobRegistry(queue_name, connection=queue_service.redis_conn),
                     queue=queue_name,
-                    status=QueueJobStatus.STARTED,
+                    status="started",
                 )
             )
             summaries.append(
                 summarize_registry(
                     FailedJobRegistry(queue_name, connection=queue_service.redis_conn),
                     queue=queue_name,
-                    status=QueueJobStatus.FAILED,
+                    status="failed",
                 )
             )
 

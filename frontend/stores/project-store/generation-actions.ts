@@ -14,7 +14,10 @@ import type {
 } from "./types";
 import { GENERATION_TOOLS } from "./types";
 
-export function createGenerationActions({ set, get }: ProjectStoreContext): Pick<
+export function createGenerationActions({
+  set,
+  get,
+}: ProjectStoreContext): Pick<
   ProjectState,
   | "startGeneration"
   | "fetchGenerationHistory"
@@ -162,10 +165,14 @@ export function createGenerationActions({ set, get }: ProjectStoreContext): Pick
       }
     },
 
-    fetchArtifactHistory: async (projectId: string, sessionId?: string | null) => {
+    fetchArtifactHistory: async (
+      projectId: string,
+      sessionId?: string | null
+    ) => {
       try {
         const response = await projectSpaceApi.getArtifacts(projectId);
-        const artifacts = ((response?.data?.artifacts ?? []) as Artifact[]) || [];
+        const artifacts =
+          ((response?.data?.artifacts ?? []) as Artifact[]) || [];
         const effectiveSessionId =
           sessionId ??
           get().activeSessionId ??
@@ -270,7 +277,8 @@ export function createGenerationActions({ set, get }: ProjectStoreContext): Pick
       }
     },
 
-    setActiveSessionId: (sessionId: string | null) => set({ activeSessionId: sessionId }),
+    setActiveSessionId: (sessionId: string | null) =>
+      set({ activeSessionId: sessionId }),
 
     updateOutline: async (sessionId: string, outline: OutlineDocument) => {
       const session = get().generationSession;

@@ -67,10 +67,12 @@ export default function GeneratePreviewPage() {
 
     const handleScroll = () => {
       if (!containerRef.current) return;
-      const slideElements = containerRef.current.querySelectorAll(".slide-card");
+      const slideElements =
+        containerRef.current.querySelectorAll(".slide-card");
       let currentActiveIndex = activeSlideIndex;
       const containerTop = containerRef.current.scrollTop;
-      const containerCenter = containerTop + containerRef.current.clientHeight * 0.4;
+      const containerCenter =
+        containerTop + containerRef.current.clientHeight * 0.4;
 
       slideElements.forEach((el) => {
         const htmlEl = el as HTMLElement;
@@ -150,13 +152,19 @@ export default function GeneratePreviewPage() {
               <span
                 className={cn(
                   "w-1.5 h-1.5 rounded-full",
-                  isSessionGenerating ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+                  isSessionGenerating
+                    ? "bg-amber-500 animate-pulse"
+                    : "bg-emerald-500"
                 )}
               />
               {isSessionGenerating ? "生成中" : "已同步"}
             </div>
 
-            <Button variant="outline" size="sm" className="hidden sm:flex rounded-full h-9">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:flex rounded-full h-9"
+            >
               <Edit3 className="w-4 h-4 mr-2" />
               编辑
             </Button>
@@ -170,11 +178,18 @@ export default function GeneratePreviewPage() {
               <Download className="w-4 h-4 mr-2" />
               {isExporting ? "导出中" : "导出"}
             </Button>
-            <Button variant="outline" size="sm" className="hidden sm:flex rounded-full h-9">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:flex rounded-full h-9"
+            >
               <Share2 className="w-4 h-4 mr-2" />
               分享
             </Button>
-            <Button size="sm" className="rounded-full h-9 bg-foreground text-background hover:bg-foreground/90">
+            <Button
+              size="sm"
+              className="rounded-full h-9 bg-foreground text-background hover:bg-foreground/90"
+            >
               <Play className="w-4 h-4 mr-2 fill-current" />
               演示
             </Button>
@@ -188,26 +203,37 @@ export default function GeneratePreviewPage() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full opacity-70">
               <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-              <p className="text-sm text-muted-foreground animate-pulse">正在加载课件内容...</p>
+              <p className="text-sm text-muted-foreground animate-pulse">
+                正在加载课件内容...
+              </p>
             </div>
           ) : slides.length === 0 ? (
             previewBlockedReason ? (
               <div className="flex flex-col items-center justify-center h-full opacity-90">
                 <ImageIcon className="w-12 h-12 text-muted-foreground/40 mb-4" />
-                <p className="text-sm text-muted-foreground mb-3">{previewBlockedReason}</p>
-                <Button onClick={() => router.push(`/projects/${projectId}`)} className="rounded-full">
+                <p className="text-sm text-muted-foreground mb-3">
+                  {previewBlockedReason}
+                </p>
+                <Button
+                  onClick={() => router.push(`/projects/${projectId}`)}
+                  className="rounded-full"
+                >
                   返回项目并继续生成
                 </Button>
               </div>
             ) : isSessionGenerating ? (
               <div className="flex flex-col items-center justify-center h-full opacity-80">
                 <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-                <p className="text-sm text-muted-foreground">正在按大纲生成课件，请稍候...</p>
+                <p className="text-sm text-muted-foreground">
+                  正在按大纲生成课件，请稍候...
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full opacity-70">
                 <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                <p className="text-sm text-muted-foreground">暂无幻灯片数据，请先生成。</p>
+                <p className="text-sm text-muted-foreground">
+                  暂无幻灯片数据，请先生成。
+                </p>
               </div>
             )
           ) : (
@@ -218,9 +244,16 @@ export default function GeneratePreviewPage() {
                     key={slide.id || `s-${i}`}
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.05 }}
+                    transition={{
+                      duration: 0.4,
+                      ease: "easeOut",
+                      delay: i * 0.05,
+                    }}
                   >
-                    <SlideCard slide={slide} isActive={activeSlideIndex === slide.index} />
+                    <SlideCard
+                      slide={slide}
+                      isActive={activeSlideIndex === slide.index}
+                    />
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -237,7 +270,11 @@ export default function GeneratePreviewPage() {
           <div className="bg-card/90 border shadow-xl rounded-full flex flex-col p-1.5 gap-1.5 backdrop-blur-xl">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10"
+                >
                   <Edit3 className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
@@ -245,7 +282,11 @@ export default function GeneratePreviewPage() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10"
+                >
                   <Layout className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
@@ -253,7 +294,11 @@ export default function GeneratePreviewPage() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted w-10 h-10"
+                >
                   <ImageIcon className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
@@ -262,11 +307,18 @@ export default function GeneratePreviewPage() {
             <div className="h-px w-5 mx-auto bg-border/80 my-1" />
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full text-violet-500 hover:text-violet-600 hover:bg-violet-50 w-10 h-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full text-violet-500 hover:text-violet-600 hover:bg-violet-50 w-10 h-10"
+                >
                   <Sparkles className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="left" className="bg-violet-600 text-white border-violet-700">
+              <TooltipContent
+                side="left"
+                className="bg-violet-600 text-white border-violet-700"
+              >
                 AI 润色
               </TooltipContent>
             </Tooltip>
@@ -277,7 +329,12 @@ export default function GeneratePreviewPage() {
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5, type: "spring", damping: 25 }}
+            transition={{
+              delay: 0.4,
+              duration: 0.5,
+              type: "spring",
+              damping: 25,
+            }}
             className="fixed bottom-0 left-0 w-full h-24 bg-background/85 backdrop-blur-md border-t z-40 flex items-center justify-center px-4"
           >
             <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide py-3 px-4 max-w-full">
@@ -298,13 +355,19 @@ export default function GeneratePreviewPage() {
                     <span
                       className={cn(
                         "text-[10px] font-bold z-10 truncate absolute top-1.5 left-2 bg-background/60 backdrop-blur rounded px-1.5",
-                        isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                        isActive
+                          ? "text-primary"
+                          : "text-muted-foreground group-hover:text-foreground"
                       )}
                     >
                       {slide.index}
                     </span>
                     {isActive && (
-                      <motion.span initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-semibold z-10 truncate text-foreground leading-tight mt-auto block drop-shadow-sm">
+                      <motion.span
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs font-semibold z-10 truncate text-foreground leading-tight mt-auto block drop-shadow-sm"
+                      >
                         {slide.title || `第 ${slide.index} 页`}
                       </motion.span>
                     )}

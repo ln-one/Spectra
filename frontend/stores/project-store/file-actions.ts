@@ -3,7 +3,10 @@ import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import type { ProjectStoreContext, ProjectState } from "./types";
 
-export function createFileActions({ set, get }: ProjectStoreContext): Pick<
+export function createFileActions({
+  set,
+  get,
+}: ProjectStoreContext): Pick<
   ProjectState,
   | "fetchFiles"
   | "uploadFile"

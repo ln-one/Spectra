@@ -24,7 +24,9 @@ export function useGeneratePreviewState({
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
-  const [previewBlockedReason, setPreviewBlockedReason] = useState<string | null>(null);
+  const [previewBlockedReason, setPreviewBlockedReason] = useState<
+    string | null
+  >(null);
 
   const { generationSession, generationHistory, fetchGenerationHistory } =
     useProjectStore();
@@ -86,7 +88,9 @@ export function useGeneratePreviewState({
           const sessionResp = await generateApi.getSession(activeSessionId);
           const state = sessionResp?.data?.session?.state;
           if (state === "AWAITING_OUTLINE_CONFIRM") {
-            setPreviewBlockedReason("当前会话仍在大纲确认阶段，请先确认后再预览。");
+            setPreviewBlockedReason(
+              "当前会话仍在大纲确认阶段，请先确认后再预览。"
+            );
           } else {
             setPreviewBlockedReason(error.message);
           }
@@ -106,7 +110,10 @@ export function useGeneratePreviewState({
   }, [loadSlides]);
 
   useEffect(() => {
-    if (latestEvent?.event_type === "slide.updated" && latestEvent.payload?.slide) {
+    if (
+      latestEvent?.event_type === "slide.updated" &&
+      latestEvent.payload?.slide
+    ) {
       const updatedSlide = latestEvent.payload.slide as Slide;
       setSlides((prev) => {
         const idx = prev.findIndex(

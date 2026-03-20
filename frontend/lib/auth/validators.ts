@@ -48,7 +48,10 @@ export function validateRegisterInput(data: RegisterRequest): void {
   } else if (data.username.length < 3) {
     validationErrors.push({ field: "username", message: "用户名至少3个字符" });
   } else if (data.username.length > 50) {
-    validationErrors.push({ field: "username", message: "用户名不能超过50个字符" });
+    validationErrors.push({
+      field: "username",
+      message: "用户名不能超过50个字符",
+    });
   } else if (!/^[a-zA-Z0-9_-]+$/.test(data.username)) {
     validationErrors.push({
       field: "username",

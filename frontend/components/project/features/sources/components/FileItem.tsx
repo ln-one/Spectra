@@ -230,7 +230,9 @@ export function FileItem({
               <span>引用片段</span>
               <div className="flex items-center gap-1.5">
                 {focusDetail.source?.source_type ? (
-                  <span>{getSourceTypeLabel(focusDetail.source.source_type)}</span>
+                  <span>
+                    {getSourceTypeLabel(focusDetail.source.source_type)}
+                  </span>
                 ) : null}
                 {focusDetail.source?.page_number ? (
                   <span>页码 P{focusDetail.source.page_number}</span>
@@ -247,7 +249,9 @@ export function FileItem({
             focusDetail.context?.next_chunk ? (
               <div className="mt-2 border-t border-zinc-200 pt-2 text-[10px] text-zinc-500">
                 {focusDetail.context?.previous_chunk ? (
-                  <div className="mb-1">上文：{focusDetail.context.previous_chunk}</div>
+                  <div className="mb-1">
+                    上文：{focusDetail.context.previous_chunk}
+                  </div>
                 ) : null}
                 {focusDetail.context?.next_chunk ? (
                   <div>下文：{focusDetail.context.next_chunk}</div>

@@ -9,7 +9,10 @@ import {
   StudioPanel,
 } from "@/components/project";
 import { LightRays } from "@/components/ui/light-rays";
-import { ProjectDetailLoading, ProjectDetailNotFound } from "./ProjectDetailStates";
+import {
+  ProjectDetailLoading,
+  ProjectDetailNotFound,
+} from "./ProjectDetailStates";
 import {
   HEADER_TO_PANEL_GAP,
   PAGE_GAP,
@@ -219,7 +222,8 @@ export default function ProjectDetailPage() {
 
       <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
         <p className="text-[10px] text-zinc-400">
-          Spectra 杈撳嚭鍐呭鍙兘瀛樺湪鍋忓樊锛岃鍦ㄨ鍫備娇鐢ㄥ墠杩涜澶嶆牳銆?
+          Spectra
+          杈撳嚭鍐呭鍙兘瀛樺湪鍋忓樊锛岃鍦ㄨ鍫備娇鐢ㄥ墠杩涜澶嶆牳銆?
         </p>
       </div>
 
@@ -231,5 +235,3 @@ export default function ProjectDetailPage() {
     </div>
   );
 }
-
-

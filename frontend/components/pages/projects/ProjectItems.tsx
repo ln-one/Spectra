@@ -61,7 +61,9 @@ export function ProjectCard({
         </DropdownMenu>
       </div>
 
-      <h3 className="font-semibold text-zinc-900 mb-1 truncate">{project.name}</h3>
+      <h3 className="font-semibold text-zinc-900 mb-1 truncate">
+        {project.name}
+      </h3>
 
       {project.subject && (
         <p className="text-sm text-zinc-500 mb-3">
@@ -71,7 +73,12 @@ export function ProjectCard({
       )}
 
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-zinc-50">
-        <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full", status.color)}>
+        <span
+          className={cn(
+            "text-xs font-medium px-2.5 py-1 rounded-full",
+            status.color
+          )}
+        >
           {status.label}
         </span>
         <div className="flex items-center gap-1.5 text-xs text-zinc-400">
@@ -118,7 +125,12 @@ export function ProjectListItem({
         )}
       </div>
 
-      <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full shrink-0", status.color)}>
+      <span
+        className={cn(
+          "text-xs font-medium px-2.5 py-1 rounded-full shrink-0",
+          status.color
+        )}
+      >
         {status.label}
       </span>
 

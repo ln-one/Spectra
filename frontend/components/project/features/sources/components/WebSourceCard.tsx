@@ -46,7 +46,9 @@ export function WebSourceCard({ isCompact }: { isCompact: boolean }) {
         <Globe className="w-4 h-4 text-blue-500" />
       </div>
       <div className="min-w-0 flex flex-col justify-center">
-        <p className="text-xs font-medium text-zinc-800 truncate">网页检索（即将上线）</p>
+        <p className="text-xs font-medium text-zinc-800 truncate">
+          网页检索（即将上线）
+        </p>
         <p className="text-[10px] text-zinc-500 mt-0.5 truncate">入口预留中</p>
       </div>
       <div className="flex items-center gap-1.5 pl-1.5 border-l border-blue-100">

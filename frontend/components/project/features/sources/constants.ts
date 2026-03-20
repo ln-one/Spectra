@@ -79,9 +79,10 @@ export const FILE_TYPE_CONFIG: Record<
   },
 };
 
-export const STATUS_CONFIG: Record<string, { color: string; pulse?: boolean }> = {
-  uploading: { color: "bg-amber-400", pulse: true },
-  parsing: { color: "bg-amber-400", pulse: true },
-  ready: { color: "bg-emerald-400" },
-  failed: { color: "bg-red-400" },
-};
+export const STATUS_CONFIG: Record<string, { color: string; pulse?: boolean }> =
+  {
+    uploading: { color: "bg-amber-400", pulse: true },
+    parsing: { color: "bg-amber-400", pulse: true },
+    ready: { color: "bg-emerald-400" },
+    failed: { color: "bg-red-400" },
+  };

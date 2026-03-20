@@ -1,6 +1,8 @@
 ﻿import type { ProjectStoreContext, ProjectState } from "./types";
 
-export function createLayoutActions({ set }: ProjectStoreContext): Pick<
+export function createLayoutActions({
+  set,
+}: ProjectStoreContext): Pick<
   ProjectState,
   "setLayoutMode" | "setExpandedTool" | "clearLastFailedInput"
 > {
