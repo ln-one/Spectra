@@ -16,6 +16,7 @@ class _DatabaseServiceProxy:
         if self._instance is None and hasattr(DatabaseService, name):
             class_attr = getattr(DatabaseService, name)
             if callable(class_attr):
+
                 def _lazy_method(*args, **kwargs):
                     target = getattr(self._get_instance(), name)
                     return target(*args, **kwargs)
