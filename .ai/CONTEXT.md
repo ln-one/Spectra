@@ -1,6 +1,6 @@
 # Spectra AI Context
 
-> 最后更新：2026-02-26 | 版本：1.0
+> 最后更新：2026-03-20 | 版本：1.1
 
 ## 快速开始（必读）
 
@@ -28,11 +28,45 @@
 | 开发规范 | `docs/standards/` | 代码规范和最佳实践 |
 | AI 指南 | `.ai/guides/` | 任务驱动的操作指南 |
 
+### 前端结构速查（当前）
+
+```text
+frontend/
+├── app/
+│   ├── page.tsx
+│   ├── auth/{login,register}/page.tsx
+│   ├── projects/
+│   │   ├── page.tsx
+│   │   ├── new/page.tsx
+│   │   └── [id]/
+│   │       ├── page.tsx
+│   │       └── generate/page.tsx
+│   └── **/_views/                    # 页面实现下沉（非路由）
+├── components/
+│   ├── ui/                           # shadcn/ui（不做业务改造）
+│   └── project/
+│       ├── features/                # chat/sources/studio/... 业务模块
+│       └── index.ts                 # 项目域统一导出入口
+├── hooks/                            # 全局 hooks
+├── lib/
+│   ├── sdk/                          # OpenAPI SDK（自动生成相关）
+│   ├── auth/ + auth.ts               # 认证实现与兼容门面
+│   ├── project-space/                # Project-Space 领域封装
+│   └── chat/                         # 聊天视图模型封装
+└── stores/
+    ├── authStore.ts
+    ├── notificationStore.ts
+    ├── projectStore.ts
+    └── project-store/               # project/files/chat/generation/layout 切片
+```
+
 ### 关键文件
 - `docs/openapi-target-source.yaml` - OpenAPI 主文件（引用模块）
 - `docs/openapi-target.yaml` - 打包后的完整规范（ 自动生成，不要直接读取）
 - `backend/main.py` - FastAPI 应用入口
-- `frontend/app/page.tsx` - Next.js 首页
+- `frontend/app/page.tsx` - Next.js 首页路由入口
+- `frontend/app/_views/home/WelcomePage.tsx` - 首页视图实现
+- `frontend/components/project/index.ts` - 项目域统一导出入口
 
 ---
 

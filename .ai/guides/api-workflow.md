@@ -179,7 +179,7 @@ app.include_router(auth.router)
 
 ### 6. 实现前端
 
-**创建 API 客户端**（`frontend/lib/api/auth.ts`）：
+**创建 API 客户端**（`frontend/lib/sdk/auth.ts`）：
 
 ```typescript
 import { apiClient } from './client';
@@ -196,7 +196,7 @@ export const authApi = {
 **使用 API**（组件中）：
 
 ```typescript
-import { authApi } from '@/lib/api/auth';
+import { authApi } from '@/lib/sdk/auth';
 
 const handleLogin = async () => {
  try {
@@ -227,7 +227,7 @@ def test_login_success(client):
 **前端测试**（`frontend/__tests__/auth.test.ts`）：
 
 ```typescript
-import { authApi } from '@/lib/api/auth';
+import { authApi } from '@/lib/sdk/auth';
 
 test('login success', async () => {
  const response = await authApi.login({
@@ -356,7 +356,7 @@ cd frontend && npm run test
 | OpenAPI Schema | `docs/openapi/schemas/{模块}.yaml` |
 | 后端路由 | `backend/routers/{模块}.py` |
 | 后端 Schema | `backend/schemas/{模块}.py` |
-| 前端 API | `frontend/lib/api/{模块}.ts` |
+| 前端 API | `frontend/lib/sdk/{模块}.ts` |
 | 前端类型 | `frontend/lib/types/api.ts` |
 | 后端测试 | `backend/tests/test_{模块}_api.py` |
 | 前端测试 | `frontend/__tests__/{模块}.test.ts` |
@@ -369,3 +369,4 @@ cd frontend && npm run test
 - `docs/standards/backend.md` - 后端代码规范
 - `docs/standards/frontend.md` - 前端代码规范
 - `docs/openapi/README.md` - OpenAPI 使用指南
+

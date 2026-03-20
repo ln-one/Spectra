@@ -1,44 +1,49 @@
 # Frontend API Integration
 
-> 更新时间：2026-03-02
+> 更新时间：2026-03-20
 > 本文档只保留当前实现的请求层约定。
 
 ## 1. 请求入口
 
-- 统一入口：`frontend/lib/api/client.ts`
-- 基础函数：`request<T>(path, options)`
+- 统一客户端：`frontend/lib/sdk/client.ts`
+- 基础能力：`sdkClient`、`unwrap`、`ApiError`、`withIdempotency`
 - 默认前缀：`/api/v1`
 
-## 2. 已实现能力
+## 2. SDK 模块
 
-- Token 注入（`Authorization: Bearer`）
-- `401` 自动刷新 token
-- 失败统一抛出 `ApiError`
-- `FormData` 自动跳过 `Content-Type: application/json`
-- 支持 `Idempotency-Key` 透传
+- `lib/sdk/auth.ts`
+- `lib/sdk/projects.ts`
+- `lib/sdk/files.ts`
+- `lib/sdk/chat.ts`
+- `lib/sdk/generate.ts`
+- `lib/sdk/preview.ts`
+- `lib/sdk/rag.ts`
+- `lib/sdk/project-space.ts`（兼容入口）
+- `lib/sdk/project-space/*`（按资源域拆分）
 
-## 3. 模块划分
+## 3. 领域封装
 
-- `lib/api/auth.ts`
-- `lib/api/projects.ts`
-- `lib/api/files.ts`
-- `lib/api/chat.ts`
-- `lib/api/generate.ts`
-- `lib/api/preview.ts`
-- `lib/api/rag.ts`
+- `lib/auth/*`：token 存储、鉴权服务、校验逻辑
+- `lib/project-space/*`：Project-Space 视图层友好封装（入口：`lib/project-space/index.ts`）
+- `lib/chat/*`：聊天渲染相关视图模型
 
-## 4. 使用约束
+## 4. 类型来源
 
-- 页面与组件不直接 `fetch` 后端业务接口。
-- 所有接口变更先更新 OpenAPI，再更新 API 模块。
-- 前端业务层只消费 `success/data/error` 结构，不解析底层异常格式。
+- `frontend/lib/sdk/types.ts`：OpenAPI 生成类型（自动生成，不手改）
+- `frontend/lib/types/api.ts`：历史兼容类型文件（自动生成，不手改）
 
-## 5. 示例
+## 5. 使用约束
+
+- 页面与组件不直接 `fetch` 业务接口。
+- 业务层优先消费 SDK/领域封装，不重复实现请求细节。
+- 接口变更先更新 OpenAPI，再更新 SDK 与调用方。
+
+## 6. 示例
 
 ```ts
-import { request } from "@/lib/api/client";
+import { projectsApi } from "@/lib/sdk/projects";
 
 export async function getProject(projectId: string) {
-  return request(`/projects/${projectId}`);
+  return projectsApi.getProject(projectId);
 }
 ```

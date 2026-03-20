@@ -2,6 +2,15 @@
 
 > 记录 AI 协作系统的重要变更
 
+## [1.1.1] - 2026-03-20
+
+### Changed（变更）
+
+- 更新 `.ai/CONTEXT.md`：补充当前前端目录收口结构（`app/**/_views`、`components/project/features`、`lib/sdk`、`stores/project-store`）
+- 更新 `.ai/FAQ.md`：将前端调用路径从 `lib/api` 同步为 `lib/sdk`，补充页面实现与项目域组件放置规则
+- 更新 `.ai/guides/best-practices.md`：同步前端文件结构示意为当前仓库真实结构
+- 更新 API 相关指南路径：`adding-api-endpoint.md`、`api-workflow.md`、`creating-component.md`、`troubleshooting.md` 中 `lib/api` 示例路径统一为 `lib/sdk`
+
 ## [1.0.0] - 2026-02-26
 
 ### Added（新增）

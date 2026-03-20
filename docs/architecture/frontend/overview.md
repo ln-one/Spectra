@@ -1,27 +1,31 @@
 # Frontend Architecture Overview
 
-> 状态说明（2026-03-12）：本文档与当前 `frontend/` 代码结构对齐，并标注下一阶段演进方向。
+> 状态说明（2026-03-20）：本文档已按当前 `frontend/` 实际结构更新。
 
 ## 概述
 
-前端基于 Next.js 15 App Router，承担认证、项目管理、聊天交互、文件上传、**session-first** 生成与预览等页面。下一阶段将围绕 Project-Space 模型补齐“引用/版本/成果(artifact)/候选变更”相关视图与交互（具体见 `docs/project/*_2026-03-09.md`）。
+前端基于 Next.js 15 App Router，覆盖登录注册、项目列表、项目详情、生成预览等核心流程。路由入口保持轻量，页面实现收敛到 `app/**/_views`，项目域复杂交互收敛到 `components/project/features/*`。
 
 ## 技术栈（当前）
 
 - 框架：Next.js 15 + React 18 + TypeScript
-- 样式：Tailwind CSS + Shadcn 风格 UI 组件
+- 样式：Tailwind CSS + Shadcn/ui（`components/ui/*`）
 - 动效：Framer Motion（局部使用）
-- 状态管理：Zustand（业务状态）
-- 请求层：Fetch API 封装（`frontend/lib/api/client.ts`）
+- 状态管理：Zustand（`stores/*`）
+- 请求层：OpenAPI 生成 SDK + 领域封装（`frontend/lib/sdk/*`、`frontend/lib/project-space/*`、`frontend/lib/chat/*`、`frontend/lib/auth/*`）
 - 表单：React Hook Form + Zod
 
 ## 目录结构（关键）
 
-- `app/`：页面路由（auth、projects 等）
-- `components/`：业务组件和 `ui/` 基础组件
-- `stores/`：Zustand 状态管理
-- `lib/api/`：后端 API 调用封装
-- `hooks/`：通用 hooks（如 toast）
+- `app/`：仅保留路由入口（`page.tsx`）与页面视图（`_views/`）
+- `components/project/features/`：项目域功能模块（chat / generation / header / library / outline-editor / sources / studio）
+- `components/project/index.ts`：项目域统一导出入口（避免跨层直连）
+- `components/ui/`：外部引入的 shadcn/ui 组件（不在业务重构中修改）
+- `stores/projectStore.ts` + `stores/project-store/*`：项目域状态与 action 切片
+- `lib/sdk/`：API 客户端与模块 API
+- `lib/auth/`：认证内部实现；`lib/auth.ts` 为兼容门面
+- `lib/project-space/`：Project-Space 领域封装入口与实现
+- `hooks/`：全局通用 hooks
 
 ## 相关文档
 
