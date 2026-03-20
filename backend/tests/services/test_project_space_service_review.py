@@ -100,10 +100,29 @@ async def test_review_candidate_change_accept_persists_accepted_version():
     update_status = AsyncMock(return_value=updated_change)
     create_version = AsyncMock(return_value=SimpleNamespace(id="v-002"))
     update_current_version = AsyncMock(return_value=None)
+    sibling_change = SimpleNamespace(
+        id="c-002", baseVersionId="v-001", sessionId="s-001"
+    )
     service.db = SimpleNamespace(
         get_candidate_change=AsyncMock(return_value=_fake_change(status="pending")),
         get_project=AsyncMock(
             return_value=SimpleNamespace(id="p-001", currentVersionId="v-001")
+        ),
+        get_project_references=AsyncMock(
+            return_value=[
+                SimpleNamespace(
+                    id="r-001",
+                    targetProjectId="p-base-001",
+                    relationType="base",
+                    mode="follow",
+                    pinnedVersionId=None,
+                    priority=0,
+                    status="active",
+                )
+            ]
+        ),
+        get_candidate_changes=AsyncMock(
+            return_value=[_fake_change(status="pending"), sibling_change]
         ),
         create_project_version=create_version,
         update_project_current_version=update_current_version,
@@ -121,22 +140,44 @@ async def test_review_candidate_change_accept_persists_accepted_version():
     assert result is updated_change
     create_version.assert_awaited_once()
     update_current_version.assert_awaited_once_with("p-001", "v-002")
-    update_status.assert_awaited_once_with(
+    assert update_status.await_count == 2
+    accepted_call = update_status.await_args_list[0]
+    superseded_call = update_status.await_args_list[1]
+    assert accepted_call.args[:3] == (
         "c-001",
         CandidateChangeStatus.ACCEPTED,
         "looks good",
-        reviewed_by="u-reviewer-001",
-        reviewed_at=ANY,
-        payload={
-            "review": {
-                "action": CandidateChangeReviewAction.ACCEPT,
-                "accepted_version_id": "v-002",
-                "reviewer_user_id": "u-reviewer-001",
-                "reviewed_at": ANY,
-                "review_comment": "looks good",
-            }
-        },
     )
+    assert accepted_call.kwargs["reviewed_by"] == "u-reviewer-001"
+    assert accepted_call.kwargs["payload"]["base_version_context"] == {
+        "base_version_id": "v-001",
+        "current_version_id": "v-001",
+    }
+    assert accepted_call.kwargs["payload"]["reference_summary"] == [
+        {
+            "reference_id": "r-001",
+            "target_project_id": "p-base-001",
+            "relation_type": "base",
+            "mode": "follow",
+            "pinned_version_id": None,
+            "priority": 0,
+            "status": "active",
+        }
+    ]
+    assert accepted_call.kwargs["payload"]["review"] == {
+        "action": CandidateChangeReviewAction.ACCEPT,
+        "accepted_version_id": "v-002",
+        "reviewer_user_id": "u-reviewer-001",
+        "reviewed_at": ANY,
+        "review_comment": "looks good",
+    }
+    assert superseded_call.args == (
+        "c-002",
+        CandidateChangeStatus.SUPERSEDED,
+    )
+    assert superseded_call.kwargs == {
+        "review_comment": "Superseded by accepted candidate change",
+    }
 
 
 @pytest.mark.asyncio

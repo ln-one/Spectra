@@ -62,16 +62,37 @@ async def review_candidate_change(
         if not isinstance(payload, dict):
             payload = {}
 
+        references = await db.get_project_references(change.projectId)
+        reference_summary = [
+            {
+                "reference_id": reference.id,
+                "target_project_id": reference.targetProjectId,
+                "relation_type": reference.relationType,
+                "mode": reference.mode,
+                "pinned_version_id": getattr(reference, "pinnedVersionId", None),
+                "priority": reference.priority,
+                "status": reference.status,
+            }
+            for reference in references
+        ]
+
+        version_snapshot = dict(payload)
+        version_snapshot["base_version_context"] = {
+            "base_version_id": base_version_id,
+            "current_version_id": current_version_id,
+        }
+        version_snapshot["reference_summary"] = reference_summary
+
         new_version = await db.create_project_version(
             project_id=change.projectId,
             parent_version_id=change.baseVersionId,
             summary=change.summary or change.title,
             change_type=ChangeType.MERGE_CHANGE,
-            snapshot_data=payload,
+            snapshot_data=version_snapshot,
             created_by=reviewer_user_id,
         )
         await db.update_project_current_version(change.projectId, new_version.id)
-        review_payload = dict(payload)
+        review_payload = dict(version_snapshot)
         reviewed_at = datetime.now(timezone.utc)
         review_payload["review"] = {
             "action": CandidateChangeReviewAction.ACCEPT,
@@ -89,6 +110,21 @@ async def review_candidate_change(
             reviewed_at=reviewed_at,
             payload=review_payload,
         )
+        sibling_changes = await db.get_candidate_changes(
+            project_id=change.projectId,
+            status=CandidateChangeStatus.PENDING,
+            session_id=getattr(change, "sessionId", None),
+        )
+        for sibling in sibling_changes:
+            if sibling.id == change_id:
+                continue
+            if getattr(sibling, "baseVersionId", None) != base_version_id:
+                continue
+            await db.update_candidate_change_status(
+                sibling.id,
+                CandidateChangeStatus.SUPERSEDED,
+                review_comment="Superseded by accepted candidate change",
+            )
         logger.info(
             f"Accepted candidate change {change_id}, created version {new_version.id}"
         )

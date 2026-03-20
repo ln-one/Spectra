@@ -138,6 +138,25 @@ async def create_candidate_change(
     await service.check_project_permission(
         project_id, user_id, ProjectPermission.COLLABORATE
     )
+
+    project = None
+    if session_id:
+        session = await service.db.db.generationsession.find_unique(
+            where={"id": session_id}
+        )
+        if not session or session.projectId != project_id:
+            raise ValidationException(
+                f"session_id {session_id} does not belong to project {project_id}"
+            )
+        if base_version_id is None:
+            base_version_id = getattr(session, "baseVersionId", None)
+
+    if base_version_id is None:
+        project = await service.db.get_project(project_id)
+        base_version_id = (
+            getattr(project, "currentVersionId", None) if project else None
+        )
+
     if base_version_id:
         base_version = await service.db.get_project_version(base_version_id)
         if not base_version or base_version.projectId != project_id:
@@ -145,6 +164,7 @@ async def create_candidate_change(
                 "base_version_id "
                 f"{base_version_id} does not belong to project {project_id}"
             )
+
     return await service.db.create_candidate_change(
         project_id=project_id,
         title=title,
