@@ -43,3 +43,25 @@ def test_outline_document_split_titles_are_not_repetitive_indexes():
     assert len(set(titles)) == 3
     assert all("（" not in title for title in titles)
     assert all("·" in title for title in titles)
+
+
+def test_outline_document_split_key_points_include_focus_anchors():
+    outline = CoursewareOutline(
+        title="测试课程",
+        sections=[
+            OutlineSection(
+                title="核心知识点",
+                key_points=["概念定义", "例题拆解", "误区辨析"],
+                slide_count=5,
+            )
+        ],
+    )
+
+    document = _courseware_outline_to_document(outline, target_pages=5)
+    merged_points = " ".join(
+        point for node in document["nodes"] for point in node["key_points"]
+    )
+
+    assert "知识地图" in merged_points
+    assert "关键例题" in merged_points
+    assert "易错点澄清" in merged_points

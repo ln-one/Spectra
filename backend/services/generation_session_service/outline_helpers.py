@@ -5,6 +5,13 @@ import uuid
 from typing import Optional
 
 _SLIDE_FOCUS_SUFFIX = ("知识地图", "关键例题", "易错点澄清", "互动提问", "板书逻辑")
+_SLIDE_FOCUS_POINTS = {
+    "知识地图": "知识地图结构化梳理",
+    "关键例题": "关键例题分步拆解",
+    "易错点澄清": "易错点澄清与纠偏",
+    "互动提问": "互动提问与即时反馈",
+    "板书逻辑": "板书逻辑主线归纳",
+}
 _MIN_KEY_POINTS_PER_SLIDE = 3
 _EXTRA_PAGE_SCAFFOLD = (
     (
@@ -69,6 +76,15 @@ def _build_split_slide_title(base_title: str, idx: int, total: int) -> str:
         return base_title
     suffix = _SLIDE_FOCUS_SUFFIX[idx % len(_SLIDE_FOCUS_SUFFIX)]
     return f"{base_title} · {suffix}"
+
+
+def _build_slide_key_points(base_key_points: list[str], idx: int) -> list[str]:
+    points = _sanitize_key_points(base_key_points)
+    focus = _SLIDE_FOCUS_SUFFIX[idx % len(_SLIDE_FOCUS_SUFFIX)]
+    focus_point = _SLIDE_FOCUS_POINTS.get(focus)
+    if focus_point and focus_point not in points:
+        points.append(focus_point)
+    return _sanitize_key_points(points)
 
 
 def _extract_outline_style(options: Optional[dict]) -> Optional[str]:
@@ -144,12 +160,13 @@ def _courseware_outline_to_document(
         base_key_points = _sanitize_key_points(list(section.key_points or []))
         for idx in range(count):
             title = _build_split_slide_title(str(section.title or "章节"), idx, count)
+            key_points = _build_slide_key_points(base_key_points, idx)
             nodes.append(
                 {
                     "id": str(uuid.uuid4()),
                     "order": order,
                     "title": title,
-                    "key_points": base_key_points,
+                    "key_points": key_points,
                     "estimated_minutes": None,
                 }
             )

@@ -156,6 +156,56 @@ class TestGenerateOutline:
         assert outline.total_slides >= 10
 
     @pytest.mark.asyncio
+    async def test_outline_aligns_with_target_pages_and_focus_anchors(self):
+        """当需求包含目标页数时，应尽量对齐并覆盖核心教学锚点。"""
+        ai = AIService()
+        mock_json = json.dumps(
+            {
+                "title": "电路分析",
+                "sections": [
+                    {
+                        "title": "电路基础",
+                        "key_points": ["概念定义", "基础公式"],
+                        "slide_count": 2,
+                    },
+                    {
+                        "title": "典型题型",
+                        "key_points": ["题型识别", "解题步骤"],
+                        "slide_count": 2,
+                    },
+                ],
+                "summary": "电路分析教学大纲",
+            }
+        )
+
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_json},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            outline = await ai.generate_outline(
+                "proj-pages",
+                "高一物理，目标页数：12，强调知识地图、关键例题、易错点澄清",
+            )
+
+        total_section_slides = sum(section.slide_count for section in outline.sections)
+        assert total_section_slides == 12
+        merged_points = " ".join(
+            point
+            for section in outline.sections
+            for point in (section.key_points or [])
+        )
+        assert "知识地图" in merged_points
+        assert "关键例题" in merged_points
+        assert "易错点澄清" in merged_points
+
+    @pytest.mark.asyncio
     async def test_outline_no_json_triggers_fallback(self):
         """LLM 返回非 JSON 时应 fallback"""
         ai = AIService()

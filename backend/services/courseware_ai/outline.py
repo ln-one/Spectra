@@ -15,10 +15,114 @@ _SCAFFOLD_SECTIONS = [
     ("案例与应用", ["典型案例", "应用场景", "易错点辨析", "变式题训练"], 3),
     ("练习与总结", ["课堂练习", "结果反馈", "总结迁移", "提问回扣"], 2),
 ]
+_FOCUS_ANCHORS = ("知识地图", "关键例题", "易错点澄清", "互动提问", "板书逻辑")
 
 
 def _normalize_title(title: str) -> str:
     return re.sub(r"\s+", "", str(title or "")).lower()
+
+
+def _extract_target_pages(user_requirements: str) -> int | None:
+    text = str(user_requirements or "")
+    match = re.search(r"目标页数[：:]\s*(\d+)", text)
+    if not match:
+        return None
+    pages = int(match.group(1))
+    if pages <= 0:
+        return None
+    return min(max(pages, 6), 40)
+
+
+def _contains_anchor(text: str, anchor: str) -> bool:
+    normalized = str(text or "").strip()
+    if not normalized:
+        return False
+    return anchor in normalized
+
+
+def _inject_focus_anchors(outline: CoursewareOutline) -> CoursewareOutline:
+    sections = list(outline.sections or [])
+    if not sections:
+        return outline
+
+    enriched_sections: list[OutlineSection] = []
+    for idx, section in enumerate(sections):
+        key_points = [
+            str(point).strip()
+            for point in (section.key_points or [])
+            if str(point).strip()
+        ]
+        if not any("互动" in point or "提问" in point for point in key_points):
+            key_points.append("互动提问设计")
+        if not any("板书" in point for point in key_points):
+            key_points.append("板书逻辑梳理")
+        anchor = _FOCUS_ANCHORS[idx % len(_FOCUS_ANCHORS)]
+        if not any(_contains_anchor(point, anchor) for point in key_points):
+            key_points.append(anchor)
+
+        deduped_points: list[str] = []
+        for point in key_points:
+            if point not in deduped_points:
+                deduped_points.append(point)
+        enriched_sections.append(
+            OutlineSection(
+                title=section.title,
+                key_points=deduped_points[:6],
+                slide_count=max(int(section.slide_count or 0), 2),
+            )
+        )
+
+    return CoursewareOutline(
+        title=outline.title,
+        sections=enriched_sections,
+        total_slides=sum(item.slide_count for item in enriched_sections) + 2,
+        summary=outline.summary,
+    )
+
+
+def _align_slide_count_with_target(
+    outline: CoursewareOutline, target_pages: int | None
+) -> CoursewareOutline:
+    if not target_pages:
+        return outline
+    sections = list(outline.sections or [])
+    if not sections:
+        return outline
+
+    base_total = sum(max(int(item.slide_count or 1), 1) for item in sections)
+    if base_total == target_pages:
+        return outline
+
+    adjusted = [max(int(item.slide_count or 1), 1) for item in sections]
+    if base_total < target_pages:
+        cursor = 0
+        while sum(adjusted) < target_pages:
+            adjusted[cursor % len(adjusted)] += 1
+            cursor += 1
+    else:
+        cursor = 0
+        while sum(adjusted) > target_pages and any(count > 1 for count in adjusted):
+            idx = cursor % len(adjusted)
+            if adjusted[idx] > 1:
+                adjusted[idx] -= 1
+            cursor += 1
+            if cursor > len(adjusted) * max(target_pages, 1) * 2:
+                break
+
+    normalized_sections = [
+        OutlineSection(
+            title=section.title,
+            key_points=list(section.key_points or []),
+            slide_count=adjusted[idx],
+        )
+        for idx, section in enumerate(sections)
+    ]
+    return CoursewareOutline(
+        title=outline.title,
+        sections=normalized_sections,
+        total_slides=sum(adjusted) + 2,
+        summary=outline.summary,
+    )
 
 
 def _is_outline_too_sparse(outline: CoursewareOutline) -> bool:
@@ -126,6 +230,12 @@ async def generate_outline(
         )
 
     style_desc = STYLE_REQUIREMENTS.get(template_style, STYLE_REQUIREMENTS["default"])
+    target_pages = _extract_target_pages(user_requirements)
+    target_pages_constraint = (
+        f"本次目标总页数：{target_pages} 页。章节 slide_count 总和应尽量等于该值。"
+        if target_pages
+        else "总页数通常控制在 10-20 页。"
+    )
 
     prompt = f"""你是资深学科教学设计师。
 请基于以下需求生成结构化课件大纲。
@@ -145,13 +255,14 @@ async def generate_outline(
 
 约束：
 1. 章节数 3-8，完整覆盖教学流程（导入 -> 讲授 -> 案例/练习 -> 总结）。
-2. 每章 3-6 个关键要点，必须包含“互动提问”或“板书逻辑”相关要点。
-3. 总页数通常控制在 10-20 页。
+2. 每章 3-6 个关键要点，且每章必须同时包含“互动提问”和“板书逻辑”相关要点。
+3. 整体必须覆盖“知识地图”“关键例题”“易错点澄清”三类教学要素（至少各出现一次）。
+4. {target_pages_constraint}
 """
     try:
         response = await ai_service.generate(
             prompt=prompt,
-            route_task=ModelRouteTask.OUTLINE_FORMATTING.value,
+            route_task=ModelRouteTask.LESSON_PLAN_REASONING.value,
             has_rag_context=bool(rag_context),
             max_tokens=1500,
         )
@@ -175,7 +286,9 @@ async def generate_outline(
         )
         if _is_outline_too_sparse(outline):
             logger.warning("Outline generation returned sparse structure, enriching")
-            return _enrich_sparse_outline(outline)
+            outline = _enrich_sparse_outline(outline)
+        outline = _inject_focus_anchors(outline)
+        outline = _align_slide_count_with_target(outline, target_pages)
         return outline
     except Exception as exc:
         logger.warning("Outline generation failed: %s, using fallback", exc)
