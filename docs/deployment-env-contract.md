@@ -219,6 +219,41 @@
 - artifact generator 默认会读取这个变量
 - Docker / 多机准备阶段建议挂到共享运行时卷，例如 `/var/lib/spectra/artifacts`
 
+### `POSTGRES_BACKUP_DIR`
+
+用途：
+- PostgreSQL 逻辑备份落盘目录
+
+建议：
+- 切库和云部署阶段应显式配置
+- 应为共享、绝对路径，例如 `/var/lib/spectra/backups` 或 `/var/backups/spectra`
+- 不建议继续依赖 repo-local `backup/`
+
+### `POSTGRES_RESTORE_STAGING_DIR`
+
+用途：
+- PostgreSQL 恢复时的 staging 目录
+
+建议：
+- 切库和恢复演练阶段建议显式配置
+- 应为共享、绝对路径，例如 `/var/lib/spectra/restore-staging`
+
+### `POSTGRES_BACKUP_RETENTION_DAYS`
+
+用途：
+- PostgreSQL 备份保留天数
+
+建议：
+- 建议显式配置为正整数
+
+### `POSTGRES_BACKUP_PREFIX`
+
+用途：
+- PostgreSQL 备份文件名前缀
+
+建议：
+- 建议按环境/项目显式配置，例如 `spectra-demo`
+
 ### `GENERATED_DIR`
 
 用途：

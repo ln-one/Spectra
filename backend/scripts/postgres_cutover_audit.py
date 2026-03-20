@@ -9,6 +9,7 @@ from typing import Mapping
 
 from scripts.deploy_preflight import evaluate_preflight
 from scripts.distributed_deploy_audit import evaluate_distributed_readiness
+from scripts.postgres_backup_restore_audit import evaluate_backup_restore_readiness
 from scripts.postgres_shadow_stack_audit import evaluate_shadow_stack
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,6 +63,10 @@ def evaluate_cutover_readiness(
     )
     messages.extend(_prefix("distributed", distributed_messages[1:]))
     failures += distributed_failures
+
+    backup_messages, backup_failures = evaluate_backup_restore_readiness(env)
+    messages.extend(_prefix("backup", backup_messages[1:]))
+    failures += backup_failures
 
     if shadow_compose_text is None:
         failures += 1

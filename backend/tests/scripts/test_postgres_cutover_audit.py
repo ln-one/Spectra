@@ -66,6 +66,10 @@ def test_cutover_audit_passes_with_shadow_stack_and_postgres_env():
             "UPLOAD_DIR": "/var/lib/spectra/uploads",
             "ARTIFACT_STORAGE_DIR": "/var/lib/spectra/artifacts",
             "GENERATED_DIR": "/var/lib/spectra/generated",
+            "POSTGRES_BACKUP_DIR": "/var/lib/spectra/backups",
+            "POSTGRES_RESTORE_STAGING_DIR": "/var/lib/spectra/restore-staging",
+            "POSTGRES_BACKUP_RETENTION_DAYS": "14",
+            "POSTGRES_BACKUP_PREFIX": "spectra-demo",
         },
         prisma_provider="postgresql",
         base_compose_text="""
@@ -134,6 +138,10 @@ services:
     )
     assert any(
         "[distributed] [worker] PASS recommended WORKER_NAME configured" in m
+        for m in messages
+    )
+    assert any(
+        "[backup] PASS POSTGRES_BACKUP_DIR points to shared backup path" in m
         for m in messages
     )
     assert any("[shadow] PASS postgres service declared" in m for m in messages)
