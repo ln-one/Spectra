@@ -218,6 +218,7 @@
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_recovery_drill.py`（把 backup audit、toolchain、backup/restore dry-run 串成一次恢复演练）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py`（把 cutover audit、recovery drill、可选 shadow smoke 串成一次完整 rehearsal；可配合 `--use-shadow-env --run-shadow-flow` 直接暴露真实 PostgreSQL baseline 阻塞项）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_live_stack_flow.py`（直接拉起主 PostgreSQL compose 栈，等待 `/health`，运行 smoke checks，并在验证后自动 teardown）
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_live_prisma_validate.py`（对当前主 PostgreSQL schema 执行 `prisma validate`、`prisma migrate deploy`、`prisma generate`，用于切库后的 live Prisma 校验）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py`（会同时检查 migration lock 与 migration SQL baseline readiness）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_schema_variant.py`（生成不改动主 schema 的 PostgreSQL Prisma variant，用于 shadow 验证与 baseline 预演）
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_baseline_promotion_audit.py`（检查 draft baseline package 是否已经具备进入 live Prisma migration 评审的条件）
@@ -304,6 +305,8 @@ PostgreSQL 迁移不是“换个连接串”这么简单。
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_flow.py --run`
 - End-to-end shadow flow with app services and live smoke:
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_flow.py --run --with-app --live-smoke`
+- Live PostgreSQL stack flow with live Prisma validation and smoke:
+  - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_live_stack_flow.py --run --run-prisma --live-smoke`
 - Aggregate rehearsal including Prisma shadow execution:
   - set `POSTGRES_SHADOW_DATABASE_URL=postgresql://...`
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py --run-prisma-shadow`

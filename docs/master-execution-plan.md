@@ -217,6 +217,7 @@ Focus especially on:
 - keep a Prisma shadow validation command ready to render a PostgreSQL schema variant, validate it, push it to the shadow database, and regenerate the client
 - keep a single PostgreSQL shadow flow command ready to bring infra up, execute Prisma shadow validation, optionally run live smoke, and tear the shadow stack down
 - keep a live PostgreSQL stack flow command ready to bring the real compose stack up, wait for backend health, run smoke checks, and tear the stack down cleanly
+- keep a live PostgreSQL Prisma validation command ready to validate the main schema, run `prisma migrate deploy`, regenerate the client, and plug that validation into the live stack flow
 - keep a dry-run PostgreSQL recovery drill ready for rollback rehearsals
 - keep a local PostgreSQL shadow env overlay ready so cutover rehearsal can self-supply shadow DATABASE_URL, shared runtime storage, model defaults, backup paths, and Docker toolchain fallback
 - treat the remaining PostgreSQL blockers as baseline-promotion work, not generic readiness work

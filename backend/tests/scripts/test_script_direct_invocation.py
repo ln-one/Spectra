@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -93,6 +94,27 @@ def test_postgres_live_stack_flow_runs_directly() -> None:
 
     assert result.returncode == 0
     assert "PostgreSQL live stack flow" in result.stdout
+    assert "Dry run only" in result.stdout
+
+
+def test_postgres_live_prisma_validate_runs_directly() -> None:
+    env = os.environ | {
+        "DATABASE_URL": "postgresql://spectra:spectra@127.0.0.1:5432/spectra"
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "backend/scripts/postgres_live_prisma_validate.py"),
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 0
+    assert "PostgreSQL live Prisma validation readiness" in result.stdout
     assert "Dry run only" in result.stdout
 
 

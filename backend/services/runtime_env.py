@@ -27,13 +27,11 @@ def _rewrite_database_netloc(split: SplitResult, host: str) -> str:
     return f"{auth}{host}{port_suffix}"
 
 
-def normalize_database_url_for_host_runtime(
-    env_var: str = "DATABASE_URL",
-) -> str | None:
+def normalize_database_url(value: str | None, *, inside_container: bool) -> str | None:
     """Rewrite compose-only PostgreSQL hostnames to localhost for host-side runs."""
 
-    raw = (os.getenv(env_var) or "").strip()
-    if not raw or _running_inside_container():
+    raw = (value or "").strip()
+    if not raw or inside_container:
         return raw or None
 
     parsed = urlsplit(raw)
@@ -44,7 +42,7 @@ def normalize_database_url_for_host_runtime(
     if host not in _LOCALHOST_REWRITE_HOSTS:
         return raw
 
-    rewritten = urlunsplit(
+    return urlunsplit(
         (
             parsed.scheme,
             _rewrite_database_netloc(parsed, "127.0.0.1"),
@@ -53,5 +51,18 @@ def normalize_database_url_for_host_runtime(
             parsed.fragment,
         )
     )
+
+
+def normalize_database_url_for_host_runtime(
+    env_var: str = "DATABASE_URL",
+) -> str | None:
+    """Rewrite compose-only PostgreSQL hostnames to localhost for host-side runs."""
+
+    rewritten = normalize_database_url(
+        os.getenv(env_var),
+        inside_container=_running_inside_container(),
+    )
+    if rewritten is None:
+        return None
     os.environ[env_var] = rewritten
     return rewritten
