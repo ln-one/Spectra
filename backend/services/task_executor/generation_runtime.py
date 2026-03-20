@@ -56,6 +56,7 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
         ),
         outline_document=outline_document,
         outline_version=outline_version,
+        session_id=context.session_id,
     )
     return courseware_content
 

@@ -10,6 +10,7 @@ async def retrieve_rag_context(
     query: str,
     top_k: int = 5,
     score_threshold: float = 0.3,
+    session_id: Optional[str] = None,
 ) -> Optional[list[dict]]:
     from services.rag_service import rag_service
 
@@ -19,6 +20,7 @@ async def retrieve_rag_context(
             query=query,
             top_k=top_k,
             score_threshold=score_threshold,
+            session_id=session_id,
         )
         if results:
             return [r.model_dump() for r in results]

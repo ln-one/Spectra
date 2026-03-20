@@ -292,7 +292,12 @@ class AIService(CoursewareAIMixin):
         return parse_modify_intent_by_keywords(instruction)
 
     async def _retrieve_rag_context(
-        self, project_id: str, query: str, top_k: int = 5, score_threshold: float = 0.3
+        self,
+        project_id: str,
+        query: str,
+        top_k: int = 5,
+        score_threshold: float = 0.3,
+        session_id: Optional[str] = None,
     ):
         return await retrieve_rag_context(
             self,
@@ -300,4 +305,5 @@ class AIService(CoursewareAIMixin):
             query=query,
             top_k=top_k,
             score_threshold=score_threshold,
+            session_id=session_id,
         )

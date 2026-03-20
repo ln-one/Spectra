@@ -135,16 +135,71 @@ async def _emit_outline_progress(append_event, session_id: str, trace_id: str) -
     )
 
 
+async def _build_session_conversation_requirements(
+    *, db, project_id: str, session_id: str
+) -> str:
+    project = await db.project.find_unique(where={"id": project_id})
+    if not project:
+        return "生成课件大纲"
+
+    project_name = getattr(project, "name", None)
+    project_description = getattr(project, "description", None)
+
+    conversation_model = getattr(db, "conversation", None)
+    if conversation_model is None:
+        messages = []
+    else:
+        messages = await conversation_model.find_many(
+            where={"projectId": project_id, "sessionId": session_id},
+            take=10,
+            order={"createdAt": "desc"},
+        )
+    user_messages = [
+        msg
+        for msg in reversed(messages)
+        if getattr(msg, "role", None) == "user"
+        or (isinstance(msg, dict) and msg.get("role") == "user")
+    ]
+
+    requirement_parts = []
+    if project_name:
+        requirement_parts.append(f"项目名称：{project_name}")
+    if project_description:
+        requirement_parts.append(f"项目描述：{project_description}")
+    if user_messages:
+        requirement_parts.append("\n当前会话用户需求：")
+        for msg in user_messages[-3:]:
+            content = (
+                msg.get("content")
+                if isinstance(msg, dict)
+                else getattr(msg, "content", None)
+            )
+            if content:
+                requirement_parts.append(f"- {content}")
+    return "\n".join(requirement_parts) if requirement_parts else "生成课件大纲"
+
+
 async def _generate_outline_doc(
     *, db, session_id: str, project_id: str, options, ai_service_obj
 ):
     project = await db.project.find_unique(where={"id": project_id})
-    requirement_text = _build_outline_requirements(project, options)
+    conversation_requirements = await _build_session_conversation_requirements(
+        db=db,
+        project_id=project_id,
+        session_id=session_id,
+    )
+    outline_requirements = _build_outline_requirements(project, options)
+    requirement_text = "\n\n".join(
+        part.strip()
+        for part in [conversation_requirements, outline_requirements]
+        if part and part.strip()
+    )
     template_style = (options or {}).get("template") or "default"
     outline = await ai_service_obj.generate_outline(
         project_id=project_id,
         user_requirements=requirement_text,
         template_style=template_style,
+        session_id=session_id,
     )
     return _courseware_outline_to_document(
         outline,

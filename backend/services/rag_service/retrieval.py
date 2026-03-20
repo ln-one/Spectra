@@ -5,20 +5,11 @@ from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
 from services.media.vector import Collection
 
 
-async def search(
-    service,
-    project_id: str,
-    query: str,
-    top_k: int = 5,
-    filters: Optional[dict] = None,
-    score_threshold: float = 0.0,
+def _build_where_clause(
+    *,
     session_id: Optional[str] = None,
-) -> list[RAGResult]:
-    collection = service._vector.get_collection_if_exists(project_id)
-    if collection is None or collection.count() == 0:
-        return []
-
-    where = None
+    filters: Optional[dict] = None,
+) -> Optional[dict]:
     conditions = []
     if session_id:
         conditions.append({"session_id": {"$eq": session_id}})
@@ -31,18 +22,13 @@ async def search(
         if filters.get("file_ids"):
             conditions.append({"upload_id": {"$in": filters["file_ids"]}})
     if len(conditions) == 1:
-        where = conditions[0]
-    elif len(conditions) > 1:
-        where = {"$and": conditions}
+        return conditions[0]
+    if len(conditions) > 1:
+        return {"$and": conditions}
+    return None
 
-    query_embedding = await service._embedding.embed_text(query)
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=min(top_k, collection.count()),
-        where=where,
-        include=["documents", "metadatas", "distances"],
-    )
 
+def _build_rag_results(results) -> list[RAGResult]:
     rag_results = []
     if results["ids"] and results["ids"][0]:
         for i, chunk_id in enumerate(results["ids"][0]):
@@ -65,6 +51,57 @@ async def search(
                     metadata=meta,
                 )
             )
+    return rag_results
+
+
+async def search(
+    service,
+    project_id: str,
+    query: str,
+    top_k: int = 5,
+    filters: Optional[dict] = None,
+    score_threshold: float = 0.0,
+    session_id: Optional[str] = None,
+) -> list[RAGResult]:
+    collection = service._vector.get_collection_if_exists(project_id)
+    if collection is None or collection.count() == 0:
+        return []
+
+    query_embedding = await service._embedding.embed_text(query)
+    base_where = _build_where_clause(filters=filters)
+    result_sets = []
+    session_where = _build_where_clause(session_id=session_id, filters=filters)
+
+    if session_where is not None:
+        result_sets.append(
+            collection.query(
+                query_embeddings=[query_embedding],
+                n_results=min(top_k, collection.count()),
+                where=session_where,
+                include=["documents", "metadatas", "distances"],
+            )
+        )
+    result_sets.append(
+        collection.query(
+            query_embeddings=[query_embedding],
+            n_results=min(top_k, collection.count()),
+            where=base_where,
+            include=["documents", "metadatas", "distances"],
+        )
+    )
+
+    merged_by_chunk: dict[str, RAGResult] = {}
+    for raw_result in result_sets:
+        for item in _build_rag_results(raw_result):
+            existing = merged_by_chunk.get(item.chunk_id)
+            if existing is None or item.score > existing.score:
+                merged_by_chunk[item.chunk_id] = item
+
+    rag_results = sorted(
+        merged_by_chunk.values(),
+        key=lambda item: item.score,
+        reverse=True,
+    )[:top_k]
 
     if score_threshold > 0.0:
         rag_results = [r for r in rag_results if r.score >= score_threshold]

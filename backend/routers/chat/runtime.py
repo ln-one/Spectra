@@ -8,6 +8,8 @@ from schemas.chat import ChatRouteTask, SendMessageRequest
 from services.ai import ai_service
 from services.ai.model_router import ModelRouteTask
 from services.database import db_service
+from services.generation_session_service import GenerationSessionService
+from services.generation_session_service.constants import SessionOutputType
 from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 from utils.exceptions import APIException
 from utils.responses import error_response, success_response
@@ -34,6 +36,26 @@ from .shared import (
 )
 
 
+async def _ensure_chat_session(
+    *,
+    project_id: str,
+    user_id: str,
+    session_id: str | None,
+) -> str:
+    if session_id:
+        return session_id
+
+    service = GenerationSessionService(db_service.db)
+    session_ref = await service.create_session(
+        project_id=project_id,
+        user_id=user_id,
+        output_type=SessionOutputType.BOTH.value,
+        bootstrap_only=True,
+        task_queue_service=None,
+    )
+    return str(session_ref["session_id"])
+
+
 async def process_chat_message(
     body: SendMessageRequest,
     *,
@@ -53,7 +75,11 @@ async def process_chat_message(
             if cached_response:
                 return cached_response
 
-        session_id = body.session_id
+        session_id = await _ensure_chat_session(
+            project_id=body.project_id,
+            user_id=user_id,
+            session_id=body.session_id,
+        )
         user_message_metadata = {
             **(body.metadata or {}),
             **({"idempotency_key": key_str} if key_str else {}),

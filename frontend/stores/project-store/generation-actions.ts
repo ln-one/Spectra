@@ -187,6 +187,13 @@ export function createGenerationActions({
           get().activeSessionId ??
           get().generationSession?.session?.session_id ??
           null;
+        if (!effectiveSessionId) {
+          set({
+            artifactHistoryByTool: groupArtifactsByTool([]),
+            currentSessionArtifacts: [],
+          });
+          return;
+        }
         const artifactHistoryByTool = groupArtifactsByTool(
           artifacts,
           effectiveSessionId

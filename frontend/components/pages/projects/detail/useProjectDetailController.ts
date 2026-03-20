@@ -129,7 +129,6 @@ export function useProjectDetailController() {
 
     void fetchProject(projectId);
     void fetchFiles(projectId);
-    void fetchMessages(projectId);
     void fetchGenerationHistory(projectId);
 
     return () => {
@@ -156,9 +155,21 @@ export function useProjectDetailController() {
       if (activeSessionId !== null) {
         setActiveSessionId(null);
       }
-      useProjectStore.setState({ generationSession: null });
-      void fetchMessages(projectId, null);
-      void fetchArtifactHistory(projectId, null);
+      useProjectStore.setState({
+        generationSession: null,
+        messages: [],
+        artifactHistoryByTool: {
+          ppt: [],
+          word: [],
+          mindmap: [],
+          outline: [],
+          quiz: [],
+          summary: [],
+          animation: [],
+          handout: [],
+        },
+        currentSessionArtifacts: [],
+      });
       return;
     }
 

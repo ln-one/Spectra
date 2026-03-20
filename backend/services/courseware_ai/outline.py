@@ -15,11 +15,16 @@ async def generate_outline(
     project_id: str,
     user_requirements: str,
     template_style: str = "default",
+    session_id: str | None = None,
 ) -> CoursewareOutline:
     """根据需求生成结构化课件大纲。"""
     from services.prompt_service import STYLE_REQUIREMENTS, _format_rag_context
 
-    rag_context = await ai_service._retrieve_rag_context(project_id, user_requirements)
+    rag_context = await ai_service._retrieve_rag_context(
+        project_id,
+        user_requirements,
+        session_id=session_id,
+    )
 
     rag_hint = ""
     if rag_context:

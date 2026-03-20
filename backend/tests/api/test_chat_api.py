@@ -9,6 +9,7 @@ import pytest
 from main import app
 from services.ai import ai_service
 from services.database import db_service
+from services.generation_session_service import GenerationSessionService
 from services.rag_service import rag_service
 from utils.dependencies import get_current_user
 
@@ -64,6 +65,15 @@ def _as_user():
     app.dependency_overrides.pop(get_current_user, None)
 
 
+@pytest.fixture(autouse=True)
+def _mock_chat_bootstrap_session(monkeypatch):
+    monkeypatch.setattr(
+        GenerationSessionService,
+        "create_session",
+        AsyncMock(return_value={"session_id": "s-bootstrap-001"}),
+    )
+
+
 def test_send_message_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     monkeypatch.setattr(
@@ -91,6 +101,42 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert body["data"]["message"]["role"] == "assistant"
     assert body["data"]["message"]["content"] == "assistant reply"
     assert len(body["data"]["suggestions"]) == 3
+
+
+def test_send_message_bootstraps_session_when_missing(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        GenerationSessionService,
+        "create_session",
+        AsyncMock(return_value={"session_id": "s-bootstrap-001"}),
+    )
+    create_mock = AsyncMock(
+        side_effect=[
+            _fake_conv(role="user", conv_id="c-user", sessionId="s-bootstrap-001"),
+            _fake_conv(
+                role="assistant",
+                content="assistant reply",
+                conv_id="c-ai",
+                sessionId="s-bootstrap-001",
+            ),
+        ]
+    )
+    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+    _mock(monkeypatch, rag_service, "search", [])
+    _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["session_id"] == "s-bootstrap-001"
+    assert create_mock.await_args_list[0].kwargs["session_id"] == "s-bootstrap-001"
 
 
 def test_send_message_rewrites_mechanical_option_reply(client, monkeypatch, _as_user):
