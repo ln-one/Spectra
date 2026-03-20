@@ -1,6 +1,10 @@
 import json
 from typing import Optional
 
+from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
+
+_UNSET = object()
+
 
 class FileMixin:
     async def create_upload(
@@ -26,14 +30,28 @@ class FileMixin:
     async def get_project_files(self, project_id: str, page: int, limit: int):
         skip = (page - 1) * limit
         return await self.db.upload.find_many(
-            where={"projectId": project_id},
+            where={
+                "projectId": project_id,
+                "OR": [
+                    {"usageIntent": None},
+                    {"usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}},
+                ],
+            },
             skip=skip,
             take=limit,
             order={"createdAt": "desc"},
         )
 
     async def count_project_files(self, project_id: str) -> int:
-        return await self.db.upload.count(where={"projectId": project_id})
+        return await self.db.upload.count(
+            where={
+                "projectId": project_id,
+                "OR": [
+                    {"usageIntent": None},
+                    {"usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}},
+                ],
+            }
+        )
 
     async def get_file(self, file_id: str):
         return await self.db.upload.find_unique(where={"id": file_id})
@@ -51,13 +69,15 @@ class FileMixin:
         self,
         file_id: str,
         status: str,
-        parse_result: Optional[dict] = None,
-        error_message: Optional[str] = None,
+        parse_result: Optional[dict] | object = _UNSET,
+        error_message: Optional[str] | object = _UNSET,
     ):
         data: dict = {"status": status}
-        if parse_result is not None:
-            data["parseResult"] = json.dumps(parse_result)
-        if error_message is not None:
+        if parse_result is not _UNSET:
+            data["parseResult"] = (
+                json.dumps(parse_result) if parse_result is not None else None
+            )
+        if error_message is not _UNSET:
             data["errorMessage"] = error_message
         return await self.db.upload.update(where={"id": file_id}, data=data)
 

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
 from services.project_space_service import ProjectSpaceService
 from services.project_space_service.artifact_semantics import (
     ArtifactMetadataKind,
@@ -150,3 +151,62 @@ def test_artifact_visibility_helpers_use_formal_vocabulary():
     assert is_artifact_project_visible("project-visible") is True
     assert is_artifact_shared("shared") is True
     assert is_artifact_shared("private") is False
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_silently_accretes_text_into_library(monkeypatch):
+    service = ProjectSpaceService()
+    artifact = SimpleNamespace(
+        id="artifact-004",
+        projectId="project-001",
+        type="summary",
+        storagePath="generated/summary.json",
+    )
+    create_artifact = AsyncMock(return_value=artifact)
+    create_upload = AsyncMock(return_value=SimpleNamespace(id="upload-001"))
+    update_file_intent = AsyncMock()
+    update_upload_status = AsyncMock()
+    create_parsed_chunks = AsyncMock(return_value=[SimpleNamespace(id="chunk-001")])
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(return_value=None),
+        create_upload=create_upload,
+        update_file_intent=update_file_intent,
+        update_upload_status=update_upload_status,
+        create_parsed_chunks=create_parsed_chunks,
+    )
+
+    generate_summary = AsyncMock(return_value="generated/summary.json")
+    index_chunks = AsyncMock(return_value=1)
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        generate_summary,
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.rag_service.index_chunks",
+        index_chunks,
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.Path.stat",
+        lambda self: SimpleNamespace(st_size=128),
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        session_id="session-001",
+        content={"mode": "outline", "title": "课程大纲", "summary": "讲解牛顿第二定律"},
+    )
+
+    update_file_intent.assert_awaited_once_with(
+        "upload-001",
+        SILENT_ACCRETION_USAGE_INTENT,
+    )
+    metadata = create_parsed_chunks.await_args.kwargs["chunks"][0]["metadata"]
+    assert metadata["artifact_id"] == "artifact-004"
+    assert metadata["source_type"] == "ai_generated"
+    assert metadata["session_id"] == "session-001"
+    parse_result = update_upload_status.await_args.kwargs["parse_result"]
+    assert parse_result["silent_accretion"] is True

@@ -17,6 +17,33 @@ from .indexing import _SYNC_RAG_INDEXING, dispatch_rag_indexing, index_upload_fo
 from .serialization import serialize_upload
 
 
+def _build_upload_response_message(file_payload: dict) -> str:
+    status = str(file_payload.get("status") or "").lower()
+    if status == UploadStatus.READY.value:
+        return "文件上传并解析完成"
+    if status == UploadStatus.FAILED.value:
+        return "文件已上传，但解析失败"
+    if status in {UploadStatus.PARSING.value, UploadStatus.UPLOADING.value}:
+        return "文件上传成功，正在解析中"
+    return "文件上传成功"
+
+
+def _build_batch_upload_response_message(files: list[dict], failed: list[dict]) -> str:
+    if failed and not files:
+        return "批量上传失败"
+
+    statuses = {str(item.get("status") or "").lower() for item in files}
+    if failed:
+        return "批量上传完成，部分文件失败"
+    if UploadStatus.FAILED.value in statuses:
+        return "批量上传完成，部分文件解析失败"
+    if statuses & {UploadStatus.PARSING.value, UploadStatus.UPLOADING.value}:
+        return "批量上传完成，文件正在解析中"
+    if statuses == {UploadStatus.READY.value}:
+        return "批量上传并解析完成"
+    return "批量上传完成"
+
+
 async def save_and_record_upload(file: UploadFile, project_id: str):
     validate_upload_file(file.filename)
     content = await file.read()
@@ -50,6 +77,7 @@ async def _prepare_uploaded_file(
         await index_upload_for_rag(latest, project_id, session_id)
     else:
         dispatch_rag_indexing(request, background_tasks, latest, project_id, session_id)
+    latest = await db_service.get_file(upload.id)
     return serialize_upload(latest)
 
 
@@ -69,7 +97,10 @@ async def upload_file_response(
         project_id=project_id,
         session_id=session_id,
     )
-    return success_response(data={"file": file_payload}, message="文件上传成功")
+    return success_response(
+        data={"file": file_payload},
+        message=_build_upload_response_message(file_payload),
+    )
 
 
 async def batch_upload_files_response(
@@ -104,5 +135,5 @@ async def batch_upload_files_response(
             "total": len(uploaded_files),
             "failed": failed or None,
         },
-        message="批量上传完成",
+        message=_build_batch_upload_response_message(uploaded_files, failed),
     )

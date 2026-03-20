@@ -3,10 +3,17 @@
 import html
 import logging
 import uuid
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from schemas.project_space import ArtifactType
 from services.artifact_generator import artifact_generator
+from services.chunking import split_text
+from services.file_upload_service.constants import (
+    UploadStatus,
+)
+from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
+from services.rag_service import ParsedChunkData, rag_service
 from utils.exceptions import ValidationException
 
 from .artifact_semantics import (
@@ -20,6 +27,196 @@ from .artifact_semantics import (
 )
 
 logger = logging.getLogger(__name__)
+
+_ARTIFACT_SOURCE_TYPE = "ai_generated"
+_ACCRETION_CHUNK_SIZE = 500
+_ACCRETION_CHUNK_OVERLAP = 50
+
+
+def _stringify_nodes(nodes: list[dict]) -> list[str]:
+    lines: list[str] = []
+
+    def visit(node: dict, depth: int = 0) -> None:
+        title = str(node.get("title") or "").strip()
+        if title:
+            lines.append(f'{"  " * depth}- {title}')
+        for key in ("summary", "description", "content"):
+            value = str(node.get(key) or "").strip()
+            if value:
+                lines.append(f'{"  " * (depth + 1)}{value}')
+        for child in node.get("children") or []:
+            if isinstance(child, dict):
+                visit(child, depth + 1)
+
+    for node in nodes or []:
+        if isinstance(node, dict):
+            visit(node)
+    return lines
+
+
+def _build_artifact_accretion_text(
+    artifact_type: str,
+    content: Optional[Dict[str, Any]],
+) -> str:
+    normalized = normalize_artifact_content(artifact_type, content)
+    lines: list[str] = []
+    title = str(normalized.get("title") or "").strip()
+    if title:
+        lines.append(f"标题：{title}")
+    kind = str(normalized.get("kind") or "").strip()
+    if kind:
+        lines.append(f"类型：{kind}")
+
+    for key in ("summary", "description", "html", "markdown_content", "prompt"):
+        value = str(normalized.get(key) or "").strip()
+        if value:
+            lines.append(value)
+
+    for node_key in ("nodes", "mindmap", "sections"):
+        raw_nodes = normalized.get(node_key)
+        if isinstance(raw_nodes, list):
+            lines.extend(_stringify_nodes(raw_nodes))
+
+    questions = normalized.get("questions") or normalized.get("items") or []
+    for item in questions:
+        if not isinstance(item, dict):
+            continue
+        stem = str(item.get("question") or item.get("title") or "").strip()
+        if stem:
+            lines.append(f"题目：{stem}")
+        for option in item.get("options") or []:
+            lines.append(f"- {option}")
+        answer = item.get("answer")
+        if answer:
+            lines.append(f"答案：{answer}")
+        explanation = str(item.get("explanation") or "").strip()
+        if explanation:
+            lines.append(f"解析：{explanation}")
+
+    scenes = normalized.get("scenes") or []
+    for scene in scenes:
+        if not isinstance(scene, dict):
+            continue
+        scene_title = str(scene.get("title") or "").strip()
+        scene_description = str(scene.get("description") or "").strip()
+        if scene_title:
+            lines.append(f"场景：{scene_title}")
+        if scene_description:
+            lines.append(scene_description)
+
+    deduped_lines = [line for line in lines if line and line.strip()]
+    return "\n".join(deduped_lines).strip()
+
+
+def _derive_artifact_upload_filename(
+    artifact_id: str,
+    artifact_type: str,
+    title: Optional[str],
+) -> str:
+    safe_title = "".join(
+        ch if ch.isalnum() or ch in ("-", "_") else "-"
+        for ch in str(title or "").strip()
+    ).strip("-")
+    prefix = safe_title or artifact_type or "artifact"
+    return f"{prefix[:48]}-{artifact_id[:8]}.{artifact_type}"
+
+
+async def _silently_accrete_artifact(
+    *,
+    db,
+    artifact,
+    project_id: str,
+    artifact_type: str,
+    visibility: str,
+    session_id: Optional[str],
+    normalized_content: Dict[str, Any],
+) -> None:
+    if not all(
+        hasattr(db, attr)
+        for attr in (
+            "create_upload",
+            "update_file_intent",
+            "update_upload_status",
+            "create_parsed_chunks",
+        )
+    ):
+        return
+
+    text = _build_artifact_accretion_text(artifact_type, normalized_content)
+    if not text:
+        return
+
+    title = normalized_content.get("title")
+    filename = _derive_artifact_upload_filename(artifact.id, artifact_type, title)
+    storage_path = getattr(
+        artifact, "storagePath", None
+    ) or artifact_generator.get_storage_path(project_id, artifact_type, artifact.id)
+    try:
+        size = Path(storage_path).stat().st_size if storage_path else len(text.encode())
+    except OSError:
+        size = len(text.encode())
+
+    upload = await db.create_upload(
+        filename=filename,
+        filepath=storage_path or f"artifacts/{filename}",
+        size=size,
+        project_id=project_id,
+        file_type=artifact_type,
+        mime_type="text/plain",
+    )
+    await db.update_file_intent(upload.id, SILENT_ACCRETION_USAGE_INTENT)
+
+    metadata = {
+        "filename": filename,
+        "source_type": _ARTIFACT_SOURCE_TYPE,
+        "artifact_id": artifact.id,
+        "artifact_type": artifact_type,
+        "accretion": "silent",
+    }
+    if visibility == "private" and session_id:
+        metadata["session_id"] = session_id
+
+    chunks = split_text(
+        text,
+        chunk_size=_ACCRETION_CHUNK_SIZE,
+        chunk_overlap=_ACCRETION_CHUNK_OVERLAP,
+    ) or [text]
+    chunk_payloads = [
+        {
+            "chunk_index": idx,
+            "content": chunk,
+            "metadata": dict(metadata),
+        }
+        for idx, chunk in enumerate(chunks)
+    ]
+    db_chunks = await db.create_parsed_chunks(
+        upload_id=upload.id,
+        source_type=_ARTIFACT_SOURCE_TYPE,
+        chunks=chunk_payloads,
+    )
+    rag_chunks = [
+        ParsedChunkData(
+            chunk_id=db_chunk.id,
+            content=payload["content"],
+            metadata=payload["metadata"]
+            | {"upload_id": upload.id, "chunk_index": payload["chunk_index"]},
+        )
+        for db_chunk, payload in zip(db_chunks, chunk_payloads)
+    ]
+    indexed_count = await rag_service.index_chunks(project_id, rag_chunks)
+    await db.update_upload_status(
+        upload.id,
+        status=UploadStatus.READY.value,
+        parse_result={
+            "chunk_count": len(chunk_payloads),
+            "indexed_count": indexed_count,
+            "text_length": len(text),
+            "source_type": _ARTIFACT_SOURCE_TYPE,
+            "artifact_id": artifact.id,
+            "silent_accretion": True,
+        },
+        error_message=None,
+    )
 
 
 def _build_animation_storyboard_html(content: Dict[str, Any]) -> str:
@@ -175,7 +372,7 @@ async def create_artifact_with_file(
         logger.error(f"Failed to generate artifact file: {exc}")
         raise
 
-    return await db.create_artifact(
+    artifact = await db.create_artifact(
         project_id=project_id,
         artifact_type=artifact_type,
         visibility=visibility,
@@ -185,3 +382,22 @@ async def create_artifact_with_file(
         storage_path=storage_path,
         metadata=build_artifact_metadata(artifact_type, normalized_content, user_id),
     )
+    try:
+        await _silently_accrete_artifact(
+            db=db,
+            artifact=artifact,
+            project_id=project_id,
+            artifact_type=artifact_type,
+            visibility=visibility,
+            session_id=session_id,
+            normalized_content=normalized_content,
+        )
+    except Exception as exc:
+        logger.warning(
+            "artifact_silent_accretion_failed: artifact=%s project=%s error=%s",
+            getattr(artifact, "id", None),
+            project_id,
+            exc,
+            exc_info=True,
+        )
+    return artifact
