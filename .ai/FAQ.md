@@ -1,6 +1,6 @@
 # 常见问题
 
-> 最后更新：2026-02-26
+> 最后更新：2026-03-20
 
 ## 项目结构
 
@@ -40,7 +40,7 @@
 1. 编辑 `docs/openapi/paths/{模块}.yaml` 或 `docs/openapi/schemas/{模块}.yaml`
 2. 运行 `npm run bundle:openapi` 打包
 3. 运行 `npm run validate:openapi` 验证
-4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts`
+4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts`
 
 详细流程参考：`.ai/guides/api-workflow.md`
 
@@ -51,7 +51,7 @@
 1. 在对应模块的 `paths/{模块}.yaml` 中定义路径
 2. 在 `schemas/{模块}.yaml` 中定义数据模型
 3. 实现后端处理器（`backend/routers/`）
-4. 实现前端调用（`frontend/lib/api/`）
+4. 实现前端调用（`frontend/lib/sdk/`，按需补充 `frontend/lib/project-space/` 领域封装）
 5. 编写测试
 
 ### Q: 如何验证 API 规范？
@@ -123,7 +123,7 @@ docs(api): 更新认证接口文档
 **A**: 参考 `.ai/guides/creating-component.md`
 
 基本步骤：
-1. 在 `frontend/components/` 创建组件文件
+1. 页面实现优先放 `frontend/app/**/_views/`，项目域功能组件放 `frontend/components/project/features/`
 2. 使用 Shadcn/ui 组件库
 3. 遵循命名规范（PascalCase）
 4. 编写 TypeScript 类型
@@ -289,3 +289,4 @@ docs(api): 更新认证接口文档
 3. 编写代码和测试
 4. 提交 PR
 5. 等待 review
+

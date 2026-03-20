@@ -51,7 +51,7 @@ types/        # 类型
 npm install && npm run dev  # http://localhost:3000
 
 # 生成 API 类型（从打包后的文件）
-npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
+npx openapi-typescript ../docs/openapi.yaml -o lib/sdk/types.ts
 
 # 修改 API 后重新打包
 cd .. && npm run bundle:openapi
@@ -67,3 +67,4 @@ cd .. && npm run bundle:openapi
 ## 团队自定义
 
 <!-- 添加团队约定 -->
+

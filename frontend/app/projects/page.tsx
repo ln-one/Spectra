@@ -1,1 +1,1 @@
-﻿export { default } from "@/components/pages/projects/ProjectsPageView";
+﻿export { default } from "./_views/ProjectsPageView";

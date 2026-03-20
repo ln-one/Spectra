@@ -162,7 +162,7 @@ async def register(request: RegisterRequest):
 
 ```bash
 cd frontend
-npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
+npx openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts
 ```
 
 ### 使用生成的类型
@@ -178,3 +178,4 @@ const response: AuthResponse = await authApi.register(data);
 - [API 契约设计](../architecture/api-contract.md)
 - [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
 - [后端 OpenAPI 同步](../archived/openapi/BACKEND_OPENAPI_SYNC.md)
+

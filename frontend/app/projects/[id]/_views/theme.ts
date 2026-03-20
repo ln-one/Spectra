@@ -1,0 +1,250 @@
+import type { CSSProperties } from "react";
+import type { ThemePresetId } from "@/components/project/features/header/theme";
+
+export const PROJECT_THEME_STORAGE_KEY = "spectra:project-theme";
+
+type ProjectThemePalette = {
+  bgBase: string;
+  bgGradientStart: string;
+  bgGradientEnd: string;
+  bgGlow: string;
+  rayColor: string;
+  headingColor: string;
+  captionColor: string;
+  surface: string;
+  surfaceElevated: string;
+  surfaceMuted: string;
+  border: string;
+  borderStrong: string;
+  textPrimary: string;
+  textMuted: string;
+  accent: string;
+  accentHover: string;
+  accentText: string;
+};
+
+export const PROJECT_THEME_PALETTES: Record<
+  ThemePresetId,
+  ProjectThemePalette
+> = {
+  "mist-zinc": {
+    bgBase: "#f4f4f5",
+    bgGradientStart: "rgba(244, 244, 245, 0.98)",
+    bgGradientEnd: "rgba(228, 228, 231, 0.96)",
+    bgGlow: "rgba(180, 200, 255, 0.14)",
+    rayColor: "rgba(200, 220, 255, 0.12)",
+    headingColor: "#27272a",
+    captionColor: "#71717a",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#f8fafc",
+    border: "rgba(228,228,231,0.85)",
+    borderStrong: "rgba(161,161,170,0.45)",
+    textPrimary: "#27272a",
+    textMuted: "#71717a",
+    accent: "#18181b",
+    accentHover: "#3f3f46",
+    accentText: "#fafafa",
+  },
+  "ocean-cyan": {
+    bgBase: "#ebf4fb",
+    bgGradientStart: "rgba(243, 250, 255, 0.98)",
+    bgGradientEnd: "rgba(216, 236, 251, 0.93)",
+    bgGlow: "rgba(2, 132, 199, 0.15)",
+    rayColor: "rgba(147, 197, 253, 0.22)",
+    headingColor: "#0b3a5e",
+    captionColor: "#0369a1",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#eef8ff",
+    border: "rgba(186, 230, 253, 0.82)",
+    borderStrong: "rgba(3, 105, 161, 0.36)",
+    textPrimary: "#114463",
+    textMuted: "#0e7490",
+    accent: "#0b7fc5",
+    accentHover: "#0369a1",
+    accentText: "#f0f9ff",
+  },
+  "forest-emerald": {
+    bgBase: "#edf8f2",
+    bgGradientStart: "rgba(244, 252, 247, 0.98)",
+    bgGradientEnd: "rgba(220, 243, 231, 0.93)",
+    bgGlow: "rgba(5, 150, 105, 0.14)",
+    rayColor: "rgba(110, 231, 183, 0.2)",
+    headingColor: "#124a2d",
+    captionColor: "#166534",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#eefaf3",
+    border: "rgba(187, 247, 208, 0.8)",
+    borderStrong: "rgba(22, 101, 52, 0.34)",
+    textPrimary: "#124a2d",
+    textMuted: "#166534",
+    accent: "#0f9a68",
+    accentHover: "#047857",
+    accentText: "#ecfdf5",
+  },
+  "sunset-amber": {
+    bgBase: "#fdf4ec",
+    bgGradientStart: "rgba(255, 248, 241, 0.98)",
+    bgGradientEnd: "rgba(253, 231, 212, 0.93)",
+    bgGlow: "rgba(249, 115, 22, 0.14)",
+    rayColor: "rgba(253, 186, 116, 0.21)",
+    headingColor: "#7a3213",
+    captionColor: "#9a3412",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#fff6ed",
+    border: "rgba(254, 215, 170, 0.86)",
+    borderStrong: "rgba(194, 65, 12, 0.36)",
+    textPrimary: "#7a3213",
+    textMuted: "#9a3412",
+    accent: "#e66a1a",
+    accentHover: "#c2410c",
+    accentText: "#fff7ed",
+  },
+  "graphite-blue": {
+    bgBase: "#edf1f7",
+    bgGradientStart: "rgba(244, 247, 252, 0.98)",
+    bgGradientEnd: "rgba(223, 231, 241, 0.93)",
+    bgGlow: "rgba(59, 130, 246, 0.1)",
+    rayColor: "rgba(148, 163, 184, 0.2)",
+    headingColor: "#1f2a3a",
+    captionColor: "#334155",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#f5f7fb",
+    border: "rgba(203, 213, 225, 0.82)",
+    borderStrong: "rgba(71, 85, 105, 0.34)",
+    textPrimary: "#1f2a37",
+    textMuted: "#475569",
+    accent: "#2f6fde",
+    accentHover: "#1d4ed8",
+    accentText: "#eff6ff",
+  },
+  "lavender-slate": {
+    bgBase: "#f4f2fb",
+    bgGradientStart: "rgba(248, 246, 253, 0.98)",
+    bgGradientEnd: "rgba(234, 229, 249, 0.94)",
+    bgGlow: "rgba(124, 58, 237, 0.14)",
+    rayColor: "rgba(196, 181, 253, 0.22)",
+    headingColor: "#4b1f90",
+    captionColor: "#5b21b6",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#f5f2ff",
+    border: "rgba(221, 214, 254, 0.82)",
+    borderStrong: "rgba(109, 40, 217, 0.32)",
+    textPrimary: "#4b1f90",
+    textMuted: "#6d28d9",
+    accent: "#7a45d1",
+    accentHover: "#6d28d9",
+    accentText: "#f5f3ff",
+  },
+  "rose-wine": {
+    bgBase: "#fdf1f5",
+    bgGradientStart: "rgba(255, 246, 249, 0.98)",
+    bgGradientEnd: "rgba(252, 226, 236, 0.93)",
+    bgGlow: "rgba(190, 24, 93, 0.13)",
+    rayColor: "rgba(251, 113, 133, 0.21)",
+    headingColor: "#811a42",
+    captionColor: "#9d174d",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#fff1f4",
+    border: "rgba(252, 165, 165, 0.76)",
+    borderStrong: "rgba(190, 24, 93, 0.34)",
+    textPrimary: "#811a42",
+    textMuted: "#9d174d",
+    accent: "#cc3d79",
+    accentHover: "#be185d",
+    accentText: "#fff1f2",
+  },
+  "teal-mint": {
+    bgBase: "#edf8f7",
+    bgGradientStart: "rgba(242, 252, 249, 0.98)",
+    bgGradientEnd: "rgba(216, 244, 240, 0.93)",
+    bgGlow: "rgba(13, 148, 136, 0.14)",
+    rayColor: "rgba(94, 234, 212, 0.21)",
+    headingColor: "#124b46",
+    captionColor: "#0f766e",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#eefbf8",
+    border: "rgba(153, 246, 228, 0.8)",
+    borderStrong: "rgba(15, 118, 110, 0.34)",
+    textPrimary: "#124b46",
+    textMuted: "#0f766e",
+    accent: "#0c8f83",
+    accentHover: "#0f766e",
+    accentText: "#ecfeff",
+  },
+  "sand-ochre": {
+    bgBase: "#f8f4e9",
+    bgGradientStart: "rgba(251, 247, 236, 0.98)",
+    bgGradientEnd: "rgba(244, 232, 201, 0.92)",
+    bgGlow: "rgba(180, 83, 9, 0.13)",
+    rayColor: "rgba(250, 204, 21, 0.18)",
+    headingColor: "#73340f",
+    captionColor: "#92400e",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#fff8ea",
+    border: "rgba(253, 230, 138, 0.74)",
+    borderStrong: "rgba(161, 98, 7, 0.32)",
+    textPrimary: "#73340f",
+    textMuted: "#a16207",
+    accent: "#b26124",
+    accentHover: "#92400e",
+    accentText: "#fffbeb",
+  },
+  "ink-sky": {
+    bgBase: "#edf3fa",
+    bgGradientStart: "rgba(242, 247, 254, 0.98)",
+    bgGradientEnd: "rgba(219, 232, 249, 0.93)",
+    bgGlow: "rgba(37, 99, 235, 0.14)",
+    rayColor: "rgba(147, 197, 253, 0.22)",
+    headingColor: "#121b2d",
+    captionColor: "#1e3a8a",
+    surface: "rgba(255,255,255,0.95)",
+    surfaceElevated: "#ffffff",
+    surfaceMuted: "#edf3ff",
+    border: "rgba(191, 219, 254, 0.82)",
+    borderStrong: "rgba(37, 99, 235, 0.34)",
+    textPrimary: "#121b2d",
+    textMuted: "#1d4ed8",
+    accent: "#2d55c7",
+    accentHover: "#1e40af",
+    accentText: "#f0f9ff",
+  },
+};
+
+export function isThemePreset(value: string | null): value is ThemePresetId {
+  return !!value && value in PROJECT_THEME_PALETTES;
+}
+
+export function getProjectTheme(themeId: ThemePresetId): ProjectThemePalette {
+  return PROJECT_THEME_PALETTES[themeId];
+}
+
+export function getProjectThemeStyle(themeId: ThemePresetId): CSSProperties {
+  const activeTheme = getProjectTheme(themeId);
+  return {
+    "--project-bg-base": activeTheme.bgBase,
+    "--project-bg-start": activeTheme.bgGradientStart,
+    "--project-bg-end": activeTheme.bgGradientEnd,
+    "--project-bg-glow": activeTheme.bgGlow,
+    "--project-heading": activeTheme.headingColor,
+    "--project-caption": activeTheme.captionColor,
+    "--project-surface": activeTheme.surface,
+    "--project-surface-elevated": activeTheme.surfaceElevated,
+    "--project-surface-muted": activeTheme.surfaceMuted,
+    "--project-border": activeTheme.border,
+    "--project-border-strong": activeTheme.borderStrong,
+    "--project-text-primary": activeTheme.textPrimary,
+    "--project-text-muted": activeTheme.textMuted,
+    "--project-accent": activeTheme.accent,
+    "--project-accent-hover": activeTheme.accentHover,
+    "--project-accent-text": activeTheme.accentText,
+  } as CSSProperties;
+}

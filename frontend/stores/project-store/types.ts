@@ -3,7 +3,7 @@ import {
   groupArtifactsByTool,
   type ArtifactHistoryByTool,
   type ArtifactHistoryItem,
-} from "@/lib/project-space/artifact-history";
+} from "@/lib/project-space";
 import type { ApiErrorShape } from "@/lib/sdk/errors";
 
 export type Project = sdkComponents["schemas"]["Project"];

@@ -83,11 +83,11 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
 ## API 拦截器设计
 
-> REVIEW-P0(blocking) 问题：此处继续使用 Axios 拦截器，与当前 `frontend/lib/api.ts` 的 Fetch 封装方案不一致。 
+> REVIEW-P0(blocking) 问题：此处继续使用 Axios 拦截器，与当前 `frontend/lib/sdk/client.ts` 的 Fetch 封装方案不一致。 
 > REVIEW-P0(blocking) 建议：统一为单一 API 客户端架构，避免出现“双规范并存”。
 
 ```typescript
-// lib/api.ts
+// lib/sdk/client.ts
 import axios from 'axios';
 import { TokenStorage } from './auth/storage';
 
@@ -163,3 +163,4 @@ export function middleware(request: NextRequest) {
 
 - [Auth Pages](./auth-pages.md) - 登录注册页面设计
 - [API Integration](./api-integration.md) - API 客户端配置
+

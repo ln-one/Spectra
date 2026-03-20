@@ -69,7 +69,7 @@ npm run bundle:openapi
 npm run validate:openapi
 
 # 4. 前端生成类型（可选）
-cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
+cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts
 
 # 5. 后端生成 Schema（可选）
 cd backend && datamodel-codegen --input ../docs/openapi-target.yaml --output schemas/generated.py
@@ -213,3 +213,4 @@ FastAPI 自动提供两种 API 文档界面：
 - [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
 - [Project-Space API 草案（2026-03-09）](../project/PROJECT_SPACE_API_DRAFT_2026-03-09.md)
 - [Project-Space 数据模型草案（2026-03-09）](../project/PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md)
+

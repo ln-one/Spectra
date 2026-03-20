@@ -101,11 +101,13 @@ export const authService = {
         throw new Error("获取用户信息失败");
       }
       return toUser(userData);
-    } catch {
-      TokenStorage.clearTokens();
+    } catch (error) {
       const authError = new Error("获取用户信息失败，请重新登录") as Error &
-        AuthError;
+        AuthError & { status?: number };
       authError.code = "GET_USER_FAILED";
+      if (typeof error === "object" && error !== null && "status" in error) {
+        authError.status = (error as { status?: number }).status;
+      }
       throw authError;
     }
   },

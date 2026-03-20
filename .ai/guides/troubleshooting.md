@@ -105,7 +105,7 @@ Error: Network Error
 3. 检查 CORS 配置
 
 ```typescript
-// frontend/lib/api/client.ts
+// frontend/lib/sdk/client.ts
 const apiClient = axios.create({
  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
 });
@@ -444,3 +444,4 @@ import pdb; pdb.set_trace()
 2. 搜索错误信息
 3. 查看相关文档
 4. 向团队成员询问
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Sparkles, Trash2 } from "lucide-react";
@@ -56,31 +56,33 @@ export function FileItem({
         }}
         onClick={onToggle}
         className={cn(
-          "group relative flex items-center justify-center p-2.5 rounded-xl cursor-pointer transition-all duration-200 overflow-visible",
-          isSelected ? "bg-white/50" : "hover:bg-white/30"
+          "group relative flex cursor-pointer items-center justify-center overflow-visible rounded-xl p-2.5 transition-all duration-200",
+          isSelected
+            ? "bg-[var(--project-surface)]"
+            : "hover:bg-[var(--project-surface)]"
         )}
         style={{ minHeight: "52px" }}
         title={compactHint}
       >
         <div
           className={cn(
-            "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105",
             config.bgGradient
           )}
         >
-          <Icon className={cn("w-4 h-4 transition-colors", config.color)} />
+          <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
         </div>
 
-        {isSelected && (
+        {isSelected ? (
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-900 flex items-center justify-center shadow-lg"
+            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-lg"
           >
-            <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+            <Check className="h-2.5 w-2.5" strokeWidth={3} />
           </motion.div>
-        )}
+        ) : null}
       </motion.div>
     );
   }
@@ -97,62 +99,67 @@ export function FileItem({
       }}
       onClick={onToggle}
       className={cn(
-        "group relative grid grid-cols-[32px_1fr_auto] items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all duration-200 w-full max-w-full overflow-visible",
+        "group relative grid w-full max-w-full cursor-pointer grid-cols-[32px_1fr_auto] items-center gap-2.5 overflow-visible rounded-xl p-2.5 transition-all duration-200",
         isSelected
-          ? "bg-white shadow-sm border-2 border-zinc-200"
-          : "bg-white hover:bg-zinc-50 shadow-sm hover:shadow-md border border-zinc-100"
+          ? "border-2 border-[var(--project-border-strong)] bg-[var(--project-surface-elevated)] shadow-sm"
+          : "border border-[var(--project-border)] bg-[var(--project-surface-elevated)] shadow-sm hover:bg-[var(--project-surface)] hover:shadow-md"
       )}
       style={{ minHeight: "52px" }}
     >
-      {isFocused && (
+      {isFocused ? (
         <motion.div
           layout
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 -z-10 rounded-2xl bg-gradient-to-r from-amber-50 via-white to-emerald-50"
+          className="absolute inset-0 -z-10 rounded-2xl"
+          style={{
+            background:
+              "linear-gradient(90deg, color-mix(in srgb, var(--project-accent) 8%, white), transparent 30%)",
+          }}
         />
-      )}
+      ) : null}
+
       <div
         className={cn(
-          "w-8 h-8 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-105",
+          "flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105",
           config.bgGradient
         )}
       >
-        <Icon className={cn("w-4 h-4 transition-colors", config.color)} />
+        <Icon className={cn("h-4 w-4 transition-colors", config.color)} />
       </div>
 
       <div className="min-w-0 flex flex-col justify-center">
         <p
-          className="text-xs font-medium transition-colors text-zinc-800 truncate"
+          className="truncate text-xs font-medium text-[var(--project-text-primary)] transition-colors"
           title={file.filename}
         >
           {file.filename}
         </p>
 
-        {isExpanded && (
+        {isExpanded ? (
           <div className="mt-1">
             <Button
               variant="ghost"
               size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 onCollapse();
               }}
-              className="h-5 px-2 text-[10px] rounded-md bg-zinc-50 hover:bg-zinc-100 text-zinc-500"
+              className="h-5 rounded-md bg-[var(--project-surface-muted)] px-2 text-[10px] text-[var(--project-text-muted)] hover:brightness-95"
             >
               收起
             </Button>
           </div>
-        )}
+        ) : null}
 
-        <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
+        <p className="mt-0.5 truncate text-[10px] text-[var(--project-text-muted)]">
           {getFileStatusText(file)}
         </p>
 
-        {file.status === "parsing" && file.parse_progress !== undefined && (
+        {file.status === "parsing" && file.parse_progress !== undefined ? (
           <div className="mt-1.5 w-full overflow-hidden">
-            <div className="h-1 rounded-full overflow-hidden bg-zinc-100">
+            <div className="h-1 overflow-hidden rounded-full bg-[var(--project-surface-muted)]">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${file.parse_progress}%` }}
@@ -161,13 +168,13 @@ export function FileItem({
               />
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
-      <div className="flex items-center gap-1.5 pl-1.5 border-l border-zinc-50">
+      <div className="flex items-center gap-1.5 border-l border-[var(--project-border)] pl-1.5">
         <div
           className={cn(
-            "w-2 h-2 rounded-full transition-all shrink-0",
+            "h-2 w-2 shrink-0 rounded-full transition-all",
             statusConfig.color,
             statusConfig.pulse && "animate-pulse"
           )}
@@ -176,57 +183,59 @@ export function FileItem({
         <Button
           variant="ghost"
           size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
+          onClick={(event) => {
+            event.stopPropagation();
             onDelete();
           }}
-          className="w-6 h-6 rounded-md bg-zinc-50 hover:bg-red-50 text-zinc-400 hover:text-red-500 transition-colors shrink-0"
+          className="h-6 w-6 shrink-0 rounded-md bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] transition-colors hover:bg-red-50 hover:text-red-500"
         >
-          <Trash2 className="w-3 h-3" />
+          <Trash2 className="h-3 w-3" />
         </Button>
       </div>
 
-      {isSelected && (
+      {isSelected ? (
         <motion.div
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-900 flex items-center justify-center shadow-lg"
+          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-lg"
         >
-          <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+          <Check className="h-2.5 w-2.5" strokeWidth={3} />
         </motion.div>
-      )}
+      ) : null}
 
       <AnimatePresence>
-        {isExpanded && (
+        {isExpanded ? (
           <motion.div
             key={`expand-${file.id}`}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
-            className="col-span-3 mt-2 rounded-xl border border-zinc-100 bg-zinc-50 p-2.5 text-[11px] text-zinc-700 leading-relaxed shadow-inner"
+            className="col-span-3 mt-2 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-2.5 text-[11px] leading-relaxed text-[var(--project-text-primary)] shadow-inner"
           >
-            <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-              <Sparkles className="w-3 h-3" />
+            <div className="flex items-center gap-2 text-[10px] text-[var(--project-text-muted)]">
+              <Sparkles className="h-3 w-3" />
               <span>文件解析摘要</span>
             </div>
-            <div className="mt-1 text-zinc-700">{getFileStatusText(file)}</div>
+            <div className="mt-1 text-[var(--project-text-primary)]">
+              {getFileStatusText(file)}
+            </div>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
 
       <AnimatePresence>
-        {isExpanded && isFocused && focusDetail?.content && (
+        {isExpanded && isFocused && focusDetail?.content ? (
           <motion.div
             key={`focus-${focusDetail.chunk_id}`}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
-            className="col-span-3 mt-2 rounded-xl border border-zinc-100 bg-zinc-50 p-2.5 text-[11px] text-zinc-700 leading-relaxed shadow-inner"
+            className="col-span-3 mt-2 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-2.5 text-[11px] leading-relaxed text-[var(--project-text-primary)] shadow-inner"
           >
-            <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
+            <div className="mb-1 flex items-center justify-between text-[10px] text-[var(--project-text-muted)]">
               <span>引用片段</span>
               <div className="flex items-center gap-1.5">
                 {focusDetail.source?.source_type ? (
@@ -242,12 +251,12 @@ export function FileItem({
                 ) : null}
               </div>
             </div>
-            <div className="whitespace-pre-wrap text-zinc-800">
+            <div className="whitespace-pre-wrap text-[var(--project-text-primary)]">
               {focusDetail.content}
             </div>
             {focusDetail.context?.previous_chunk ||
             focusDetail.context?.next_chunk ? (
-              <div className="mt-2 border-t border-zinc-200 pt-2 text-[10px] text-zinc-500">
+              <div className="mt-2 border-t border-[var(--project-border)] pt-2 text-[10px] text-[var(--project-text-muted)]">
                 {focusDetail.context?.previous_chunk ? (
                   <div className="mb-1">
                     上文：{focusDetail.context.previous_chunk}
@@ -259,7 +268,7 @@ export function FileItem({
               </div>
             ) : null}
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </motion.div>
   );

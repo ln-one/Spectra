@@ -1,72 +1,41 @@
 # Routing Design
 
-## 路由设计
+> 更新时间：2026-03-20
 
+## 路由清单（当前）
+
+```text
+/                          # 首页
+/auth/login                # 登录页
+/auth/register             # 注册页
+/projects                  # 项目列表
+/projects/new              # 新建项目
+/projects/[id]             # 项目详情
+/projects/[id]/generate    # 生成预览/导出
 ```
-/ # 首页（Dashboard）
-/projects # 项目列表
-/projects/new # 创建新项目
-/projects/[id] # 项目详情
-/projects/[id]/chat # 对话页面
-/projects/[id]/preview # 预览与修改页面
-/projects/[id]/generate # 生成页面
-/projects/[id]/settings # 项目设置
-/upload # 文件上传管理
-/settings # 全局设置
-```
 
-## 页面结构
+## 路由与实现映射
 
-### 1. Dashboard (`/`)
+| 路由入口 | 入口文件 | 页面实现 |
+|---|---|---|
+| `/` | `app/page.tsx` | `app/_views/home/WelcomePage.tsx` |
+| `/projects` | `app/projects/page.tsx` | `app/projects/_views/ProjectsPageView.tsx` |
+| `/projects/[id]` | `app/projects/[id]/page.tsx` | `app/projects/[id]/_views/ProjectDetailPageView.tsx` |
+| `/projects/[id]/generate` | `app/projects/[id]/generate/page.tsx` | `app/projects/[id]/generate/_views/GeneratePreviewPageView.tsx` |
 
-**布局**: 侧边栏 + 主工作区
+## 页面组织约束
 
-**功能**:
-- 显示最近项目
-- 快速创建新项目
-- 文件上传入口
-- 统计信息展示
+- `page.tsx` 仅保留路由入口和参数桥接。
+- 复杂页面状态（滚动、面板尺寸、URL 同步、加载状态）放在 `_views` 下 hooks。
+- 项目详情页的功能面板统一来自 `components/project/features/*`，避免在路由层堆叠 UI 细节。
 
-**组件**:
-- `Sidebar` - 全局导航
-- `ProjectList` - 项目列表
-- `QuickActions` - 快速操作
-- `FileUploadDropzone` - 文件上传
+## 历史路由说明
 
-### 2. Project Detail (`/projects/[id]`)
+以下路径不在当前 App Router 中作为独立路由维护：
+- `/projects/[id]/chat`
+- `/projects/[id]/preview`
+- `/projects/[id]/settings`
+- `/upload`
+- `/settings`
 
-**布局**: 三栏布局（侧边栏 + 对话区 + 信息面板）
-
-**功能**:
-- 多轮对话交互
-- 文件上传与标注
-- 需求确认
-- 生成任务创建
-
-**组件**:
-- `ChatInterface` - 对话界面
-- `MessageList` - 消息列表
-- `MessageInput` - 输入框（文字/语音）
-- `FileUploadPanel` - 文件管理面板
-- `FileStatusList` - 文件状态列表
-- `VideoKeyframeSelector` - 视频关键帧选择器
-- `ProgressTracker` - 进度跟踪
-
-### 3. Preview & Modify (`/projects/[id]/preview`)
-
-**布局**: 三栏布局（PPT 预览 + 对话修改 + 教案同步视图）
-
-**功能**:
-- PPT 预览与导航
-- 对话式修改
-- 教案同步显示
-- 内容溯源
-- 导出下载
-
-**组件**:
-- `CoursewarePreview` - 课件预览
-- `SlideNavigator` - 幻灯片导航
-- `ModifyChat` - 修改对话
-- `LessonPlanView` - 教案同步视图
-- `SourceTracker` - 溯源面板
-- `QuickActions` - 快速操作按钮
+对应能力已收敛到 `/projects/[id]` 与 `/projects/[id]/generate` 两个主流程页面。

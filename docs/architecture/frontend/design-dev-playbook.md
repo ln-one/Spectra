@@ -169,7 +169,7 @@ Phase 1 最小验收（防返工）：
 - 组件：Shadcn + Radix
 - 表单：React Hook Form + Zod
 - 动效：Framer Motion（限量）
-- 请求：现有 `lib/api/client.ts` 封装
+- 请求：现有 `lib/sdk/client.ts` 封装
 
 不建议自研：
 - 自定义基础弹窗/下拉/选择器（用 Radix）
@@ -209,3 +209,4 @@ Phase 1 最小验收（防返工）：
 5. `architecture/frontend/api-integration.md`
 6. `architecture/api-contract.md`
 7. `standards/frontend.md`
+
