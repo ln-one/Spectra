@@ -289,6 +289,48 @@ def test_get_project_artifacts_with_filters_success(client, monkeypatch, _as_use
     )
 
 
+def test_get_project_artifacts_prioritizes_current_results(
+    client, monkeypatch, _as_user
+):
+    current_artifact = _fake_artifact(artifact_id="a-current", artifact_type="pptx")
+    current_artifact.metadata = '{"is_current":true}'
+    current_artifact.updatedAt = datetime(2026, 3, 20, 10, 0, tzinfo=timezone.utc)
+
+    superseded_artifact = _fake_artifact(
+        artifact_id="a-old",
+        artifact_type="pptx",
+    )
+    superseded_artifact.metadata = (
+        '{"is_current":false,"superseded_by_artifact_id":"a-current"}'
+    )
+    superseded_artifact.updatedAt = datetime(2026, 3, 20, 11, 0, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=_fake_project(current_version_id="v-current")),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_project_artifacts",
+        AsyncMock(return_value=[superseded_artifact, current_artifact]),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/artifacts?type=pptx")
+
+    assert resp.status_code == 200
+    artifacts = resp.json()["data"]["artifacts"]
+    assert artifacts[0]["id"] == "a-current"
+    assert artifacts[0]["is_current"] is True
+    assert artifacts[1]["id"] == "a-old"
+    assert artifacts[1]["is_current"] is False
+
+
 def test_get_project_artifacts_invalid_filter_400(client, monkeypatch, _as_user):
     monkeypatch.setattr(
         project_space_service,
@@ -467,6 +509,25 @@ def test_create_artifact_invalid_type_400(client, monkeypatch, _as_user):
         f"/api/v1/projects/{_PROJECT_ID}/artifacts",
         json={"type": "xls", "visibility": "private"},
     )
+    assert resp.status_code == 400
+
+
+def test_create_artifact_invalid_mode_400(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/artifacts",
+        json={
+            "type": "pptx",
+            "visibility": "private",
+            "mode": "outline",
+        },
+    )
+
     assert resp.status_code == 400
 
 

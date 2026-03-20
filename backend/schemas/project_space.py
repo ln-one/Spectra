@@ -39,6 +39,11 @@ class ArtifactCreateType(str, Enum):
     MP4 = "mp4"
 
 
+class ArtifactMutationMode(str, Enum):
+    CREATE = "create"
+    REPLACE = "replace"
+
+
 class ChangeType(str, Enum):
     AUTHOR_UPDATE = "author-update"
     MERGE_CHANGE = "merge-change"
@@ -136,7 +141,7 @@ class ArtifactBase(BaseModel):
 
 
 class ArtifactCreate(ArtifactBase):
-    mode: Optional[str] = Field(default="create")
+    mode: ArtifactMutationMode = Field(default=ArtifactMutationMode.CREATE)
     content: Optional[Dict[str, Any]] = None
 
 
@@ -152,7 +157,7 @@ class Artifact(BaseModel):
     visibility: ArtifactVisibility
     storage_path: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
-    mode: Optional[str] = None
+    mode: Optional[ArtifactMutationMode] = None
     replaces_artifact_id: Optional[str] = None
     superseded_by_artifact_id: Optional[str] = None
     is_current: bool = True

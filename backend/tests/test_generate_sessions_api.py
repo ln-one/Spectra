@@ -1134,6 +1134,58 @@ async def test_get_studio_card_sources_reports_upstream_updated(app, _as_user):
 
 
 @pytest.mark.anyio
+async def test_get_studio_card_sources_prioritizes_current_artifacts(app, _as_user):
+    client = TestClient(app)
+    current_artifact = SimpleNamespace(
+        id="a-ppt-010",
+        type="pptx",
+        metadata={"title": "当前课件", "is_current": True},
+        visibility="project-visible",
+        basedOnVersionId="v-current",
+        sessionId="s-001",
+        updatedAt=datetime(2026, 3, 20, 10, 0, tzinfo=timezone.utc),
+    )
+    superseded_artifact = SimpleNamespace(
+        id="a-ppt-009",
+        type="pptx",
+        metadata={
+            "title": "旧课件",
+            "is_current": False,
+            "superseded_by_artifact_id": "a-ppt-010",
+        },
+        visibility="project-visible",
+        basedOnVersionId="v-old",
+        sessionId="s-001",
+        updatedAt=datetime(2026, 3, 20, 11, 0, tzinfo=timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_project_artifacts",
+            AsyncMock(return_value=[superseded_artifact, current_artifact]),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+    ):
+        response = client.get(
+            "/api/v1/generate/studio-cards/speaker_notes/sources?project_id=p-001"
+        )
+
+    assert response.status_code == 200
+    sources = response.json()["data"]["sources"]
+    assert sources[0]["id"] == "a-ppt-010"
+    assert sources[0]["is_current"] is True
+    assert sources[1]["id"] == "a-ppt-009"
+    assert sources[1]["is_current"] is False
+
+
+@pytest.mark.anyio
 async def test_get_studio_card_sources_rejects_cards_without_source_binding(
     app, _as_user
 ):

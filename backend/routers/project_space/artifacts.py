@@ -1,6 +1,7 @@
 """Artifact routes for Project Space."""
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -27,6 +28,11 @@ from .shared import COMMON_ERROR_RESPONSES, DOCX_MIME, PPTX_MIME, to_artifact_mo
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _artifact_sort_key(artifact) -> tuple[bool, datetime]:
+    updated_at = artifact.updated_at or datetime.min
+    return (not artifact.is_current, updated_at)
 
 
 @router.get(
@@ -63,14 +69,14 @@ async def get_project_artifacts(
             based_on_version_id_filter=based_on_version_id,
             session_id_filter=session_id,
         )
+        serialized = [
+            to_artifact_model(artifact, current_version_id=current_version_id)
+            for artifact in artifacts
+        ]
+        serialized.sort(key=_artifact_sort_key)
         return ArtifactsResponse(
             success=True,
-            data={
-                "artifacts": [
-                    to_artifact_model(artifact, current_version_id=current_version_id)
-                    for artifact in artifacts
-                ]
-            },
+            data={"artifacts": serialized},
             message="获取成果列表成功",
         )
     except (NotFoundException, Exception) as exc:

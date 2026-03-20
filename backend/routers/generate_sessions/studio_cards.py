@@ -235,10 +235,15 @@ async def get_studio_card_sources(
             )
         )
 
-    sources.sort(
-        key=lambda artifact: getattr(artifact, "updatedAt", None) or "",
-        reverse=True,
-    )
+    def _source_sort_key(artifact):
+        metadata = getattr(artifact, "metadata", None)
+        is_current = True
+        if isinstance(metadata, dict):
+            is_current = bool(metadata.get("is_current", True))
+        updated_at = getattr(artifact, "updatedAt", None)
+        return (not is_current, updated_at)
+
+    sources.sort(key=_source_sort_key)
 
     return success_response(
         data={
