@@ -12,6 +12,7 @@ def test_distributed_readiness_flags_missing_compose_and_env():
     assert failures > 0
     assert any("docker-compose.yml missing" in message for message in messages)
     assert any("DATABASE_URL missing" in message for message in messages)
+    assert any("POSTGRES_BACKUP_DIR missing" in message for message in messages)
 
 
 def test_distributed_readiness_accepts_split_stack_inputs():
@@ -124,6 +125,10 @@ services:
         for message in messages
     )
     assert any("[runtime] WARN" in message for message in messages)
+    assert any(
+        "[backup] PASS POSTGRES_BACKUP_DIR points to shared backup path" in message
+        for message in messages
+    )
     assert any(
         "[backend] PASS recommended POSTGRES_BACKUP_DIR configured" in message
         for message in messages

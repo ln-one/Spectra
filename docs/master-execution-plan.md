@@ -242,6 +242,7 @@ Prepare the system for containerized, multi-service, multi-machine, cloud-capabl
   - PostgreSQL
   - artifact/file storage
 - continue improving deployment tooling:
+  - backup/restore readiness audits
   - preflight
   - role-aware env contract audits
   - compose topology audits

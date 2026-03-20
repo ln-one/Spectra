@@ -10,6 +10,7 @@ from typing import Mapping
 from scripts.deployment_env_role_audit import evaluate_role_contract
 from scripts.docker_compose_topology_audit import evaluate_compose_topology
 from scripts.docker_deploy_readiness_audit import evaluate_docker_readiness
+from scripts.postgres_backup_restore_audit import evaluate_backup_restore_readiness
 from scripts.runtime_assumption_audit import evaluate_runtime_assumptions
 from scripts.storage_deploy_readiness_audit import evaluate_storage_readiness
 
@@ -68,6 +69,10 @@ def evaluate_distributed_readiness(
     runtime_messages, runtime_failures = evaluate_runtime_assumptions()
     messages.extend(_prefix("runtime", runtime_messages[1:]))
     failures += runtime_failures
+
+    backup_messages, backup_failures = evaluate_backup_restore_readiness(env)
+    messages.extend(_prefix("backup", backup_messages[1:]))
+    failures += backup_failures
 
     for role in ("backend", "worker"):
         role_messages, role_failures = evaluate_role_contract(role, env)
