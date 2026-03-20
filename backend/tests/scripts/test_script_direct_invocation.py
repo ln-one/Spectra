@@ -62,6 +62,16 @@ def test_postgres_baseline_promotion_audit_runs_directly() -> None:
     assert "PostgreSQL baseline promotion audit" in result.stdout
 
 
+def test_postgres_live_baseline_adopt_runs_directly() -> None:
+    result = _run_script(
+        ROOT / "backend/scripts/postgres_live_baseline_adopt.py",
+    )
+
+    assert result.returncode == 0
+    assert "PostgreSQL live baseline adoption" in result.stdout
+    assert "Dry run only" in result.stdout
+
+
 def test_postgres_live_baseline_adoption_audit_runs_directly() -> None:
     result = _run_script(
         ROOT / "backend/scripts/postgres_live_baseline_adoption_audit.py",

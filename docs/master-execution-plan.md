@@ -430,3 +430,5 @@ The purpose is to build a work that is:
 - structurally complete enough to keep growing
 
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_live_baseline_adoption_audit.py`（检查 fresh-baseline live candidate 是否已经具备 adoption review 条件）
+
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_live_baseline_adopt.py`（以 fresh-baseline 策略 dry-run 或正式接管 live Prisma migrations，并归档旧 SQLite migration 树）
