@@ -15,6 +15,7 @@ from scripts.postgres_cutover_audit import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
+BASE_COMPOSE = ROOT / "docker-compose.yml"
 SHADOW_COMPOSE = ROOT / "docker-compose.postgres-shadow.yml"
 
 
@@ -28,6 +29,7 @@ def evaluate_shadow_smoke(
     base_url: str,
     token: str | None,
     prisma_provider: str | None,
+    base_compose_text: str | None,
     shadow_compose_text: str | None,
     include_cutover_audit: bool = True,
     cutover_eval: Callable[..., tuple[list[str], int]] = evaluate_cutover_readiness,
@@ -40,6 +42,7 @@ def evaluate_shadow_smoke(
         cutover_messages, cutover_failures = cutover_eval(
             env,
             prisma_provider=prisma_provider,
+            base_compose_text=base_compose_text,
             shadow_compose_text=shadow_compose_text,
         )
         messages.extend(_prefix("cutover", cutover_messages[1:]))
@@ -71,6 +74,9 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    base_text = (
+        BASE_COMPOSE.read_text(encoding="utf-8") if BASE_COMPOSE.exists() else None
+    )
     shadow_text = (
         SHADOW_COMPOSE.read_text(encoding="utf-8") if SHADOW_COMPOSE.exists() else None
     )
@@ -79,6 +85,7 @@ def main() -> int:
         base_url=args.base_url.rstrip("/"),
         token=args.token,
         prisma_provider=_read_prisma_provider(),
+        base_compose_text=base_text,
         shadow_compose_text=shadow_text,
         include_cutover_audit=not args.skip_cutover_audit,
     )

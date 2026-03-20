@@ -8,12 +8,12 @@ from pathlib import Path
 from typing import Mapping
 
 from scripts.deploy_preflight import evaluate_preflight
-from scripts.deployment_env_role_audit import evaluate_role_contract
-from scripts.docker_deploy_readiness_audit import evaluate_docker_readiness
+from scripts.distributed_deploy_audit import evaluate_distributed_readiness
 from scripts.postgres_shadow_stack_audit import evaluate_shadow_stack
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "backend/prisma/schema.prisma"
+BASE_COMPOSE = ROOT / "docker-compose.yml"
 SHADOW_COMPOSE = ROOT / "docker-compose.postgres-shadow.yml"
 
 _PROVIDER_PREFIX = 'provider = "'
@@ -39,6 +39,7 @@ def evaluate_cutover_readiness(
     env: Mapping[str, str],
     *,
     prisma_provider: str | None,
+    base_compose_text: str | None,
     shadow_compose_text: str | None,
 ) -> tuple[list[str], int]:
     messages = ["PostgreSQL cutover readiness audit"]
@@ -53,14 +54,14 @@ def evaluate_cutover_readiness(
     messages.extend(_prefix("preflight", preflight_messages[1:]))
     failures += preflight_failures
 
-    docker_messages, docker_failures = evaluate_docker_readiness(env, prisma_provider)
-    messages.extend(_prefix("docker", docker_messages))
-    failures += docker_failures
-
-    for role in ("backend", "worker"):
-        role_messages, role_failures = evaluate_role_contract(role, env)
-        messages.extend(_prefix(role, role_messages[1:]))
-        failures += role_failures
+    distributed_messages, distributed_failures = evaluate_distributed_readiness(
+        env,
+        prisma_provider=prisma_provider,
+        base_compose_text=base_compose_text,
+        shadow_compose_text=shadow_compose_text,
+    )
+    messages.extend(_prefix("distributed", distributed_messages[1:]))
+    failures += distributed_failures
 
     if shadow_compose_text is None:
         failures += 1
@@ -75,12 +76,16 @@ def evaluate_cutover_readiness(
 
 def main() -> int:
     provider = _read_prisma_provider()
+    base_text = (
+        BASE_COMPOSE.read_text(encoding="utf-8") if BASE_COMPOSE.exists() else None
+    )
     shadow_text = (
         SHADOW_COMPOSE.read_text(encoding="utf-8") if SHADOW_COMPOSE.exists() else None
     )
     messages, failures = evaluate_cutover_readiness(
         os.environ,
         prisma_provider=provider,
+        base_compose_text=base_text,
         shadow_compose_text=shadow_text,
     )
     for message in messages:

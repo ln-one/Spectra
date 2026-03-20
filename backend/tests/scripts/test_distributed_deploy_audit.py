@@ -115,3 +115,4 @@ services:
         "storage] PASS UPLOAD_DIR points to `/var/lib/spectra/uploads`" in message
         for message in messages
     )
+    assert any("[runtime] WARN" in message for message in messages)

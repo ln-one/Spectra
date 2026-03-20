@@ -11,9 +11,15 @@ services:
   backend:
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
+    depends_on:
+      postgres:
+        condition: service_healthy
   worker:
     environment:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
+    depends_on:
+      postgres:
+        condition: service_healthy
 volumes:
   postgres_shadow_data:
 """
@@ -26,6 +32,7 @@ def test_cutover_audit_fails_for_local_sqlite_defaults():
             "JWT_SECRET_KEY": "change-me",
         },
         prisma_provider="sqlite",
+        base_compose_text=None,
         shadow_compose_text=None,
     )
 
@@ -56,8 +63,55 @@ def test_cutover_audit_passes_with_shadow_stack_and_postgres_env():
             "WORKER_RECOVERY_SCAN": "true",
             "NEXT_PUBLIC_API_URL": "https://api.ln1.fun",
             "SYNC_RAG_INDEXING": "false",
+            "UPLOAD_DIR": "/var/lib/spectra/uploads",
+            "ARTIFACT_STORAGE_DIR": "/var/lib/spectra/artifacts",
+            "GENERATED_DIR": "/var/lib/spectra/generated",
         },
         prisma_provider="postgresql",
+        base_compose_text="""
+services:
+  frontend:
+    ports:
+      - "3000:3000"
+  backend:
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      UPLOAD_DIR: /var/lib/spectra/uploads
+      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
+      GENERATED_DIR: /var/lib/spectra/generated
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+  worker:
+    command: python worker.py
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      UPLOAD_DIR: /var/lib/spectra/uploads
+      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
+      GENERATED_DIR: /var/lib/spectra/generated
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+  chromadb:
+    ports:
+      - "127.0.0.1:8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+""",
         shadow_compose_text=SHADOW_COMPOSE,
     )
 
@@ -67,13 +121,19 @@ def test_cutover_audit_passes_with_shadow_stack_and_postgres_env():
         for m in messages
     )
     assert any(
-        "[docker] PASS Prisma datasource is already configured for PostgreSQL" in m
+        (
+            "[distributed] [docker] PASS Prisma datasource is already "
+            "configured for PostgreSQL"
+        )
+        in m
         for m in messages
     )
     assert any(
-        "[backend] PASS recommended DEFAULT_MODEL configured" in m for m in messages
+        "[distributed] [backend] PASS recommended DEFAULT_MODEL configured" in m
+        for m in messages
     )
     assert any(
-        "[worker] PASS recommended WORKER_NAME configured" in m for m in messages
+        "[distributed] [worker] PASS recommended WORKER_NAME configured" in m
+        for m in messages
     )
     assert any("[shadow] PASS postgres service declared" in m for m in messages)

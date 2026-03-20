@@ -10,12 +10,26 @@ from typing import Mapping
 from scripts.deployment_env_role_audit import evaluate_role_contract
 from scripts.docker_compose_topology_audit import evaluate_compose_topology
 from scripts.docker_deploy_readiness_audit import evaluate_docker_readiness
-from scripts.postgres_cutover_audit import _read_prisma_provider
+from scripts.runtime_assumption_audit import evaluate_runtime_assumptions
 from scripts.storage_deploy_readiness_audit import evaluate_storage_readiness
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE_COMPOSE = ROOT / "docker-compose.yml"
 SHADOW_COMPOSE = ROOT / "docker-compose.postgres-shadow.yml"
+SCHEMA = ROOT / "backend/prisma/schema.prisma"
+_PROVIDER_PREFIX = 'provider = "'
+
+
+def _read_prisma_provider() -> str | None:
+    for raw_line in SCHEMA.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if _PROVIDER_PREFIX not in line:
+            continue
+        start = line.index(_PROVIDER_PREFIX) + len(_PROVIDER_PREFIX)
+        end = line.find('"', start)
+        if end != -1:
+            return line[start:end]
+    return None
 
 
 def _prefix(section: str, messages: list[str]) -> list[str]:
@@ -50,6 +64,10 @@ def evaluate_distributed_readiness(
     storage_messages, storage_failures = evaluate_storage_readiness(env)
     messages.extend(_prefix("storage", storage_messages[1:]))
     failures += storage_failures
+
+    runtime_messages, runtime_failures = evaluate_runtime_assumptions()
+    messages.extend(_prefix("runtime", runtime_messages[1:]))
+    failures += runtime_failures
 
     for role in ("backend", "worker"):
         role_messages, role_failures = evaluate_role_contract(role, env)

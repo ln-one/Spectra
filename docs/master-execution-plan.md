@@ -245,6 +245,7 @@ Prepare the system for containerized, multi-service, multi-machine, cloud-capabl
   - role-aware env contract audits
   - compose topology audits
   - aggregate distributed deployment audits
+  - runtime assumption audits
   - smoke checks
   - worker diagnostics
   - release records

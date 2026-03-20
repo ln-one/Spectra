@@ -2,7 +2,7 @@ from scripts.postgres_shadow_smoke import evaluate_shadow_smoke
 
 
 def test_shadow_smoke_accumulates_cutover_and_live_failures():
-    def fake_cutover(env, *, prisma_provider, shadow_compose_text):
+    def fake_cutover(env, *, prisma_provider, base_compose_text, shadow_compose_text):
         return ["PostgreSQL cutover readiness audit", "FAIL shadow broken"], 1
 
     def fake_smoke(*, base_url, token):
@@ -13,6 +13,7 @@ def test_shadow_smoke_accumulates_cutover_and_live_failures():
         base_url="http://localhost:8000",
         token=None,
         prisma_provider="sqlite",
+        base_compose_text=None,
         shadow_compose_text=None,
         cutover_eval=fake_cutover,
         smoke_eval=fake_smoke,
@@ -34,6 +35,7 @@ def test_shadow_smoke_can_skip_static_cutover_audit():
         base_url="http://shadow:8000",
         token="demo-token",
         prisma_provider="postgresql",
+        base_compose_text="services:\n  backend:\n",
         shadow_compose_text="services:\n  postgres:\n",
         include_cutover_audit=False,
         smoke_eval=fake_smoke,
