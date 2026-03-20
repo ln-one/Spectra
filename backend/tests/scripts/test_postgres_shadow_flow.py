@@ -59,13 +59,47 @@ def test_shadow_flow_can_run_live_smoke_with_app() -> None:
         ),
         prisma_execute=lambda env: ([[]], 0),
         smoke_eval=fake_smoke,
+        wait_for_backend=lambda base_url, timeout_seconds: True,
         teardown_stack=False,
     )
 
     assert failures == 0
     assert smoke_called is True
+    assert any(
+        "[shadow-smoke] PASS backend became healthy at http://localhost:8000" in m
+        for m in messages
+    )
     assert any("[shadow-smoke] PASS live smoke" in m for m in messages)
     assert any("[teardown] WARN shadow stack kept running" in m for m in messages)
+
+
+def test_shadow_flow_fails_when_backend_never_becomes_healthy() -> None:
+    messages, failures = flow.evaluate_shadow_flow(
+        {"POSTGRES_SHADOW_DATABASE_URL": "postgresql://shadow"},
+        with_app=True,
+        base_url="http://localhost:8000",
+        token=None,
+        include_live_smoke=True,
+        stack_runtime=lambda **kwargs: (["docker", "compose"], 0),
+        prisma_eval=lambda env: (
+            ["PostgreSQL shadow Prisma validation readiness", "PASS prisma ready"],
+            0,
+        ),
+        prisma_execute=lambda env: ([[]], 0),
+        smoke_eval=lambda *args, **kwargs: (
+            ["PostgreSQL shadow smoke", "PASS live smoke"],
+            0,
+        ),
+        wait_for_backend=lambda base_url, timeout_seconds: False,
+        teardown_stack=True,
+    )
+
+    assert failures == 1
+    assert any(
+        "[shadow-smoke] FAIL backend did not become healthy at http://localhost:8000"
+        in m
+        for m in messages
+    )
 
 
 def test_shadow_flow_skips_live_smoke_after_failure() -> None:

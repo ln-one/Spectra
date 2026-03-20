@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import argparse
 import os
+import time
+import urllib.error
+import urllib.request
 from typing import Callable, Mapping
 
 try:
@@ -25,10 +28,32 @@ RuntimeExecutor = Callable[..., tuple[list[str], int]]
 PrismaEvaluator = Callable[..., tuple[list[str], int]]
 PrismaExecutor = Callable[..., tuple[list[list[str]], int]]
 SmokeEvaluator = Callable[..., tuple[list[str], int]]
+HealthWaiter = Callable[..., bool]
 
 
 def _prefix(section: str, messages: list[str]) -> list[str]:
     return [f"[{section}] {message}" for message in messages]
+
+
+def wait_for_shadow_backend(
+    base_url: str,
+    *,
+    timeout_seconds: float = 60.0,
+    interval_seconds: float = 1.0,
+) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    target = base_url.rstrip("/") + "/health"
+
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(target, timeout=interval_seconds) as response:
+                if response.status == 200:
+                    return True
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
+            time.sleep(interval_seconds)
+            continue
+
+    return False
 
 
 def evaluate_shadow_flow(
@@ -42,6 +67,7 @@ def evaluate_shadow_flow(
     prisma_eval: PrismaEvaluator = shadow_prisma.evaluate_shadow_prisma_readiness,
     prisma_execute: PrismaExecutor = shadow_prisma.execute_shadow_prisma_validation,
     smoke_eval: SmokeEvaluator = shadow_smoke.evaluate_shadow_smoke,
+    wait_for_backend: HealthWaiter = wait_for_shadow_backend,
     teardown_stack: bool = True,
     timeout_seconds: float = 60.0,
 ) -> tuple[list[str], int]:
@@ -89,17 +115,28 @@ def evaluate_shadow_flow(
                 "[shadow-smoke] WARN live smoke requires --with-app; skipped"
             )
         elif failures == 0:
-            smoke_messages, smoke_failures = smoke_eval(
-                env,
-                base_url=base_url or BASE_URL,
-                token=token,
-                prisma_provider=None,
-                base_compose_text=None,
-                shadow_compose_text=None,
-                include_cutover_audit=False,
-            )
-            messages.extend(_prefix("shadow-smoke", smoke_messages[1:]))
-            failures += smoke_failures
+            resolved_base_url = base_url or BASE_URL
+            if wait_for_backend(resolved_base_url, timeout_seconds=timeout_seconds):
+                messages.append(
+                    f"[shadow-smoke] PASS backend became healthy at {resolved_base_url}"
+                )
+                smoke_messages, smoke_failures = smoke_eval(
+                    env,
+                    base_url=resolved_base_url,
+                    token=token,
+                    prisma_provider=None,
+                    base_compose_text=None,
+                    shadow_compose_text=None,
+                    include_cutover_audit=False,
+                )
+                messages.extend(_prefix("shadow-smoke", smoke_messages[1:]))
+                failures += smoke_failures
+            else:
+                failures += 1
+                messages.append(
+                    "[shadow-smoke] FAIL backend did not become healthy at "
+                    f"{resolved_base_url}"
+                )
         else:
             messages.append(
                 "[shadow-smoke] WARN live smoke skipped because earlier steps failed"
@@ -136,7 +173,7 @@ def main() -> int:
     parser.add_argument(
         "--with-app",
         action="store_true",
-        help="Include backend and worker in the shadow stack and allow live smoke.",
+        help=("Include backend and worker in the shadow stack and allow live smoke."),
     )
     parser.add_argument(
         "--base-url",
