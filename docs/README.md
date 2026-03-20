@@ -39,6 +39,7 @@
 - `backend/scripts/docker_compose_topology_audit.py` - Docker Compose topology audit
 - `backend/scripts/docker_deploy_readiness_audit.py` - Docker/distributed deployment readiness audit
 - `backend/scripts/distributed_deploy_audit.py` - aggregate Docker/distributed deployment audit
+- `backend/scripts/storage_deploy_readiness_audit.py` - storage/path readiness audit for distributed deployment
 - `backend/scripts/deployment_env_role_audit.py` - role-aware deployment env audit
 - `backend/scripts/worker_queue_diagnose.py` - worker/queue/stuck-job diagnosis
 

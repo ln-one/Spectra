@@ -191,9 +191,44 @@
 - 单机或本地开发使用
 - 多机远程 Chroma 部署时可不依赖
 
+## 六、文件与产物存储
+
+### `UPLOAD_DIR`
+
+用途：
+
+- 用户上传文件存储根目录
+
+要求：
+
+- 演示环境和分布式部署建议显式配置
+- 不建议继续依赖 repo-local `uploads`
+
+### `ARTIFACT_STORAGE_DIR`
+
+用途：
+
+- project-space artifact 存储根目录
+
+要求：
+
+- 分布式部署建议显式配置到共享卷或明确挂载点
+- 不建议继续依赖默认 `uploads/artifacts`
+
+### `GENERATED_DIR`
+
+用途：
+
+- generation service 临时/输出目录
+
+要求：
+
+- 分布式部署建议显式配置
+- 至少要明确它是否走共享卷、临时卷或后续对象存储
+
 ---
 
-## 六、解析 / 多媒体能力
+## 七、解析 / 多媒体能力
 
 ### `DOCUMENT_PARSER`
 
