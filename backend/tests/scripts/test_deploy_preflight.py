@@ -28,6 +28,54 @@ def test_preflight_rejects_placeholder_jwt_secret():
     assert any("placeholder development secret" in message for message in messages)
 
 
+def test_preflight_warns_when_still_using_sqlite_for_local_dev():
+    messages, failures = evaluate_preflight(
+        {
+            "DATABASE_URL": "file:./dev.db",
+            "JWT_SECRET_KEY": "real-secret",
+        },
+        skip_network=True,
+        timeout_seconds=0.1,
+    )
+
+    assert failures == 0
+    assert any("still points to sqlite" in message for message in messages)
+
+
+def test_preflight_require_postgres_rejects_sqlite_and_local_host():
+    messages, failures = evaluate_preflight(
+        {
+            "DATABASE_URL": "postgresql://spectra:pass@localhost:5432/spectra",
+            "JWT_SECRET_KEY": "real-secret",
+        },
+        skip_network=True,
+        timeout_seconds=0.1,
+        require_postgres=True,
+    )
+
+    assert failures == 1
+    assert any("uses PostgreSQL-compatible scheme" in message for message in messages)
+    assert any(
+        "local-only while --require-postgres is enabled" in message
+        for message in messages
+    )
+
+
+def test_preflight_require_postgres_rejects_non_postgres_scheme():
+    messages, failures = evaluate_preflight(
+        {
+            "DATABASE_URL": "file:./dev.db",
+            "JWT_SECRET_KEY": "real-secret",
+        },
+        skip_network=True,
+        timeout_seconds=0.1,
+        require_postgres=True,
+    )
+
+    assert failures == 1
+    assert any("not using PostgreSQL" in message for message in messages)
+
+
 def test_preflight_checks_network_targets_when_configured():
     calls: list[tuple[str, int, float]] = []
 

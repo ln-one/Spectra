@@ -89,6 +89,12 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py
 python3 /Users/ln1/Projects/Spectra/backend/scripts/docker_deploy_readiness_audit.py
 ```
 
+如果这次发布已经要求进入 PostgreSQL / 分布式拓扑基线：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_preflight.py --require-postgres
+```
+
 如果只想先看环境变量是否齐全：
 
 ```bash

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping
 from urllib.parse import urlparse
 
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0"}
+
 
 @dataclass(frozen=True)
 class EnvCheck:
@@ -61,6 +63,72 @@ def _database_socket_target(database_url: str) -> tuple[str, int] | None:
     return parsed.hostname, parsed.port or 5432
 
 
+def _database_scheme(database_url: str | None) -> str | None:
+    if not database_url:
+        return None
+    if database_url.startswith("file:"):
+        return "sqlite"
+    parsed = urlparse(database_url)
+    return parsed.scheme or None
+
+
+def _check_database_contract(
+    database_url: str | None,
+    *,
+    require_postgres: bool,
+) -> tuple[list[str], int]:
+    if not database_url:
+        return [], 0
+
+    messages: list[str] = []
+    failures = 0
+    scheme = _database_scheme(database_url)
+    parsed = urlparse(database_url)
+    host = parsed.hostname
+
+    if require_postgres:
+        if scheme not in {"postgresql", "postgres"}:
+            messages.append(
+                _format(
+                    "FAIL",
+                    "DATABASE_URL is not using PostgreSQL "
+                    "while --require-postgres is enabled",
+                )
+            )
+            failures += 1
+        else:
+            messages.append(
+                _format("PASS", "DATABASE_URL uses PostgreSQL-compatible scheme")
+            )
+    elif scheme == "sqlite":
+        messages.append(
+            _format(
+                "WARN",
+                "DATABASE_URL still points to sqlite; "
+                "this is fine for local dev only",
+            )
+        )
+
+    if require_postgres and host in LOCAL_HOSTS:
+        messages.append(
+            _format(
+                "FAIL",
+                f"DATABASE_URL host `{host}` is local-only "
+                "while --require-postgres is enabled",
+            )
+        )
+        failures += 1
+    elif host in LOCAL_HOSTS:
+        messages.append(
+            _format(
+                "WARN",
+                f"DATABASE_URL host `{host}` is local-only; verify deployment topology",
+            )
+        )
+
+    return messages, failures
+
+
 def _iter_env_results(
     checks: Iterable[EnvCheck],
     env_get: Callable[[str], str | None] = os.getenv,
@@ -104,6 +172,7 @@ def evaluate_preflight(
     *,
     skip_network: bool,
     timeout_seconds: float,
+    require_postgres: bool = False,
     tcp_check: Callable[[str, int, float], tuple[bool, str]] = _tcp_check,
 ) -> tuple[list[str], int]:
     messages = ["Deployment preflight"]
@@ -111,10 +180,17 @@ def evaluate_preflight(
 
     messages.extend(env_messages)
 
+    database_url = env.get("DATABASE_URL")
+    contract_messages, contract_failures = _check_database_contract(
+        database_url,
+        require_postgres=require_postgres,
+    )
+    messages.extend(contract_messages)
+    failures += contract_failures
+
     if skip_network:
         return messages, failures
 
-    database_url = env.get("DATABASE_URL")
     if database_url:
         target = _database_socket_target(database_url)
         if target is None:
@@ -160,12 +236,21 @@ def main() -> int:
         action="store_true",
         help="Only validate environment variables; skip TCP reachability checks",
     )
+    parser.add_argument(
+        "--require-postgres",
+        action="store_true",
+        help=(
+            "Fail when DATABASE_URL is not PostgreSQL "
+            "or still points at a local-only host"
+        ),
+    )
     args = parser.parse_args()
 
     messages, failures = evaluate_preflight(
         os.environ,
         skip_network=args.skip_network,
         timeout_seconds=args.timeout_seconds,
+        require_postgres=args.require_postgres,
     )
     for message in messages:
         print(message)
