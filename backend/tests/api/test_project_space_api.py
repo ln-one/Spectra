@@ -44,6 +44,7 @@ def _fake_artifact(
 def _fake_version(
     version_id: str = "v-001",
     project_id: str = _PROJECT_ID,
+    snapshot_data: str = '{"k":"v"}',
 ):
     return SimpleNamespace(
         id=version_id,
@@ -51,7 +52,7 @@ def _fake_version(
         parentVersionId=None,
         summary="version summary",
         changeType="author-update",
-        snapshotData='{"k":"v"}',
+        snapshotData=snapshot_data,
         createdBy=_USER_ID,
         createdAt=_NOW,
     )
@@ -129,6 +130,37 @@ def test_get_project_versions_success(client, monkeypatch, _as_user):
     assert body["success"] is True
     assert body["data"]["versions"][0]["id"] == "v-001"
     assert body["data"]["versions"][0]["project_id"] == _PROJECT_ID
+
+
+def test_get_project_version_detail_exposes_reference_summary(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_project_version",
+        AsyncMock(
+            return_value=_fake_version(
+                version_id="v-003",
+                snapshot_data='{"base_version_context":{"base_version_id":"v-001","current_version_id":"v-002"},"reference_summary":[{"reference_id":"r-001","target_project_id":"p-base-001"}]}',
+            )
+        ),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions/v-003")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["version"]["base_version_context"] == {
+        "base_version_id": "v-001",
+        "current_version_id": "v-002",
+    }
+    assert body["data"]["version"]["reference_summary"] == [
+        {"reference_id": "r-001", "target_project_id": "p-base-001"}
+    ]
 
 
 def test_get_project_version_detail_success(client, monkeypatch, _as_user):
@@ -647,3 +679,20 @@ def test_delete_project_member_returns_simple_success(client, monkeypatch, _as_u
         member_id="m-009",
         user_id=_USER_ID,
     )
+
+
+def test_delete_reference_returns_409_when_base_reference_is_still_in_use(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "delete_project_reference",
+        AsyncMock(
+            side_effect=ConflictException(
+                "Base reference is still used by active generation sessions."
+            )
+        ),
+    )
+
+    resp = client.delete(f"/api/v1/projects/{_PROJECT_ID}/references/r-001")
+    assert resp.status_code == 409

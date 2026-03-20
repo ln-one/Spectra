@@ -100,6 +100,8 @@ class ProjectVersion(BaseModel):
     summary: Optional[str] = None
     change_type: ChangeType
     snapshot_data: Optional[Dict[str, Any]] = None
+    base_version_context: Optional[Dict[str, Any]] = None
+    reference_summary: Optional[List[Dict[str, Any]]] = None
     created_by: Optional[str] = None
     created_at: datetime
 

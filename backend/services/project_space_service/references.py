@@ -9,8 +9,10 @@ from schemas.project_space import (
     CandidateChangeStatus,
     ProjectPermission,
     ReferenceMode,
+    ReferenceRelationType,
 )
-from utils.exceptions import NotFoundException, ValidationException
+from services.platform.state_transition_guard import GenerationState
+from utils.exceptions import ConflictException, NotFoundException, ValidationException
 
 
 async def create_project_reference(
@@ -122,6 +124,47 @@ async def delete_project_reference(
         raise NotFoundException(
             f"Reference {reference_id} not found in project {project_id}"
         )
+
+    if (
+        reference.relationType == ReferenceRelationType.BASE.value
+        and getattr(reference, "status", None) != "disabled"
+    ):
+        project = await service.db.get_project(project_id)
+        current_version_id = (
+            getattr(project, "currentVersionId", None) if project else None
+        )
+        if current_version_id:
+            sessions = await service.db.db.generationsession.find_many(
+                where={"projectId": project_id, "baseVersionId": current_version_id}
+            )
+            active_states = {
+                GenerationState.IDLE.value,
+                GenerationState.CONFIGURING.value,
+                GenerationState.ANALYZING.value,
+                GenerationState.DRAFTING_OUTLINE.value,
+                GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+                GenerationState.GENERATING_CONTENT.value,
+                GenerationState.RENDERING.value,
+            }
+            if any(
+                getattr(session, "state", None) in active_states for session in sessions
+            ):
+                raise ConflictException(
+                    "Base reference is still used by active generation sessions."
+                )
+
+            pending_changes = await service.db.get_candidate_changes(
+                project_id=project_id,
+                status=CandidateChangeStatus.PENDING,
+            )
+            if any(
+                getattr(change, "baseVersionId", None) == current_version_id
+                for change in pending_changes
+            ):
+                raise ConflictException(
+                    "Base reference is still used by pending candidate changes."
+                )
+
     return await service.db.delete_project_reference(reference_id)
 
 

@@ -6,7 +6,7 @@ import pytest
 from services.project_space_service.reference_validation import (
     validate_reference_creation,
 )
-from utils.exceptions import ValidationException
+from utils.exceptions import ConflictException, ValidationException
 
 
 @pytest.mark.asyncio
@@ -159,3 +159,75 @@ def test_normalize_reference_status_accepts_enum_and_string():
     assert (
         normalize_reference_status(ReferenceStatus.DISABLED) is ReferenceStatus.DISABLED
     )
+
+
+@pytest.mark.asyncio
+async def test_delete_project_reference_blocks_when_active_session_depends_on_current_version():
+    from services.project_space_service.references import delete_project_reference
+
+    service = SimpleNamespace(
+        check_project_permission=AsyncMock(),
+        db=SimpleNamespace(
+            get_project_reference=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="r-001",
+                    projectId="p-001",
+                    relationType="base",
+                    status="active",
+                )
+            ),
+            get_project=AsyncMock(
+                return_value=SimpleNamespace(id="p-001", currentVersionId="v-001")
+            ),
+            get_candidate_changes=AsyncMock(return_value=[]),
+            delete_project_reference=AsyncMock(),
+            db=SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_many=AsyncMock(
+                        return_value=[
+                            SimpleNamespace(id="s-001", state="DRAFTING_OUTLINE")
+                        ]
+                    )
+                )
+            ),
+        ),
+    )
+
+    with pytest.raises(ConflictException):
+        await delete_project_reference(service, "p-001", "r-001", "u-001")
+
+    service.db.delete_project_reference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_project_reference_blocks_when_pending_change_depends_on_current_version():
+    from services.project_space_service.references import delete_project_reference
+
+    service = SimpleNamespace(
+        check_project_permission=AsyncMock(),
+        db=SimpleNamespace(
+            get_project_reference=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="r-001",
+                    projectId="p-001",
+                    relationType="base",
+                    status="active",
+                )
+            ),
+            get_project=AsyncMock(
+                return_value=SimpleNamespace(id="p-001", currentVersionId="v-001")
+            ),
+            get_candidate_changes=AsyncMock(
+                return_value=[SimpleNamespace(id="c-001", baseVersionId="v-001")]
+            ),
+            delete_project_reference=AsyncMock(),
+            db=SimpleNamespace(
+                generationsession=SimpleNamespace(find_many=AsyncMock(return_value=[]))
+            ),
+        ),
+    )
+
+    with pytest.raises(ConflictException):
+        await delete_project_reference(service, "p-001", "r-001", "u-001")
+
+    service.db.delete_project_reference.assert_not_awaited()
