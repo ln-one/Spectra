@@ -267,6 +267,7 @@ PostgreSQL 迁移不是“换个连接串”这么简单。
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_rehearsal.py --use-shadow-env --run-shadow-flow`
 - Render a local shadow env overlay for rehearsal/debugging:
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_env.py`
+  - the overlay now self-supplies shadow Redis/Chroma hosts, shared runtime storage paths, worker defaults, backup paths, and Docker backup fallback
 - Render a PostgreSQL baseline SQL draft from the current Prisma schema:
   - `python3 /Users/ln1/Projects/Spectra/backend/scripts/postgres_baseline_diff.py --run`
 - Build a draft PostgreSQL baseline migration package:

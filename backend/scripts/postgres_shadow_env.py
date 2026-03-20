@@ -17,6 +17,7 @@ DEFAULT_SHADOW_DATABASE_URL = (
 )
 DEFAULT_JWT_SECRET = "spectra-shadow-local-jwt-secret"
 DEFAULT_BASE_DIR = Path(tempfile.gettempdir()) / "spectra-shadow"
+DEFAULT_RUNTIME_ROOT = "/var/lib/spectra"
 
 
 def build_shadow_env_overlay(
@@ -35,6 +36,22 @@ def build_shadow_env_overlay(
     overlay = {
         "DATABASE_URL": shadow_database_url,
         "JWT_SECRET_KEY": (env.get("JWT_SECRET_KEY") or DEFAULT_JWT_SECRET).strip(),
+        "REDIS_HOST": (env.get("REDIS_HOST") or "redis").strip(),
+        "REDIS_PORT": (env.get("REDIS_PORT") or "6379").strip(),
+        "CHROMA_HOST": (env.get("CHROMA_HOST") or "chromadb").strip(),
+        "CHROMA_PORT": (env.get("CHROMA_PORT") or "8000").strip(),
+        "UPLOAD_DIR": (
+            env.get("UPLOAD_DIR") or f"{DEFAULT_RUNTIME_ROOT}/uploads"
+        ).strip(),
+        "ARTIFACT_STORAGE_DIR": (
+            env.get("ARTIFACT_STORAGE_DIR") or f"{DEFAULT_RUNTIME_ROOT}/artifacts"
+        ).strip(),
+        "GENERATED_DIR": (
+            env.get("GENERATED_DIR") or f"{DEFAULT_RUNTIME_ROOT}/generated"
+        ).strip(),
+        "CHROMA_PERSIST_DIR": (
+            env.get("CHROMA_PERSIST_DIR") or f"{DEFAULT_RUNTIME_ROOT}/chroma"
+        ).strip(),
         "POSTGRES_BACKUP_DIR": (env.get("POSTGRES_BACKUP_DIR") or backup_dir).strip(),
         "POSTGRES_RESTORE_STAGING_DIR": (
             env.get("POSTGRES_RESTORE_STAGING_DIR") or restore_dir
@@ -48,6 +65,9 @@ def build_shadow_env_overlay(
         "POSTGRES_BACKUP_USE_DOCKER": (
             env.get("POSTGRES_BACKUP_USE_DOCKER") or "1"
         ).strip(),
+        "WORKER_NAME": (env.get("WORKER_NAME") or "shadow-worker").strip(),
+        "WORKER_RECOVERY_SCAN": (env.get("WORKER_RECOVERY_SCAN") or "true").strip(),
+        "SYNC_RAG_INDEXING": (env.get("SYNC_RAG_INDEXING") or "false").strip(),
     }
     return overlay
 
