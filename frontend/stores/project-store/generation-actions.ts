@@ -84,7 +84,12 @@ export function createGenerationActions({
             title: tool.name,
           };
           set((state) => ({
-            generationHistory: [historyItem, ...state.generationHistory],
+            generationHistory: [
+              historyItem,
+              ...state.generationHistory.filter(
+                (item) => item.id !== sessionId
+              ),
+            ],
           }));
 
           try {

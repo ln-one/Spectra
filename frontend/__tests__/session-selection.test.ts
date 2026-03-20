@@ -1,4 +1,7 @@
-import { resolvePreferredSessionId } from "@/components/pages/projects/detail/useProjectDetailController";
+import {
+  dedupeGenerationHistory,
+  resolvePreferredSessionId,
+} from "@/components/pages/projects/detail/useProjectDetailController";
 import type { GenerationHistory } from "@/stores/projectStore";
 
 const history = (ids: string[]): GenerationHistory[] =>
@@ -33,5 +36,13 @@ describe("resolvePreferredSessionId", () => {
 
   it("returns null when the project has no sessions yet", () => {
     expect(resolvePreferredSessionId(null, [], null)).toBeNull();
+  });
+});
+
+describe("dedupeGenerationHistory", () => {
+  it("keeps only the first occurrence for duplicated session ids", () => {
+    const items = history(["s-3", "s-2"]);
+    const duplicated = [items[0], items[1], { ...items[0], title: "dup" }];
+    expect(dedupeGenerationHistory(duplicated)).toEqual([items[0], items[1]]);
   });
 });

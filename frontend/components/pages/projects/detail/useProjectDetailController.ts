@@ -29,7 +29,9 @@ export function resolvePreferredSessionId(
   generationHistory: GenerationHistory[],
   activeSessionId: string | null
 ): string | null {
-  const allSessionIds = generationHistory.map((item) => item.id);
+  const allSessionIds = Array.from(
+    new Set(generationHistory.map((item) => item.id))
+  );
   if (querySessionId && allSessionIds.includes(querySessionId)) {
     return querySessionId;
   }
@@ -37,6 +39,19 @@ export function resolvePreferredSessionId(
     return activeSessionId;
   }
   return generationHistory.length > 0 ? generationHistory[0].id : null;
+}
+
+export function dedupeGenerationHistory(
+  generationHistory: GenerationHistory[]
+): GenerationHistory[] {
+  const seen = new Set<string>();
+  return generationHistory.filter((item) => {
+    if (seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  });
 }
 
 export function useProjectDetailController() {
@@ -86,7 +101,7 @@ export function useProjectDetailController() {
   const isExpanded = layoutMode === "expanded";
   const sessionOptions: SessionSwitcherItem[] = useMemo(
     () =>
-      generationHistory.map((item) => ({
+      dedupeGenerationHistory(generationHistory).map((item) => ({
         sessionId: item.id,
         title: `会话 ${item.id.slice(-6)}`,
         updatedAt: formatSessionTime(item.createdAt),
