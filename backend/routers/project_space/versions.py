@@ -33,10 +33,18 @@ async def get_project_versions(
             project_id, user_id, ProjectPermission.VIEW
         )
         versions = await project_space_service.get_project_versions(project_id)
+        project = await project_space_service.db.get_project(project_id)
+        current_version_id = getattr(project, "currentVersionId", None)
         return ProjectVersionsResponse(
             success=True,
             data={
-                "versions": [to_project_version_model(version) for version in versions]
+                "versions": [
+                    to_project_version_model(
+                        version,
+                        current_version_id=current_version_id,
+                    )
+                    for version in versions
+                ]
             },
             message="获取版本列表成功",
         )
@@ -64,9 +72,16 @@ async def get_project_version(
             raise NotFoundException(
                 f"Version {version_id} not found in project {project_id}"
             )
+        project = await project_space_service.db.get_project(project_id)
+        current_version_id = getattr(project, "currentVersionId", None)
         return ProjectVersionResponse(
             success=True,
-            data={"version": to_project_version_model(version)},
+            data={
+                "version": to_project_version_model(
+                    version,
+                    current_version_id=current_version_id,
+                )
+            },
             message="获取版本详情成功",
         )
     except (NotFoundException, Exception) as exc:

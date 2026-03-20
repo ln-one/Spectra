@@ -133,6 +133,11 @@ def test_get_project_versions_success(client, monkeypatch, _as_user):
         "get_project_versions",
         AsyncMock(return_value=[_fake_version()]),
     )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(currentVersionId="v-001")),
+    )
 
     resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions")
     assert resp.status_code == 200
@@ -140,6 +145,34 @@ def test_get_project_versions_success(client, monkeypatch, _as_user):
     assert body["success"] is True
     assert body["data"]["versions"][0]["id"] == "v-001"
     assert body["data"]["versions"][0]["project_id"] == _PROJECT_ID
+    assert body["data"]["versions"][0]["current_version_id"] == "v-001"
+    assert body["data"]["versions"][0]["is_current"] is True
+
+
+def test_get_project_version_detail_marks_current_version(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_project_version",
+        AsyncMock(return_value=_fake_version(version_id="v-002")),
+    )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(currentVersionId="v-002")),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions/v-002")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["version"]["current_version_id"] == "v-002"
+    assert body["data"]["version"]["is_current"] is True
 
 
 def test_get_project_version_detail_exposes_reference_summary(
@@ -164,6 +197,11 @@ def test_get_project_version_detail_exposes_reference_summary(
             )
         ),
     )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(currentVersionId="v-002")),
+    )
 
     resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions/v-003")
     assert resp.status_code == 200
@@ -187,6 +225,11 @@ def test_get_project_version_detail_success(client, monkeypatch, _as_user):
         project_space_service,
         "get_project_version",
         AsyncMock(return_value=_fake_version(version_id="v-002")),
+    )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(currentVersionId="v-003")),
     )
 
     resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions/v-002")

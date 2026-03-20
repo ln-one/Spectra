@@ -33,7 +33,11 @@ def safe_parse_json(value):
     return parsed
 
 
-def to_project_version_model(version) -> ProjectVersion:
+def to_project_version_model(
+    version,
+    *,
+    current_version_id: str | None = None,
+) -> ProjectVersion:
     snapshot = safe_parse_json(version.snapshotData) or {}
     return ProjectVersion(
         id=version.id,
@@ -48,6 +52,8 @@ def to_project_version_model(version) -> ProjectVersion:
         reference_summary=(
             snapshot.get("reference_summary") if isinstance(snapshot, dict) else None
         ),
+        current_version_id=current_version_id,
+        is_current=bool(current_version_id and version.id == current_version_id),
         created_by=version.createdBy,
         created_at=version.createdAt,
     )

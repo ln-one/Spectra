@@ -102,6 +102,8 @@ class ProjectVersion(BaseModel):
     snapshot_data: Optional[Dict[str, Any]] = None
     base_version_context: Optional[Dict[str, Any]] = None
     reference_summary: Optional[List[Dict[str, Any]]] = None
+    current_version_id: Optional[str] = None
+    is_current: bool = False
     created_by: Optional[str] = None
     created_at: datetime
 
