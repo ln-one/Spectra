@@ -10,6 +10,8 @@ from typing import Mapping
 from scripts.deploy_preflight import evaluate_preflight
 from scripts.distributed_deploy_audit import evaluate_distributed_readiness
 from scripts.postgres_backup_restore_audit import evaluate_backup_restore_readiness
+from scripts.postgres_migration_sql_audit import evaluate_migration_sql
+from scripts.postgres_readiness_audit import parse_migration_lock_provider
 from scripts.postgres_shadow_stack_audit import evaluate_shadow_stack
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -42,6 +44,8 @@ def evaluate_cutover_readiness(
     prisma_provider: str | None,
     base_compose_text: str | None,
     shadow_compose_text: str | None,
+    migration_lock_provider: str | None = None,
+    migration_sql_messages: list[str] | None = None,
 ) -> tuple[list[str], int]:
     messages = ["PostgreSQL cutover readiness audit"]
     failures = 0
@@ -68,6 +72,35 @@ def evaluate_cutover_readiness(
     messages.extend(_prefix("backup", backup_messages[1:]))
     failures += backup_failures
 
+    if migration_lock_provider != "postgresql":
+        failures += 1
+        messages.append(
+            "[baseline] FAIL Prisma migration lock is not ready for PostgreSQL baseline"
+        )
+    else:
+        messages.append(
+            "[baseline] PASS Prisma migration lock already targets PostgreSQL"
+        )
+
+    sql_messages = migration_sql_messages or ["PostgreSQL migration SQL audit"]
+    baseline_sql_warnings = [m for m in sql_messages[1:] if m.startswith("WARN ")]
+    messages.extend(_prefix("migration-sql", sql_messages[1:]))
+    if baseline_sql_warnings:
+        failures += 1
+        messages.append(
+            (
+                "[baseline] FAIL existing Prisma migration SQL still needs "
+                "a PostgreSQL baseline path"
+            )
+        )
+    else:
+        messages.append(
+            (
+                "[baseline] PASS existing Prisma migration SQL is ready "
+                "for PostgreSQL baseline work"
+            )
+        )
+
     if shadow_compose_text is None:
         failures += 1
         messages.append("[shadow] FAIL postgres shadow compose override missing")
@@ -92,6 +125,8 @@ def main() -> int:
         prisma_provider=provider,
         base_compose_text=base_text,
         shadow_compose_text=shadow_text,
+        migration_lock_provider=parse_migration_lock_provider(),
+        migration_sql_messages=evaluate_migration_sql()[0],
     )
     for message in messages:
         print(message)

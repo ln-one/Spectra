@@ -34,6 +34,11 @@ def test_cutover_audit_fails_for_local_sqlite_defaults():
         prisma_provider="sqlite",
         base_compose_text=None,
         shadow_compose_text=None,
+        migration_lock_provider="sqlite",
+        migration_sql_messages=[
+            "PostgreSQL migration SQL audit",
+            "WARN migrations still contain SQLite markers",
+        ],
     )
 
     assert failures > 0
@@ -117,6 +122,11 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
 """,
         shadow_compose_text=SHADOW_COMPOSE,
+        migration_lock_provider="postgresql",
+        migration_sql_messages=[
+            "PostgreSQL migration SQL audit",
+            "PASS migration.sql has no SQLite-specific migration markers",
+        ],
     )
 
     assert failures == 0
@@ -142,6 +152,18 @@ services:
     )
     assert any(
         "[backup] PASS POSTGRES_BACKUP_DIR points to shared backup path" in m
+        for m in messages
+    )
+    assert any(
+        "[baseline] PASS Prisma migration lock already targets PostgreSQL" in m
+        for m in messages
+    )
+    assert any(
+        (
+            "[baseline] PASS existing Prisma migration SQL is ready "
+            "for PostgreSQL baseline work"
+        )
+        in m
         for m in messages
     )
     assert any("[shadow] PASS postgres service declared" in m for m in messages)
