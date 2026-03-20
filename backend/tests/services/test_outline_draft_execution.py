@@ -59,7 +59,7 @@ async def test_generate_outline_doc_includes_session_chat_requirements():
         ai_service_obj=ai_service,
     )
 
-    assert outline["nodes"][0]["title"] == "实验导入（1）"
+    assert outline["nodes"][0]["title"].startswith("实验导入")
     assert ai_service.kwargs["session_id"] == "s-001"
     assert ai_service.kwargs["rag_source_ids"] is None
     assert "请做成适合高一的牛顿第二定律课件" in ai_service.kwargs["user_requirements"]

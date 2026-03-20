@@ -10,9 +10,7 @@ Internet → Load Balancer → Frontend Pods
  → OSS/S3
 ```
 
-## 数据库迁移
-
-### SQLite → PostgreSQL
+## 数据库基线（PostgreSQL）
 
 **1. 安装 PostgreSQL**：
 ```bash
@@ -24,7 +22,7 @@ docker run -d \
  postgres:15
 ```
 
-**2. 修改 Prisma Schema**：
+**2. Prisma Schema（当前主线）**：
 ```prisma
 datasource db {
  provider = "postgresql"
@@ -42,10 +40,10 @@ generator client {
 DATABASE_URL="postgresql://user:password@localhost:5432/spectra"
 ```
 
-**4. 执行迁移**：
+**3. 执行迁移**：
 ```bash
-prisma migrate dev --name init
-prisma db push
+prisma migrate deploy
+prisma generate
 ```
 
 ## 文件存储迁移

@@ -48,9 +48,13 @@ class TestGenerateOutline:
 
         assert isinstance(outline, CoursewareOutline)
         assert outline.title == "Python 入门"
-        assert len(outline.sections) == 3
-        # +2 for title slide and closing slide
-        assert outline.total_slides == 2 + 4 + 1 + 2
+        assert len(outline.sections) >= 3
+        section_titles = [section.title for section in outline.sections]
+        assert "导入" in section_titles
+        assert "核心" in section_titles
+        assert "总结" in section_titles
+        # sparse-outline enrichment may expand sections/slides, but should keep baseline size
+        assert outline.total_slides >= 2 + 4 + 1 + 2
         assert outline.summary == "Python 基础教学大纲"
 
     @pytest.mark.asyncio

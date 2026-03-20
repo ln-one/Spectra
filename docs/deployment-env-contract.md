@@ -41,8 +41,7 @@
 要求：
 
 - 演示环境必须配置
-- 本地可以是 SQLite
-- 多机 / PostgreSQL 阶段应切成明确的 Postgres 连接串
+- 本地/演示/多机统一使用明确的 PostgreSQL 连接串
 
 ### `JWT_SECRET_KEY`
 

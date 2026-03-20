@@ -49,6 +49,25 @@ const STUDIO_CARD_BY_TOOL: Partial<Record<StudioToolKey, string>> = {
   handout: "classroom_qa_simulator",
 };
 
+function isDraftStateEqual(
+  left: ToolDraftState | undefined,
+  right: ToolDraftState
+): boolean {
+  if (!left) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return rightKeys.every((key) => {
+    const lv = left[key];
+    const rv = right[key];
+    if (Array.isArray(lv) && Array.isArray(rv)) {
+      if (lv.length !== rv.length) return false;
+      return lv.every((item, idx) => item === rv[idx]);
+    }
+    return lv === rv;
+  });
+}
+
 export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const router = useRouter();
   const {
@@ -140,13 +159,28 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     !isProtocolPending &&
     supportsChatRefine &&
     (!requiresSourceArtifact || hasSourceBinding);
+  const handleExpandedToolDraftChange = useMemo(() => {
+    if (!expandedTool || expandedTool === "ppt") {
+      return undefined;
+    }
+    const toolKey = expandedTool as StudioToolKey;
+    return (draft: ToolDraftState) => {
+      setToolDrafts((prev) => {
+        const current = prev[toolKey];
+        if (isDraftStateEqual(current, draft)) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [toolKey]: draft,
+        };
+      });
+    };
+  }, [expandedTool]);
 
   useEffect(() => {
     if (!currentCardId) return;
-    if (
-      cardCapabilitiesById[currentCardId] &&
-      executionPlanByCardId[currentCardId]
-    ) {
+    if (currentCapability && currentExecutionPlan) {
       return;
     }
 
@@ -189,17 +223,17 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [cardCapabilitiesById, currentCardId, executionPlanByCardId]);
+  }, [currentCapability, currentCardId, currentExecutionPlan]);
 
   useEffect(() => {
     if (!currentCardId) return;
-    if (selectedSourceByCard[currentCardId]) return;
+    if (selectedSourceId) return;
     if (!draftSourceArtifactId) return;
     setSelectedSourceByCard((prev) => ({
       ...prev,
       [currentCardId]: draftSourceArtifactId,
     }));
-  }, [currentCardId, draftSourceArtifactId, selectedSourceByCard]);
+  }, [currentCardId, draftSourceArtifactId, selectedSourceId]);
 
   const handleToolClick = (tool: StudioTool) => {
     setLayoutMode("expanded");
@@ -715,12 +749,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                           <ExpandedToolComponent
                             toolId={expandedTool as StudioToolKey}
                             toolName={TOOL_LABELS[expandedTool] ?? expandedTool}
-                            onDraftChange={(draft) => {
-                              setToolDrafts((prev) => ({
-                                ...prev,
-                                [expandedTool as StudioToolKey]: draft,
-                              }));
-                            }}
+                            onDraftChange={handleExpandedToolDraftChange}
                           />
                         </div>
                       </div>

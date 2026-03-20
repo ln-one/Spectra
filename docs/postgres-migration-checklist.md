@@ -29,7 +29,7 @@
 - SQLite 与 PostgreSQL 在事务、并发、大小写、默认值、JSON 行为上并不等价
 - Prisma schema 虽可帮助迁移，但不能自动消除业务层假设
 - 任务链路、幂等键、会话事件、candidate change 等新模型都需要真实数据库回归
-- `backend/prisma/migrations/migration_lock.toml` 目前仍是 SQLite 基线，正式切 provider 前还需要准备 PostgreSQL migration baseline
+- `backend/prisma/migrations/migration_lock.toml` 已切为 PostgreSQL provider，需继续确保增量 migration 不回引 SQLite 假设
 
 ---
 
@@ -178,11 +178,11 @@
 
 #### Phase B：演示环境试运行
 - 只在一套演示环境切到 PostgreSQL
-- 保留 SQLite 快速回退路径
+- 回滚路径以 PostgreSQL 备份/恢复为主，不再依赖 SQLite 回退
 
 #### Phase C：主线切换
 - `main` 默认转 PostgreSQL
-- SQLite 只保留本地轻量开发用途或完全退出
+- SQLite 退出主线，仅保留历史归档参考
 
 ---
 
@@ -245,11 +245,10 @@
 
 当前仍然真正阻塞 cutover 的点已经收敛到：
 
-1. `backend/prisma/migrations/migration_lock.toml` 仍然是 SQLite 基线
-2. 现有 Prisma migration SQL 仍包含 SQLite-specific 迁移
-3. PostgreSQL baseline 还处于 draft/package 阶段，尚未正式接入 live migration 路径
-4. baseline package promotion 还未完成正式评审与接线
-5. 还需要明确 live baseline candidate 的 adoption 入口
+1. 需要持续审计增量 Prisma migration SQL，避免回引 SQLite-specific 语句
+2. PostgreSQL baseline 还处于 draft/package 阶段，尚未正式接入 live migration 路径
+3. baseline package promotion 还未完成正式评审与接线
+4. 还需要明确 live baseline candidate 的 adoption 入口
 
 也就是说，接下来的重点不再是继续扩 readiness 范围，而是把 baseline promotion 和实际迁移路径做实。
 
