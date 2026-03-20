@@ -1,6 +1,12 @@
-"use client";
+﻿"use client";
 
-import { ChevronsDown, ChevronsUp, PanelRightClose, PanelRightOpen, Upload } from "lucide-react";
+import {
+  ChevronsDown,
+  ChevronsUp,
+  PanelRightClose,
+  PanelRightOpen,
+  Upload,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,19 +42,19 @@ export function SourcesHeader({
 }: SourcesHeaderProps) {
   return (
     <CardHeader
-      className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
+      className="flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
       style={{ height: "52px" }}
     >
       {isCollapsed ? (
-        <div className="w-full flex items-center justify-between">
+        <div className="flex w-full items-center justify-between">
           <Button
             size="icon"
             variant="ghost"
             aria-label="展开 Sources 面板"
-            className="h-7 w-7 rounded-full text-zinc-500 hover:text-zinc-700 hover:bg-transparent"
+            className="h-7 w-7 rounded-full text-[var(--project-text-muted)] hover:bg-transparent hover:text-[var(--project-text-primary)]"
             onClick={() => onToggleCollapsed?.("expand")}
           >
-            <PanelRightOpen className="w-3.5 h-3.5" />
+            <PanelRightOpen className="h-3.5 w-3.5" />
           </Button>
           <label className="relative shrink-0">
             <input
@@ -63,21 +69,21 @@ export function SourcesHeader({
               size="sm"
               aria-label="上传"
               className={cn(
-                "w-7 h-7 px-0 rounded-full transition-all",
-                "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
+                "h-7 w-7 rounded-full px-0 transition-all",
+                "bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-sm hover:bg-[var(--project-accent-hover)] hover:shadow-md"
               )}
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="w-3 h-3" />
+              <Upload className="h-3 w-3" />
             </Button>
           </label>
         </div>
       ) : (
         <>
           {!isHeaderCompact ? (
-            <div className="flex flex-col justify-center min-w-0 flex-1">
+            <div className="min-w-0 flex-1 flex-col justify-center">
               <CardTitle className="text-sm font-semibold leading-tight">Sources</CardTitle>
-              <CardDescription className="text-xs text-zinc-500 leading-tight truncate">
+              <CardDescription className="truncate text-xs leading-tight text-[var(--project-text-muted)]">
                 {`${fileCount} 个文件 · ${selectedCount} 已选${
                   uploadingTasksCount > 0 ? ` · 上传中 ${uploadingTasksCount} 个` : ""
                 }`}
@@ -89,7 +95,10 @@ export function SourcesHeader({
 
           <div
             ref={headerActionsRef as React.RefObject<HTMLDivElement>}
-            className={cn("flex items-center gap-1.5 shrink-0", isHeaderCompact ? "ml-0" : "ml-2")}
+            className={cn(
+              "ml-2 flex shrink-0 items-center gap-1.5",
+              isHeaderCompact && "ml-0"
+            )}
           >
             <Button
               size="icon"
@@ -101,7 +110,7 @@ export function SourcesHeader({
                     : "向上收起 Sources 内容"
                   : "收起 Sources 面板"
               }
-              className="h-7 w-7 rounded-full px-0 text-zinc-500 hover:text-zinc-700 hover:bg-transparent"
+              className="h-7 w-7 rounded-full px-0 text-[var(--project-text-muted)] hover:bg-transparent hover:text-[var(--project-text-primary)]"
               onClick={() => {
                 if (isStudioExpanded) {
                   onToggleExpandedContentCollapsed?.();
@@ -112,12 +121,12 @@ export function SourcesHeader({
             >
               {isStudioExpanded ? (
                 isExpandedContentCollapsed ? (
-                  <ChevronsDown className="w-3 h-3" />
+                  <ChevronsDown className="h-3 w-3" />
                 ) : (
-                  <ChevronsUp className="w-3 h-3" />
+                  <ChevronsUp className="h-3 w-3" />
                 )
               ) : (
-                <PanelRightClose className="w-3 h-3" />
+                <PanelRightClose className="h-3 w-3" />
               )}
             </Button>
 
@@ -134,13 +143,13 @@ export function SourcesHeader({
                 size="sm"
                 aria-label="上传"
                 className={cn(
-                  "gap-1.5 rounded-full text-[11px] h-7 transition-all",
-                  isHeaderCompact && "w-7 px-0 justify-center",
-                  "bg-zinc-900 hover:bg-zinc-800 shadow-sm hover:shadow-md"
+                  "h-7 gap-1.5 rounded-full text-[11px] transition-all",
+                  isHeaderCompact && "w-7 justify-center px-0",
+                  "bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-sm hover:bg-[var(--project-accent-hover)] hover:shadow-md"
                 )}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="w-3 h-3" />
+                <Upload className="h-3 w-3" />
                 {!isHeaderCompact && "上传"}
               </Button>
             </label>
@@ -150,3 +159,4 @@ export function SourcesHeader({
     </CardHeader>
   );
 }
+

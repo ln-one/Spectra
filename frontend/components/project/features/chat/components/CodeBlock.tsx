@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
@@ -21,19 +21,19 @@ export function CodeBlock({
   };
 
   return (
-    <div className="relative group my-2 rounded-lg overflow-hidden border border-zinc-200 bg-zinc-50">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-100 border-b border-zinc-200">
-        <span className="text-[10px] font-medium text-zinc-500 uppercase">
+    <div className="relative group my-2 overflow-hidden rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)]">
+      <div className="flex items-center justify-between border-b border-[var(--project-border)] bg-[var(--project-surface)] px-3 py-1.5">
+        <span className="text-[10px] font-medium uppercase text-[var(--project-text-muted)]">
           {language || "code"}
         </span>
         <button
           onClick={handleCopy}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-zinc-200 rounded"
+          className="rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--project-surface-elevated)]"
         >
           {copied ? (
-            <Check className="w-3 h-3 text-emerald-500" />
+            <Check className="h-3 w-3 text-emerald-500" />
           ) : (
-            <Copy className="w-3 h-3 text-zinc-400" />
+            <Copy className="h-3 w-3 text-[var(--project-text-muted)]" />
           )}
         </button>
       </div>
@@ -58,3 +58,4 @@ export function CodeBlock({
     </div>
   );
 }
+

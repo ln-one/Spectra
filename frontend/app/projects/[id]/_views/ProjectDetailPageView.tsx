@@ -20,6 +20,7 @@ import {
   PANEL_TOP_INSET,
   springConfig,
 } from "./constants";
+import { getProjectTheme, getProjectThemeStyle } from "./theme";
 import { useProjectDetailController } from "./useProjectDetailController";
 
 export default function ProjectDetailPage() {
@@ -34,6 +35,8 @@ export default function ProjectDetailPage() {
     isCreatingSession,
     isLibraryOpen,
     setIsLibraryOpen,
+    selectedThemePreset,
+    setSelectedThemePreset,
     panelAreaRef,
     studioWidth,
     chatWidth,
@@ -59,12 +62,24 @@ export default function ProjectDetailPage() {
   }
 
   const sourcesWidth = sourcesWidthPercent;
+  const activeTheme = getProjectTheme(selectedThemePreset);
+  const pageThemeStyle = getProjectThemeStyle(selectedThemePreset);
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-100 overflow-hidden relative">
+    <div
+      className="h-screen flex flex-col bg-[var(--project-bg-base)] overflow-hidden relative"
+      style={pageThemeStyle}
+    >
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 20% 15%, var(--project-bg-glow), transparent 42%), linear-gradient(135deg, var(--project-bg-start), var(--project-bg-end))",
+        }}
+      />
       <LightRays
         count={10}
-        color="rgba(200, 220, 255, 0.12)"
+        color={activeTheme.rayColor}
         blur={48}
         speed={18}
         length="90vh"
@@ -78,6 +93,8 @@ export default function ProjectDetailPage() {
         onCreateSession={handleCreateSession}
         isCreatingSession={isCreatingSession}
         onOpenLibrary={() => setIsLibraryOpen(true)}
+        selectedThemePreset={selectedThemePreset}
+        onThemePresetChange={setSelectedThemePreset}
       />
 
       <div className="flex-1 min-h-0 relative">
@@ -221,9 +238,8 @@ export default function ProjectDetailPage() {
       </div>
 
       <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
-        <p className="text-[10px] text-zinc-400">
-          Spectra
-          杈撳嚭鍐呭鍙兘瀛樺湪鍋忓樊锛岃鍦ㄨ鍫備娇鐢ㄥ墠杩涜澶嶆牳銆?
+        <p className="text-[10px] text-[var(--project-caption)]">
+          Spectra 输出内容可能存在偏差，请在课堂使用前进行复核。
         </p>
       </div>
 

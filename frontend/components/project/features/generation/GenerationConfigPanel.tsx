@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -73,12 +73,15 @@ export function GenerationConfigPanel({
           className={cn("space-y-4 pb-4", compact ? "pt-1" : "pt-3")}
         >
           <motion.section variants={itemVariants}>
-            <Card className="border-zinc-200/70 bg-white shadow-sm">
+            <Card className="border-[var(--project-border)] bg-[var(--project-surface-elevated)] text-[var(--project-text-primary)] shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-sm">
-                  <Wand2 className="w-4 h-4 text-zinc-700" />
+                  <Wand2 className="h-4 w-4 text-[var(--project-text-primary)]" />
                   生成前配置
-                  <Badge variant="secondary" className="ml-auto bg-zinc-100 text-zinc-700">
+                  <Badge
+                    variant="secondary"
+                    className="ml-auto bg-[var(--project-surface-muted)] text-[var(--project-text-primary)]"
+                  >
                     Step 1 / 2
                   </Badge>
                 </CardTitle>
@@ -86,14 +89,18 @@ export function GenerationConfigPanel({
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium text-zinc-600">提示词</label>
-                    <span className="text-[11px] text-zinc-400">{prompt.length}/1200</span>
+                    <label className="text-xs font-medium text-[var(--project-text-muted)]">
+                      提示词
+                    </label>
+                    <span className="text-[11px] text-[var(--project-text-muted)]">
+                      {prompt.length}/1200
+                    </span>
                   </div>
                   <Textarea
                     value={prompt}
                     onChange={(event) => setPrompt(event.target.value)}
-                    placeholder="例如：生成一份《图形显示设备》教学PPT，面向大二学生，要求理论讲解+案例分析+课堂讨论。"
-                    className="min-h-[110px] resize-none rounded-xl border-zinc-200 bg-white text-sm shadow-inner focus-visible:ring-zinc-400/40"
+                    placeholder="例如：生成一份《图形显示设备》教学PPT，面向大二学生，要求理论讲解 + 案例分析 + 课堂讨论。"
+                    className="min-h-[110px] resize-none rounded-xl border-[var(--project-border)] bg-[var(--project-surface)] text-sm shadow-inner focus-visible:ring-[var(--project-border-strong)]"
                   />
                 </div>
               </CardContent>
@@ -101,19 +108,24 @@ export function GenerationConfigPanel({
           </motion.section>
 
           <motion.section variants={itemVariants}>
-            <Card className="border-zinc-200/70 bg-white shadow-sm">
+            <Card className="border-[var(--project-border)] bg-[var(--project-surface-elevated)] text-[var(--project-text-primary)] shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
-                  <Lightbulb className="w-4 h-4 text-amber-500" />
+                  <Lightbulb className="h-4 w-4 text-amber-500" />
                   大纲提示词推荐
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="ml-auto h-7 text-xs text-zinc-500"
+                    className="ml-auto h-7 text-xs text-[var(--project-text-muted)]"
                     onClick={() => void generateSuggestionBatch()}
                     disabled={loadingSuggestions}
                   >
-                    <RefreshCw className={cn("w-3.5 h-3.5 mr-1", loadingSuggestions && "animate-spin")} />
+                    <RefreshCw
+                      className={cn(
+                        "mr-1 h-3.5 w-3.5",
+                        loadingSuggestions && "animate-spin"
+                      )}
+                    />
                     换一批
                   </Button>
                 </CardTitle>
@@ -126,13 +138,13 @@ export function GenerationConfigPanel({
                       whileHover={{ y: -2, scale: 1.003 }}
                       whileTap={{ scale: 0.997 }}
                       onClick={() => setPrompt(item)}
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50/70 px-3 py-2 text-left text-xs text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-100"
+                      className="w-full rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-3 py-2 text-left text-xs text-[var(--project-text-primary)] transition-colors hover:border-[var(--project-border-strong)] hover:brightness-95"
                     >
                       {item}
                     </motion.button>
                   ))}
                   {loadingSuggestions && suggestions.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-zinc-200 px-3 py-4 text-center text-xs text-zinc-500">
+                    <div className="rounded-xl border border-dashed border-[var(--project-border)] px-3 py-4 text-center text-xs text-[var(--project-text-muted)]">
                       正在结合当前项目资料生成推荐提示词...
                     </div>
                   ) : null}
@@ -142,14 +154,14 @@ export function GenerationConfigPanel({
           </motion.section>
 
           <motion.section variants={itemVariants}>
-            <Card className="border-zinc-200/70 bg-white shadow-sm">
-              <CardContent className="pt-4 space-y-4">
+            <Card className="border-[var(--project-border)] bg-[var(--project-surface-elevated)] text-[var(--project-text-primary)] shadow-sm">
+              <CardContent className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
-                    <FileText className="w-3.5 h-3.5 text-zinc-500" />
+                  <div className="flex items-center gap-2 text-xs font-medium text-[var(--project-text-muted)]">
+                    <FileText className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
                     页数选择
                     <Badge variant="outline" className="ml-auto text-[11px]">
-                      {pageCount} 页 路 {pageLabel}
+                      {pageCount} 页 · {pageLabel}
                     </Badge>
                   </div>
                   <div className="grid grid-cols-5 gap-2">
@@ -160,8 +172,8 @@ export function GenerationConfigPanel({
                         className={cn(
                           "rounded-lg border px-2 py-1.5 text-xs transition-all",
                           pageCount === value
-                            ? "border-zinc-700 bg-zinc-900 text-white"
-                            : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300"
+                            ? "border-[var(--project-accent)] bg-[var(--project-accent)] text-[var(--project-accent-text)]"
+                            : "border-[var(--project-border)] bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] hover:border-[var(--project-border-strong)]"
                         )}
                       >
                         {value}
@@ -171,8 +183,8 @@ export function GenerationConfigPanel({
                 </div>
                 <Separator />
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
-                    <LayoutTemplate className="w-3.5 h-3.5 text-zinc-500" />
+                  <div className="flex items-center gap-2 text-xs font-medium text-[var(--project-text-muted)]">
+                    <LayoutTemplate className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
                     大纲风格
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -184,12 +196,16 @@ export function GenerationConfigPanel({
                         className={cn(
                           "rounded-xl border px-3 py-2.5 text-left transition-all",
                           outlineStyle === style.id
-                            ? "border-zinc-400 bg-zinc-100 shadow-sm"
-                            : "border-zinc-200 bg-zinc-50/70 hover:border-zinc-300"
+                            ? "border-[var(--project-border-strong)] bg-[var(--project-surface-muted)] shadow-sm"
+                            : "border-[var(--project-border)] bg-[var(--project-surface-muted)] hover:border-[var(--project-border-strong)]"
                         )}
                       >
-                        <p className="text-xs font-medium text-zinc-800">{style.name}</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">{style.desc}</p>
+                        <p className="text-xs font-medium text-[var(--project-text-primary)]">
+                          {style.name}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-[var(--project-text-muted)]">
+                          {style.desc}
+                        </p>
                       </motion.button>
                     ))}
                   </div>
@@ -203,24 +219,24 @@ export function GenerationConfigPanel({
               onClick={() => void handleGenerate()}
               disabled={!prompt.trim() || isCreatingSession}
               className={cn(
-                "w-full h-11 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-50 shadow-sm transition-all hover:bg-zinc-800 hover:shadow-md",
+                "h-11 w-full rounded-xl border border-[var(--project-accent)] bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-sm transition-all hover:bg-[var(--project-accent-hover)] hover:shadow-md",
                 (!prompt.trim() || isCreatingSession) && "opacity-70"
               )}
             >
               {isCreatingSession ? (
                 <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   正在创建生成任务...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 mr-2" />
+                  <Sparkles className="mr-2 h-4 w-4" />
                   生成大纲
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}
             </Button>
-            <p className="text-[11px] text-zinc-500 text-center mt-2">
+            <p className="mt-2 text-center text-[11px] text-[var(--project-text-muted)]">
               点击后将进入大纲编辑页，并实时等待大纲生成结果
             </p>
           </motion.section>
@@ -251,3 +267,4 @@ export function GenerationConfigPanel({
     </div>
   );
 }
+

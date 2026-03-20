@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -9,6 +9,7 @@ import { HeaderActions } from "./components/HeaderActions";
 import { ProjectNameEditor } from "./components/ProjectNameEditor";
 import { SessionSwitcher } from "./components/SessionSwitcher";
 import type { SessionSwitcherItem } from "./types";
+import type { ThemePresetId } from "./theme";
 
 interface ProjectHeaderProps {
   sessions: SessionSwitcherItem[];
@@ -17,9 +18,12 @@ interface ProjectHeaderProps {
   onCreateSession: () => void;
   isCreatingSession: boolean;
   onOpenLibrary: () => void;
+  selectedThemePreset: ThemePresetId;
+  onThemePresetChange: (themeId: ThemePresetId) => void;
 }
 
 export type { SessionSwitcherItem } from "./types";
+export type { ThemePresetId } from "./theme";
 
 export function ProjectHeader({
   sessions,
@@ -28,6 +32,8 @@ export function ProjectHeader({
   onCreateSession,
   isCreatingSession,
   onOpenLibrary,
+  selectedThemePreset,
+  onThemePresetChange,
 }: ProjectHeaderProps) {
   const { user, logout } = useAuthStore();
   const { project, updateProjectName } = useProjectStore();
@@ -67,7 +73,14 @@ export function ProjectHeader({
         isCreatingSession={isCreatingSession}
       />
 
-      <HeaderActions user={user} onLogout={logout} onOpenLibrary={onOpenLibrary} />
+      <HeaderActions
+        user={user}
+        onLogout={logout}
+        onOpenLibrary={onOpenLibrary}
+        selectedThemePreset={selectedThemePreset}
+        onThemePresetChange={onThemePresetChange}
+      />
     </motion.header>
   );
 }
+

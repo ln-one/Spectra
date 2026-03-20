@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Layers, Settings, Share2, User } from "lucide-react";
+import { Layers, Palette, Settings, Share2, User } from "lucide-react";
 import type { components } from "@/lib/sdk/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { THEME_PRESETS, type ThemePresetId } from "../theme";
 
 type UserInfo = components["schemas"]["UserInfo"];
 
@@ -20,12 +27,16 @@ interface HeaderActionsProps {
   user: UserInfo | null;
   onLogout: () => void;
   onOpenLibrary: () => void;
+  selectedThemePreset: ThemePresetId;
+  onThemePresetChange: (themeId: ThemePresetId) => void;
 }
 
 export function HeaderActions({
   user,
   onLogout,
   onOpenLibrary,
+  selectedThemePreset,
+  onThemePresetChange,
 }: HeaderActionsProps) {
   return (
     <div className="justify-self-end flex items-center gap-2">
@@ -54,13 +65,72 @@ export function HeaderActions({
         <Share2 className="w-4 h-4" />
       </Button>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="w-9 h-9 text-zinc-500 hover:text-zinc-900 hover:bg-white rounded-full transition-colors border border-transparent hover:border-zinc-200 hover:shadow-sm"
-      >
-        <Settings className="w-4 h-4" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-9 h-9 text-zinc-500 hover:text-zinc-900 hover:bg-white rounded-full transition-colors border border-transparent hover:border-zinc-200 hover:shadow-sm"
+          >
+            <Settings className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-64 overflow-visible rounded-2xl border-zinc-200/80 bg-white/95 backdrop-blur-xl shadow-xl p-2 mt-1"
+        >
+          <DropdownMenuLabel className="text-[13px] text-zinc-500 font-medium">
+            页面设置
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator className="bg-zinc-100 my-1" />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="rounded-xl cursor-pointer text-[13px] font-medium py-2.5 gap-2">
+              <Palette className="w-4 h-4 text-zinc-500" />
+              主题配色
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-80 max-h-[360px] overflow-y-auto rounded-2xl border-zinc-200/80 bg-white/95 backdrop-blur-xl shadow-xl p-2">
+              <DropdownMenuRadioGroup
+                value={selectedThemePreset}
+                onValueChange={(value) => onThemePresetChange(value as ThemePresetId)}
+              >
+                {THEME_PRESETS.map((theme) => (
+                  <DropdownMenuRadioItem
+                    key={theme.id}
+                    value={theme.id}
+                    className="rounded-xl cursor-pointer py-2.5"
+                  >
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-semibold text-zinc-800">
+                          {theme.name}
+                        </div>
+                        <div className="text-[11px] text-zinc-500 mt-0.5 truncate">
+                          {theme.description}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {theme.swatches.map((color) => (
+                          <span
+                            key={color}
+                            className="h-3 w-3 rounded-full border border-zinc-200"
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuItem
+            disabled
+            className="rounded-xl text-[12px] text-zinc-400 py-2.5"
+          >
+            全部主题已可用，可直接切换预览
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -108,3 +178,4 @@ export function HeaderActions({
     </div>
   );
 }
+

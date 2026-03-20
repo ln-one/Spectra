@@ -5,8 +5,12 @@ import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
-import type { SessionSwitcherItem } from "@/components/project";
+import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
 import { formatSessionTime } from "./constants";
+import {
+  isThemePreset,
+  PROJECT_THEME_STORAGE_KEY,
+} from "./theme";
 import { useProjectPanelLayout } from "./useProjectPanelLayout";
 
 export function useProjectDetailController() {
@@ -33,6 +37,8 @@ export function useProjectDetailController() {
 
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [selectedThemePreset, setSelectedThemePreset] =
+    useState<ThemePresetId>("mist-zinc");
 
   const panelLayout = useProjectPanelLayout({ layoutMode, isLoading });
 
@@ -56,6 +62,19 @@ export function useProjectDetailController() {
     },
     [projectId, router, searchParams]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedTheme = window.localStorage.getItem(PROJECT_THEME_STORAGE_KEY);
+    if (isThemePreset(storedTheme)) {
+      setSelectedThemePreset(storedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(PROJECT_THEME_STORAGE_KEY, selectedThemePreset);
+  }, [selectedThemePreset]);
 
   useEffect(() => {
     const token = TokenStorage.getAccessToken();
@@ -187,6 +206,8 @@ export function useProjectDetailController() {
     isCreatingSession,
     isLibraryOpen,
     setIsLibraryOpen,
+    selectedThemePreset,
+    setSelectedThemePreset,
     panelAreaRef: panelLayout.panelAreaRef,
     studioWidth: panelLayout.studioWidth,
     chatWidth: panelLayout.chatWidth,

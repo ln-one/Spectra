@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
@@ -49,11 +49,8 @@ export function ToolGrid({
             onMouseEnter={() => !isExpanded && onHoveredToolIdChange(tool.id)}
             onMouseLeave={() => onHoveredToolIdChange(null)}
             className={cn(
-              "group relative w-full h-auto flex flex-col items-center justify-center p-3",
-              "bg-gradient-to-br from-zinc-50/90 to-zinc-100/60 backdrop-blur-sm",
-              "border border-zinc-200/60",
-              "rounded-xl cursor-pointer",
-              "transition-shadow duration-200 ease-out"
+              "group relative flex h-auto w-full flex-col items-center justify-center rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-3 backdrop-blur-sm",
+              "cursor-pointer transition-shadow duration-200 ease-out"
             )}
             style={{
               boxShadow:
@@ -62,16 +59,15 @@ export function ToolGrid({
                   : "0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8)",
               borderColor:
                 isHovered && !isExpanded
-                  ? "rgba(161, 161, 170, 0.5)"
-                  : "rgba(228, 228, 231, 0.6)",
+                  ? "var(--project-border-strong)"
+                  : "var(--project-border)",
             }}
           >
             <motion.div
               layoutId={`icon-${tool.id}`}
               layout="position"
               className={cn(
-                "rounded-xl flex items-center justify-center mb-1.5",
-                "backdrop-blur-md border border-white/40 transform-gpu will-change-transform [backface-visibility:hidden]"
+                "mb-1.5 flex items-center justify-center rounded-xl border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
               )}
               style={{
                 width: 40,
@@ -81,13 +77,13 @@ export function ToolGrid({
               }}
               transition={{ layout: ICON_LAYOUT_TRANSITION }}
             >
-              <Icon className="w-4.5 h-4.5" style={{ color: color.primary }} />
+              <Icon className="h-4.5 w-4.5" style={{ color: color.primary }} />
             </motion.div>
-            <span className="text-[11px] font-medium text-zinc-700 text-center">
+            <span className="text-center text-[11px] font-medium text-[var(--project-text-primary)]">
               {tool.name}
             </span>
             <motion.div
-              className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+              className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-200 group-hover:opacity-100"
               style={{
                 background: `radial-gradient(circle at center, ${color.glow}, transparent 70%)`,
               }}
@@ -98,3 +94,4 @@ export function ToolGrid({
     </motion.div>
   );
 }
+

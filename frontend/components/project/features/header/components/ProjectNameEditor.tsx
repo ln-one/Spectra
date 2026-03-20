@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
@@ -46,7 +46,7 @@ export function ProjectNameEditor({ projectName, onSave }: ProjectNameEditorProp
       <motion.div
         initial={{ opacity: 0, scale: 0.95, x: -10 }}
         animate={{ opacity: 1, scale: 1, x: 0 }}
-        className="flex items-center gap-1.5 bg-white p-1 rounded-xl shadow-sm border border-zinc-200"
+        className="flex items-center gap-1.5 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-1 shadow-sm"
       >
         <Input
           ref={inputRef}
@@ -56,13 +56,13 @@ export function ProjectNameEditor({ projectName, onSave }: ProjectNameEditorProp
             if (event.key === "Enter") handleSaveEdit();
             if (event.key === "Escape") handleCancelEdit();
           }}
-          className="h-8 w-[220px] text-[15px] font-semibold border-0 focus-visible:ring-0 focus-visible:outline-none px-2"
+          className="h-8 w-[220px] border-0 px-2 text-[15px] font-semibold text-[var(--project-text-primary)] focus-visible:outline-none focus-visible:ring-0"
           placeholder="输入项目名称"
         />
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+          className="h-7 w-7 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
           onClick={handleSaveEdit}
         >
           <Check className="w-4 h-4" />
@@ -70,7 +70,7 @@ export function ProjectNameEditor({ projectName, onSave }: ProjectNameEditorProp
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"
+          className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
           onClick={handleCancelEdit}
         >
           <X className="w-4 h-4" />
@@ -84,14 +84,17 @@ export function ProjectNameEditor({ projectName, onSave }: ProjectNameEditorProp
       onClick={handleStartEdit}
       title="点击编辑项目名称"
       whileTap={{ scale: 0.98 }}
-      className="group flex items-center gap-2 px-3 py-1.5 -ml-1.5 rounded-xl hover:bg-zinc-100/60 transition-all duration-300"
+      className="group -ml-1.5 flex items-center gap-2 rounded-xl px-3 py-1.5 transition-all duration-300 hover:bg-[var(--project-surface)]"
     >
-      <h1 className="text-[30px] leading-[1.05] font-bold text-zinc-800 tracking-tight truncate max-w-[320px]">
+      <h1 className="max-w-[320px] truncate text-[30px] font-bold leading-[1.05] tracking-tight text-[var(--project-heading,#27272a)]">
         {projectName ?? "加载中..."}
       </h1>
-      <div className="flex items-center justify-center px-1.5 py-0.5 rounded-md bg-zinc-100 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-x-2 group-hover:translate-x-0">
-        <span className="text-[18px] font-medium text-zinc-500">编辑</span>
+      <div className="-translate-x-2 flex items-center justify-center rounded-md bg-[var(--project-surface-muted)] px-1.5 py-0.5 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
+        <span className="text-[18px] font-medium text-[var(--project-text-muted)]">
+          编辑
+        </span>
       </div>
     </motion.button>
   );
 }
+

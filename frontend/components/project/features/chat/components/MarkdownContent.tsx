@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
@@ -35,8 +35,10 @@ export function MarkdownContent({
         return (
           <code
             className={cn(
-              "px-1.5 py-0.5 rounded text-[13px] font-mono",
-              isUser ? "bg-zinc-800 text-zinc-100" : "bg-zinc-200 text-zinc-800"
+              "rounded px-1.5 py-0.5 font-mono text-[13px]",
+              isUser
+                ? "bg-[var(--project-accent)] text-[var(--project-accent-text)]"
+                : "bg-[var(--project-surface-muted)] text-[var(--project-text-primary)]"
             )}
             {...props}
           >
@@ -48,14 +50,10 @@ export function MarkdownContent({
         <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
       ),
       ul: ({ children }: { children?: React.ReactNode }) => (
-        <ul className="list-disc list-outside ml-4 mb-2 space-y-1">
-          {children}
-        </ul>
+        <ul className="mb-2 ml-4 list-outside list-disc space-y-1">{children}</ul>
       ),
       ol: ({ children }: { children?: React.ReactNode }) => (
-        <ol className="list-decimal list-outside ml-4 mb-2 space-y-1">
-          {children}
-        </ol>
+        <ol className="mb-2 ml-4 list-outside list-decimal space-y-1">{children}</ol>
       ),
       li: ({ children }: { children?: React.ReactNode }) => (
         <li className="text-sm leading-relaxed">{children}</li>
@@ -67,20 +65,20 @@ export function MarkdownContent({
         <em className="italic">{children}</em>
       ),
       h1: ({ children }: { children?: React.ReactNode }) => (
-        <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0">{children}</h1>
+        <h1 className="mb-2 mt-3 text-lg font-bold first:mt-0">{children}</h1>
       ),
       h2: ({ children }: { children?: React.ReactNode }) => (
-        <h2 className="text-base font-bold mb-2 mt-3 first:mt-0">{children}</h2>
+        <h2 className="mb-2 mt-3 text-base font-bold first:mt-0">{children}</h2>
       ),
       h3: ({ children }: { children?: React.ReactNode }) => (
-        <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0">{children}</h3>
+        <h3 className="mb-1 mt-2 text-sm font-bold first:mt-0">{children}</h3>
       ),
       blockquote: ({ children }: { children?: React.ReactNode }) => (
-        <blockquote className="border-l-2 border-zinc-300 pl-3 my-2 italic text-zinc-600">
+        <blockquote className="my-2 border-l-2 border-[var(--project-border-strong)] pl-3 italic text-[var(--project-text-muted)]">
           {children}
         </blockquote>
       ),
-      hr: () => <hr className="my-3 border-zinc-200" />,
+      hr: () => <hr className="my-3 border-[var(--project-border)]" />,
       a: ({
         href,
         children,
@@ -95,7 +93,7 @@ export function MarkdownContent({
           className={cn(
             "underline underline-offset-2",
             isUser
-              ? "text-zinc-200 hover:text-white"
+              ? "text-[var(--project-accent-text)]"
               : "text-blue-600 hover:text-blue-800"
           )}
         >
@@ -112,3 +110,4 @@ export function MarkdownContent({
     </ReactMarkdown>
   );
 }
+

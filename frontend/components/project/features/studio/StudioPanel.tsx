@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -75,21 +75,31 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 
   return (
     <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
-      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
+      <Card className="h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <CardHeader
-          className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0 relative"
+          className="relative flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
           style={{ height: "52px" }}
         >
-          <div className="flex flex-col justify-center shrink-0 h-full overflow-hidden">
+          <div className="h-full shrink-0 overflow-hidden flex-col justify-center">
             <LayoutGroup>
-              <motion.div className="flex flex-col justify-center" layout transition={{ type: "spring", stiffness: 400, damping: 30 }}>
+              <motion.div
+                className="flex flex-col justify-center"
+                layout
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              >
                 <CardTitle className="text-sm font-semibold leading-tight">
-                  <motion.span layout transition={{ type: "spring", stiffness: 400, damping: 30 }}>
+                  <motion.span
+                    layout
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  >
                     {isExpanded ? TOOL_LABELS[expandedTool || "ppt"] : "Studio"}
                   </motion.span>
                 </CardTitle>
-                <CardDescription className="text-xs text-zinc-500 leading-tight">
-                  <motion.span layout transition={{ type: "spring", stiffness: 400, damping: 30 }}>
+                <CardDescription className="text-xs leading-tight text-[var(--project-text-muted)]">
+                  <motion.span
+                    layout
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  >
                     {isExpanded ? "配置生成参数" : "AI 生成工具"}
                   </motion.span>
                 </CardDescription>
@@ -105,7 +115,12 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.15 }}
               >
-                <Button variant="ghost" size="sm" onClick={handleClose} className="text-xs text-zinc-500 hover:text-zinc-700 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClose}
+                  className="shrink-0 text-xs text-[var(--project-text-muted)] hover:text-[var(--project-text-primary)]"
+                >
                   关闭
                 </Button>
               </motion.div>
@@ -113,13 +128,12 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           </AnimatePresence>
 
           {isExpanded && expandedTool ? (
-            <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center">
+            <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center">
               <motion.div
                 layoutId={`icon-${expandedTool}`}
                 layout="position"
                 className={cn(
-                  "rounded-xl flex items-center justify-center",
-                  "backdrop-blur-md border border-white/40 transform-gpu will-change-transform [backface-visibility:hidden]"
+                  "flex items-center justify-center rounded-xl border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
                 )}
                 style={{
                   width: 40,
@@ -129,16 +143,19 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                 }}
                 transition={{ layout: ICON_LAYOUT_TRANSITION }}
               >
-                <CurrentIcon className="w-4.5 h-4.5" style={{ color: currentColor.primary }} />
+                <CurrentIcon className="h-4.5 w-4.5" style={{ color: currentColor.primary }} />
               </motion.div>
             </div>
           ) : null}
         </CardHeader>
 
-        <CardContent className="p-0 h-[calc(100%-52px)] overflow-hidden relative">
+        <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
           <LayoutGroup>
             <motion.div
-              className={cn("absolute inset-0", isExpanded ? "pointer-events-none" : "pointer-events-auto")}
+              className={cn(
+                "absolute inset-0",
+                isExpanded ? "pointer-events-none" : "pointer-events-auto"
+              )}
               animate={{ opacity: isExpanded ? 0 : 1, scale: isExpanded ? 0.985 : 1 }}
               transition={{ duration: 0.2 }}
             >
@@ -191,7 +208,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ delay: 0.05, duration: 0.15 }}
-                    className="w-full h-full"
+                    className="h-full w-full"
                   >
                     {expandedTool === "ppt" ? (
                       <div className="h-full">
@@ -245,3 +262,4 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 }
 
 export { StudioPanel as StudioExpandedPanel };
+

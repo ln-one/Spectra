@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import { Globe } from "lucide-react";
@@ -17,12 +17,12 @@ export function WebSourceCard({ isCompact }: { isCompact: boolean }) {
           layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
           duration: 0.12,
         }}
-        className="group relative flex items-center justify-center p-2.5 rounded-xl hover:bg-white/30 transition-colors"
+        className="group relative flex items-center justify-center rounded-xl p-2.5 transition-colors hover:bg-[var(--project-surface)]"
         style={{ minHeight: "52px" }}
         title={hint}
       >
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white/50">
-          <Globe className="w-4 h-4 text-blue-500" />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface)]">
+          <Globe className="h-4 w-4 text-[var(--project-accent)]" />
         </div>
       </motion.div>
     );
@@ -38,22 +38,25 @@ export function WebSourceCard({ isCompact }: { isCompact: boolean }) {
         layout: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
         duration: 0.12,
       }}
-      className="grid grid-cols-[32px_1fr_auto] items-center gap-2.5 p-2.5 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-sm"
+      className="grid grid-cols-[32px_1fr_auto] items-center gap-2.5 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-2.5 shadow-sm"
       style={{ minHeight: "52px" }}
       title={hint}
     >
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/80 border border-blue-100">
-        <Globe className="w-4 h-4 text-blue-500" />
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--project-border)] bg-[var(--project-surface-elevated)]">
+        <Globe className="h-4 w-4 text-[var(--project-accent)]" />
       </div>
       <div className="min-w-0 flex flex-col justify-center">
-        <p className="text-xs font-medium text-zinc-800 truncate">
+        <p className="truncate text-xs font-medium text-[var(--project-text-primary)]">
           网页检索（即将上线）
         </p>
-        <p className="text-[10px] text-zinc-500 mt-0.5 truncate">入口预留中</p>
+        <p className="mt-0.5 truncate text-[10px] text-[var(--project-text-muted)]">
+          入口预留中
+        </p>
       </div>
-      <div className="flex items-center gap-1.5 pl-1.5 border-l border-blue-100">
-        <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+      <div className="flex items-center gap-1.5 border-l border-[var(--project-border)] pl-1.5">
+        <div className="h-2 w-2 shrink-0 rounded-full bg-[var(--project-accent)]" />
       </div>
     </motion.div>
   );
 }
+

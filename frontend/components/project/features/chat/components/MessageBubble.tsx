@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
@@ -60,22 +60,22 @@ export function MessageBubble({
           damping: 30,
         }}
         className={cn(
-          "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-sm",
           isUser
-            ? "bg-gradient-to-br from-zinc-800 to-zinc-900"
-            : "bg-gradient-to-br from-zinc-100 to-zinc-200"
+            ? "bg-[linear-gradient(135deg,var(--project-accent),var(--project-accent-hover))]"
+            : "bg-[var(--project-surface-muted)]"
         )}
       >
         {isUser ? (
-          <User className="w-4 h-4 text-white" />
+          <User className="h-4 w-4 text-[var(--project-accent-text)]" />
         ) : (
-          <Bot className="w-4 h-4 text-zinc-600" />
+          <Bot className="h-4 w-4 text-[var(--project-text-muted)]" />
         )}
       </motion.div>
 
       <div
         className={cn(
-          "flex flex-col gap-1.5 max-w-[80%]",
+          "flex max-w-[80%] flex-col gap-1.5",
           isUser ? "items-end" : "items-start"
         )}
       >
@@ -86,8 +86,8 @@ export function MessageBubble({
           className={cn(
             "px-4 py-2.5 text-sm leading-relaxed shadow-sm",
             isUser
-              ? "bg-gradient-to-br from-zinc-800 to-zinc-900 text-white rounded-2xl rounded-tr-sm"
-              : "bg-white border border-zinc-200 text-zinc-800 rounded-2xl rounded-tl-sm"
+              ? "rounded-2xl rounded-tr-sm bg-[linear-gradient(135deg,var(--project-accent),var(--project-accent-hover))] text-[var(--project-accent-text)]"
+              : "rounded-2xl rounded-tl-sm border border-[var(--project-border)] bg-[var(--project-surface-elevated)] text-[var(--project-text-primary)]"
           )}
         >
           {isUser ? (
@@ -103,10 +103,10 @@ export function MessageBubble({
                       onClick={() =>
                         focusSourceByChunk(citation.chunkId, projectId)
                       }
-                      className="text-[10px] leading-none text-zinc-500 hover:text-zinc-900 transition-colors"
+                      className="text-[10px] leading-none text-[var(--project-text-muted)] transition-colors hover:text-[var(--project-text-primary)]"
                       aria-label={`引用 ${i + 1}`}
                     >
-                      <sup className="px-1 py-0.5 rounded bg-zinc-100 border border-zinc-200">
+                      <sup className="rounded border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-1 py-0.5">
                         {i + 1}
                       </sup>
                     </button>
@@ -122,7 +122,7 @@ export function MessageBubble({
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.03 + 0.15 }}
-            className="flex flex-wrap gap-1.5 mt-1"
+            className="mt-1 flex flex-wrap gap-1.5"
           >
             {citations.map((citation, i) => (
               <CitationBadge
@@ -135,7 +135,7 @@ export function MessageBubble({
           </motion.div>
         )}
 
-        <span className="text-[10px] text-zinc-400 px-1 font-medium">
+        <span className="px-1 text-[10px] font-medium text-[var(--project-text-muted)]">
           {new Date(message.timestamp).toLocaleTimeString("zh-CN", {
             hour: "2-digit",
             minute: "2-digit",
@@ -145,3 +145,4 @@ export function MessageBubble({
     </motion.div>
   );
 }
+

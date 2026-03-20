@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -94,14 +94,14 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
 
   return (
     <div className="h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
-      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl overflow-hidden will-change-[box-shadow,transform]">
+      <Card className="h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <CardHeader
-          className="flex flex-row items-center justify-between px-4 space-y-0 py-0 shrink-0"
+          className="flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
           style={{ height: "52px" }}
         >
-          <div className="flex flex-col justify-center min-w-0 flex-1">
+          <div className="min-w-0 flex-1 flex-col justify-center">
             <CardTitle className="text-sm font-semibold leading-tight">Chat</CardTitle>
-            <CardDescription className="text-xs text-zinc-500 leading-tight">
+            <CardDescription className="text-xs leading-tight text-[var(--project-text-muted)]">
               AI 助手对话
             </CardDescription>
           </div>
@@ -109,15 +109,15 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-1.5 text-xs text-zinc-500"
+              className="flex items-center gap-1.5 text-xs text-[var(--project-text-muted)]"
             >
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" />
               <span>思考中</span>
             </motion.div>
           ) : null}
         </CardHeader>
 
-        <CardContent className="p-0 h-[calc(100%-132px)]">
+        <CardContent className="h-[calc(100%-132px)] p-0">
           <ScrollArea className="h-full px-4">
             <AnimatePresence mode="wait">
               {showLoading ? (
@@ -138,10 +138,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                           idx % 2 === 0 ? "justify-start" : "justify-end"
                         )}
                       >
-                        <div className="w-8 h-8 rounded-xl bg-zinc-100 animate-pulse shrink-0" />
-                        <div className="space-y-2 w-[75%]">
-                          <div className="h-3 rounded bg-zinc-100 animate-pulse" />
-                          <div className="h-3 w-4/5 rounded bg-zinc-100 animate-pulse" />
+                        <div className="h-8 w-8 shrink-0 animate-pulse rounded-xl bg-[var(--project-surface-muted)]" />
+                        <div className="w-[75%] space-y-2">
+                          <div className="h-3 animate-pulse rounded bg-[var(--project-surface-muted)]" />
+                          <div className="h-3 w-4/5 animate-pulse rounded bg-[var(--project-surface-muted)]" />
                         </div>
                       </div>
                     ))}
@@ -154,26 +154,28 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
-                  className="h-full flex flex-col items-center justify-center text-center py-8"
+                  className="flex h-full flex-col items-center justify-center py-8 text-center"
                 >
                   <motion.div
                     initial={{ scale: 0, rotate: -10 }}
                     animate={{ scale: 1, rotate: 0 }}
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    className="w-14 h-14 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 flex items-center justify-center mb-4 shadow-sm"
+                    className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-sm"
                   >
-                    <Sparkles className="w-7 h-7 text-zinc-500" />
+                    <Sparkles className="h-7 w-7 text-[var(--project-text-muted)]" />
                   </motion.div>
-                  <p className="text-sm font-semibold text-zinc-700">开始对话</p>
-                  <p className="text-xs text-zinc-500 mt-1 mb-4">
-                    向 AI 助手提问关于项目的问题
+                  <p className="text-sm font-semibold text-[var(--project-text-primary)]">
+                    开始对话
                   </p>
-                  <div className="flex flex-wrap gap-2 justify-center max-w-[280px]">
+                  <p className="mb-4 mt-1 text-xs text-[var(--project-text-muted)]">
+                    向 AI 助手提问关于项目的内容
+                  </p>
+                  <div className="flex max-w-[280px] flex-wrap justify-center gap-2">
                     {SUGGESTIONS.map((suggestion) => (
                       <button
                         key={suggestion}
                         onClick={() => handleSuggestionClick(suggestion)}
-                        className="px-3 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-100 hover:bg-zinc-200 rounded-full transition-colors"
+                        className="rounded-full bg-[var(--project-surface-muted)] px-3 py-1.5 text-xs font-medium text-[var(--project-text-muted)] transition-colors hover:bg-[var(--project-surface)]"
                       >
                         {suggestion}
                       </button>
@@ -206,15 +208,15 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           </ScrollArea>
         </CardContent>
 
-        <CardFooter className="px-4 py-3 border-t border-zinc-100 flex-col gap-2">
-          <div className="flex items-end gap-2 w-full">
+        <CardFooter className="flex-col gap-2 border-t border-[var(--project-border)] px-4 py-3">
+          <div className="flex w-full items-end gap-2">
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入消息..."
-              className="min-h-[44px] max-h-[120px] resize-none rounded-xl bg-zinc-50 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-200 transition-colors"
+              className="min-h-[44px] max-h-[120px] resize-none rounded-xl border-[var(--project-border)] bg-[var(--project-surface-elevated)] transition-colors focus:border-[var(--project-border-strong)] focus:ring-[var(--project-border)]"
               rows={1}
             />
             <Button
@@ -222,20 +224,20 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               onClick={() => void handleSend()}
               disabled={!input.trim() || isSending}
               className={cn(
-                "shrink-0 rounded-xl w-11 h-11 transition-all duration-200",
+                "h-11 w-11 shrink-0 rounded-xl transition-all duration-200",
                 input.trim() && !isSending
-                  ? "bg-gradient-to-br from-zinc-800 to-zinc-900 hover:from-zinc-700 hover:to-zinc-800 shadow-md hover:shadow-lg"
-                  : "bg-zinc-100 text-zinc-400"
+                  ? "bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-md hover:bg-[var(--project-accent-hover)] hover:shadow-lg"
+                  : "bg-[var(--project-surface-muted)] text-[var(--project-text-muted)]"
               )}
             >
               {isSending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Send className="w-4 h-4" />
+                <Send className="h-4 w-4" />
               )}
             </Button>
           </div>
-          <p className="text-[10px] text-zinc-400 text-center w-full">
+          <p className="w-full text-center text-[10px] text-[var(--project-text-muted)]">
             按 Enter 发送，Shift + Enter 换行
           </p>
         </CardFooter>
@@ -243,3 +245,4 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     </div>
   );
 }
+

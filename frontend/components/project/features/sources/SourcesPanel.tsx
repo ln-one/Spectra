@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { AnimatePresence } from "framer-motion";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
@@ -56,8 +56,12 @@ export function SourcesPanel({
   });
 
   return (
-    <div ref={containerRef} className="h-full w-full bg-transparent" style={{ transform: "translateZ(0)" }}>
-      <Card className="h-full rounded-2xl shadow-lg border border-white/60 bg-white/95 backdrop-blur-xl will-change-[box-shadow,transform]">
+    <div
+      ref={containerRef}
+      className="h-full w-full bg-transparent"
+      style={{ transform: "translateZ(0)" }}
+    >
+      <Card className="h-full rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <SourcesHeader
           isCollapsed={isCollapsed}
           isHeaderCompact={isHeaderCompact}
@@ -73,23 +77,25 @@ export function SourcesPanel({
           onFileSelect={handleFileSelect}
         />
 
-        <CardContent className="p-0 h-[calc(100%-52px)] overflow-hidden">
+        <CardContent className="h-[calc(100%-52px)] overflow-hidden p-0">
           {isHorizontalIconMode ? (
-            <div className="h-full px-3 py-1 overflow-hidden">
+            <div className="h-full overflow-hidden px-3 py-1">
               {files.length === 0 ? (
-                <div className="h-full flex flex-col">
-                  <div className="pt-1 pb-2">
+                <div className="flex h-full flex-col">
+                  <div className="pb-2 pt-1">
                     <WebSourceCard isCompact={true} />
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
-                      <File className="w-7 h-7 text-zinc-300" />
+                  <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-inner">
+                      <File className="h-7 w-7 text-[var(--project-text-muted)] opacity-50" />
                     </div>
-                    <p className="text-sm font-medium text-zinc-700">暂无文件</p>
+                    <p className="text-sm font-medium text-[var(--project-text-primary)]">
+                      暂无文件
+                    </p>
                   </div>
                 </div>
               ) : (
-                <div className="h-full flex items-start">
+                <div className="flex h-full items-start">
                   <ScrollAreaPrimitive.Root className="relative h-full w-full overflow-hidden">
                     <ScrollAreaPrimitive.Viewport
                       ref={horizontalViewportRef}
@@ -104,10 +110,10 @@ export function SourcesPanel({
                         }
                       }}
                     >
-                      <div className="flex items-center gap-3 min-w-max pt-0 pb-1 px-0.5 -translate-y-1">
+                      <div className="-translate-y-1 flex min-w-max items-center gap-3 px-0.5 pb-1 pt-0">
                         <div
                           key={WEB_SOURCE_CARD_ID}
-                          ref={(el) => registerFileRef(WEB_SOURCE_CARD_ID, el)}
+                          ref={(element) => registerFileRef(WEB_SOURCE_CARD_ID, element)}
                           className="shrink-0"
                         >
                           <WebSourceCard isCompact={true} />
@@ -115,7 +121,7 @@ export function SourcesPanel({
                         {files.map((file) => (
                           <div
                             key={file.id}
-                            ref={(el) => registerFileRef(file.id, el)}
+                            ref={(element) => registerFileRef(file.id, element)}
                             className="shrink-0"
                           >
                             <FileItem
@@ -133,7 +139,10 @@ export function SourcesPanel({
                         ))}
                       </div>
                     </ScrollAreaPrimitive.Viewport>
-                    <ScrollAreaPrimitive.ScrollAreaScrollbar orientation="horizontal" className="flex touch-none select-none transition-colors h-2.5 flex-col border-t border-t-transparent p-[1px]">
+                    <ScrollAreaPrimitive.ScrollAreaScrollbar
+                      orientation="horizontal"
+                      className="flex h-2.5 touch-none select-none flex-col border-t border-t-transparent p-[1px] transition-colors"
+                    >
                       <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
                     </ScrollAreaPrimitive.ScrollAreaScrollbar>
                     <ScrollAreaPrimitive.Corner />
@@ -143,33 +152,42 @@ export function SourcesPanel({
             </div>
           ) : (
             <ScrollArea className="h-full w-full">
-              <div className="min-h-full px-3 py-3 w-full max-w-full overflow-hidden">
+              <div className="min-h-full w-full max-w-full overflow-hidden px-3 py-3">
                 {files.length === 0 ? (
-                  <div className="h-full flex flex-col">
+                  <div className="flex h-full flex-col">
                     <div className="mb-2">
                       <WebSourceCard isCompact={isEffectiveCompact} />
                     </div>
-                    <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-50 flex items-center justify-center mb-4 shadow-inner">
-                        <File className="w-7 h-7 text-zinc-300" />
+                    <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
+                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-inner">
+                        <File className="h-7 w-7 text-[var(--project-text-muted)] opacity-50" />
                       </div>
-                      <p className="text-sm font-medium text-zinc-700">暂无文件</p>
-                      <p className="text-xs text-zinc-400 mt-1">上传文件以开始使用</p>
+                      <p className="text-sm font-medium text-[var(--project-text-primary)]">
+                        暂无文件
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--project-text-muted)]">
+                        上传文件以开始使用
+                      </p>
                     </div>
                   </div>
                 ) : (
-                  <div className={cn("grid grid-cols-1 gap-2 w-full max-w-full", isEffectiveCompact && "flex flex-col gap-2")}>
+                  <div
+                    className={cn(
+                      "grid grid-cols-1 gap-2 w-full max-w-full",
+                      isEffectiveCompact && "flex flex-col gap-2"
+                    )}
+                  >
                     <AnimatePresence mode="popLayout">
                       <div
                         key={WEB_SOURCE_CARD_ID}
-                        ref={(el) => registerFileRef(WEB_SOURCE_CARD_ID, el)}
+                        ref={(element) => registerFileRef(WEB_SOURCE_CARD_ID, element)}
                       >
                         <WebSourceCard isCompact={isEffectiveCompact} />
                       </div>
                       {files.map((file) => (
                         <div
                           key={file.id}
-                          ref={(el) => registerFileRef(file.id, el)}
+                          ref={(element) => registerFileRef(file.id, element)}
                         >
                           <FileItem
                             file={file}
@@ -195,3 +213,4 @@ export function SourcesPanel({
     </div>
   );
 }
+
