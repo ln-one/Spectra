@@ -684,6 +684,86 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/generate/sessions/{session_id}/candidate-change:
+    post:
+      summary: 为当前会话提交候选变更
+      operationId: postGenerateSessionsBySessionIdCandidateChange
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateChangeRequest'
+      responses:
+        '200':
+          description: 候选变更提交成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateChangeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      summary: 获取当前会话的候选变更列表
+      operationId: getGenerateSessionsBySessionIdCandidateChange
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - pending
+              - accepted
+              - rejected
+        - name: proposer_user_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 候选变更列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateChangesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/generate/sessions/{session_id}/outline/redraft:
     post:
       summary: 请求 AI 重写大纲
@@ -831,6 +911,235 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/generate/studio-cards:
+    get:
+      summary: 获取 Studio 卡片协议目录
+      operationId: getGenerateStudioCards
+      description: 返回 Studio 卡片目录、成熟度、配置字段与上下文协议。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardsCatalogResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/generate/studio-cards/{card_id}:
+    get:
+      summary: 获取单张 Studio 卡片协议
+      operationId: getGenerateStudioCardById
+      description: 返回单张 Studio 卡片的后端协议细节。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/generate/studio-cards/{card_id}/execution-plan:
+    get:
+      summary: 获取单张 Studio 卡片执行协议
+      operationId: getGenerateStudioCardExecutionPlan
+      description: 返回单张 Studio 卡片当前可落地的后端执行绑定、缺口与结果字段。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardExecutionPlanResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/generate/studio-cards/{card_id}/execution-preview:
+    post:
+      summary: 获取单张 Studio 卡片执行预览
+      operationId: postGenerateStudioCardExecutionPreview
+      description: 根据卡片配置返回当前可以直接调用的后端请求预览。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioCardExecutionPreviewRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardExecutionPreviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/generate/studio-cards/{card_id}/execute:
+    post:
+      summary: 执行单张 Studio 卡片
+      operationId: postGenerateStudioCardExecute
+      description: 对已达到 foundation-ready 的卡片直接执行初始动作，返回实际落地的 session 或 artifact。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioCardExecutionPreviewRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardExecutionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/studio-cards/{card_id}/refine:
+    post:
+      summary: 执行单张 Studio 卡片 refine
+      operationId: postGenerateStudioCardRefine
+      description: 通过统一 chat 通道执行已暴露 refine 协议的卡片局部改写。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioCardRefineRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardRefineResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/generate/studio-cards/{card_id}/sources:
+    get:
+      summary: 获取 Studio 卡片可绑定源成果
+      operationId: getGenerateStudioCardSources
+      description: 返回当前卡片可选的源成果列表，优先用于 source-artifact 驱动的组合型卡片。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardSourceOptionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/preview:
     get:
       summary: 获取会话级课件预览
@@ -2115,6 +2424,38 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete project member
+      operationId: deleteProjectsByProjectIdMembersByMemberId
+      tags:
+        - Project
+        - Member
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: member_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Delete success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleSuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     BearerAuth:
@@ -2373,6 +2714,10 @@ components:
           type: string
           minLength: 1
           maxLength: 10000
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Optional context metadata for card refine, selection anchors, or source bindings
         history:
           type: array
           items:
@@ -2896,6 +3241,9 @@ components:
           $ref: '#/components/schemas/GenerationOptions'
         client_session_id:
           type: string
+        bootstrap_only:
+          type: boolean
+          default: false
     GenerateTaskStatus:
       type: string
       enum:
@@ -3436,6 +3784,24 @@ components:
                 type: string
         message:
           type: string
+    CandidateChangeRequest:
+      type: object
+      required:
+        - title
+      properties:
+        session_id:
+          type: string
+          nullable: true
+        base_version_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
     ConfirmOutlineRequest:
       type: object
       properties:
@@ -3447,6 +3813,56 @@ components:
           allOf:
             - $ref: '#/components/schemas/GenerationState'
           description: 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM
+        candidate_change:
+          $ref: '#/components/schemas/CandidateChangeRequest'
+    CandidateChange:
+      type: object
+      required:
+        - id
+        - project_id
+        - status
+        - title
+        - summary
+        - proposer_user_id
+        - created_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        session_id:
+          type: string
+          nullable: true
+        base_version_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum:
+            - pending
+            - accepted
+            - rejected
+        review_comment:
+          type: string
+          nullable: true
+        accepted_version_id:
+          type: string
+          nullable: true
+        proposer_user_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     ConfirmOutlineResponse:
       type: object
       required:
@@ -3461,6 +3877,44 @@ components:
           properties:
             session:
               $ref: '#/components/schemas/SessionRef'
+            candidate_change:
+              $ref: '#/components/schemas/CandidateChange'
+        message:
+          type: string
+    CandidateChangesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            changes:
+              type: array
+              items:
+                $ref: '#/components/schemas/CandidateChange'
+        message:
+          type: string
+    CandidateChangeResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - change
+          properties:
+            change:
+              $ref: '#/components/schemas/CandidateChange'
         message:
           type: string
     RedraftOutlineRequest:
@@ -3594,6 +4048,139 @@ components:
                   type: integer
         message:
           type: string
+    StudioCardConfigOption:
+      type: object
+      required:
+        - value
+        - label
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+    StudioCardConfigField:
+      type: object
+      required:
+        - key
+        - label
+        - type
+        - required
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum:
+            - select
+            - multiselect
+            - boolean
+            - integer
+            - text
+            - reference
+        required:
+          type: boolean
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioCardConfigOption'
+        placeholder:
+          type: string
+        default_value:
+          oneOf:
+            - type: string
+            - type: integer
+            - type: boolean
+        notes:
+          type: string
+    StudioCardAction:
+      type: object
+      required:
+        - type
+        - label
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+        notes:
+          type: string
+    StudioCardCapability:
+      type: object
+      required:
+        - id
+        - title
+        - readiness
+        - context_mode
+        - execution_mode
+        - primary_capabilities
+        - related_capabilities
+        - artifact_types
+        - requires_source_artifact
+        - supports_chat_refine
+        - supports_selection_context
+        - config_fields
+        - actions
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        readiness:
+          type: string
+          enum:
+            - ready
+            - foundation_ready
+            - protocol_pending
+        context_mode:
+          type: string
+          enum:
+            - session
+            - artifact
+            - hybrid
+        execution_mode:
+          type: string
+          enum:
+            - session_command
+            - artifact_create
+            - composite
+        primary_capabilities:
+          type: array
+          items:
+            type: string
+        related_capabilities:
+          type: array
+          items:
+            type: string
+        artifact_types:
+          type: array
+          items:
+            type: string
+        session_output_type:
+          type: string
+          enum:
+            - ppt
+            - word
+            - both
+        requires_source_artifact:
+          type: boolean
+        supports_chat_refine:
+          type: boolean
+        supports_selection_context:
+          type: boolean
+        config_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioCardConfigField'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioCardAction'
+        notes:
+          type: string
     StateTransitionRule:
       type: object
       required:
@@ -3641,6 +4228,7 @@ components:
             - contract_versions
             - default_contract_version
             - capabilities
+            - studio_cards
             - state_machine
             - command_interface
           properties:
@@ -3667,6 +4255,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/CapabilityDeclaration'
+            studio_cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/StudioCardCapability'
             state_machine:
               $ref: '#/components/schemas/StateMachineDeclaration'
             deprecations:
@@ -3683,6 +4275,374 @@ components:
                     type: string
         message:
           type: string
+    StudioCardsCatalogResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - studio_cards
+          properties:
+            studio_cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/StudioCardCapability'
+        message:
+          type: string
+    StudioCardDetailResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - studio_card
+          properties:
+            studio_card:
+              $ref: '#/components/schemas/StudioCardCapability'
+        message:
+          type: string
+    StudioCardExecutionBinding:
+      type: object
+      required:
+        - transport
+        - status
+        - method
+        - endpoint
+        - required_fields
+        - bound_config_keys
+        - pending_config_keys
+        - result_fields
+      properties:
+        transport:
+          type: string
+          enum:
+            - session_create
+            - artifact_create
+            - chat_message
+            - artifact_reference
+        status:
+          type: string
+          enum:
+            - ready
+            - partial
+            - pending
+        method:
+          type: string
+        endpoint:
+          type: string
+        required_fields:
+          type: array
+          items:
+            type: string
+        bound_config_keys:
+          type: array
+          items:
+            type: string
+        pending_config_keys:
+          type: array
+          items:
+            type: string
+        result_fields:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+    StudioCardExecutionPlan:
+      type: object
+      required:
+        - card_id
+        - readiness
+        - initial_binding
+      properties:
+        card_id:
+          type: string
+        readiness:
+          type: string
+          enum:
+            - ready
+            - foundation_ready
+            - protocol_pending
+        initial_binding:
+          $ref: '#/components/schemas/StudioCardExecutionBinding'
+        refine_binding:
+          $ref: '#/components/schemas/StudioCardExecutionBinding'
+        source_binding:
+          $ref: '#/components/schemas/StudioCardExecutionBinding'
+    StudioCardExecutionPlanResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - execution_plan
+          properties:
+            execution_plan:
+              $ref: '#/components/schemas/StudioCardExecutionPlan'
+        message:
+          type: string
+    StudioCardExecutionPreviewRequest:
+      type: object
+      required:
+        - project_id
+      properties:
+        project_id:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        visibility:
+          type: string
+          enum:
+            - private
+            - project-visible
+            - shared
+        source_artifact_id:
+          type: string
+        client_session_id:
+          type: string
+    StudioCardResolvedRequest:
+      type: object
+      required:
+        - method
+        - endpoint
+        - payload
+      properties:
+        method:
+          type: string
+        endpoint:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        notes:
+          type: string
+    StudioCardExecutionPreview:
+      type: object
+      required:
+        - card_id
+        - readiness
+        - initial_request
+      properties:
+        card_id:
+          type: string
+        readiness:
+          type: string
+          enum:
+            - ready
+            - foundation_ready
+            - protocol_pending
+        initial_request:
+          $ref: '#/components/schemas/StudioCardResolvedRequest'
+        refine_request:
+          $ref: '#/components/schemas/StudioCardResolvedRequest'
+        source_request:
+          $ref: '#/components/schemas/StudioCardResolvedRequest'
+    StudioCardExecutionPreviewResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - execution_preview
+          properties:
+            execution_preview:
+              $ref: '#/components/schemas/StudioCardExecutionPreview'
+        message:
+          type: string
+    StudioCardExecutionResult:
+      type: object
+      required:
+        - card_id
+        - readiness
+        - transport
+        - resource_kind
+        - request_preview
+      properties:
+        card_id:
+          type: string
+        readiness:
+          type: string
+          enum:
+            - ready
+            - foundation_ready
+            - protocol_pending
+        transport:
+          type: string
+          enum:
+            - session_create
+            - artifact_create
+            - chat_message
+            - artifact_reference
+        resource_kind:
+          type: string
+          enum:
+            - session
+            - artifact
+        session:
+          type: object
+          additionalProperties: true
+        artifact:
+          type: object
+          additionalProperties: true
+        request_preview:
+          $ref: '#/components/schemas/StudioCardResolvedRequest'
+    StudioCardExecutionResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - execution_result
+          properties:
+            execution_result:
+              $ref: '#/components/schemas/StudioCardExecutionResult'
+        message:
+          type: string
+    StudioCardRefineRequest:
+      type: object
+      required:
+        - project_id
+        - message
+      properties:
+        project_id:
+          type: string
+        session_id:
+          type: string
+        message:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        visibility:
+          type: string
+          enum:
+            - private
+            - project-visible
+            - shared
+        source_artifact_id:
+          type: string
+        rag_source_ids:
+          type: array
+          items:
+            type: string
+    StudioCardRefineResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - card_id
+            - message
+            - refine_request
+          properties:
+            card_id:
+              type: string
+            session_id:
+              type: string
+            message:
+              $ref: '#/components/schemas/Message'
+            rag_hit:
+              type: boolean
+            suggestions:
+              type: array
+              items:
+                type: string
+            observability:
+              $ref: '#/components/schemas/ChatObservability'
+            refine_request:
+              $ref: '#/components/schemas/StudioCardResolvedRequest'
+        message:
+          type: string
+    StudioCardSourceArtifact:
+      type: object
+      required:
+        - id
+        - type
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        visibility:
+          type: string
+        based_on_version_id:
+          type: string
+        session_id:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    StudioCardSourceOptionsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - sources
+          properties:
+            sources:
+              type: array
+              items:
+                $ref: '#/components/schemas/StudioCardSourceArtifact'
+        message:
+          type: string
+    ArtifactAnchor:
+      type: object
+      properties:
+        session_id:
+          type: string
+          nullable: true
+        artifact_id:
+          type: string
+          nullable: true
+        based_on_version_id:
+          type: string
+          nullable: true
     Slide:
       type: object
       required:
@@ -3774,6 +4734,8 @@ components:
               type: integer
               minimum: 1
               description: 当前可预览渲染版本
+            artifact_anchor:
+              $ref: '#/components/schemas/ArtifactAnchor'
             slides:
               type: array
               items:
@@ -3804,6 +4766,8 @@ components:
           type: integer
           minimum: 1
           description: 并发控制版本（防止覆盖更新）
+        candidate_change:
+          $ref: '#/components/schemas/CandidateChangeRequest'
     ModifyResponse:
       type: object
       required:
@@ -3840,6 +4804,10 @@ components:
               type: string
               description: 修改任务基于的正式版本 ID
               nullable: true
+            artifact_anchor:
+              $ref: '#/components/schemas/ArtifactAnchor'
+            candidate_change:
+              $ref: '#/components/schemas/CandidateChange'
         message:
           type: string
     SlideDetailResponse:
@@ -3862,6 +4830,8 @@ components:
             teaching_plan:
               $ref: '#/components/schemas/SlidePlan'
               description: 该幻灯片对应的教学计划
+            artifact_anchor:
+              $ref: '#/components/schemas/ArtifactAnchor'
             related_slides:
               type: array
               items:
@@ -3904,6 +4874,8 @@ components:
           minimum: 1
           description: |
             可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。
+        candidate_change:
+          $ref: '#/components/schemas/CandidateChangeRequest'
     ExportResponse:
       type: object
       required:
@@ -3931,6 +4903,8 @@ components:
               type: string
               description: 导出基于的正式版本 ID
               nullable: true
+            artifact_anchor:
+              $ref: '#/components/schemas/ArtifactAnchor'
             content:
               type: string
               description: 导出的内容
@@ -3939,6 +4913,8 @@ components:
             render_version:
               type: integer
               minimum: 1
+            candidate_change:
+              $ref: '#/components/schemas/CandidateChange'
         message:
           type: string
     RAGSearchRequest:
@@ -4712,6 +5688,9 @@ components:
           enum:
             - create
             - replace
+        content:
+          type: object
+          additionalProperties: true
     ArtifactResponse:
       type: object
       required:
@@ -4728,102 +5707,6 @@ components:
           properties:
             artifact:
               $ref: '#/components/schemas/Artifact'
-        message:
-          type: string
-    CandidateChange:
-      type: object
-      required:
-        - id
-        - project_id
-        - status
-        - title
-        - summary
-        - proposer_user_id
-        - created_at
-      properties:
-        id:
-          type: string
-        project_id:
-          type: string
-        session_id:
-          type: string
-          nullable: true
-        base_version_id:
-          type: string
-          nullable: true
-        title:
-          type: string
-        summary:
-          type: string
-        payload:
-          type: object
-          additionalProperties: true
-        status:
-          type: string
-          enum:
-            - pending
-            - accepted
-            - rejected
-        proposer_user_id:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-    CandidateChangesResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            changes:
-              type: array
-              items:
-                $ref: '#/components/schemas/CandidateChange'
-        message:
-          type: string
-    CandidateChangeRequest:
-      type: object
-      required:
-        - title
-      properties:
-        session_id:
-          type: string
-          nullable: true
-        base_version_id:
-          type: string
-          nullable: true
-        title:
-          type: string
-        summary:
-          type: string
-        payload:
-          type: object
-          additionalProperties: true
-    CandidateChangeResponse:
-      type: object
-      required:
-        - success
-        - data
-        - message
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          required:
-            - change
-          properties:
-            change:
-              $ref: '#/components/schemas/CandidateChange'
         message:
           type: string
     CandidateChangeReviewRequest:

@@ -5,6 +5,7 @@ export type RAGSearchRequest = components["schemas"]["RAGSearchRequest"];
 export type RAGSearchResponse = components["schemas"]["RAGSearchResponse"];
 export type SourceDetailResponse =
   components["schemas"]["SourceDetailResponse"];
+export type WebSearchResponse = components["schemas"]["WebSearchResponse"];
 export type RAGIndexResponse =
   paths["/api/v1/rag/index"]["post"]["responses"][200]["content"]["application/json"];
 
@@ -16,11 +17,15 @@ export const ragApi = {
     return unwrap<RAGSearchResponse>(result);
   },
 
-  async getSourceDetail(chunkId: string): Promise<SourceDetailResponse> {
+  async getSourceDetail(
+    chunkId: string,
+    projectId?: string
+  ): Promise<SourceDetailResponse> {
+    const params = projectId
+      ? { path: { chunk_id: chunkId }, query: { project_id: projectId } }
+      : { path: { chunk_id: chunkId } };
     const result = await sdkClient.GET("/api/v1/rag/sources/{chunk_id}", {
-      params: {
-        path: { chunk_id: chunkId },
-      },
+      params,
     });
     return unwrap<SourceDetailResponse>(result);
   },
@@ -45,5 +50,17 @@ export const ragApi = {
       body: data,
     });
     return unwrap<RAGSearchResponse>(result);
+  },
+
+  async webSearch(params: {
+    query: string;
+    project_id: string;
+    max_results?: number;
+    auto_index?: boolean;
+  }): Promise<WebSearchResponse> {
+    const result = await sdkClient.POST("/api/v1/rag/web-search", {
+      params: { query: params },
+    });
+    return unwrap<WebSearchResponse>(result);
   },
 };

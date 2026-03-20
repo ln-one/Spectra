@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from services.embedding_service import EmbeddingService
+from services.media.embedding import EmbeddingService
 
 
 @pytest.fixture

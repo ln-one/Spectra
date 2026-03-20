@@ -549,6 +549,158 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/rag/web-search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 搜索网络资源并可选入库 */
+    post: {
+      parameters: {
+        query: {
+          query: string;
+          project_id: string;
+          max_results?: number;
+          auto_index?: boolean;
+        };
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: {
+        /** @description 搜索成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["WebSearchResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/audio-transcribe": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 音频转录并可选入库 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "multipart/form-data": {
+            /**
+             * Format: binary
+             * @description 音频文件
+             */
+            file: string;
+            /** @description 可选项目 ID，不传则仅转录不入库 */
+            project_id?: string;
+            /** @default false */
+            auto_index?: boolean;
+            /** @default zh */
+            language?: string;
+          };
+        };
+      };
+      responses: {
+        /** @description 转录成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["AudioTranscribeResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/rag/video-analyze": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 视频分析并可选入库 */
+    post: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path?: never;
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          "multipart/form-data": {
+            /**
+             * Format: binary
+             * @description 视频文件
+             */
+            file: string;
+            /** @description 可选项目 ID，不传则仅分析不入库 */
+            project_id?: string;
+            /** @default false */
+            auto_index?: boolean;
+          };
+        };
+      };
+      responses: {
+        /** @description 分析成功 */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            "application/json": components["schemas"]["VideoAnalyzeResponse"];
+          };
+        };
+        400: components["responses"]["BadRequest"];
+        401: components["responses"]["Unauthorized"];
+        403: components["responses"]["Forbidden"];
+      };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/health": {
     parameters: {
       query?: never;
@@ -935,15 +1087,31 @@ export interface components {
       };
       message: string;
     };
+    /** @description 内容来源引用（用于溯源） */
     SourceReference: {
-      /** @description 来源片段唯一标识，可用于查询来源详情 */
+      /** @description 片段唯一标识 */
       chunk_id: string;
-      /** @enum {string} */
-      source_type: "video" | "document" | "ai_generated";
+      /**
+       * @description 来源类型
+       * @enum {string}
+       */
+      source_type: "document" | "video" | "audio" | "ai_generated";
+      /** @description 源文件名 */
       filename: string;
+      /** @description 页码（文档场景） */
       page_number?: number;
-      timestamp?: string;
-      preview_text?: string;
+      /**
+       * Format: float
+       * @description 时间戳（视频/音频场景，单位秒）
+       */
+      timestamp?: number;
+      /**
+       * Format: float
+       * @description 检索或重排得分（可选）
+       */
+      score?: number;
+      /** @description 内容预览片段 */
+      content_preview?: string;
     };
     Message: {
       id: string;
@@ -952,13 +1120,13 @@ export interface components {
       content: string;
       /** Format: date-time */
       timestamp: string;
-      /** @description assistant 回复关联的来源引用（可选，建议尽量返回） */
-      citations?: components["schemas"]["SourceReference"][];
+      /** @description Structured source citations for assistant responses */
+      citations?: components["schemas"]["common_SourceReference"][];
     };
     GetMessagesResponse: {
       success: boolean;
       data: {
-        /** @description 查询时的会话范围（可选） */
+        /** @description Optional queried session scope */
         session_id?: string;
         messages?: components["schemas"]["Message"][];
         total?: number;
@@ -969,19 +1137,40 @@ export interface components {
     };
     SendMessageRequest: {
       project_id: string;
-      /** @description 会话级上下文隔离 ID。提供后按 project_id + session_id 过滤历史与资料。 */
+      /** @description Optional session scope id for project-scoped context isolation */
       session_id?: string;
       content: string;
       history?: components["schemas"]["Message"][];
-      /** @description 限定 RAG 检索范围的文件 ID 列表（空列表/未传表示不限） */
+      /** @description Optional file ids to constrain RAG retrieval scope */
       rag_source_ids?: string[];
+    };
+    /** @description Observability fields for prompt routing and regression comparison */
+    ChatObservability: {
+      request_id?: string;
+      prompt_template_version?: string;
+      few_shot_version?: string;
+      route_task?: string;
+      selected_model?: string;
+      has_rag_context?: boolean;
+      prompt_hash?: string;
+      response_hash?: string;
+      mechanical_pattern_hit?: boolean;
+      fallback_triggered?: boolean;
+      /** Format: float */
+      latency_ms?: number;
+      route_decision?: {
+        [key: string]: unknown;
+      };
     };
     SendMessageResponse: {
       success: boolean;
       data: {
-        /** @description 本次回复绑定的会话 ID（可选） */
+        /** @description Session id bound to this response (optional) */
         session_id?: string;
         message?: components["schemas"]["Message"];
+        /** @description Whether this reply used RAG context */
+        rag_hit?: boolean;
+        observability?: components["schemas"]["ChatObservability"];
         suggestions?: string[];
       };
       message: string;
@@ -1027,25 +1216,25 @@ export interface components {
     VoiceMessageResponse: {
       success: boolean;
       data: {
-        /** @description 本次语音对话绑定的会话 ID（可选） */
+        /** @description Optional session id bound to this voice interaction */
         session_id?: string;
-        /** @description 识别的文本内容 */
+        /** @description Recognized text */
         text?: string;
         /**
          * Format: float
-         * @description 识别置信度
+         * @description Recognition confidence
          */
         confidence?: number;
         /**
          * Format: float
-         * @description 音频时长（秒）
+         * @description Audio duration in seconds
          */
         duration?: number;
-        /** @description 自动创建的消息对象 */
+        /** @description Auto-created assistant message */
         message?: components["schemas"]["Message"];
-        /** @description 语音识别能力状态（含降级信息） */
+        /** @description Speech recognition capability status with degradation semantics */
         capability_status?: components["schemas"]["CapabilityStatus"];
-        /** @description AI 建议 */
+        /** @description Follow-up suggestions */
         suggestions?: string[];
       };
       message: string;
@@ -1058,7 +1247,7 @@ export interface components {
        * @description 来源类型
        * @enum {string}
        */
-      source_type: "document" | "video" | "audio" | "ai_generated";
+      source_type: "document" | "web" | "video" | "audio" | "ai_generated";
       /** @description 源文件名 */
       filename: string;
       /** @description 页码（文档场景） */
@@ -1068,6 +1257,11 @@ export interface components {
        * @description 时间戳（视频/音频场景，单位秒）
        */
       timestamp?: number;
+      /**
+       * Format: float
+       * @description 检索或重排得分（可选）
+       */
+      score?: number;
       /** @description 内容预览片段 */
       content_preview?: string;
     };
@@ -1109,7 +1303,7 @@ export interface components {
         /** @description 视频解析片段（video 场景） */
         segments?: Record<string, never>[];
         /** @description 来源引用（video 场景） */
-        sources?: components["schemas"]["common_SourceReference"][];
+        sources?: components["schemas"]["SourceReference"][];
       };
       /** Format: date-time */
       created_at: string;
@@ -1253,6 +1447,7 @@ export interface components {
       output_type: components["schemas"]["GenerationSessionMode"];
       options?: components["schemas"]["GenerationOptions"];
       client_session_id?: string;
+      bootstrap_only?: boolean;
     };
     /** @enum {string} */
     GenerateTaskStatus: "pending" | "processing" | "completed" | "failed";
@@ -1581,6 +1776,16 @@ export interface components {
       /** @description 防止并发覆盖的版本控制字段 */
       expected_render_version?: number;
     };
+    preview_SourceReference: {
+      /** @description 来源片段唯一标识，可用于查询来源详情 */
+      chunk_id: string;
+      /** @enum {string} */
+      source_type: "video" | "document" | "ai_generated";
+      filename: string;
+      page_number?: number;
+      timestamp?: string;
+      preview_text?: string;
+    };
     RegenerateSlideResponse: {
       success: boolean;
       data: {
@@ -1589,7 +1794,7 @@ export interface components {
           slide_id?: string;
           slide_index?: number;
           content_markdown?: string;
-          sources?: components["schemas"]["SourceReference"][];
+          sources?: components["schemas"]["preview_SourceReference"][];
           render_version?: number;
         };
       };
@@ -1631,7 +1836,7 @@ export interface components {
       index: number;
       title: string;
       content: string;
-      sources: components["schemas"]["SourceReference"][];
+      sources: components["schemas"]["preview_SourceReference"][];
       thumbnail_url?: string;
     };
     SlidePlan: {
@@ -1640,7 +1845,7 @@ export interface components {
       teacher_script: string;
       teaching_suggestions?: string[];
       suggested_duration?: number;
-      material_sources?: components["schemas"]["SourceReference"][];
+      material_sources?: components["schemas"]["preview_SourceReference"][];
     };
     LessonPlan: {
       teaching_objectives?: string[];
@@ -1757,7 +1962,7 @@ export interface components {
       content: string;
       /** Format: float */
       score: number;
-      source: components["schemas"]["SourceReference"];
+      source: components["schemas"]["common_SourceReference"];
       metadata?: Record<string, never>;
     };
     RAGSearchResponse: {
@@ -1773,12 +1978,59 @@ export interface components {
       data: {
         chunk_id?: string;
         content?: string;
-        source?: components["schemas"]["SourceReference"];
+        source?: components["schemas"]["common_SourceReference"];
         context?: {
           previous_chunk?: string;
           next_chunk?: string;
         };
         file_info?: components["schemas"]["UploadedFile"];
+      };
+      message: string;
+    };
+    WebKnowledgeUnit: {
+      chunk_id: string;
+      /** @enum {string} */
+      source_type: "web" | "audio" | "video";
+      content: string;
+      metadata: {
+        [key: string]: unknown;
+      };
+      citation?: components["schemas"]["common_SourceReference"];
+    };
+    WebSearchResponse: {
+      success: boolean;
+      data: {
+        results?: components["schemas"]["WebKnowledgeUnit"][];
+        total?: number;
+        indexed?: number | null;
+      };
+      message: string;
+    };
+    AudioTranscribeResponse: {
+      success: boolean;
+      data: {
+        audio_id?: string;
+        text?: string;
+        segments?: components["schemas"]["WebKnowledgeUnit"][];
+        total_segments?: number;
+        indexed?: number | null;
+        language?: string;
+        /** Format: float */
+        confidence?: number;
+        /** Format: float */
+        duration?: number;
+        capability_status?: components["schemas"]["CapabilityStatus"];
+      };
+      message: string;
+    };
+    VideoAnalyzeResponse: {
+      success: boolean;
+      data: {
+        video_id?: string;
+        segments?: components["schemas"]["WebKnowledgeUnit"][];
+        total_segments?: number;
+        indexed?: number | null;
+        capability_status?: components["schemas"]["CapabilityStatus"];
       };
       message: string;
     };
@@ -3102,7 +3354,9 @@ export interface operations {
   };
   getRagSourcesByChunkId: {
     parameters: {
-      query?: never;
+      query?: {
+        project_id?: string;
+      };
       header?: never;
       path: {
         chunk_id: string;

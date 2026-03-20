@@ -14,7 +14,7 @@
 - `docs/openapi/paths/{模块}.yaml` - 选择合适的模块
 - `docs/openapi/schemas/{模块}.yaml` - 定义数据模型
 - `backend/routers/{模块}.py` - 后端路由
-- `frontend/lib/api/{模块}.ts` - 前端 API 客户端
+- `frontend/lib/sdk/{模块}.ts` - 前端 API 客户端
 
 ---
 
@@ -130,7 +130,7 @@ npm run validate:openapi
 
 ```bash
 cd frontend
-npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
+npx openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts
 ```
 
 ### 步骤 6：实现后端
@@ -205,7 +205,7 @@ app.include_router(courses.router)
 
 ### 步骤 7：实现前端
 
-**创建 API 客户端**（`frontend/lib/api/courses.ts`）：
+**创建 API 客户端**（`frontend/lib/sdk/courses.ts`）：
 
 ```typescript
 import { apiClient } from './client';
@@ -225,7 +225,7 @@ export const coursesApi = {
 **在组件中使用**：
 
 ```typescript
-import { coursesApi } from '@/lib/api/courses';
+import { coursesApi } from '@/lib/sdk/courses';
 import { useState } from 'react';
 
 export function CreateCourseForm() {
@@ -281,7 +281,7 @@ def test_create_course_unauthorized(client):
 **前端测试**（`frontend/__tests__/courses.test.ts`）：
 
 ```typescript
-import { coursesApi } from '@/lib/api/courses';
+import { coursesApi } from '@/lib/sdk/courses';
 
 test('create course success', async () => {
  const response = await coursesApi.create({
@@ -352,7 +352,7 @@ async def create_course(request: CreateCourseRequest):
 ### 前端调用
 
 ```typescript
-// frontend/lib/api/courses.ts
+// frontend/lib/sdk/courses.ts
 export const coursesApi = {
  create: async (data: CreateCourseRequest) => {
  return await apiClient.post('/api/v1/courses', data);
@@ -435,3 +435,5 @@ raise HTTPException(status_code=400, detail="错误信息")
 - `.ai/guides/api-workflow.md` - API 开发完整流程
 - `docs/standards/backend.md` - 后端代码规范
 - `docs/standards/frontend.md` - 前端代码规范
+
+

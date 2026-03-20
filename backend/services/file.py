@@ -4,12 +4,14 @@ from pathlib import Path
 
 import aiofiles
 
+from services.runtime_paths import get_upload_dir
+
 
 class FileService:
     """Service for file operations"""
 
-    def __init__(self, upload_dir: str = "uploads"):
-        self.upload_dir = Path(upload_dir)
+    def __init__(self, upload_dir: str | None = None):
+        self.upload_dir = Path(upload_dir) if upload_dir else get_upload_dir()
         self.upload_dir.mkdir(parents=True, exist_ok=True)
 
     async def save_file(self, filename: str, content: bytes) -> tuple[str, int]:

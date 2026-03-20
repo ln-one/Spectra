@@ -12,9 +12,9 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from services.chunking import split_text
+from services.media.vector import VectorService
 from services.parsers.base import BaseParseProvider
 from services.rag_service import ParsedChunkData, RAGService
-from services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
 

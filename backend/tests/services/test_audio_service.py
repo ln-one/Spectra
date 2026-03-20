@@ -33,7 +33,7 @@ def _make_wav(path: Path, frames: int = 16000, framerate: int = 16000) -> None:
 
 
 def test_safe_audio_duration_valid_wav(tmp_path: Path) -> None:
-    from services.audio_service import _safe_audio_duration
+    from services.media.audio import _safe_audio_duration
 
     wav_path = tmp_path / "test.wav"
     _make_wav(wav_path, frames=16000, framerate=16000)
@@ -43,7 +43,7 @@ def test_safe_audio_duration_valid_wav(tmp_path: Path) -> None:
 
 
 def test_safe_audio_duration_invalid_file(tmp_path: Path) -> None:
-    from services.audio_service import _safe_audio_duration
+    from services.media.audio import _safe_audio_duration
 
     bad_path = tmp_path / "not_a_wav.wav"
     bad_path.write_bytes(b"not a real wav file content")
@@ -53,7 +53,7 @@ def test_safe_audio_duration_invalid_file(tmp_path: Path) -> None:
 
 
 def test_safe_audio_duration_missing_file() -> None:
-    from services.audio_service import _safe_audio_duration
+    from services.media.audio import _safe_audio_duration
 
     duration = _safe_audio_duration("/nonexistent/path/audio.wav")
     assert duration == 0.0
@@ -61,7 +61,7 @@ def test_safe_audio_duration_missing_file() -> None:
 
 def test_safe_audio_duration_zero_framerate(tmp_path: Path) -> None:
     """Probe should return 0.0 when getframerate() returns 0."""
-    from services.audio_service import _safe_audio_duration
+    from services.media.audio import _safe_audio_duration
 
     mock_wav = MagicMock()
     mock_wav.getframerate.return_value = 0
@@ -81,7 +81,7 @@ def test_safe_audio_duration_zero_framerate(tmp_path: Path) -> None:
 
 def test_transcribe_audio_no_faster_whisper(tmp_path: Path) -> None:
     """ImportError → returns UNAVAILABLE status."""
-    from services.audio_service import transcribe_audio
+    from services.media.audio import transcribe_audio
 
     wav_path = tmp_path / "clip.wav"
     _make_wav(wav_path)
@@ -106,7 +106,7 @@ def test_transcribe_audio_no_faster_whisper(tmp_path: Path) -> None:
 
 def test_transcribe_audio_success(tmp_path: Path) -> None:
     """Valid segments returned → AVAILABLE status."""
-    from services.audio_service import transcribe_audio
+    from services.media.audio import transcribe_audio
 
     wav_path = tmp_path / "clip.wav"
     _make_wav(wav_path)
@@ -136,7 +136,7 @@ def test_transcribe_audio_success(tmp_path: Path) -> None:
 
 def test_transcribe_audio_empty_output(tmp_path: Path) -> None:
     """Empty segments → DEGRADED + EMPTY_OUTPUT."""
-    from services.audio_service import transcribe_audio
+    from services.media.audio import transcribe_audio
 
     wav_path = tmp_path / "silent.wav"
     _make_wav(wav_path)
@@ -165,7 +165,7 @@ def test_transcribe_audio_empty_output(tmp_path: Path) -> None:
 
 def test_transcribe_audio_exception(tmp_path: Path) -> None:
     """Runtime exception → DEGRADED status with non-empty user_message."""
-    from services.audio_service import transcribe_audio
+    from services.media.audio import transcribe_audio
 
     wav_path = tmp_path / "clip.wav"
     _make_wav(wav_path)
@@ -191,7 +191,7 @@ def test_transcribe_audio_exception(tmp_path: Path) -> None:
 
 def test_transcribe_audio_timeout_reason_code(tmp_path: Path) -> None:
     """Exception containing 'timeout' → reason_code=PROVIDER_TIMEOUT."""
-    from services.audio_service import transcribe_audio
+    from services.media.audio import transcribe_audio
 
     wav_path = tmp_path / "clip.wav"
     _make_wav(wav_path)

@@ -10,6 +10,9 @@ CreateGenerationSessionRequest:
       $ref: './generate-core.yaml#/GenerationOptions'
     client_session_id:
       type: string
+    bootstrap_only:
+      type: boolean
+      default: false
 
 CreateGenerationSessionResponse:
   type: object
@@ -123,6 +126,8 @@ ConfirmOutlineRequest:
       allOf:
         - $ref: './generate-core.yaml#/GenerationState'
       description: 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM
+    candidate_change:
+      $ref: './project-space.yaml#/CandidateChangeRequest'
 
 ConfirmOutlineResponse:
   type: object
@@ -135,6 +140,8 @@ ConfirmOutlineResponse:
       properties:
         session:
           $ref: './generate-session-models.yaml#/SessionRef'
+        candidate_change:
+          $ref: './project-space.yaml#/CandidateChange'
     message:
       type: string
 

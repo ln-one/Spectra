@@ -1,38 +1,63 @@
-# Spectra 文档中心
+# Spectra Documentation
 
-> 更新时间：2026-03-02
-> 目标：入口清晰、状态明确、与代码一致。
+> Updated: 2026-03-19
+> Goal: a clean entry point, a clear status model, and documentation that matches the code.
 
-## 1. 核心入口
+## 1. Core Entry Points
 
-- [贡献规范](./CONTRIBUTING.md)
-- [架构理念（项目哲学）](./architecture/PHILOSOPHY.md)
-- [技术栈（MVP 对齐版）](./architecture/tech-stack.md)
-- [系统总览](./architecture/system/overview.md)
-- [OpenAPI 文档](./openapi/README.md)
+- [Project Philosophy (Canonical)](./project/SYSTEM_PHILOSOPHY_2026-03-19.md)
+- [Architecture Index](./architecture/README.md)
+- [Tech Stack](./architecture/tech-stack.md)
+- [OpenAPI Docs](./openapi/README.md)
+- [Contributing Guide](./CONTRIBUTING.md)
 
-## 2. 架构与决策
+## 2. Engineering and Delivery
 
-- [架构目录说明](./architecture/README.md)
-- [技术决策 ADR](./decisions/README.md)
+- [Guides](./guides/README.md)
+- [Standards](./standards/README.md)
+- [Master Execution Plan](./master-execution-plan.md)
+- [Remaining Work Battle Plan](./remaining-work-battle-plan.md)
+- [Optimization Work Packet](./optimization-work-packet.md)
+- [Studio Card Backend Protocol](./studio-card-backend-protocol.md)
+- [PostgreSQL Migration Checklist](./postgres-migration-checklist.md)
+- [Deployment Topology](./deployment-topology.md)
+- [Deployment Environment Contract](./deployment-env-contract.md)
+- [Main Deployment Runbook](./runbook-main-deploy.md)
+- [Incident Response Runbook](./runbook-incident-response.md)
 
-## 3. 工程与协作
+## 3. Operational Scripts
 
-- [开发指南](./guides/README.md)
-- [工程规范](./standards/README.md)
+- `backend/scripts/compat_surface_audit.py` - compatibility surface audit
+- `backend/scripts/deploy_preflight.py` - pre-deploy environment and network checks
+- `backend/scripts/deploy_smoke_check.py` - post-deploy smoke checks
+- `backend/scripts/deploy_release_record.py` - release record skeleton generator
+- `backend/scripts/incident_record.py` - incident record skeleton generator
+- `backend/scripts/postgres_readiness_audit.py` - PostgreSQL readiness audit
+- `backend/scripts/postgres_shadow_stack_audit.py` - PostgreSQL shadow stack audit
+- `backend/scripts/postgres_shadow_smoke.py` - live PostgreSQL shadow stack smoke gate
+- `backend/scripts/postgres_cutover_audit.py` - PostgreSQL cutover readiness audit
+- `backend/scripts/postgres_backup.py` - build or execute PostgreSQL backup commands for cutover drills
+- `backend/scripts/postgres_restore.py` - build or execute PostgreSQL restore commands for rollback drills
+- `backend/scripts/postgres_recovery_drill.py` - run a dry recovery rehearsal across backup/restore prerequisites and commands
+- `backend/scripts/postgres_cutover_rehearsal.py` - aggregate cutover audit, recovery drill, and optional live shadow smoke
+- `backend/scripts/docker_compose_topology_audit.py` - Docker Compose topology audit
+- `backend/scripts/docker_deploy_readiness_audit.py` - Docker/distributed deployment readiness audit
+- `backend/scripts/distributed_deploy_audit.py` - aggregate Docker/distributed deployment audit
+- `backend/scripts/storage_deploy_readiness_audit.py` - storage/path readiness audit for distributed deployment
+- `backend/scripts/deployment_env_role_audit.py` - role-aware deployment env audit
+- `backend/scripts/runtime_assumption_audit.py` - scan for lingering local-runtime defaults across backend/docs
+- `backend/scripts/worker_queue_diagnose.py` - worker/queue/stuck-job diagnosis
 
-## 4. 规划与比赛
+## 4. Product Design and Historical Planning
 
-- [当前阶段计划（2026-03-09）](./project/PROJECT_SPACE_API_DRAFT_2026-03-09.md)
-- [项目原始需求](./project/requirements.md)
-- [比赛材料](./competition/)
+- [Project Design Workspace](./project/README.md)
+- [Original Requirements](./project/requirements.md)
+- [Competition Materials](./competition/)
+- [Archived Documents](./archived/)
 
-## 5. 归档文档
+## 5. Status Labels
 
-- [历史归档（不维护）](./archived/)
-
-## 6. 文档状态定义
-
-- `已落地`：代码中已实现。
-- `规划中`：有方案但未接入主流程。
-- `历史文档`：保留背景，不作为当前实现依据。
+- `Canonical`: the highest-level source for a concept or worldview.
+- `Implemented`: reflected in the codebase today.
+- `In Progress`: active direction, but not fully complete.
+- `Archived`: kept for context, not for current implementation decisions.

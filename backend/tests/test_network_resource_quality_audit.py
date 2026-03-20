@@ -95,3 +95,33 @@ def test_compute_metrics_gate_can_fail():
         min_citation_ready_rate=1.0,
     )
     assert m.gate_passed is False
+
+
+def test_compute_metrics_accepts_alias_source_types_for_citation(monkeypatch):
+    from eval import network_resource_quality_audit as audit
+
+    monkeypatch.setattr(
+        audit,
+        "prepare_web_knowledge_units",
+        lambda **_: [
+            {
+                "chunk_id": "u1",
+                "source_type": "url",
+                "content": "网页内容",
+                "metadata": {"resource_id": "web-1"},
+                "citation": {
+                    "chunk_id": "u1",
+                    "source_type": "webpage",
+                    "filename": "page.html",
+                },
+            }
+        ],
+    )
+    monkeypatch.setattr(audit, "audio_segments_to_units", lambda **_: [])
+    monkeypatch.setattr(audit, "video_segments_to_units", lambda **_: [])
+    monkeypatch.setattr(audit, "rank_units_by_relevance", lambda units, **_: units)
+
+    m = compute_metrics([{"id": "alias", "query": "网页内容", "web_resources": []}])
+
+    assert m.citation_ready_rate == pytest.approx(1.0)
+    assert m.normalization_rate == pytest.approx(1.0)

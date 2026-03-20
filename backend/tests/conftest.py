@@ -2,6 +2,9 @@ import pytest
 from starlette.testclient import TestClient
 
 from schemas.generation import CoursewareContent
+from services.prisma_runtime import ensure_generated_prisma_client_path
+
+ensure_generated_prisma_client_path()
 
 
 @pytest.fixture

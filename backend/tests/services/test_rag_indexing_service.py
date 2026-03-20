@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services import rag_indexing_service
+from services.media import rag_indexing as rag_indexing_service
 
 
 def _fake_upload(**kw):

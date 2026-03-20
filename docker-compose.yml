@@ -1,4 +1,20 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: spectra
+      POSTGRES_PASSWORD: spectra
+      POSTGRES_DB: spectra
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spectra -d spectra"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     ports:
@@ -38,19 +54,29 @@ services:
     volumes:
       - ./backend:/app
       - /app/venv
+      - runtime_data:/var/lib/spectra
     environment:
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=file:./dev.db
+      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
-    command: sh -c "prisma generate && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      - UPLOAD_DIR=/var/lib/spectra/uploads
+      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
+      - GENERATED_DIR=/var/lib/spectra/generated
+      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
+      - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
+      - POSTGRES_BACKUP_RETENTION_DAYS=14
+      - POSTGRES_BACKUP_PREFIX=spectra-dev
+    command: sh -c "prisma migrate deploy && prisma generate && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       redis:
         condition: service_healthy
       chromadb:
         condition: service_started
+      postgres:
+        condition: service_healthy
 
   worker:
     build:
@@ -59,19 +85,29 @@ services:
     volumes:
       - ./backend:/app
       - /app/venv
+      - runtime_data:/var/lib/spectra
     environment:
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=file:./dev.db
+      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
-    command: sh -c "prisma generate && python worker.py"
+      - UPLOAD_DIR=/var/lib/spectra/uploads
+      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
+      - GENERATED_DIR=/var/lib/spectra/generated
+      - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
+      - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
+      - POSTGRES_BACKUP_RETENTION_DAYS=14
+      - POSTGRES_BACKUP_PREFIX=spectra-dev
+    command: sh -c "prisma migrate deploy && prisma generate && python worker.py"
     depends_on:
       redis:
         condition: service_healthy
       chromadb:
         condition: service_started
+      postgres:
+        condition: service_healthy
 
   chromadb:
     image: chromadb/chroma:0.5.2
@@ -90,5 +126,7 @@ services:
       retries: 3
 
 volumes:
+  postgres_data:
   redis_data:
   chroma_data:
+  runtime_data:

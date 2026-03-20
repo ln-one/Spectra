@@ -60,16 +60,20 @@ export function useGenerationEvents(
   const cursorRef = useRef<string | undefined>(undefined);
   const retriesRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectRef = useRef<() => void>(() => {});
 
   // 使用 ref 保存回调，避免重连时的闭包陈旧问题
   const onEventRef = useRef(onEvent);
   const onErrorRef = useRef(onError);
   const onOpenRef = useRef(onOpen);
   const onCloseRef = useRef(onClose);
-  onEventRef.current = onEvent;
-  onErrorRef.current = onError;
-  onOpenRef.current = onOpen;
-  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    onEventRef.current = onEvent;
+    onErrorRef.current = onError;
+    onOpenRef.current = onOpen;
+    onCloseRef.current = onClose;
+  }, [onClose, onError, onEvent, onOpen]);
 
   const cleanup = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -126,7 +130,7 @@ export function useGenerationEvents(
         const delay = Math.min(1000 * 2 ** retriesRef.current, 30000);
         retriesRef.current += 1;
         reconnectTimerRef.current = setTimeout(() => {
-          connect();
+          connectRef.current();
         }, delay);
         return;
       }
@@ -136,6 +140,10 @@ export function useGenerationEvents(
       onErrorRef.current?.(err);
     };
   }, [sessionId, autoReconnect, maxRetries, cleanup]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const disconnect = useCallback(() => {
     retriesRef.current = maxRetries; // 阻止自动重连
@@ -152,10 +160,22 @@ export function useGenerationEvents(
   useEffect(() => {
     if (sessionId) {
       cursorRef.current = undefined; // 新会话重置 cursor
-      setEvents([]);
-      connect();
+      const frame = requestAnimationFrame(() => {
+        setEvents([]);
+        connect();
+      });
+      return () => {
+        cancelAnimationFrame(frame);
+        cleanup();
+      };
     } else {
-      cleanup();
+      const frame = requestAnimationFrame(() => {
+        cleanup();
+      });
+      return () => {
+        cancelAnimationFrame(frame);
+        cleanup();
+      };
     }
 
     return cleanup;

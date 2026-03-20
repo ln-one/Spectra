@@ -6,7 +6,9 @@ RAG Schemas - RAG 检索相关 Pydantic 模型
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from schemas.common import SourceType, normalize_source_type
 
 
 class RAGFilters(BaseModel):
@@ -31,11 +33,16 @@ class SourceReference(BaseModel):
     """来源引用"""
 
     chunk_id: str = Field(..., description="分块 ID")
-    source_type: str = Field(..., description="来源类型 (video/document/ai_generated)")
+    source_type: SourceType = Field(..., description="来源类型")
     filename: str = Field(..., description="文件名")
     page_number: Optional[int] = Field(None, description="文档页码")
-    timestamp: Optional[str] = Field(None, description="视频时间戳")
+    timestamp: Optional[float] = Field(None, description="视频时间戳（秒）")
     preview_text: Optional[str] = Field(None, description="来源片段预览文本")
+
+    @field_validator("source_type", mode="before")
+    @classmethod
+    def _normalize_source_type(cls, value):
+        return normalize_source_type(value)
 
 
 class RAGResult(BaseModel):

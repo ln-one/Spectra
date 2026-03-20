@@ -204,3 +204,232 @@
         $ref: '../components/responses.yaml#/Unauthorized'
       '403':
         $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/generate/studio-cards:
+  get:
+    summary: 获取 Studio 卡片协议目录
+    operationId: getGenerateStudioCards
+    description: 返回 Studio 卡片目录、成熟度、配置字段与上下文协议。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardsCatalogResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+/api/v1/generate/studio-cards/{card_id}:
+  get:
+    summary: 获取单张 Studio 卡片协议
+    operationId: getGenerateStudioCardById
+    description: 返回单张 Studio 卡片的后端协议细节。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardDetailResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/studio-cards/{card_id}/execution-plan:
+  get:
+    summary: 获取单张 Studio 卡片执行协议
+    operationId: getGenerateStudioCardExecutionPlan
+    description: 返回单张 Studio 卡片当前可落地的后端执行绑定、缺口与结果字段。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionPlanResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/studio-cards/{card_id}/execution-preview:
+  post:
+    summary: 获取单张 Studio 卡片执行预览
+    operationId: postGenerateStudioCardExecutionPreview
+    description: 根据卡片配置返回当前可以直接调用的后端请求预览。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionPreviewRequest'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionPreviewResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/studio-cards/{card_id}/execute:
+  post:
+    summary: 执行单张 Studio 卡片
+    operationId: postGenerateStudioCardExecute
+    description: 对已达到 foundation-ready 的卡片直接执行初始动作，返回实际落地的 session 或 artifact。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionPreviewRequest'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardExecutionResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/generate/studio-cards/{card_id}/refine:
+  post:
+    summary: 执行单张 Studio 卡片 refine
+    operationId: postGenerateStudioCardRefine
+    description: 通过统一 chat 通道执行已暴露 refine 协议的卡片局部改写。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate-capabilities.yaml#/StudioCardRefineRequest'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardRefineResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
+/api/v1/generate/studio-cards/{card_id}/sources:
+  get:
+    summary: 获取 Studio 卡片可绑定源成果
+    operationId: getGenerateStudioCardSources
+    description: 返回当前卡片可选的源成果列表，优先用于 source-artifact 驱动的组合型卡片。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: card_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: project_id
+        in: query
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardSourceOptionsResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'

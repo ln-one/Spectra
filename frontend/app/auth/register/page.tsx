@@ -38,7 +38,7 @@ function RegisterForm() {
   const { register: registerUser, isLoading } = useAuthStore();
   const { toast } = useToast();
 
-  const redirect = searchParams.get("redirect") || "/projects";
+  const redirect = searchParams?.get("redirect") || "/projects";
 
   const {
     register,

@@ -206,6 +206,9 @@ ArtifactCreateRequest:
     mode:
       type: string
       enum: [create, replace]
+    content:
+      type: object
+      additionalProperties: true
 
 ArtifactResponse:
   type: object
@@ -262,6 +265,12 @@ CandidateChange:
     status:
       type: string
       enum: [pending, accepted, rejected]
+    review_comment:
+      type: string
+      nullable: true
+    accepted_version_id:
+      type: string
+      nullable: true
     proposer_user_id:
       type: string
     created_at:

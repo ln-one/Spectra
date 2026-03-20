@@ -23,13 +23,14 @@ docker-compose up -d
 
 **解决方案**:
 ```bash
-# 检查数据库文件
-ls -la backend/prisma/dev.db
+# 检查 PostgreSQL 容器与健康状态
+docker-compose ps postgres
+docker-compose logs postgres --tail=50
 
-# 重新生成 Prisma Client
+# 重新生成 Prisma Client 并应用 fresh baseline
 cd backend
 prisma generate
-prisma db push
+prisma migrate deploy
 ```
 
 ### 3. 前端无法连接后端

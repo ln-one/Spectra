@@ -1,6 +1,6 @@
 # 最佳实践指南
 
-> 最后更新：2026-02-26 | 版本：1.0 
+> 最后更新：2026-03-20 | 版本：1.1
 > 任务类型：all | 预估 tokens：500
 
 ## 代码组织
@@ -10,14 +10,17 @@
 **前端**：
 ```
 frontend/
-├── app/ # Next.js 页面（App Router）
-├── components/ # React 组件
+├── app/ # 路由入口（page.tsx）与页面实现（_views）
+├── components/
 │ ├── ui/ # Shadcn/ui 基础组件
-│ └── *.tsx # 业务组件
-├── lib/ # 工具函数和 API 客户端
-│ ├── api/ # API 调用
-│ └── types/ # TypeScript 类型
-└── hooks/ # 自定义 hooks
+│ └── project/features/ # 项目域业务模块
+├── stores/ # Zustand 状态与切片
+├── lib/
+│ ├── sdk/ # OpenAPI SDK 与客户端
+│ ├── auth/ + auth.ts # 认证实现与兼容门面
+│ ├── project-space/ # 领域封装
+│ └── types/ # 类型定义（含自动生成文件）
+└── hooks/ # 全局 hooks
 ```
 
 **后端**：
@@ -61,7 +64,7 @@ export function formatDate() { }
 // lib/utils/validation.ts
 export function validateEmail() { }
 
-// lib/api/users.ts
+// lib/sdk/projects.ts 或 lib/project-space/index.ts
 export function fetchUser() { }
 ```
 

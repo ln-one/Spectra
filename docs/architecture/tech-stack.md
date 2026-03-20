@@ -11,7 +11,7 @@
 | 样式与组件     | Tailwind CSS + Radix + Shadcn 风格组件                         | Tailwind 3.4.1                    | `frontend/package.json`, `frontend/components/ui/`                                                 |
 | 前端状态管理    | Zustand（业务状态为主）                                            | Zustand 5.x                       | `frontend/stores/*.ts`                                                                             |
 | 前端表单校验    | React Hook Form + Zod                                      | RHF 7.x, Zod 4.x                  | `frontend/app/auth/*`, `frontend/package.json`                                                     |
-| 前端请求层     | Fetch API 封装                                               | 自研 wrapper                        | `frontend/lib/api/client.ts`                                                                       |
+| 前端请求层     | Fetch API 封装                                               | 自研 wrapper                        | `frontend/lib/sdk/client.ts`                                                                       |
 | 动效        | Framer Motion（局部使用）                                        | 12.x                              | `frontend/components/FileList.tsx`, `frontend/components/FileUploadDropzone.tsx`                   |
 | 后端框架      | FastAPI + Pydantic v2 + Uvicorn                            | FastAPI 0.129.0, Pydantic 2.12.5  | `backend/requirements.txt`, `backend/main.py`                                                      |
 | 数据库访问     | Prisma Client Python（async）                                | prisma 0.15.0                     | `backend/prisma/schema.prisma`, `backend/services/database.py`                                     |
@@ -79,3 +79,4 @@
 
 > 说明：该差异是 2026-03 架构调整重点，详见 `api-contract.md` 与 `docs/project/*_2026-03-09.md`。
 > sprint 口径：对 A/B/C/D 本轮会话化改造任务，右侧“目标形态”是最终结果和拆解基线；左侧“当前实现”仅用于说明现状与兼容层，不应覆盖本轮设计决策。
+

@@ -1,3 +1,9 @@
+"""Compatibility exports for legacy service imports.
+
+New production code should prefer explicit module imports instead of
+``from services import ...`` to keep dependency boundaries visible.
+"""
+
 from importlib import import_module
 
 _SERVICE_EXPORTS = {
@@ -5,16 +11,18 @@ _SERVICE_EXPORTS = {
     "ai_service": (".ai", "ai_service"),
     "DatabaseService": (".database", "DatabaseService"),
     "db_service": (".database", "db_service"),
-    "EmbeddingService": (".embedding_service", "EmbeddingService"),
-    "embedding_service": (".embedding_service", "embedding_service"),
+    "EmbeddingService": (".media.embedding", "EmbeddingService"),
+    "embedding_service": (".media.embedding", "embedding_service"),
     "FileService": (".file", "FileService"),
     "file_service": (".file", "file_service"),
     "PromptService": (".prompt_service", "PromptService"),
     "prompt_service": (".prompt_service", "prompt_service"),
     "RAGService": (".rag_service", "RAGService"),
     "rag_service": (".rag_service", "rag_service"),
-    "VectorService": (".vector_service", "VectorService"),
-    "vector_service": (".vector_service", "vector_service"),
+    "VectorService": (".media.vector", "VectorService"),
+    "vector_service": (".media.vector", "vector_service"),
+    "rag_indexing": (".media", "rag_indexing"),
+    "rag_indexing_service": (".media", "rag_indexing"),
 }
 
 __all__ = [
@@ -32,6 +40,8 @@ __all__ = [
     "RAGService",
     "prompt_service",
     "PromptService",
+    "rag_indexing",
+    "rag_indexing_service",
 ]
 
 

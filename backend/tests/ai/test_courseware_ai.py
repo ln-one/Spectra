@@ -114,6 +114,44 @@ class TestGenerateOutline:
         assert outline.summary == "基础教学大纲"
 
     @pytest.mark.asyncio
+    async def test_outline_sparse_sections_are_enriched(self):
+        """过于单薄的大纲应补齐完整教学结构，而不是原样放过"""
+        ai = AIService()
+        sparse_json = json.dumps(
+            {
+                "title": "牛顿第二定律",
+                "sections": [
+                    {
+                        "title": "导入",
+                        "key_points": ["主题引入", "学习动机"],
+                        "slide_count": 1,
+                    }
+                ],
+                "summary": "非常简短",
+            }
+        )
+
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": sparse_json},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            outline = await ai.generate_outline("proj-sparse", "牛顿第二定律")
+
+        assert len(outline.sections) >= 4
+        titles = [section.title for section in outline.sections]
+        assert "核心概念" in titles
+        assert "案例与应用" in titles
+        assert "练习与总结" in titles
+        assert outline.total_slides >= 10
+
+    @pytest.mark.asyncio
     async def test_outline_no_json_triggers_fallback(self):
         """LLM 返回非 JSON 时应 fallback"""
         ai = AIService()

@@ -62,6 +62,152 @@ StateMachineDeclaration:
       items:
         $ref: '#/StateTransitionRule'
 
+StudioCardConfigOption:
+  type: object
+  required: [value, label]
+  properties:
+    value:
+      type: string
+    label:
+      type: string
+    description:
+      type: string
+
+StudioCardConfigField:
+  type: object
+  required: [key, label, type, required]
+  properties:
+    key:
+      type: string
+    label:
+      type: string
+    type:
+      type: string
+      enum: [select, multiselect, boolean, integer, text, reference]
+    required:
+      type: boolean
+    options:
+      type: array
+      items:
+        $ref: '#/StudioCardConfigOption'
+    placeholder:
+      type: string
+    default_value:
+      oneOf:
+        - type: string
+        - type: integer
+        - type: boolean
+    notes:
+      type: string
+
+StudioCardAction:
+  type: object
+  required: [type, label]
+  properties:
+    type:
+      type: string
+    label:
+      type: string
+    notes:
+      type: string
+
+StudioCardExecutionBinding:
+  type: object
+  required: [transport, status, method, endpoint, required_fields, bound_config_keys, pending_config_keys, result_fields]
+  properties:
+    transport:
+      type: string
+      enum: [session_create, artifact_create, chat_message, artifact_reference]
+    status:
+      type: string
+      enum: [ready, partial, pending]
+    method:
+      type: string
+    endpoint:
+      type: string
+    required_fields:
+      type: array
+      items:
+        type: string
+    bound_config_keys:
+      type: array
+      items:
+        type: string
+    pending_config_keys:
+      type: array
+      items:
+        type: string
+    result_fields:
+      type: array
+      items:
+        type: string
+    notes:
+      type: string
+
+StudioCardCapability:
+  type: object
+  required:
+    [
+      id,
+      title,
+      readiness,
+      context_mode,
+      execution_mode,
+      primary_capabilities,
+      related_capabilities,
+      artifact_types,
+      requires_source_artifact,
+      supports_chat_refine,
+      supports_selection_context,
+      config_fields,
+      actions,
+    ]
+  properties:
+    id:
+      type: string
+    title:
+      type: string
+    readiness:
+      type: string
+      enum: [ready, foundation_ready, protocol_pending]
+    context_mode:
+      type: string
+      enum: [session, artifact, hybrid]
+    execution_mode:
+      type: string
+      enum: [session_command, artifact_create, composite]
+    primary_capabilities:
+      type: array
+      items:
+        type: string
+    related_capabilities:
+      type: array
+      items:
+        type: string
+    artifact_types:
+      type: array
+      items:
+        type: string
+    session_output_type:
+      type: string
+      enum: [ppt, word, both]
+    requires_source_artifact:
+      type: boolean
+    supports_chat_refine:
+      type: boolean
+    supports_selection_context:
+      type: boolean
+    config_fields:
+      type: array
+      items:
+        $ref: '#/StudioCardConfigField'
+    actions:
+      type: array
+      items:
+        $ref: '#/StudioCardAction'
+    notes:
+      type: string
+
 GenerationCapabilitiesResponse:
   type: object
   required: [success, data, message]
@@ -70,7 +216,7 @@ GenerationCapabilitiesResponse:
       type: boolean
     data:
       type: object
-      required: [contract_versions, default_contract_version, capabilities, state_machine, command_interface]
+      required: [contract_versions, default_contract_version, capabilities, studio_cards, state_machine, command_interface]
       properties:
         contract_versions:
           type: array
@@ -93,6 +239,10 @@ GenerationCapabilitiesResponse:
           type: array
           items:
             $ref: '#/CapabilityDeclaration'
+        studio_cards:
+          type: array
+          items:
+            $ref: '#/StudioCardCapability'
         state_machine:
           $ref: '#/StateMachineDeclaration'
         deprecations:
@@ -107,5 +257,258 @@ GenerationCapabilitiesResponse:
                 format: date-time
               replacement:
                 type: string
+    message:
+      type: string
+
+StudioCardsCatalogResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [studio_cards]
+      properties:
+        studio_cards:
+          type: array
+          items:
+            $ref: '#/StudioCardCapability'
+    message:
+      type: string
+
+StudioCardDetailResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [studio_card]
+      properties:
+        studio_card:
+          $ref: '#/StudioCardCapability'
+    message:
+      type: string
+
+StudioCardExecutionPlan:
+  type: object
+  required: [card_id, readiness, initial_binding]
+  properties:
+    card_id:
+      type: string
+    readiness:
+      type: string
+      enum: [ready, foundation_ready, protocol_pending]
+    initial_binding:
+      $ref: '#/StudioCardExecutionBinding'
+    refine_binding:
+      $ref: '#/StudioCardExecutionBinding'
+    source_binding:
+      $ref: '#/StudioCardExecutionBinding'
+
+StudioCardExecutionPlanResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [execution_plan]
+      properties:
+        execution_plan:
+          $ref: '#/StudioCardExecutionPlan'
+    message:
+      type: string
+
+StudioCardExecutionPreviewRequest:
+  type: object
+  required: [project_id]
+  properties:
+    project_id:
+      type: string
+    config:
+      type: object
+      additionalProperties: true
+    visibility:
+      type: string
+      enum: [private, project-visible, shared]
+    source_artifact_id:
+      type: string
+    client_session_id:
+      type: string
+
+StudioCardResolvedRequest:
+  type: object
+  required: [method, endpoint, payload]
+  properties:
+    method:
+      type: string
+    endpoint:
+      type: string
+    payload:
+      type: object
+      additionalProperties: true
+    notes:
+      type: string
+
+StudioCardExecutionPreview:
+  type: object
+  required: [card_id, readiness, initial_request]
+  properties:
+    card_id:
+      type: string
+    readiness:
+      type: string
+      enum: [ready, foundation_ready, protocol_pending]
+    initial_request:
+      $ref: '#/StudioCardResolvedRequest'
+    refine_request:
+      $ref: '#/StudioCardResolvedRequest'
+    source_request:
+      $ref: '#/StudioCardResolvedRequest'
+
+StudioCardExecutionPreviewResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [execution_preview]
+      properties:
+        execution_preview:
+          $ref: '#/StudioCardExecutionPreview'
+    message:
+      type: string
+
+StudioCardExecutionResult:
+  type: object
+  required: [card_id, readiness, transport, resource_kind, request_preview]
+  properties:
+    card_id:
+      type: string
+    readiness:
+      type: string
+      enum: [ready, foundation_ready, protocol_pending]
+    transport:
+      type: string
+      enum: [session_create, artifact_create, chat_message, artifact_reference]
+    resource_kind:
+      type: string
+      enum: [session, artifact]
+    session:
+      type: object
+      additionalProperties: true
+    artifact:
+      type: object
+      additionalProperties: true
+    request_preview:
+      $ref: '#/StudioCardResolvedRequest'
+
+StudioCardExecutionResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [execution_result]
+      properties:
+        execution_result:
+          $ref: '#/StudioCardExecutionResult'
+    message:
+      type: string
+
+StudioCardRefineRequest:
+  type: object
+  required: [project_id, message]
+  properties:
+    project_id:
+      type: string
+    session_id:
+      type: string
+    message:
+      type: string
+    config:
+      type: object
+      additionalProperties: true
+    visibility:
+      type: string
+      enum: [private, project-visible, shared]
+    source_artifact_id:
+      type: string
+    rag_source_ids:
+      type: array
+      items:
+        type: string
+
+StudioCardRefineResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [card_id, message, refine_request]
+      properties:
+        card_id:
+          type: string
+        session_id:
+          type: string
+        message:
+          $ref: './chat.yaml#/Message'
+        rag_hit:
+          type: boolean
+        suggestions:
+          type: array
+          items:
+            type: string
+        observability:
+          $ref: './chat.yaml#/ChatObservability'
+        refine_request:
+          $ref: '#/StudioCardResolvedRequest'
+    message:
+      type: string
+
+StudioCardSourceArtifact:
+  type: object
+  required: [id, type]
+  properties:
+    id:
+      type: string
+    type:
+      type: string
+    title:
+      type: string
+    visibility:
+      type: string
+    based_on_version_id:
+      type: string
+    session_id:
+      type: string
+    updated_at:
+      type: string
+      format: date-time
+
+StudioCardSourceOptionsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [sources]
+      properties:
+        sources:
+          type: array
+          items:
+            $ref: '#/StudioCardSourceArtifact'
     message:
       type: string

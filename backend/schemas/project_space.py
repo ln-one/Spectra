@@ -39,11 +39,61 @@ class ArtifactCreateType(str, Enum):
     MP4 = "mp4"
 
 
+class ArtifactMutationMode(str, Enum):
+    CREATE = "create"
+    REPLACE = "replace"
+
+
 class ChangeType(str, Enum):
     AUTHOR_UPDATE = "author-update"
     MERGE_CHANGE = "merge-change"
     REFERENCE_CHANGE = "reference-change"
     IMPORT = "import"
+
+
+class ReferenceRelationType(str, Enum):
+    BASE = "base"
+    AUXILIARY = "auxiliary"
+
+
+class ReferenceMode(str, Enum):
+    FOLLOW = "follow"
+    PINNED = "pinned"
+
+
+class ReferenceStatus(str, Enum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+
+
+class CandidateChangeStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    SUPERSEDED = "superseded"
+
+
+class CandidateChangeReviewAction(str, Enum):
+    ACCEPT = "accept"
+    REJECT = "reject"
+
+
+class ProjectMemberRole(str, Enum):
+    OWNER = "owner"
+    EDITOR = "editor"
+    VIEWER = "viewer"
+
+
+class ProjectMemberStatus(str, Enum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+
+
+class ProjectPermission(str, Enum):
+    VIEW = "can_view"
+    REFERENCE = "can_reference"
+    COLLABORATE = "can_collaborate"
+    MANAGE = "can_manage"
 
 
 class ProjectVersion(BaseModel):
@@ -55,6 +105,10 @@ class ProjectVersion(BaseModel):
     summary: Optional[str] = None
     change_type: ChangeType
     snapshot_data: Optional[Dict[str, Any]] = None
+    base_version_context: Optional[Dict[str, Any]] = None
+    reference_summary: Optional[List[Dict[str, Any]]] = None
+    current_version_id: Optional[str] = None
+    is_current: bool = False
     created_by: Optional[str] = None
     created_at: datetime
 
@@ -87,7 +141,8 @@ class ArtifactBase(BaseModel):
 
 
 class ArtifactCreate(ArtifactBase):
-    mode: Optional[str] = Field(default="create")
+    mode: ArtifactMutationMode = Field(default=ArtifactMutationMode.CREATE)
+    content: Optional[Dict[str, Any]] = None
 
 
 class Artifact(BaseModel):
@@ -102,6 +157,13 @@ class Artifact(BaseModel):
     visibility: ArtifactVisibility
     storage_path: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    mode: Optional[ArtifactMutationMode] = None
+    replaces_artifact_id: Optional[str] = None
+    superseded_by_artifact_id: Optional[str] = None
+    is_current: bool = True
+    current_version_id: Optional[str] = None
+    upstream_updated: bool = False
+    upstream_update_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -128,8 +190,8 @@ class ArtifactsResponse(BaseModel):
 
 class ProjectReferenceBase(BaseModel):
     target_project_id: str
-    relation_type: str
-    mode: str
+    relation_type: ReferenceRelationType
+    mode: ReferenceMode
     pinned_version_id: Optional[str] = None
     priority: int = Field(default=0)
 
@@ -139,10 +201,10 @@ class ProjectReferenceCreate(ProjectReferenceBase):
 
 
 class ProjectReferenceUpdate(BaseModel):
-    mode: Optional[str] = None
+    mode: Optional[ReferenceMode] = None
     pinned_version_id: Optional[str] = None
     priority: Optional[int] = None
-    status: Optional[str] = None
+    status: Optional[ReferenceStatus] = None
 
 
 class ProjectReference(ProjectReferenceBase):
@@ -150,7 +212,10 @@ class ProjectReference(ProjectReferenceBase):
 
     id: str
     project_id: str
-    status: str = "active"
+    status: ReferenceStatus = ReferenceStatus.ACTIVE
+    effective_target_version_id: Optional[str] = None
+    upstream_current_version_id: Optional[str] = None
+    upstream_updated: bool = False
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -195,7 +260,7 @@ class CandidateChangeCreate(CandidateChangeBase):
 
 
 class CandidateChangeReview(BaseModel):
-    action: str
+    action: CandidateChangeReviewAction
     review_comment: Optional[str] = None
 
 
@@ -204,7 +269,11 @@ class CandidateChange(CandidateChangeBase):
 
     id: str
     project_id: str
-    status: str = "pending"
+    status: CandidateChangeStatus = CandidateChangeStatus.PENDING
+    review_comment: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    accepted_version_id: Optional[str] = None
     proposer_user_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -237,9 +306,12 @@ class ProjectMemberPermissions(BaseModel):
     can_manage: bool = False
 
 
+PROJECT_PERMISSION_FIELDS = tuple(permission.value for permission in ProjectPermission)
+
+
 class ProjectMemberBase(BaseModel):
     user_id: str
-    role: str = "viewer"
+    role: ProjectMemberRole = ProjectMemberRole.VIEWER
     permissions: Optional[ProjectMemberPermissions] = None
 
 
@@ -248,9 +320,9 @@ class ProjectMemberCreate(ProjectMemberBase):
 
 
 class ProjectMemberUpdate(BaseModel):
-    role: Optional[str] = None
+    role: Optional[ProjectMemberRole] = None
     permissions: Optional[ProjectMemberPermissions] = None
-    status: Optional[str] = None
+    status: Optional[ProjectMemberStatus] = None
 
 
 class ProjectMember(ProjectMemberBase):
@@ -258,7 +330,7 @@ class ProjectMember(ProjectMemberBase):
 
     id: str
     project_id: str
-    status: str = "active"
+    status: ProjectMemberStatus = ProjectMemberStatus.ACTIVE
     created_at: datetime
 
 

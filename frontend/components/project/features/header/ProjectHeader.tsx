@@ -1,0 +1,88 @@
+﻿"use client";
+
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Sparkles } from "lucide-react";
+import { useAuthStore } from "@/stores/authStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { HeaderActions } from "./components/HeaderActions";
+import { ProjectNameEditor } from "./components/ProjectNameEditor";
+import { SessionSwitcher } from "./components/SessionSwitcher";
+import type { SessionSwitcherItem } from "./types";
+import type { ThemePresetId } from "./theme";
+
+interface ProjectHeaderProps {
+  sessions: SessionSwitcherItem[];
+  activeSessionId: string | null;
+  onChangeSession: (sessionId: string) => void;
+  onCreateSession: () => void;
+  isCreatingSession: boolean;
+  onOpenLibrary: () => void;
+  selectedThemePreset: ThemePresetId;
+  onThemePresetChange: (themeId: ThemePresetId) => void;
+}
+
+export type { SessionSwitcherItem } from "./types";
+export type { ThemePresetId } from "./theme";
+
+export function ProjectHeader({
+  sessions,
+  activeSessionId,
+  onChangeSession,
+  onCreateSession,
+  isCreatingSession,
+  onOpenLibrary,
+  selectedThemePreset,
+  onThemePresetChange,
+}: ProjectHeaderProps) {
+  const { user, logout } = useAuthStore();
+  const { project, updateProjectName } = useProjectStore();
+
+  return (
+    <motion.header
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 lg:px-6 z-50 relative"
+    >
+      <div className="flex min-w-0 items-center gap-4">
+        <Link
+          href="/projects"
+          className="flex items-center gap-2 group relative"
+        >
+          <motion.div
+            whileHover={{ scale: 1.05, rotate: 5 }}
+            whileTap={{ scale: 0.95 }}
+            className="w-9 h-9 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center shadow-md shadow-zinc-900/20 relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Sparkles className="w-4 h-4 text-white" />
+          </motion.div>
+        </Link>
+
+        <ProjectNameEditor
+          projectName={project?.name}
+          onSave={(name) => {
+            void updateProjectName(name);
+          }}
+        />
+      </div>
+
+      <SessionSwitcher
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onChangeSession={onChangeSession}
+        onCreateSession={onCreateSession}
+        isCreatingSession={isCreatingSession}
+      />
+
+      <HeaderActions
+        user={user}
+        onLogout={logout}
+        onOpenLibrary={onOpenLibrary}
+        selectedThemePreset={selectedThemePreset}
+        onThemePresetChange={onThemePresetChange}
+      />
+    </motion.header>
+  );
+}

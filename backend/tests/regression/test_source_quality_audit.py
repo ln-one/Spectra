@@ -79,3 +79,25 @@ def test_run_audit_writes_output(tmp_path):
     saved = json.loads(output_path.read_text(encoding="utf-8"))
     assert "metrics" in saved
     assert saved["metrics"]["coverage_rate"] == pytest.approx(1.0)
+
+
+def test_compute_audit_metrics_normalizes_source_type_aliases():
+    samples = [
+        {
+            "id": "s4",
+            "output_text": "讲义里有本页内容",
+            "preview_sources": [
+                {
+                    "chunk_id": "c4",
+                    "source_type": "pdf",
+                    "filename": "alias.pdf",
+                    "page_number": 4,
+                }
+            ],
+            "source_details": [{"content": "讲义里有本页内容"}],
+        }
+    ]
+
+    m = compute_audit_metrics(samples)
+    assert m.readability_rate == pytest.approx(1.0)
+    assert m.relevance_rate == pytest.approx(1.0)

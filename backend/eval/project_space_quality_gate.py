@@ -18,34 +18,12 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-ALL_CAPABILITIES = {
-    "ppt",
-    "word",
-    "mindmap",
-    "outline",
-    "quiz",
-    "summary",
-    "animation",
-    "handout",
-}
-
-CAPABILITY_ARTIFACT_MAPPING = {
-    "ppt": {"artifact_type": "pptx"},
-    "word": {"artifact_type": "docx"},
-    "mindmap": {"artifact_type": "mindmap"},
-    "outline": {"artifact_type": "summary", "metadata_kind": "outline"},
-    "quiz": {"artifact_type": "exercise"},
-    "summary": {"artifact_type": "summary"},
-    "animation": {"artifact_type": "html", "metadata_kind": "animation_storyboard"},
-    "handout": {"artifact_type": "docx", "metadata_kind": "handout"},
-}
-
-WAVE1_ENTRY_ROUTE_MAPPING = {
-    "ppt": {"entry_route": "session-first", "session_required": True},
-    "word": {"entry_route": "session-first", "session_required": True},
-    "outline": {"entry_route": "session-first", "session_required": True},
-    "summary": {"entry_route": "artifact-lite", "session_required": False},
-}
+from services.project_space_service.artifact_semantics import (
+    ALL_PROJECT_CAPABILITIES,
+    get_capability_artifact_expectation,
+    get_wave1_entry_rule,
+    normalize_project_capability,
+)
 
 
 @dataclass
@@ -139,11 +117,13 @@ def _capability_loop_pass(sample: dict) -> bool:
 
 
 def _capability_artifact_mapping_pass(sample: dict) -> bool:
-    capability = str(sample.get("capability", "") or "").strip().lower()
+    capability = normalize_project_capability(
+        str(sample.get("capability", "") or "").strip().lower()
+    )
     if not capability:
         return False
 
-    expected = CAPABILITY_ARTIFACT_MAPPING.get(capability)
+    expected = get_capability_artifact_expectation(capability)
     if not expected:
         return False
 
@@ -163,8 +143,10 @@ def _capability_artifact_mapping_pass(sample: dict) -> bool:
 
 
 def _wave1_entry_semantics_pass(sample: dict) -> bool:
-    capability = str(sample.get("capability", "") or "").strip().lower()
-    expected = WAVE1_ENTRY_ROUTE_MAPPING.get(capability)
+    capability = normalize_project_capability(
+        str(sample.get("capability", "") or "").strip().lower()
+    )
+    expected = get_wave1_entry_rule(capability)
     if not expected:
         return True
 
@@ -224,7 +206,9 @@ def compute_metrics(
 
     for idx, sample in enumerate(samples, start=1):
         sample_id = sample.get("id", f"sample-{idx}")
-        capability = str(sample.get("capability", "") or "").strip().lower()
+        capability = normalize_project_capability(
+            str(sample.get("capability", "") or "").strip().lower()
+        )
         if capability:
             covered_capabilities.add(capability)
 
@@ -264,7 +248,8 @@ def compute_metrics(
     candidate_rate = candidate_pass / total
     loop_rate = loop_pass / total
     citation_rate = citation_pass / total
-    coverage_rate = len(covered_capabilities & ALL_CAPABILITIES) / len(ALL_CAPABILITIES)
+    all_capabilities = set(ALL_PROJECT_CAPABILITIES)
+    coverage_rate = len(covered_capabilities & all_capabilities) / len(all_capabilities)
     mapping_rate = mapping_pass / total
     wave1_entry_rate = wave1_entry_pass / total
 

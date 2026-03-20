@@ -1,6 +1,5 @@
 import logging
 import os
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 try:
@@ -11,38 +10,21 @@ except ModuleNotFoundError:  # pragma: no cover - test/runtime fallback
         return False
 
 
-from fastapi import APIRouter, FastAPI, Request, status
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-
-try:
-    from prisma.errors import PrismaError
-except ModuleNotFoundError:  # pragma: no cover - test/runtime fallback
-
-    class PrismaError(Exception):
-        pass
-
-
 # Load environment variables (force backend/.env, independent of startup cwd)
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
+from services.runtime_env import normalize_database_url_for_host_runtime  # noqa: E402
 
-from routers import (  # noqa: E402
-    auth_router,
-    chat_router,
-    files_router,
-    generate_sessions_router,
-    health_router,
-    project_space_router,
-    projects_router,
-    rag_router,
-)
-from services import db_service  # noqa: E402
-from services.redis_manager import RedisConnectionManager  # noqa: E402
-from utils.exceptions import APIException  # noqa: E402
+normalize_database_url_for_host_runtime()
+
+from fastapi import status  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+
+from app_setup import create_app  # noqa: E402
+from app_setup.lifespan import redis_manager  # noqa: E402
+from services.database import db_service  # noqa: E402
 from utils.logger import setup_logging  # noqa: E402
-from utils.middleware import RequestContextFilter, RequestIDMiddleware  # noqa: E402
+from utils.middleware import RequestContextFilter  # noqa: E402
 from utils.responses import error_response  # noqa: E402
 
 # Configure logging from environment
@@ -54,209 +36,7 @@ setup_logging(log_level=log_level, log_format=log_format)
 logging.getLogger().addFilter(RequestContextFilter())
 
 logger = logging.getLogger(__name__)
-
-# Initialize Redis connection manager
-redis_manager = RedisConnectionManager.from_env()
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
-    # Startup: Connect to database and Redis
-    await db_service.connect()
-    try:
-        await redis_manager.connect()
-        logger.info("Redis connection established")
-
-        # Initialize task queue service
-        from services.task_queue import TaskQueueService
-
-        redis_conn = redis_manager.get_connection()
-        app.state.task_queue_service = TaskQueueService(redis_conn)
-        logger.info("Task queue service initialized")
-    except Exception as e:
-        logger.error(f"Failed to connect to Redis: {e}")
-        logger.warning("Application starting without Redis - task queue will not work")
-        app.state.task_queue_service = None
-
-    yield
-
-    # Shutdown: Disconnect from database and Redis
-    await redis_manager.disconnect()
-    await db_service.disconnect()
-
-
-# Initialize FastAPI app
-app = FastAPI(
-    title="Spectra Backend",
-    description="FastAPI backend with Python 3.11, Pydantic v2, and Prisma ORM",
-    version="1.0.0",
-    lifespan=lifespan,
-)
-
-# --- Middleware (order matters: outermost first) ---
-
-# CORS must be outermost so preflight responses include correct headers
-raw_origins = os.getenv(
-    "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
-).split(",")
-clean_origins = [o.strip() for o in raw_origins if o.strip() and o.strip() != "*"]
-allow_all_origins = any(o.strip() == "*" for o in raw_origins) or not clean_origins
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"] if allow_all_origins else clean_origins,
-    allow_credentials=not allow_all_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["X-Request-ID"],
-)
-
-# Request-ID & access-log middleware
-app.add_middleware(RequestIDMiddleware)
-
-# Create API v1 router
-api_v1_router = APIRouter(prefix="/api/v1")
-
-# Include routers under /api/v1
-api_v1_router.include_router(auth_router, tags=["Auth"])
-api_v1_router.include_router(chat_router, tags=["Chat"])
-api_v1_router.include_router(files_router, tags=["Files"])
-api_v1_router.include_router(generate_sessions_router, tags=["Generate"])
-api_v1_router.include_router(health_router, tags=["Health"])
-api_v1_router.include_router(projects_router, tags=["Projects"])
-api_v1_router.include_router(project_space_router, tags=["Project Space"])
-api_v1_router.include_router(rag_router, tags=["RAG"])
-
-# Include the versioned API router
-app.include_router(api_v1_router)
-
-
-# ============================================
-# Global Exception Handlers
-# ============================================
-
-
-@app.exception_handler(APIException)
-async def api_exception_handler(request: Request, exc: APIException):
-    """Handle custom API exceptions"""
-    from utils.middleware import get_request_id
-
-    details = dict(exc.details) if exc.details else {}
-    rid = get_request_id()
-    if rid:
-        details["request_id"] = rid
-
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=error_response(
-            code=exc.error_code.value,
-            message=exc.message,
-            details=details or None,
-            trace_id=rid,
-        ),
-    )
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle Pydantic validation errors"""
-    from utils.middleware import get_request_id
-
-    details: dict = {"errors": exc.errors()}
-    rid = get_request_id()
-    if rid:
-        details["request_id"] = rid
-
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content=error_response(
-            code="VALIDATION_ERROR",
-            message="请求参数验证失败",
-            details=details,
-            retryable=False,
-            trace_id=rid,
-        ),
-    )
-
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle unexpected exceptions with fine-grained mapping to reduce 500s."""
-    from utils.middleware import get_request_id
-
-    rid = get_request_id() or "-"
-
-    # Map well-known library exceptions to appropriate HTTP status codes
-    if isinstance(exc, PrismaError):
-        logger.error(
-            "database_error: %s request_id=%s",
-            exc,
-            rid,
-            exc_info=True,
-        )
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content=error_response(
-                code="SERVICE_UNAVAILABLE",
-                message="数据库服务暂不可用，请稍后重试",
-                details={"request_id": rid},
-                retryable=True,
-                trace_id=rid,
-            ),
-        )
-
-    if isinstance(exc, (ValueError, TypeError, KeyError)):
-        logger.warning(
-            "bad_request_mapped: %s request_id=%s",
-            exc,
-            rid,
-            exc_info=True,
-        )
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content=error_response(
-                code="INVALID_INPUT",
-                message="请求参数错误",
-                details={"request_id": rid},
-                retryable=False,
-                trace_id=rid,
-            ),
-        )
-
-    if isinstance(exc, (TimeoutError, ConnectionError)):
-        logger.error(
-            "upstream_timeout: %s request_id=%s",
-            exc,
-            rid,
-            exc_info=True,
-        )
-        return JSONResponse(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            content=error_response(
-                code="EXTERNAL_SERVICE_ERROR",
-                message="上游服务超时或不可达",
-                details={"request_id": rid},
-                retryable=True,
-                trace_id=rid,
-            ),
-        )
-
-    # Fallback – genuine 500
-    logger.error(
-        "unhandled_error: %s request_id=%s",
-        exc,
-        rid,
-        exc_info=True,
-    )
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=error_response(
-            code="INTERNAL_ERROR",
-            message="服务器内部错误",
-            details={"request_id": rid},
-        ),
-    )
+app = create_app()
 
 
 @app.get("/", tags=["Root"])

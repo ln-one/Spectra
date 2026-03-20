@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services import ai as ai_module
+import services.ai as ai_module
 from services.ai import AIService
-from services.model_router import ModelRouter, ModelRouteTask
+from services.ai.model_router import ModelRouter, ModelRouteReason, ModelRouteTask
 
 
 def _fake_completion_response(content: str = "ok", tokens: int = 12):
@@ -22,13 +22,13 @@ class TestModelRouterRules:
         router = ModelRouter(heavy_model="qwen-max", light_model="qwen-turbo")
         decision = router.route(ModelRouteTask.INTENT_CLASSIFICATION.value)
         assert decision.selected_model == "qwen-turbo"
-        assert decision.reason == "lightweight_task"
+        assert decision.reason == ModelRouteReason.LIGHTWEIGHT_TASK.value
 
     def test_heavy_task_uses_heavy_model(self):
         router = ModelRouter(heavy_model="qwen-max", light_model="qwen-turbo")
         decision = router.route(ModelRouteTask.LESSON_PLAN_REASONING.value)
         assert decision.selected_model == "qwen-max"
-        assert decision.reason == "reasoning_or_rag_heavy_task"
+        assert decision.reason == ModelRouteReason.REASONING_OR_RAG_HEAVY_TASK.value
 
     def test_adaptive_chat_with_rag_uses_heavy_model(self):
         router = ModelRouter(heavy_model="qwen-max", light_model="qwen-turbo")
@@ -38,7 +38,7 @@ class TestModelRouterRules:
             has_rag_context=True,
         )
         assert decision.selected_model == "qwen-max"
-        assert decision.reason == "chat_with_rag_context"
+        assert decision.reason == ModelRouteReason.CHAT_WITH_RAG_CONTEXT.value
 
     def test_adaptive_chat_without_rag_uses_light_model(self):
         router = ModelRouter(heavy_model="qwen-max", light_model="qwen-turbo")
@@ -48,7 +48,7 @@ class TestModelRouterRules:
             has_rag_context=False,
         )
         assert decision.selected_model == "qwen-turbo"
-        assert decision.reason == "chat_lightweight"
+        assert decision.reason == ModelRouteReason.CHAT_LIGHTWEIGHT.value
 
     def test_supported_tasks_cover_required_issue_scope(self):
         tasks = set(ModelRouter.supported_tasks())

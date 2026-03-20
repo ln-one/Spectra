@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from schemas.common import SourceType, normalize_source_type
 from services.network_resource_strategy import (
     audio_segments_to_units,
     prepare_web_knowledge_units,
@@ -71,8 +72,8 @@ def _is_citation_ready(unit: dict) -> bool:
     required = ["chunk_id", "source_type", "filename"]
     if any(not citation.get(key) for key in required):
         return False
-    source_type = citation.get("source_type")
-    if source_type in {"audio", "video"}:
+    source_type = normalize_source_type(citation.get("source_type"))
+    if source_type in {SourceType.AUDIO.value, SourceType.VIDEO.value}:
         return citation.get("timestamp") is not None
     return True
 

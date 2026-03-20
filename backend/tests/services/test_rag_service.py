@@ -6,8 +6,8 @@ import hashlib
 
 import pytest
 
+from services.media.vector import VectorService
 from services.rag_service import ParsedChunkData, RAGService
-from services.vector_service import VectorService
 
 
 class MockEmbeddingService:

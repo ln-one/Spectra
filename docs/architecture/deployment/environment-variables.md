@@ -9,7 +9,7 @@
 # =============================================================================
 # Database Configuration
 # =============================================================================
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://spectra:spectra@127.0.0.1:5432/spectra"
 
 # =============================================================================
 # Security Configuration
@@ -34,7 +34,7 @@ DOCUMENT_PARSER="local"
 # =============================================================================
 CHROMA_HOST="localhost"
 CHROMA_PORT="8001"
-CHROMA_PERSIST_DIR="./chroma_data"
+CHROMA_PERSIST_DIR="chroma_data"
 
 EMBEDDING_MODEL="qwen3-vl-embedding"
 EMBEDDING_DIMENSION=1536

@@ -4,13 +4,14 @@
 
 ## 当前推荐阅读顺序
 
-1. [技术栈（MVP 对齐版）](./tech-stack.md)
-2. [系统总览](./system/overview.md)
-3. [API 契约](./api-contract.md)
-4. [前端架构](./frontend/overview.md)
-5. [后端架构](./backend/overview.md)
-6. [部署说明](./deployment.md)
-7. [Project-Space 演进索引（2026-03-09）](../project/SPACE_MODEL_INDEX_2026-03-09.md)
+1. [Project Philosophy (Canonical)](../project/SYSTEM_PHILOSOPHY_2026-03-19.md)
+2. [技术栈（MVP 对齐版）](./tech-stack.md)
+3. [系统总览](./system/overview.md)
+4. [API 契约](./api-contract.md)
+5. [前端架构](./frontend/overview.md)
+6. [后端架构](./backend/overview.md)
+7. [部署说明](./deployment.md)
+8. [Project-Space 演进索引（2026-03-09）](../project/SPACE_MODEL_INDEX_2026-03-09.md)
 
 ## 文档定位
 

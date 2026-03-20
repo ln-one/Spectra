@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from main import app
-from services import db_service
+from services.database import db_service
 from utils.dependencies import get_current_user
 
 _NOW = datetime.now(timezone.utc)
@@ -117,6 +117,61 @@ def test_create_project_with_project_space_fields_success(
     assert body["success"] is True
     assert body["data"]["project"]["visibility"] == "shared"
     assert body["data"]["project"]["isReferenceable"] is True
+
+
+def test_create_project_rejects_invalid_reference_mode(client, _as_user):
+    resp = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Project With Base",
+            "description": "desc",
+            "base_project_id": "base-001",
+            "reference_mode": "snapshot",
+        },
+    )
+
+    assert resp.status_code == 400
+
+
+def test_update_project_rejects_invalid_visibility(client, _as_user):
+    resp = client.put(
+        f"/api/v1/projects/{_PROJECT_ID}",
+        json={
+            "name": "Updated",
+            "description": "new desc",
+            "visibility": "public",
+        },
+    )
+
+    assert resp.status_code == 400
+
+
+def test_create_project_rejects_private_referenceable_combo(client, _as_user):
+    resp = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Private Ref",
+            "description": "desc",
+            "visibility": "private",
+            "is_referenceable": True,
+        },
+    )
+
+    assert resp.status_code == 400
+
+
+def test_update_project_rejects_private_referenceable_combo(client, _as_user):
+    resp = client.put(
+        f"/api/v1/projects/{_PROJECT_ID}",
+        json={
+            "name": "Updated",
+            "description": "new desc",
+            "visibility": "private",
+            "is_referenceable": True,
+        },
+    )
+
+    assert resp.status_code == 400
 
 
 def test_update_project_success(client, monkeypatch, _as_user):

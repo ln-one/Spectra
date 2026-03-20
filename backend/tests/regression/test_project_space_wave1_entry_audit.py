@@ -3,19 +3,22 @@ import json
 import pytest
 
 from eval.project_space_wave1_entry_audit import compute_metrics, run_audit
+from services.project_space_service.artifact_semantics import (
+    ProjectCapability,
+)
 
 
 def test_compute_metrics_all_pass():
     samples = [
         {
             "id": "s1",
-            "capability": "ppt",
+            "capability": ProjectCapability.PPT.value,
             "endpoint": "/api/v1/generate/sessions/s1/preview",
             "request": {"project_id": "p1", "session_id": "s1"},
         },
         {
             "id": "s2",
-            "capability": "summary",
+            "capability": ProjectCapability.SUMMARY.value,
             "endpoint": "/api/v1/projects/p1/artifacts",
             "request": {"project_id": "p1", "session_id": ""},
         },
@@ -31,7 +34,7 @@ def test_compute_metrics_detects_invalid_route():
     samples = [
         {
             "id": "bad-route",
-            "capability": "summary",
+            "capability": ProjectCapability.SUMMARY.value,
             "endpoint": "/api/v1/generate/sessions/s1/preview",
             "request": {"project_id": "p1", "session_id": "s1"},
         }
@@ -50,7 +53,7 @@ def test_run_audit_writes_output(tmp_path):
         "samples": [
             {
                 "id": "ok",
-                "capability": "outline",
+                "capability": ProjectCapability.OUTLINE.value,
                 "endpoint": "/api/v1/generate/sessions/s1/preview",
                 "request": {"project_id": "p1", "session_id": "s1"},
             }

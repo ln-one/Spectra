@@ -1,8 +1,10 @@
 const js = require("@eslint/js");
+const nextCoreWebVitals = require("eslint-config-next/core-web-vitals");
 const tseslint = require("typescript-eslint");
 
 module.exports = [
   js.configs.recommended,
+  ...nextCoreWebVitals,
   ...tseslint.configs.recommended,
   {
     ignores: [

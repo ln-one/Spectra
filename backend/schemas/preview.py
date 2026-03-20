@@ -7,15 +7,10 @@ Preview Schemas - 预览相关 Pydantic 模型
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-
-class SourceType(str, Enum):
-    """来源类型"""
-
-    VIDEO = "video"
-    DOCUMENT = "document"
-    AI_GENERATED = "ai_generated"
+from schemas.common import SourceType, normalize_source_type
+from schemas.generation import TaskStatus
 
 
 class SourceReference(BaseModel):
@@ -24,9 +19,14 @@ class SourceReference(BaseModel):
     chunk_id: str
     source_type: SourceType = SourceType.AI_GENERATED
     filename: str = ""
-    page_number: Optional[int] = None
-    timestamp: Optional[str] = None
+    page_number: Optional[int] = Field(None, ge=1)
+    timestamp: Optional[float] = Field(None, ge=0)
     preview_text: Optional[str] = None
+
+    @field_validator("source_type", mode="before")
+    @classmethod
+    def _normalize_source_type(cls, value):
+        return normalize_source_type(value)
 
 
 class Slide(BaseModel):
@@ -81,10 +81,12 @@ class ModifyResponse(BaseModel):
 
     session_id: Optional[str] = None
     modify_task_id: str
-    status: str = "pending"
+    status: TaskStatus = TaskStatus.PENDING
     render_version: Optional[int] = Field(None, ge=1)
     artifact_id: Optional[str] = None
     based_on_version_id: Optional[str] = None
+    current_version_id: Optional[str] = None
+    upstream_updated: bool = False
 
 
 class SlideDetailData(BaseModel):
@@ -120,6 +122,8 @@ class ExportData(BaseModel):
     task_id: Optional[str] = None
     artifact_id: Optional[str] = None
     based_on_version_id: Optional[str] = None
+    current_version_id: Optional[str] = None
+    upstream_updated: bool = False
     content: str
     format: str
     render_version: Optional[int] = Field(None, ge=1)

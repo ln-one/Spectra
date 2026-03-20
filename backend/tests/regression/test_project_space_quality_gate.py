@@ -3,14 +3,19 @@ import json
 import pytest
 
 from eval.project_space_quality_gate import compute_metrics, run_audit
+from services.project_space_service.artifact_semantics import (
+    ArtifactMetadataKind,
+    EntryRoute,
+    ProjectCapability,
+)
 
 
 def test_compute_metrics_all_pass():
     samples = [
         {
             "id": "s1",
-            "capability": "ppt",
-            "entry_route": "session-first",
+            "capability": ProjectCapability.PPT.value,
+            "entry_route": EntryRoute.SESSION_FIRST.value,
             "session_required": True,
             "artifact_type": "pptx",
             "artifact_id": "a1",
@@ -29,8 +34,8 @@ def test_compute_metrics_all_pass():
         },
         {
             "id": "s2",
-            "capability": "word",
-            "entry_route": "session-first",
+            "capability": ProjectCapability.WORD.value,
+            "entry_route": EntryRoute.SESSION_FIRST.value,
             "session_required": True,
             "artifact_type": "docx",
             "artifact_id": "a2",
@@ -69,8 +74,8 @@ def test_compute_metrics_detects_failures():
     samples = [
         {
             "id": "bad-anchor",
-            "capability": "ppt",
-            "entry_route": "session-first",
+            "capability": ProjectCapability.PPT.value,
+            "entry_route": EntryRoute.SESSION_FIRST.value,
             "session_required": True,
             "artifact_type": "pptx",
             "artifact_id": "",
@@ -89,8 +94,8 @@ def test_compute_metrics_detects_failures():
         },
         {
             "id": "bad-candidate",
-            "capability": "word",
-            "entry_route": "artifact-lite",
+            "capability": ProjectCapability.WORD.value,
+            "entry_route": EntryRoute.ARTIFACT_LITE.value,
             "session_required": False,
             "artifact_type": "pptx",
             "artifact_id": "a2",
@@ -148,8 +153,8 @@ def test_run_audit_writes_output(tmp_path):
         "samples": [
             {
                 "id": "ok",
-                "capability": "ppt",
-                "entry_route": "session-first",
+                "capability": ProjectCapability.PPT.value,
+                "entry_route": EntryRoute.SESSION_FIRST.value,
                 "session_required": True,
                 "artifact_type": "pptx",
                 "artifact_id": "a1",
@@ -184,11 +189,11 @@ def test_compute_metrics_checks_metadata_kind_for_outline():
     samples = [
         {
             "id": "outline-bad-kind",
-            "capability": "outline",
-            "entry_route": "session-first",
+            "capability": ProjectCapability.OUTLINE.value,
+            "entry_route": EntryRoute.SESSION_FIRST.value,
             "session_required": True,
             "artifact_type": "summary",
-            "metadata": {"kind": "summary"},
+            "metadata": {"kind": ArtifactMetadataKind.HANDOUT.value},
             "artifact_id": "a1",
             "based_on_version_id": "v1",
             "candidate_change_payload": {

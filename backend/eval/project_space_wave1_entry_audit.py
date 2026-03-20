@@ -13,12 +13,12 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-WAVE1_ENTRY_RULES = {
-    "ppt": {"route": "session-first"},
-    "word": {"route": "session-first"},
-    "outline": {"route": "session-first"},
-    "summary": {"route": "artifact-lite"},
-}
+from services.project_space_service.artifact_semantics import (
+    EntryRoute,
+    get_wave1_entry_rule,
+    normalize_entry_route,
+    normalize_project_capability,
+)
 
 
 @dataclass
@@ -55,8 +55,10 @@ def _is_artifact_lite_endpoint(endpoint: str) -> bool:
 
 
 def _validate_sample(sample: dict) -> tuple[bool, str]:
-    capability = str(sample.get("capability", "") or "").strip().lower()
-    rule = WAVE1_ENTRY_RULES.get(capability)
+    capability = normalize_project_capability(
+        str(sample.get("capability", "") or "").strip().lower()
+    )
+    rule = get_wave1_entry_rule(capability)
     if not rule:
         return False, f"unsupported capability: {capability}"
 
@@ -69,14 +71,14 @@ def _validate_sample(sample: dict) -> tuple[bool, str]:
     if not _is_non_empty(project_id):
         return False, "missing project_id"
 
-    if rule["route"] == "session-first":
+    if rule["entry_route"] == normalize_entry_route(EntryRoute.SESSION_FIRST):
         if not _is_session_first_endpoint(endpoint):
             return False, "session-first capability with invalid endpoint"
         if not _is_non_empty(session_id):
             return False, "session-first capability missing session_id"
         return True, ""
 
-    if rule["route"] == "artifact-lite":
+    if rule["entry_route"] == normalize_entry_route(EntryRoute.ARTIFACT_LITE):
         if not _is_artifact_lite_endpoint(endpoint):
             return False, "artifact-lite capability with invalid endpoint"
         if _is_non_empty(session_id):

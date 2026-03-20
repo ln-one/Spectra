@@ -2,7 +2,7 @@ import { sdkClient, unwrap, withIdempotency } from "./client";
 import type { components } from "./types";
 
 export type Project = components["schemas"]["Project"];
-export type ProjectRequest = components["schemas"]["ProjectRequest"];
+export type ProjectRequest = components["schemas"]["ProjectRequestTarget"];
 export type GetProjectsResponse = components["schemas"]["GetProjectsResponse"];
 export type ProjectResponse = components["schemas"]["ProjectResponseTarget"];
 export type ProjectStatisticsResponse =

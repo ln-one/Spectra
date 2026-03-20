@@ -7,13 +7,12 @@ Covers:
 - request_id / user_id propagation in error responses
 """
 
-from unittest.mock import AsyncMock
-
+import anyio
 import pytest
+from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from main import app
-from services import db_service
 from utils.dependencies import get_current_user
 
 _USER_ID = "u-test"
@@ -49,8 +48,8 @@ class TestRequestIDMiddleware:
 
     def test_request_id_in_error_response(self, client: TestClient):
         """401 errors should still include request_id in details."""
-        with TestClient(app, raise_server_exceptions=False) as client_no_raise:
-            resp = client_no_raise.get("/api/v1/projects")
+        client._transport.raise_server_exceptions = False
+        resp = client.get("/api/v1/projects")
         assert resp.status_code == 401
         body = resp.json()
         assert body["success"] is False
@@ -67,38 +66,29 @@ class TestRequestIDMiddleware:
 class TestExceptionMapping:
     """Ensure known exceptions map to correct HTTP codes."""
 
-    def test_value_error_maps_to_400(self, client: TestClient, monkeypatch, _as_user):
-        """ValueError in a route → 400."""
-
-        async def _explode(*a, **kw):
-            raise ValueError("bad param")
-
-        monkeypatch.setattr(db_service, "get_projects_by_user", _explode)
-        monkeypatch.setattr(
-            db_service, "count_projects_by_user", AsyncMock(return_value=0)
+    @staticmethod
+    def _request() -> Request:
+        return Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/api/v1/projects",
+                "headers": [],
+                "query_string": b"",
+            }
         )
 
-        with TestClient(app, raise_server_exceptions=False) as client_no_raise:
-            resp = client_no_raise.get("/api/v1/projects")
-        assert resp.status_code == 400
-        body = resp.json()
-        assert body["error"]["code"] == "INVALID_INPUT"
+    def test_value_error_maps_to_400(self):
+        handler = app.exception_handlers[Exception]
+        response = anyio.run(handler, self._request(), ValueError("bad param"))
+        assert response.status_code == 400
+        assert b'"INVALID_INPUT"' in response.body
 
-    def test_timeout_error_maps_to_502(self, client: TestClient, monkeypatch, _as_user):
-        """TimeoutError → 502."""
-
-        async def _timeout(*a, **kw):
-            raise TimeoutError("upstream slow")
-
-        monkeypatch.setattr(db_service, "get_projects_by_user", _timeout)
-        monkeypatch.setattr(
-            db_service, "count_projects_by_user", AsyncMock(return_value=0)
-        )
-
-        with TestClient(app, raise_server_exceptions=False) as client_no_raise:
-            resp = client_no_raise.get("/api/v1/projects")
-        assert resp.status_code == 502
-        assert resp.json()["error"]["code"] == "EXTERNAL_SERVICE_ERROR"
+    def test_timeout_error_maps_to_502(self):
+        handler = app.exception_handlers[Exception]
+        response = anyio.run(handler, self._request(), TimeoutError("upstream slow"))
+        assert response.status_code == 502
+        assert b'"EXTERNAL_SERVICE_ERROR"' in response.body
 
     def test_validation_error_includes_request_id(self, client: TestClient, _as_user):
         """Pydantic validation error → 400 with request_id."""

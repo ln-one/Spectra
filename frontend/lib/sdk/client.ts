@@ -35,9 +35,15 @@ function normalizePath(input: string): string {
   }
 }
 
-function shouldSkipAuth(path: string): boolean {
+export function shouldSkipAuth(path: string): boolean {
   const pathname = normalizePath(path);
-  return pathname.startsWith("/api/v1/auth/") || pathname.startsWith("/auth/");
+  return (
+    pathname === "/api/v1/auth/login" ||
+    pathname === "/api/v1/auth/register" ||
+    pathname === "/api/v1/auth/refresh" ||
+    pathname === "/auth/login" ||
+    pathname === "/auth/register"
+  );
 }
 
 let isRefreshing = false;
@@ -95,10 +101,12 @@ async function refreshAccessToken(): Promise<boolean> {
     }
     return refreshSuccess;
   } catch {
+    TokenStorage.clearTokens();
     return false;
   } finally {
     isRefreshing = false;
     if (!refreshSuccess) {
+      TokenStorage.clearTokens();
       onTokenRefreshed("");
     }
   }
@@ -125,7 +133,25 @@ async function fetchWithAuth(
   }
 
   const authedRequest = new Request(baseRequest, { headers });
-  const response = await fetch(authedRequest);
+  let response: Response;
+  try {
+    response = await fetch(authedRequest);
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown network error";
+    throw new ApiError(
+      "NETWORK_ERROR",
+      `Network request failed: ${authedRequest.method} ${authedRequest.url}`,
+      undefined,
+      {
+        url: authedRequest.url,
+        method: authedRequest.method,
+        cause: errorMessage,
+      },
+      true
+    );
+  }
+
   if (response.status === 401 && !shouldSkipAuth(url)) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {

@@ -135,7 +135,7 @@ export function Counter() {
 'use client';
 
 import { useEffect, useState } from 'react';
-import { coursesApi } from '@/lib/api/courses';
+import { coursesApi } from '@/lib/sdk/courses';
 import { CourseCard } from './CourseCard';
 
 export function CourseList() {
@@ -338,3 +338,4 @@ export function CourseForm() {
 - `docs/standards/frontend.md` - 前端代码规范
 - Shadcn/ui 文档：https://ui.shadcn.com/
 - Next.js 文档：https://nextjs.org/docs
+

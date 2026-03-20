@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 try:
+    from ..runtime_paths import get_generated_dir
     from ..template import TemplateConfig, TemplateService
     from .marp_generator import generate_pptx as _generate_pptx
     from .pandoc_generator import generate_docx as _generate_docx
@@ -28,6 +29,7 @@ except ImportError:
     from services.generation.pandoc_generator import generate_docx as _generate_docx
     from services.generation.tool_checker import check_tools_installed
     from services.generation.types import CoursewareContent
+    from services.runtime_paths import get_generated_dir
     from services.template import TemplateConfig, TemplateService
 
 logger = logging.getLogger(__name__)
@@ -42,10 +44,10 @@ class GenerationService:
 
     def __init__(
         self,
-        output_dir: str = "generated",
+        output_dir: str | None = None,
         template_service: Optional[TemplateService] = None,
     ):
-        self.output_dir = Path(output_dir)
+        self.output_dir = Path(output_dir) if output_dir else get_generated_dir()
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.template_service = template_service or TemplateService()
         logger.info(f"GenerationService initialized with output_dir: {self.output_dir}")
