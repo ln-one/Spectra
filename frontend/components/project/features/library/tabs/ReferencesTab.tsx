@@ -1,6 +1,13 @@
 "use client";
 
-import { Link as LinkIcon, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  ArrowDownUp,
+  Link as LinkIcon,
+  Plus,
+  RefreshCw,
+  ToggleLeft,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TabsContent } from "@/components/ui/tabs";
@@ -12,8 +19,21 @@ interface ReferencesTabProps {
   state: TabState;
   newReferenceTarget: string;
   setNewReferenceTarget: (value: string) => void;
+  newReferenceRelationType: "base" | "auxiliary";
+  setNewReferenceRelationType: (value: "base" | "auxiliary") => void;
+  newReferenceMode: "follow" | "pinned";
+  setNewReferenceMode: (value: "follow" | "pinned") => void;
+  newReferencePinnedVersion: string;
+  setNewReferencePinnedVersion: (value: string) => void;
+  newReferencePriority: string;
+  setNewReferencePriority: (value: string) => void;
   onAddReference: () => void;
   onDeleteReference: (referenceId: string) => void;
+  onToggleReferenceStatus: (
+    referenceId: string,
+    currentStatus: ProjectReference["status"]
+  ) => void;
+  onUpdateReferencePriority: (referenceId: string, priority: number) => void;
   onReload: () => void;
 }
 
@@ -22,19 +42,67 @@ export function ReferencesTab({
   state,
   newReferenceTarget,
   setNewReferenceTarget,
+  newReferenceRelationType,
+  setNewReferenceRelationType,
+  newReferenceMode,
+  setNewReferenceMode,
+  newReferencePinnedVersion,
+  setNewReferencePinnedVersion,
+  newReferencePriority,
+  setNewReferencePriority,
   onAddReference,
   onDeleteReference,
+  onToggleReferenceStatus,
+  onUpdateReferencePriority,
   onReload,
 }: ReferencesTabProps) {
   return (
-    <TabsContent value="references" className="mt-0">
-      <div className="flex gap-2 mb-4">
+    <TabsContent value="references" className="mt-0 space-y-4">
+      <div className="grid grid-cols-6 gap-2">
         <Input
           value={newReferenceTarget}
           onChange={(event) => setNewReferenceTarget(event.target.value)}
-          placeholder="输入 target_project_id"
-          className="h-9 rounded-xl border-zinc-200/60 bg-white/50 backdrop-blur-sm focus-visible:ring-zinc-400/20 focus-visible:border-zinc-300 shadow-sm transition-all"
+          placeholder="target_project_id"
+          className="col-span-3 h-9 rounded-xl border-zinc-200/60 bg-white/50 backdrop-blur-sm focus-visible:ring-zinc-400/20 focus-visible:border-zinc-300 shadow-sm transition-all"
         />
+        <select
+          value={newReferenceRelationType}
+          onChange={(event) =>
+            setNewReferenceRelationType(
+              event.target.value as "base" | "auxiliary"
+            )
+          }
+          className="col-span-1 h-9 rounded-xl border border-zinc-200/60 bg-white/60 px-2 text-xs"
+        >
+          <option value="base">主基底</option>
+          <option value="auxiliary">辅助</option>
+        </select>
+        <select
+          value={newReferenceMode}
+          onChange={(event) =>
+            setNewReferenceMode(event.target.value as "follow" | "pinned")
+          }
+          className="col-span-1 h-9 rounded-xl border border-zinc-200/60 bg-white/60 px-2 text-xs"
+        >
+          <option value="follow">follow</option>
+          <option value="pinned">pinned</option>
+        </select>
+        <Input
+          value={newReferencePriority}
+          onChange={(event) => setNewReferencePriority(event.target.value)}
+          placeholder="优先级"
+          className="col-span-1 h-9 rounded-xl border-zinc-200/60 bg-white/50 text-xs"
+        />
+        {newReferenceMode === "pinned" ? (
+          <Input
+            value={newReferencePinnedVersion}
+            onChange={(event) =>
+              setNewReferencePinnedVersion(event.target.value)
+            }
+            placeholder="pinned_version_id"
+            className="col-span-4 h-9 rounded-xl border-zinc-200/60 bg-white/50 text-xs"
+          />
+        ) : null}
         <Button
           size="sm"
           onClick={onAddReference}
@@ -67,16 +135,48 @@ export function ReferencesTab({
               key={item.id}
               icon={LinkIcon}
               title={item.target_project_id}
-              subtitle={`${item.relation_type} 路 ${item.mode} 路 ${item.status}`}
+              subtitle={`${item.relation_type} 路 ${item.mode} 路 ${item.status} 路 优先级 ${item.priority ?? 0}`}
               action={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50"
-                  onClick={() => onDeleteReference(item.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg"
+                    onClick={() =>
+                      onToggleReferenceStatus(item.id, item.status)
+                    }
+                    title={item.status === "active" ? "禁用" : "启用"}
+                  >
+                    <ToggleLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg"
+                    onClick={() => {
+                      const value = window.prompt(
+                        "输入新的 priority（整数）",
+                        String(item.priority ?? 0)
+                      );
+                      if (value == null) return;
+                      const priority = Number.parseInt(value, 10);
+                      if (Number.isNaN(priority)) return;
+                      onUpdateReferencePriority(item.id, priority);
+                    }}
+                    title="调整优先级"
+                  >
+                    <ArrowDownUp className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => onDeleteReference(item.id)}
+                    title="删除引用"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               }
             />
           ))}

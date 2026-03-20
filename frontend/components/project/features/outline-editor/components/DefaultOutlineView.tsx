@@ -18,6 +18,7 @@ interface DefaultOutlineViewProps {
   slides: SlideCard[];
   activeSlideId: string;
   isGenerating: boolean;
+  isRedrafting: boolean;
   isOutlineHydrating: boolean;
   showSettings: boolean;
   setShowSettings: (value: boolean) => void;
@@ -47,6 +48,8 @@ interface DefaultOutlineViewProps {
   aspectRatio: "16:9" | "4:3" | "1:1";
   setAspectRatio: (value: "16:9" | "4:3" | "1:1") => void;
   onStartGeneration: () => void;
+  onRedraftOutline: () => void;
+  onHelp: () => void;
   onGoToPreview: () => void;
 }
 
@@ -57,6 +60,7 @@ export function DefaultOutlineView({
   slides,
   activeSlideId,
   isGenerating,
+  isRedrafting,
   isOutlineHydrating,
   showSettings,
   setShowSettings,
@@ -86,6 +90,8 @@ export function DefaultOutlineView({
   aspectRatio,
   setAspectRatio,
   onStartGeneration,
+  onRedraftOutline,
+  onHelp,
   onGoToPreview,
 }: DefaultOutlineViewProps) {
   return (
@@ -94,6 +100,8 @@ export function DefaultOutlineView({
         topic={topic}
         slideCount={slides.length}
         onBack={onBack}
+        onPreview={onGoToPreview}
+        onHelp={onHelp}
       />
 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
@@ -117,10 +125,17 @@ export function DefaultOutlineView({
               <Button
                 variant="outline"
                 size="sm"
+                onClick={onRedraftOutline}
+                disabled={isGenerating || isRedrafting}
                 className="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 border-zinc-200"
               >
-                <RefreshCw className="w-4 h-4 mr-1.5" />
-                重新生成
+                <RefreshCw
+                  className={cn(
+                    "w-4 h-4 mr-1.5",
+                    isRedrafting && "animate-spin"
+                  )}
+                />
+                {isRedrafting ? "重新生成中..." : "重新生成"}
               </Button>
               <Button
                 variant="ghost"
@@ -187,6 +202,7 @@ export function DefaultOutlineView({
           totalEstimatedMinutes={totalEstimatedMinutes}
           estimatedTokens={estimatedTokens}
           isGenerating={isGenerating}
+          isRedrafting={isRedrafting}
           progress={progress}
           progressText={progressText}
           aspectRatio={aspectRatio}

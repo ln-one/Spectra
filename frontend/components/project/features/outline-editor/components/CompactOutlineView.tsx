@@ -35,6 +35,7 @@ interface CompactOutlineViewProps {
   activeSlideId: string;
   setActiveSlideId: (id: string) => void;
   isGenerating: boolean;
+  isRedrafting: boolean;
   isOutlineHydrating: boolean;
   progress: number;
   progressText: string;
@@ -51,6 +52,7 @@ interface CompactOutlineViewProps {
   onAddSlide: () => void;
   onDeleteSlide: (id: string) => void;
   onStartGeneration: () => void;
+  onRedraftOutline: () => void;
   onGoToPreview: () => void;
   scrollAreaRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -61,6 +63,7 @@ export function CompactOutlineView({
   activeSlideId,
   setActiveSlideId,
   isGenerating,
+  isRedrafting,
   isOutlineHydrating,
   progress,
   progressText,
@@ -77,6 +80,7 @@ export function CompactOutlineView({
   onAddSlide,
   onDeleteSlide,
   onStartGeneration,
+  onRedraftOutline,
   onGoToPreview,
   scrollAreaRef,
 }: CompactOutlineViewProps) {
@@ -108,10 +112,14 @@ export function CompactOutlineView({
         <Button
           variant="ghost"
           size="sm"
+          onClick={onRedraftOutline}
+          disabled={isGenerating || isRedrafting}
           className="h-8 text-xs text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100"
         >
-          <RefreshCw className="w-3.5 h-3.5 mr-1" />
-          重新生成
+          <RefreshCw
+            className={cn("w-3.5 h-3.5 mr-1", isRedrafting && "animate-spin")}
+          />
+          {isRedrafting ? "生成中..." : "重新生成"}
         </Button>
       </motion.div>
 
@@ -262,7 +270,9 @@ export function CompactOutlineView({
             >
               <Button
                 onClick={onStartGeneration}
-                disabled={isOutlineHydrating || outlineIncomplete}
+                disabled={
+                  isOutlineHydrating || outlineIncomplete || isRedrafting
+                }
                 className="w-full h-9 border border-zinc-800 bg-zinc-900 text-zinc-50 text-xs font-medium shadow-sm transition-all hover:bg-zinc-800"
               >
                 <Sparkles className="w-3.5 h-3.5 mr-1.5" />

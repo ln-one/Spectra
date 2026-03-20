@@ -210,6 +210,16 @@ export const sdkClient = createClient<import("./types").paths>({
   fetch: fetchWithAuth,
 });
 
+export async function apiFetch(
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
+  const url = path.startsWith("http")
+    ? path
+    : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  return fetchWithAuth(url, init);
+}
+
 export async function unwrap<T>(result: {
   data?: T;
   error?: unknown;

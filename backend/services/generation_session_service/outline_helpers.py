@@ -4,6 +4,27 @@ import re
 import uuid
 from typing import Optional
 
+_SLIDE_FOCUS_SUFFIX = ("知识地图", "关键例题", "易错点澄清", "互动提问", "板书逻辑")
+_MIN_KEY_POINTS_PER_SLIDE = 3
+_EXTRA_PAGE_SCAFFOLD = (
+    (
+        "知识地图扩展",
+        ["核心概念关系图", "主线知识串联", "板书结构搭建"],
+    ),
+    (
+        "关键例题扩展",
+        ["例题拆解步骤", "方法迁移训练", "变式题即时反馈"],
+    ),
+    (
+        "易错点澄清扩展",
+        ["高频误区识别", "反例对比纠偏", "课堂追问与修正"],
+    ),
+    (
+        "互动提问扩展",
+        ["问题链设计", "学生讨论任务", "板书总结归纳"],
+    ),
+)
+
 _OUTLINE_STYLE_RULES = {
     "structured": (
         "采用“总-分-总”结构：导入总览 -> 分章节展开 -> 结语总结；"
@@ -22,6 +43,32 @@ _OUTLINE_STYLE_RULES = {
         "强调可执行步骤与课堂活动。"
     ),
 }
+
+
+def _sanitize_key_points(key_points: list[str] | None) -> list[str]:
+    values = [str(point).strip() for point in (key_points or []) if str(point).strip()]
+    deduped: list[str] = []
+    for point in values:
+        if point not in deduped:
+            deduped.append(point)
+    while len(deduped) < _MIN_KEY_POINTS_PER_SLIDE:
+        fallback_idx = len(deduped)
+        if fallback_idx == 0:
+            deduped.append("核心概念梳理")
+        elif fallback_idx == 1:
+            deduped.append("关键例题讲解")
+        elif fallback_idx == 2:
+            deduped.append("易错点澄清与互动提问")
+        else:
+            deduped.append(f"补充要点 {fallback_idx + 1}")
+    return deduped
+
+
+def _build_split_slide_title(base_title: str, idx: int, total: int) -> str:
+    if total <= 1:
+        return base_title
+    suffix = _SLIDE_FOCUS_SUFFIX[idx % len(_SLIDE_FOCUS_SUFFIX)]
+    return f"{base_title} · {suffix}"
 
 
 def _extract_outline_style(options: Optional[dict]) -> Optional[str]:
@@ -68,6 +115,8 @@ def _build_outline_requirements(
             parts.append(f"项目描述：{project.description}")
 
     if options:
+        if options.get("outline_redraft_instruction"):
+            parts.append(f"大纲重写要求：{options['outline_redraft_instruction']}")
         if options.get("system_prompt_tone"):
             parts.append(f"用户需求：{options['system_prompt_tone']}")
         if options.get("pages"):
@@ -92,14 +141,15 @@ def _courseware_outline_to_document(
     order = 1
     for section in outline.sections:
         count = section.slide_count or 1
+        base_key_points = _sanitize_key_points(list(section.key_points or []))
         for idx in range(count):
-            title = section.title if count == 1 else f"{section.title}（{idx + 1}）"
+            title = _build_split_slide_title(str(section.title or "章节"), idx, count)
             nodes.append(
                 {
                     "id": str(uuid.uuid4()),
                     "order": order,
                     "title": title,
-                    "key_points": list(section.key_points or []),
+                    "key_points": base_key_points,
                     "estimated_minutes": None,
                 }
             )
@@ -107,12 +157,14 @@ def _courseware_outline_to_document(
 
     if target_pages and len(nodes) < target_pages:
         while len(nodes) < target_pages:
+            template_idx = (len(nodes) - 1) % len(_EXTRA_PAGE_SCAFFOLD)
+            template_title, template_points = _EXTRA_PAGE_SCAFFOLD[template_idx]
             nodes.append(
                 {
                     "id": str(uuid.uuid4()),
                     "order": order,
-                    "title": f"补充内容 {order}",
-                    "key_points": [],
+                    "title": f"{template_title} {order}",
+                    "key_points": _sanitize_key_points(list(template_points)),
                     "estimated_minutes": None,
                 }
             )

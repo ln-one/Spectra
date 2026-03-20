@@ -14,6 +14,23 @@ import type {
 } from "./types";
 import { GENERATION_TOOLS } from "./types";
 
+function inferArtifactDownloadExt(artifactType: Artifact["type"]): string {
+  switch (artifactType) {
+    case "pptx":
+      return "pptx";
+    case "docx":
+      return "docx";
+    case "gif":
+      return "gif";
+    case "mp4":
+      return "mp4";
+    case "html":
+      return "html";
+    default:
+      return "json";
+  }
+}
+
 export function createGenerationActions({
   set,
   get,
@@ -25,6 +42,7 @@ export function createGenerationActions({
   | "exportArtifact"
   | "setActiveSessionId"
   | "updateOutline"
+  | "redraftOutline"
   | "confirmOutline"
 > {
   return {
@@ -233,6 +251,29 @@ export function createGenerationActions({
         return;
       }
 
+      const projectId = get().project?.id;
+      if (projectId) {
+        try {
+          const blob = await projectSpaceApi.downloadArtifact(
+            projectId,
+            artifactId
+          );
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `${artifact.toolType}-${artifact.artifactId.slice(0, 8)}.${inferArtifactDownloadExt(artifact.artifactType)}`;
+          link.click();
+          URL.revokeObjectURL(url);
+          toast({
+            title: "导出成功",
+            description: "文件已开始下载",
+          });
+          return;
+        } catch {
+          // Fallback to preview-export branch for virtual artifacts.
+        }
+      }
+
       const sessionId =
         artifact.sessionId ??
         get().activeSessionId ??
@@ -313,6 +354,30 @@ export function createGenerationActions({
         });
         toast({
           title: "更新大纲失败",
+          description: message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+    },
+
+    redraftOutline: async (sessionId: string, instruction: string) => {
+      const session = get().generationSession;
+      const baseVersion = session?.outline?.version ?? 1;
+      try {
+        await generateApi.redraftOutline(sessionId, {
+          instruction,
+          base_version: baseVersion,
+        });
+        const sessionResponse = await generateApi.getSession(sessionId);
+        set({ generationSession: sessionResponse?.data ?? null });
+      } catch (error) {
+        const message = getErrorMessage(error);
+        set({
+          error: createApiError({ code: "REDRAFT_OUTLINE_FAILED", message }),
+        });
+        toast({
+          title: "重新生成大纲失败",
           description: message,
           variant: "destructive",
         });

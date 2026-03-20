@@ -8,7 +8,10 @@ import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
 import { formatSessionTime } from "./constants";
 import { isThemePreset, PROJECT_THEME_STORAGE_KEY } from "./theme";
-import { useProjectPanelLayout } from "./useProjectPanelLayout";
+import {
+  resolvePreferredSessionId,
+  useProjectPanelLayout,
+} from "./useProjectPanelLayout";
 
 export function useProjectDetailController() {
   const params = useParams();
@@ -94,7 +97,6 @@ export function useProjectDetailController() {
       await Promise.all([
         fetchProject(projectId),
         fetchFiles(projectId),
-        fetchMessages(projectId),
         fetchGenerationHistory(projectId),
       ]);
     };
@@ -110,18 +112,16 @@ export function useProjectDetailController() {
     router,
     fetchProject,
     fetchFiles,
-    fetchMessages,
     fetchGenerationHistory,
     reset,
   ]);
 
   useEffect(() => {
-    const allSessionIds = generationHistory.map((item) => item.id);
-    const preferredSessionId = querySessionId
-      ? allSessionIds.includes(querySessionId)
-        ? querySessionId
-        : null
-      : null;
+    const preferredSessionId = resolvePreferredSessionId(
+      querySessionId,
+      generationHistory,
+      activeSessionId
+    );
 
     if (!preferredSessionId) {
       if (activeSessionId !== null) {
@@ -132,10 +132,7 @@ export function useProjectDetailController() {
       return;
     }
 
-    const nextSessionId =
-      querySessionId && allSessionIds.includes(querySessionId)
-        ? querySessionId
-        : preferredSessionId;
+    const nextSessionId = preferredSessionId;
 
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);

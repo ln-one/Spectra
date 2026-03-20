@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,13 +25,22 @@ const GAME_VARIANTS = [
   },
 ];
 
-export function GameToolPanel({ toolName }: ToolPanelProps) {
+export function GameToolPanel({ toolName, onDraftChange }: ToolPanelProps) {
   const [theme, setTheme] = useState("我要讲大航海时代");
   const [variantIndex, setVariantIndex] = useState(0);
   const [life, setLife] = useState(3);
   const [countdown, setCountdown] = useState(60);
 
   const current = useMemo(() => GAME_VARIANTS[variantIndex], [variantIndex]);
+  useEffect(() => {
+    onDraftChange?.({
+      theme,
+      variant_index: variantIndex,
+      life,
+      countdown,
+      variant_name: current.name,
+    });
+  }, [countdown, current.name, life, onDraftChange, theme, variantIndex]);
 
   return (
     <ToolPanelShell

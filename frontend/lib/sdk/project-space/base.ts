@@ -1,6 +1,12 @@
-﻿import { sdkClient, unwrap, withIdempotency } from "../client";
+import {
+  apiFetch,
+  sdkClient,
+  toApiError,
+  unwrap,
+  withIdempotency,
+} from "../client";
 
-export { sdkClient, unwrap, withIdempotency };
+export { apiFetch, sdkClient, toApiError, unwrap, withIdempotency };
 
 export const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK === "true";
 

@@ -245,6 +245,32 @@ async def test_create_session_reuses_current_session_when_client_session_id_matc
     )
 
 
+def test_redraft_outline_passes_task_queue_service_to_executor(app, _as_user):
+    client = TestClient(app)
+    app.state.task_queue_service = SimpleNamespace(name="queue-service")
+    mocked_result = {"accepted": True, "session": {"session_id": "s-001"}}
+
+    with patch(
+        "routers.generate_sessions.commands.execute_session_command_or_raise",
+        AsyncMock(return_value=mocked_result),
+    ) as execute_mock:
+        with patch(
+            "routers.generate_sessions.commands._get_session_service",
+            Mock(return_value=SimpleNamespace()),
+        ):
+            response = client.post(
+                "/api/v1/generate/sessions/s-001/outline/redraft",
+                json={"instruction": "请强化互动提问", "base_version": 1},
+            )
+
+    assert response.status_code == 200
+    execute_mock.assert_awaited_once()
+    call_kwargs = execute_mock.await_args.kwargs
+    assert call_kwargs["session_id"] == "s-001"
+    assert call_kwargs["command"]["command_type"] == "REDRAFT_OUTLINE"
+    assert call_kwargs["task_queue_service"] == app.state.task_queue_service
+
+
 @pytest.mark.anyio
 async def test_sse_events_sequence_success_path():
     from services.generation_session_service import GenerationSessionService

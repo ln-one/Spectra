@@ -11,7 +11,6 @@ htmlcov
 chroma_data
 generated
 uploads
-prisma/dev.db
 node_modules
 .DS_Store
 *.pyc

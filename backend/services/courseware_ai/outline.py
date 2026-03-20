@@ -10,10 +10,10 @@ from services.ai.model_router import ModelRouteTask
 logger = logging.getLogger(__name__)
 
 _SCAFFOLD_SECTIONS = [
-    ("导入与目标", ["主题引入", "学习目标", "先验知识唤醒"], 2),
-    ("核心概念", ["关键概念", "原理讲解", "知识结构梳理"], 3),
-    ("案例与应用", ["典型案例", "应用场景", "易错点辨析"], 2),
-    ("练习与总结", ["课堂练习", "结果反馈", "总结迁移"], 2),
+    ("导入与目标", ["主题引入", "学习目标", "先验知识唤醒", "课堂提问起点"], 2),
+    ("核心概念", ["关键概念", "原理讲解", "知识结构梳理", "板书主线"], 3),
+    ("案例与应用", ["典型案例", "应用场景", "易错点辨析", "变式题训练"], 3),
+    ("练习与总结", ["课堂练习", "结果反馈", "总结迁移", "提问回扣"], 2),
 ]
 
 
@@ -26,10 +26,12 @@ def _is_outline_too_sparse(outline: CoursewareOutline) -> bool:
     if len(sections) < 3:
         return True
     total_key_points = sum(len(section.key_points or []) for section in sections)
-    if total_key_points < max(4, len(sections) + 2):
+    if total_key_points < max(9, len(sections) * 3):
         return True
     distinct_titles = {_normalize_title(section.title) for section in sections}
     if len(distinct_titles) < min(3, len(sections)):
+        return True
+    if any(len(section.key_points or []) < 3 for section in sections):
         return True
     return False
 
@@ -50,7 +52,7 @@ def _enrich_sparse_outline(outline: CoursewareOutline) -> CoursewareOutline:
             for point in (section.key_points or [])
             if str(point).strip()
         ]
-        if len(key_points) < 2:
+        if len(key_points) < 3:
             scaffold_points = next(
                 (
                     points
@@ -142,8 +144,8 @@ async def generate_outline(
 }}
 
 约束：
-1. 章节数 3-8，完整覆盖教学流程（导入 -> 讲授 -> 练习 -> 总结）。
-2. 每章 2-5 个关键要点。
+1. 章节数 3-8，完整覆盖教学流程（导入 -> 讲授 -> 案例/练习 -> 总结）。
+2. 每章 3-6 个关键要点，必须包含“互动提问”或“板书逻辑”相关要点。
 3. 总页数通常控制在 10-20 页。
 """
     try:
@@ -187,22 +189,22 @@ def get_fallback_outline(user_requirements: str) -> CoursewareOutline:
         sections=[
             OutlineSection(
                 title="导入",
-                key_points=["主题引入", "学习动机"],
+                key_points=["主题引入", "学习动机", "互动提问", "板书框架"],
                 slide_count=2,
             ),
             OutlineSection(
                 title="核心概念",
-                key_points=["关键概念", "示例讲解"],
+                key_points=["关键概念", "原理讲解", "知识地图", "课堂追问"],
                 slide_count=5,
             ),
             OutlineSection(
                 title="练习与讨论",
-                key_points=["课堂练习", "小组讨论"],
+                key_points=["关键例题", "课堂练习", "易错点澄清", "小组讨论"],
                 slide_count=3,
             ),
             OutlineSection(
                 title="总结",
-                key_points=["要点回顾", "作业布置"],
+                key_points=["要点回顾", "板书收束", "作业布置"],
                 slide_count=2,
             ),
         ],

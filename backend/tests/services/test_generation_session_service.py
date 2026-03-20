@@ -68,6 +68,15 @@ def _allow_confirm_transition():
     )
 
 
+def _allow_redraft_transition():
+    return TransitionResult(
+        allowed=True,
+        from_state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        to_state=GenerationState.DRAFTING_OUTLINE.value,
+        command_type=GenerationCommandType.REDRAFT_OUTLINE.value,
+    )
+
+
 def _fake_artifact(
     artifact_id: str,
     artifact_type: str,
@@ -176,6 +185,58 @@ async def test_execute_command_returns_transition_payload(monkeypatch):
     assert result["session"]["task_id"] is None
     assert result["warnings"] == []
     service._dispatch_command.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_execute_command_redraft_schedules_outline_draft(monkeypatch):
+    session_before = _fake_session(
+        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        options='{"pages": 12, "outline_style": "structured"}',
+    )
+    session_after = _fake_session(
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        options='{"pages": 12, "outline_style": "structured"}',
+    )
+
+    db = SimpleNamespace(
+        idempotencykey=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(side_effect=[session_before, session_after]),
+        ),
+    )
+    service = GenerationSessionService(db=db)
+    service._dispatch_command = AsyncMock(return_value=None)
+    service._schedule_outline_draft_task = AsyncMock()
+
+    monkeypatch.setattr(
+        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        service._guard, "validate", lambda *_: _allow_redraft_transition()
+    )
+
+    await service.execute_command(
+        session_id="s-001",
+        user_id="u-001",
+        command={
+            "command_type": GenerationCommandType.REDRAFT_OUTLINE.value,
+            "instruction": "请突出互动提问与板书逻辑",
+            "base_version": 1,
+        },
+        task_queue_service=SimpleNamespace(name="queue"),
+    )
+
+    service._schedule_outline_draft_task.assert_awaited_once()
+    call_kwargs = service._schedule_outline_draft_task.await_args.kwargs
+    assert call_kwargs["session_id"] == "s-001"
+    assert call_kwargs["project_id"] == "p-001"
+    assert call_kwargs["options"]["pages"] == 12
+    assert call_kwargs["options"]["outline_style"] == "structured"
+    assert (
+        call_kwargs["options"]["outline_redraft_instruction"]
+        == "请突出互动提问与板书逻辑"
+    )
 
 
 @pytest.mark.anyio

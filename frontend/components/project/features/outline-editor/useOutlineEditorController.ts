@@ -1,6 +1,9 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { generateApi } from "@/lib/sdk";
+import { getErrorMessage } from "@/lib/sdk/errors";
+import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/stores/projectStore";
 import { ASPECT_RATIO_OPTIONS } from "./constants";
 import type { OutlineEditorPanelProps, SlideCard } from "./types";
@@ -10,7 +13,7 @@ export function useOutlineEditorController({
   isBootstrapping = false,
   onPreview,
 }: OutlineEditorPanelProps) {
-  const { generationSession, updateOutline, confirmOutline } =
+  const { generationSession, updateOutline, redraftOutline, confirmOutline } =
     useProjectStore();
 
   const sessionId = generationSession?.session?.session_id || "";
@@ -25,6 +28,7 @@ export function useOutlineEditorController({
   const [isOutlineHydrating, setIsOutlineHydrating] = useState(false);
   const [activeSlideId, setActiveSlideId] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRedrafting, setIsRedrafting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
   const [generationFailed, setGenerationFailed] = useState<string | null>(null);
@@ -39,6 +43,14 @@ export function useOutlineEditorController({
   const [keywords, setKeywords] = useState<string[]>(["互动", "动画演示"]);
   const [showSettings, setShowSettings] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const wait = useCallback(
+    (ms: number) =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, ms);
+      }),
+    []
+  );
 
   useEffect(() => {
     let frame = 0;
@@ -221,6 +233,75 @@ export function useOutlineEditorController({
     }
   };
 
+  const handleRedraftOutline = useCallback(async () => {
+    if (!sessionId || isGenerating || isRedrafting) return;
+
+    const previousVersion = Number(generationSession?.outline?.version || 0);
+    const instruction = `请按当前主题“${topic}”重新生成大纲，保持结构完整，强调知识地图、关键例题、易错点澄清、课堂互动提问和板书逻辑。目标页数：${expectedPages || slides.length || 12} 页。`;
+
+    setIsRedrafting(true);
+    setGenerationFailed(null);
+    try {
+      await redraftOutline(sessionId, instruction);
+
+      const maxAttempts = 40;
+      const intervalMs = 1500;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const sessionResponse = await generateApi.getSession(sessionId);
+        const latest = sessionResponse?.data ?? null;
+        useProjectStore.setState({ generationSession: latest });
+        const state = latest?.session?.state;
+        const outlineVersion = Number(latest?.outline?.version || 0);
+        const nodes = latest?.outline?.nodes || [];
+
+        if (
+          state === "AWAITING_OUTLINE_CONFIRM" &&
+          outlineVersion > previousVersion &&
+          nodes.length > 0
+        ) {
+          toast({
+            title: "大纲已重新生成",
+            description: `已更新到 v${outlineVersion}`,
+          });
+          return;
+        }
+        if (state === "FAILED") {
+          throw new Error(latest?.session?.state_reason || "大纲重生成失败");
+        }
+        await wait(intervalMs);
+      }
+      throw new Error("大纲重生成超时，请稍后重试");
+    } catch (error) {
+      const message = getErrorMessage(error);
+      setGenerationFailed(message);
+      toast({
+        title: "重新生成大纲失败",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRedrafting(false);
+    }
+  }, [
+    expectedPages,
+    generationSession?.outline?.version,
+    isGenerating,
+    isRedrafting,
+    redraftOutline,
+    sessionId,
+    slides.length,
+    topic,
+    wait,
+  ]);
+
+  const handleHelp = useCallback(() => {
+    toast({
+      title: "大纲编辑提示",
+      description:
+        "每页建议包含知识地图、关键例题与易错点；确认后再进入实时生成页。",
+    });
+  }, []);
+
   const totalEstimatedMinutes = slides.reduce(
     (sum, slide) => sum + (slide.estimatedMinutes || 0),
     0
@@ -236,6 +317,7 @@ export function useOutlineEditorController({
     setActiveSlideId,
     isOutlineHydrating,
     isGenerating,
+    isRedrafting,
     progress,
     progressText,
     generationFailed,
@@ -260,6 +342,8 @@ export function useOutlineEditorController({
     handleAddKeyword,
     handleRemoveKeyword,
     handleStartGeneration,
+    handleRedraftOutline,
+    handleHelp,
     handleGoToPreview: () => onPreview?.(),
     totalEstimatedMinutes,
     estimatedTokens,

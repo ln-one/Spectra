@@ -24,6 +24,10 @@ export function useGeneratePreviewState({
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
+  const [regeneratingSlideId, setRegeneratingSlideId] = useState<string | null>(
+    null
+  );
   const [previewBlockedReason, setPreviewBlockedReason] = useState<
     string | null
   >(null);
@@ -105,6 +109,36 @@ export function useGeneratePreviewState({
     }
   }, [activeSessionId, currentArtifactId]);
 
+  const handleResume = useCallback(async () => {
+    if (!activeSessionId || isResuming) return;
+    try {
+      setIsResuming(true);
+      await generateApi.resumeSession(activeSessionId);
+      await fetchGenerationHistory(projectId);
+      await loadSlides();
+      toast({
+        title: "会话恢复成功",
+        description: "已尝试恢复会话并刷新预览。",
+      });
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : "恢复会话失败，请稍后重试";
+      toast({
+        title: "恢复会话失败",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsResuming(false);
+    }
+  }, [
+    activeSessionId,
+    fetchGenerationHistory,
+    isResuming,
+    loadSlides,
+    projectId,
+  ]);
+
   useEffect(() => {
     loadSlides();
   }, [loadSlides]);
@@ -168,14 +202,53 @@ export function useGeneratePreviewState({
     }
   }, [activeSessionId, currentArtifactId, isExporting]);
 
+  const handleRegenerateSlide = useCallback(
+    async (slide: Slide) => {
+      if (!activeSessionId || regeneratingSlideId) return;
+      const slideId = slide.id || `slide-${slide.index}`;
+      try {
+        setRegeneratingSlideId(slideId);
+        await generateApi.regenerateSlide(activeSessionId, slideId, {
+          slide_index: slide.index,
+          patch: {
+            schema_version: 1,
+            operations: [],
+          },
+        });
+        await loadSlides();
+        toast({
+          title: "局部重绘已提交",
+          description: `第 ${slide.index} 页已进入重绘队列。`,
+        });
+      } catch (error) {
+        const message =
+          error instanceof ApiError
+            ? error.message
+            : "局部重绘失败，请稍后重试";
+        toast({
+          title: "局部重绘失败",
+          description: message,
+          variant: "destructive",
+        });
+      } finally {
+        setRegeneratingSlideId(null);
+      }
+    },
+    [activeSessionId, loadSlides, regeneratingSlideId]
+  );
+
   return {
     slides,
     isLoading,
     isExporting,
+    isResuming,
+    regeneratingSlideId,
     previewBlockedReason,
     isSessionGenerating,
     activeSessionId,
     handleExport,
+    handleResume,
+    handleRegenerateSlide,
     loadSlides,
   };
 }

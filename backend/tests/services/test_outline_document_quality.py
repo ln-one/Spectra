@@ -1,0 +1,45 @@
+from schemas.outline import CoursewareOutline, OutlineSection
+from services.generation_session_service.outline_helpers import (
+    _courseware_outline_to_document,
+)
+
+
+def test_outline_document_padding_has_meaningful_key_points():
+    outline = CoursewareOutline(
+        title="测试课程",
+        sections=[
+            OutlineSection(
+                title="核心知识点",
+                key_points=["概念定义", "性质分析"],
+                slide_count=2,
+            )
+        ],
+    )
+
+    document = _courseware_outline_to_document(outline, target_pages=6)
+    nodes = document["nodes"]
+
+    assert len(nodes) == 6
+    for node in nodes:
+        assert len(node["key_points"]) >= 3
+        assert all(str(point).strip() for point in node["key_points"])
+
+
+def test_outline_document_split_titles_are_not_repetitive_indexes():
+    outline = CoursewareOutline(
+        title="测试课程",
+        sections=[
+            OutlineSection(
+                title="核心知识点",
+                key_points=["概念定义", "例题拆解", "误区辨析"],
+                slide_count=3,
+            )
+        ],
+    )
+
+    document = _courseware_outline_to_document(outline, target_pages=3)
+    titles = [node["title"] for node in document["nodes"]]
+
+    assert len(set(titles)) == 3
+    assert all("（" not in title for title in titles)
+    assert all("·" in title for title in titles)

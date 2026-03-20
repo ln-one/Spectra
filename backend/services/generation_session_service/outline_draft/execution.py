@@ -46,6 +46,7 @@ async def execute_outline_draft_local(
     trace_id: Optional[str] = None,
 ) -> None:
     trace_id = trace_id or str(uuid.uuid4())
+    next_outline_version = 1
     try:
         session = await db.generationsession.find_unique(where={"id": session_id})
         if not session:
@@ -61,10 +62,7 @@ async def execute_outline_draft_local(
             if isinstance(session, dict)
             else session.currentOutlineVersion
         )
-        if (
-            state != GenerationState.DRAFTING_OUTLINE.value
-            or (current_outline_version or 0) >= 1
-        ):
+        if state != GenerationState.DRAFTING_OUTLINE.value:
             logger.info(
                 "Outline draft skipped due to non-drafting session state: "
                 "session=%s state=%s current_outline_version=%s",
@@ -73,6 +71,7 @@ async def execute_outline_draft_local(
                 current_outline_version,
             )
             return
+        next_outline_version = max(int(current_outline_version or 0), 0) + 1
 
         await _emit_outline_progress(append_event, session_id, trace_id)
         outline_doc = await _generate_outline_doc(
@@ -82,8 +81,15 @@ async def execute_outline_draft_local(
             options=options,
             ai_service_obj=ai_service_obj,
         )
-        await _persist_success(db=db, session_id=session_id, outline_doc=outline_doc)
-        await _emit_outline_success(append_event, session_id, trace_id)
+        await _persist_success(
+            db=db,
+            session_id=session_id,
+            outline_doc=outline_doc,
+            outline_version=next_outline_version,
+        )
+        await _emit_outline_success(
+            append_event, session_id, trace_id, outline_version=next_outline_version
+        )
         logger.info(
             "Outline draft completed successfully: session=%s trace_id=%s",
             session_id,
@@ -116,12 +122,14 @@ async def execute_outline_draft_local(
             db=db,
             session_id=session_id,
             failure_state_reason=failure_state_reason,
+            outline_version=next_outline_version,
         )
         await _emit_outline_failure_state(
             append_event,
             session_id,
             trace_id,
             failure_state_reason=failure_state_reason,
+            outline_version=next_outline_version,
         )
 
 
@@ -208,11 +216,13 @@ async def _generate_outline_doc(
     )
 
 
-async def _persist_success(*, db, session_id: str, outline_doc: dict) -> None:
+async def _persist_success(
+    *, db, session_id: str, outline_doc: dict, outline_version: int
+) -> None:
     await db.outlineversion.create(
         data={
             "sessionId": session_id,
-            "version": 1,
+            "version": outline_version,
             "outlineData": json.dumps(outline_doc),
             "changeReason": OutlineChangeReason.DRAFTED_ASYNC.value,
         }
@@ -222,19 +232,21 @@ async def _persist_success(*, db, session_id: str, outline_doc: dict) -> None:
         data={
             "state": GenerationState.AWAITING_OUTLINE_CONFIRM.value,
             "stateReason": OutlineGenerationStateReason.DRAFTED_ASYNC.value,
-            "currentOutlineVersion": 1,
+            "currentOutlineVersion": outline_version,
         },
     )
 
 
-async def _emit_outline_success(append_event, session_id: str, trace_id: str) -> None:
+async def _emit_outline_success(
+    append_event, session_id: str, trace_id: str, outline_version: int
+) -> None:
     await append_event(
         session_id=session_id,
         event_type=GenerationEventType.OUTLINE_UPDATED.value,
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         progress=100,
         payload={
-            "version": 1,
+            "version": outline_version,
             "change_reason": OutlineChangeReason.DRAFTED_ASYNC.value,
             "trace_id": trace_id,
         },
@@ -298,13 +310,13 @@ async def _emit_outline_failure(
 
 
 async def _persist_failure_fallback(
-    *, db, session_id: str, failure_state_reason: str
+    *, db, session_id: str, failure_state_reason: str, outline_version: int
 ) -> None:
-    empty_outline = {"version": 1, "nodes": [], "summary": None}
+    empty_outline = {"version": outline_version, "nodes": [], "summary": None}
     await db.outlineversion.create(
         data={
             "sessionId": session_id,
-            "version": 1,
+            "version": outline_version,
             "outlineData": json.dumps(empty_outline),
             "changeReason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
         }
@@ -314,20 +326,24 @@ async def _persist_failure_fallback(
         data={
             "state": GenerationState.AWAITING_OUTLINE_CONFIRM.value,
             "stateReason": failure_state_reason,
-            "currentOutlineVersion": 1,
+            "currentOutlineVersion": outline_version,
         },
     )
 
 
 async def _emit_outline_failure_state(
-    append_event, session_id: str, trace_id: str, failure_state_reason: str
+    append_event,
+    session_id: str,
+    trace_id: str,
+    failure_state_reason: str,
+    outline_version: int,
 ) -> None:
     await append_event(
         session_id=session_id,
         event_type=GenerationEventType.OUTLINE_UPDATED.value,
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         payload={
-            "version": 1,
+            "version": outline_version,
             "change_reason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
             "trace_id": trace_id,
         },

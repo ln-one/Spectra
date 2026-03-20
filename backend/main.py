@@ -54,8 +54,7 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     try:
-        # SQLite 下 execute_raw("SELECT 1") 会报 P2010（SELECT 返回结果不允许），
-        # 这里改用 query_raw 做纯连通性探测。
+        # 使用 query_raw 做最小数据库连通性探测。
         await db_service.db.query_raw("SELECT 1")
         db_healthy = True
     except Exception:

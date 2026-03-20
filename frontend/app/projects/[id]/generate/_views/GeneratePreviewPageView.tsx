@@ -38,10 +38,15 @@ export default function GeneratePreviewPage() {
     slides,
     isLoading,
     isExporting,
+    isResuming,
+    regeneratingSlideId,
     previewBlockedReason,
     isSessionGenerating,
     activeSessionId,
     handleExport,
+    handleResume,
+    handleRegenerateSlide,
+    loadSlides,
   } = useGeneratePreviewState({
     projectId,
     sessionIdFromQuery,
@@ -101,10 +106,18 @@ export default function GeneratePreviewPage() {
           isEditingTitle={isEditingTitle}
           projectTitle={projectTitle}
           isExporting={isExporting}
+          isResuming={isResuming}
+          canResume={Boolean(activeSessionId) && !isSessionGenerating}
           onSetEditingTitle={setIsEditingTitle}
           onSetProjectTitle={setProjectTitle}
           onGoBack={() => router.push(`/projects/${projectId}`)}
           onExport={handleExport}
+          onRefresh={() => {
+            void loadSlides();
+          }}
+          onResume={() => {
+            void handleResume();
+          }}
         />
 
         <main
@@ -131,6 +144,16 @@ export default function GeneratePreviewPage() {
                 >
                   返回项目并继续生成
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void handleResume();
+                  }}
+                  className="rounded-full mt-2"
+                  disabled={!activeSessionId || isResuming}
+                >
+                  {isResuming ? "恢复中..." : "继续会话"}
+                </Button>
               </div>
             ) : isSessionGenerating ? (
               <div className="flex flex-col items-center justify-center h-full opacity-80">
@@ -145,6 +168,16 @@ export default function GeneratePreviewPage() {
                 <p className="text-sm text-muted-foreground">
                   暂无幻灯片数据，请先生成。
                 </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void handleResume();
+                  }}
+                  className="rounded-full mt-3"
+                  disabled={!activeSessionId || isResuming}
+                >
+                  {isResuming ? "恢复中..." : "继续会话"}
+                </Button>
               </div>
             )
           ) : (
@@ -178,6 +211,16 @@ export default function GeneratePreviewPage() {
             slides={slides}
             activeSlideIndex={activeSlideIndex}
             onScrollToSlide={scrollToSlide}
+            onRegenerateSlide={(slide) => {
+              const target = slides.find(
+                (item) =>
+                  (item.id && item.id === slide.id) ||
+                  item.index === slide.index
+              );
+              if (!target) return;
+              void handleRegenerateSlide(target);
+            }}
+            regeneratingSlideId={regeneratingSlideId}
           />
         ) : null}
       </div>
