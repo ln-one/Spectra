@@ -189,6 +189,7 @@
 建议先运行：
 
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_readiness_audit.py`
+- `/Users/ln1/Projects/Spectra/backend/scripts/postgres_migration_sql_audit.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_stack_audit.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_shadow_smoke.py`
 - `/Users/ln1/Projects/Spectra/backend/scripts/postgres_cutover_audit.py`

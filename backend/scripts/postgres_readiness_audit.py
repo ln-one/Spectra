@@ -7,6 +7,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts.postgres_migration_sql_audit import evaluate_migration_sql
+
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "backend/prisma/schema.prisma"
 MIGRATION_LOCK = ROOT / "backend/prisma/migrations/migration_lock.toml"
@@ -151,6 +153,7 @@ def main() -> None:
     provider, models = parse_schema()
     migration_lock_provider = parse_migration_lock_provider()
     hotspots = analyze_hotspots()
+    migration_sql_messages, _ = evaluate_migration_sql()
 
     print("PostgreSQL Readiness Audit")
     print(f"- Root: {ROOT}")
@@ -198,6 +201,11 @@ def main() -> None:
             f"json_ops={risk.json_operations}, upserts={risk.upserts}, "
             f"ordered_reads={risk.ordered_reads}"
         )
+    print()
+
+    print("Migration SQL Compatibility")
+    for message in migration_sql_messages[1:]:
+        print(f"- {message}")
     print()
 
     print("Next Checks")
