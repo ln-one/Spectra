@@ -40,7 +40,7 @@
 1. 编辑 `docs/openapi/paths/{模块}.yaml` 或 `docs/openapi/schemas/{模块}.yaml`
 2. 运行 `npm run bundle:openapi` 打包
 3. 运行 `npm run validate:openapi` 验证
-4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts`
+4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts`
 
 详细流程参考：`.ai/guides/api-workflow.md`
 
@@ -289,3 +289,4 @@ docs(api): 更新认证接口文档
 3. 编写代码和测试
 4. 提交 PR
 5. 等待 review
+

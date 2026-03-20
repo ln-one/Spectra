@@ -128,7 +128,7 @@ pytest # 运行测试
 1. 编辑模块文件（`docs/openapi/paths/` 或 `docs/openapi/schemas/`）
 2. 运行 `npm run bundle:openapi` 打包
 3. 运行 `npm run validate:openapi` 验证
-4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts`
+4. 生成前端类型：`cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts`
 
 ### 文档编写
 **必读**：
@@ -256,3 +256,4 @@ pytest # 运行测试
 ## 更新记录
 
 查看 `.ai/CHANGELOG.md` 了解最新变更。
+

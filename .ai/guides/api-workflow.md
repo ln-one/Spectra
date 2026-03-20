@@ -112,7 +112,7 @@ npm run validate:openapi
 
 ```bash
 cd frontend
-npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
+npx openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts
 ```
 
 **生成的类型**：
@@ -333,7 +333,7 @@ npm run bundle:openapi
 npm run validate:openapi
 
 # 生成前端类型
-cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
+cd frontend && npx openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts
 
 # 启动后端
 cd backend && uvicorn main:app --reload
@@ -357,7 +357,7 @@ cd frontend && npm run test
 | 后端路由 | `backend/routers/{模块}.py` |
 | 后端 Schema | `backend/schemas/{模块}.py` |
 | 前端 API | `frontend/lib/sdk/{模块}.ts` |
-| 前端类型 | `frontend/lib/types/api.ts` |
+| 前端类型 | `frontend/lib/sdk/types.ts` |
 | 后端测试 | `backend/tests/test_{模块}_api.py` |
 | 前端测试 | `frontend/__tests__/{模块}.test.ts` |
 
@@ -369,4 +369,5 @@ cd frontend && npm run test
 - `docs/standards/backend.md` - 后端代码规范
 - `docs/standards/frontend.md` - 前端代码规范
 - `docs/openapi/README.md` - OpenAPI 使用指南
+
 

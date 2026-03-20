@@ -178,7 +178,7 @@ async sendVoiceMessage(
 ```bash
 # 重新生成类型文件
 cd frontend
-npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
+npx openapi-typescript ../docs/openapi.yaml -o lib/sdk/types.ts
 ```
 
 ## 验证清单
@@ -197,3 +197,4 @@ npx openapi-typescript ../docs/openapi.yaml -o lib/types/api.ts
 - [OpenAPI 规范](../docs/openapi.yaml)
 - [OpenAPI 使用指南](../docs/OPENAPI_GUIDE.md)
 - [API 增强总结](../docs/API_ENHANCEMENTS_SUMMARY.md)
+

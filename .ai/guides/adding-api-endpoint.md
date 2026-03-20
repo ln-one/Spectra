@@ -130,7 +130,7 @@ npm run validate:openapi
 
 ```bash
 cd frontend
-npx openapi-typescript ../docs/openapi-target.yaml -o lib/types/api.ts
+npx openapi-typescript ../docs/openapi-target.yaml -o lib/sdk/types.ts
 ```
 
 ### 步骤 6：实现后端
@@ -435,4 +435,5 @@ raise HTTPException(status_code=400, detail="错误信息")
 - `.ai/guides/api-workflow.md` - API 开发完整流程
 - `docs/standards/backend.md` - 后端代码规范
 - `docs/standards/frontend.md` - 前端代码规范
+
 

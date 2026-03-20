@@ -30,7 +30,7 @@
 ## 4. 类型来源
 
 - `frontend/lib/sdk/types.ts`：OpenAPI 生成类型（自动生成，不手改）
-- `frontend/lib/types/api.ts`：历史兼容类型文件（自动生成，不手改）
+- `frontend/lib/types/api.ts`：已移除（历史兼容文件，不再生成）
 
 ## 5. 使用约束
 
@@ -47,3 +47,4 @@ export async function getProject(projectId: string) {
   return projectsApi.getProject(projectId);
 }
 ```
+
