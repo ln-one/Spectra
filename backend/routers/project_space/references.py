@@ -31,6 +31,21 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+async def _target_version_map(references):
+    target_project_ids = {
+        ref.targetProjectId
+        for ref in references
+        if getattr(ref, "targetProjectId", None)
+    }
+    version_map: dict[str, str | None] = {}
+    for target_project_id in target_project_ids:
+        project = await project_space_service.db.get_project(target_project_id)
+        version_map[target_project_id] = (
+            getattr(project, "currentVersionId", None) if project else None
+        )
+    return version_map
+
+
 @router.post(
     "/{project_id}/references",
     response_model=ProjectReferenceResponse,
@@ -55,9 +70,17 @@ async def create_project_reference(
             pinned_version_id=body.pinned_version_id,
             priority=body.priority,
         )
+        version_map = await _target_version_map([reference])
         return ProjectReferenceResponse(
             success=True,
-            data={"reference": to_project_reference_model(reference)},
+            data={
+                "reference": to_project_reference_model(
+                    reference,
+                    upstream_current_version_id=version_map.get(
+                        reference.targetProjectId
+                    ),
+                )
+            },
             message="创建引用成功",
         )
     except Exception as exc:
@@ -77,10 +100,19 @@ async def get_project_references(
         references = await project_space_service.get_project_references(
             project_id=project_id, user_id=user_id
         )
+        version_map = await _target_version_map(references)
         return ProjectReferencesResponse(
             success=True,
             data={
-                "references": [to_project_reference_model(ref) for ref in references]
+                "references": [
+                    to_project_reference_model(
+                        ref,
+                        upstream_current_version_id=version_map.get(
+                            ref.targetProjectId
+                        ),
+                    )
+                    for ref in references
+                ]
             },
             message="获取引用列表成功",
         )
@@ -110,9 +142,17 @@ async def update_project_reference(
             priority=body.priority,
             status=body.status,
         )
+        version_map = await _target_version_map([updated_ref])
         return ProjectReferenceResponse(
             success=True,
-            data={"reference": to_project_reference_model(updated_ref)},
+            data={
+                "reference": to_project_reference_model(
+                    updated_ref,
+                    upstream_current_version_id=version_map.get(
+                        updated_ref.targetProjectId
+                    ),
+                )
+            },
             message="更新引用成功",
         )
     except Exception as exc:

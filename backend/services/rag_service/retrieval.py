@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from prisma.errors import ClientNotConnectedError
+
 from schemas.common import normalize_source_type
 from schemas.rag import ChunkContext, RAGResult, SourceDetail, SourceReference
 from services.database import db_service

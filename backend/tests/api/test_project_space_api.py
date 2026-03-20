@@ -58,6 +58,16 @@ def _fake_version(
     )
 
 
+def _fake_project(
+    project_id: str = _PROJECT_ID,
+    current_version_id: str | None = "v-current",
+):
+    return SimpleNamespace(
+        id=project_id,
+        currentVersionId=current_version_id,
+    )
+
+
 def _fake_reference(reference_id: str = "r-001", status: str = "active"):
     return SimpleNamespace(
         id=reference_id,
@@ -146,7 +156,11 @@ def test_get_project_version_detail_exposes_reference_summary(
         AsyncMock(
             return_value=_fake_version(
                 version_id="v-003",
-                snapshot_data='{"base_version_context":{"base_version_id":"v-001","current_version_id":"v-002"},"reference_summary":[{"reference_id":"r-001","target_project_id":"p-base-001"}]}',
+                snapshot_data=(
+                    '{"base_version_context":{"base_version_id":"v-001",'
+                    '"current_version_id":"v-002"},"reference_summary":'
+                    '[{"reference_id":"r-001","target_project_id":"p-base-001"}]}'
+                ),
             )
         ),
     )
@@ -204,6 +218,11 @@ def test_get_project_artifacts_with_filters_success(client, monkeypatch, _as_use
         "check_project_permission",
         AsyncMock(return_value=True),
     )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=_fake_project(current_version_id="v-current")),
+    )
     get_artifacts = AsyncMock(return_value=[_fake_artifact(artifact_type="summary")])
     monkeypatch.setattr(project_space_service, "get_project_artifacts", get_artifacts)
 
@@ -215,6 +234,8 @@ def test_get_project_artifacts_with_filters_success(client, monkeypatch, _as_use
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["artifacts"][0]["type"] == "summary"
+    assert body["data"]["artifacts"][0]["current_version_id"] == "v-current"
+    assert body["data"]["artifacts"][0]["upstream_updated"] is False
     get_artifacts.assert_awaited_once_with(
         _PROJECT_ID,
         type_filter="summary",
@@ -245,6 +266,11 @@ def test_get_artifact_detail_success(client, monkeypatch, _as_user):
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=_fake_project(current_version_id="v-current")),
+    )
+    monkeypatch.setattr(
         project_space_service,
         "get_artifact",
         AsyncMock(
@@ -255,6 +281,34 @@ def test_get_artifact_detail_success(client, monkeypatch, _as_user):
     resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/artifacts/a-008")
     assert resp.status_code == 200
     assert resp.json()["data"]["artifact"]["id"] == "a-008"
+
+
+def test_get_artifact_detail_reports_upstream_updated(client, monkeypatch, _as_user):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=_fake_project(current_version_id="v-current")),
+    )
+    artifact = _fake_artifact(artifact_id="a-010", artifact_type="pptx")
+    artifact.basedOnVersionId = "v-old"
+    monkeypatch.setattr(
+        project_space_service,
+        "get_artifact",
+        AsyncMock(return_value=artifact),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/artifacts/a-010")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["artifact"]["upstream_updated"] is True
+    assert (
+        body["data"]["artifact"]["upstream_update_reason"] == "project_version_advanced"
+    )
 
 
 def test_get_artifact_mismatch_project_404(client, monkeypatch, _as_user):
@@ -282,6 +336,11 @@ def test_create_artifact_mp4_success(client, monkeypatch, _as_user):
         AsyncMock(return_value=True),
     )
     monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=_fake_project(current_version_id="v-current")),
+    )
+    monkeypatch.setattr(
         project_space_service,
         "create_artifact_with_file",
         AsyncMock(return_value=_fake_artifact(artifact_type="mp4")),
@@ -302,6 +361,11 @@ def test_create_artifact_pptx_success(client, monkeypatch, _as_user):
         project_space_service,
         "check_project_permission",
         AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=_fake_project(current_version_id="v-current")),
     )
     monkeypatch.setattr(
         project_space_service,
@@ -337,6 +401,11 @@ def test_create_artifact_passes_content_payload(client, monkeypatch, _as_user):
         project_space_service,
         "check_project_permission",
         AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(return_value=_fake_project(current_version_id="v-current")),
     )
     create_artifact = AsyncMock(return_value=_fake_artifact(artifact_type="exercise"))
     monkeypatch.setattr(
@@ -561,6 +630,43 @@ def test_create_reference_rejects_invalid_mode_at_schema_layer(client, _as_user)
     )
 
     assert resp.status_code == 400
+
+
+def test_get_project_references_reports_pinned_upstream_update(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "get_project_references",
+        AsyncMock(
+            return_value=[
+                SimpleNamespace(
+                    **{
+                        **_fake_reference(reference_id="r-pin").__dict__,
+                        "mode": "pinned",
+                        "pinnedVersionId": "v-old",
+                    }
+                )
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "get_project",
+        AsyncMock(
+            return_value=_fake_project(
+                project_id="p-target-001", current_version_id="v-new"
+            )
+        ),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/references")
+    assert resp.status_code == 200
+    body = resp.json()
+    reference = body["data"]["references"][0]
+    assert reference["effective_target_version_id"] == "v-old"
+    assert reference["upstream_current_version_id"] == "v-new"
+    assert reference["upstream_updated"] is True
 
 
 def test_review_candidate_change_rejects_invalid_action_at_schema_layer(

@@ -150,6 +150,9 @@ class Artifact(BaseModel):
     visibility: ArtifactVisibility
     storage_path: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    current_version_id: Optional[str] = None
+    upstream_updated: bool = False
+    upstream_update_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -199,6 +202,9 @@ class ProjectReference(ProjectReferenceBase):
     id: str
     project_id: str
     status: ReferenceStatus = ReferenceStatus.ACTIVE
+    effective_target_version_id: Optional[str] = None
+    upstream_current_version_id: Optional[str] = None
+    upstream_updated: bool = False
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime

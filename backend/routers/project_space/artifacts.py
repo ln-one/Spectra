@@ -51,6 +51,10 @@ async def get_project_artifacts(
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
+        project = await project_space_service.db.get_project(project_id)
+        current_version_id = (
+            getattr(project, "currentVersionId", None) if project else None
+        )
         artifacts = await project_space_service.get_project_artifacts(
             project_id,
             type_filter=type.value if type else None,
@@ -61,7 +65,12 @@ async def get_project_artifacts(
         )
         return ArtifactsResponse(
             success=True,
-            data={"artifacts": [to_artifact_model(artifact) for artifact in artifacts]},
+            data={
+                "artifacts": [
+                    to_artifact_model(artifact, current_version_id=current_version_id)
+                    for artifact in artifacts
+                ]
+            },
             message="获取成果列表成功",
         )
     except (NotFoundException, Exception) as exc:
@@ -88,9 +97,17 @@ async def get_artifact(
             raise NotFoundException(
                 f"Artifact {artifact_id} not found in project {project_id}"
             )
+        project = await project_space_service.db.get_project(project_id)
+        current_version_id = (
+            getattr(project, "currentVersionId", None) if project else None
+        )
         return ArtifactResponse(
             success=True,
-            data={"artifact": to_artifact_model(artifact)},
+            data={
+                "artifact": to_artifact_model(
+                    artifact, current_version_id=current_version_id
+                )
+            },
             message="获取成果详情成功",
         )
     except (NotFoundException, Exception) as exc:
@@ -122,9 +139,17 @@ async def create_artifact(
             content={**(body.content or {}), "mode": body.mode},
         )
         logger.info(f"Created artifact {artifact.id} for project {project_id}")
+        project = await project_space_service.db.get_project(project_id)
+        current_version_id = (
+            getattr(project, "currentVersionId", None) if project else None
+        )
         return ArtifactResponse(
             success=True,
-            data={"artifact": to_artifact_model(artifact)},
+            data={
+                "artifact": to_artifact_model(
+                    artifact, current_version_id=current_version_id
+                )
+            },
             message="创建成果成功",
         )
     except (NotFoundException, Exception) as exc:

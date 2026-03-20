@@ -53,23 +53,49 @@ def to_project_version_model(version) -> ProjectVersion:
     )
 
 
-def to_artifact_model(artifact) -> Artifact:
+def to_artifact_model(artifact, current_version_id: str | None = None) -> Artifact:
+    based_on_version_id = getattr(artifact, "basedOnVersionId", None)
+    upstream_updated = bool(
+        based_on_version_id
+        and current_version_id
+        and based_on_version_id != current_version_id
+    )
     return Artifact(
         id=artifact.id,
         project_id=artifact.projectId,
         session_id=artifact.sessionId,
-        based_on_version_id=artifact.basedOnVersionId,
+        based_on_version_id=based_on_version_id,
         owner_user_id=artifact.ownerUserId,
         type=artifact.type,
         visibility=artifact.visibility,
         storage_path=artifact.storagePath,
         metadata=safe_parse_json(artifact.metadata),
+        current_version_id=current_version_id,
+        upstream_updated=upstream_updated,
+        upstream_update_reason=(
+            "project_version_advanced" if upstream_updated else None
+        ),
         created_at=artifact.createdAt,
         updated_at=artifact.updatedAt,
     )
 
 
-def to_project_reference_model(reference) -> ProjectReference:
+def to_project_reference_model(
+    reference,
+    *,
+    upstream_current_version_id: str | None = None,
+) -> ProjectReference:
+    effective_target_version_id = (
+        reference.pinnedVersionId
+        if reference.mode == "pinned"
+        else upstream_current_version_id
+    )
+    upstream_updated = bool(
+        reference.mode == "pinned"
+        and reference.pinnedVersionId
+        and upstream_current_version_id
+        and reference.pinnedVersionId != upstream_current_version_id
+    )
     return ProjectReference(
         id=reference.id,
         project_id=reference.projectId,
@@ -79,6 +105,9 @@ def to_project_reference_model(reference) -> ProjectReference:
         pinned_version_id=reference.pinnedVersionId,
         priority=reference.priority,
         status=reference.status,
+        effective_target_version_id=effective_target_version_id,
+        upstream_current_version_id=upstream_current_version_id,
+        upstream_updated=upstream_updated,
         created_by=reference.createdBy,
         created_at=reference.createdAt,
         updated_at=reference.updatedAt,
