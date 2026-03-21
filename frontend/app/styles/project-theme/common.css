@@ -1,5 +1,4 @@
-﻿@layer components {
-  [data-project-theme] .project-header-shell {
+﻿  [data-project-theme] .project-header-shell {
     height: var(--project-header-height);
   }
 
@@ -207,4 +206,3 @@
       0 4px 16px -4px rgba(0, 0, 0, 0.1),
       inset 0 1px 0 rgba(255, 255, 255, 0.8);
   }
-}

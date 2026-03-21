@@ -1,5 +1,4 @@
-﻿@layer components {
-  [data-project-style="ocean-cyan"] .project-panel-card {
+﻿  [data-project-style="ocean-cyan"] .project-panel-card {
     background: linear-gradient(
       145deg,
       color-mix(in srgb, var(--project-surface-elevated) 68%, rgba(255, 255, 255, 0.28)),
@@ -132,4 +131,3 @@
   [data-project-style="ocean-cyan"] .project-chat-fade-bottom {
     opacity: 0.78;
   }
-}

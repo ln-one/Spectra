@@ -1,5 +1,4 @@
-﻿@layer components {
-  [data-project-style="teal-mint"] .project-panel-card {
+﻿  [data-project-style="teal-mint"] .project-panel-card {
     border-radius: 1.35rem;
     border-color: color-mix(in srgb, var(--project-border-strong) 64%, #7dd9cc);
     background: linear-gradient(
@@ -147,4 +146,3 @@
     width: 3px;
     border-radius: 999px;
   }
-}

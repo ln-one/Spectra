@@ -1,5 +1,4 @@
-﻿@layer components {
-  [data-project-style="forest-emerald"] .project-panel-card {
+﻿  [data-project-style="forest-emerald"] .project-panel-card {
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--project-surface) 96%, #fbf6ea),
@@ -150,4 +149,3 @@
     border-color: color-mix(in srgb, var(--project-border-strong) 58%, #896840);
     border-radius: 0.45rem;
   }
-}
