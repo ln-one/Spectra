@@ -69,15 +69,19 @@ class UserConversationMixin:
         project_id: str,
         limit: int = 10,
         session_id: Optional[str] = None,
+        select: Optional[dict] = None,
     ):
         where: dict = {"projectId": project_id}
         if session_id:
             where["sessionId"] = session_id
-        messages = await self.db.conversation.find_many(
-            where=where,
-            take=limit,
-            order={"createdAt": "desc"},
-        )
+        query: dict = {
+            "where": where,
+            "take": limit,
+            "order": {"createdAt": "desc"},
+        }
+        if select:
+            query["select"] = select
+        messages = await self.db.conversation.find_many(**query)
         return list(reversed(messages))
 
     async def get_messages(self, project_id: str, limit: int = 10):

@@ -22,6 +22,7 @@ async def build_user_requirements(
         project_id=project_id,
         limit=10,
         session_id=session_id,
+        select={"role": True, "content": True},
     )
     user_messages = [msg for msg in messages if msg.role == "user"]
 

@@ -199,8 +199,9 @@ def test_send_message_scopes_recent_messages_by_session(client, monkeypatch, _as
     assert resp.status_code == 200
     recent_mock.assert_awaited_once_with(
         project_id="p-001",
-        limit=10,
+        limit=6,
         session_id="s-001",
+        select={"role": True, "content": True},
     )
 
 

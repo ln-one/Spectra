@@ -59,6 +59,55 @@ async def test_persist_generation_artifacts_returns_download_urls():
         "pptx": "/api/v1/projects/p-1/artifacts/artifact-ppt/download",
         "docx": "/api/v1/projects/p-1/artifacts/artifact-doc/download",
     }
+    db_service.db.generationsession.find_unique.assert_awaited_once_with(
+        where={"id": "s-1"},
+        select={
+            "userId": True,
+            "baseVersionId": True,
+            "projectId": True,
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_persist_generation_artifacts_partial_failure_keeps_success_outputs():
+    db_service = SimpleNamespace(
+        db=SimpleNamespace(
+            generationsession=SimpleNamespace(
+                find_unique=AsyncMock(
+                    return_value=SimpleNamespace(
+                        userId="u-1",
+                        baseVersionId="v-1",
+                        projectId="p-1",
+                    )
+                )
+            )
+        ),
+        create_artifact=AsyncMock(
+            side_effect=[
+                RuntimeError("pptx persist failed"),
+                SimpleNamespace(id="artifact-doc"),
+            ]
+        ),
+    )
+    context = SimpleNamespace(
+        task_id="task-1",
+        project_id="p-1",
+        session_id="s-1",
+    )
+
+    output_urls = await persist_generation_artifacts(
+        db_service=db_service,
+        context=context,
+        artifact_paths={
+            "pptx": "/tmp/a.pptx",
+            "docx": "/tmp/a.docx",
+        },
+    )
+
+    assert output_urls == {
+        "docx": "/api/v1/projects/p-1/artifacts/artifact-doc/download",
+    }
 
 
 @pytest.mark.asyncio

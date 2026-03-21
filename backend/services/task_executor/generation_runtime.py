@@ -45,20 +45,23 @@ def _build_project_space_download_url(
 async def build_generation_inputs(db_service, context: GenerationExecutionContext):
     from services.ai import ai_service
 
-    user_requirements = await build_user_requirements(
-        db_service,
-        context.project_id,
-        session_id=context.session_id,
-        rag_source_ids=(
-            context.template_config.get("rag_source_ids")
-            if context.template_config
-            else None
+    user_requirements, outline_payload = await asyncio.gather(
+        build_user_requirements(
+            db_service,
+            context.project_id,
+            session_id=context.session_id,
+            rag_source_ids=(
+                context.template_config.get("rag_source_ids")
+                if context.template_config
+                else None
+            ),
+        ),
+        load_session_outline(
+            db_service,
+            session_id=context.session_id,
         ),
     )
-    outline_document, outline_version = await load_session_outline(
-        db_service,
-        session_id=context.session_id,
-    )
+    outline_document, outline_version = outline_payload
 
     courseware_content = await ai_service.generate_courseware_content(
         project_id=context.project_id,
@@ -203,7 +206,12 @@ async def persist_generation_artifacts(
 
     try:
         session = await db_service.db.generationsession.find_unique(
-            where={"id": context.session_id}
+            where={"id": context.session_id},
+            select={
+                "userId": True,
+                "baseVersionId": True,
+                "projectId": True,
+            },
         )
     except Exception as exc:
         logger.warning(
@@ -220,7 +228,10 @@ async def persist_generation_artifacts(
     project_id = getattr(session, "projectId", None) or context.project_id
     output_urls: dict[str, str] = {}
 
-    for artifact_type, storage_path in artifact_paths.items():
+    async def _persist_one(
+        artifact_type: str,
+        storage_path: str,
+    ) -> tuple[str, str] | None:
         try:
             artifact = await db_service.create_artifact(
                 project_id=project_id,
@@ -239,7 +250,7 @@ async def persist_generation_artifacts(
                     "is_current": True,
                 },
             )
-            output_urls[artifact_type] = _build_project_space_download_url(
+            return artifact_type, _build_project_space_download_url(
                 project_id=project_id,
                 artifact_id=artifact.id,
             )
@@ -252,6 +263,19 @@ async def persist_generation_artifacts(
                 artifact_type,
                 exc,
             )
+            return None
+
+    results = await asyncio.gather(
+        *(
+            _persist_one(artifact_type, storage_path)
+            for artifact_type, storage_path in artifact_paths.items()
+        )
+    )
+    for item in results:
+        if not item:
+            continue
+        artifact_type, url = item
+        output_urls[artifact_type] = url
     return output_urls
 
 

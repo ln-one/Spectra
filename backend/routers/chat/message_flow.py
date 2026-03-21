@@ -1,3 +1,5 @@
+import asyncio
+
 from schemas.common import (
     build_source_reference_payload,
     extract_source_reference_payload,
@@ -19,27 +21,19 @@ async def load_rag_context(
     try:
         from services.rag_service import rag_service as _rag
 
-        rag_filters = None
-        if rag_source_ids:
-            rag_filters = {"file_ids": rag_source_ids}
-            try:
-                selected_uploads = await db_service.db.upload.find_many(
-                    where={
-                        "projectId": project_id,
-                        "id": {"in": rag_source_ids},
-                    },
-                    select={"filename": True, "status": True},
-                )
-                if selected_uploads:
-                    names = [
-                        f"{upload.filename}({upload.status})"
-                        for upload in selected_uploads
-                    ]
-                    selected_files_hint = "已选资料（含解析状态）： " + "，".join(names)
-            except Exception as file_err:
-                logger.warning("Failed to load selected uploads: %s", file_err)
+        rag_filters = {"file_ids": rag_source_ids} if rag_source_ids else None
 
-        rag_results = await _rag.search(
+        selected_uploads_task = None
+        if rag_source_ids:
+            selected_uploads_task = db_service.db.upload.find_many(
+                where={
+                    "projectId": project_id,
+                    "id": {"in": rag_source_ids},
+                },
+                select={"filename": True, "status": True},
+            )
+
+        rag_search_task = _rag.search(
             project_id=project_id,
             query=query,
             top_k=5,
@@ -47,6 +41,19 @@ async def load_rag_context(
             session_id=session_id,
             filters=rag_filters,
         )
+
+        if selected_uploads_task is not None:
+            selected_uploads, rag_results = await asyncio.gather(
+                selected_uploads_task, rag_search_task
+            )
+            if selected_uploads:
+                names = [
+                    f"{upload.filename}({upload.status})" for upload in selected_uploads
+                ]
+                selected_files_hint = "已选资料（含解析状态）： " + "，".join(names)
+        else:
+            rag_results = await rag_search_task
+
         rag_results = rerank_by_chapter(query, rag_results)
         if rag_results:
             rag_hit = True
@@ -85,7 +92,8 @@ async def load_rag_context(
 async def build_history_payload(project_id: str, session_id: str | None):
     recent_messages = await db_service.get_recent_conversation_messages(
         project_id=project_id,
-        limit=10,
+        limit=6,
         session_id=session_id,
+        select={"role": True, "content": True},
     )
-    return [{"role": msg.role, "content": msg.content} for msg in recent_messages[-6:]]
+    return [{"role": msg.role, "content": msg.content} for msg in recent_messages]
