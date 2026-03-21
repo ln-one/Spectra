@@ -71,3 +71,53 @@ async def test_load_rag_context_keeps_rag_when_selected_upload_lookup_fails(
     assert len(citations) == 1
     assert citations[0]["chunk_id"] == "chunk-1"
     assert rag_payload and rag_payload[0]["content"] == "牛顿第二定律"
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_falls_back_when_upload_select_not_supported(
+    monkeypatch,
+):
+    upload_calls = []
+
+    async def _find_many(**kwargs):
+        upload_calls.append(kwargs)
+        if "select" in kwargs:
+            raise TypeError(
+                "UploadActions.find_many() got an unexpected keyword argument 'select'"
+            )
+        return [SimpleNamespace(filename="physics.pdf", status="indexed")]
+
+    monkeypatch.setattr(
+        message_flow.db_service,
+        "db",
+        SimpleNamespace(
+            upload=SimpleNamespace(find_many=AsyncMock(side_effect=_find_many))
+        ),
+    )
+    rag_item = SimpleNamespace(
+        content="牛顿第二定律",
+        score=0.9,
+        source=SimpleNamespace(
+            chunk_id="chunk-1",
+            source_type="document",
+            filename="physics.pdf",
+            page_number=1,
+        ),
+    )
+    monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[rag_item]))
+
+    rag_results, _, rag_hit, selected_files_hint, _ = (
+        await message_flow.load_rag_context(
+            project_id="proj-1",
+            query="牛顿第二定律",
+            session_id="sess-1",
+            rag_source_ids=["f-1"],
+        )
+    )
+
+    assert rag_hit is True
+    assert len(rag_results) == 1
+    assert "physics.pdf(indexed)" in selected_files_hint
+    assert len(upload_calls) == 2
+    assert "select" in upload_calls[0]
+    assert "select" not in upload_calls[1]

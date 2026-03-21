@@ -594,6 +594,61 @@ async def test_get_session_snapshot_handles_missing_artifact_model():
 
 
 @pytest.mark.anyio
+async def test_get_session_snapshot_fallbacks_when_artifact_select_not_supported():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    now = datetime.now(timezone.utc)
+    artifact_calls: list[dict] = []
+    project_calls: list[dict] = []
+
+    async def _artifact_find_many(**kwargs):
+        artifact_calls.append(kwargs)
+        if "select" in kwargs:
+            raise TypeError(
+                "ArtifactActions.find_many() got an unexpected keyword argument 'select'"
+            )
+        return [
+            SimpleNamespace(
+                id="art-ppt-001",
+                type="pptx",
+                basedOnVersionId="ver-001",
+                metadata='{"is_current":true}',
+                createdAt=now,
+                updatedAt=now,
+            )
+        ]
+
+    async def _project_find_unique(**kwargs):
+        project_calls.append(kwargs)
+        if "select" in kwargs:
+            raise TypeError(
+                "ProjectActions.find_unique() got an unexpected keyword argument 'select'"
+            )
+        return SimpleNamespace(id="p-001", currentVersionId="ver-009")
+
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        artifact=SimpleNamespace(find_many=AsyncMock(side_effect=_artifact_find_many)),
+        project=SimpleNamespace(
+            find_unique=AsyncMock(side_effect=_project_find_unique)
+        ),
+        candidatechange=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert payload["artifact_id"] == "art-ppt-001"
+    assert payload["current_version_id"] == "ver-009"
+    assert len(artifact_calls) == 2
+    assert "select" in artifact_calls[0]
+    assert "select" not in artifact_calls[1]
+    assert len(project_calls) == 2
+    assert "select" in project_calls[0]
+    assert "select" not in project_calls[1]
+
+
+@pytest.mark.anyio
 async def test_get_session_snapshot_includes_latest_candidate_change():
     session = _fake_session(state=GenerationState.SUCCESS.value)
     change = SimpleNamespace(

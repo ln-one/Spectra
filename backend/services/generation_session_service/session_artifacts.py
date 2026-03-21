@@ -3,6 +3,10 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
+from services.database.prisma_compat import (
+    find_many_with_select_fallback,
+    find_unique_with_select_fallback,
+)
 from services.generation_session_service.capability_helpers import (
     _resolve_capability_from_artifact,
 )
@@ -98,7 +102,8 @@ async def get_session_artifact_history(
             "artifact_anchor": build_artifact_anchor(session_id, None),
         }
 
-    artifact_query = artifact_model.find_many(
+    artifact_query = find_many_with_select_fallback(
+        model=artifact_model,
         where={"projectId": project_id, "sessionId": session_id},
         order={"updatedAt": "desc"},
         select=_ARTIFACT_HISTORY_SELECT,
@@ -106,7 +111,8 @@ async def get_session_artifact_history(
     if hasattr(db, "project") and hasattr(db.project, "find_unique"):
         artifacts, project = await asyncio.gather(
             artifact_query,
-            db.project.find_unique(
+            find_unique_with_select_fallback(
+                model=db.project,
                 where={"id": project_id},
                 select={"currentVersionId": True},
             ),

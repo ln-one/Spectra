@@ -5,6 +5,7 @@ from schemas.common import (
     extract_source_reference_payload,
 )
 from services.database import db_service
+from services.database.prisma_compat import find_many_with_select_fallback
 
 from .refine_context import rerank_by_chapter
 from .shared import logger
@@ -25,7 +26,8 @@ async def load_rag_context(
 
         selected_uploads_task = None
         if rag_source_ids:
-            selected_uploads_task = db_service.db.upload.find_many(
+            selected_uploads_task = find_many_with_select_fallback(
+                model=db_service.db.upload,
                 where={
                     "projectId": project_id,
                     "id": {"in": rag_source_ids},
