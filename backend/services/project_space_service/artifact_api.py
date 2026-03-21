@@ -11,9 +11,12 @@ from .project_records import (
     get_artifact,
     get_artifact_storage_path_response,
     get_idempotency_response,
+    get_project_current_version_id,
     get_project_artifacts,
     get_project_version,
+    get_project_version_with_context,
     get_project_versions,
+    get_project_versions_with_context,
     save_idempotency_response,
 )
 
@@ -54,6 +57,15 @@ class ProjectSpaceArtifactAPIMixin:
 
     async def get_project_version(self, version_id: str):
         return await get_project_version(self, version_id)
+
+    async def get_project_current_version_id(self, project_id: str):
+        return await get_project_current_version_id(self, project_id)
+
+    async def get_project_versions_with_context(self, project_id: str):
+        return await get_project_versions_with_context(self, project_id)
+
+    async def get_project_version_with_context(self, project_id: str, version_id: str):
+        return await get_project_version_with_context(self, project_id, version_id)
 
     async def get_project_artifacts(
         self,

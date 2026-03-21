@@ -7,7 +7,7 @@ import pytest
 from main import app
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
-from utils.exceptions import ConflictException
+from utils.exceptions import ConflictException, NotFoundException
 
 _NOW = datetime.now(timezone.utc)
 _USER_ID = "u-ps-001"
@@ -130,13 +130,8 @@ def test_get_project_versions_success(client, monkeypatch, _as_user):
     )
     monkeypatch.setattr(
         project_space_service,
-        "get_project_versions",
-        AsyncMock(return_value=[_fake_version()]),
-    )
-    monkeypatch.setattr(
-        project_space_service.db,
-        "get_project",
-        AsyncMock(return_value=SimpleNamespace(currentVersionId="v-001")),
+        "get_project_versions_with_context",
+        AsyncMock(return_value=([_fake_version()], "v-001")),
     )
 
     resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions")
@@ -149,6 +144,26 @@ def test_get_project_versions_success(client, monkeypatch, _as_user):
     assert body["data"]["versions"][0]["is_current"] is True
 
 
+def test_get_project_versions_rejects_invalid_current_version_anchor(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        project_space_service,
+        "check_project_permission",
+        AsyncMock(return_value=True),
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_project_versions_with_context",
+        AsyncMock(side_effect=ConflictException("invalid current version anchor")),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions")
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["error"]["code"] == "RESOURCE_CONFLICT"
+
+
 def test_get_project_version_detail_marks_current_version(
     client, monkeypatch, _as_user
 ):
@@ -159,13 +174,8 @@ def test_get_project_version_detail_marks_current_version(
     )
     monkeypatch.setattr(
         project_space_service,
-        "get_project_version",
-        AsyncMock(return_value=_fake_version(version_id="v-002")),
-    )
-    monkeypatch.setattr(
-        project_space_service.db,
-        "get_project",
-        AsyncMock(return_value=SimpleNamespace(currentVersionId="v-002")),
+        "get_project_version_with_context",
+        AsyncMock(return_value=(_fake_version(version_id="v-002"), "v-002")),
     )
 
     resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions/v-002")
@@ -185,22 +195,20 @@ def test_get_project_version_detail_exposes_reference_summary(
     )
     monkeypatch.setattr(
         project_space_service,
-        "get_project_version",
+        "get_project_version_with_context",
         AsyncMock(
-            return_value=_fake_version(
-                version_id="v-003",
-                snapshot_data=(
-                    '{"base_version_context":{"base_version_id":"v-001",'
-                    '"current_version_id":"v-002"},"reference_summary":'
-                    '[{"reference_id":"r-001","target_project_id":"p-base-001"}]}'
+            return_value=(
+                _fake_version(
+                    version_id="v-003",
+                    snapshot_data=(
+                        '{"base_version_context":{"base_version_id":"v-001",'
+                        '"current_version_id":"v-002"},"reference_summary":'
+                        '[{"reference_id":"r-001","target_project_id":"p-base-001"}]}'
+                    ),
                 ),
+                "v-002",
             )
         ),
-    )
-    monkeypatch.setattr(
-        project_space_service.db,
-        "get_project",
-        AsyncMock(return_value=SimpleNamespace(currentVersionId="v-002")),
     )
 
     resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions/v-003")
@@ -223,13 +231,8 @@ def test_get_project_version_detail_success(client, monkeypatch, _as_user):
     )
     monkeypatch.setattr(
         project_space_service,
-        "get_project_version",
-        AsyncMock(return_value=_fake_version(version_id="v-002")),
-    )
-    monkeypatch.setattr(
-        project_space_service.db,
-        "get_project",
-        AsyncMock(return_value=SimpleNamespace(currentVersionId="v-003")),
+        "get_project_version_with_context",
+        AsyncMock(return_value=(_fake_version(version_id="v-002"), "v-003")),
     )
 
     resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions/v-002")
@@ -247,8 +250,8 @@ def test_get_project_version_mismatch_project_404(client, monkeypatch, _as_user)
     )
     monkeypatch.setattr(
         project_space_service,
-        "get_project_version",
-        AsyncMock(return_value=_fake_version(project_id="other-project")),
+        "get_project_version_with_context",
+        AsyncMock(side_effect=NotFoundException("Version v-003 not found")),
     )
 
     resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/versions/v-003")

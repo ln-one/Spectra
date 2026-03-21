@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 from services.ai.model_router import ModelRouteTask
@@ -42,3 +43,19 @@ def resolve_requested_model(
         else:
             requested_model = default_model
     return route_decision, requested_model, normalized_route_task
+
+
+def resolve_upstream_retry_attempts() -> int:
+    raw_value = os.getenv("AI_UPSTREAM_RETRY_ATTEMPTS", "1").strip()
+    try:
+        return max(0, int(raw_value))
+    except ValueError:
+        return 1
+
+
+def resolve_upstream_retry_delay_seconds() -> float:
+    raw_value = os.getenv("AI_UPSTREAM_RETRY_DELAY_SECONDS", "0.35").strip()
+    try:
+        return max(0.0, float(raw_value))
+    except ValueError:
+        return 0.35

@@ -7,6 +7,7 @@ from schemas.project_reference_semantics import (
     normalize_reference_status,
 )
 from schemas.project_space import ChangeType, ReferenceRelationType, ReferenceStatus
+from utils.exceptions import ValidationException
 
 
 class ProjectSpaceReferenceMixin:
@@ -101,6 +102,13 @@ class ProjectSpaceReferenceMixin:
             if isinstance(change_type, ChangeType)
             else ChangeType(change_type)
         )
+        if parent_version_id:
+            parent_version = await self.get_project_version(parent_version_id)
+            if not parent_version or parent_version.projectId != project_id:
+                raise ValidationException(
+                    "parent_version_id "
+                    f"{parent_version_id} does not belong to project {project_id}"
+                )
         data = {"projectId": project_id, "changeType": normalized_change_type}
         if parent_version_id:
             data["parentVersionId"] = parent_version_id

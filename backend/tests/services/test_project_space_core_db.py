@@ -194,3 +194,25 @@ async def test_update_project_reference_normalizes_mode_and_status():
             "status": "disabled",
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_create_project_version_rejects_parent_from_other_project():
+    service = DatabaseService()
+    create_version = AsyncMock()
+    service.db = SimpleNamespace(projectversion=SimpleNamespace(create=create_version))
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-parent", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="parent_version_id"):
+        await service.create_project_version(
+            project_id="p-001",
+            parent_version_id="v-parent",
+            summary="merge",
+            change_type="merge-change",
+            snapshot_data={"k": "v"},
+            created_by="u-001",
+        )
+
+    create_version.assert_not_awaited()

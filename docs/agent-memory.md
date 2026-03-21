@@ -83,6 +83,18 @@
 - Meaning: `artifact_mode=replace` should prefer the current artifact in the active lineage, and when a `based_on_version_id` is explicitly supplied it should prefer the current artifact anchored to that same version.
 - Why it matters: replacing the first returned artifact is not stable enough; it can supersede an already superseded result and corrupt artifact lineage semantics.
 
+### 2.11 Project current-version anchors must stay project-local
+
+- Status: `confirmed`
+- Meaning: whenever code treats `project.currentVersionId` as the current formal anchor, that version must still resolve to a real `ProjectVersion` belonging to the same project.
+- Why it matters: a dangling or cross-project current-version pointer makes version lists, artifact lineage, and candidate-change review look valid while the underlying graph is already corrupted.
+
+### 2.12 Provider retries should be explicit and bounded
+
+- Status: `confirmed`
+- Meaning: transient upstream completion failures may retry a small, env-driven number of times, but auth/config failures must fail fast and timeout retries should not silently extend latency.
+- Why it matters: this keeps provider resilience visible and controlled instead of hiding slowness behind opaque retry loops.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated

@@ -19,6 +19,8 @@ These are the only documents here that should be read by default:
   - Current team collaboration model and default ownership map.
 - [D_TECH_DEEP_DIVE_MAP.md](./D_TECH_DEEP_DIVE_MAP.md)
   - Current technical deep-dive map for the specialized backend role.
+- [D_EXECUTION_BACKLOG.md](./D_EXECUTION_BACKLOG.md)
+  - Concrete, code-anchored task backlog for the specialized backend role.
 - [tech-stack.md](./tech-stack.md)
   - Compatibility redirect to the live tech-stack document.
 
@@ -48,8 +50,9 @@ If you want to understand the project correctly and quickly:
 3. `卡片功能.md`
 4. `ABCD_ROLE_MODEL.md`
 5. `D_TECH_DEEP_DIVE_MAP.md`
-6. `../architecture/README.md`
-7. `../standards/README.md`
+6. `D_EXECUTION_BACKLOG.md`
+7. `../architecture/README.md`
+8. `../standards/README.md`
 
 ## 4. Interpretation Rules
 
@@ -69,6 +72,7 @@ This directory is for:
 - product intent that still guides implementation
 - team collaboration defaults that affect execution quality
 - stable technical deep-dive maps tied to current code
+- concrete execution backlogs for specialized roles
 - a small set of stable design anchors
 
 It is not for:

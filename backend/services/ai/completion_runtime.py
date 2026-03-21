@@ -13,6 +13,8 @@ def with_route_failure(
     latency_ms: float,
     fallback_triggered: bool = False,
     original_model: str | None = None,
+    fallback_target: str | None = None,
+    retry_attempts: int = 0,
 ) -> dict[str, Any] | None:
     route_info = route_decision.to_dict() if route_decision else None
     if route_info is None:
@@ -23,6 +25,10 @@ def with_route_failure(
         route_info["fallback_triggered"] = True
     if original_model:
         route_info["original_model"] = original_model
+    if fallback_target:
+        route_info["fallback_target"] = fallback_target
+    if retry_attempts > 0:
+        route_info["retry_attempts"] = retry_attempts
     return route_info
 
 
@@ -139,6 +145,11 @@ def describe_completion_error(exc: Exception) -> dict[str, Any]:
     }
 
 
+def should_retry_completion_error(exc: Exception) -> bool:
+    error_info = describe_completion_error(exc)
+    return bool(error_info["retryable"]) and error_info["failure_type"] != "timeout"
+
+
 def raise_external_service_error(
     *,
     exc: Exception,
@@ -146,6 +157,8 @@ def raise_external_service_error(
     resolved_model: str,
     route_task: str | None,
     fallback_triggered: bool,
+    fallback_target: str | None = None,
+    retry_attempts: int = 0,
 ) -> None:
     error_info = describe_completion_error(exc)
     failure_type = error_info["failure_type"]
@@ -155,6 +168,8 @@ def raise_external_service_error(
         "resolved_model": resolved_model,
         "route_task": route_task,
         "fallback_triggered": fallback_triggered,
+        "fallback_target": fallback_target,
+        "retry_attempts": retry_attempts,
         "provider_message": error_info["raw_message"],
     }
 

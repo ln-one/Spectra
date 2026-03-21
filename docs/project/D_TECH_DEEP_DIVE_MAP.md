@@ -18,6 +18,8 @@ D is not expected to own business-mainline semantics such as:
 
 D is expected to own deep-dive topics that strengthen Spectra's technical depth without hijacking the mainline.
 
+For concrete next tasks, see [D_EXECUTION_BACKLOG.md](./D_EXECUTION_BACKLOG.md).
+
 ## 2. Output Model For Every D Topic
 
 Every deep-dive topic should produce:
