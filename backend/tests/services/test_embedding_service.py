@@ -50,7 +50,13 @@ class TestEmbeddingServiceDashScope:
         mock_dashscope = MagicMock()
         mock_dashscope.TextEmbedding = mock_text_embedding
 
-        with patch.dict("sys.modules", {"dashscope": mock_dashscope}):
+        with (
+            patch.dict("sys.modules", {"dashscope": mock_dashscope}),
+            patch(
+                "services.media.embedding._resolve_dashscope_api_key",
+                return_value="sk-test",
+            ),
+        ):
             result = await dashscope_svc.embed_text("测试文本")
             assert len(result) == 1536
             assert mock_text_embedding.call.call_args.kwargs["api_key"]
@@ -68,7 +74,13 @@ class TestEmbeddingServiceDashScope:
         mock_dashscope = MagicMock()
         mock_dashscope.MultiModalEmbedding = mock_multimodal_embedding
 
-        with patch.dict("sys.modules", {"dashscope": mock_dashscope}):
+        with (
+            patch.dict("sys.modules", {"dashscope": mock_dashscope}),
+            patch(
+                "services.media.embedding._resolve_dashscope_api_key",
+                return_value="sk-test",
+            ),
+        ):
             result = await svc.embed_text("测试文本")
             assert len(result) == 1536
             assert mock_multimodal_embedding.call.call_args.kwargs["api_key"]
@@ -81,7 +93,9 @@ class TestEmbeddingServiceDashScope:
         svc = EmbeddingService(model="text-embedding-v4")
 
         with (
-            patch("services.media.embedding.DASHSCOPE_API_KEY", ""),
+            patch(
+                "services.media.embedding._resolve_dashscope_api_key", return_value=""
+            ),
             patch.object(
                 svc,
                 "_embed_local",

@@ -19,12 +19,19 @@ load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
-DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "").strip()
 
 # DashScope 单次批量限制（不同模型上限不同）
 DEFAULT_DASHSCOPE_BATCH_LIMIT = 25
 TEXT_EMBEDDING_V4_BATCH_LIMIT = 10
 MULTIMODAL_EMBEDDING_BATCH_LIMIT = 10
+
+
+def _resolve_embedding_dimension() -> int:
+    return int(os.getenv("EMBEDDING_DIMENSION", str(EMBEDDING_DIMENSION)))
+
+
+def _resolve_dashscope_api_key() -> str:
+    return os.getenv("DASHSCOPE_API_KEY", "").strip()
 
 
 class EmbeddingService:
@@ -68,7 +75,7 @@ class EmbeddingService:
             return self._dimension
 
         if self._use_dashscope():
-            self._dimension = EMBEDDING_DIMENSION
+            self._dimension = _resolve_embedding_dimension()
         else:
             model = self._get_local_model()
             self._dimension = model.get_sentence_embedding_dimension()
@@ -77,7 +84,14 @@ class EmbeddingService:
     def _get_local_model(self):
         """懒加载本地 sentence-transformers 模型"""
         if self._local_model is None:
-            from sentence_transformers import SentenceTransformer
+            try:
+                from sentence_transformers import SentenceTransformer
+            except Exception as exc:  # pragma: no cover - import-path specific
+                raise RuntimeError(
+                    "Local embedding fallback unavailable. "
+                    "Install sentence-transformers and its runtime dependencies, "
+                    "or configure a working remote embedding provider."
+                ) from exc
 
             model_name = "paraphrase-multilingual-MiniLM-L12-v2"
             logger.info(f"Loading local embedding model: {model_name}")
@@ -117,7 +131,8 @@ class EmbeddingService:
     async def _embed_dashscope(self, texts: list[str]) -> list[list[float]]:
         """使用 DashScope API 进行向量化"""
         try:
-            if not DASHSCOPE_API_KEY:
+            api_key = _resolve_dashscope_api_key()
+            if not api_key:
                 raise RuntimeError(
                     "DashScope embedding unavailable: DASHSCOPE_API_KEY not set"
                 )
@@ -133,7 +148,7 @@ class EmbeddingService:
                     response = MultiModalEmbedding.call(
                         model=self._model,
                         input=[{"text": item} for item in batch],
-                        api_key=DASHSCOPE_API_KEY,
+                        api_key=api_key,
                     )
                 else:
                     from dashscope import TextEmbedding
@@ -141,7 +156,7 @@ class EmbeddingService:
                     response = TextEmbedding.call(
                         model=self._model,
                         input=batch,
-                        api_key=DASHSCOPE_API_KEY,
+                        api_key=api_key,
                     )
 
                 if response.status_code != 200:
@@ -155,7 +170,12 @@ class EmbeddingService:
             return all_embeddings
 
         except Exception as e:
-            logger.warning(f"DashScope embedding failed, falling back to local: {e}")
+            logger.warning(
+                "DashScope embedding failed for model %s; falling back to local "
+                "sentence-transformers. This is a degraded and slower path: %s",
+                self._model,
+                e,
+            )
             return await self._embed_local(texts)
 
     def _embed_local_sync(self, texts: list[str]) -> list[list[float]]:

@@ -6,6 +6,7 @@ DashScope API 连通性测试
 """
 
 import asyncio
+import os
 
 import pytest
 
@@ -119,6 +120,13 @@ async def test_generate_completion_error_returns_stub_with_canonical_reason(
 @pytest.mark.integration
 class TestDashScopeConnectivity:
     """DashScope API 连通性测试（需要真实 API Key）"""
+
+    @pytest.fixture(autouse=True)
+    def require_dashscope_key(self):
+        if not os.getenv("DASHSCOPE_API_KEY", "").strip():
+            pytest.skip(
+                "DASHSCOPE_API_KEY not set; skipping DashScope connectivity tests"
+            )
 
     @pytest.fixture
     def ai_service(self):

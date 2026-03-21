@@ -95,6 +95,12 @@
 - Meaning: transient upstream completion failures may retry a small, env-driven number of times, but auth/config failures must fail fast and timeout retries should not silently extend latency.
 - Why it matters: this keeps provider resilience visible and controlled instead of hiding slowness behind opaque retry loops.
 
+### 2.13 Real-provider tests must self-identify their env dependency
+
+- Status: `confirmed`
+- Meaning: tests that require a live provider key or live upstream service should skip themselves when the required env is absent, instead of failing as if product behavior regressed.
+- Why it matters: this keeps the default backend gate focused on repository regressions, while still preserving explicit connectivity checks for environments that opt in.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated

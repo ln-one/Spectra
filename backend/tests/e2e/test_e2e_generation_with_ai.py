@@ -4,6 +4,7 @@
 测试从 AI 生成内容到文件生成的完整流程
 """
 
+import os
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ import pytest
 from schemas.generation import TemplateConfig, TemplateStyle
 from services.ai import ai_service
 from services.generation import generation_service
+from utils.exceptions import ErrorCode, ExternalServiceException
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +27,15 @@ def _stabilize_ai_timeouts(monkeypatch):
         "chat_request_timeout_seconds",
         max(getattr(ai_service, "chat_request_timeout_seconds", 90.0), 90.0),
     )
+
+
+@pytest.fixture(autouse=True)
+def _skip_real_ai_integration_without_dashscope_key(request):
+    if (
+        request.node.get_closest_marker("integration")
+        and not os.getenv("DASHSCOPE_API_KEY", "").strip()
+    ):
+        pytest.skip("DASHSCOPE_API_KEY not set; skipping real AI integration test")
 
 
 class TestE2EGenerationWithAI:
@@ -165,9 +176,24 @@ class TestE2EGenerationWithAI:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    async def test_ai_service_error_handling(self):
-        """测试 AI Service 错误处理（慢速测试，跳过 CI）"""
-        # 即使 AI 调用失败，也应该返回 fallback 内容
+    async def test_ai_service_error_handling(self, monkeypatch):
+        """测试 AI Service 错误处理（本地模拟上游失败，避免真实 provider 依赖）"""
+
+        async def _boom_generate(*args, **kwargs):
+            raise ExternalServiceException(
+                message="upstream auth failed",
+                status_code=503,
+                error_code=ErrorCode.UPSTREAM_AUTH_ERROR,
+                details={"provider": "test"},
+                retryable=False,
+            )
+
+        monkeypatch.setattr(ai_service, "generate", _boom_generate)
+        monkeypatch.setattr(
+            "services.courseware_ai.generation.ALLOW_COURSEWARE_FALLBACK",
+            True,
+        )
+
         courseware_content = await ai_service.generate_courseware_content(
             project_id="e2e_test_error",
             user_requirements="测试错误处理",
