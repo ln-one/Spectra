@@ -10,6 +10,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     CHROME_PATH=/usr/bin/chromium
 
+ARG TORCH_CPU_INDEX_URL=https://download.pytorch.org/whl/cpu
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     set -eux; \
@@ -30,6 +32,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 RUN npm install -g @marp-team/marp-cli
 
 COPY requirements*.txt ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --index-url ${TORCH_CPU_INDEX_URL} "torch>=2.1,<3"
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt
 
