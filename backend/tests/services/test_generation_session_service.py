@@ -502,6 +502,14 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     db.artifact.find_many.assert_awaited_once_with(
         where={"projectId": "p-001", "sessionId": "s-001"},
         order={"updatedAt": "desc"},
+        select={
+            "id": True,
+            "type": True,
+            "basedOnVersionId": True,
+            "metadata": True,
+            "createdAt": True,
+            "updatedAt": True,
+        },
     )
 
 

@@ -230,13 +230,21 @@ async def load_preview_material(
         if task and getattr(task, "sessionId", None) != session_id:
             task = None
     if task is None:
-        tasks = await db_service.db.generationtask.find_many(
-            where={"sessionId": session_id},
-            order={"createdAt": "desc"},
-            take=1,
-            select=_TASK_PREVIEW_SELECT,
-        )
-        task = tasks[0] if tasks else None
+        task_model = db_service.db.generationtask
+        if hasattr(task_model, "find_first"):
+            task = await task_model.find_first(
+                where={"sessionId": session_id},
+                order={"createdAt": "desc"},
+                select=_TASK_PREVIEW_SELECT,
+            )
+        else:
+            tasks = await task_model.find_many(
+                where={"sessionId": session_id},
+                order={"createdAt": "desc"},
+                take=1,
+                select=_TASK_PREVIEW_SELECT,
+            )
+            task = tasks[0] if tasks else None
 
     slides: list[dict] = []
     lesson_plan: Optional[dict] = None

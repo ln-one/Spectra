@@ -34,11 +34,7 @@ from services.preview_helpers import (
     resolve_slide_preview,
 )
 from utils.dependencies import get_current_user
-from utils.exceptions import (
-    APIException,
-    ErrorCode,
-    NotFoundException,
-)
+from utils.exceptions import APIException, ErrorCode, NotFoundException
 from utils.responses import success_response
 
 router = APIRouter()
@@ -53,6 +49,46 @@ _validate_positive_int = validate_positive_int
 _resolve_session_artifact_binding = resolve_session_artifact_binding
 _load_preview_material = load_session_preview_material
 _build_artifact_anchor = build_session_artifact_anchor
+
+
+def _resolve_modify_expected_render_version(body: dict) -> Optional[int]:
+    expected_render_version = body.get("expected_render_version")
+    base_render_version = body.get("base_render_version")
+    if (
+        expected_render_version is not None
+        and base_render_version is not None
+        and expected_render_version != base_render_version
+    ):
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=(
+                "expected_render_version 与 base_render_version 同时提供时必须一致"
+            ),
+        )
+    return (
+        expected_render_version
+        if expected_render_version is not None
+        else base_render_version
+    )
+
+
+def _normalize_export_format(raw_format: object) -> str:
+    if not isinstance(raw_format, str) or not raw_format.strip():
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="format 为必填字段",
+        )
+    normalized = raw_format.strip().lower()
+    allowed = {"json", "markdown", "html"}
+    if normalized not in allowed:
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=f"format 必须是 {sorted(allowed)} 之一",
+        )
+    return normalized
 
 
 async def _get_snapshot(session_id: str, user_id: str) -> dict:
@@ -141,8 +177,9 @@ async def modify_session_preview(
             message="slide_id 和 patch 为必填字段",
         )
 
+    expected_render_version = _resolve_modify_expected_render_version(body)
     _validate_optional_positive_int(
-        body.get("expected_render_version"),
+        expected_render_version,
         "expected_render_version",
     )
 
@@ -151,7 +188,7 @@ async def modify_session_preview(
         "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
         "slide_id": slide_id,
         "patch": patch,
-        "expected_render_version": body.get("expected_render_version"),
+        "expected_render_version": expected_render_version,
     }
 
     svc = _get_session_service()
@@ -246,6 +283,7 @@ async def export_session(
     body = body or {}
     parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
     parsed_idempotency_key = _parse_idempotency_key(idempotency_key)
+    export_format = _normalize_export_format(body.get("format"))
     snapshot = await _get_snapshot(session_id, user_id)
 
     expected_render_version = body.get("expected_render_version")
@@ -270,7 +308,6 @@ async def export_session(
         anchor.get("artifact_id"),
         snapshot["session"].get("task_id"),
     )
-    export_format = str(body.get("format") or "markdown")
     payload = build_export_payload(
         session_id=session_id,
         snapshot=snapshot,

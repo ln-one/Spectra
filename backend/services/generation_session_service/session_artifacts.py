@@ -12,6 +12,15 @@ from services.project_space_service.candidate_change_semantics import (
     serialize_candidate_change,
 )
 
+_ARTIFACT_HISTORY_SELECT = {
+    "id": True,
+    "type": True,
+    "basedOnVersionId": True,
+    "metadata": True,
+    "createdAt": True,
+    "updatedAt": True,
+}
+
 
 def _resolve_session_artifact_title(
     *, artifact_id: str, capability: str, metadata: dict
@@ -92,8 +101,17 @@ async def get_session_artifact_history(
     artifact_query = artifact_model.find_many(
         where={"projectId": project_id, "sessionId": session_id},
         order={"updatedAt": "desc"},
+        select=_ARTIFACT_HISTORY_SELECT,
     )
-    if hasattr(db, "get_project"):
+    if hasattr(db, "project") and hasattr(db.project, "find_unique"):
+        artifacts, project = await asyncio.gather(
+            artifact_query,
+            db.project.find_unique(
+                where={"id": project_id},
+                select={"currentVersionId": True},
+            ),
+        )
+    elif hasattr(db, "get_project"):
         artifacts, project = await asyncio.gather(
             artifact_query,
             db.get_project(project_id),
