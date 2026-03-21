@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { WorkflowStepper, type WorkflowStepItem } from "../../generation/components/PptWorkflowRail";
+import { WorkflowStepper, type WorkflowStepItem } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
 
 type WordStep = "config" | "generate" | "preview";
