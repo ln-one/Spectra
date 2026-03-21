@@ -3,10 +3,26 @@ import re
 from schemas.preview import LessonPlan, Slide, SlidePlan, SourceReference, SourceType
 
 
-def build_slides(task_id: str, markdown_content: str) -> list[Slide]:
-    from services.courseware_ai import CoursewareAIMixin
+def _parse_marp_slides(markdown_content: str) -> list[dict]:
+    content = str(markdown_content or "").strip()
+    frontmatter_match = re.match(r"^---\s*\n[\s\S]*?\n---\s*\n?", content)
+    if frontmatter_match:
+        content = content[frontmatter_match.end() :]
 
-    raw_slides = CoursewareAIMixin.parse_marp_slides(markdown_content)
+    raw_slides = re.split(r"\n---\s*\n", content)
+    slides: list[dict] = []
+    for index, raw in enumerate(raw_slides):
+        raw = raw.strip()
+        if not raw:
+            continue
+        title_match = re.match(r"^#\s+(.+)$", raw, re.MULTILINE)
+        title = title_match.group(1).strip() if title_match else ""
+        slides.append({"index": index, "title": title, "content": raw})
+    return slides
+
+
+def build_slides(task_id: str, markdown_content: str) -> list[Slide]:
+    raw_slides = _parse_marp_slides(markdown_content)
     slides = []
     for slide in raw_slides:
         slide_id = f"{task_id}-slide-{slide['index']}"

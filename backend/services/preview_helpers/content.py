@@ -8,6 +8,11 @@ from uuid import UUID
 
 from schemas.generation import TaskStatus
 from services.database import db_service
+from services.database.prisma_compat import (
+    find_first_with_select_fallback,
+    find_many_with_select_fallback,
+    find_unique_with_select_fallback,
+)
 
 from .cache import load_preview_content, save_preview_content
 from .rendering import build_lesson_plan, build_slides
@@ -36,6 +41,61 @@ def _build_fallback_preview_payload(project_name: str) -> dict:
         "title": project_name or "课件预览",
         "markdown_content": "",
         "lesson_plan_markdown": "",
+    }
+
+
+def _build_outline_preview_payload(
+    project_name: str,
+    outline_document: Optional[dict],
+) -> Optional[dict]:
+    nodes = (
+        (outline_document or {}).get("nodes")
+        if isinstance(outline_document, dict)
+        else None
+    )
+    if not isinstance(nodes, list) or not nodes:
+        return None
+
+    sorted_nodes = sorted(
+        [node for node in nodes if isinstance(node, dict)],
+        key=lambda item: int(item.get("order") or 0),
+    )
+    if not sorted_nodes:
+        return None
+
+    markdown_slides: list[str] = []
+    lesson_plan_lines: list[str] = [
+        "# 教学目标",
+        "- 形成完整知识框架并完成课堂讲解闭环",
+        "",
+        "# 教学过程",
+    ]
+    for node in sorted_nodes:
+        title = str(node.get("title") or "教学内容").strip()
+        key_points = [
+            str(point).strip()
+            for point in (node.get("key_points") or [])
+            if str(point).strip()
+        ]
+        slide_lines = [f"# {title}"]
+        if key_points:
+            slide_lines.extend([f"- {point}" for point in key_points[:6]])
+        else:
+            slide_lines.append("- 核心要点讲解")
+        markdown_slides.append("\n".join(slide_lines))
+
+        lesson_plan_lines.extend(
+            [
+                f"## {title}",
+                f"- 教学目标：完成 {title} 的理解与表达",
+                f"- 教师提示：围绕“{'；'.join(key_points[:3]) or '核心要点'}”组织提问与板书",
+            ]
+        )
+
+    return {
+        "title": project_name or "课件预览",
+        "markdown_content": "\n\n---\n\n".join(markdown_slides),
+        "lesson_plan_markdown": "\n".join(lesson_plan_lines),
     }
 
 
@@ -87,14 +147,6 @@ async def get_or_generate_content(task, project) -> dict:
             )
         return persisted
 
-    task_status = getattr(task, "status", None)
-    if task_status in {TaskStatus.PENDING, TaskStatus.PROCESSING}:
-        return _build_fallback_preview_payload(project.name or "Generating")
-    if task_status == TaskStatus.FAILED:
-        return _build_fallback_preview_payload(project.name)
-
-    from services.ai import ai_service
-
     session_id = getattr(task, "sessionId", None)
     outline_document = None
     outline_version = None
@@ -106,14 +158,6 @@ async def get_or_generate_content(task, project) -> dict:
         except (TypeError, json.JSONDecodeError):
             logger.warning("Failed to decode templateConfig for task %s", task.id)
             template_config = None
-
-    messages = await db_service.get_recent_conversation_messages(
-        project.id,
-        limit=5,
-        session_id=session_id,
-    )
-    user_msgs = [message.content for message in messages if message.role == "user"]
-    user_requirements = "\n".join(user_msgs) if user_msgs else project.name
 
     if session_id:
         latest_outline = await db_service.db.outlineversion.find_first(
@@ -129,6 +173,33 @@ async def get_or_generate_content(task, project) -> dict:
                     "Failed to decode outlineData for session %s",
                     session_id,
                 )
+
+    task_status = getattr(task, "status", None)
+    if task_status in {TaskStatus.PENDING, TaskStatus.PROCESSING}:
+        return _build_fallback_preview_payload(project.name or "Generating")
+    if task_status == TaskStatus.FAILED:
+        outline_preview = _build_outline_preview_payload(project.name, outline_document)
+        if outline_preview:
+            try:
+                await save_preview_content(task.id, outline_preview)
+            except Exception as exc:  # pragma: no cover - defensive cache path
+                logger.warning(
+                    "Failed to cache outline fallback preview for task %s: %s",
+                    task.id,
+                    exc,
+                )
+            return outline_preview
+        return _build_fallback_preview_payload(project.name)
+
+    messages = await db_service.get_recent_conversation_messages(
+        project.id,
+        limit=5,
+        session_id=session_id,
+    )
+    user_msgs = [message.content for message in messages if message.role == "user"]
+    user_requirements = "\n".join(user_msgs) if user_msgs else project.name
+
+    from services.ai import ai_service
 
     try:
         courseware = await asyncio.wait_for(
@@ -195,7 +266,8 @@ def _extract_task_id_from_artifact(artifact) -> Optional[str]:
 async def _resolve_task_by_artifact(session_id: str, artifact_id: Optional[str]):
     if not artifact_id:
         return None
-    artifact = await db_service.db.artifact.find_unique(
+    artifact = await find_unique_with_select_fallback(
+        model=db_service.db.artifact,
         where={"id": artifact_id},
         select={"sessionId": True, "metadata": True, "storagePath": True},
     )
@@ -206,7 +278,8 @@ async def _resolve_task_by_artifact(session_id: str, artifact_id: Optional[str])
 
     task_id = _extract_task_id_from_artifact(artifact)
     if task_id:
-        task = await db_service.db.generationtask.find_unique(
+        task = await find_unique_with_select_fallback(
+            model=db_service.db.generationtask,
             where={"id": task_id},
             select=_TASK_PREVIEW_SELECT,
         )
@@ -223,7 +296,8 @@ async def load_preview_material(
 ):
     task = await _resolve_task_by_artifact(session_id, artifact_id)
     if task is None and task_id:
-        task = await db_service.db.generationtask.find_unique(
+        task = await find_unique_with_select_fallback(
+            model=db_service.db.generationtask,
             where={"id": task_id},
             select=_TASK_PREVIEW_SELECT,
         )
@@ -232,13 +306,15 @@ async def load_preview_material(
     if task is None:
         task_model = db_service.db.generationtask
         if hasattr(task_model, "find_first"):
-            task = await task_model.find_first(
+            task = await find_first_with_select_fallback(
+                model=task_model,
                 where={"sessionId": session_id},
                 order={"createdAt": "desc"},
                 select=_TASK_PREVIEW_SELECT,
             )
         else:
-            tasks = await task_model.find_many(
+            tasks = await find_many_with_select_fallback(
+                model=task_model,
                 where={"sessionId": session_id},
                 order={"createdAt": "desc"},
                 take=1,

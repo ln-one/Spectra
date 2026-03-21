@@ -41,8 +41,12 @@ def test_outline_document_split_titles_are_not_repetitive_indexes():
     titles = [node["title"] for node in document["nodes"]]
 
     assert len(set(titles)) == 3
-    assert all("（" not in title for title in titles)
-    assert all("·" in title for title in titles)
+    assert titles == [
+        "核心知识点（1/3）",
+        "核心知识点（2/3）",
+        "核心知识点（3/3）",
+    ]
+    assert all("·" not in title for title in titles)
 
 
 def test_outline_document_split_key_points_include_focus_anchors():

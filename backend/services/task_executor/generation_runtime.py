@@ -16,6 +16,7 @@ from schemas.generation import (
     requires_docx_output,
     requires_pptx_output,
 )
+from services.database.prisma_compat import find_unique_with_select_fallback
 from services.platform.state_transition_guard import GenerationState
 
 from .constants import TaskFailureStateReason
@@ -122,7 +123,8 @@ async def persist_preview_payload(
 ) -> None:
     """Persist preview payload into task inputData for cache-loss recovery."""
     try:
-        task = await db_service.db.generationtask.find_unique(
+        task = await find_unique_with_select_fallback(
+            model=db_service.db.generationtask,
             where={"id": task_id},
             select={"inputData": True},
         )
@@ -269,7 +271,8 @@ async def persist_generation_artifacts(
         return {}
 
     try:
-        session = await db_service.db.generationsession.find_unique(
+        session = await find_unique_with_select_fallback(
+            model=db_service.db.generationsession,
             where={"id": context.session_id},
             select={
                 "userId": True,

@@ -74,12 +74,15 @@ def _sanitize_key_points(key_points: list[str] | None) -> list[str]:
 def _build_split_slide_title(base_title: str, idx: int, total: int) -> str:
     if total <= 1:
         return base_title
-    suffix = _SLIDE_FOCUS_SUFFIX[idx % len(_SLIDE_FOCUS_SUFFIX)]
-    return f"{base_title} · {suffix}"
+    return f"{base_title}（{idx + 1}/{total}）"
 
 
 def _build_slide_key_points(base_key_points: list[str], idx: int) -> list[str]:
     points = _sanitize_key_points(base_key_points)
+    if any(
+        _focus in point for point in points for _focus in _SLIDE_FOCUS_SUFFIX
+    ):  # section already contains anchor semantics
+        return points
     focus = _SLIDE_FOCUS_SUFFIX[idx % len(_SLIDE_FOCUS_SUFFIX)]
     focus_point = _SLIDE_FOCUS_POINTS.get(focus)
     if focus_point and focus_point not in points:

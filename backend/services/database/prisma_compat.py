@@ -10,21 +10,10 @@ def _is_select_not_supported(exc: Exception) -> bool:
 async def find_many_with_select_fallback(
     *,
     model: Any,
-    where: dict[str, Any] | None = None,
-    order: dict[str, Any] | None = None,
-    take: int | None = None,
-    skip: int | None = None,
     select: dict[str, Any] | None = None,
+    **kwargs: Any,
 ) -> Any:
-    query: dict[str, Any] = {}
-    if where is not None:
-        query["where"] = where
-    if order is not None:
-        query["order"] = order
-    if take is not None:
-        query["take"] = take
-    if skip is not None:
-        query["skip"] = skip
+    query: dict[str, Any] = dict(kwargs)
     if select is not None:
         query["select"] = select
 
@@ -40,13 +29,10 @@ async def find_many_with_select_fallback(
 async def find_unique_with_select_fallback(
     *,
     model: Any,
-    where: dict[str, Any],
-    include: dict[str, Any] | None = None,
     select: dict[str, Any] | None = None,
+    **kwargs: Any,
 ) -> Any:
-    query: dict[str, Any] = {"where": where}
-    if include is not None:
-        query["include"] = include
+    query: dict[str, Any] = dict(kwargs)
     if select is not None:
         query["select"] = select
 
@@ -57,3 +43,22 @@ async def find_unique_with_select_fallback(
             raise
         query.pop("select", None)
         return await model.find_unique(**query)
+
+
+async def find_first_with_select_fallback(
+    *,
+    model: Any,
+    select: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> Any:
+    query: dict[str, Any] = dict(kwargs)
+    if select is not None:
+        query["select"] = select
+
+    try:
+        return await model.find_first(**query)
+    except TypeError as exc:
+        if select is None or not _is_select_not_supported(exc):
+            raise
+        query.pop("select", None)
+        return await model.find_first(**query)

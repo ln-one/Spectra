@@ -9,6 +9,7 @@ from schemas.project_semantics import (
 from schemas.project_space import ReferenceRelationType
 from schemas.project_vocabulary import ProjectReferenceMode
 from schemas.projects import ProjectCreate
+from services.database.prisma_compat import find_many_with_select_fallback
 from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
 from utils.exceptions import APIException, NotFoundException, ValidationException
 
@@ -206,7 +207,8 @@ class ProjectMixin:
             except (TypeError, ValueError, AttributeError):
                 aggregate_available = False
         if not aggregate_available:
-            uploads = await self.db.upload.find_many(
+            uploads = await find_many_with_select_fallback(
+                model=self.db.upload,
                 where=file_where,
                 select={"size": True},
             )

@@ -47,6 +47,46 @@ def _classify_outline_failure(exc: Exception) -> tuple[str, str, str]:
     )
 
 
+def _is_outline_version_unique_violation(exc: Exception) -> bool:
+    text = str(exc)
+    return "Unique constraint failed" in text or "UniqueViolationError" in text
+
+
+async def _persist_outline_version(
+    *,
+    db,
+    session_id: str,
+    outline_version: int,
+    outline_doc: dict,
+    change_reason: str,
+) -> None:
+    payload = {
+        "sessionId": session_id,
+        "version": outline_version,
+        "outlineData": json.dumps(outline_doc),
+        "changeReason": change_reason,
+    }
+    try:
+        await db.outlineversion.create(data=payload)
+        return
+    except Exception as exc:
+        if not _is_outline_version_unique_violation(exc):
+            raise
+        existing = await db.outlineversion.find_first(
+            where={"sessionId": session_id, "version": outline_version},
+            order={"createdAt": "desc"},
+        )
+        if not existing:
+            raise
+        await db.outlineversion.update(
+            where={"id": existing.id},
+            data={
+                "outlineData": payload["outlineData"],
+                "changeReason": payload["changeReason"],
+            },
+        )
+
+
 async def execute_outline_draft_local(
     *,
     db,
@@ -236,13 +276,12 @@ async def _generate_outline_doc(
 async def _persist_success(
     *, db, session_id: str, outline_doc: dict, outline_version: int
 ) -> None:
-    await db.outlineversion.create(
-        data={
-            "sessionId": session_id,
-            "version": outline_version,
-            "outlineData": json.dumps(outline_doc),
-            "changeReason": OutlineChangeReason.DRAFTED_ASYNC.value,
-        }
+    await _persist_outline_version(
+        db=db,
+        session_id=session_id,
+        outline_version=outline_version,
+        outline_doc=outline_doc,
+        change_reason=OutlineChangeReason.DRAFTED_ASYNC.value,
     )
     await db.generationsession.update(
         where={"id": session_id},
@@ -362,13 +401,12 @@ async def _persist_failure_fallback(
     )
     fallback_outline_doc["version"] = outline_version
 
-    await db.outlineversion.create(
-        data={
-            "sessionId": session_id,
-            "version": outline_version,
-            "outlineData": json.dumps(fallback_outline_doc),
-            "changeReason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
-        }
+    await _persist_outline_version(
+        db=db,
+        session_id=session_id,
+        outline_version=outline_version,
+        outline_doc=fallback_outline_doc,
+        change_reason=OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
     )
     await db.generationsession.update(
         where={"id": session_id},
