@@ -49,6 +49,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    env_file:
+      - ./backend/.env
     ports:
       - "8000:8000"
     volumes:
@@ -59,10 +61,8 @@ services:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
       - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
-      - DEFAULT_MODEL=qwen3.5-flash
-      - LARGE_MODEL=qwen3.5-plus
-      - SMALL_MODEL=qwen3.5-flash
       - AI_REQUEST_TIMEOUT_SECONDS=90
+      - CHAT_RAG_TIMEOUT_SECONDS=5
       - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
       - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
       - TOOL_CHECK_CACHE_TTL_SECONDS=300
@@ -108,6 +108,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    env_file:
+      - ./backend/.env
     restart: unless-stopped
     volumes:
       - ./backend:/app
@@ -117,10 +119,8 @@ services:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
       - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
-      - DEFAULT_MODEL=qwen3.5-flash
-      - LARGE_MODEL=qwen3.5-plus
-      - SMALL_MODEL=qwen3.5-flash
       - AI_REQUEST_TIMEOUT_SECONDS=90
+      - CHAT_RAG_TIMEOUT_SECONDS=5
       - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
       - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
       - TOOL_CHECK_CACHE_TTL_SECONDS=300

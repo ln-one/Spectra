@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from schemas.common import (
     build_source_reference_payload,
@@ -9,6 +10,41 @@ from services.database.prisma_compat import find_many_with_select_fallback
 
 from .refine_context import rerank_by_chapter
 from .shared import logger
+
+
+async def _search_rag_with_timeout(
+    *,
+    rag_service,
+    project_id: str,
+    query: str,
+    session_id: str | None,
+    rag_filters,
+):
+    timeout_seconds = float(os.getenv("CHAT_RAG_TIMEOUT_SECONDS", "5"))
+    search_coro = rag_service.search(
+        project_id=project_id,
+        query=query,
+        top_k=5,
+        score_threshold=0.3,
+        session_id=session_id,
+        filters=rag_filters,
+    )
+    if timeout_seconds <= 0:
+        return await search_coro
+
+    try:
+        return await asyncio.wait_for(search_coro, timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        message = (
+            "RAG search timed out after %.2fs for project=%s; "
+            "continuing without context"
+        )
+        logger.warning(
+            message,
+            timeout_seconds,
+            project_id,
+        )
+        return []
 
 
 async def load_rag_context(
@@ -35,13 +71,12 @@ async def load_rag_context(
                 select={"filename": True, "status": True},
             )
 
-        rag_search_task = _rag.search(
+        rag_search_task = _search_rag_with_timeout(
+            rag_service=_rag,
             project_id=project_id,
             query=query,
-            top_k=5,
-            score_threshold=0.3,
             session_id=session_id,
-            filters=rag_filters,
+            rag_filters=rag_filters,
         )
 
         if selected_uploads_task is not None:

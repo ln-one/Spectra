@@ -46,6 +46,7 @@ CHROMA_PERSIST_DIR="chroma_data"
 
 EMBEDDING_MODEL="text-embedding-v4"
 EMBEDDING_DIMENSION=1536
+CHAT_RAG_TIMEOUT_SECONDS=5
 
 # =============================================================================
 # File Storage Configuration

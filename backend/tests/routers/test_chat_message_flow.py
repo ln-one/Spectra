@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -121,3 +122,45 @@ async def test_load_rag_context_falls_back_when_upload_select_not_supported(
     assert len(upload_calls) == 2
     assert "select" in upload_calls[0]
     assert "select" not in upload_calls[1]
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_times_out_and_degrades(monkeypatch):
+    monkeypatch.setenv("CHAT_RAG_TIMEOUT_SECONDS", "0.01")
+    monkeypatch.setattr(
+        message_flow.db_service,
+        "db",
+        SimpleNamespace(upload=SimpleNamespace(find_many=AsyncMock(return_value=[]))),
+    )
+
+    async def _slow_search(*args, **kwargs):
+        await asyncio.sleep(0.05)
+        return [
+            SimpleNamespace(
+                content="slow",
+                score=0.9,
+                source=SimpleNamespace(
+                    chunk_id="chunk-1",
+                    source_type="document",
+                    filename="slow.pdf",
+                    page_number=1,
+                ),
+            )
+        ]
+
+    monkeypatch.setattr(rag_service, "search", _slow_search)
+
+    rag_results, citations, rag_hit, selected_files_hint, rag_payload = (
+        await message_flow.load_rag_context(
+            project_id="proj-1",
+            query="slow query",
+            session_id="sess-1",
+            rag_source_ids=None,
+        )
+    )
+
+    assert rag_results == []
+    assert citations == []
+    assert rag_hit is False
+    assert selected_files_hint == ""
+    assert rag_payload is None
