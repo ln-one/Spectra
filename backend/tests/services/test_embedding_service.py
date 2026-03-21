@@ -47,6 +47,24 @@ class TestEmbeddingServiceDashScope:
         with patch.dict("sys.modules", {"dashscope": mock_dashscope}):
             result = await dashscope_svc.embed_text("测试文本")
             assert len(result) == 1536
+            assert mock_text_embedding.call.call_args.kwargs["api_key"]
+
+    @pytest.mark.asyncio
+    async def test_embed_dashscope_without_api_key_falls_back_to_local(self):
+        svc = EmbeddingService(model="qwen3-vl-embedding")
+
+        with (
+            patch("services.media.embedding.DASHSCOPE_API_KEY", ""),
+            patch.object(
+                svc,
+                "_embed_local",
+                return_value=[[0.2] * 384],
+            ) as local_mock,
+        ):
+            result = await svc.embed_texts(["测试文本"])
+
+        assert len(result[0]) == 384
+        local_mock.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_embed_empty_list(self, dashscope_svc):

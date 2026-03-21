@@ -6,14 +6,20 @@ Embedding Service - 文本向量化
 
 import logging
 import os
+from pathlib import Path
 from typing import Optional
 
 import anyio
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
+BASE_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
+
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "qwen3-vl-embedding")
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
+DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "").strip()
 
 # DashScope 单次批量限制
 DASHSCOPE_BATCH_LIMIT = 25
@@ -94,6 +100,11 @@ class EmbeddingService:
         try:
             from dashscope import TextEmbedding
 
+            if not DASHSCOPE_API_KEY:
+                raise RuntimeError(
+                    "DashScope embedding unavailable: DASHSCOPE_API_KEY not set"
+                )
+
             all_embeddings: list[list[float]] = []
 
             # 分批处理，每批最多 25 条
@@ -102,6 +113,7 @@ class EmbeddingService:
                 response = TextEmbedding.call(
                     model=self._model,
                     input=batch,
+                    api_key=DASHSCOPE_API_KEY,
                 )
 
                 if response.status_code != 200:
