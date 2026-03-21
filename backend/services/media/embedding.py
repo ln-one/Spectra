@@ -1,7 +1,7 @@
 """
 Embedding Service - 文本向量化
 
-支持 DashScope qwen3-vl-embedding / text-embedding-v2 和 sentence-transformers 本地模型（备选）。
+支持 DashScope text-embedding-v4 / qwen3-vl-embedding 和 sentence-transformers 本地模型（备选）。
 """
 
 import logging
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "qwen3-vl-embedding")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "").strip()
 

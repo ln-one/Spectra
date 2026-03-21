@@ -43,7 +43,7 @@ CHROMA_HOST="localhost"
 CHROMA_PORT="8001"
 CHROMA_PERSIST_DIR="chroma_data"
 
-EMBEDDING_MODEL="qwen3-vl-embedding"
+EMBEDDING_MODEL="text-embedding-v4"
 EMBEDDING_DIMENSION=1536
 
 # =============================================================================
