@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { GenerationConfigPanel } from "@/components/project";
 import { STUDIO_TOOL_COMPONENTS } from "./tools";
-import type { StudioToolKey, ToolDraftState } from "./tools";
+import type { StudioToolKey, ToolDraftState, ToolFlowContext } from "./tools";
 import {
   ICON_LAYOUT_TRANSITION,
   TOOL_COLORS,
@@ -463,6 +463,38 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }
   };
 
+  const isWordToolExpanded = expandedTool === "word";
+  const toolFlowContext: ToolFlowContext = {
+    readiness: currentReadiness,
+    isLoadingProtocol: isLoadingCardProtocol,
+    isActionRunning: isStudioActionRunning,
+    isProtocolPending,
+    requiresSourceArtifact,
+    supportsChatRefine,
+    canExecute,
+    canRefine,
+    sourceOptions: currentCardId ? (sourceOptionsByCard[currentCardId] ?? []) : [],
+    selectedSourceId,
+    latestArtifacts: artifactHistoryByTool.word.map((item) => ({
+      artifactId: item.artifactId,
+      title: item.title,
+      status: item.status,
+      createdAt: item.createdAt,
+    })),
+    onSelectedSourceChange: (sourceId) => {
+      if (!currentCardId) return;
+      setSelectedSourceByCard((prev) => ({
+        ...prev,
+        [currentCardId]: sourceId,
+      }));
+    },
+    onLoadSources: () => handleStudioLoadSources(),
+    onPreviewExecution: () => handleStudioPreviewExecution(),
+    onExecute: () => handleStudioExecute(),
+    onRefine: () => handleStudioRefine(),
+    onExportArtifact: (artifactId) => exportArtifact(artifactId),
+  };
+
   return (
     <div
       className="project-panel-root h-full bg-transparent"
@@ -656,125 +688,135 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       </div>
                     ) : ExpandedToolComponent ? (
                       <div className="h-full flex flex-col gap-2">
-                        <div className="project-studio-protocol-bar rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-control-bg)] px-2 py-2 flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="project-studio-protocol-btn h-8 text-xs"
-                            onClick={() => {
-                              void handleStudioPreviewExecution();
-                            }}
-                            disabled={
-                              !currentCardId ||
-                              isStudioActionRunning ||
-                              isLoadingCardProtocol
-                            }
-                          >
-                            预览协议
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="project-studio-protocol-btn h-8 text-xs"
-                            onClick={() => {
-                              void handleStudioLoadSources();
-                            }}
-                            disabled={
-                              !currentCardId ||
-                              isStudioActionRunning ||
-                              isLoadingCardProtocol
-                            }
-                          >
-                            源成果
-                          </Button>
-                          {currentCardId &&
-                          sourceOptionsByCard[currentCardId]?.length > 0 ? (
-                            <select
-                              value={selectedSourceByCard[currentCardId] ?? ""}
-                              onChange={(event) =>
-                                setSelectedSourceByCard((prev) => ({
-                                  ...prev,
-                                  [currentCardId]: event.target.value || null,
-                                }))
-                              }
-                              className="project-studio-protocol-select h-8 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-2 text-xs text-[var(--project-text-primary)]"
-                            >
-                              {sourceOptionsByCard[currentCardId].map(
-                                (item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {(item.title || item.id.slice(0, 8)) +
-                                      (item.type ? ` (${item.type})` : "")}
-                                  </option>
-                                )
-                              )}
-                            </select>
-                          ) : null}
-                          <div className="ml-auto flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="project-studio-protocol-btn h-8 text-xs"
-                              onClick={() => {
-                                void handleStudioRefine();
-                              }}
-                              disabled={!canRefine || isLoadingCardProtocol}
-                            >
-                              Refine
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="project-studio-protocol-btn project-studio-protocol-btn-primary h-8 text-xs"
-                              onClick={() => {
-                                void handleStudioExecute();
-                              }}
-                              disabled={!canExecute || isLoadingCardProtocol}
-                            >
-                              执行
-                            </Button>
-                          </div>
-                        </div>
-                        {currentCardId ? (
-                          <div className="project-studio-protocol-meta rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-muted)] px-3 py-2 text-[11px] text-[var(--project-control-muted)]">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                                readiness: {currentReadiness ?? "loading"}
-                              </span>
-                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                                context:{" "}
-                                {currentCapability?.context_mode ?? "unknown"}
-                              </span>
-                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                                mode:{" "}
-                                {currentCapability?.execution_mode ?? "unknown"}
-                              </span>
-                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                                refine: {supportsChatRefine ? "on" : "off"}
-                              </span>
-                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                                source:{" "}
-                                {requiresSourceArtifact
-                                  ? "required"
-                                  : "optional"}
-                              </span>
+                        {!isWordToolExpanded ? (
+                          <>
+                            <div className="project-studio-protocol-bar rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-control-bg)] px-2 py-2 flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="project-studio-protocol-btn h-8 text-xs"
+                                onClick={() => {
+                                  void handleStudioPreviewExecution();
+                                }}
+                                disabled={
+                                  !currentCardId ||
+                                  isStudioActionRunning ||
+                                  isLoadingCardProtocol
+                                }
+                              >
+                                预览协议
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="project-studio-protocol-btn h-8 text-xs"
+                                onClick={() => {
+                                  void handleStudioLoadSources();
+                                }}
+                                disabled={
+                                  !currentCardId ||
+                                  isStudioActionRunning ||
+                                  isLoadingCardProtocol
+                                }
+                              >
+                                源成果
+                              </Button>
+                              {currentCardId &&
+                              sourceOptionsByCard[currentCardId]?.length > 0 ? (
+                                <select
+                                  value={
+                                    selectedSourceByCard[currentCardId] ?? ""
+                                  }
+                                  onChange={(event) =>
+                                    setSelectedSourceByCard((prev) => ({
+                                      ...prev,
+                                      [currentCardId]:
+                                        event.target.value || null,
+                                    }))
+                                  }
+                                  className="project-studio-protocol-select h-8 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-2 text-xs text-[var(--project-text-primary)]"
+                                >
+                                  {sourceOptionsByCard[currentCardId].map(
+                                    (item) => (
+                                      <option key={item.id} value={item.id}>
+                                        {(item.title || item.id.slice(0, 8)) +
+                                          (item.type ? ` (${item.type})` : "")}
+                                      </option>
+                                    )
+                                  )}
+                                </select>
+                              ) : null}
+                              <div className="ml-auto flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="project-studio-protocol-btn h-8 text-xs"
+                                  onClick={() => {
+                                    void handleStudioRefine();
+                                  }}
+                                  disabled={!canRefine || isLoadingCardProtocol}
+                                >
+                                  Refine
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="project-studio-protocol-btn project-studio-protocol-btn-primary h-8 text-xs"
+                                  onClick={() => {
+                                    void handleStudioExecute();
+                                  }}
+                                  disabled={!canExecute || isLoadingCardProtocol}
+                                >
+                                  执行
+                                </Button>
+                              </div>
                             </div>
-                            {requiresSourceArtifact && !hasSourceBinding ? (
-                              <p className="mt-1 text-amber-700">
-                                当前卡片执行需要先绑定源成果。
-                              </p>
+                            {currentCardId ? (
+                              <div className="project-studio-protocol-meta rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-muted)] px-3 py-2 text-[11px] text-[var(--project-control-muted)]">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    readiness: {currentReadiness ?? "loading"}
+                                  </span>
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    context:{" "}
+                                    {currentCapability?.context_mode ??
+                                      "unknown"}
+                                  </span>
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    mode:{" "}
+                                    {currentCapability?.execution_mode ??
+                                      "unknown"}
+                                  </span>
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    refine: {supportsChatRefine ? "on" : "off"}
+                                  </span>
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    source:{" "}
+                                    {requiresSourceArtifact
+                                      ? "required"
+                                      : "optional"}
+                                  </span>
+                                </div>
+                                {requiresSourceArtifact && !hasSourceBinding ? (
+                                  <p className="mt-1 text-amber-700">
+                                    当前卡片执行需要先绑定源成果。
+                                  </p>
+                                ) : null}
+                                {isProtocolPending ? (
+                                  <p className="mt-1 text-amber-700">
+                                    当前卡片协议处于 protocol_pending，执行/refine
+                                    已禁用。
+                                  </p>
+                                ) : null}
+                              </div>
                             ) : null}
-                            {isProtocolPending ? (
-                              <p className="mt-1 text-amber-700">
-                                当前卡片协议处于 protocol_pending，执行/refine
-                                已禁用。
-                              </p>
-                            ) : null}
-                          </div>
+                          </>
                         ) : null}
                         <div className="min-h-0 flex-1">
                           <ExpandedToolComponent
                             toolId={expandedTool as StudioToolKey}
                             toolName={TOOL_LABELS[expandedTool] ?? expandedTool}
                             onDraftChange={handleExpandedToolDraftChange}
+                            flowContext={toolFlowContext}
                           />
                         </div>
                       </div>
