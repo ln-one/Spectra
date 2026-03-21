@@ -96,7 +96,7 @@ export function DefaultOutlineView({
   onGoToPreview,
 }: DefaultOutlineViewProps) {
   return (
-    <div className="relative h-full overflow-hidden bg-[radial-gradient(circle_at_15%_10%,rgba(186,230,253,0.35),transparent_45%),radial-gradient(circle_at_85%_20%,rgba(196,181,253,0.25),transparent_35%),linear-gradient(180deg,#f8fafc,#f1f5f9)] font-sans">
+    <div className="relative h-full overflow-hidden bg-[radial-gradient(circle_at_15%_10%,rgba(186,230,253,0.35),transparent_45%),linear-gradient(180deg,#f8fafc,#f1f5f9)] font-sans">
       <DefaultOutlineNav
         topic={topic}
         slideCount={slides.length}
@@ -105,19 +105,19 @@ export function DefaultOutlineView({
         onHelp={onHelp}
       />
 
-      <div className="flex h-[calc(100%-56px)] min-h-0 gap-3 p-3 lg:p-4">
+      <div className="flex h-[calc(100%-56px)] min-h-0 gap-3 p-2.5 lg:p-3">
         <PptWorkflowRail
           currentStep={2}
-          className="hidden lg:block lg:w-[220px] lg:shrink-0"
+          className="hidden lg:block lg:w-[168px] lg:shrink-0"
         />
 
-        <div className="flex-1 min-h-0 overflow-hidden rounded-3xl border border-zinc-200/80 bg-white/80 shadow-[0_32px_90px_-55px_rgba(15,23,42,0.5)] backdrop-blur-sm">
+        <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white/85 shadow-[0_24px_70px_-50px_rgba(15,23,42,0.45)]">
           <div className="flex h-full min-h-0 flex-col lg:flex-row">
             <motion.div
               variants={containerVariants}
               initial="hidden"
               animate="visible"
-              className="order-2 flex-1 min-h-0 overflow-y-auto p-4 lg:order-1 lg:p-8"
+              className="order-2 flex-1 min-h-0 overflow-y-auto p-4 lg:order-1 lg:p-5"
             >
               <motion.section variants={itemVariants} className="mb-4 lg:hidden">
                 <PptWorkflowRail currentStep={2} />
@@ -125,13 +125,13 @@ export function DefaultOutlineView({
 
               <motion.section
                 variants={itemVariants}
-                className="mb-5 rounded-2xl border border-zinc-200 bg-white/90 p-4"
+                className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-xl font-semibold text-zinc-900">大纲共创工作台</h2>
+                    <h2 className="text-lg font-semibold text-zinc-900">大纲编辑</h2>
                     <p className="mt-1 text-sm text-zinc-500">
-                      当前第 2 步：完善结构后即可进入内容生成。
+                      现在是第 2 步：把每一页内容改到满意，再开始生成。
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -143,9 +143,12 @@ export function DefaultOutlineView({
                       className="border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                     >
                       <RefreshCw
-                        className={cn("mr-1.5 h-4 w-4", isRedrafting && "animate-spin")}
+                        className={cn(
+                          "mr-1.5 h-4 w-4",
+                          isRedrafting && "animate-spin"
+                        )}
                       />
-                      {isRedrafting ? "重生成中" : "重生成"}
+                      {isRedrafting ? "重做中" : "重新生成"}
                     </Button>
                     <Button
                       variant="ghost"
@@ -187,7 +190,7 @@ export function DefaultOutlineView({
                   className="mb-4 flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600"
                 >
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  正在生成大纲，马上进入可编辑状态...
+                  正在准备大纲，马上就可以编辑了...
                 </motion.div>
               ) : null}
 

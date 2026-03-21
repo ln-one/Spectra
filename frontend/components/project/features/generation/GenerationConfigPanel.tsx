@@ -67,19 +67,18 @@ export function GenerationConfigPanel({
   } = useGenerationConfigPanel({ onGenerate });
 
   return (
-    <div className="relative h-full min-h-0 overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 opacity-70">
-        <div className="absolute -left-20 top-8 h-52 w-52 rounded-full bg-blue-200/35 blur-3xl" />
-        <div className="absolute right-2 top-24 h-44 w-44 rounded-full bg-cyan-200/35 blur-3xl" />
-        <div className="absolute bottom-4 left-1/3 h-36 w-36 rounded-full bg-amber-100/35 blur-3xl" />
+    <div className="relative h-full min-h-0 overflow-hidden p-1">
+      <div className="pointer-events-none absolute inset-0 opacity-60">
+        <div className="absolute -left-20 top-8 h-44 w-44 rounded-full bg-blue-200/30 blur-3xl" />
+        <div className="absolute right-4 top-24 h-36 w-36 rounded-full bg-cyan-200/25 blur-3xl" />
       </div>
 
       <div
         className={cn(
           "relative z-10 grid h-full min-h-0 gap-3",
           compact
-            ? "grid-cols-1 lg:grid-cols-[180px_minmax(0,1fr)]"
-            : "grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)]"
+            ? "grid-cols-1 lg:grid-cols-[152px_minmax(0,1fr)]"
+            : "grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]"
         )}
       >
         <PptWorkflowRail
@@ -87,44 +86,44 @@ export function GenerationConfigPanel({
           className="hidden h-full min-h-0 overflow-y-auto lg:block"
         />
 
-        <Card className="h-full min-h-0 border-zinc-200/80 bg-white/80 text-zinc-900 shadow-[0_24px_80px_-45px_rgba(15,23,42,0.45)] backdrop-blur-sm">
+        <Card className="h-full min-h-0 border-zinc-200/80 bg-white/85 text-zinc-900 shadow-[0_20px_60px_-45px_rgba(15,23,42,0.45)] backdrop-blur-sm">
           <ScrollArea className="h-full min-h-0 pr-2">
             <motion.div
               variants={containerVariants}
               initial="hidden"
               animate="visible"
-              className={cn("space-y-4 pb-4", compact ? "pt-1.5" : "pt-3")}
+              className={cn("space-y-4 px-2 pb-4", compact ? "pt-3" : "pt-4")}
             >
               <motion.section variants={itemVariants} className="lg:hidden">
                 <PptWorkflowRail currentStep={1} />
               </motion.section>
 
               <motion.section variants={itemVariants}>
-                <Card className="overflow-hidden border-zinc-200/80 bg-[linear-gradient(150deg,#ffffff,#f8fafc)] text-zinc-900 shadow-[0_16px_50px_-35px_rgba(15,23,42,0.45)]">
+                <Card className="overflow-hidden border-zinc-200 bg-[linear-gradient(155deg,#ffffff,#f8fafc)] text-zinc-900 shadow-sm">
                   <CardHeader className="pb-4">
                     <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
                       <Wand2 className="h-4 w-4 text-blue-600" />
-                      一键搭建生成蓝图
+                      先把课件方向说清楚
                       <Badge className="ml-auto border-blue-200 bg-blue-50 text-blue-700">
-                        Step 1 / 3
+                        第 1 步
                       </Badge>
                     </CardTitle>
                     <p className="text-xs leading-5 text-zinc-600">
-                      这一页只做三件事：定义目标、选择结构、生成大纲。流程会自动衔接到下一步大纲共创。
+                      不用专业术语，像和同事沟通一样写出你的需求就行。
                     </p>
                   </CardHeader>
                   <CardContent className="grid gap-2 sm:grid-cols-3">
                     <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-                      <p className="text-[11px] font-medium text-zinc-500">教学目标</p>
-                      <p className="mt-1 text-xs font-medium text-zinc-900">先写“教什么”</p>
+                      <p className="text-[11px] font-medium text-zinc-500">讲什么</p>
+                      <p className="mt-1 text-xs font-medium text-zinc-900">课程主题</p>
                     </div>
                     <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-                      <p className="text-[11px] font-medium text-zinc-500">受众层次</p>
-                      <p className="mt-1 text-xs font-medium text-zinc-900">再写“给谁学”</p>
+                      <p className="text-[11px] font-medium text-zinc-500">给谁讲</p>
+                      <p className="mt-1 text-xs font-medium text-zinc-900">年级或对象</p>
                     </div>
                     <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-                      <p className="text-[11px] font-medium text-zinc-500">课堂活动</p>
-                      <p className="mt-1 text-xs font-medium text-zinc-900">最后写“怎么学”</p>
+                      <p className="text-[11px] font-medium text-zinc-500">怎么讲</p>
+                      <p className="mt-1 text-xs font-medium text-zinc-900">课堂形式</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -134,11 +133,11 @@ export function GenerationConfigPanel({
                 variants={itemVariants}
                 className="grid gap-4 lg:grid-cols-5"
               >
-                <Card className="border-zinc-200/80 bg-white/90 text-zinc-900 shadow-sm lg:col-span-3">
+                <Card className="border-zinc-200 bg-white/95 text-zinc-900 shadow-sm lg:col-span-3">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
                       <Compass className="h-4 w-4 text-blue-600" />
-                      需求描述
+                      课件需求说明
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -148,7 +147,7 @@ export function GenerationConfigPanel({
                           htmlFor="ppt-prompt-input"
                           className="text-xs font-medium text-zinc-600"
                         >
-                          提示词
+                          你的想法
                         </label>
                         <span className="text-[11px] text-zinc-500">
                           {prompt.length}/1200
@@ -158,28 +157,28 @@ export function GenerationConfigPanel({
                         id="ppt-prompt-input"
                         value={prompt}
                         onChange={(event) => setPrompt(event.target.value)}
-                        placeholder="例如：生成一份《图形显示设备》教学PPT，面向大二学生，要求理论讲解 + 案例分析 + 课堂讨论。"
-                        className="min-h-[160px] resize-none rounded-2xl border-zinc-200 bg-zinc-50/60 text-sm leading-6 shadow-inner focus-visible:ring-blue-300"
+                        placeholder="例如：我要做一份《图形显示设备》课件，面向大二学生，包含讲解、案例和课堂讨论。"
+                        className="min-h-[160px] resize-none rounded-2xl border-zinc-200 bg-zinc-50/70 text-sm leading-6 shadow-inner focus-visible:ring-blue-300"
                       />
                     </div>
                     <p className="text-[11px] leading-5 text-zinc-500">
-                      建议包含：课题、对象、章节范围、课堂活动形式。
+                      小建议：写清楚主题、对象、课堂活动，生成质量会更稳。
                     </p>
                   </CardContent>
                 </Card>
 
-                <Card className="border-zinc-200/80 bg-white/90 text-zinc-900 shadow-sm lg:col-span-2">
+                <Card className="border-zinc-200 bg-white/95 text-zinc-900 shadow-sm lg:col-span-2">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
                       <FileStack className="h-4 w-4 text-blue-600" />
-                      页面参数
+                      页面设置
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
                         <FileText className="h-3.5 w-3.5 text-zinc-500" />
-                        页数选择
+                        页数
                         <Badge
                           variant="outline"
                           className="ml-auto border-zinc-200 bg-zinc-50 text-[11px] text-zinc-700"
@@ -208,7 +207,7 @@ export function GenerationConfigPanel({
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
                         <LayoutTemplate className="h-3.5 w-3.5 text-zinc-500" />
-                        大纲风格
+                        风格偏好
                       </div>
                       <div className="grid grid-cols-1 gap-2">
                         {OUTLINE_STYLES.map((style) => (
@@ -238,11 +237,11 @@ export function GenerationConfigPanel({
               </motion.section>
 
               <motion.section variants={itemVariants}>
-                <Card className="border-zinc-200/80 bg-white/90 text-zinc-900 shadow-sm">
+                <Card className="border-zinc-200 bg-white/95 text-zinc-900 shadow-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
                       <Lightbulb className="h-4 w-4 text-amber-500" />
-                      智能提示词推荐
+                      不会写也没关系
                       <Button
                         variant="ghost"
                         size="sm"
@@ -256,7 +255,7 @@ export function GenerationConfigPanel({
                             loadingSuggestions && "animate-spin"
                           )}
                         />
-                        刷新推荐
+                        换几个示例
                       </Button>
                     </CardTitle>
                   </CardHeader>
@@ -275,7 +274,7 @@ export function GenerationConfigPanel({
                       ))}
                       {loadingSuggestions && suggestions.length === 0 ? (
                         <div className="rounded-2xl border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-500 lg:col-span-2">
-                          正在结合项目资料生成推荐提示词...
+                          正在准备示例内容...
                         </div>
                       ) : null}
                     </div>
@@ -284,14 +283,14 @@ export function GenerationConfigPanel({
               </motion.section>
 
               <motion.section variants={itemVariants} className="pb-1">
-                <Card className="border-zinc-200/80 bg-white/90 text-zinc-900 shadow-sm">
+                <Card className="border-zinc-200 bg-white/95 text-zinc-900 shadow-sm">
                   <CardContent className="flex flex-col gap-3 pt-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-zinc-900">
-                        生成大纲并进入共创
+                        开始生成大纲
                       </p>
                       <p className="mt-1 text-xs leading-5 text-zinc-500">
-                        系统将创建会话并等待大纲完成，随后自动进入第 2 步编辑区。
+                        下一步会进入大纲编辑页，你可以继续微调每一页。
                       </p>
                     </div>
                     <Button
@@ -305,7 +304,7 @@ export function GenerationConfigPanel({
                       {isCreatingSession ? (
                         <>
                           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                          创建任务中...
+                          正在创建...
                         </>
                       ) : (
                         <>
