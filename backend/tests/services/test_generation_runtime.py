@@ -12,7 +12,7 @@ from services.task_executor.generation_runtime import (
 def test_build_project_space_download_url():
     assert (
         _build_project_space_download_url(project_id="p-1", artifact_id="a-1")
-        == "/api/v1/project-space/p-1/artifacts/a-1/download"
+        == "/api/v1/projects/p-1/artifacts/a-1/download"
     )
 
 
@@ -53,6 +53,6 @@ async def test_persist_generation_artifacts_returns_download_urls():
     )
 
     assert output_urls == {
-        "pptx": "/api/v1/project-space/p-1/artifacts/artifact-ppt/download",
-        "docx": "/api/v1/project-space/p-1/artifacts/artifact-doc/download",
+        "pptx": "/api/v1/projects/p-1/artifacts/artifact-ppt/download",
+        "docx": "/api/v1/projects/p-1/artifacts/artifact-doc/download",
     }

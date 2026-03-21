@@ -38,7 +38,7 @@ def _build_project_space_download_url(
     project_id: str,
     artifact_id: str,
 ) -> str:
-    return f"/api/v1/project-space/{project_id}/artifacts/{artifact_id}/download"
+    return f"/api/v1/projects/{project_id}/artifacts/{artifact_id}/download"
 
 
 async def build_generation_inputs(db_service, context: GenerationExecutionContext):

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from typing import Optional
 
 from schemas.generation import TaskStatus, normalize_generation_type
@@ -60,6 +61,7 @@ async def execute_generation_task(
     )
     db_service = DatabaseService()
     db_connected = False
+    timings: dict[str, float] = {}
 
     try:
         await asyncio.wait_for(db_service.connect(), timeout=10)
@@ -82,28 +84,62 @@ async def execute_generation_task(
         task_record = await db_service.get_generation_task(task_id)
         context.session_id = getattr(task_record, "sessionId", None)
 
+        ai_started_at = time.perf_counter()
         courseware_content = await build_generation_inputs(db_service, context)
+        timings["build_inputs_ms"] = round(
+            (time.perf_counter() - ai_started_at) * 1000, 2
+        )
+
+        cache_started_at = time.perf_counter()
         await cache_preview_content(task_id, courseware_content)
+        timings["cache_preview_ms"] = round(
+            (time.perf_counter() - cache_started_at) * 1000, 2
+        )
         await db_service.update_generation_task_status(
             task_id, TaskStatus.PROCESSING, 30
         )
 
+        render_started_at = time.perf_counter()
         output_urls, artifact_paths = await render_generation_outputs(
             db_service=db_service,
             context=context,
             courseware_content=courseware_content,
         )
+        timings["render_outputs_ms"] = round(
+            (time.perf_counter() - render_started_at) * 1000, 2
+        )
+
+        persist_started_at = time.perf_counter()
         persisted_output_urls = await persist_generation_artifacts(
             db_service=db_service,
             context=context,
             artifact_paths=artifact_paths,
         )
+        timings["persist_artifacts_ms"] = round(
+            (time.perf_counter() - persist_started_at) * 1000, 2
+        )
         if persisted_output_urls:
             output_urls.update(persisted_output_urls)
+
+        finalize_started_at = time.perf_counter()
         await finalize_generation_success(
             db_service=db_service,
             context=context,
             output_urls=output_urls,
+        )
+        timings["finalize_ms"] = round(
+            (time.perf_counter() - finalize_started_at) * 1000, 2
+        )
+        logger.info(
+            "generation_task_stage_timing task_id=%s session_id=%s timings=%s",
+            task_id,
+            context.session_id,
+            timings,
+            extra={
+                "task_id": task_id,
+                "session_id": context.session_id,
+                "timings": timings,
+            },
         )
 
     except RETRYABLE_ERRORS as exc:

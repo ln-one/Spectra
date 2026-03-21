@@ -666,6 +666,23 @@ async def test_get_studio_card_execution_plan_returns_protocol_bindings(app, _as
 
 
 @pytest.mark.anyio
+async def test_get_studio_card_execution_plan_uses_projects_artifact_endpoint(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/generate/studio-cards/interactive_quick_quiz/execution-plan"
+    )
+
+    assert response.status_code == 200
+    plan = response.json()["data"]["execution_plan"]
+    assert (
+        plan["initial_binding"]["endpoint"] == "/api/v1/projects/{project_id}/artifacts"
+    )
+
+
+@pytest.mark.anyio
 async def test_get_studio_card_execution_plan_returns_source_binding_when_needed(
     app, _as_user
 ):
