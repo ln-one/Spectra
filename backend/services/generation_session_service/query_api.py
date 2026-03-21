@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from services.generation_session_service.preview_queries import (
+    get_session_preview_snapshot as query_session_preview_snapshot,
+)
 from services.generation_session_service.queries import get_events as query_events
 from services.generation_session_service.queries import (
     get_session_artifact_history as query_session_artifact_history,
@@ -28,6 +31,15 @@ class SessionQueryMixin:
         return await query_session_snapshot(
             db=self._db,
             guard=self._guard,
+            session_id=session_id,
+            user_id=user_id,
+            contract_version=self.CONTRACT_VERSION,
+            schema_version=self.SCHEMA_VERSION,
+        )
+
+    async def get_session_preview_snapshot(self, session_id: str, user_id: str) -> dict:
+        return await query_session_preview_snapshot(
+            db=self._db,
             session_id=session_id,
             user_id=user_id,
             contract_version=self.CONTRACT_VERSION,

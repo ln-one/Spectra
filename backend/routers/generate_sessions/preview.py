@@ -17,7 +17,7 @@ from routers.generate_sessions.candidate_changes import (
 from routers.generate_sessions.shared import (
     execute_session_command_or_raise,
     get_session_service,
-    load_session_snapshot_or_raise,
+    load_session_preview_snapshot_or_raise,
     parse_idempotency_key,
     raise_conflict,
     validate_optional_positive_int,
@@ -93,7 +93,7 @@ def _normalize_export_format(raw_format: object) -> str:
 
 async def _get_snapshot(session_id: str, user_id: str) -> dict:
     svc = _get_session_service()
-    return await load_session_snapshot_or_raise(svc, session_id, user_id)
+    return await load_session_preview_snapshot_or_raise(svc, session_id, user_id)
 
 
 async def _resolve_anchor(session_id: str, snapshot: dict, artifact_id: Optional[str]):

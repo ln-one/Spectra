@@ -713,6 +713,82 @@ async def test_get_session_runtime_state_uses_lightweight_select():
 
 
 @pytest.mark.anyio
+async def test_get_session_preview_snapshot_uses_lightweight_queries():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    session.pptUrl = "/api/v1/projects/p-001/artifacts/a-ppt/download"
+    session.wordUrl = "/api/v1/projects/p-001/artifacts/a-doc/download"
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        generationtask=SimpleNamespace(
+            find_first=AsyncMock(return_value=SimpleNamespace(id="task-123"))
+        ),
+        artifact=SimpleNamespace(
+            find_first=AsyncMock(
+                return_value=SimpleNamespace(id="a-123", basedOnVersionId="ver-001")
+            )
+        ),
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(currentVersionId="ver-009")
+            )
+        ),
+    )
+    service = GenerationSessionService(db=db)
+
+    payload = await service.get_session_preview_snapshot(
+        session_id="s-001",
+        user_id="u-001",
+    )
+
+    assert payload["session"]["task_id"] == "task-123"
+    assert payload["artifact_id"] == "a-123"
+    assert payload["based_on_version_id"] == "ver-001"
+    assert payload["current_version_id"] == "ver-009"
+    assert payload["upstream_updated"] is True
+    assert payload["result"]["ppt_url"] == session.pptUrl
+    assert payload["result"]["word_url"] == session.wordUrl
+    session_lookup = db.generationsession.find_unique.await_args.kwargs
+    assert "include" not in session_lookup
+    assert set(session_lookup["select"].keys()) == {
+        "id",
+        "projectId",
+        "userId",
+        "baseVersionId",
+        "state",
+        "stateReason",
+        "progress",
+        "resumable",
+        "updatedAt",
+        "renderVersion",
+        "options",
+        "pptUrl",
+        "wordUrl",
+    }
+
+
+@pytest.mark.anyio
+async def test_get_session_preview_snapshot_gracefully_handles_missing_artifacts():
+    session = _fake_session(state=GenerationState.RENDERING.value)
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        generationtask=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        get_project=AsyncMock(return_value=SimpleNamespace(currentVersionId="ver-002")),
+    )
+    service = GenerationSessionService(db=db)
+
+    payload = await service.get_session_preview_snapshot(
+        session_id="s-001",
+        user_id="u-001",
+    )
+
+    assert payload["artifact_id"] is None
+    assert payload["based_on_version_id"] is None
+    assert payload["current_version_id"] == "ver-002"
+    assert payload["upstream_updated"] is False
+    assert payload["result"] is None
+
+
+@pytest.mark.anyio
 async def test_get_session_snapshot_loads_latest_outline_and_task_from_models():
     session = _fake_session(
         state=GenerationState.SUCCESS.value, options='{"pages": 12}'
