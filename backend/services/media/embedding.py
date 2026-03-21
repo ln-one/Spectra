@@ -12,6 +12,8 @@ from typing import Optional
 import anyio
 from dotenv import load_dotenv
 
+from utils.upstream_failures import classify_upstream_failure
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -32,29 +34,6 @@ def _resolve_embedding_dimension() -> int:
 
 def _resolve_dashscope_api_key() -> str:
     return os.getenv("DASHSCOPE_API_KEY", "").strip()
-
-
-def _classify_embedding_failure(exc: Exception) -> str:
-    message = (str(exc) or exc.__class__.__name__).lower()
-    if "timeout" in message or "timed out" in message:
-        return "timeout"
-    if (
-        "api key" in message
-        or "authentication" in message
-        or "access denied" in message
-        or "unauthorized" in message
-    ):
-        return "provider_auth"
-    if "not set" in message or "not configured" in message:
-        return "provider_config"
-    if (
-        "network" in message
-        or "connection" in message
-        or "503" in message
-        or "service unavailable" in message
-    ):
-        return "provider_unavailable"
-    return "unexpected"
 
 
 class EmbeddingService:
@@ -200,7 +179,7 @@ class EmbeddingService:
                 extra={
                     "embedding_model": self._model,
                     "embedding_provider": "dashscope",
-                    "embedding_failure_type": _classify_embedding_failure(e),
+                    "embedding_failure_type": classify_upstream_failure(e),
                     "fallback_used": True,
                     "fallback_target": "local_sentence_transformers",
                     "provider_message": str(e),

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import services.rag_service as rag_module
 from services.ai.rag_context import retrieve_rag_context
 
 
@@ -15,10 +16,7 @@ async def test_retrieve_rag_context_returns_serialized_results(monkeypatch):
     async def _fake_search(**kwargs):
         return [_Result()]
 
-    monkeypatch.setattr(
-        "services.rag_service.rag_service.search",
-        _fake_search,
-    )
+    monkeypatch.setattr(rag_module.rag_service, "search", _fake_search)
 
     result = await retrieve_rag_context(
         service=SimpleNamespace(),
@@ -35,10 +33,7 @@ async def test_retrieve_rag_context_logs_structured_failure(caplog, monkeypatch)
     async def _fake_search(**kwargs):
         raise RuntimeError("DASHSCOPE_API_KEY not set")
 
-    monkeypatch.setattr(
-        "services.rag_service.rag_service.search",
-        _fake_search,
-    )
+    monkeypatch.setattr(rag_module.rag_service, "search", _fake_search)
 
     with caplog.at_level(logging.WARNING):
         result = await retrieve_rag_context(
@@ -57,5 +52,5 @@ async def test_retrieve_rag_context_logs_structured_failure(caplog, monkeypatch)
     )
     assert record.project_id == "project-001"
     assert record.session_id == "session-001"
-    assert record.rag_failure_type == "provider_config"
+    assert record.rag_failure_type == "config_error"
     assert record.filters_present is True

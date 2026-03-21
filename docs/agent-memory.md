@@ -113,6 +113,12 @@
 - Meaning: when remote embedding fails and the system degrades to local sentence-transformers, logs should record failure type, provider, model, and fallback target explicitly.
 - Why it matters: otherwise RAG slowness looks opaque and downstream logs cannot distinguish provider config/auth failures from normal retrieval misses.
 
+### 2.16 Upstream failures should use one shared vocabulary
+
+- Status: `confirmed`
+- Meaning: `AI completion`, `embedding`, and `RAG` degradation should classify upstream failures with the same core vocabulary: `auth_error`, `config_error`, `timeout`, `provider_unavailable`, `completion_error`.
+- Why it matters: if each pipeline invents its own names, observability fragments and incident triage turns into message-string archaeology.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated

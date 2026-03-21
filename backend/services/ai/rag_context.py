@@ -1,24 +1,9 @@
 import logging
 from typing import Optional
 
+from utils.upstream_failures import classify_upstream_failure
+
 logger = logging.getLogger(__name__)
-
-
-def _classify_rag_failure(exc: Exception) -> str:
-    message = (str(exc) or exc.__class__.__name__).lower()
-    if "timeout" in message or "timed out" in message:
-        return "timeout"
-    if (
-        "api key" in message
-        or "authentication" in message
-        or "access denied" in message
-    ):
-        return "provider_auth"
-    if "not set" in message or "not configured" in message:
-        return "provider_config"
-    if "network" in message or "connection" in message or "503" in message:
-        return "provider_unavailable"
-    return "unexpected"
 
 
 async def retrieve_rag_context(
@@ -50,7 +35,7 @@ async def retrieve_rag_context(
             extra={
                 "project_id": project_id,
                 "session_id": session_id,
-                "rag_failure_type": _classify_rag_failure(e),
+                "rag_failure_type": classify_upstream_failure(e),
                 "filters_present": bool(filters),
             },
             exc_info=True,

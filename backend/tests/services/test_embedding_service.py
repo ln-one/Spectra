@@ -133,7 +133,7 @@ class TestEmbeddingServiceDashScope:
         )
         assert record.embedding_model == "text-embedding-v4"
         assert record.embedding_provider == "dashscope"
-        assert record.embedding_failure_type == "provider_config"
+        assert record.embedding_failure_type == "config_error"
         assert record.fallback_used is True
         assert record.fallback_target == "local_sentence_transformers"
 

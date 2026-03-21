@@ -4,6 +4,7 @@ from typing import Any
 
 from services.ai.model_router import ModelRouteFailureReason
 from utils.exceptions import ErrorCode, ExternalServiceException
+from utils.upstream_failures import describe_upstream_failure
 
 
 def with_route_failure(
@@ -80,68 +81,17 @@ def normalize_route_task_value(route_task) -> str | None:
 
 
 def describe_completion_error(exc: Exception) -> dict[str, Any]:
-    raw_message = str(exc).strip() or exc.__class__.__name__
-    lowered = raw_message.lower()
-
-    if (
-        "invalid api key" in lowered
-        or "unauthorized" in lowered
-        or "authentication" in lowered
-        or "access denied" in lowered
-        or "permission denied" in lowered
-        or "api key" in lowered
-        and ("invalid" in lowered or "missing" in lowered)
-    ):
-        return {
-            "failure_type": "auth_error",
-            "message": "上游模型提供方鉴权失败或配置错误",
-            "retryable": False,
-            "raw_message": raw_message,
-        }
-
-    if (
-        "not configured" in lowered
-        or "provider_unavailable" in lowered
-        or "missing api key" in lowered
-        or "no provider" in lowered
-    ):
-        return {
-            "failure_type": "config_error",
-            "message": "上游模型提供方配置缺失或不可用",
-            "retryable": False,
-            "raw_message": raw_message,
-        }
-
-    if "timeout" in lowered or "timed out" in lowered or "deadline exceeded" in lowered:
-        return {
-            "failure_type": "timeout",
-            "message": "上游模型响应超时",
-            "retryable": True,
-            "raw_message": raw_message,
-        }
-
-    if (
-        "service unavailable" in lowered
-        or "temporarily unavailable" in lowered
-        or "connection" in lowered
-        or "network" in lowered
-        or "bad gateway" in lowered
-        or "rate limit" in lowered
-        or "429" in lowered
-        or "503" in lowered
-    ):
-        return {
-            "failure_type": "provider_unavailable",
-            "message": "上游模型提供方暂不可用",
-            "retryable": True,
-            "raw_message": raw_message,
-        }
-
+    error_info = describe_upstream_failure(exc)
+    message_overrides = {
+        "auth_error": "上游模型提供方鉴权失败或配置错误",
+        "config_error": "上游模型提供方配置缺失或不可用",
+        "timeout": "上游模型响应超时",
+        "provider_unavailable": "上游模型提供方暂不可用",
+        "completion_error": "上游模型调用失败",
+    }
     return {
-        "failure_type": "completion_error",
-        "message": "上游模型调用失败",
-        "retryable": True,
-        "raw_message": raw_message,
+        **error_info,
+        "message": message_overrides[error_info["failure_type"]],
     }
 
 
