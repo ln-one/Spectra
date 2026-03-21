@@ -11,7 +11,6 @@ from .project_records import (
     get_artifact,
     get_artifact_storage_path_response,
     get_idempotency_response,
-    get_project_current_version_id,
     get_project_artifacts,
     get_project_current_version_id,
     get_project_version,
