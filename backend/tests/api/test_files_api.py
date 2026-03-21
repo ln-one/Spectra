@@ -63,6 +63,10 @@ def _patch_cleanup(monkeypatch):
 
 def test_upload_file_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
+    get_idempotency = AsyncMock(return_value=None)
+    save_idempotency = AsyncMock(return_value=None)
+    monkeypatch.setattr(db_service, "get_idempotency_response", get_idempotency)
+    monkeypatch.setattr(db_service, "save_idempotency_response", save_idempotency)
     _mock(monkeypatch, file_service, "save_file", ("uploads/a.pdf", 3))
     _mock(monkeypatch, db_service, "create_upload", _fake_upload())
     _mock(monkeypatch, db_service, "update_upload_status", _fake_upload())
@@ -87,6 +91,38 @@ def test_upload_file_success(client, monkeypatch, _as_user):
     assert file_payload["parse_details"]["text_length"] == 12
     assert "fileType" not in file_payload
     assert "parseResult" not in file_payload
+    get_idempotency.assert_awaited_once_with(
+        "files:single:u-001:p-001:-:00000000-0000-0000-0000-000000000011"
+    )
+    save_idempotency.assert_awaited_once()
+
+
+def test_upload_file_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    cached = {
+        "success": True,
+        "data": {"file": {"id": "f-cached", "file_type": "pdf", "file_size": 3}},
+        "message": "文件上传成功",
+    }
+    get_idempotency = AsyncMock(return_value=cached)
+    save_idempotency = AsyncMock(return_value=None)
+    monkeypatch.setattr(db_service, "get_idempotency_response", get_idempotency)
+    monkeypatch.setattr(db_service, "save_idempotency_response", save_idempotency)
+    save_file_mock = AsyncMock(side_effect=AssertionError("should not save file"))
+    monkeypatch.setattr(file_service, "save_file", save_file_mock)
+
+    resp = client.post(
+        "/api/v1/files",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"project_id": _PROJECT_ID, "session_id": "s-001"},
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000012"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == cached
+    get_idempotency.assert_awaited_once_with(
+        "files:single:u-001:p-001:s-001:00000000-0000-0000-0000-000000000012"
+    )
+    save_idempotency.assert_not_awaited()
 
 
 def test_upload_file_invalid_idempotency_key_400(client, _as_user):
@@ -145,6 +181,9 @@ def test_upload_file_internal_error_uses_unified_error_contract(
 
 def test_batch_upload_partial_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
+    _mock(monkeypatch, db_service, "get_idempotency_response", None)
+    save_idempotency = AsyncMock(return_value=None)
+    monkeypatch.setattr(db_service, "save_idempotency_response", save_idempotency)
 
     save_file_mock = AsyncMock(return_value=("uploads/a.pdf", 3))
     monkeypatch.setattr(file_service, "save_file", save_file_mock)
@@ -165,6 +204,60 @@ def test_batch_upload_partial_success(client, monkeypatch, _as_user):
     body = resp.json()["data"]
     assert body["total"] == 1
     assert len(body["failed"]) == 1
+    save_idempotency.assert_not_awaited()
+
+
+def test_batch_upload_idempotency_hit_returns_cached(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    cached = {
+        "success": True,
+        "data": {"files": [{"id": "f-cached"}], "total": 1, "failed": None},
+        "message": "批量上传完成",
+    }
+    get_idempotency = AsyncMock(return_value=cached)
+    save_idempotency = AsyncMock(return_value=None)
+    monkeypatch.setattr(db_service, "get_idempotency_response", get_idempotency)
+    monkeypatch.setattr(db_service, "save_idempotency_response", save_idempotency)
+    save_file_mock = AsyncMock(side_effect=AssertionError("should not save files"))
+    monkeypatch.setattr(file_service, "save_file", save_file_mock)
+
+    resp = client.post(
+        "/api/v1/files/batch",
+        files=[("files", ("a.pdf", b"%PDF-1.4", "application/pdf"))],
+        data={"project_id": _PROJECT_ID, "session_id": "s-001"},
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000013"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == cached
+    get_idempotency.assert_awaited_once_with(
+        "files:batch:u-001:p-001:s-001:00000000-0000-0000-0000-000000000013"
+    )
+    save_idempotency.assert_not_awaited()
+
+
+def test_batch_upload_persists_idempotency_on_miss(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    get_idempotency = AsyncMock(return_value=None)
+    save_idempotency = AsyncMock(return_value=None)
+    monkeypatch.setattr(db_service, "get_idempotency_response", get_idempotency)
+    monkeypatch.setattr(db_service, "save_idempotency_response", save_idempotency)
+    save_file_mock = AsyncMock(return_value=("uploads/a.pdf", 3))
+    monkeypatch.setattr(file_service, "save_file", save_file_mock)
+    _mock(monkeypatch, db_service, "create_upload", _fake_upload())
+    _mock(monkeypatch, db_service, "update_upload_status", _fake_upload())
+    _mock(monkeypatch, db_service, "get_file", _fake_upload())
+
+    resp = client.post(
+        "/api/v1/files/batch",
+        files=[("files", ("a.pdf", b"%PDF-1.4", "application/pdf"))],
+        data={"project_id": _PROJECT_ID, "session_id": "s-001"},
+        headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000014"},
+    )
+    assert resp.status_code == 200
+    get_idempotency.assert_awaited_once_with(
+        "files:batch:u-001:p-001:s-001:00000000-0000-0000-0000-000000000014"
+    )
+    save_idempotency.assert_awaited_once()
 
 
 def test_update_file_intent_success(client, monkeypatch, _as_user):

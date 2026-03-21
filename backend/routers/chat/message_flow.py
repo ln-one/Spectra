@@ -43,12 +43,22 @@ async def load_rag_context(
         )
 
         if selected_uploads_task is not None:
-            selected_uploads, rag_results = await asyncio.gather(
-                selected_uploads_task, rag_search_task
+            selected_uploads_result, rag_results_result = await asyncio.gather(
+                selected_uploads_task, rag_search_task, return_exceptions=True
             )
-            if selected_uploads:
+            if isinstance(rag_results_result, Exception):
+                raise rag_results_result
+            rag_results = rag_results_result
+
+            if isinstance(selected_uploads_result, Exception):
+                logger.warning(
+                    "Failed to load selected uploads, continue with rag results: %s",
+                    selected_uploads_result,
+                )
+            elif selected_uploads_result:
                 names = [
-                    f"{upload.filename}({upload.status})" for upload in selected_uploads
+                    f"{upload.filename}({upload.status})"
+                    for upload in selected_uploads_result
                 ]
                 selected_files_hint = "已选资料（含解析状态）： " + "，".join(names)
         else:

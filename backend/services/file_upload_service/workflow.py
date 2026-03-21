@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import BackgroundTasks, Request, UploadFile
+from fastapi.encoders import jsonable_encoder
 
 from services.database import db_service
 from services.file import file_service
@@ -42,6 +43,20 @@ def _build_batch_upload_response_message(files: list[dict], failed: list[dict]) 
     if statuses == {UploadStatus.READY.value}:
         return "批量上传并解析完成"
     return "批量上传完成"
+
+
+def _build_upload_idempotency_cache_key(
+    *,
+    user_id: str,
+    project_id: str,
+    session_id: Optional[str],
+    idempotency_key: Optional[str],
+    scope: str,
+) -> Optional[str]:
+    if not idempotency_key:
+        return None
+    session_token = session_id or "-"
+    return f"files:{scope}:{user_id}:{project_id}:{session_token}:{idempotency_key}"
 
 
 async def save_and_record_upload(file: UploadFile, project_id: str):
@@ -88,8 +103,21 @@ async def upload_file_response(
     project_id: str,
     session_id: Optional[str],
     user_id: str,
+    idempotency_key: Optional[str] = None,
 ):
     await verify_project_access(project_id, user_id)
+    cache_key = _build_upload_idempotency_cache_key(
+        user_id=user_id,
+        project_id=project_id,
+        session_id=session_id,
+        idempotency_key=idempotency_key,
+        scope="single",
+    )
+    if cache_key:
+        cached_response = await db_service.get_idempotency_response(cache_key)
+        if cached_response:
+            return cached_response
+
     file_payload = await _prepare_uploaded_file(
         request=request,
         background_tasks=background_tasks,
@@ -97,10 +125,15 @@ async def upload_file_response(
         project_id=project_id,
         session_id=session_id,
     )
-    return success_response(
+    response = success_response(
         data={"file": file_payload},
         message=_build_upload_response_message(file_payload),
     )
+    if cache_key:
+        await db_service.save_idempotency_response(
+            cache_key, jsonable_encoder(response)
+        )
+    return response
 
 
 async def batch_upload_files_response(
@@ -110,8 +143,20 @@ async def batch_upload_files_response(
     project_id: str,
     session_id: Optional[str],
     user_id: str,
+    idempotency_key: Optional[str] = None,
 ):
     await verify_project_access(project_id, user_id)
+    cache_key = _build_upload_idempotency_cache_key(
+        user_id=user_id,
+        project_id=project_id,
+        session_id=session_id,
+        idempotency_key=idempotency_key,
+        scope="batch",
+    )
+    if cache_key:
+        cached_response = await db_service.get_idempotency_response(cache_key)
+        if cached_response:
+            return cached_response
 
     uploaded_files = []
     failed = []
@@ -129,7 +174,7 @@ async def batch_upload_files_response(
         except Exception as exc:
             failed.append({"filename": file.filename, "error": str(exc)})
 
-    return success_response(
+    response = success_response(
         data={
             "files": uploaded_files,
             "total": len(uploaded_files),
@@ -137,3 +182,8 @@ async def batch_upload_files_response(
         },
         message=_build_batch_upload_response_message(uploaded_files, failed),
     )
+    if cache_key:
+        await db_service.save_idempotency_response(
+            cache_key, jsonable_encoder(response)
+        )
+    return response

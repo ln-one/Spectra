@@ -42,6 +42,7 @@ async def upload_file(
             project_id=project_id,
             session_id=session_id,
             user_id=user_id,
+            idempotency_key=str(idempotency_key) if idempotency_key else None,
         )
         logger.info(
             "file_uploaded",
@@ -87,6 +88,7 @@ async def batch_upload_files(
             project_id=project_id,
             session_id=session_id,
             user_id=user_id,
+            idempotency_key=str(idempotency_key) if idempotency_key else None,
         )
         payload = response["data"]
         logger.info(
