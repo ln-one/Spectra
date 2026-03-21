@@ -60,6 +60,53 @@ class TestVectorService:
         with pytest.raises(InternalError):
             svc.delete_collection("proj-error")
 
+    def test_persistent_mode_ignores_http_host(self, svc, monkeypatch):
+        monkeypatch.setenv("CHROMA_MODE", "persistent")
+        monkeypatch.setenv("CHROMA_HOST", "chromadb")
+
+        persistent_calls = []
+
+        class DummyClient:
+            def heartbeat(self):
+                return 1
+
+        monkeypatch.setattr(
+            "services.media.vector.chromadb.PersistentClient",
+            lambda path: persistent_calls.append(path) or DummyClient(),
+        )
+        monkeypatch.setattr(
+            "services.media.vector.chromadb.HttpClient",
+            lambda **kwargs: pytest.fail("http mode should not be used"),
+        )
+
+        svc.client
+
+        assert persistent_calls == [svc._persist_dir]
+
+    def test_http_mode_prefers_http_client(self, svc, monkeypatch):
+        monkeypatch.setenv("CHROMA_MODE", "http")
+        monkeypatch.setenv("CHROMA_HOST", "chromadb")
+        monkeypatch.setenv("CHROMA_PORT", "8000")
+        monkeypatch.setattr(
+            "services.media.vector.socket.create_connection",
+            lambda *args, **kwargs: MockSocket(),
+        )
+
+        http_calls = []
+
+        class DummyClient:
+            def heartbeat(self):
+                return 1
+
+        monkeypatch.setattr(
+            "services.media.vector.chromadb.HttpClient",
+            lambda host, port: http_calls.append((host, port)) or DummyClient(),
+        )
+
+        svc.client
+
+        assert http_calls == [("chromadb", "8000")]
+
     def test_add_and_query(self, svc):
         """基本的向量添加和查询（使用显式 embedding，避免依赖默认模型）"""
         col = svc.get_or_create_collection("proj-query")
@@ -79,3 +126,8 @@ class TestVectorService:
         returned_ids = set(results["ids"][0])
         assert "chunk-1" in returned_ids
         assert "chunk-2" in returned_ids
+
+
+class MockSocket:
+    def close(self):
+        return None

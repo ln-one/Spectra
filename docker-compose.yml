@@ -70,6 +70,7 @@ services:
       - GENERATION_TOOLS_REQUIRED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - CHROMA_MODE=persistent
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
       - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
@@ -107,6 +108,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    restart: unless-stopped
     volumes:
       - ./backend:/app
       - /app/venv
@@ -126,6 +128,7 @@ services:
       - GENERATION_TOOLS_REQUIRED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - CHROMA_MODE=persistent
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
       - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma

@@ -21,8 +21,10 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "").strip()
 
-# DashScope 单次批量限制
-DASHSCOPE_BATCH_LIMIT = 25
+# DashScope 单次批量限制（不同模型上限不同）
+DEFAULT_DASHSCOPE_BATCH_LIMIT = 25
+TEXT_EMBEDDING_V4_BATCH_LIMIT = 10
+MULTIMODAL_EMBEDDING_BATCH_LIMIT = 10
 
 
 class EmbeddingService:
@@ -51,6 +53,14 @@ class EmbeddingService:
     def _uses_multimodal_dashscope(self) -> bool:
         """qwen3-vl-embedding 需要走 MultiModalEmbedding 接口。"""
         return (self._model or "").strip().lower() == "qwen3-vl-embedding"
+
+    def _dashscope_batch_limit(self) -> int:
+        model_name = (self._model or "").strip().lower()
+        if model_name == "qwen3-vl-embedding":
+            return MULTIMODAL_EMBEDDING_BATCH_LIMIT
+        if model_name == "text-embedding-v4":
+            return TEXT_EMBEDDING_V4_BATCH_LIMIT
+        return DEFAULT_DASHSCOPE_BATCH_LIMIT
 
     def get_dimension(self) -> int:
         """获取向量维度"""
@@ -114,9 +124,9 @@ class EmbeddingService:
 
             all_embeddings: list[list[float]] = []
 
-            # 分批处理，每批最多 25 条
-            for i in range(0, len(texts), DASHSCOPE_BATCH_LIMIT):
-                batch = texts[i : i + DASHSCOPE_BATCH_LIMIT]
+            batch_limit = self._dashscope_batch_limit()
+            for i in range(0, len(texts), batch_limit):
+                batch = texts[i : i + batch_limit]
                 if self._uses_multimodal_dashscope():
                     from dashscope import MultiModalEmbedding
 

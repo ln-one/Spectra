@@ -2,6 +2,7 @@
 RQ 任务队列服务单元测试
 """
 
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
 import pytest
@@ -223,10 +224,12 @@ class TestTaskQueueService:
         mock_worker1 = Mock()
         mock_worker1.name = "worker-1"
         mock_worker1.get_state.return_value = "busy"
+        mock_worker1.last_heartbeat = datetime.now(timezone.utc)
 
         mock_worker2 = Mock()
         mock_worker2.name = "worker-2"
         mock_worker2.get_state.return_value = "idle"
+        mock_worker2.last_heartbeat = datetime.now(timezone.utc)
 
         mock_worker_all.return_value = [mock_worker1, mock_worker2]
 
@@ -238,6 +241,28 @@ class TestTaskQueueService:
         assert info["workers"]["count"] == 2
         assert "worker-1" in info["workers"]["active"]
         assert "worker-2" not in info["workers"]["active"]
+
+    @patch("rq.Worker.all")
+    def test_get_queue_info_excludes_stale_workers(
+        self, mock_worker_all, task_queue_service, fake_redis
+    ):
+        fresh_worker = Mock()
+        fresh_worker.name = "worker-fresh"
+        fresh_worker.get_state.return_value = "idle"
+        fresh_worker.last_heartbeat = datetime.now(timezone.utc)
+
+        stale_worker = Mock()
+        stale_worker.name = "worker-stale"
+        stale_worker.get_state.return_value = "busy"
+        stale_worker.last_heartbeat = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+        mock_worker_all.return_value = [fresh_worker, stale_worker]
+
+        info = task_queue_service.get_queue_info()
+
+        assert info["workers"]["count"] == 1
+        assert info["workers"]["active"] == []
+        assert info["workers"]["stale"] == ["worker-stale"]
 
     @patch("rq.Worker.all")
     def test_get_queue_info_with_error(self, mock_worker_all, task_queue_service):

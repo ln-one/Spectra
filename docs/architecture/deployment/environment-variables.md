@@ -39,6 +39,7 @@ DOCUMENT_PARSER="local"
 # =============================================================================
 # Vector Database Configuration
 # =============================================================================
+CHROMA_MODE="persistent"
 CHROMA_HOST="localhost"
 CHROMA_PORT="8001"
 CHROMA_PERSIST_DIR="chroma_data"
@@ -109,6 +110,7 @@ DOCUMENT_PARSER="local"
 # =============================================================================
 # Vector Database Configuration
 # =============================================================================
+CHROMA_MODE="persistent"
 CHROMA_HOST="chromadb"
 CHROMA_PORT="8000"
 CHROMA_PERSIST_DIR="/var/lib/spectra/chroma"

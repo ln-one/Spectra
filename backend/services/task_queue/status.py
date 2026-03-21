@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from rq import Worker
@@ -8,10 +9,21 @@ from rq.registry import FailedJobRegistry, FinishedJobRegistry, StartedJobRegist
 from .status_constants import CANCELABLE_QUEUE_JOB_STATUSES, QueueJobStatus
 
 logger = logging.getLogger(__name__)
+WORKER_HEARTBEAT_FRESHNESS_SECONDS = 45
 
 
 def normalize_status(status) -> str:
     return status.value if hasattr(status, "value") else str(status)
+
+
+def _is_worker_fresh(worker) -> bool:
+    last_heartbeat = getattr(worker, "last_heartbeat", None)
+    if last_heartbeat is None:
+        return False
+    if last_heartbeat.tzinfo is None:
+        last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+    age_seconds = (datetime.now(timezone.utc) - last_heartbeat).total_seconds()
+    return age_seconds <= WORKER_HEARTBEAT_FRESHNESS_SECONDS
 
 
 def get_job_status(service, job_id: str) -> Optional[dict]:
@@ -53,6 +65,7 @@ def cancel_job(service, job_id: str) -> bool:
 def get_queue_info(service) -> dict:
     try:
         workers = Worker.all(connection=service.redis_conn)
+        alive_workers = [worker for worker in workers if _is_worker_fresh(worker)]
         started_count = 0
         finished_count = 0
         failed_count = 0
@@ -73,8 +86,15 @@ def get_queue_info(service) -> dict:
                 "low": {"name": "low", "count": len(service.low_queue)},
             },
             "workers": {
-                "count": len(workers),
-                "active": [w.name for w in workers if w.get_state() == "busy"],
+                "count": len(alive_workers),
+                "active": [
+                    worker.name
+                    for worker in alive_workers
+                    if worker.get_state() == "busy"
+                ],
+                "stale": [
+                    worker.name for worker in workers if worker not in alive_workers
+                ],
             },
             "jobs": {
                 "started": started_count,
@@ -86,7 +106,7 @@ def get_queue_info(service) -> dict:
         logger.error("Failed to get queue info: %s", e)
         return {
             "queues": {},
-            "workers": {"count": 0, "active": []},
+            "workers": {"count": 0, "active": [], "stale": []},
             "jobs": {
                 QueueJobStatus.STARTED.value: 0,
                 QueueJobStatus.FINISHED.value: 0,

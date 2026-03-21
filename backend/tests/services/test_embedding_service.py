@@ -112,6 +112,14 @@ class TestEmbeddingServiceDashScope:
         svc = EmbeddingService(model="qwen3-vl-embedding")
         assert svc._uses_multimodal_dashscope() is True
 
+    def test_text_embedding_v4_uses_batch_limit_10(self):
+        svc = EmbeddingService(model="text-embedding-v4")
+        assert svc._dashscope_batch_limit() == 10
+
+    def test_qwen3_vl_embedding_uses_batch_limit_10(self):
+        svc = EmbeddingService(model="qwen3-vl-embedding")
+        assert svc._dashscope_batch_limit() == 10
+
 
 class TestEmbeddingServiceLocal:
     """本地模型 embedding 测试"""
