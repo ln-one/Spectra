@@ -14,6 +14,36 @@
       '503':
         $ref: '../components/responses.yaml#/ServiceUnavailable'
 
+/health/ready:
+  get:
+    summary: 服务就绪检查
+    operationId: getHealthReady
+    tags: [Health]
+    security: []
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/health.yaml#/HealthCheckResponse'
+      '503':
+        $ref: '../components/responses.yaml#/ServiceUnavailable'
+
+/health/live:
+  get:
+    summary: 服务存活检查
+    operationId: getHealthLive
+    tags: [Health]
+    security: []
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/health.yaml#/HealthLivenessResponse'
+
 /api/v1/health/capabilities:
   get:
     summary: 获取能力健康状态

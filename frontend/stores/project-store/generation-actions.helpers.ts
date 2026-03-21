@@ -1,7 +1,8 @@
-﻿import type {
+import type {
   GenerationHistory,
   GenerationOptions,
   GenerationTool,
+  SessionStatePayload,
 } from "./types";
 import { GENERATION_TOOLS } from "./types";
 
@@ -25,6 +26,26 @@ export function resolveOutputType(tool: GenerationTool): "ppt" | "word" {
     tool.type === "animation"
     ? "ppt"
     : "word";
+}
+
+const REUSABLE_GENERATION_SESSION_STATES = new Set([
+  "IDLE",
+  "CONFIGURING",
+  "FAILED",
+]);
+
+export function resolveReusableGenerationSessionId(
+  activeSessionId: string | null,
+  generationSession: SessionStatePayload | null
+): string | undefined {
+  if (!activeSessionId) return undefined;
+  const session = generationSession?.session;
+  if (!session || session.session_id !== activeSessionId) {
+    return activeSessionId;
+  }
+  return REUSABLE_GENERATION_SESSION_STATES.has(session.state)
+    ? activeSessionId
+    : undefined;
 }
 
 export function mapSessionsToHistory(

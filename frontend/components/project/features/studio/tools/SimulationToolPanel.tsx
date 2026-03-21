@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToolPanelShell } from "./ToolPanelShell";
@@ -24,7 +24,10 @@ const STRATEGY_POOL = [
   "双层回答：先给直觉解释，再给规范术语版本。",
 ];
 
-export function SimulationToolPanel({ toolName }: ToolPanelProps) {
+export function SimulationToolPanel({
+  toolName,
+  onDraftChange,
+}: ToolPanelProps) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [judgeText, setJudgeText] = useState("");
@@ -35,6 +38,25 @@ export function SimulationToolPanel({ toolName }: ToolPanelProps) {
     () => QUESTION_POOL[questionIndex % QUESTION_POOL.length],
     [questionIndex]
   );
+
+  useEffect(() => {
+    onDraftChange?.({
+      question_index: questionIndex,
+      answer,
+      judge_text: judgeText,
+      show_strategies: showStrategies,
+      strategy_offset: strategyOffset,
+      question: currentQuestion,
+    });
+  }, [
+    answer,
+    currentQuestion,
+    judgeText,
+    onDraftChange,
+    questionIndex,
+    showStrategies,
+    strategyOffset,
+  ]);
 
   const visibleStrategies = useMemo(
     () => [

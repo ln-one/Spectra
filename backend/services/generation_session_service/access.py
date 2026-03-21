@@ -21,7 +21,16 @@ async def get_owned_session(
     if select is not None:
         lookup["select"] = select
 
-    session = await db.generationsession.find_unique(**lookup)
+    try:
+        session = await db.generationsession.find_unique(**lookup)
+    except TypeError as exc:
+        # Prisma Python client compatibility:
+        # some generated clients do not support `select` for find_unique.
+        if select is not None and "select" in str(exc):
+            lookup.pop("select", None)
+            session = await db.generationsession.find_unique(**lookup)
+        else:
+            raise
     if session is None:
         raise ValueError(f"Session not found: {session_id}")
     if _owner_id(session) != user_id:

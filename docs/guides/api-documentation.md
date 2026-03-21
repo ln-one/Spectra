@@ -176,6 +176,5 @@ const response: AuthResponse = await authApi.register(data);
 ## 相关文档
 
 - [API 契约设计](../architecture/api-contract.md)
-- [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
+- [OpenAPI 模块化指南](../openapi/README.md)
 - [后端 OpenAPI 同步](../archived/openapi/BACKEND_OPENAPI_SYNC.md)
-

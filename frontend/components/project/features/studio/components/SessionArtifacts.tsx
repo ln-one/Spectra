@@ -29,7 +29,7 @@ export function SessionArtifacts({
     >
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-xs font-medium text-[var(--project-text-muted)]">
-          当前会话成果
+          历史生成成果
         </h3>
         <Button
           variant="ghost"

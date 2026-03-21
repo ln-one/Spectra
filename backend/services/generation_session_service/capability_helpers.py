@@ -9,6 +9,11 @@ from schemas.generation import GenerationType
 from services.project_space_service.artifact_semantics import (
     resolve_capability_from_artifact,
 )
+from services.task_queue.status import (
+    inspect_worker_availability,
+    resolve_worker_availability,
+)
+from services.task_queue.status_constants import QueueWorkerAvailability
 
 from .constants import SessionOutputType
 
@@ -50,7 +55,7 @@ def _default_capabilities() -> list[dict]:
     video_health = health_status.get("video_understanding")
     speech_health = health_status.get("speech_recognition")
 
-    default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
+    default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-flash")
     llm_provider = (
         default_model.split("/", 1)[0] if "/" in default_model else default_model
     )
@@ -162,14 +167,28 @@ def _normalize_task_type(output_type: str, error_cls=ValueError) -> str:
 
 
 def _is_queue_worker_available(task_queue_service) -> bool:
-    if task_queue_service is None:
-        return False
-    try:
-        queue_info = task_queue_service.get_queue_info()
-        if not isinstance(queue_info, dict):
-            return True
-        worker_count = int(((queue_info.get("workers") or {}).get("count") or 0))
-        return worker_count > 0
-    except Exception as exc:
-        logger.warning("Failed to inspect queue worker availability: %s", exc)
-        return True
+    availability = inspect_worker_availability(task_queue_service)
+    return availability["status"] == QueueWorkerAvailability.AVAILABLE.value
+
+
+def _inspect_queue_worker_availability(task_queue_service) -> dict:
+    return inspect_worker_availability(task_queue_service)
+
+
+async def _resolve_queue_worker_availability(
+    task_queue_service,
+    *,
+    retries: int = 1,
+    retry_delay_seconds: float = 0.15,
+) -> dict:
+    availability = await resolve_worker_availability(
+        task_queue_service,
+        retries=retries,
+        retry_delay_seconds=retry_delay_seconds,
+    )
+    if availability["status"] == QueueWorkerAvailability.UNKNOWN.value:
+        logger.warning(
+            "Queue worker availability remains unknown after retry: error=%s",
+            availability.get("error"),
+        )
+    return availability

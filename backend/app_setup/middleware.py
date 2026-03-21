@@ -24,6 +24,6 @@ def register_middleware(app: FastAPI) -> None:
         allow_credentials=not allow_all_origins,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["X-Request-ID"],
+        expose_headers=["X-Request-ID", "X-Process-Time"],
     )
     app.add_middleware(RequestIDMiddleware)

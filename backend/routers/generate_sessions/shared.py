@@ -87,6 +87,36 @@ async def load_session_snapshot_or_raise(
         raise _forbidden_session_access() from exc
 
 
+async def load_session_preview_snapshot_or_raise(
+    svc: GenerationSessionService,
+    session_id: str,
+    user_id: str,
+) -> dict:
+    preview_getter = getattr(svc, "get_session_preview_snapshot", None)
+    if callable(preview_getter):
+        try:
+            return await preview_getter(session_id, user_id)
+        except ValueError as exc:
+            raise _not_found_session() from exc
+        except PermissionError as exc:
+            raise _forbidden_session_access() from exc
+
+    return await load_session_snapshot_or_raise(svc, session_id, user_id)
+
+
+async def load_session_runtime_or_raise(
+    svc: GenerationSessionService,
+    session_id: str,
+    user_id: str,
+) -> dict:
+    try:
+        return await svc.get_session_runtime_state(session_id, user_id)
+    except ValueError as exc:
+        raise _not_found_session() from exc
+    except PermissionError as exc:
+        raise _forbidden_session_access() from exc
+
+
 async def execute_session_command_or_raise(
     svc: GenerationSessionService,
     *,
@@ -109,7 +139,11 @@ async def execute_session_command_or_raise(
     except PermissionError as exc:
         raise _forbidden_session_access() from exc
     except ConflictError as exc:
-        raise_conflict(str(exc))
+        raise_conflict(
+            str(exc),
+            error_code=getattr(exc, "error_code", "RESOURCE_CONFLICT"),
+            details=getattr(exc, "details", None),
+        )
 
 
 def _not_found_session():
@@ -120,10 +154,27 @@ def _forbidden_session_access():
     return ForbiddenException(message="无权访问该会话", error_code=ErrorCode.FORBIDDEN)
 
 
-def raise_conflict(msg: str):
+def raise_conflict(
+    msg: str,
+    *,
+    error_code: str | ErrorCode = ErrorCode.RESOURCE_CONFLICT,
+    details: Optional[dict] = None,
+):
+    resolved_code = _resolve_conflict_error_code(error_code)
+    payload = dict(details or {})
+    payload.setdefault("transition_guard", "StateTransitionGuard")
     raise APIException(
         status_code=status.HTTP_409_CONFLICT,
-        error_code=ErrorCode.RESOURCE_CONFLICT,
+        error_code=resolved_code,
         message=msg,
-        details={"transition_guard": "StateTransitionGuard"},
+        details=payload,
     )
+
+
+def _resolve_conflict_error_code(value: str | ErrorCode) -> ErrorCode:
+    if isinstance(value, ErrorCode):
+        return value
+    try:
+        return ErrorCode(value)
+    except ValueError:
+        return ErrorCode.RESOURCE_CONFLICT

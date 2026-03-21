@@ -6,7 +6,7 @@ class _ArtifactDB(ProjectSpaceArtifactMixin):
         self.captured_where = None
 
         class _ArtifactActions:
-            async def find_many(inner_self, *, where, order):
+            async def find_many(inner_self, *, where, take, order):
                 self.captured_where = where
                 return []
 

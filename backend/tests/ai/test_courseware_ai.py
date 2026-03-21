@@ -48,9 +48,13 @@ class TestGenerateOutline:
 
         assert isinstance(outline, CoursewareOutline)
         assert outline.title == "Python 入门"
-        assert len(outline.sections) == 3
-        # +2 for title slide and closing slide
-        assert outline.total_slides == 2 + 4 + 1 + 2
+        assert len(outline.sections) >= 3
+        section_titles = [section.title for section in outline.sections]
+        assert "导入" in section_titles
+        assert "核心" in section_titles
+        assert "总结" in section_titles
+        # sparse-outline enrichment may expand sections/slides, but should keep baseline size
+        assert outline.total_slides >= 2 + 4 + 1
         assert outline.summary == "Python 基础教学大纲"
 
     @pytest.mark.asyncio
@@ -88,6 +92,55 @@ class TestGenerateOutline:
         prompt_arg = mock_gen.call_args[1]["prompt"]
         assert "参考内容" in prompt_arg
         assert isinstance(outline, CoursewareOutline)
+
+    @pytest.mark.asyncio
+    async def test_outline_rag_failure_degrades_to_prompt_only_mode(self):
+        ai = AIService()
+        mock_json = json.dumps(
+            {
+                "title": "函数极值",
+                "sections": [
+                    {
+                        "title": "导入",
+                        "key_points": ["问题情境", "互动提问", "板书逻辑"],
+                        "slide_count": 2,
+                    },
+                    {
+                        "title": "例题训练",
+                        "key_points": ["关键例题", "易错点澄清", "课堂追问"],
+                        "slide_count": 2,
+                    },
+                    {
+                        "title": "总结",
+                        "key_points": ["知识地图", "方法归纳", "作业延伸"],
+                        "slide_count": 1,
+                    },
+                ],
+                "summary": "函数极值教学大纲",
+            }
+        )
+
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_json},
+            ) as mock_generate,
+            patch.object(
+                ai,
+                "_retrieve_rag_context",
+                new_callable=AsyncMock,
+                side_effect=TimeoutError("rag slow"),
+            ),
+        ):
+            outline = await ai.generate_outline("proj-rag-fail", "函数极值")
+
+        assert isinstance(outline, CoursewareOutline)
+        assert outline.title == "函数极值"
+        assert mock_generate.await_count == 1
+        prompt_arg = mock_generate.call_args.kwargs["prompt"]
+        assert "参考内容" not in prompt_arg
 
     @pytest.mark.asyncio
     async def test_outline_empty_sections_triggers_fallback(self):
@@ -152,6 +205,56 @@ class TestGenerateOutline:
         assert outline.total_slides >= 10
 
     @pytest.mark.asyncio
+    async def test_outline_aligns_with_target_pages_and_focus_anchors(self):
+        """当需求包含目标页数时，应尽量对齐并覆盖核心教学锚点。"""
+        ai = AIService()
+        mock_json = json.dumps(
+            {
+                "title": "电路分析",
+                "sections": [
+                    {
+                        "title": "电路基础",
+                        "key_points": ["概念定义", "基础公式"],
+                        "slide_count": 2,
+                    },
+                    {
+                        "title": "典型题型",
+                        "key_points": ["题型识别", "解题步骤"],
+                        "slide_count": 2,
+                    },
+                ],
+                "summary": "电路分析教学大纲",
+            }
+        )
+
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_json},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            outline = await ai.generate_outline(
+                "proj-pages",
+                "高一物理，目标页数：12，强调知识地图、关键例题、易错点澄清",
+            )
+
+        total_section_slides = sum(section.slide_count for section in outline.sections)
+        assert total_section_slides == 12
+        merged_points = " ".join(
+            point
+            for section in outline.sections
+            for point in (section.key_points or [])
+        )
+        assert "知识地图" in merged_points
+        assert "关键例题" in merged_points
+        assert "易错点澄清" in merged_points
+
+    @pytest.mark.asyncio
     async def test_outline_no_json_triggers_fallback(self):
         """LLM 返回非 JSON 时应 fallback"""
         ai = AIService()
@@ -193,15 +296,140 @@ class TestGenerateOutline:
         assert isinstance(outline, CoursewareOutline)
         assert outline.summary == "基础教学大纲"
 
+    @pytest.mark.asyncio
+    async def test_outline_fallback_aligns_with_plain_target_page_phrase(self):
+        """当需求写成“12 页”时，fallback 也应对齐目标页数。"""
+        ai = AIService()
+
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("API down"),
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            outline = await ai.generate_outline(
+                "proj6",
+                "生成“知识地图 + 关键例题 + 易错点澄清”风格大纲，12 页，强调课堂互动提问与板书逻辑。",
+            )
+
+        assert isinstance(outline, CoursewareOutline)
+        assert sum(section.slide_count for section in outline.sections) == 12
+
+    @pytest.mark.asyncio
+    async def test_outline_generic_placeholder_sections_are_rebuilt(self):
+        """当 LLM 返回“核心知识点/要点1”占位结构时，应自动重建为可用大纲。"""
+        ai = AIService()
+        generic_json = json.dumps(
+            {
+                "title": "测试大纲",
+                "sections": [
+                    {
+                        "title": f"核心知识点{i}",
+                        "key_points": ["要点1", "要点2", "要点3"],
+                        "slide_count": 1,
+                    }
+                    for i in range(1, 7)
+                ],
+                "summary": "占位结构",
+            }
+        )
+
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": generic_json},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            outline = await ai.generate_outline(
+                "proj-generic",
+                "生成“知识地图 + 关键例题 + 易错点澄清”风格大纲，12 页，强调课堂互动提问与板书逻辑。",
+            )
+
+        section_titles = [section.title for section in outline.sections]
+        assert "知识地图构建" in section_titles
+        assert "关键例题精讲" in section_titles
+        assert "易错点澄清" in section_titles
+        assert sum(section.slide_count for section in outline.sections) == 12
+        merged_points = " ".join(
+            point
+            for section in outline.sections
+            for point in (section.key_points or [])
+        )
+        assert "互动提问" in merged_points
+        assert "板书逻辑" in merged_points
+
     def test_fallback_outline_structure(self):
         """fallback 大纲结构完整"""
         outline = AIService._get_fallback_outline("数学课件")
         assert outline.title == "数学课件"
-        assert len(outline.sections) == 4
-        assert outline.total_slides == 14
+        assert len(outline.sections) >= 5
+        assert outline.total_slides == 12
         section_titles = [s.title for s in outline.sections]
-        assert "导入" in section_titles
-        assert "总结" in section_titles
+        assert "导入与目标" in section_titles
+        assert "知识地图构建" in section_titles
+        assert "关键例题精讲" in section_titles
+        assert "易错点澄清" in section_titles
+
+    @pytest.mark.asyncio
+    async def test_generate_courseware_content_uses_outline_based_fallback_on_timeout(
+        self,
+    ):
+        """课件生成超时时，应基于确认大纲兜底并保持页数与教学要素。"""
+        ai = AIService()
+        outline_document = {
+            "title": "二次函数图像与性质",
+            "nodes": [
+                {
+                    "order": 1,
+                    "title": "知识地图构建",
+                    "key_points": ["知识地图", "概念关系梳理", "核心原理拆解"],
+                },
+                {
+                    "order": 2,
+                    "title": "关键例题精讲",
+                    "key_points": ["关键例题", "分步求解", "易错点澄清"],
+                },
+            ],
+        }
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                side_effect=TimeoutError("provider timeout"),
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            result = await ai.generate_courseware_content(
+                project_id="proj-outline-fallback",
+                user_requirements="高一数学：二次函数",
+                outline_document=outline_document,
+                outline_version=3,
+            )
+
+        assert isinstance(result, CoursewareContent)
+        slides = [
+            block
+            for block in result.markdown_content.split("\n\n---\n\n")
+            if block.strip()
+        ]
+        assert len(slides) == 2
+        assert "知识地图构建" in result.markdown_content
+        assert "关键例题精讲" in result.markdown_content
+        assert "互动提问" in result.markdown_content
+        assert "板书逻辑" in result.lesson_plan_markdown
 
 
 class TestExtractStructuredContent:

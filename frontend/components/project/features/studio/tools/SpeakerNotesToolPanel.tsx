@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ToolPanelShell } from "./ToolPanelShell";
 import type { ToolPanelProps } from "./types";
@@ -18,10 +18,21 @@ const SCRIPT_SECTIONS = [
   "总结收束：用一句口诀回顾核心逻辑。",
 ];
 
-export function SpeakerNotesToolPanel({ toolName }: ToolPanelProps) {
+export function SpeakerNotesToolPanel({
+  toolName,
+  onDraftChange,
+}: ToolPanelProps) {
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
   const [activePage, setActivePage] = useState(1);
   const [highlightTransition, setHighlightTransition] = useState(false);
+
+  useEffect(() => {
+    onDraftChange?.({
+      source_artifact_id: selectedDeck,
+      active_page: activePage,
+      highlight_transition: highlightTransition,
+    });
+  }, [activePage, highlightTransition, onDraftChange, selectedDeck]);
 
   const selectedTitle = useMemo(
     () => PPT_OPTIONS.find((item) => item.id === selectedDeck)?.title ?? "",

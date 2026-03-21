@@ -18,6 +18,7 @@ export function OutlineEditorPanel(props: OutlineEditorPanelProps) {
         activeSlideId={controller.activeSlideId}
         setActiveSlideId={controller.setActiveSlideId}
         isGenerating={controller.isGenerating}
+        isRedrafting={controller.isRedrafting}
         isOutlineHydrating={controller.isOutlineHydrating}
         progress={controller.progress}
         progressText={controller.progressText}
@@ -34,6 +35,7 @@ export function OutlineEditorPanel(props: OutlineEditorPanelProps) {
         onAddSlide={controller.handleAddSlide}
         onDeleteSlide={controller.handleDeleteSlide}
         onStartGeneration={controller.handleStartGeneration}
+        onRedraftOutline={controller.handleRedraftOutline}
         onGoToPreview={controller.handleGoToPreview}
         scrollAreaRef={controller.scrollAreaRef}
       />
@@ -48,6 +50,7 @@ export function OutlineEditorPanel(props: OutlineEditorPanelProps) {
       slides={controller.slides}
       activeSlideId={controller.activeSlideId}
       isGenerating={controller.isGenerating}
+      isRedrafting={controller.isRedrafting}
       isOutlineHydrating={controller.isOutlineHydrating}
       showSettings={controller.showSettings}
       setShowSettings={controller.setShowSettings}
@@ -77,6 +80,8 @@ export function OutlineEditorPanel(props: OutlineEditorPanelProps) {
       aspectRatio={controller.aspectRatio}
       setAspectRatio={controller.setAspectRatio}
       onStartGeneration={controller.handleStartGeneration}
+      onRedraftOutline={controller.handleRedraftOutline}
+      onHelp={controller.handleHelp}
       onGoToPreview={controller.handleGoToPreview}
     />
   );

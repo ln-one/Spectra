@@ -1,6 +1,8 @@
 """Artifact routes for Project Space."""
 
+import asyncio
 import logging
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -57,17 +59,19 @@ async def get_project_artifacts(
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
-        project = await project_space_service.db.get_project(project_id)
+        project, artifacts = await asyncio.gather(
+            project_space_service.db.get_project(project_id),
+            project_space_service.get_project_artifacts(
+                project_id,
+                type_filter=type.value if type else None,
+                visibility_filter=visibility.value if visibility else None,
+                owner_user_id_filter=owner_user_id,
+                based_on_version_id_filter=based_on_version_id,
+                session_id_filter=session_id,
+            ),
+        )
         current_version_id = (
             getattr(project, "currentVersionId", None) if project else None
-        )
-        artifacts = await project_space_service.get_project_artifacts(
-            project_id,
-            type_filter=type.value if type else None,
-            visibility_filter=visibility.value if visibility else None,
-            owner_user_id_filter=owner_user_id,
-            based_on_version_id_filter=based_on_version_id,
-            session_id_filter=session_id,
         )
         serialized = [
             to_artifact_model(artifact, current_version_id=current_version_id)
@@ -187,6 +191,7 @@ async def download_artifact(
     artifact_id: str,
     user_id: str = Depends(get_current_user),
 ):
+    started_at = time.perf_counter()
     try:
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
@@ -207,7 +212,23 @@ async def download_artifact(
 
         media_type = get_artifact_media_type(artifact.type)
         filename = build_artifact_download_filename(artifact.type, artifact.id)
-        logger.info(f"Downloading artifact {artifact_id} from {artifact.storagePath}")
+        duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
+        logger.info(
+            (
+                "artifact_download_ready artifact_id=%s project_id=%s "
+                "duration_ms=%s path=%s"
+            ),
+            artifact_id,
+            project_id,
+            duration_ms,
+            artifact.storagePath,
+            extra={
+                "artifact_id": artifact_id,
+                "project_id": project_id,
+                "duration_ms": duration_ms,
+                "artifact_type": artifact.type,
+            },
+        )
         return FileResponse(
             path=str(file_path), media_type=media_type, filename=filename
         )

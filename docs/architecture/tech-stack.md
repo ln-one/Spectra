@@ -1,6 +1,6 @@
 # 技术栈（MVP 对齐版）
 
-> 更新时间：2026-03-12
+> 更新时间：2026-03-20
 > 目的：该文档只描述“当前代码已落地技术”与“已确认过渡路线”，避免把规划当成已实现。
 
 ## 1. 当前 MVP 已落地技术
@@ -15,7 +15,7 @@
 | 动效        | Framer Motion（局部使用）                                        | 12.x                              | `frontend/components/FileList.tsx`, `frontend/components/FileUploadDropzone.tsx`                   |
 | 后端框架      | FastAPI + Pydantic v2 + Uvicorn                            | FastAPI 0.129.0, Pydantic 2.12.5  | `backend/requirements.txt`, `backend/main.py`                                                      |
 | 数据库访问     | Prisma Client Python（async）                                | prisma 0.15.0                     | `backend/prisma/schema.prisma`, `backend/services/database.py`                                     |
-| 关系型数据库    | SQLite（当前默认）                                               | 文件库                               | `backend/prisma/schema.prisma`, `backend/.env.example`                                             |
+| 关系型数据库    | PostgreSQL（当前默认）                                           | 本地/容器统一 PostgreSQL               | `backend/prisma/schema.prisma`, `backend/.env.example`                                             |
 | LLM 调用    | LiteLLM + DashScope(Qwen)                                  | litellm 1.81.13                   | `backend/services/ai.py`, `backend/requirements.txt`                                               |
 | Embedding | DashScope text-embedding-v2 + 本地回退                         | 1536 维默认                          | `backend/services/embedding_service.py`                                                            |
 | 向量库       | ChromaDB（本地持久化）                                            | embedded 模式                       | `backend/services/vector_service.py`                                                               |
@@ -31,7 +31,7 @@
 | 视频理解    | Qwen-VL                  | 当前未接入          | 规划未落地                      |
 | 语音识别    | Faster-Whisper           | 当前未接入          | 规划未落地                      |
 | 状态管理表述  | React Context 为主         | 实际以 Zustand 为主 | 文档需改为“Zustand 主、Context 辅” |
-| 生产数据库   | PostgreSQL               | 当前默认 SQLite    | 按 MVP 合理，生产前迁移             |
+| 生产数据库   | PostgreSQL               | 已切为 PostgreSQL 默认 | 持续清理 SQLite 历史冗余             |
 
 ## 3. 过渡路线（从 MVP 到完整技术栈）
 
@@ -53,7 +53,7 @@
 - 目标：非 MVP 能力与部署能力完善。
 - 动作：
  - 评估接入 Qwen-VL/Faster-Whisper 的收益与成本。
- - 从 SQLite 迁移到 PostgreSQL（含迁移脚本、回滚策略、压测）。
+ - 持续强化 PostgreSQL（迁移基线治理、备份恢复演练、压测）。
  - 结合实际并发情况评估是否从 ChromaDB 升级到 Milvus/Qdrant。
 
 ## 4. 当前不建议立即做的改造
@@ -79,4 +79,3 @@
 
 > 说明：该差异是 2026-03 架构调整重点，详见 `api-contract.md` 与 `docs/project/*_2026-03-09.md`。
 > sprint 口径：对 A/B/C/D 本轮会话化改造任务，右侧“目标形态”是最终结果和拆解基线；左侧“当前实现”仅用于说明现状与兼容层，不应覆盖本轮设计决策。
-

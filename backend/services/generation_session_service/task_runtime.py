@@ -126,6 +126,7 @@ class SessionTaskRuntimeMixin:
         template_config: Optional[dict],
         fallback_reason: str,
         enqueue_error: Optional[str] = None,
+        dispatch_context: Optional[dict] = None,
     ) -> bool:
         return await schedule_local_execution(
             session_id=session_id,
@@ -136,6 +137,7 @@ class SessionTaskRuntimeMixin:
             fallback_reason=fallback_reason,
             append_event=self._append_event,
             enqueue_error=enqueue_error,
+            dispatch_context=dispatch_context,
         )
 
     async def _mark_dispatch_failed(

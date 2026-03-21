@@ -8,8 +8,8 @@ from typing import Awaitable, Callable, Optional
 from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.capability_helpers import (
     _extract_template_config,
-    _is_queue_worker_available,
     _normalize_task_type,
+    _resolve_queue_worker_availability,
 )
 from services.generation_session_service.constants import DispatchFallbackReason
 from services.generation_session_service.serialization_helpers import _to_session_ref
@@ -31,9 +31,36 @@ async def load_cached_command_response(
     cached = await db.idempotencykey.find_unique(
         where={"key": f"cmd:{user_id}:{session_id}:{idempotency_key}"}
     )
-    if cached:
-        return json.loads(cached.response)
-    return None
+    if not cached:
+        return None
+
+    raw_response = getattr(cached, "response", None)
+    if not isinstance(raw_response, str) or not raw_response.strip():
+        logger.warning(
+            "Skip malformed command idempotency cache entry: session=%s key=%s",
+            session_id,
+            idempotency_key,
+        )
+        return None
+
+    try:
+        parsed = json.loads(raw_response)
+    except json.JSONDecodeError:
+        logger.warning(
+            "Skip unreadable command idempotency cache entry: session=%s key=%s",
+            session_id,
+            idempotency_key,
+        )
+        return None
+
+    if not isinstance(parsed, dict):
+        logger.warning(
+            "Skip non-object command idempotency cache entry: session=%s key=%s",
+            session_id,
+            idempotency_key,
+        )
+        return None
+    return parsed
 
 
 async def load_and_validate_session(
@@ -53,12 +80,27 @@ async def load_and_validate_session(
         recovery_service = TaskRecoveryService(db)
         if await recovery_service.is_session_already_running(session_id):
             raise conflict_error_cls(
-                "当前会话已有执行中的任务，请等待当前任务完成后重试"
+                "当前会话已有执行中的任务，请等待当前任务完成后重试",
+                error_code="RESOURCE_CONFLICT",
+                details={
+                    "current_state": session.state,
+                    "command_type": command_type,
+                    "transition_guard": "StateTransitionGuard",
+                },
             )
 
     result = guard.validate(session.state, command_type)
     if not result.allowed:
-        raise conflict_error_cls(result.reject_reason or "状态转换不允许")
+        raise conflict_error_cls(
+            result.reject_reason or "状态转换不允许",
+            error_code="INVALID_STATE_TRANSITION",
+            details={
+                "current_state": session.state,
+                "command_type": command_type,
+                "allowed_actions": guard.get_allowed_actions(session.state),
+                "transition_guard": "StateTransitionGuard",
+            },
+        )
 
     return session, command_type, result
 
@@ -81,13 +123,23 @@ async def dispatch_created_task(
 
     task_type = _normalize_task_type(session.outputType, conflict_error_cls)
     template_config = _extract_template_config(session.options)
-    worker_available = _is_queue_worker_available(task_queue_service)
+    availability = await _resolve_queue_worker_availability(task_queue_service)
+    dispatch_context = {
+        "queue_health": availability["status"],
+        "queue_worker_count": availability.get("worker_count", 0),
+        "stale_worker_count": availability.get("stale_worker_count", 0),
+        "queue_error": availability.get("error"),
+    }
 
-    if task_queue_service is None or not worker_available:
+    if task_queue_service is None or availability["status"] != "available":
         fallback_reason = (
             DispatchFallbackReason.TASK_QUEUE_UNAVAILABLE.value
             if task_queue_service is None
-            else DispatchFallbackReason.TASK_QUEUE_NO_WORKER.value
+            else (
+                DispatchFallbackReason.QUEUE_HEALTH_UNKNOWN.value
+                if availability["status"] == "unknown"
+                else DispatchFallbackReason.TASK_QUEUE_NO_WORKER.value
+            )
         )
         scheduled = await schedule_local_execution(
             session_id=session_id,
@@ -96,6 +148,7 @@ async def dispatch_created_task(
             task_type=task_type,
             template_config=template_config,
             fallback_reason=fallback_reason,
+            dispatch_context=dispatch_context,
         )
         if scheduled:
             warnings.append(fallback_reason)
@@ -149,6 +202,7 @@ async def dispatch_created_task(
             template_config=template_config,
             fallback_reason=DispatchFallbackReason.TASK_ENQUEUE_FAILED.value,
             enqueue_error=str(enqueue_err),
+            dispatch_context=dispatch_context,
         )
         if scheduled:
             warnings.append(DispatchFallbackReason.TASK_ENQUEUE_FAILED.value)
@@ -219,5 +273,10 @@ async def save_cached_command_response(
                 "response": json.dumps(response_data),
             }
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            "Skip idempotency command cache write: session=%s key=%s error=%s",
+            session_id,
+            idempotency_key,
+            exc,
+        )

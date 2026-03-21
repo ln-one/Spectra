@@ -1,7 +1,7 @@
 """Unit tests for GenerationSessionService."""
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Optional
 from unittest.mock import AsyncMock, Mock, patch
@@ -14,9 +14,11 @@ from services.generation_session_service import (
     _build_outline_requirements,
     _extract_outline_style,
 )
+from services.generation_session_service.command_handlers import handle_update_outline
 from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
+    SessionLifecycleReason,
     SessionOutputType,
 )
 from services.platform.generation_event_constants import GenerationEventType
@@ -65,6 +67,15 @@ def _allow_confirm_transition():
         from_state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         to_state=GenerationState.GENERATING_CONTENT.value,
         command_type=GenerationCommandType.CONFIRM_OUTLINE.value,
+    )
+
+
+def _allow_redraft_transition():
+    return TransitionResult(
+        allowed=True,
+        from_state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        to_state=GenerationState.DRAFTING_OUTLINE.value,
+        command_type=GenerationCommandType.REDRAFT_OUTLINE.value,
     )
 
 
@@ -179,6 +190,58 @@ async def test_execute_command_returns_transition_payload(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_execute_command_redraft_schedules_outline_draft(monkeypatch):
+    session_before = _fake_session(
+        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        options='{"pages": 12, "outline_style": "structured"}',
+    )
+    session_after = _fake_session(
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        options='{"pages": 12, "outline_style": "structured"}',
+    )
+
+    db = SimpleNamespace(
+        idempotencykey=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(side_effect=[session_before, session_after]),
+        ),
+    )
+    service = GenerationSessionService(db=db)
+    service._dispatch_command = AsyncMock(return_value=None)
+    service._schedule_outline_draft_task = AsyncMock()
+
+    monkeypatch.setattr(
+        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        service._guard, "validate", lambda *_: _allow_redraft_transition()
+    )
+
+    await service.execute_command(
+        session_id="s-001",
+        user_id="u-001",
+        command={
+            "command_type": GenerationCommandType.REDRAFT_OUTLINE.value,
+            "instruction": "请突出互动提问与板书逻辑",
+            "base_version": 1,
+        },
+        task_queue_service=SimpleNamespace(name="queue"),
+    )
+
+    service._schedule_outline_draft_task.assert_awaited_once()
+    call_kwargs = service._schedule_outline_draft_task.await_args.kwargs
+    assert call_kwargs["session_id"] == "s-001"
+    assert call_kwargs["project_id"] == "p-001"
+    assert call_kwargs["options"]["pages"] == 12
+    assert call_kwargs["options"]["outline_style"] == "structured"
+    assert (
+        call_kwargs["options"]["outline_redraft_instruction"]
+        == "请突出互动提问与板书逻辑"
+    )
+
+
+@pytest.mark.anyio
 async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monkeypatch):
     session_before = _fake_session(
         output_type=SessionOutputType.WORD.value,
@@ -205,6 +268,7 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
     service = GenerationSessionService(db=db)
 
     queue = Mock()
+    queue.get_queue_info.return_value = {"workers": {"count": 1, "stale": []}}
     queue.enqueue_generation_task.return_value = SimpleNamespace(id="rq-1")
 
     monkeypatch.setattr(
@@ -293,6 +357,7 @@ async def test_execute_command_fallbacks_to_local_when_enqueue_fails(monkeypatch
     service._schedule_local_execution = AsyncMock(return_value=True)
 
     queue = Mock()
+    queue.get_queue_info.return_value = {"workers": {"count": 1, "stale": []}}
     queue.enqueue_generation_task.side_effect = RuntimeError("redis down")
 
     monkeypatch.setattr(
@@ -441,7 +506,68 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     db.artifact.find_many.assert_awaited_once_with(
         where={"projectId": "p-001", "sessionId": "s-001"},
         order={"updatedAt": "desc"},
+        select={
+            "id": True,
+            "type": True,
+            "basedOnVersionId": True,
+            "metadata": True,
+            "createdAt": True,
+            "updatedAt": True,
+        },
     )
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_prefers_latest_current_artifact_for_anchor():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    now = datetime.now(timezone.utc)
+    artifacts = [
+        SimpleNamespace(
+            id="art-current-old",
+            type="pptx",
+            metadata='{"is_current":true}',
+            basedOnVersionId="ver-001",
+            createdAt=now,
+            updatedAt=now,
+        ),
+        SimpleNamespace(
+            id="art-current-new",
+            type="pptx",
+            metadata='{"is_current":true}',
+            basedOnVersionId="ver-002",
+            createdAt=now,
+            updatedAt=now + timedelta(microseconds=1),
+        ),
+        SimpleNamespace(
+            id="art-superseded-newest",
+            type="pptx",
+            metadata='{"is_current":false,"superseded_by_artifact_id":"art-current-new"}',
+            basedOnVersionId="ver-003",
+            createdAt=now,
+            updatedAt=now + timedelta(microseconds=2),
+        ),
+    ]
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        artifact=SimpleNamespace(find_many=AsyncMock(return_value=artifacts)),
+        candidatechange=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="p-001", currentVersionId="ver-003")
+        ),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert payload["artifact_id"] == "art-current-new"
+    assert payload["artifact_anchor"] == {
+        "session_id": "s-001",
+        "artifact_id": "art-current-new",
+        "based_on_version_id": "ver-002",
+    }
+    assert payload["session_artifacts"][0]["artifact_id"] == "art-current-new"
+    assert payload["session_artifacts"][0]["is_current"] is True
 
 
 @pytest.mark.anyio
@@ -469,6 +595,61 @@ async def test_get_session_snapshot_handles_missing_artifact_model():
     }
     assert payload["session_artifacts"] == []
     assert payload["session_artifact_groups"] == []
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_fallbacks_when_artifact_select_not_supported():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    now = datetime.now(timezone.utc)
+    artifact_calls: list[dict] = []
+    project_calls: list[dict] = []
+
+    async def _artifact_find_many(**kwargs):
+        artifact_calls.append(kwargs)
+        if "select" in kwargs:
+            raise TypeError(
+                "ArtifactActions.find_many() got an unexpected keyword argument 'select'"
+            )
+        return [
+            SimpleNamespace(
+                id="art-ppt-001",
+                type="pptx",
+                basedOnVersionId="ver-001",
+                metadata='{"is_current":true}',
+                createdAt=now,
+                updatedAt=now,
+            )
+        ]
+
+    async def _project_find_unique(**kwargs):
+        project_calls.append(kwargs)
+        if "select" in kwargs:
+            raise TypeError(
+                "ProjectActions.find_unique() got an unexpected keyword argument 'select'"
+            )
+        return SimpleNamespace(id="p-001", currentVersionId="ver-009")
+
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        artifact=SimpleNamespace(find_many=AsyncMock(side_effect=_artifact_find_many)),
+        project=SimpleNamespace(
+            find_unique=AsyncMock(side_effect=_project_find_unique)
+        ),
+        candidatechange=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert payload["artifact_id"] == "art-ppt-001"
+    assert payload["current_version_id"] == "ver-009"
+    assert len(artifact_calls) == 2
+    assert "select" in artifact_calls[0]
+    assert "select" not in artifact_calls[1]
+    assert len(project_calls) == 2
+    assert "select" in project_calls[0]
+    assert "select" not in project_calls[1]
 
 
 @pytest.mark.anyio
@@ -588,6 +769,320 @@ async def test_get_session_runtime_state_uses_lightweight_select():
         "lastCursor",
         "updatedAt",
     }
+
+
+@pytest.mark.anyio
+async def test_create_session_creates_new_session_when_existing_success_is_terminal():
+    existing_session = SimpleNamespace(
+        id="s-success",
+        projectId="p-001",
+        userId="u-001",
+        baseVersionId="ver-old-001",
+        state=GenerationState.SUCCESS.value,
+        stateReason="task_completed",
+        outputType=SessionOutputType.PPT.value,
+        options=None,
+        clientSessionId="s-success",
+        renderVersion=2,
+        currentOutlineVersion=1,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=100,
+    )
+    created_session = SimpleNamespace(
+        id="s-new",
+        projectId="p-001",
+        userId="u-001",
+        baseVersionId="ver-current-002",
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        stateReason=SessionLifecycleReason.SESSION_CREATED.value,
+        outputType=SessionOutputType.PPT.value,
+        options='{"pages": 12}',
+        clientSessionId="s-success",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+    )
+    db = SimpleNamespace(
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="p-001",
+                    currentVersionId="ver-current-002",
+                )
+            )
+        ),
+        generationsession=SimpleNamespace(
+            find_first=AsyncMock(return_value=existing_session),
+            create=AsyncMock(return_value=created_session),
+            update=AsyncMock(),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+
+    service = GenerationSessionService(db=db)
+    service._schedule_outline_draft_task = AsyncMock()
+
+    session_ref = await service.create_session(
+        project_id="p-001",
+        user_id="u-001",
+        output_type=SessionOutputType.PPT.value,
+        client_session_id="s-success",
+        options={"pages": 12},
+        task_queue_service=None,
+    )
+
+    assert session_ref["session_id"] == "s-new"
+    db.generationsession.create.assert_awaited_once()
+    create_payload = db.generationsession.create.await_args.kwargs["data"]
+    assert create_payload["projectId"] == "p-001"
+    assert create_payload["clientSessionId"] == "s-success"
+    event_data = db.sessionevent.create.await_args.kwargs["data"]
+    assert event_data["state"] == GenerationState.DRAFTING_OUTLINE.value
+    assert (
+        json.loads(event_data["payload"]).get("reason")
+        == SessionLifecycleReason.SESSION_CREATED.value
+    )
+
+
+@pytest.mark.anyio
+async def test_get_session_runtime_state_fallbacks_when_select_not_supported():
+    calls: list[dict] = []
+
+    async def _find_unique(**kwargs):
+        calls.append(kwargs)
+        if "select" in kwargs:
+            raise TypeError(
+                "GenerationSessionActions.find_unique() got an unexpected keyword argument 'select'"
+            )
+        return SimpleNamespace(
+            userId="u-001",
+            state="RENDERING",
+            lastCursor="c-202",
+            updatedAt=datetime.now(timezone.utc),
+        )
+
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(side_effect=_find_unique)
+        )
+    )
+    service = GenerationSessionService(db=db)
+
+    runtime = await service.get_session_runtime_state(
+        session_id="s-001",
+        user_id="u-001",
+    )
+
+    assert runtime["state"] == "RENDERING"
+    assert runtime["last_cursor"] == "c-202"
+    assert len(calls) == 2
+    assert "select" in calls[0]
+    assert "select" not in calls[1]
+    assert calls[1]["where"] == {"id": "s-001"}
+
+
+@pytest.mark.anyio
+async def test_get_session_preview_snapshot_uses_lightweight_queries():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    session.pptUrl = "/api/v1/projects/p-001/artifacts/a-ppt/download"
+    session.wordUrl = "/api/v1/projects/p-001/artifacts/a-doc/download"
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        generationtask=SimpleNamespace(
+            find_first=AsyncMock(return_value=SimpleNamespace(id="task-123"))
+        ),
+        artifact=SimpleNamespace(
+            find_first=AsyncMock(
+                return_value=SimpleNamespace(id="a-123", basedOnVersionId="ver-001")
+            )
+        ),
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(currentVersionId="ver-009")
+            )
+        ),
+    )
+    service = GenerationSessionService(db=db)
+
+    payload = await service.get_session_preview_snapshot(
+        session_id="s-001",
+        user_id="u-001",
+    )
+
+    assert payload["session"]["task_id"] == "task-123"
+    assert payload["artifact_id"] == "a-123"
+    assert payload["based_on_version_id"] == "ver-001"
+    assert payload["current_version_id"] == "ver-009"
+    assert payload["upstream_updated"] is True
+    assert payload["result"]["ppt_url"] == session.pptUrl
+    assert payload["result"]["word_url"] == session.wordUrl
+    session_lookup = db.generationsession.find_unique.await_args.kwargs
+    assert "include" not in session_lookup
+    assert set(session_lookup["select"].keys()) == {
+        "id",
+        "projectId",
+        "userId",
+        "baseVersionId",
+        "state",
+        "stateReason",
+        "progress",
+        "resumable",
+        "updatedAt",
+        "renderVersion",
+        "options",
+        "pptUrl",
+        "wordUrl",
+    }
+
+
+@pytest.mark.anyio
+async def test_get_session_preview_snapshot_gracefully_handles_missing_artifacts():
+    session = _fake_session(state=GenerationState.RENDERING.value)
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        generationtask=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        get_project=AsyncMock(return_value=SimpleNamespace(currentVersionId="ver-002")),
+    )
+    service = GenerationSessionService(db=db)
+
+    payload = await service.get_session_preview_snapshot(
+        session_id="s-001",
+        user_id="u-001",
+    )
+
+    assert payload["artifact_id"] is None
+    assert payload["based_on_version_id"] is None
+    assert payload["current_version_id"] == "ver-002"
+    assert payload["upstream_updated"] is False
+    assert payload["result"] is None
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_loads_latest_outline_and_task_from_models():
+    session = _fake_session(
+        state=GenerationState.SUCCESS.value, options='{"pages": 12}'
+    )
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        outlineversion=SimpleNamespace(
+            find_first=AsyncMock(
+                return_value=SimpleNamespace(
+                    version=2,
+                    outlineData='{"title":"优化后大纲","sections":[]}',
+                )
+            )
+        ),
+        generationtask=SimpleNamespace(
+            find_first=AsyncMock(return_value=SimpleNamespace(id="task-999"))
+        ),
+        candidatechange=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert payload["outline"]["title"] == "优化后大纲"
+    assert payload["outline"]["version"] == 2
+    assert payload["session"]["task_id"] == "task-999"
+    db.outlineversion.find_first.assert_awaited_once_with(
+        where={"sessionId": "s-001"},
+        order={"version": "desc"},
+    )
+    db.generationtask.find_first.assert_awaited_once_with(
+        where={"sessionId": "s-001"},
+        order={"createdAt": "desc"},
+    )
+    session_lookup = db.generationsession.find_unique.await_args.kwargs
+    assert "include" not in session_lookup
+
+
+@pytest.mark.anyio
+async def test_handle_update_outline_uses_latest_persisted_version_as_source_of_truth():
+    db = SimpleNamespace(
+        outlineversion=SimpleNamespace(
+            find_first=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="ov-002",
+                    version=2,
+                    outlineData='{"version":1,"nodes":[{"title":"旧版"}]}',
+                )
+            ),
+            create=AsyncMock(),
+            update=AsyncMock(),
+        ),
+        generationsession=SimpleNamespace(update=AsyncMock()),
+    )
+    append_event = AsyncMock()
+    session = SimpleNamespace(id="s-001", currentOutlineVersion=1)
+
+    await handle_update_outline(
+        db=db,
+        session=session,
+        command={
+            "base_version": 2,
+            "outline": {"nodes": [{"title": "新版大纲"}]},
+            "change_reason": "manual_edit",
+        },
+        new_state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        append_event=append_event,
+        conflict_error_cls=ConflictError,
+    )
+
+    created_payload = db.outlineversion.create.await_args.kwargs["data"]
+    stored_outline = json.loads(created_payload["outlineData"])
+    assert created_payload["version"] == 3
+    assert stored_outline["version"] == 3
+    session_update = db.generationsession.update.await_args_list[0].kwargs["data"]
+    assert session_update["currentOutlineVersion"] == 3
+
+
+@pytest.mark.anyio
+async def test_handle_update_outline_treats_replayed_stale_write_as_success():
+    outline_record = SimpleNamespace(
+        id="ov-002",
+        version=2,
+        outlineData=json.dumps(
+            {
+                "version": 2,
+                "nodes": [{"title": "导入 · 知识地图"}],
+            }
+        ),
+    )
+    db = SimpleNamespace(
+        outlineversion=SimpleNamespace(
+            find_first=AsyncMock(return_value=outline_record),
+            create=AsyncMock(),
+            update=AsyncMock(),
+        ),
+        generationsession=SimpleNamespace(update=AsyncMock()),
+    )
+    append_event = AsyncMock()
+    session = SimpleNamespace(id="s-001", currentOutlineVersion=1)
+
+    await handle_update_outline(
+        db=db,
+        session=session,
+        command={
+            "base_version": 1,
+            "outline": {"nodes": [{"title": "导入 · 知识地图"}]},
+            "change_reason": None,
+        },
+        new_state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        append_event=append_event,
+        conflict_error_cls=ConflictError,
+    )
+
+    db.outlineversion.create.assert_not_awaited()
+    db.generationsession.update.assert_awaited_once()
+    assert (
+        db.generationsession.update.await_args.kwargs["data"]["currentOutlineVersion"]
+        == 2
+    )
+    append_event.assert_not_awaited()
 
 
 # ===========================================================================
@@ -793,7 +1288,8 @@ async def test_execute_outline_draft_local_failure_path():
     assert outline_data["version"] == 1
     assert outline_data["changeReason"] == "draft_failed_fallback_empty"
     outline_doc = json.loads(outline_data["outlineData"])
-    assert outline_doc["nodes"] == []
+    assert len(outline_doc["nodes"]) == 10
+    assert all(str(node.get("title", "")).strip() for node in outline_doc["nodes"])
 
     state_updates = [
         call.kwargs["data"]
@@ -931,6 +1427,38 @@ async def test_schedule_outline_draft_task_fallback_to_local_when_no_worker():
 
     mock_queue_service = Mock()
     mock_queue_service.get_queue_info = Mock(return_value={"workers": {"count": 0}})
+    mock_queue_service.enqueue_outline_draft_task = Mock()
+
+    def _close_task(coro):
+        coro.close()
+        return Mock()
+
+    with patch("asyncio.create_task", side_effect=_close_task) as mock_create_task:
+        await service._schedule_outline_draft_task(
+            session_id="s-001",
+            project_id="p-001",
+            options={"pages": 10},
+            task_queue_service=mock_queue_service,
+        )
+
+    mock_create_task.assert_called_once()
+    mock_queue_service.enqueue_outline_draft_task.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_schedule_outline_draft_task_fallback_to_local_when_queue_health_unknown():
+    from unittest.mock import patch
+
+    db = SimpleNamespace()
+    service = GenerationSessionService(db=db)
+
+    mock_queue_service = Mock()
+    mock_queue_service.get_queue_info = Mock(
+        return_value={
+            "workers": {"count": 0, "stale": ["worker-old"]},
+            "error": "redis",
+        }
+    )
     mock_queue_service.enqueue_outline_draft_task = Mock()
 
     def _close_task(coro):

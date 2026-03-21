@@ -128,7 +128,8 @@ services:
 - 支持热重载
 
 **向量数据库**：
-- 位置: `backend/chroma_data/`
+- 本地直跑默认位置: `backend/chroma_data/`
+- Docker 运行推荐位置: `/var/lib/spectra/chroma`
 - ChromaDB 本地持久化
 
 ## 热重载

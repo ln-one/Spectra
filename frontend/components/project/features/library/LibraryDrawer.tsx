@@ -37,8 +37,38 @@ export function LibraryDrawer({
     changesState,
     newReferenceTarget,
     setNewReferenceTarget,
+    newReferenceRelationType,
+    setNewReferenceRelationType,
+    newReferenceMode,
+    setNewReferenceMode,
+    newReferencePinnedVersion,
+    setNewReferencePinnedVersion,
+    newReferencePriority,
+    setNewReferencePriority,
+
+    newArtifactType,
+    setNewArtifactType,
+    newArtifactVisibility,
+    setNewArtifactVisibility,
+    newArtifactMode,
+    setNewArtifactMode,
+    newArtifactSessionId,
+    setNewArtifactSessionId,
+    newArtifactBasedVersionId,
+    setNewArtifactBasedVersionId,
+
     newMemberUserId,
     setNewMemberUserId,
+    newMemberRole,
+    setNewMemberRole,
+
+    newChangeTitle,
+    setNewChangeTitle,
+    newChangeSummary,
+    setNewChangeSummary,
+    reviewComment,
+    setReviewComment,
+
     loadReferences,
     loadVersions,
     loadArtifacts,
@@ -46,8 +76,16 @@ export function LibraryDrawer({
     loadChanges,
     handleAddReference,
     handleDeleteReference,
-    handleQuickCreateArtifact,
+    handleToggleReferenceStatus,
+    handleUpdateReferencePriority,
+    handleCreateArtifact,
+    handleDownloadArtifact,
     handleAddMember,
+    handleUpdateMemberRole,
+    handleToggleMemberStatus,
+    handleDeleteMember,
+    handleCreateCandidateChange,
+    handleReviewCandidateChange,
   } = useLibraryDrawerData(projectId, open);
 
   return (
@@ -147,8 +185,18 @@ export function LibraryDrawer({
                     state={referencesState}
                     newReferenceTarget={newReferenceTarget}
                     setNewReferenceTarget={setNewReferenceTarget}
+                    newReferenceRelationType={newReferenceRelationType}
+                    setNewReferenceRelationType={setNewReferenceRelationType}
+                    newReferenceMode={newReferenceMode}
+                    setNewReferenceMode={setNewReferenceMode}
+                    newReferencePinnedVersion={newReferencePinnedVersion}
+                    setNewReferencePinnedVersion={setNewReferencePinnedVersion}
+                    newReferencePriority={newReferencePriority}
+                    setNewReferencePriority={setNewReferencePriority}
                     onAddReference={handleAddReference}
                     onDeleteReference={handleDeleteReference}
+                    onToggleReferenceStatus={handleToggleReferenceStatus}
+                    onUpdateReferencePriority={handleUpdateReferencePriority}
                     onReload={loadReferences}
                   />
                   <VersionsTab
@@ -159,7 +207,18 @@ export function LibraryDrawer({
                   <ArtifactsTab
                     artifacts={artifacts}
                     state={artifactsState}
-                    onCreateArtifact={handleQuickCreateArtifact}
+                    newArtifactType={newArtifactType}
+                    setNewArtifactType={setNewArtifactType}
+                    newArtifactVisibility={newArtifactVisibility}
+                    setNewArtifactVisibility={setNewArtifactVisibility}
+                    newArtifactMode={newArtifactMode}
+                    setNewArtifactMode={setNewArtifactMode}
+                    newArtifactSessionId={newArtifactSessionId}
+                    setNewArtifactSessionId={setNewArtifactSessionId}
+                    newArtifactBasedVersionId={newArtifactBasedVersionId}
+                    setNewArtifactBasedVersionId={setNewArtifactBasedVersionId}
+                    onCreateArtifact={handleCreateArtifact}
+                    onDownloadArtifact={handleDownloadArtifact}
                     onReload={loadArtifacts}
                   />
                   <MembersTab
@@ -167,12 +226,25 @@ export function LibraryDrawer({
                     state={membersState}
                     newMemberUserId={newMemberUserId}
                     setNewMemberUserId={setNewMemberUserId}
+                    newMemberRole={newMemberRole}
+                    setNewMemberRole={setNewMemberRole}
                     onAddMember={handleAddMember}
+                    onUpdateMemberRole={handleUpdateMemberRole}
+                    onToggleMemberStatus={handleToggleMemberStatus}
+                    onDeleteMember={handleDeleteMember}
                     onReload={loadMembers}
                   />
                   <ChangesTab
                     changes={changes}
                     state={changesState}
+                    newChangeTitle={newChangeTitle}
+                    setNewChangeTitle={setNewChangeTitle}
+                    newChangeSummary={newChangeSummary}
+                    setNewChangeSummary={setNewChangeSummary}
+                    reviewComment={reviewComment}
+                    setReviewComment={setReviewComment}
+                    onCreateCandidateChange={handleCreateCandidateChange}
+                    onReviewCandidateChange={handleReviewCandidateChange}
                     onReload={loadChanges}
                   />
                 </div>

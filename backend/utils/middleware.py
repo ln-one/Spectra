@@ -1,6 +1,7 @@
 """Request lifecycle middleware and logging context helpers."""
 
 import logging
+import os
 import re
 import time
 import uuid
@@ -12,6 +13,19 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 logger = logging.getLogger("spectra.access")
 _SAFE_REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+_DEFAULT_SLOW_REQUEST_THRESHOLD_MS = 1200.0
+
+
+def _load_slow_request_threshold_ms() -> float:
+    raw = os.getenv("SLOW_REQUEST_THRESHOLD_MS", "").strip()
+    if not raw:
+        return _DEFAULT_SLOW_REQUEST_THRESHOLD_MS
+    try:
+        parsed = float(raw)
+        return parsed if parsed > 0 else _DEFAULT_SLOW_REQUEST_THRESHOLD_MS
+    except ValueError:
+        return _DEFAULT_SLOW_REQUEST_THRESHOLD_MS
+
 
 _request_id_ctx: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
 _user_id_ctx: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
@@ -46,6 +60,7 @@ class RequestIDMiddleware:
 
     def __init__(self, app: ASGIApp):
         self.app = app
+        self.slow_request_threshold_ms = _load_slow_request_threshold_ms()
 
     @staticmethod
     def _normalize_request_id(raw_request_id: Optional[str]) -> str:
@@ -76,6 +91,8 @@ class RequestIDMiddleware:
                 status_code = int(message["status"])
                 mutable_headers = MutableHeaders(scope=message)
                 mutable_headers["X-Request-ID"] = request_id
+                process_time_ms = (time.perf_counter() - start) * 1000
+                mutable_headers["X-Process-Time"] = f"{process_time_ms:.2f}ms"
             await send(message)
 
         try:
@@ -83,6 +100,26 @@ class RequestIDMiddleware:
         finally:
             duration_ms = round((time.perf_counter() - start) * 1000, 2)
             user_id = _user_id_ctx.get() or "-"
+            if duration_ms >= self.slow_request_threshold_ms:
+                logger.warning(
+                    "slow_request %s %s %s %sms threshold=%sms user=%s",
+                    method,
+                    path,
+                    status_code,
+                    duration_ms,
+                    self.slow_request_threshold_ms,
+                    user_id,
+                    extra={
+                        "request_id": request_id,
+                        "user_id": user_id,
+                        "method": method,
+                        "path": path,
+                        "status_code": status_code,
+                        "duration_ms": duration_ms,
+                        "slow_request": True,
+                        "slow_request_threshold_ms": self.slow_request_threshold_ms,
+                    },
+                )
             logger.info(
                 "%s %s %s %sms user=%s",
                 method,

@@ -3,13 +3,13 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID, uuid4
 
-from fastapi import Depends, File, Form, Header, HTTPException, UploadFile, status
+from fastapi import Depends, File, Form, Header, UploadFile
 from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import ChatRouteTask
 from services.database import db_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException
+from utils.exceptions import APIException, InternalServerException
 from utils.responses import success_response
 
 from .observability import build_observability_metadata
@@ -54,22 +54,28 @@ async def voice_message(
 
         from services.media.audio import transcribe_audio
 
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=Path(audio.filename or "audio.wav").suffix
-        ) as tmp_file:
-            content = await audio.read()
-            tmp_file.write(content)
-            tmp_path = tmp_file.name
-        estimated_duration = max(1.0, len(content) / 32000.0)
+        tmp_path: str | None = None
+        estimated_duration = 1.0
+        try:
+            with tempfile.NamedTemporaryFile(
+                delete=False, suffix=Path(audio.filename or "audio.wav").suffix
+            ) as tmp_file:
+                content = await audio.read()
+                tmp_file.write(content)
+                tmp_path = tmp_file.name
+            estimated_duration = max(1.0, len(content) / 32000.0)
 
-        start_at = time.perf_counter()
-        recognized_text, confidence, duration, capability_status = transcribe_audio(
-            tmp_path
-        )
+            start_at = time.perf_counter()
+            recognized_text, confidence, duration, capability_status = transcribe_audio(
+                tmp_path
+            )
+        finally:
+            if tmp_path:
+                Path(tmp_path).unlink(missing_ok=True)
+
         latency_ms = round((time.perf_counter() - start_at) * 1000, 2)
         duration = duration if duration > 0 else estimated_duration
         capability_status_payload = dump_capability_status(capability_status)
-        Path(tmp_path).unlink(missing_ok=True)
 
         if not recognized_text:
             recognized_text = (
@@ -150,7 +156,7 @@ async def voice_message(
         raise
     except Exception as exc:
         logger.error("Voice message failed: %s", exc, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="语音处理失败",
+        raise InternalServerException(
+            message="语音处理失败",
+            details={"project_id": project_id, "session_id": session_id},
         )

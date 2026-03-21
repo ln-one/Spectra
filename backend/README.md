@@ -67,5 +67,6 @@ uvicorn main:app --reload
 
 - `/Users/ln1/Projects/Spectra/docs/project/SYSTEM_PHILOSOPHY_2026-03-19.md`
 - `/Users/ln1/Projects/Spectra/docs/standards/backend.md`
-- `/Users/ln1/Projects/Spectra/docs/service-topology-todo.md`
+- `/Users/ln1/Projects/Spectra/docs/architecture/backend/overview.md`
+- `/Users/ln1/Projects/Spectra/docs/architecture/api-contract.md`
 - `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`

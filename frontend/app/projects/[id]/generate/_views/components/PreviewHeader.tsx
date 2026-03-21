@@ -1,4 +1,11 @@
-﻿import { ArrowLeft, Download, Edit3, Play, Share2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  Loader2,
+  Play,
+  RefreshCw,
+  Share2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -9,10 +16,14 @@ interface PreviewHeaderProps {
   isEditingTitle: boolean;
   projectTitle: string;
   isExporting: boolean;
+  isResuming: boolean;
+  canResume: boolean;
   onSetEditingTitle: (value: boolean) => void;
   onSetProjectTitle: (value: string) => void;
   onGoBack: () => void;
   onExport: () => void;
+  onRefresh: () => void;
+  onResume: () => void;
 }
 
 export function PreviewHeader({
@@ -21,10 +32,14 @@ export function PreviewHeader({
   isEditingTitle,
   projectTitle,
   isExporting,
+  isResuming,
+  canResume,
   onSetEditingTitle,
   onSetProjectTitle,
   onGoBack,
   onExport,
+  onRefresh,
+  onResume,
 }: PreviewHeaderProps) {
   return (
     <header className="h-14 border-b bg-background/80 backdrop-blur-md px-4 flex items-center justify-between shrink-0">
@@ -82,9 +97,24 @@ export function PreviewHeader({
           variant="outline"
           size="sm"
           className="hidden sm:flex rounded-full h-9"
+          onClick={onRefresh}
         >
-          <Edit3 className="w-4 h-4 mr-2" />
-          编辑
+          <RefreshCw className="w-4 h-4 mr-2" />
+          刷新
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden sm:flex rounded-full h-9"
+          onClick={onResume}
+          disabled={!canResume || isResuming}
+        >
+          {isResuming ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Play className="w-4 h-4 mr-2" />
+          )}
+          {isResuming ? "恢复中" : "继续会话"}
         </Button>
         <Button
           variant="outline"
@@ -103,13 +133,6 @@ export function PreviewHeader({
         >
           <Share2 className="w-4 h-4 mr-2" />
           分享
-        </Button>
-        <Button
-          size="sm"
-          className="rounded-full h-9 bg-foreground text-background hover:bg-foreground/90"
-        >
-          <Play className="w-4 h-4 mr-2 fill-current" />
-          演示
         </Button>
       </div>
     </header>

@@ -22,7 +22,7 @@ flowchart TB
  end
 
  subgraph Store["Storage"]
- DB[("SQLite")]
+ DB[("PostgreSQL")]
  VDB[("ChromaDB")]
  FS["Uploaded and Generated Files"]
  end
@@ -56,7 +56,7 @@ flowchart TB
 - **框架**: FastAPI
 - **语言**: Python 3.11
 - **ORM**: Prisma
-- **数据库**: SQLite -> PostgreSQL
+- **数据库**: PostgreSQL
 - **向量数据库**: ChromaDB
 
 ### 外部服务

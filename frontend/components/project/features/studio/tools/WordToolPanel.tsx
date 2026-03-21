@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,7 +24,7 @@ const DOC_TYPES = [
 const MODEL_OPTIONS = ["BOPPPS", "5E", "对分课堂"];
 const GRADES = ["初一", "初二", "初三", "高一", "高二", "高三"];
 
-export function WordToolPanel({ toolName }: ToolPanelProps) {
+export function WordToolPanel({ toolName, onDraftChange }: ToolPanelProps) {
   const [docType, setDocType] =
     useState<(typeof DOC_TYPES)[number]["id"]>("layered-plan");
   const [model, setModel] = useState("BOPPPS");
@@ -34,6 +34,16 @@ export function WordToolPanel({ toolName }: ToolPanelProps) {
 
   const docTypeLabel =
     DOC_TYPES.find((item) => item.id === docType)?.label ?? "分层教案";
+
+  useEffect(() => {
+    onDraftChange?.({
+      doc_type: docType,
+      model,
+      grade,
+      difficulty,
+      topic,
+    });
+  }, [difficulty, docType, grade, model, onDraftChange, topic]);
 
   const previewMarkdown = useMemo(() => {
     if (docType === "layered-plan") {

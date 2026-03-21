@@ -4,6 +4,34 @@ import re
 import uuid
 from typing import Optional
 
+_SLIDE_FOCUS_SUFFIX = ("知识地图", "关键例题", "易错点澄清", "互动提问", "板书逻辑")
+_SLIDE_FOCUS_POINTS = {
+    "知识地图": "知识地图结构化梳理",
+    "关键例题": "关键例题分步拆解",
+    "易错点澄清": "易错点澄清与纠偏",
+    "互动提问": "互动提问与即时反馈",
+    "板书逻辑": "板书逻辑主线归纳",
+}
+_MIN_KEY_POINTS_PER_SLIDE = 3
+_EXTRA_PAGE_SCAFFOLD = (
+    (
+        "知识地图扩展",
+        ["核心概念关系图", "主线知识串联", "板书结构搭建"],
+    ),
+    (
+        "关键例题扩展",
+        ["例题拆解步骤", "方法迁移训练", "变式题即时反馈"],
+    ),
+    (
+        "易错点澄清扩展",
+        ["高频误区识别", "反例对比纠偏", "课堂追问与修正"],
+    ),
+    (
+        "互动提问扩展",
+        ["问题链设计", "学生讨论任务", "板书总结归纳"],
+    ),
+)
+
 _OUTLINE_STYLE_RULES = {
     "structured": (
         "采用“总-分-总”结构：导入总览 -> 分章节展开 -> 结语总结；"
@@ -22,6 +50,90 @@ _OUTLINE_STYLE_RULES = {
         "强调可执行步骤与课堂活动。"
     ),
 }
+
+
+def _sanitize_key_points(key_points: list[str] | None) -> list[str]:
+    values = [str(point).strip() for point in (key_points or []) if str(point).strip()]
+    deduped: list[str] = []
+    for point in values:
+        if point not in deduped:
+            deduped.append(point)
+    while len(deduped) < _MIN_KEY_POINTS_PER_SLIDE:
+        fallback_idx = len(deduped)
+        if fallback_idx == 0:
+            deduped.append("核心概念梳理")
+        elif fallback_idx == 1:
+            deduped.append("关键例题讲解")
+        elif fallback_idx == 2:
+            deduped.append("易错点澄清与互动提问")
+        else:
+            deduped.append(f"补充要点 {fallback_idx + 1}")
+    return deduped
+
+
+def _build_split_slide_title(base_title: str, idx: int, total: int) -> str:
+    if total <= 1:
+        return base_title
+    return f"{base_title}（{idx + 1}/{total}）"
+
+
+def _pick_slide_focus_label(base_key_points: list[str], idx: int) -> str | None:
+    points = _sanitize_key_points(base_key_points)
+    if not points:
+        return None
+    return points[idx % len(points)]
+
+
+def _dedupe_preserve_order(items: list[str]) -> list[str]:
+    deduped: list[str] = []
+    for item in items:
+        if item not in deduped:
+            deduped.append(item)
+    return deduped
+
+
+def _build_split_slide_title_with_focus(
+    base_title: str,
+    base_key_points: list[str],
+    idx: int,
+    total: int,
+) -> str:
+    if total <= 1:
+        return base_title
+
+    focus_label = str(_pick_slide_focus_label(base_key_points, idx) or "").strip()
+    if not focus_label or focus_label in base_title:
+        return _build_split_slide_title(base_title, idx, total)
+
+    title = f"{base_title}：{focus_label}"
+    duplicate_focuses = [
+        _pick_slide_focus_label(base_key_points, cursor) for cursor in range(total)
+    ]
+    if duplicate_focuses.count(focus_label) > 1:
+        return f"{title}（{idx + 1}/{total}）"
+    return title
+
+
+def _build_slide_key_points(
+    base_key_points: list[str], idx: int, total: int
+) -> list[str]:
+    points = _sanitize_key_points(base_key_points)
+    if total <= 1:
+        return points
+
+    window_size = min(max(_MIN_KEY_POINTS_PER_SLIDE, 3), max(len(points), 1))
+    start = min(idx, max(len(points) - 1, 0))
+    selected: list[str] = []
+    cursor = start
+    while len(selected) < min(window_size, len(points)):
+        selected.append(points[cursor % len(points)])
+        cursor += 1
+
+    focus = _SLIDE_FOCUS_SUFFIX[idx % len(_SLIDE_FOCUS_SUFFIX)]
+    focus_point = _SLIDE_FOCUS_POINTS.get(focus)
+    if focus_point and not any(focus in point for point in selected):
+        selected.append(focus_point)
+    return _sanitize_key_points(_dedupe_preserve_order(selected))
 
 
 def _extract_outline_style(options: Optional[dict]) -> Optional[str]:
@@ -68,6 +180,8 @@ def _build_outline_requirements(
             parts.append(f"项目描述：{project.description}")
 
     if options:
+        if options.get("outline_redraft_instruction"):
+            parts.append(f"大纲重写要求：{options['outline_redraft_instruction']}")
         if options.get("system_prompt_tone"):
             parts.append(f"用户需求：{options['system_prompt_tone']}")
         if options.get("pages"):
@@ -92,31 +206,55 @@ def _courseware_outline_to_document(
     order = 1
     for section in outline.sections:
         count = section.slide_count or 1
+        base_key_points = _sanitize_key_points(list(section.key_points or []))
         for idx in range(count):
-            title = section.title if count == 1 else f"{section.title}（{idx + 1}）"
+            title = _build_split_slide_title_with_focus(
+                str(section.title or "章节"),
+                base_key_points,
+                idx,
+                count,
+            )
+            key_points = _build_slide_key_points(base_key_points, idx, count)
             nodes.append(
                 {
                     "id": str(uuid.uuid4()),
                     "order": order,
                     "title": title,
-                    "key_points": list(section.key_points or []),
+                    "key_points": key_points,
                     "estimated_minutes": None,
                 }
             )
             order += 1
 
-    if target_pages and len(nodes) < target_pages:
-        while len(nodes) < target_pages:
+    normalized_target_pages = None
+    if target_pages is not None:
+        try:
+            parsed_target_pages = int(target_pages)
+            normalized_target_pages = (
+                parsed_target_pages if parsed_target_pages > 0 else None
+            )
+        except (TypeError, ValueError):
+            normalized_target_pages = None
+
+    if normalized_target_pages and len(nodes) < normalized_target_pages:
+        while len(nodes) < normalized_target_pages:
+            template_idx = (len(nodes) - 1) % len(_EXTRA_PAGE_SCAFFOLD)
+            template_title, template_points = _EXTRA_PAGE_SCAFFOLD[template_idx]
             nodes.append(
                 {
                     "id": str(uuid.uuid4()),
                     "order": order,
-                    "title": f"补充内容 {order}",
-                    "key_points": [],
+                    "title": f"{template_title} {order}",
+                    "key_points": _sanitize_key_points(list(template_points)),
                     "estimated_minutes": None,
                 }
             )
             order += 1
+    elif normalized_target_pages and len(nodes) > normalized_target_pages:
+        nodes = nodes[:normalized_target_pages]
+
+    for idx, node in enumerate(nodes, start=1):
+        node["order"] = idx
 
     return {
         "version": 1,

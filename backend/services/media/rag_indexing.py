@@ -5,6 +5,7 @@ RAG Indexing Service
 """
 
 import logging
+import time
 from typing import Any, Optional
 
 from schemas.common import normalize_source_type
@@ -35,11 +36,20 @@ async def index_upload_file_for_rag(
         chunk_overlap: 重叠大小
         reindex: 是否先删除该文件已有索引
     """
+    stage_timings_ms: dict[str, float] = {}
+    provider = "unknown"
+    fallback_used = False
+
     try:
+        parse_started_at = time.perf_counter()
         text, parse_details = extract_text_for_rag(
             filepath=upload.filepath,
             filename=upload.filename,
             file_type=upload.fileType,
+        )
+        stage_timings_ms["parse_ms"] = round(
+            (time.perf_counter() - parse_started_at) * 1000,
+            2,
         )
     except Exception as exc:
         logger.warning(
@@ -51,6 +61,13 @@ async def index_upload_file_for_rag(
         )
         text = ""
         parse_details = {"error": str(exc)}
+        stage_timings_ms["parse_ms"] = 0.0
+
+    capability_status = parse_details.get("capability_status") or {}
+    provider = str(capability_status.get("provider") or "unknown")
+    fallback_used = bool(parse_details.get("fallback")) or bool(
+        capability_status.get("fallback_chain")
+    )
 
     if not text.strip():
         logger.info(
@@ -65,10 +82,16 @@ async def index_upload_file_for_rag(
         )
         parse_details["text_length"] = len(text)
         parse_details["fallback"] = True
+        fallback_used = True
 
+    chunk_started_at = time.perf_counter()
     chunks = split_text(text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     if not chunks:
         chunks = [text]
+    stage_timings_ms["chunk_ms"] = round(
+        (time.perf_counter() - chunk_started_at) * 1000,
+        2,
+    )
 
     db = db or db_service
 
@@ -83,6 +106,7 @@ async def index_upload_file_for_rag(
         )
         await db.delete_parsed_chunks(upload.id)
 
+    normalize_started_at = time.perf_counter()
     normalized_source_type = normalize_source_type(upload.fileType).value
     base_metadata = {
         "filename": upload.filename,
@@ -99,6 +123,10 @@ async def index_upload_file_for_rag(
         }
         for idx, chunk in enumerate(chunks)
     ]
+    stage_timings_ms["normalize_ms"] = round(
+        (time.perf_counter() - normalize_started_at) * 1000,
+        2,
+    )
 
     db_chunks = await db.create_parsed_chunks(
         upload_id=upload.id,
@@ -120,17 +148,45 @@ async def index_upload_file_for_rag(
             )
         )
 
-    indexed_count = await rag_service.index_chunks(project_id, rag_chunks)
+    index_details = await rag_service.index_chunks(
+        project_id,
+        rag_chunks,
+        return_details=True,
+    )
+    if isinstance(index_details, dict):
+        indexed_count = int(index_details.get("indexed_count") or 0)
+        stage_timings_ms["embedding_ms"] = round(
+            float(index_details.get("embedding_ms") or 0.0),
+            2,
+        )
+        stage_timings_ms["index_ms"] = round(
+            float(index_details.get("index_ms") or 0.0),
+            2,
+        )
+    else:
+        indexed_count = int(index_details or 0)
+        stage_timings_ms["embedding_ms"] = 0.0
+        stage_timings_ms["index_ms"] = 0.0
 
     result = {
         "chunk_count": len(chunks),
         "indexed_count": indexed_count,
+        "provider": provider,
+        "fallback_used": fallback_used,
+        "stage_timings_ms": stage_timings_ms,
         **parse_details,
     }
     logger.info(
-        "index_complete: upload_id=%s chunks=%d indexed=%d",
-        upload.id,
-        len(chunks),
-        indexed_count,
+        "rag_upload_index_complete",
+        extra={
+            "upload_id": upload.id,
+            "project_id": project_id,
+            "file_type": upload.fileType,
+            "provider": provider,
+            "fallback_used": fallback_used,
+            "chunk_count": len(chunks),
+            "indexed_count": indexed_count,
+            **stage_timings_ms,
+        },
     )
     return result

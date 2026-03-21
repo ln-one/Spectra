@@ -20,4 +20,5 @@ export type ToolDraftState = Record<string, ToolDraftValue>;
 export interface ToolPanelProps {
   toolId: StudioToolKey;
   toolName: string;
+  onDraftChange?: (draft: ToolDraftState) => void;
 }

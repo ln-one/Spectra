@@ -77,12 +77,21 @@ async def execute_rag_indexing_task(
                 status=UploadStatus.FAILED.value,
                 error_message=str(exc),
             )
-        except Exception:
-            pass
+        except Exception as status_exc:
+            logger.warning(
+                "rag_indexing_task_failed_to_update_upload_status: file_id=%s error=%s",
+                file_id,
+                status_exc,
+                exc_info=True,
+            )
         raise
     finally:
         if db_connected:
             try:
                 await asyncio.wait_for(db.disconnect(), timeout=5)
-            except Exception:
-                pass
+            except Exception as disconnect_exc:
+                logger.debug(
+                    "rag_indexing_task_disconnect_failed: file_id=%s error=%s",
+                    file_id,
+                    disconnect_exc,
+                )

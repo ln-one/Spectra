@@ -16,6 +16,7 @@ import pytest
 
 import routers.files as files_router
 from main import app
+from services.application import project_api
 from services.database import db_service
 from services.file import file_service
 from utils.dependencies import get_current_user
@@ -106,6 +107,11 @@ class TestProjectsContract:
         _m(monkeypatch, db_service, "get_idempotency_response", None)
         _m(monkeypatch, db_service, "create_project", _proj())
         _m(monkeypatch, db_service, "save_idempotency_response", None)
+        monkeypatch.setattr(
+            project_api,
+            "_bootstrap_default_session",
+            AsyncMock(return_value=None),
+        )
         body = _assert_envelope(
             client.post("/api/v1/projects", json={"name": "X", "description": "d"}),
             200,

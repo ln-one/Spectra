@@ -91,10 +91,10 @@
 1. 返回 `text/confidence/duration`。
 2. 返回 `capability_status`（CapabilityStatus）。
 3. 支持 `session_id` 作用域，满足 `project_id + session_id` 隔离语义。
+4. 返回 `observability`，与 `/chat/messages` 的观测语义保持一致。
 
 当前缺口：
 1. `/chat/voice` 的 assistant 回复仍为保底话术，尚未进入完整生成链路。
-2. 语音识别失败时走可解释降级，但未输出统一的 `observability` 区块。
 
 ## 4. 成功/降级/失败样例（最小可执行）
 
@@ -165,8 +165,7 @@
 
 ## 5. 字段缺失清单（需后续联调）
 1. `Project Space` 契约字段（`artifact/version/candidate-change`）已在 target 定义，但后端路由尚未完整落地。
-2. `/chat/voice` 未返回 `observability`（与 `/chat/messages` 不一致）。
-3. 解析/视频/语音三链路的错误响应尚未全部统一为根级 `error.code/retryable/trace_id` 结构。
+2. 解析/视频/语音三链路的错误响应尚未全部统一为根级 `error.code/retryable/trace_id` 结构。
 
 ## 6. 验收口径（D-Contract v1）
 1. 三能力均能输出 CapabilityStatus（成功/降级/不可用至少覆盖其一）。

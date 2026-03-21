@@ -5,6 +5,7 @@ import { generateApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
+import { useShallow } from "zustand/react/shallow";
 import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
 import { formatSessionTime } from "./constants";
 import { isThemePreset, PROJECT_THEME_STORAGE_KEY } from "./theme";
@@ -33,7 +34,22 @@ export function useProjectDetailController() {
     generationHistory,
     activeSessionId,
     reset,
-  } = useProjectStore();
+  } = useProjectStore(
+    useShallow((state) => ({
+      project: state.project,
+      isLoading: state.isLoading,
+      layoutMode: state.layoutMode,
+      fetchProject: state.fetchProject,
+      fetchFiles: state.fetchFiles,
+      fetchMessages: state.fetchMessages,
+      fetchGenerationHistory: state.fetchGenerationHistory,
+      fetchArtifactHistory: state.fetchArtifactHistory,
+      setActiveSessionId: state.setActiveSessionId,
+      generationHistory: state.generationHistory,
+      activeSessionId: state.activeSessionId,
+      reset: state.reset,
+    }))
+  );
 
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
@@ -97,9 +113,35 @@ export function useProjectDetailController() {
       await Promise.all([
         fetchProject(projectId),
         fetchFiles(projectId),
-        fetchMessages(projectId),
         fetchGenerationHistory(projectId),
       ]);
+
+      if (cancelled) return;
+
+      const history = useProjectStore.getState().generationHistory;
+      if (history.length > 0) {
+        return;
+      }
+
+      const response = await generateApi.createSession({
+        project_id: projectId,
+        output_type: "both",
+        bootstrap_only: true,
+      });
+      const bootstrapSessionId = response.data?.session?.session_id;
+      if (!bootstrapSessionId || cancelled) return;
+
+      setActiveSessionId(bootstrapSessionId);
+      updateSessionInUrl(bootstrapSessionId);
+      await fetchGenerationHistory(projectId);
+      const [, , sessionResponse] = await Promise.all([
+        fetchMessages(projectId, bootstrapSessionId),
+        fetchArtifactHistory(projectId, bootstrapSessionId),
+        generateApi.getSession(bootstrapSessionId),
+      ]);
+      useProjectStore.setState({
+        generationSession: sessionResponse?.data ?? null,
+      });
     };
 
     void bootstrap();
@@ -113,35 +155,53 @@ export function useProjectDetailController() {
     router,
     fetchProject,
     fetchFiles,
-    fetchMessages,
     fetchGenerationHistory,
+    fetchMessages,
+    fetchArtifactHistory,
     reset,
+    setActiveSessionId,
+    updateSessionInUrl,
   ]);
 
   useEffect(() => {
-    const nextSessionId = resolvePreferredSessionId(
+    const preferredSessionId = resolvePreferredSessionId(
       querySessionId,
       generationHistory,
       activeSessionId
     );
 
-    if (!nextSessionId) {
+    if (!preferredSessionId) {
       if (activeSessionId !== null) {
         setActiveSessionId(null);
       }
+      useProjectStore.setState({ generationSession: null });
       void fetchMessages(projectId, null);
       void fetchArtifactHistory(projectId, null);
       return;
     }
 
-    if (nextSessionId !== activeSessionId) {
+    const nextSessionId = preferredSessionId;
+
+    if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
+      void generateApi
+        .getSession(nextSessionId)
+        .then((response) => {
+          useProjectStore.setState({
+            generationSession: response?.data ?? null,
+          });
+        })
+        .catch(() => {
+          useProjectStore.setState({ generationSession: null });
+        });
     }
 
-    void fetchMessages(projectId, nextSessionId);
+    if (nextSessionId) {
+      void fetchMessages(projectId, nextSessionId);
+    }
 
-    if (querySessionId !== nextSessionId) {
+    if (nextSessionId && querySessionId !== nextSessionId) {
       updateSessionInUrl(nextSessionId);
     }
   }, [
@@ -164,8 +224,21 @@ export function useProjectDetailController() {
       if (!sessionId || sessionId === "empty") return;
       setActiveSessionId(sessionId);
       updateSessionInUrl(sessionId);
-      await fetchMessages(projectId, sessionId);
-      await fetchArtifactHistory(projectId, sessionId);
+      const [messagesResult, artifactsResult, sessionResult] =
+        await Promise.allSettled([
+          fetchMessages(projectId, sessionId),
+          fetchArtifactHistory(projectId, sessionId),
+          generateApi.getSession(sessionId),
+        ]);
+      if (sessionResult.status === "fulfilled") {
+        useProjectStore.setState({
+          generationSession: sessionResult.value?.data ?? null,
+        });
+      } else {
+        useProjectStore.setState({ generationSession: null });
+      }
+      void messagesResult;
+      void artifactsResult;
     },
     [
       fetchArtifactHistory,

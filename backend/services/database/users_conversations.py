@@ -1,6 +1,8 @@
 import json
 from typing import Optional
 
+from services.database.prisma_compat import find_many_with_select_fallback
+
 
 class UserConversationMixin:
     async def create_user(
@@ -69,14 +71,22 @@ class UserConversationMixin:
         project_id: str,
         limit: int = 10,
         session_id: Optional[str] = None,
+        select: Optional[dict] = None,
     ):
         where: dict = {"projectId": project_id}
         if session_id:
             where["sessionId"] = session_id
-        messages = await self.db.conversation.find_many(
-            where=where,
-            take=limit,
-            order={"createdAt": "desc"},
+        query: dict = {
+            "where": where,
+            "take": limit,
+            "order": {"createdAt": "desc"},
+        }
+        messages = await find_many_with_select_fallback(
+            model=self.db.conversation,
+            where=query["where"],
+            take=query["take"],
+            order=query["order"],
+            select=select,
         )
         return list(reversed(messages))
 

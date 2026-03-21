@@ -126,6 +126,14 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/deployment_env_role_audit.py
 python3 /Users/ln1/Projects/Spectra/backend/scripts/deployment_env_role_audit.py worker
 ```
 
+如果想一次跑完标准化 smoke pipeline（preflight + docker + distributed + smoke check）：
+
+```bash
+python3 /Users/ln1/Projects/Spectra/backend/scripts/deploy_smoke_pipeline.py \
+  --skip-network-preflight \
+  --base-url http://localhost:8000
+```
+
 如果要先生成发布记录骨架：
 
 ```bash

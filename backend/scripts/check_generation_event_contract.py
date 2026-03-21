@@ -15,7 +15,7 @@ OPENAPI_ENUM_FILE = ROOT / "docs" / "openapi" / "schemas" / "generate-core.yaml"
 SCAN_TARGETS = [
     ROOT / "backend" / "services" / "generation_session_service",
     ROOT / "backend" / "services" / "task_executor",
-    ROOT / "backend" / "services" / "task_recovery.py",
+    ROOT / "backend" / "services" / "platform" / "task_recovery.py",
 ]
 
 

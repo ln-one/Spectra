@@ -36,6 +36,14 @@ def test_backend_role_warns_for_recommended_values_only():
         "WARN recommended DEFAULT_MODEL missing" in message for message in messages
     )
     assert any(
+        "WARN recommended PREVIEW_REBUILD_TIMEOUT_SECONDS missing" in message
+        for message in messages
+    )
+    assert any(
+        "WARN recommended OUTLINE_DRAFT_TIMEOUT_SECONDS missing" in message
+        for message in messages
+    )
+    assert any(
         "PASS recommended UPLOAD_DIR configured" in message for message in messages
     )
     assert any(

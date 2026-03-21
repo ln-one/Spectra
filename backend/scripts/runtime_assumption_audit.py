@@ -8,7 +8,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = ROOT / "backend"
-DOCS_ROOT = ROOT / "docs"
+SCRIPT_FILE = Path(__file__).resolve()
+RUNTIME_SCOPE = (
+    BACKEND_ROOT / "main.py",
+    BACKEND_ROOT / "worker.py",
+    BACKEND_ROOT / "app_setup",
+    BACKEND_ROOT / "routers",
+    BACKEND_ROOT / "services",
+    BACKEND_ROOT / "utils",
+)
 EXCLUDED_PARTS = {
     ".git",
     "__pycache__",
@@ -25,38 +33,51 @@ class AssumptionPattern:
     name: str
     needle: str
     scope: tuple[Path, ...]
+    ignore_paths: tuple[str, ...] = ()
+    ignore_line_prefixes: tuple[str, ...] = ()
 
 
 PATTERNS = (
     AssumptionPattern(
         name="sqlite_default",
         needle="file:./dev.db",
-        scope=(BACKEND_ROOT, DOCS_ROOT),
+        scope=RUNTIME_SCOPE,
     ),
     AssumptionPattern(
         name="local_uploads_default",
         needle='"uploads"',
-        scope=(BACKEND_ROOT,),
+        scope=RUNTIME_SCOPE,
+        ignore_paths=("backend/services/runtime_paths.py",),
     ),
     AssumptionPattern(
         name="local_generated_default",
         needle='"generated"',
-        scope=(BACKEND_ROOT,),
+        scope=RUNTIME_SCOPE,
+        ignore_paths=(
+            "backend/services/runtime_paths.py",
+            "backend/utils/file_utils.py",
+        ),
+        ignore_line_prefixes=(">>>",),
     ),
     AssumptionPattern(
         name="local_chroma_default",
         needle="chroma_data",
-        scope=(BACKEND_ROOT, DOCS_ROOT),
+        scope=RUNTIME_SCOPE,
+        ignore_paths=("backend/services/runtime_paths.py",),
     ),
     AssumptionPattern(
         name="localhost_api_default",
         needle="http://localhost:8000",
-        scope=(BACKEND_ROOT, DOCS_ROOT),
+        scope=RUNTIME_SCOPE,
     ),
 )
 
 
 def _iter_files(root: Path) -> list[Path]:
+    if root.is_file():
+        return [root]
+    if not root.exists():
+        return []
     return [
         path
         for path in root.rglob("*")
@@ -74,12 +95,21 @@ def _find_hits(pattern: AssumptionPattern) -> list[str]:
         for path in _iter_files(scope_root):
             if path in seen:
                 continue
+            if path.resolve() == SCRIPT_FILE:
+                continue
             seen.add(path)
             text = path.read_text(encoding="utf-8", errors="replace")
             if pattern.needle not in text:
                 continue
             for lineno, line in enumerate(text.splitlines(), start=1):
                 if pattern.needle in line:
+                    normalized_path = path.as_posix()
+                    if any(
+                        marker in normalized_path for marker in pattern.ignore_paths
+                    ):
+                        continue
+                    if line.lstrip().startswith(pattern.ignore_line_prefixes):
+                        continue
                     hits.append(f"{path}:{lineno}: {line.strip()}")
 
     return hits

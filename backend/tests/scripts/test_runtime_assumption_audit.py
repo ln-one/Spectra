@@ -1,3 +1,4 @@
+import scripts.runtime_assumption_audit as audit
 from scripts.runtime_assumption_audit import AssumptionPattern, _find_hits
 
 
@@ -54,3 +55,72 @@ def test_find_hits_skips_tests_and_virtualenv_paths(tmp_path):
 
     assert len(hits) == 1
     assert str(active_target) in hits[0]
+
+
+def test_find_hits_skips_audit_script_file(monkeypatch, tmp_path):
+    script_file = tmp_path / "runtime_assumption_audit.py"
+    script_file.write_text('DATABASE_URL = "file:./dev.db"\n', encoding="utf-8")
+
+    monkeypatch.setattr(audit, "SCRIPT_FILE", script_file.resolve())
+
+    hits = _find_hits(
+        AssumptionPattern(
+            name="sqlite_default",
+            needle="file:./dev.db",
+            scope=(tmp_path,),
+        )
+    )
+
+    assert hits == []
+
+
+def test_find_hits_supports_file_scope(tmp_path):
+    target = tmp_path / "runtime.py"
+    target.write_text('DATABASE_URL = "file:./dev.db"\n', encoding="utf-8")
+
+    hits = _find_hits(
+        AssumptionPattern(
+            name="sqlite_default",
+            needle="file:./dev.db",
+            scope=(target,),
+        )
+    )
+
+    assert len(hits) == 1
+    assert str(target) in hits[0]
+
+
+def test_find_hits_supports_path_ignore_markers(tmp_path):
+    ignored = tmp_path / "backend" / "services" / "runtime_paths.py"
+    ignored.parent.mkdir(parents=True)
+    ignored.write_text('DEFAULT_UPLOAD_DIR = "uploads"\n', encoding="utf-8")
+
+    hits = _find_hits(
+        AssumptionPattern(
+            name="local_uploads_default",
+            needle='"uploads"',
+            scope=(tmp_path,),
+            ignore_paths=("backend/services/runtime_paths.py",),
+        )
+    )
+
+    assert hits == []
+
+
+def test_find_hits_supports_line_prefix_ignores(tmp_path):
+    target = tmp_path / "demo.py"
+    target.write_text(
+        '"""\n>>> get_generation_output_path(Path("generated"), "t", "pptx")\n"""\n',
+        encoding="utf-8",
+    )
+
+    hits = _find_hits(
+        AssumptionPattern(
+            name="local_generated_default",
+            needle='"generated"',
+            scope=(tmp_path,),
+            ignore_line_prefixes=(">>>",),
+        )
+    )
+
+    assert hits == []

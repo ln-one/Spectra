@@ -19,7 +19,7 @@ class Check:
 
 
 CHECKS = (
-    Check("root-health", "/health"),
+    Check("root-health", "/health/ready"),
     Check("capabilities-health", "/api/v1/health/capabilities"),
     Check("generate-capabilities", "/api/v1/generate/capabilities", requires_auth=True),
 )

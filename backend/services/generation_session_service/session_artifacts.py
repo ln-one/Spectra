@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Optional
 
+from services.database.prisma_compat import (
+    find_many_with_select_fallback,
+    find_unique_with_select_fallback,
+)
 from services.generation_session_service.capability_helpers import (
     _resolve_capability_from_artifact,
 )
@@ -10,6 +15,15 @@ from services.project_space_service.candidate_change_semantics import (
     parse_json_object,
     serialize_candidate_change,
 )
+
+_ARTIFACT_HISTORY_SELECT = {
+    "id": True,
+    "type": True,
+    "basedOnVersionId": True,
+    "metadata": True,
+    "createdAt": True,
+    "updatedAt": True,
+}
 
 
 def _resolve_session_artifact_title(
@@ -43,6 +57,14 @@ def _artifact_lineage_flags(
         bool(payload.get("is_current", True)),
         payload.get("replaces_artifact_id"),
         payload.get("superseded_by_artifact_id"),
+    )
+
+
+def _history_sort_key(item: dict) -> tuple[bool, bool, str]:
+    return (
+        bool(item.get("is_current", True)),
+        item.get("capability") == "outline",
+        item.get("updated_at") or "",
     )
 
 
@@ -80,11 +102,29 @@ async def get_session_artifact_history(
             "artifact_anchor": build_artifact_anchor(session_id, None),
         }
 
-    artifacts = await artifact_model.find_many(
+    artifact_query = find_many_with_select_fallback(
+        model=artifact_model,
         where={"projectId": project_id, "sessionId": session_id},
         order={"updatedAt": "desc"},
+        select=_ARTIFACT_HISTORY_SELECT,
     )
-    project = await db.get_project(project_id) if hasattr(db, "get_project") else None
+    if hasattr(db, "project") and hasattr(db.project, "find_unique"):
+        artifacts, project = await asyncio.gather(
+            artifact_query,
+            find_unique_with_select_fallback(
+                model=db.project,
+                where={"id": project_id},
+                select={"currentVersionId": True},
+            ),
+        )
+    elif hasattr(db, "get_project"):
+        artifacts, project = await asyncio.gather(
+            artifact_query,
+            db.get_project(project_id),
+        )
+    else:
+        artifacts = await artifact_query
+        project = None
     current_version_id = getattr(project, "currentVersionId", None) if project else None
 
     history_items: list[dict] = []
@@ -134,20 +174,14 @@ async def get_session_artifact_history(
         history_items.append(item)
         grouped.setdefault(capability, []).append(item)
 
-    history_items.sort(
-        key=lambda item: (
-            not bool(item.get("is_current", True)),
-            item.get("updated_at") or "",
-        ),
-        reverse=False,
-    )
+    history_items.sort(key=_history_sort_key, reverse=True)
     for items in grouped.values():
         items.sort(
             key=lambda item: (
-                not bool(item.get("is_current", True)),
+                bool(item.get("is_current", True)),
                 item.get("updated_at") or "",
             ),
-            reverse=False,
+            reverse=True,
         )
 
     grouped_items = [

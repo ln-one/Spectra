@@ -30,6 +30,11 @@ export default function GeneratePreviewPage() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const slidesRef = useRef<HTMLDivElement>(null);
+  const activeSlideIndexRef = useRef(0);
+
+  useEffect(() => {
+    activeSlideIndexRef.current = activeSlideIndex;
+  }, [activeSlideIndex]);
 
   const sessionIdFromQuery = searchParams?.get("session") || null;
   const artifactIdFromQuery = searchParams?.get("artifact_id") || null;
@@ -38,10 +43,15 @@ export default function GeneratePreviewPage() {
     slides,
     isLoading,
     isExporting,
+    isResuming,
+    regeneratingSlideId,
     previewBlockedReason,
     isSessionGenerating,
     activeSessionId,
     handleExport,
+    handleResume,
+    handleRegenerateSlide,
+    loadSlides,
   } = useGeneratePreviewState({
     projectId,
     sessionIdFromQuery,
@@ -50,12 +60,13 @@ export default function GeneratePreviewPage() {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    let rafId: number | null = null;
 
-    const handleScroll = () => {
+    const updateActiveSlideByViewport = () => {
       if (!containerRef.current) return;
       const slideElements =
         containerRef.current.querySelectorAll(".slide-card");
-      let currentActiveIndex = activeSlideIndex;
+      let currentActiveIndex = activeSlideIndexRef.current;
       const containerTop = containerRef.current.scrollTop;
       const containerCenter =
         containerTop + containerRef.current.clientHeight * 0.4;
@@ -73,17 +84,30 @@ export default function GeneratePreviewPage() {
         }
       });
 
-      if (currentActiveIndex !== activeSlideIndex) {
+      if (currentActiveIndex !== activeSlideIndexRef.current) {
         setActiveSlideIndex(currentActiveIndex);
       }
     };
 
+    const handleScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        updateActiveSlideByViewport();
+      });
+    };
+
     const container = containerRef.current;
     container.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
+    updateActiveSlideByViewport();
 
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [activeSlideIndex, slides]);
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [slides]);
 
   const scrollToSlide = useCallback((index: number) => {
     const slideElement = document.querySelector(`[data-index="${index}"]`);
@@ -101,10 +125,18 @@ export default function GeneratePreviewPage() {
           isEditingTitle={isEditingTitle}
           projectTitle={projectTitle}
           isExporting={isExporting}
+          isResuming={isResuming}
+          canResume={Boolean(activeSessionId) && !isSessionGenerating}
           onSetEditingTitle={setIsEditingTitle}
           onSetProjectTitle={setProjectTitle}
           onGoBack={() => router.push(`/projects/${projectId}`)}
           onExport={handleExport}
+          onRefresh={() => {
+            void loadSlides();
+          }}
+          onResume={() => {
+            void handleResume();
+          }}
         />
 
         <main
@@ -131,6 +163,16 @@ export default function GeneratePreviewPage() {
                 >
                   返回项目并继续生成
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void handleResume();
+                  }}
+                  className="rounded-full mt-2"
+                  disabled={!activeSessionId || isResuming}
+                >
+                  {isResuming ? "恢复中..." : "继续会话"}
+                </Button>
               </div>
             ) : isSessionGenerating ? (
               <div className="flex flex-col items-center justify-center h-full opacity-80">
@@ -145,6 +187,16 @@ export default function GeneratePreviewPage() {
                 <p className="text-sm text-muted-foreground">
                   暂无幻灯片数据，请先生成。
                 </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void handleResume();
+                  }}
+                  className="rounded-full mt-3"
+                  disabled={!activeSessionId || isResuming}
+                >
+                  {isResuming ? "恢复中..." : "继续会话"}
+                </Button>
               </div>
             )
           ) : (
@@ -178,6 +230,16 @@ export default function GeneratePreviewPage() {
             slides={slides}
             activeSlideIndex={activeSlideIndex}
             onScrollToSlide={scrollToSlide}
+            onRegenerateSlide={(slide) => {
+              const target = slides.find(
+                (item) =>
+                  (item.id && item.id === slide.id) ||
+                  item.index === slide.index
+              );
+              if (!target) return;
+              void handleRegenerateSlide(target);
+            }}
+            regeneratingSlideId={regeneratingSlideId}
           />
         ) : null}
       </div>

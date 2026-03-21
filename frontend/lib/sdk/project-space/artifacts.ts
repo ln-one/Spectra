@@ -1,4 +1,4 @@
-﻿import { MOCK_MODE, sdkClient, unwrap } from "./base";
+import { MOCK_MODE, apiFetch, sdkClient, toApiError, unwrap } from "./base";
 import { createMockArtifacts } from "./mocks";
 import type {
   ArtifactCreateRequest,
@@ -13,6 +13,7 @@ export async function getArtifacts(
     visibility?: string;
     owner_user_id?: string;
     based_on_version_id?: string;
+    session_id?: string;
   }
 ): Promise<ArtifactsResponse> {
   if (MOCK_MODE) {
@@ -91,4 +92,29 @@ export async function createArtifact(
     }
   );
   return unwrap<ArtifactResponse>(result);
+}
+
+export async function downloadArtifact(
+  projectId: string,
+  artifactId: string
+): Promise<Blob> {
+  if (MOCK_MODE) {
+    return new Blob(
+      [JSON.stringify({ project_id: projectId, artifact_id: artifactId })],
+      { type: "application/json;charset=utf-8" }
+    );
+  }
+  const response = await apiFetch(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/artifacts/${encodeURIComponent(artifactId)}/download`
+  );
+  if (!response.ok) {
+    let payload: unknown = { message: "下载工件失败" };
+    try {
+      payload = await response.json();
+    } catch {
+      // Keep the fallback payload when response body is not JSON.
+    }
+    throw toApiError(payload, response.status);
+  }
+  return response.blob();
 }

@@ -6,10 +6,29 @@ from schemas.project_reference_semantics import (
     normalize_reference_relation_type,
     normalize_reference_status,
 )
-from schemas.project_space import ChangeType, ReferenceRelationType, ReferenceStatus
+from schemas.project_space import (
+    ChangeType,
+    ReferenceMode,
+    ReferenceRelationType,
+    ReferenceStatus,
+)
+from utils.exceptions import ValidationException
 
 
 class ProjectSpaceReferenceMixin:
+    async def _validate_reference_pinned_version(
+        self, *, target_project_id: str, pinned_version_id: Optional[str]
+    ) -> None:
+        if not pinned_version_id:
+            return
+        version = await self.get_project_version(pinned_version_id)
+        if not version or getattr(version, "projectId", None) != target_project_id:
+            raise ValidationException(
+                "pinned_version_id "
+                f"{pinned_version_id} does not belong to target project "
+                f"{target_project_id}"
+            )
+
     async def create_project_reference(
         self,
         project_id: str,
@@ -20,11 +39,18 @@ class ProjectSpaceReferenceMixin:
         priority: int,
         created_by: Optional[str],
     ):
+        normalized_mode = normalize_reference_mode(mode).value
+        if normalized_mode == ReferenceMode.PINNED.value and not pinned_version_id:
+            raise ValidationException("mode=pinned requires pinned_version_id")
+        await self._validate_reference_pinned_version(
+            target_project_id=target_project_id,
+            pinned_version_id=pinned_version_id,
+        )
         data = {
             "projectId": project_id,
             "targetProjectId": target_project_id,
             "relationType": normalize_reference_relation_type(relation_type).value,
-            "mode": normalize_reference_mode(mode).value,
+            "mode": normalized_mode,
             "priority": priority,
         }
         if pinned_version_id:
@@ -50,6 +76,26 @@ class ProjectSpaceReferenceMixin:
         priority: Optional[int] = None,
         status: Optional[str] = None,
     ):
+        reference = await self.get_project_reference(reference_id)
+        if not reference:
+            raise ValidationException(f"reference_id {reference_id} not found")
+
+        next_mode = (
+            normalize_reference_mode(mode).value
+            if mode is not None
+            else getattr(reference, "mode", None)
+        )
+        next_pinned_version_id = (
+            pinned_version_id
+            if pinned_version_id is not None
+            else getattr(reference, "pinnedVersionId", None)
+        )
+        if next_mode == ReferenceMode.PINNED.value and not next_pinned_version_id:
+            raise ValidationException("mode=pinned requires pinned_version_id")
+        await self._validate_reference_pinned_version(
+            target_project_id=getattr(reference, "targetProjectId", None),
+            pinned_version_id=next_pinned_version_id,
+        )
         data = {}
         if mode is not None:
             data["mode"] = normalize_reference_mode(mode).value
@@ -101,6 +147,13 @@ class ProjectSpaceReferenceMixin:
             if isinstance(change_type, ChangeType)
             else ChangeType(change_type)
         )
+        if parent_version_id:
+            parent_version = await self.get_project_version(parent_version_id)
+            if not parent_version or parent_version.projectId != project_id:
+                raise ValidationException(
+                    "parent_version_id "
+                    f"{parent_version_id} does not belong to project {project_id}"
+                )
         data = {"projectId": project_id, "changeType": normalized_change_type}
         if parent_version_id:
             data["parentVersionId"] = parent_version_id
@@ -113,6 +166,12 @@ class ProjectSpaceReferenceMixin:
         return await self.db.projectversion.create(data=data)
 
     async def update_project_current_version(self, project_id: str, version_id: str):
+        version = await self.get_project_version(version_id)
+        if not version or getattr(version, "projectId", None) != project_id:
+            raise ValidationException(
+                "current_version_id "
+                f"{version_id} does not belong to project {project_id}"
+            )
         return await self.db.project.update(
             where={"id": project_id},
             data={"currentVersionId": version_id},

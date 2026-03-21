@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { generateApi, ragApi } from "@/lib/sdk";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/stores/projectStore";
+import { useShallow } from "zustand/react/shallow";
 
 function pickRandom<T>(arr: T[], count: number): T[] {
   const copy = [...arr];
@@ -44,7 +45,14 @@ export function useGenerationConfigPanel({
   const params = useParams();
   const projectId = params.id as string;
   const { project, files, selectedFileIds, generationSession } =
-    useProjectStore();
+    useProjectStore(
+      useShallow((state) => ({
+        project: state.project,
+        files: state.files,
+        selectedFileIds: state.selectedFileIds,
+        generationSession: state.generationSession,
+      }))
+    );
 
   const [prompt, setPrompt] = useState("");
   const [pageCount, setPageCount] = useState<number>(12);
@@ -55,6 +63,7 @@ export function useGenerationConfigPanel({
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [showOutlineEditor, setShowOutlineEditor] = useState(false);
   const sessionId = generationSession?.session?.session_id || "";
+  const suggestionRequestIdRef = useRef(0);
 
   const pageLabel = useMemo(() => {
     if (pageCount <= 10) return "简洁版";
@@ -81,7 +90,7 @@ export function useGenerationConfigPanel({
       const ragResponse = await ragApi.search({
         project_id: projectId,
         query: `${seed} 教学目标 核心概念 课堂应用`,
-        top_k: 8,
+        top_k: 5,
         filters,
       });
 
@@ -104,22 +113,47 @@ export function useGenerationConfigPanel({
         `请根据当前 RAG 资料提炼主线，输出 ${pageCount} 页可直接授课的大纲，要求每页有标题、讲解目标、教师提示语。`,
         `以“课堂可落地”为目标生成 PPT 大纲：每一章节包含知识点、学生任务、评价方式，优先引用项目资料中的核心术语。`,
       ];
-      setSuggestions(pickRandom(candidates, 4));
+      setSuggestions((prev) => {
+        const next = pickRandom(candidates, 4);
+        if (
+          prev.length === next.length &&
+          prev.every((item, idx) => item === next[idx])
+        ) {
+          return prev;
+        }
+        return next;
+      });
     } catch {
       const seed = prompt.trim() || project?.name || "课程主题";
-      setSuggestions([
-        `请围绕“${seed}”生成一版完整授课 PPT 大纲（导入-讲解-练习-总结）。`,
-        "请生成一版问题驱动型大纲，突出核心概念、易错点和课堂提问。",
-        "请生成一版案例导向型大纲，每章附一个教学案例与讨论任务。",
-        "请生成一版可直接授课的大纲，每页包含标题和讲解要点。",
-      ]);
+      setSuggestions((prev) => {
+        const next = [
+          `请围绕“${seed}”生成一版完整授课 PPT 大纲（导入-讲解-练习-总结）。`,
+          "请生成一版问题驱动型大纲，突出核心概念、易错点和课堂提问。",
+          "请生成一版案例导向型大纲，每章附一个教学案例与讨论任务。",
+          "请生成一版可直接授课的大纲，每页包含标题和讲解要点。",
+        ];
+        if (
+          prev.length === next.length &&
+          prev.every((item, idx) => item === next[idx])
+        ) {
+          return prev;
+        }
+        return next;
+      });
     } finally {
       setLoadingSuggestions(false);
     }
   }, [files, pageCount, project?.name, projectId, prompt, selectedFileIds]);
 
   useEffect(() => {
-    void generateSuggestionBatch();
+    const requestId = ++suggestionRequestIdRef.current;
+    const timer = window.setTimeout(async () => {
+      if (requestId !== suggestionRequestIdRef.current) return;
+      await generateSuggestionBatch();
+    }, 450);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [generateSuggestionBatch]);
 
   const handleGenerate = useCallback(async () => {

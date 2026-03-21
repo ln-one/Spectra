@@ -1,126 +1,30 @@
-"""Artifact helpers for Project Space service."""
+"""Artifact creation helpers for Project Space service."""
 
-import html
+import asyncio
 import json
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from schemas.project_space import ArtifactType
 from services.artifact_generator import artifact_generator
-from services.chunking import split_text
-from services.file_upload_service.constants import (
-    UploadStatus,
-)
-from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
-from services.rag_service import ParsedChunkData, rag_service
+from services.rag_service import rag_service
 from utils.exceptions import ValidationException
 
+from .artifact_accretion import silently_accrete_artifact
+from .artifact_content import build_artifact_metadata, normalize_artifact_content
 from .artifact_semantics import (
-    ARTIFACT_MODE_KIND_MAP,
     SUPPORTED_FILE_ARTIFACT_TYPES,
-    ArtifactMetadataKind,
-    default_artifact_content,
-    get_artifact_capability,
     normalize_artifact_type,
     normalize_artifact_visibility,
 )
+from .artifact_versioning import resolve_based_on_version_id
 
 logger = logging.getLogger(__name__)
 
-_ARTIFACT_SOURCE_TYPE = "ai_generated"
-_ACCRETION_CHUNK_SIZE = 500
-_ACCRETION_CHUNK_OVERLAP = 50
 _SUPPORTED_ARTIFACT_MODES = {"create", "replace"}
-
-
-def _stringify_nodes(nodes: list[dict]) -> list[str]:
-    lines: list[str] = []
-
-    def visit(node: dict, depth: int = 0) -> None:
-        title = str(node.get("title") or "").strip()
-        if title:
-            lines.append(f'{"  " * depth}- {title}')
-        for key in ("summary", "description", "content"):
-            value = str(node.get(key) or "").strip()
-            if value:
-                lines.append(f'{"  " * (depth + 1)}{value}')
-        for child in node.get("children") or []:
-            if isinstance(child, dict):
-                visit(child, depth + 1)
-
-    for node in nodes or []:
-        if isinstance(node, dict):
-            visit(node)
-    return lines
-
-
-def _build_artifact_accretion_text(
-    artifact_type: str,
-    content: Optional[Dict[str, Any]],
-) -> str:
-    normalized = normalize_artifact_content(artifact_type, content)
-    lines: list[str] = []
-    title = str(normalized.get("title") or "").strip()
-    if title:
-        lines.append(f"标题：{title}")
-    kind = str(normalized.get("kind") or "").strip()
-    if kind:
-        lines.append(f"类型：{kind}")
-
-    for key in ("summary", "description", "html", "markdown_content", "prompt"):
-        value = str(normalized.get(key) or "").strip()
-        if value:
-            lines.append(value)
-
-    for node_key in ("nodes", "mindmap", "sections"):
-        raw_nodes = normalized.get(node_key)
-        if isinstance(raw_nodes, list):
-            lines.extend(_stringify_nodes(raw_nodes))
-
-    questions = normalized.get("questions") or normalized.get("items") or []
-    for item in questions:
-        if not isinstance(item, dict):
-            continue
-        stem = str(item.get("question") or item.get("title") or "").strip()
-        if stem:
-            lines.append(f"题目：{stem}")
-        for option in item.get("options") or []:
-            lines.append(f"- {option}")
-        answer = item.get("answer")
-        if answer:
-            lines.append(f"答案：{answer}")
-        explanation = str(item.get("explanation") or "").strip()
-        if explanation:
-            lines.append(f"解析：{explanation}")
-
-    scenes = normalized.get("scenes") or []
-    for scene in scenes:
-        if not isinstance(scene, dict):
-            continue
-        scene_title = str(scene.get("title") or "").strip()
-        scene_description = str(scene.get("description") or "").strip()
-        if scene_title:
-            lines.append(f"场景：{scene_title}")
-        if scene_description:
-            lines.append(scene_description)
-
-    deduped_lines = [line for line in lines if line and line.strip()]
-    return "\n".join(deduped_lines).strip()
-
-
-def _derive_artifact_upload_filename(
-    artifact_id: str,
-    artifact_type: str,
-    title: Optional[str],
-) -> str:
-    safe_title = "".join(
-        ch if ch.isalnum() or ch in ("-", "_") else "-"
-        for ch in str(title or "").strip()
-    ).strip("-")
-    prefix = safe_title or artifact_type or "artifact"
-    return f"{prefix[:48]}-{artifact_id[:8]}.{artifact_type}"
 
 
 def _normalize_artifact_mode(mode: Optional[str]) -> str:
@@ -146,6 +50,42 @@ def _parse_artifact_metadata(raw_metadata: Any) -> Dict[str, Any]:
     return {}
 
 
+def _is_current_artifact(artifact: Any) -> bool:
+    metadata = _parse_artifact_metadata(getattr(artifact, "metadata", None))
+    return bool(metadata.get("is_current", True))
+
+
+def _select_replaced_artifact(
+    candidates: list[Any],
+    *,
+    based_on_version_id: Optional[str],
+) -> Any | None:
+    if not candidates:
+        return None
+
+    if based_on_version_id:
+        version_matched = [
+            artifact
+            for artifact in candidates
+            if getattr(artifact, "basedOnVersionId", None) == based_on_version_id
+        ]
+        current_version_matched = [
+            artifact for artifact in version_matched if _is_current_artifact(artifact)
+        ]
+        if current_version_matched:
+            return current_version_matched[0]
+        if version_matched:
+            return version_matched[0]
+
+    current_candidates = [
+        artifact for artifact in candidates if _is_current_artifact(artifact)
+    ]
+    if current_candidates:
+        return current_candidates[0]
+
+    return candidates[0]
+
+
 async def _silently_accrete_artifact(
     *,
     db,
@@ -157,174 +97,18 @@ async def _silently_accrete_artifact(
     based_on_version_id: Optional[str],
     normalized_content: Dict[str, Any],
 ) -> None:
-    if not all(
-        hasattr(db, attr)
-        for attr in (
-            "create_upload",
-            "update_file_intent",
-            "update_upload_status",
-            "create_parsed_chunks",
-        )
-    ):
-        return
-
-    text = _build_artifact_accretion_text(artifact_type, normalized_content)
-    if not text:
-        return
-
-    title = normalized_content.get("title")
-    filename = _derive_artifact_upload_filename(artifact.id, artifact_type, title)
-    storage_path = getattr(
-        artifact, "storagePath", None
-    ) or artifact_generator.get_storage_path(project_id, artifact_type, artifact.id)
-    try:
-        size = Path(storage_path).stat().st_size if storage_path else len(text.encode())
-    except OSError:
-        size = len(text.encode())
-
-    upload = await db.create_upload(
-        filename=filename,
-        filepath=storage_path or f"artifacts/{filename}",
-        size=size,
+    await silently_accrete_artifact(
+        db=db,
+        artifact=artifact,
         project_id=project_id,
-        file_type=artifact_type,
-        mime_type="text/plain",
+        artifact_type=artifact_type,
+        visibility=visibility,
+        session_id=session_id,
+        based_on_version_id=based_on_version_id,
+        normalized_content=normalized_content,
+        path_cls=Path,
+        rag_indexer=rag_service,
     )
-    await db.update_file_intent(upload.id, SILENT_ACCRETION_USAGE_INTENT)
-
-    metadata = {
-        "filename": filename,
-        "source_type": _ARTIFACT_SOURCE_TYPE,
-        "source_project_id": project_id,
-        "artifact_id": artifact.id,
-        "artifact_type": artifact_type,
-        "artifact_visibility": visibility,
-        "based_on_version_id": based_on_version_id,
-        "accretion": "silent",
-    }
-    if visibility == "private" and session_id:
-        metadata["session_id"] = session_id
-
-    chunks = split_text(
-        text,
-        chunk_size=_ACCRETION_CHUNK_SIZE,
-        chunk_overlap=_ACCRETION_CHUNK_OVERLAP,
-    ) or [text]
-    chunk_payloads = [
-        {
-            "chunk_index": idx,
-            "content": chunk,
-            "metadata": dict(metadata),
-        }
-        for idx, chunk in enumerate(chunks)
-    ]
-    db_chunks = await db.create_parsed_chunks(
-        upload_id=upload.id,
-        source_type=_ARTIFACT_SOURCE_TYPE,
-        chunks=chunk_payloads,
-    )
-    rag_chunks = [
-        ParsedChunkData(
-            chunk_id=db_chunk.id,
-            content=payload["content"],
-            metadata=payload["metadata"]
-            | {"upload_id": upload.id, "chunk_index": payload["chunk_index"]},
-        )
-        for db_chunk, payload in zip(db_chunks, chunk_payloads)
-    ]
-    indexed_count = await rag_service.index_chunks(project_id, rag_chunks)
-    await db.update_upload_status(
-        upload.id,
-        status=UploadStatus.READY.value,
-        parse_result={
-            "chunk_count": len(chunk_payloads),
-            "indexed_count": indexed_count,
-            "text_length": len(text),
-            "source_type": _ARTIFACT_SOURCE_TYPE,
-            "source_project_id": project_id,
-            "artifact_id": artifact.id,
-            "artifact_type": artifact_type,
-            "artifact_visibility": visibility,
-            "based_on_version_id": based_on_version_id,
-            "silent_accretion": True,
-        },
-        error_message=None,
-    )
-
-
-def _build_animation_storyboard_html(content: Dict[str, Any]) -> str:
-    title = html.escape(content.get("title", "Animation Storyboard"))
-    scenes = content.get("scenes") or [
-        {
-            "title": "Scene 1",
-            "description": content.get("summary") or "待补充镜头说明",
-        }
-    ]
-    scene_blocks = []
-    for idx, scene in enumerate(scenes, start=1):
-        scene_title = html.escape(str(scene.get("title") or f"Scene {idx}"))
-        scene_description = html.escape(str(scene.get("description") or ""))
-        scene_blocks.append(
-            "<section>"
-            f"<h2>Scene {idx}: {scene_title}</h2>"
-            f"<p>{scene_description}</p>"
-            "</section>"
-        )
-    return (
-        "<!doctype html><html><body>"
-        f"<h1>{title}</h1>" + "".join(scene_blocks) + "</body></html>"
-    )
-
-
-def normalize_artifact_content(
-    artifact_type: str,
-    content: Optional[Dict[str, Any]],
-) -> Dict[str, Any]:
-    normalized = default_artifact_content(artifact_type)
-    incoming = dict(content or {})
-    normalized.update(incoming)
-
-    mode = str(incoming.get("mode") or "").strip().lower()
-    title_and_kind = ARTIFACT_MODE_KIND_MAP.get((artifact_type, mode))
-    if title_and_kind:
-        title, kind = title_and_kind
-        normalized.setdefault("title", title)
-        normalized["kind"] = kind
-
-    if (
-        artifact_type == ArtifactType.SUMMARY.value
-        and mode == ArtifactMetadataKind.OUTLINE.value
-    ):
-        normalized["nodes"] = normalized.get("nodes") or []
-    elif (
-        artifact_type == ArtifactType.HTML.value
-        and mode == ArtifactMetadataKind.ANIMATION_STORYBOARD.value
-    ):
-        normalized["html"] = incoming.get("html") or _build_animation_storyboard_html(
-            normalized
-        )
-    return normalized
-
-
-def build_artifact_metadata(
-    artifact_type: str,
-    content: Dict[str, Any],
-    user_id: str,
-    artifact_mode: str = "create",
-) -> Dict[str, Any]:
-    metadata: Dict[str, Any] = {
-        "created_by": user_id,
-        "capability": get_artifact_capability(artifact_type),
-    }
-    kind = str(content.get("kind") or "").strip()
-    if kind:
-        metadata["kind"] = kind
-    title = content.get("title")
-    if isinstance(title, str) and title.strip():
-        metadata["title"] = title.strip()
-    metadata["mode"] = artifact_mode
-    metadata["is_current"] = True
-    return metadata
 
 
 async def get_artifact_storage_path(
@@ -353,20 +137,11 @@ async def create_artifact_with_file(
 
     mode = _normalize_artifact_mode(artifact_mode)
 
-    if based_on_version_id:
-        version = await db.get_project_version(based_on_version_id)
-        if not version or version.projectId != project_id:
-            raise ValidationException(
-                "based_on_version_id "
-                f"{based_on_version_id} is invalid for project {project_id}"
-            )
-    else:
-        project = await db.get_project(project_id)
-        current_version_id = (
-            getattr(project, "currentVersionId", None) if project else None
-        )
-        if current_version_id:
-            based_on_version_id = current_version_id
+    based_on_version_id = await resolve_based_on_version_id(
+        db=db,
+        project_id=project_id,
+        based_on_version_id=based_on_version_id,
+    )
 
     normalized_content = normalize_artifact_content(artifact_type, content)
 
@@ -380,8 +155,10 @@ async def create_artifact_with_file(
             based_on_version_id_filter=None,
             session_id_filter=session_id,
         )
-        if candidates:
-            replaced_artifact = candidates[0]
+        replaced_artifact = _select_replaced_artifact(
+            list(candidates or []),
+            based_on_version_id=based_on_version_id,
+        )
 
     if artifact_type not in SUPPORTED_FILE_ARTIFACT_TYPES:
         raise ValidationException(
@@ -456,7 +233,17 @@ async def create_artifact_with_file(
         replaced_metadata["is_current"] = False
         await db.update_artifact_metadata(replaced_artifact.id, replaced_metadata)
     try:
-        await _silently_accrete_artifact(
+        timeout_seconds = 8.0
+        raw_timeout = os.getenv(
+            "ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS",
+            "8",
+        ).strip()
+        if raw_timeout:
+            try:
+                timeout_seconds = float(raw_timeout)
+            except ValueError:
+                timeout_seconds = 8.0
+        coroutine = _silently_accrete_artifact(
             db=db,
             artifact=artifact,
             project_id=project_id,
@@ -465,6 +252,17 @@ async def create_artifact_with_file(
             session_id=session_id,
             based_on_version_id=based_on_version_id,
             normalized_content=normalized_content,
+        )
+        if timeout_seconds > 0:
+            await asyncio.wait_for(coroutine, timeout=timeout_seconds)
+        else:
+            await coroutine
+    except asyncio.TimeoutError:
+        logger.warning(
+            "artifact_silent_accretion_timeout: artifact=%s project=%s timeout=%s",
+            getattr(artifact, "id", None),
+            project_id,
+            timeout_seconds,
         )
     except Exception as exc:
         logger.warning(

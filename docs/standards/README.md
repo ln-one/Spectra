@@ -16,6 +16,7 @@
 - 后端新生产代码优先显式导入，避免默认使用 `from services import ...`
 - 开发中优先遵循已有分区：`application / generation / media / platform`
 - 不做大爆炸式重构，优先低风险、小步收口
+- `docs/standard/README.md` 已移入 archived；本目录是唯一有效规范入口
 
 ## 最小执行清单
 

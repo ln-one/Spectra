@@ -199,8 +199,9 @@ def test_send_message_scopes_recent_messages_by_session(client, monkeypatch, _as
     assert resp.status_code == 200
     recent_mock.assert_awaited_once_with(
         project_id="p-001",
-        limit=10,
+        limit=6,
         session_id="s-001",
+        select={"role": True, "content": True},
     )
 
 
@@ -467,13 +468,33 @@ def test_send_message_project_not_found_403(client, monkeypatch, _as_user):
     assert resp.status_code == 403
 
 
+def test_send_message_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        db_service,
+        "get_project",
+        AsyncMock(side_effect=RuntimeError("db unavailable")),
+    )
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "发送消息失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
+
+
 def test_get_messages_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     convs = [
         _fake_conv(role="user", conv_id="c-001", sessionId="s-001"),
         _fake_conv(role="assistant", conv_id="c-002", sessionId="s-001"),
     ]
-    _mock(monkeypatch, db_service, "get_conversations_paginated", (convs, 2))
+    _mock(monkeypatch, db_service, "get_conversation_messages", convs)
+    _mock(monkeypatch, db_service, "count_conversation_messages", 2)
     resp = client.get(
         "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
     )
@@ -486,7 +507,8 @@ def test_get_messages_success(client, monkeypatch, _as_user):
 
 def test_get_messages_returns_session_scope_in_payload(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
-    _mock(monkeypatch, db_service, "get_conversations_paginated", ([], 0))
+    _mock(monkeypatch, db_service, "get_conversation_messages", [])
+    _mock(monkeypatch, db_service, "count_conversation_messages", 0)
 
     resp = client.get(
         "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
@@ -516,7 +538,8 @@ def test_get_messages_includes_citations_from_metadata(client, monkeypatch, _as_
             metadata='{"citations":[{"chunk_id":"chunk-1","source_type":"document","filename":"notes.pdf","page_number":2,"score":0.92}]}',
         ),
     ]
-    _mock(monkeypatch, db_service, "get_conversations_paginated", (convs, 1))
+    _mock(monkeypatch, db_service, "get_conversation_messages", convs)
+    _mock(monkeypatch, db_service, "count_conversation_messages", 1)
 
     resp = client.get(
         "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
@@ -549,8 +572,12 @@ def test_get_messages_with_session_returns_scoped_history(
             sessionId="s-001",
         )
     ]
-    paginated_mock = AsyncMock(return_value=(convs, 1))
-    monkeypatch.setattr(db_service, "get_conversations_paginated", paginated_mock)
+    conversation_messages_mock = AsyncMock(return_value=convs)
+    count_messages_mock = AsyncMock(return_value=1)
+    monkeypatch.setattr(
+        db_service, "get_conversation_messages", conversation_messages_mock
+    )
+    monkeypatch.setattr(db_service, "count_conversation_messages", count_messages_mock)
 
     resp = client.get(
         "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
@@ -558,10 +585,14 @@ def test_get_messages_with_session_returns_scoped_history(
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["messages"][0]["citations"] == []
-    paginated_mock.assert_awaited_once_with(
+    conversation_messages_mock.assert_awaited_once_with(
         project_id="p-001",
         page=1,
         limit=20,
+        session_id="s-001",
+    )
+    count_messages_mock.assert_awaited_once_with(
+        project_id="p-001",
         session_id="s-001",
     )
 
@@ -580,6 +611,29 @@ def test_get_messages_wrong_owner_403(client, monkeypatch, _as_user):
 def test_get_messages_missing_project_id_400(client, _as_user):
     resp = client.get("/api/v1/chat/messages")
     assert resp.status_code == 400
+
+
+def test_get_messages_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        db_service,
+        "get_conversation_messages",
+        AsyncMock(side_effect=RuntimeError("query failed")),
+    )
+    _mock(monkeypatch, db_service, "count_conversation_messages", 0)
+
+    resp = client.get(
+        "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
+    )
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "获取消息失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
 
 
 def test_voice_message_no_token_401(client):
@@ -703,3 +757,26 @@ def test_voice_message_invalid_idempotency_key_400(client, _as_user):
         headers={"Idempotency-Key": "invalid-uuid"},
     )
     assert resp.status_code == 400
+
+
+def test_voice_message_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        "services.media.audio.transcribe_audio",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("stt down")),
+    )
+
+    resp = client.post(
+        "/api/v1/chat/voice",
+        files={"audio": ("v.wav", b"abc", "audio/wav")},
+        data={"project_id": "p-001"},
+    )
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "语音处理失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]

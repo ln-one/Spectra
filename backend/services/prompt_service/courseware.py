@@ -29,6 +29,7 @@ def build_courseware_prompt(
         rag_context, citation_style=PromptCitationStyle.SOURCE_INDEX
     )
 
+    ppt_start = output_block_marker(PromptOutputBlock.PPT_CONTENT, start=True)
     if outline_mode:
         if outline_slide_count and outline_slide_count > 0:
             ppt_constraints = (
@@ -59,7 +60,6 @@ def build_courseware_prompt(
             f"5. Visual style: {style_instruction}"
         )
 
-        ppt_start = output_block_marker(PromptOutputBlock.PPT_CONTENT, start=True)
     ppt_end = output_block_marker(PromptOutputBlock.PPT_CONTENT, start=False)
     lesson_start = output_block_marker(PromptOutputBlock.LESSON_PLAN, start=True)
     lesson_end = output_block_marker(PromptOutputBlock.LESSON_PLAN, start=False)

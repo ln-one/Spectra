@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from services.ai.model_router import ModelRouteFailureReason
+from utils.exceptions import ErrorCode, ExternalServiceException
+from utils.upstream_failures import describe_upstream_failure
 
 
 def with_route_failure(
@@ -12,6 +14,8 @@ def with_route_failure(
     latency_ms: float,
     fallback_triggered: bool = False,
     original_model: str | None = None,
+    fallback_target: str | None = None,
+    retry_attempts: int = 0,
 ) -> dict[str, Any] | None:
     route_info = route_decision.to_dict() if route_decision else None
     if route_info is None:
@@ -22,6 +26,10 @@ def with_route_failure(
         route_info["fallback_triggered"] = True
     if original_model:
         route_info["original_model"] = original_model
+    if fallback_target:
+        route_info["fallback_target"] = fallback_target
+    if retry_attempts > 0:
+        route_info["retry_attempts"] = retry_attempts
     return route_info
 
 
@@ -66,3 +74,83 @@ def extract_completion_payload(response) -> tuple[str, int | None]:
     content = response.choices[0].message.content
     tokens_used = response.usage.total_tokens if hasattr(response, "usage") else None
     return content, tokens_used
+
+
+def normalize_route_task_value(route_task) -> str | None:
+    return str(route_task) if route_task is not None else None
+
+
+def describe_completion_error(exc: Exception) -> dict[str, Any]:
+    error_info = describe_upstream_failure(exc)
+    message_overrides = {
+        "auth_error": "上游模型提供方鉴权失败或配置错误",
+        "config_error": "上游模型提供方配置缺失或不可用",
+        "timeout": "上游模型响应超时",
+        "provider_unavailable": "上游模型提供方暂不可用",
+        "completion_error": "上游模型调用失败",
+    }
+    return {
+        **error_info,
+        "message": message_overrides[error_info["failure_type"]],
+    }
+
+
+def should_retry_completion_error(exc: Exception) -> bool:
+    error_info = describe_completion_error(exc)
+    return bool(error_info["retryable"]) and error_info["failure_type"] != "timeout"
+
+
+def raise_external_service_error(
+    *,
+    exc: Exception,
+    requested_model: str,
+    resolved_model: str,
+    route_task: str | None,
+    fallback_triggered: bool,
+    fallback_target: str | None = None,
+    retry_attempts: int = 0,
+) -> None:
+    error_info = describe_completion_error(exc)
+    failure_type = error_info["failure_type"]
+    details = {
+        "failure_type": failure_type,
+        "requested_model": requested_model,
+        "resolved_model": resolved_model,
+        "route_task": route_task,
+        "fallback_triggered": fallback_triggered,
+        "fallback_target": fallback_target,
+        "retry_attempts": retry_attempts,
+        "provider_message": error_info["raw_message"],
+    }
+
+    if failure_type == "auth_error":
+        raise ExternalServiceException(
+            message=error_info["message"],
+            status_code=503,
+            error_code=ErrorCode.UPSTREAM_AUTH_ERROR,
+            details=details,
+            retryable=False,
+        ) from exc
+    if failure_type == "config_error":
+        raise ExternalServiceException(
+            message=error_info["message"],
+            status_code=503,
+            error_code=ErrorCode.UPSTREAM_CONFIG_ERROR,
+            details=details,
+            retryable=False,
+        ) from exc
+    if failure_type == "timeout":
+        raise ExternalServiceException(
+            message=error_info["message"],
+            status_code=504,
+            error_code=ErrorCode.UPSTREAM_TIMEOUT,
+            details=details,
+            retryable=True,
+        ) from exc
+    raise ExternalServiceException(
+        message=error_info["message"],
+        status_code=502,
+        error_code=ErrorCode.UPSTREAM_UNAVAILABLE,
+        details=details,
+        retryable=bool(error_info["retryable"]),
+    ) from exc

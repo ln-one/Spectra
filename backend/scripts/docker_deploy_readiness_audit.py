@@ -3,16 +3,44 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Mapping
 from urllib.parse import urlparse
 
+import yaml
+
+try:
+    from scripts.env_bootstrap import build_script_env
+except ModuleNotFoundError:  # pragma: no cover - script entry fallback
+    from env_bootstrap import build_script_env
+
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "backend/prisma/schema.prisma"
+BASE_COMPOSE = ROOT / "docker-compose.yml"
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0"}
 PLACEHOLDER_FRONTEND_API = "http://localhost:8000"
+_SHARED_RUNTIME_ENV_KEYS = (
+    "DATABASE_URL",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "CHROMA_HOST",
+    "CHROMA_PORT",
+    "UPLOAD_DIR",
+    "ARTIFACT_STORAGE_DIR",
+    "GENERATED_DIR",
+    "CHROMA_PERSIST_DIR",
+    "AI_REQUEST_TIMEOUT_SECONDS",
+    "OUTLINE_DRAFT_TIMEOUT_SECONDS",
+    "PREVIEW_REBUILD_TIMEOUT_SECONDS",
+    "TOOL_CHECK_CACHE_TTL_SECONDS",
+    "HEALTH_TOOL_TIMEOUT_SECONDS",
+    "GENERATION_TOOLS_REQUIRED",
+    "DEFAULT_MODEL",
+    "LARGE_MODEL",
+    "SMALL_MODEL",
+    "JWT_SECRET_KEY",
+)
 
 
 def _format(kind: str, message: str) -> str:
@@ -36,6 +64,53 @@ def _parse_database_host(database_url: str | None) -> str | None:
         return None
     parsed = urlparse(database_url)
     return parsed.hostname
+
+
+def _extract_service_env(compose_text: str | None, service_name: str) -> dict[str, str]:
+    if not compose_text:
+        return {}
+    loaded = yaml.safe_load(compose_text) or {}
+    if not isinstance(loaded, dict):
+        return {}
+    services = loaded.get("services") or {}
+    if not isinstance(services, dict):
+        return {}
+    service = services.get(service_name) or {}
+    if not isinstance(service, dict):
+        return {}
+    environment = service.get("environment") or {}
+    extracted: dict[str, str] = {}
+    if isinstance(environment, dict):
+        for key, value in environment.items():
+            if value is not None:
+                extracted[str(key)] = str(value)
+        return extracted
+    if isinstance(environment, list):
+        for item in environment:
+            if not isinstance(item, str) or "=" not in item:
+                continue
+            key, _, value = item.partition("=")
+            key = key.strip()
+            if key:
+                extracted[key] = value
+    return extracted
+
+
+def _collect_compose_service_envs(
+    compose_text: str | None,
+) -> dict[str, dict[str, str]]:
+    return {
+        "backend": _extract_service_env(compose_text, "backend"),
+        "worker": _extract_service_env(compose_text, "worker"),
+    }
+
+
+def build_effective_env(
+    env: Mapping[str, str], compose_text: str | None
+) -> dict[str, str]:
+    merged = dict(env)
+    merged.update(_extract_service_env(compose_text, "backend"))
+    return merged
 
 
 def _classify_host(
@@ -82,9 +157,62 @@ def _classify_path_env(key: str, value: str | None) -> tuple[list[str], int]:
     return [_format("INFO", f"{key} configured as `{path}`")], 0
 
 
+def _evaluate_shared_env_alignment(compose_text: str | None) -> list[str]:
+    if not compose_text:
+        return []
+
+    service_envs = _collect_compose_service_envs(compose_text)
+    backend_env = service_envs["backend"]
+    worker_env = service_envs["worker"]
+    if not backend_env or not worker_env:
+        return []
+
+    messages: list[str] = []
+    compared = 0
+    for key in _SHARED_RUNTIME_ENV_KEYS:
+        backend_value = backend_env.get(key)
+        worker_value = worker_env.get(key)
+        if backend_value is None and worker_value is None:
+            continue
+        compared += 1
+        if backend_value is None:
+            messages.append(
+                _format(
+                    "WARN",
+                    f"backend/worker env drift detected: `{key}` missing on backend",
+                )
+            )
+            continue
+        if worker_value is None:
+            messages.append(
+                _format(
+                    "WARN",
+                    f"backend/worker env drift detected: `{key}` missing on worker",
+                )
+            )
+            continue
+        if backend_value != worker_value:
+            messages.append(
+                _format(
+                    "WARN",
+                    (
+                        f"backend/worker env drift detected: `{key}` differs "
+                        f"(backend=`{backend_value}` worker=`{worker_value}`)"
+                    ),
+                )
+            )
+
+    if compared and not messages:
+        messages.append(
+            _format("PASS", "backend/worker shared runtime env remains aligned")
+        )
+    return messages
+
+
 def evaluate_docker_readiness(
     env: Mapping[str, str],
     prisma_provider: str | None,
+    compose_text: str | None = None,
 ) -> tuple[list[str], int]:
     messages: list[str] = []
     failures = 0
@@ -161,12 +289,21 @@ def evaluate_docker_readiness(
     else:
         messages.append(_format("PASS", "SYNC_RAG_INDEXING is async-friendly"))
 
+    messages.extend(_evaluate_shared_env_alignment(compose_text))
+
     return messages, failures
 
 
 def main() -> int:
     provider = _read_prisma_provider()
-    messages, failures = evaluate_docker_readiness(os.environ, provider)
+    compose_text = (
+        BASE_COMPOSE.read_text(encoding="utf-8") if BASE_COMPOSE.exists() else None
+    )
+    messages, failures = evaluate_docker_readiness(
+        build_effective_env(build_script_env(), compose_text),
+        provider,
+        compose_text,
+    )
 
     print("Docker Deployment Readiness Audit")
     print(f"- Root: {ROOT}")

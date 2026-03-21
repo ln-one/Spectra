@@ -107,7 +107,16 @@ class GenerationSessionService(
 class ConflictError(Exception):
     """会话状态或版本冲突，对应 HTTP 409。"""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: str = "RESOURCE_CONFLICT",
+        details: Optional[dict] = None,
+    ):
+        super().__init__(message)
+        self.error_code = error_code
+        self.details = details or {}
 
 
 GenerationSessionService.conflict_error_cls = ConflictError

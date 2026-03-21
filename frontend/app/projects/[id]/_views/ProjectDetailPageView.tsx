@@ -78,9 +78,9 @@ export default function ProjectDetailPage() {
         }}
       />
       <LightRays
-        count={10}
+        count={7}
         color={activeTheme.rayColor}
-        blur={48}
+        blur={40}
         speed={18}
         length="90vh"
         className="opacity-80"

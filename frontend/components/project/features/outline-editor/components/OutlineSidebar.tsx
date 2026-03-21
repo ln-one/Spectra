@@ -39,6 +39,7 @@ interface OutlineSidebarProps {
   totalEstimatedMinutes: number;
   estimatedTokens: number;
   isGenerating: boolean;
+  isRedrafting: boolean;
   progress: number;
   progressText: string;
   aspectRatio: (typeof ASPECT_RATIO_OPTIONS)[number]["value"];
@@ -257,7 +258,11 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
             >
               <Button
                 onClick={props.onStartGeneration}
-                disabled={props.isOutlineHydrating || props.outlineIncomplete}
+                disabled={
+                  props.isOutlineHydrating ||
+                  props.outlineIncomplete ||
+                  props.isRedrafting
+                }
                 className="w-full h-11 border border-zinc-800 bg-zinc-900 text-zinc-50 text-sm font-medium shadow-sm transition-all hover:bg-zinc-800"
               >
                 <Sparkles className="w-4 h-4 mr-2" />

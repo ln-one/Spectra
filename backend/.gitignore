@@ -205,8 +205,6 @@ generated/
 temp/
 test_output/
 uploads/
-dev.db
-spectra.db
 .DS_Store
 .cursorignore
 .cursorindexingignore

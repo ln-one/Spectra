@@ -35,8 +35,10 @@ export function ProjectHeader({
   selectedThemePreset,
   onThemePresetChange,
 }: ProjectHeaderProps) {
-  const { user, logout } = useAuthStore();
-  const { project, updateProjectName } = useProjectStore();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const projectName = useProjectStore((state) => state.project?.name);
+  const updateProjectName = useProjectStore((state) => state.updateProjectName);
 
   return (
     <motion.header
@@ -61,7 +63,7 @@ export function ProjectHeader({
         </Link>
 
         <ProjectNameEditor
-          projectName={project?.name}
+          projectName={projectName}
           onSave={(name) => {
             void updateProjectName(name);
           }}

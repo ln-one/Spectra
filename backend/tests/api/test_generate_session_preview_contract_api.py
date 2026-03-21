@@ -64,6 +64,35 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     assert body["data"]["upstream_updated"] is True
 
 
+def test_get_preview_prefers_lightweight_snapshot_when_available(
+    client, monkeypatch, _as_user
+):
+    preview_snapshot = AsyncMock(return_value=_snapshot())
+    full_snapshot = AsyncMock(return_value=_snapshot())
+    svc = SimpleNamespace(
+        get_session_preview_snapshot=preview_snapshot,
+        get_session_snapshot=full_snapshot,
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-001")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(return_value=(SimpleNamespace(id="t-001"), [], None, {})),
+    )
+
+    resp = client.get("/api/v1/generate/sessions/s-preview-001/preview")
+    assert resp.status_code == 200
+    preview_snapshot.assert_awaited_once_with("s-preview-001", _USER_ID)
+    full_snapshot.assert_not_awaited()
+
+
 def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
@@ -95,6 +124,54 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     assert data["current_version_id"] == "v-current"
     assert data["upstream_updated"] is True
     assert data["render_version"] == 5
+
+
+def test_modify_preview_accepts_base_render_version_alias(
+    client, monkeypatch, _as_user
+):
+    execute_command = AsyncMock(return_value={"task_id": "gt-001"})
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
+        execute_command=execute_command,
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-002", basedOnVersionId="v-002")),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/modify",
+        json={
+            "slide_id": "slide-1",
+            "patch": {"title": "new title"},
+            "artifact_id": "a-002",
+            "base_render_version": 3,
+        },
+    )
+    assert resp.status_code == 200
+    command = execute_command.await_args.kwargs["command"]
+    assert command["expected_render_version"] == 3
+
+
+def test_modify_preview_rejects_conflicting_render_versions(client, _as_user):
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/modify",
+        json={
+            "slide_id": "slide-1",
+            "patch": {"title": "new title"},
+            "base_render_version": 3,
+            "expected_render_version": 4,
+        },
+    )
+
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INVALID_INPUT"
 
 
 def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
@@ -154,6 +231,26 @@ def test_export_preview_expected_render_version_conflict(client, monkeypatch, _a
     body = resp.json()
     assert body["success"] is False
     assert body["error"]["code"] == "RESOURCE_CONFLICT"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
+
+
+def test_export_preview_requires_format(client, monkeypatch, _as_user):
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=4))
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/export", json={}
+    )
+
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INVALID_INPUT"
 
 
 def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_user):

@@ -49,6 +49,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    env_file:
+      - ./backend/.env
     ports:
       - "8000:8000"
     volumes:
@@ -58,10 +60,21 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
+      - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
+      - AI_REQUEST_TIMEOUT_SECONDS=90
+      - CHAT_RAG_TIMEOUT_SECONDS=5
+      - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
+      - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
+      - TOOL_CHECK_CACHE_TTL_SECONDS=300
+      - HEALTH_TOOL_TIMEOUT_SECONDS=2
+      - GENERATION_TOOLS_REQUIRED=true
+      - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - CHROMA_MODE=persistent
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
+      - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
       - UPLOAD_DIR=/var/lib/spectra/uploads
       - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
       - GENERATED_DIR=/var/lib/spectra/generated
@@ -69,7 +82,10 @@ services:
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
       - POSTGRES_BACKUP_PREFIX=spectra-dev
-    command: sh -c "prisma migrate deploy && prisma generate && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      - DB_REQUIRED=true
+      - REDIS_REQUIRED=false
+      - UVICORN_RELOAD=false
+    command: sh -c "prisma migrate deploy && prisma generate && if [ \"$${UVICORN_RELOAD:-false}\" = \"true\" ]; then uvicorn main:app --host 0.0.0.0 --port 8000 --reload; else uvicorn main:app --host 0.0.0.0 --port 8000; fi"
     depends_on:
       redis:
         condition: service_healthy
@@ -77,11 +93,25 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   worker:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
     volumes:
       - ./backend:/app
       - /app/venv
@@ -89,10 +119,20 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
+      - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
+      - AI_REQUEST_TIMEOUT_SECONDS=90
+      - CHAT_RAG_TIMEOUT_SECONDS=5
+      - OUTLINE_DRAFT_TIMEOUT_SECONDS=90
+      - PREVIEW_REBUILD_TIMEOUT_SECONDS=8
+      - TOOL_CHECK_CACHE_TTL_SECONDS=300
+      - HEALTH_TOOL_TIMEOUT_SECONDS=2
+      - GENERATION_TOOLS_REQUIRED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - CHROMA_MODE=persistent
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
+      - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
       - UPLOAD_DIR=/var/lib/spectra/uploads
       - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
       - GENERATED_DIR=/var/lib/spectra/generated
@@ -100,6 +140,9 @@ services:
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
       - POSTGRES_BACKUP_PREFIX=spectra-dev
+      - WORKER_NAME=worker-1
+      - WORKER_RECOVERY_SCAN=true
+      - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
     command: sh -c "prisma migrate deploy && prisma generate && python worker.py"
     depends_on:
       redis:
@@ -112,7 +155,7 @@ services:
   chromadb:
     image: chromadb/chroma:0.5.2
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     volumes:
       - chroma_data:/chroma/chroma
     environment:

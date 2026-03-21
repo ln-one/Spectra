@@ -1,8 +1,4 @@
-"""
-Vector Service - ChromaDB 连接管理
-
-提供 ChromaDB 向量数据库的初始化、collection 管理和生命周期管理。
-"""
+"""Vector Service - ChromaDB 连接管理与 collection 生命周期封装。"""
 
 import logging
 import os
@@ -152,6 +148,13 @@ class VectorService:
         self._client: Optional[Any] = None
         self._memory_collections: Dict[str, InMemoryCollection] = {}
 
+    @staticmethod
+    def _resolve_chroma_mode() -> str:
+        mode = (os.getenv("CHROMA_MODE") or "").strip().lower()
+        if mode in {"http", "persistent"}:
+            return mode
+        return "http" if os.getenv("CHROMA_HOST") else "persistent"
+
     @property
     def client(self) -> "chromadb_types.ClientAPI | Any":
         """懒加载 ChromaDB 客户端"""
@@ -161,10 +164,11 @@ class VectorService:
                 "Install chromadb or use the in-memory fallback."
             ) from _CHROMA_IMPORT_ERROR
         if self._client is None:
+            chroma_mode = self._resolve_chroma_mode()
             chroma_host = os.getenv("CHROMA_HOST")
             chroma_port = os.getenv("CHROMA_PORT", "8000")
 
-            if chroma_host:
+            if chroma_mode == "http" and chroma_host:
                 # 先做一次快速连通性检查，避免服务未启动导致请求卡死
                 try:
                     socket.create_connection(
@@ -176,7 +180,11 @@ class VectorService:
                     )
                     logger.info(
                         "ChromaDB HttpClient initialized (server mode)",
-                        extra={"host": chroma_host, "port": chroma_port},
+                        extra={
+                            "host": chroma_host,
+                            "port": chroma_port,
+                            "mode": chroma_mode,
+                        },
                     )
                 except Exception as exc:
                     logger.warning(
@@ -189,13 +197,19 @@ class VectorService:
                     self._client = chromadb.PersistentClient(path=self._persist_dir)
                     logger.info(
                         "ChromaDB PersistentClient initialized (local mode)",
-                        extra={"persist_dir": self._persist_dir},
+                        extra={
+                            "persist_dir": self._persist_dir,
+                            "mode": "persistent",
+                        },
                     )
             else:
                 self._client = chromadb.PersistentClient(path=self._persist_dir)
                 logger.info(
                     "ChromaDB PersistentClient initialized (local mode)",
-                    extra={"persist_dir": self._persist_dir},
+                    extra={
+                        "persist_dir": self._persist_dir,
+                        "mode": "persistent",
+                    },
                 )
         return self._client
 

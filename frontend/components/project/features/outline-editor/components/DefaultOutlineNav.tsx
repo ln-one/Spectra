@@ -10,12 +10,16 @@ interface DefaultOutlineNavProps {
   topic: string;
   slideCount: number;
   onBack?: () => void;
+  onPreview?: () => void;
+  onHelp?: () => void;
 }
 
 export function DefaultOutlineNav({
   topic,
   slideCount,
   onBack,
+  onPreview,
+  onHelp,
 }: DefaultOutlineNavProps) {
   return (
     <motion.nav
@@ -47,6 +51,7 @@ export function DefaultOutlineNav({
         <Button
           variant="outline"
           size="sm"
+          onClick={onPreview}
           className="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 border-zinc-200"
         >
           <Eye className="w-4 h-4 mr-1.5" />
@@ -55,6 +60,7 @@ export function DefaultOutlineNav({
         <Button
           variant="ghost"
           size="sm"
+          onClick={onHelp}
           className="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100"
         >
           <HelpCircle className="w-4 h-4 mr-1.5" />

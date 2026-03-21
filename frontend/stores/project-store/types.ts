@@ -115,6 +115,7 @@ export interface ProjectState {
   exportArtifact: (artifactId: string) => Promise<void>;
   setActiveSessionId: (sessionId: string | null) => void;
   updateOutline: (sessionId: string, outline: OutlineDocument) => Promise<void>;
+  redraftOutline: (sessionId: string, instruction: string) => Promise<void>;
   confirmOutline: (sessionId: string) => Promise<void>;
   updateProjectName: (name: string) => Promise<void>;
   setLayoutMode: (mode: LayoutMode) => void;

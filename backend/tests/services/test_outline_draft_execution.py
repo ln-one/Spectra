@@ -4,6 +4,7 @@ import pytest
 
 from services.generation_session_service.outline_draft.execution import (
     _generate_outline_doc,
+    _outline_draft_timeout_seconds,
 )
 
 
@@ -59,7 +60,7 @@ async def test_generate_outline_doc_includes_session_chat_requirements():
         ai_service_obj=ai_service,
     )
 
-    assert outline["nodes"][0]["title"] == "实验导入（1）"
+    assert outline["nodes"][0]["title"].startswith("实验导入")
     assert ai_service.kwargs["session_id"] == "s-001"
     assert ai_service.kwargs["rag_source_ids"] is None
     assert "请做成适合高一的牛顿第二定律课件" in ai_service.kwargs["user_requirements"]
@@ -84,3 +85,10 @@ async def test_generate_outline_doc_passes_selected_sources():
     )
 
     assert ai_service.kwargs["rag_source_ids"] == ["file-1", "file-2"]
+
+
+def test_outline_draft_timeout_defaults_to_ai_timeout(monkeypatch):
+    monkeypatch.delenv("OUTLINE_DRAFT_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setenv("AI_REQUEST_TIMEOUT_SECONDS", "90")
+
+    assert _outline_draft_timeout_seconds() == 90.0

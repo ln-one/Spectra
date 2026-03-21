@@ -67,5 +67,9 @@ async def execute_outline_draft_task(
         if db_connected:
             try:
                 await asyncio.wait_for(db.disconnect(), timeout=5)
-            except Exception:
-                pass
+            except Exception as disconnect_exc:
+                logger.debug(
+                    "outline_task_disconnect_failed: session=%s error=%s",
+                    session_id,
+                    disconnect_exc,
+                )

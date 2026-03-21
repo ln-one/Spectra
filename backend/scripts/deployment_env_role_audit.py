@@ -4,9 +4,13 @@
 from __future__ import annotations
 
 import argparse
-import os
 from dataclasses import dataclass
 from typing import Mapping
+
+try:
+    from scripts.env_bootstrap import build_script_env
+except ModuleNotFoundError:  # pragma: no cover - script entry fallback
+    from env_bootstrap import build_script_env
 
 
 @dataclass(frozen=True)
@@ -26,6 +30,11 @@ ROLE_CONTRACTS: dict[str, RoleContract] = {
             "LARGE_MODEL",
             "SMALL_MODEL",
             "AI_REQUEST_TIMEOUT_SECONDS",
+            "OUTLINE_DRAFT_TIMEOUT_SECONDS",
+            "PREVIEW_REBUILD_TIMEOUT_SECONDS",
+            "TOOL_CHECK_CACHE_TTL_SECONDS",
+            "HEALTH_TOOL_TIMEOUT_SECONDS",
+            "GENERATION_TOOLS_REQUIRED",
             "REDIS_HOST",
             "REDIS_PORT",
             "CHROMA_HOST",
@@ -49,6 +58,8 @@ ROLE_CONTRACTS: dict[str, RoleContract] = {
             "LARGE_MODEL",
             "SMALL_MODEL",
             "AI_REQUEST_TIMEOUT_SECONDS",
+            "OUTLINE_DRAFT_TIMEOUT_SECONDS",
+            "TOOL_CHECK_CACHE_TTL_SECONDS",
             "REDIS_HOST",
             "REDIS_PORT",
             "CHROMA_HOST",
@@ -106,7 +117,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    messages, failures = evaluate_role_contract(args.role, os.environ)
+    messages, failures = evaluate_role_contract(args.role, build_script_env())
     for message in messages:
         print(message)
 

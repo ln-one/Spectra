@@ -1,6 +1,8 @@
 import logging
 from typing import Optional
 
+from utils.upstream_failures import classify_upstream_failure
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,5 +29,15 @@ async def retrieve_rag_context(
         if results:
             return [r.model_dump() for r in results]
     except Exception as e:
-        logger.warning("RAG retrieval failed for project %s: %s", project_id, e)
+        logger.warning(
+            "RAG retrieval failed for project %s",
+            project_id,
+            extra={
+                "project_id": project_id,
+                "session_id": session_id,
+                "rag_failure_type": classify_upstream_failure(e),
+                "filters_present": bool(filters),
+            },
+            exc_info=True,
+        )
     return None

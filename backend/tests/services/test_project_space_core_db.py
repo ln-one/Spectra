@@ -158,11 +158,34 @@ async def test_get_project_members_filters_active_member_status():
 
 
 @pytest.mark.asyncio
+async def test_get_project_member_by_user_can_include_inactive():
+    service = DatabaseService()
+    find_first = AsyncMock(return_value=None)
+    service.db = SimpleNamespace(projectmember=SimpleNamespace(find_first=find_first))
+
+    await service.get_project_member_by_user("p-001", "u-002", include_inactive=True)
+
+    assert find_first.await_args.kwargs == {
+        "where": {"projectId": "p-001", "userId": "u-002"}
+    }
+
+
+@pytest.mark.asyncio
 async def test_update_project_reference_normalizes_mode_and_status():
     service = DatabaseService()
     update_reference = AsyncMock(return_value=SimpleNamespace(id="r-001"))
     service.db = SimpleNamespace(
-        projectreference=SimpleNamespace(update=update_reference)
+        projectreference=SimpleNamespace(
+            update=update_reference,
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="r-001",
+                    targetProjectId="p-target",
+                    mode="follow",
+                    pinnedVersionId=None,
+                )
+            ),
+        )
     )
 
     await service.update_project_reference(
@@ -181,3 +204,254 @@ async def test_update_project_reference_normalizes_mode_and_status():
             "status": "disabled",
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_create_project_reference_rejects_pinned_mode_without_version():
+    service = DatabaseService()
+    create_reference = AsyncMock()
+    service.db = SimpleNamespace(
+        projectreference=SimpleNamespace(create=create_reference)
+    )
+
+    with pytest.raises(ValidationException, match="mode=pinned requires"):
+        await service.create_project_reference(
+            project_id="p-001",
+            target_project_id="p-target",
+            relation_type="base",
+            mode="pinned",
+            pinned_version_id=None,
+            priority=0,
+            created_by="u-001",
+        )
+
+    create_reference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_project_reference_rejects_foreign_pinned_version():
+    service = DatabaseService()
+    create_reference = AsyncMock()
+    service.db = SimpleNamespace(
+        projectreference=SimpleNamespace(create=create_reference)
+    )
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-001", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="pinned_version_id"):
+        await service.create_project_reference(
+            project_id="p-001",
+            target_project_id="p-target",
+            relation_type="base",
+            mode="pinned",
+            pinned_version_id="v-001",
+            priority=0,
+            created_by="u-001",
+        )
+
+    create_reference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_project_reference_rejects_foreign_pinned_version():
+    service = DatabaseService()
+    update_reference = AsyncMock()
+    service.db = SimpleNamespace(
+        projectreference=SimpleNamespace(update=update_reference)
+    )
+    service.get_project_reference = AsyncMock(
+        return_value=SimpleNamespace(
+            id="r-001",
+            targetProjectId="p-target",
+            mode="follow",
+            pinnedVersionId=None,
+        )
+    )
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-002", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="pinned_version_id"):
+        await service.update_project_reference(
+            reference_id="r-001",
+            mode="pinned",
+            pinned_version_id="v-002",
+            priority=None,
+            status=None,
+        )
+
+    update_reference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_project_reference_rejects_pinned_mode_without_version():
+    service = DatabaseService()
+    update_reference = AsyncMock()
+    service.db = SimpleNamespace(
+        projectreference=SimpleNamespace(update=update_reference)
+    )
+    service.get_project_reference = AsyncMock(
+        return_value=SimpleNamespace(
+            id="r-001",
+            targetProjectId="p-target",
+            mode="follow",
+            pinnedVersionId=None,
+        )
+    )
+
+    with pytest.raises(ValidationException, match="mode=pinned requires"):
+        await service.update_project_reference(
+            reference_id="r-001",
+            mode="pinned",
+            pinned_version_id=None,
+            priority=None,
+            status=None,
+        )
+
+    update_reference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_project_version_rejects_parent_from_other_project():
+    service = DatabaseService()
+    create_version = AsyncMock()
+    service.db = SimpleNamespace(projectversion=SimpleNamespace(create=create_version))
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-parent", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="parent_version_id"):
+        await service.create_project_version(
+            project_id="p-001",
+            parent_version_id="v-parent",
+            summary="merge",
+            change_type="merge-change",
+            snapshot_data={"k": "v"},
+            created_by="u-001",
+        )
+
+    create_version.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_project_current_version_rejects_version_from_other_project():
+    service = DatabaseService()
+    update_project = AsyncMock()
+    service.db = SimpleNamespace(project=SimpleNamespace(update=update_project))
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-002", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="current_version_id"):
+        await service.update_project_current_version("p-001", "v-002")
+
+    update_project.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_project_current_version_accepts_version_from_same_project():
+    service = DatabaseService()
+    update_project = AsyncMock(return_value=SimpleNamespace(id="p-001"))
+    service.db = SimpleNamespace(project=SimpleNamespace(update=update_project))
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-002", projectId="p-001")
+    )
+
+    result = await service.update_project_current_version("p-001", "v-002")
+
+    assert result.id == "p-001"
+    update_project.assert_awaited_once_with(
+        where={"id": "p-001"},
+        data={"currentVersionId": "v-002"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_rejects_session_from_other_project():
+    service = DatabaseService()
+    create_artifact = AsyncMock()
+    service.db = SimpleNamespace(
+        artifact=SimpleNamespace(create=create_artifact),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(id="s-001", projectId="p-other")
+            )
+        ),
+    )
+    service.get_project_version = AsyncMock()
+
+    with pytest.raises(ValidationException, match="session_id"):
+        await service.create_artifact(
+            project_id="p-001",
+            artifact_type="pptx",
+            visibility="private",
+            session_id="s-001",
+        )
+
+    create_artifact.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_rejects_version_anchor_from_other_project():
+    service = DatabaseService()
+    create_artifact = AsyncMock()
+    service.db = SimpleNamespace(
+        artifact=SimpleNamespace(create=create_artifact),
+        generationsession=SimpleNamespace(find_unique=AsyncMock()),
+    )
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-001", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="based_on_version_id"):
+        await service.create_artifact(
+            project_id="p-001",
+            artifact_type="pptx",
+            visibility="private",
+            based_on_version_id="v-001",
+        )
+
+    create_artifact.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_accepts_valid_session_and_version_anchor():
+    service = DatabaseService()
+    create_artifact = AsyncMock(return_value=SimpleNamespace(id="a-001"))
+    service.db = SimpleNamespace(
+        artifact=SimpleNamespace(create=create_artifact),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(id="s-001", projectId="p-001")
+            )
+        ),
+    )
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-001", projectId="p-001")
+    )
+
+    result = await service.create_artifact(
+        project_id="p-001",
+        artifact_type="pptx",
+        visibility="private",
+        session_id="s-001",
+        based_on_version_id="v-001",
+        owner_user_id="u-001",
+        storage_path="/tmp/output.pptx",
+        metadata={"kind": "courseware"},
+    )
+
+    assert result.id == "a-001"
+    create_artifact.assert_awaited_once_with(
+        data={
+            "projectId": "p-001",
+            "type": "pptx",
+            "visibility": "private",
+            "sessionId": "s-001",
+            "basedOnVersionId": "v-001",
+            "ownerUserId": "u-001",
+            "storagePath": "/tmp/output.pptx",
+            "metadata": '{"kind": "courseware"}',
+        }
+    )

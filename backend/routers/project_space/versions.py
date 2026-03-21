@@ -11,7 +11,7 @@ from schemas.project_space import (
 )
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
-from utils.exceptions import NotFoundException
+from utils.exceptions import ConflictException, NotFoundException
 
 from .shared import COMMON_ERROR_RESPONSES, to_project_version_model
 
@@ -32,9 +32,9 @@ async def get_project_versions(
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
-        versions = await project_space_service.get_project_versions(project_id)
-        project = await project_space_service.db.get_project(project_id)
-        current_version_id = getattr(project, "currentVersionId", None)
+        versions, current_version_id = (
+            await project_space_service.get_project_versions_with_context(project_id)
+        )
         return ProjectVersionsResponse(
             success=True,
             data={
@@ -48,7 +48,7 @@ async def get_project_versions(
             },
             message="获取版本列表成功",
         )
-    except (NotFoundException, Exception) as exc:
+    except (ConflictException, NotFoundException, Exception) as exc:
         logger.error(f"get_project_versions error: {exc}")
         raise
 
@@ -67,13 +67,11 @@ async def get_project_version(
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
-        version = await project_space_service.get_project_version(version_id)
-        if not version or version.projectId != project_id:
-            raise NotFoundException(
-                f"Version {version_id} not found in project {project_id}"
+        version, current_version_id = (
+            await project_space_service.get_project_version_with_context(
+                project_id, version_id
             )
-        project = await project_space_service.db.get_project(project_id)
-        current_version_id = getattr(project, "currentVersionId", None)
+        )
         return ProjectVersionResponse(
             success=True,
             data={
@@ -84,6 +82,6 @@ async def get_project_version(
             },
             message="获取版本详情成功",
         )
-    except (NotFoundException, Exception) as exc:
+    except (ConflictException, NotFoundException, Exception) as exc:
         logger.error(f"get_project_version error: {exc}")
         raise

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Loader2, Sparkles } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
+import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -38,7 +39,16 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     sendMessage,
     lastFailedInput,
     clearLastFailedInput,
-  } = useProjectStore();
+  } = useProjectStore(
+    useShallow((state) => ({
+      messages: state.messages,
+      isMessagesLoading: state.isMessagesLoading,
+      isSending: state.isSending,
+      sendMessage: state.sendMessage,
+      lastFailedInput: state.lastFailedInput,
+      clearLastFailedInput: state.clearLastFailedInput,
+    }))
+  );
 
   const [input, setInput] = useState("");
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
