@@ -17,8 +17,6 @@ async def index_upload_for_rag(
     project_id: str,
     session_id: Optional[str] = None,
 ):
-    await db_service.update_upload_status(upload.id, status=UploadStatus.PARSING.value)
-
     try:
         from services.media.rag_indexing import (
             index_upload_file_for_rag as index_upload,

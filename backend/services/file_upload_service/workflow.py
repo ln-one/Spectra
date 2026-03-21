@@ -87,11 +87,10 @@ async def _prepare_uploaded_file(
 ) -> dict:
     upload = await save_and_record_upload(file, project_id)
     await db_service.update_upload_status(upload.id, status=UploadStatus.PARSING.value)
-    latest = await db_service.get_file(upload.id)
     if _SYNC_RAG_INDEXING:
-        await index_upload_for_rag(latest, project_id, session_id)
+        await index_upload_for_rag(upload, project_id, session_id)
     else:
-        dispatch_rag_indexing(request, background_tasks, latest, project_id, session_id)
+        dispatch_rag_indexing(request, background_tasks, upload, project_id, session_id)
     latest = await db_service.get_file(upload.id)
     return serialize_upload(latest)
 
