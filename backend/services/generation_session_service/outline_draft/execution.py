@@ -25,12 +25,15 @@ logger = logging.getLogger(__name__)
 
 
 def _outline_draft_timeout_seconds() -> float:
-    raw = os.getenv("OUTLINE_DRAFT_TIMEOUT_SECONDS", "25").strip()
+    raw = os.getenv("OUTLINE_DRAFT_TIMEOUT_SECONDS")
+    if raw is None or not str(raw).strip():
+        raw = os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "90")
+    raw = str(raw).strip()
     try:
         parsed = float(raw)
-        return parsed if parsed > 0 else 25.0
+        return parsed if parsed > 0 else 90.0
     except ValueError:
-        return 25.0
+        return 90.0
 
 
 def _classify_outline_failure(exc: Exception) -> tuple[str, str, str]:
@@ -276,6 +279,8 @@ async def _generate_outline_doc(
 async def _persist_success(
     *, db, session_id: str, outline_doc: dict, outline_version: int
 ) -> None:
+    outline_doc = dict(outline_doc or {})
+    outline_doc["version"] = outline_version
     await _persist_outline_version(
         db=db,
         session_id=session_id,

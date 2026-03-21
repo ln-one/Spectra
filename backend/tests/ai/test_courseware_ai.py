@@ -94,6 +94,55 @@ class TestGenerateOutline:
         assert isinstance(outline, CoursewareOutline)
 
     @pytest.mark.asyncio
+    async def test_outline_rag_failure_degrades_to_prompt_only_mode(self):
+        ai = AIService()
+        mock_json = json.dumps(
+            {
+                "title": "函数极值",
+                "sections": [
+                    {
+                        "title": "导入",
+                        "key_points": ["问题情境", "互动提问", "板书逻辑"],
+                        "slide_count": 2,
+                    },
+                    {
+                        "title": "例题训练",
+                        "key_points": ["关键例题", "易错点澄清", "课堂追问"],
+                        "slide_count": 2,
+                    },
+                    {
+                        "title": "总结",
+                        "key_points": ["知识地图", "方法归纳", "作业延伸"],
+                        "slide_count": 1,
+                    },
+                ],
+                "summary": "函数极值教学大纲",
+            }
+        )
+
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": mock_json},
+            ) as mock_generate,
+            patch.object(
+                ai,
+                "_retrieve_rag_context",
+                new_callable=AsyncMock,
+                side_effect=TimeoutError("rag slow"),
+            ),
+        ):
+            outline = await ai.generate_outline("proj-rag-fail", "函数极值")
+
+        assert isinstance(outline, CoursewareOutline)
+        assert outline.title == "函数极值"
+        assert mock_generate.await_count == 1
+        prompt_arg = mock_generate.call_args.kwargs["prompt"]
+        assert "参考内容" not in prompt_arg
+
+    @pytest.mark.asyncio
     async def test_outline_empty_sections_triggers_fallback(self):
         """LLM 返回空 sections 时应 fallback"""
         ai = AIService()

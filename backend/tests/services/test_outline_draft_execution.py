@@ -4,6 +4,7 @@ import pytest
 
 from services.generation_session_service.outline_draft.execution import (
     _generate_outline_doc,
+    _outline_draft_timeout_seconds,
 )
 
 
@@ -84,3 +85,10 @@ async def test_generate_outline_doc_passes_selected_sources():
     )
 
     assert ai_service.kwargs["rag_source_ids"] == ["file-1", "file-2"]
+
+
+def test_outline_draft_timeout_defaults_to_ai_timeout(monkeypatch):
+    monkeypatch.delenv("OUTLINE_DRAFT_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setenv("AI_REQUEST_TIMEOUT_SECONDS", "90")
+
+    assert _outline_draft_timeout_seconds() == 90.0

@@ -14,6 +14,7 @@ from services.generation_session_service import (
     _build_outline_requirements,
     _extract_outline_style,
 )
+from services.generation_session_service.command_handlers import handle_update_outline
 from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
@@ -906,6 +907,7 @@ async def test_get_session_snapshot_loads_latest_outline_and_task_from_models():
     payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
 
     assert payload["outline"]["title"] == "优化后大纲"
+    assert payload["outline"]["version"] == 2
     assert payload["session"]["task_id"] == "task-999"
     db.outlineversion.find_first.assert_awaited_once_with(
         where={"sessionId": "s-001"},
@@ -917,6 +919,91 @@ async def test_get_session_snapshot_loads_latest_outline_and_task_from_models():
     )
     session_lookup = db.generationsession.find_unique.await_args.kwargs
     assert "include" not in session_lookup
+
+
+@pytest.mark.anyio
+async def test_handle_update_outline_uses_latest_persisted_version_as_source_of_truth():
+    db = SimpleNamespace(
+        outlineversion=SimpleNamespace(
+            find_first=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="ov-002",
+                    version=2,
+                    outlineData='{"version":1,"nodes":[{"title":"旧版"}]}',
+                )
+            ),
+            create=AsyncMock(),
+            update=AsyncMock(),
+        ),
+        generationsession=SimpleNamespace(update=AsyncMock()),
+    )
+    append_event = AsyncMock()
+    session = SimpleNamespace(id="s-001", currentOutlineVersion=1)
+
+    await handle_update_outline(
+        db=db,
+        session=session,
+        command={
+            "base_version": 2,
+            "outline": {"nodes": [{"title": "新版大纲"}]},
+            "change_reason": "manual_edit",
+        },
+        new_state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        append_event=append_event,
+        conflict_error_cls=ConflictError,
+    )
+
+    created_payload = db.outlineversion.create.await_args.kwargs["data"]
+    stored_outline = json.loads(created_payload["outlineData"])
+    assert created_payload["version"] == 3
+    assert stored_outline["version"] == 3
+    session_update = db.generationsession.update.await_args_list[0].kwargs["data"]
+    assert session_update["currentOutlineVersion"] == 3
+
+
+@pytest.mark.anyio
+async def test_handle_update_outline_treats_replayed_stale_write_as_success():
+    outline_record = SimpleNamespace(
+        id="ov-002",
+        version=2,
+        outlineData=json.dumps(
+            {
+                "version": 2,
+                "nodes": [{"title": "导入 · 知识地图"}],
+            }
+        ),
+    )
+    db = SimpleNamespace(
+        outlineversion=SimpleNamespace(
+            find_first=AsyncMock(return_value=outline_record),
+            create=AsyncMock(),
+            update=AsyncMock(),
+        ),
+        generationsession=SimpleNamespace(update=AsyncMock()),
+    )
+    append_event = AsyncMock()
+    session = SimpleNamespace(id="s-001", currentOutlineVersion=1)
+
+    await handle_update_outline(
+        db=db,
+        session=session,
+        command={
+            "base_version": 1,
+            "outline": {"nodes": [{"title": "导入 · 知识地图"}]},
+            "change_reason": None,
+        },
+        new_state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        append_event=append_event,
+        conflict_error_cls=ConflictError,
+    )
+
+    db.outlineversion.create.assert_not_awaited()
+    db.generationsession.update.assert_awaited_once()
+    assert (
+        db.generationsession.update.await_args.kwargs["data"]["currentOutlineVersion"]
+        == 2
+    )
+    append_event.assert_not_awaited()
 
 
 # ===========================================================================

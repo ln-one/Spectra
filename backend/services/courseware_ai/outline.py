@@ -1,7 +1,9 @@
 """课件大纲生成相关逻辑。"""
 
+import asyncio
 import json
 import logging
+import os
 import re
 
 from schemas.outline import CoursewareOutline, OutlineSection
@@ -23,6 +25,21 @@ _GENERIC_TITLE_PATTERNS = (
     "课程内容",
     "章节",
 )
+
+
+def _rag_timeout_seconds() -> float:
+    raw = os.getenv("OUTLINE_RAG_TIMEOUT_SECONDS")
+    if raw is None or not str(raw).strip():
+        raw = os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "90")
+        try:
+            return max(8.0, min(float(raw) / 3.0, 20.0))
+        except ValueError:
+            return 12.0
+    try:
+        parsed = float(str(raw).strip())
+        return parsed if parsed > 0 else 12.0
+    except ValueError:
+        return 12.0
 
 
 def _normalize_title(title: str) -> str:
@@ -314,12 +331,20 @@ async def generate_outline(
     """根据需求生成结构化课件大纲。"""
     from services.prompt_service import STYLE_REQUIREMENTS, _format_rag_context
 
-    rag_context = await ai_service._retrieve_rag_context(
-        project_id,
-        user_requirements,
-        session_id=session_id,
-        filters={"file_ids": rag_source_ids} if rag_source_ids else None,
-    )
+    rag_context = None
+    try:
+        rag_context = await asyncio.wait_for(
+            ai_service._retrieve_rag_context(
+                project_id,
+                user_requirements,
+                session_id=session_id,
+                filters={"file_ids": rag_source_ids} if rag_source_ids else None,
+            ),
+            timeout=_rag_timeout_seconds(),
+        )
+    except Exception as exc:
+        logger.warning("Outline RAG retrieval degraded to prompt-only mode: %s", exc)
+        rag_context = None
 
     rag_hint = ""
     if rag_context:
@@ -327,6 +352,7 @@ async def generate_outline(
             "\n\n以下是从用户上传资料中检索到的参考内容，"
             "请据此优化大纲：\n" + _format_rag_context(rag_context)
         )
+    rag_instruction = "参考内容请结合用户资料合理吸收。\n" if rag_context else ""
 
     style_desc = STYLE_REQUIREMENTS.get(template_style, STYLE_REQUIREMENTS["default"])
     target_pages = _extract_target_pages(user_requirements)
@@ -339,8 +365,7 @@ async def generate_outline(
     prompt = f"""你是资深学科教学设计师。
 请基于以下需求生成结构化课件大纲。
 {rag_hint}
-参考内容请结合用户资料合理吸收。
-教学需求：{user_requirements}
+{rag_instruction}教学需求：{user_requirements}
 模板风格：{template_style} - {style_desc}
 
 仅返回 JSON：

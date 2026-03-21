@@ -52,7 +52,10 @@ async def _load_latest_outline(db, session) -> Optional[dict]:
     relation_versions = getattr(session, "outlineVersions", None)
     if relation_versions:
         latest = max(relation_versions, key=lambda v: v.version)
-        return _parse_json_object(getattr(latest, "outlineData", None))
+        parsed = _parse_json_object(getattr(latest, "outlineData", None))
+        if parsed is not None:
+            parsed["version"] = getattr(latest, "version", parsed.get("version", 1))
+        return parsed
 
     outline_model = getattr(db, "outlineversion", None)
     if outline_model is None or not hasattr(outline_model, "find_first"):
@@ -64,7 +67,10 @@ async def _load_latest_outline(db, session) -> Optional[dict]:
     )
     if not latest:
         return None
-    return _parse_json_object(getattr(latest, "outlineData", None))
+    parsed = _parse_json_object(getattr(latest, "outlineData", None))
+    if parsed is not None:
+        parsed["version"] = getattr(latest, "version", parsed.get("version", 1))
+    return parsed
 
 
 async def _load_latest_task_id(db, session) -> Optional[str]:
