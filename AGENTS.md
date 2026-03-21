@@ -382,7 +382,81 @@ For doc style, use:
 
 - [docs/standards/documentation.md](/Users/ln1/Projects/Spectra/docs/standards/documentation.md)
 
-## 15. Recommended Working Style For Agents
+## 15. Agent Self-Maintenance Rules
+
+`AGENTS.md` is not self-modifying software, but agents working in this repository are expected to
+maintain repository knowledge proactively when a pattern becomes stable.
+
+### 15.1 When an agent should update docs without being asked
+
+An agent should proactively update documentation when all of the following are true:
+
+1. the issue is not a one-off accident
+2. the root cause is understood
+3. the conclusion is likely reusable
+4. there is a clear authoritative place to record it
+5. recording it reduces future confusion or repeated mistakes
+
+### 15.2 Typical triggers for proactive updates
+
+- a state, error, or artifact contract changed in a stable way
+- a queue/fallback/runtime rule was clarified by real incidents
+- a provider/model/config trap was diagnosed and confirmed
+- a validation or deploy step became mandatory for safe changes
+- a file/module boundary rule had to be enforced repeatedly
+
+### 15.3 Where new knowledge should go
+
+- update `AGENTS.md` for repository-wide agent behavior, interpretation rules, and hard editing constraints
+- update `docs/standards/*.md` for stable engineering standards
+- update product or architecture docs when the product or system model changed
+- update [docs/agent-memory.md](/Users/ln1/Projects/Spectra/docs/agent-memory.md) for half-stable operational knowledge and confirmed recurring pitfalls
+
+### 15.4 What should not be "learned" into docs
+
+Do not update standards or agent guides for:
+
+- temporary outages
+- unverified suspicions
+- one-time debugging notes
+- local machine accidents
+- workaround code that is not yet accepted as repository policy
+
+Prefer promoting knowledge in this order:
+
+1. incident or local finding
+2. repeated or verified pattern
+3. `docs/agent-memory.md`
+4. standards or `AGENTS.md` if it is now repository policy
+
+## 16. Best-Practice Alignment
+
+This repository should follow existing engineering best practices, but not by cargo-cult copying generic templates.
+
+Use best practices only when they improve Spectra's actual system:
+
+- single source of truth
+- contract-first semantics
+- explicit module boundaries
+- environment-driven configuration
+- observable pipelines
+- small coherent commits
+- tests and docs aligned with behavior
+
+When a common best practice conflicts with the current system shape:
+
+- prefer the practice that preserves Spectra's ontology and workflow loop
+- avoid importing fashionable abstractions that add layers without reducing confusion
+- prefer repository-specific guidance over generic industry boilerplate
+
+In practice, the best reference set for agent work is:
+
+1. current passing code and tests
+2. canonical philosophy and standards docs
+3. current runtime/deploy behavior
+4. community best practice adapted to the above
+
+## 17. Recommended Working Style For Agents
 
 1. Read the smallest set of live docs needed to orient yourself.
 2. Confirm current implementation in code and tests.
