@@ -9,6 +9,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = ROOT / "backend"
 SCRIPT_FILE = Path(__file__).resolve()
+RUNTIME_SCOPE = (
+    BACKEND_ROOT / "main.py",
+    BACKEND_ROOT / "worker.py",
+    BACKEND_ROOT / "app_setup",
+    BACKEND_ROOT / "routers",
+    BACKEND_ROOT / "services",
+    BACKEND_ROOT / "utils",
+)
 EXCLUDED_PARTS = {
     ".git",
     "__pycache__",
@@ -31,32 +39,36 @@ PATTERNS = (
     AssumptionPattern(
         name="sqlite_default",
         needle="file:./dev.db",
-        scope=(BACKEND_ROOT,),
+        scope=RUNTIME_SCOPE,
     ),
     AssumptionPattern(
         name="local_uploads_default",
         needle='"uploads"',
-        scope=(BACKEND_ROOT,),
+        scope=RUNTIME_SCOPE,
     ),
     AssumptionPattern(
         name="local_generated_default",
         needle='"generated"',
-        scope=(BACKEND_ROOT,),
+        scope=RUNTIME_SCOPE,
     ),
     AssumptionPattern(
         name="local_chroma_default",
         needle="chroma_data",
-        scope=(BACKEND_ROOT,),
+        scope=RUNTIME_SCOPE,
     ),
     AssumptionPattern(
         name="localhost_api_default",
         needle="http://localhost:8000",
-        scope=(BACKEND_ROOT,),
+        scope=RUNTIME_SCOPE,
     ),
 )
 
 
 def _iter_files(root: Path) -> list[Path]:
+    if root.is_file():
+        return [root]
+    if not root.exists():
+        return []
     return [
         path
         for path in root.rglob("*")

@@ -72,3 +72,19 @@ def test_find_hits_skips_audit_script_file(monkeypatch, tmp_path):
     )
 
     assert hits == []
+
+
+def test_find_hits_supports_file_scope(tmp_path):
+    target = tmp_path / "runtime.py"
+    target.write_text('DATABASE_URL = "file:./dev.db"\n', encoding="utf-8")
+
+    hits = _find_hits(
+        AssumptionPattern(
+            name="sqlite_default",
+            needle="file:./dev.db",
+            scope=(target,),
+        )
+    )
+
+    assert len(hits) == 1
+    assert str(target) in hits[0]
