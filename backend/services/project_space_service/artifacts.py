@@ -1,8 +1,10 @@
 """Artifact helpers for Project Space service."""
 
+import asyncio
 import html
 import json
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -456,7 +458,17 @@ async def create_artifact_with_file(
         replaced_metadata["is_current"] = False
         await db.update_artifact_metadata(replaced_artifact.id, replaced_metadata)
     try:
-        await _silently_accrete_artifact(
+        timeout_seconds = 8.0
+        raw_timeout = os.getenv(
+            "ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS",
+            "8",
+        ).strip()
+        if raw_timeout:
+            try:
+                timeout_seconds = float(raw_timeout)
+            except ValueError:
+                timeout_seconds = 8.0
+        coroutine = _silently_accrete_artifact(
             db=db,
             artifact=artifact,
             project_id=project_id,
@@ -465,6 +477,17 @@ async def create_artifact_with_file(
             session_id=session_id,
             based_on_version_id=based_on_version_id,
             normalized_content=normalized_content,
+        )
+        if timeout_seconds > 0:
+            await asyncio.wait_for(coroutine, timeout=timeout_seconds)
+        else:
+            await coroutine
+    except asyncio.TimeoutError:
+        logger.warning(
+            "artifact_silent_accretion_timeout: artifact=%s project=%s timeout=%s",
+            getattr(artifact, "id", None),
+            project_id,
+            timeout_seconds,
         )
     except Exception as exc:
         logger.warning(

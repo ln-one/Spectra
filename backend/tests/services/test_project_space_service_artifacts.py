@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -277,6 +278,104 @@ async def test_create_artifact_preserves_explicit_based_on_version_id(monkeypatc
     assert (
         create_artifact.await_args.kwargs["based_on_version_id"] == "version-explicit"
     )
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_silent_accretion_timeout_is_best_effort(monkeypatch):
+    service = ProjectSpaceService()
+    artifact = SimpleNamespace(
+        id="artifact-timeout",
+        projectId="project-001",
+        type="summary",
+        storagePath="generated/summary.json",
+    )
+    service.db = SimpleNamespace(
+        create_artifact=AsyncMock(return_value=artifact),
+        get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001",
+                currentVersionId="version-001",
+            )
+        ),
+    )
+
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        AsyncMock(return_value="generated/summary.json"),
+    )
+
+    async def _timeout_wait_for(coro, timeout):
+        coro.close()
+        raise asyncio.TimeoutError
+
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.asyncio.wait_for",
+        _timeout_wait_for,
+    )
+    monkeypatch.setenv("ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS", "0.1")
+
+    created = await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        session_id="session-001",
+        content={"title": "带超时的摘要"},
+    )
+
+    assert created.id == "artifact-timeout"
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_disables_accretion_timeout_with_non_positive_value(
+    monkeypatch,
+):
+    service = ProjectSpaceService()
+    artifact = SimpleNamespace(
+        id="artifact-no-timeout",
+        projectId="project-001",
+        type="summary",
+        storagePath="generated/summary.json",
+    )
+    service.db = SimpleNamespace(
+        create_artifact=AsyncMock(return_value=artifact),
+        get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001",
+                currentVersionId="version-001",
+            )
+        ),
+    )
+
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        AsyncMock(return_value="generated/summary.json"),
+    )
+    accrete_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts._silently_accrete_artifact",
+        accrete_mock,
+    )
+    wait_for_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.asyncio.wait_for",
+        wait_for_mock,
+    )
+    monkeypatch.setenv("ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS", "0")
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        session_id="session-001",
+        content={"title": "无超时摘要"},
+    )
+
+    accrete_mock.assert_awaited_once()
+    wait_for_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
