@@ -250,8 +250,10 @@ class TestTaskQueueService:
 
     @patch("rq.Worker.all")
     def test_get_queue_info_excludes_stale_workers(
-        self, mock_worker_all, task_queue_service, fake_redis
+        self, mock_worker_all, task_queue_service, fake_redis, monkeypatch
     ):
+        monkeypatch.delenv("RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS", raising=False)
+
         fresh_worker = Mock()
         fresh_worker.name = "worker-fresh"
         fresh_worker.get_state.return_value = "idle"

@@ -2,11 +2,7 @@ import json
 
 import pytest
 
-from eval.network_resource_baseline import (
-    Guardrails,
-    check_regression,
-    freeze_baseline,
-)
+from eval.network_resource_baseline import Guardrails, check_regression, freeze_baseline
 
 
 def _result_payload(

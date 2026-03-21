@@ -13,13 +13,13 @@ try:
 except Exception:  # pragma: no cover - optional dependency guard
     Presentation = None
 
-logger = logging.getLogger(__name__)
-
 from services.artifact_generator.office_placeholders import (
     generate_docx_placeholder,
     generate_pptx_placeholder,
 )
 from services.artifact_generator.policies import allow_office_placeholder_artifacts
+
+logger = logging.getLogger(__name__)
 
 
 class ArtifactOfficeMixin:

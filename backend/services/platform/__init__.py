@@ -6,10 +6,7 @@ from .state_transition_guard import (
     TransitionResult,
     state_transition_guard,
 )
-from .task_recovery import (
-    STALE_PROCESSING_THRESHOLD_MINUTES,
-    TaskRecoveryService,
-)
+from .task_recovery import STALE_PROCESSING_THRESHOLD_MINUTES, TaskRecoveryService
 
 __all__ = [
     "RedisConnectionManager",
