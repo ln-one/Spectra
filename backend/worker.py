@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 import signal
+import socket
 import sys
 from pathlib import Path
 
@@ -25,6 +26,13 @@ logger = logging.getLogger(__name__)
 
 # 全局变量用于优雅关闭
 worker_instance = None
+
+
+def _resolve_worker_name() -> str:
+    """Build a unique worker name to avoid stale Redis registrations on restart."""
+    base_name = (os.getenv("WORKER_NAME") or "worker").strip() or "worker"
+    hostname = socket.gethostname().split(".", 1)[0].strip() or "host"
+    return f"{base_name}@{hostname}:{os.getpid()}"
 
 
 async def _run_recovery_scan():
@@ -128,7 +136,7 @@ def main():
     worker_instance = worker_cls(
         queues,
         connection=redis_conn,
-        name=os.getenv("WORKER_NAME", None),
+        name=_resolve_worker_name(),
     )
 
     logger.info(
