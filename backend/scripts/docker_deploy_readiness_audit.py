@@ -3,10 +3,14 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Mapping
 from urllib.parse import urlparse
+
+try:
+    from scripts.env_bootstrap import build_script_env
+except ModuleNotFoundError:  # pragma: no cover - script entry fallback
+    from env_bootstrap import build_script_env
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "backend/prisma/schema.prisma"
@@ -166,7 +170,7 @@ def evaluate_docker_readiness(
 
 def main() -> int:
     provider = _read_prisma_provider()
-    messages, failures = evaluate_docker_readiness(os.environ, provider)
+    messages, failures = evaluate_docker_readiness(build_script_env(), provider)
 
     print("Docker Deployment Readiness Audit")
     print(f"- Root: {ROOT}")

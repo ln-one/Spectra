@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping
 from urllib.parse import urlparse
 
+try:
+    from scripts.env_bootstrap import build_script_env
+except ModuleNotFoundError:  # pragma: no cover - script entry fallback
+    from env_bootstrap import build_script_env
+
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0"}
 
 
@@ -268,7 +273,7 @@ def main() -> int:
     args = parser.parse_args()
 
     messages, failures = evaluate_preflight(
-        os.environ,
+        build_script_env(),
         skip_network=args.skip_network,
         timeout_seconds=args.timeout_seconds,
         require_postgres=args.require_postgres,

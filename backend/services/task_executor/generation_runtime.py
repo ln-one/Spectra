@@ -33,6 +33,14 @@ class GenerationExecutionContext:
     session_id: Optional[str] = None
 
 
+def _build_project_space_download_url(
+    *,
+    project_id: str,
+    artifact_id: str,
+) -> str:
+    return f"/api/v1/project-space/{project_id}/artifacts/{artifact_id}/download"
+
+
 async def build_generation_inputs(db_service, context: GenerationExecutionContext):
     from services.ai import ai_service
 
@@ -147,11 +155,11 @@ async def persist_generation_artifacts(
     db_service,
     context: GenerationExecutionContext,
     artifact_paths: dict[str, str],
-) -> None:
+) -> dict[str, str]:
     if not context.session_id:
-        return
+        return {}
     if not artifact_paths:
-        return
+        return {}
 
     try:
         session = await db_service.db.generationsession.find_unique(
@@ -162,18 +170,19 @@ async def persist_generation_artifacts(
             "skip_persist_generation_artifacts session lookup failed: %s",
             exc,
         )
-        return
+        return {}
 
     if not session:
-        return
+        return {}
 
     user_id = getattr(session, "userId", None)
     base_version_id = getattr(session, "baseVersionId", None)
     project_id = getattr(session, "projectId", None) or context.project_id
+    output_urls: dict[str, str] = {}
 
     for artifact_type, storage_path in artifact_paths.items():
         try:
-            await db_service.create_artifact(
+            artifact = await db_service.create_artifact(
                 project_id=project_id,
                 artifact_type=artifact_type,
                 visibility="private",
@@ -190,6 +199,10 @@ async def persist_generation_artifacts(
                     "is_current": True,
                 },
             )
+            output_urls[artifact_type] = _build_project_space_download_url(
+                project_id=project_id,
+                artifact_id=artifact.id,
+            )
         except Exception as exc:
             logger.warning(
                 "persist_generation_artifact_failed task_id=%s session_id=%s "
@@ -199,6 +212,7 @@ async def persist_generation_artifacts(
                 artifact_type,
                 exc,
             )
+    return output_urls
 
 
 async def finalize_generation_success(

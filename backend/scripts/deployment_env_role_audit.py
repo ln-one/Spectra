@@ -4,9 +4,13 @@
 from __future__ import annotations
 
 import argparse
-import os
 from dataclasses import dataclass
 from typing import Mapping
+
+try:
+    from scripts.env_bootstrap import build_script_env
+except ModuleNotFoundError:  # pragma: no cover - script entry fallback
+    from env_bootstrap import build_script_env
 
 
 @dataclass(frozen=True)
@@ -106,7 +110,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    messages, failures = evaluate_role_contract(args.role, os.environ)
+    messages, failures = evaluate_role_contract(args.role, build_script_env())
     for message in messages:
         print(message)
 

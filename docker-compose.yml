@@ -58,6 +58,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
+      - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
+      - DEFAULT_MODEL=qwen3.5-plus
+      - LARGE_MODEL=qwen3.5-plus
+      - SMALL_MODEL=qwen3.5-plus
+      - AI_REQUEST_TIMEOUT_SECONDS=45
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CHROMA_HOST=chromadb
@@ -69,6 +74,8 @@ services:
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
       - POSTGRES_BACKUP_PREFIX=spectra-dev
+      - DB_REQUIRED=true
+      - REDIS_REQUIRED=false
     command: sh -c "prisma migrate deploy && prisma generate && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       redis:
@@ -77,6 +84,17 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   worker:
     build:
@@ -89,6 +107,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/spectra
+      - JWT_SECRET_KEY=spectra-local-dev-jwt-secret
+      - DEFAULT_MODEL=qwen3.5-plus
+      - LARGE_MODEL=qwen3.5-plus
+      - SMALL_MODEL=qwen3.5-plus
+      - AI_REQUEST_TIMEOUT_SECONDS=45
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CHROMA_HOST=chromadb
@@ -100,6 +123,8 @@ services:
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
       - POSTGRES_BACKUP_PREFIX=spectra-dev
+      - WORKER_NAME=worker-1
+      - WORKER_RECOVERY_SCAN=true
     command: sh -c "prisma migrate deploy && prisma generate && python worker.py"
     depends_on:
       redis:
@@ -112,7 +137,7 @@ services:
   chromadb:
     image: chromadb/chroma:0.5.2
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     volumes:
       - chroma_data:/chroma/chroma
     environment:

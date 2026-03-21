@@ -93,11 +93,13 @@ async def execute_generation_task(
             context=context,
             courseware_content=courseware_content,
         )
-        await persist_generation_artifacts(
+        persisted_output_urls = await persist_generation_artifacts(
             db_service=db_service,
             context=context,
             artifact_paths=artifact_paths,
         )
+        if persisted_output_urls:
+            output_urls.update(persisted_output_urls)
         await finalize_generation_success(
             db_service=db_service,
             context=context,
