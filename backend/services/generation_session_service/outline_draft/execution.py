@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import time
@@ -9,20 +8,27 @@ import uuid
 from typing import Awaitable, Callable, Optional
 
 from services.ai import ai_service
-from services.courseware_ai.outline import get_fallback_outline
 from services.generation_session_service.constants import (
-    OutlineChangeReason,
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
 )
-from services.generation_session_service.outline_helpers import (
-    _build_outline_requirements,
-    _courseware_outline_to_document,
+from services.generation_session_service.outline_draft.runtime_helpers import (
+    generate_outline_doc,
+)
+from services.generation_session_service.outline_draft.state_helpers import (
+    emit_outline_failure,
+    emit_outline_failure_state,
+    emit_outline_success,
+    is_concurrently_completed,
+    persist_outline_failure_fallback,
+    persist_outline_success,
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
 logger = logging.getLogger(__name__)
+
+_generate_outline_doc = generate_outline_doc
 
 
 def _outline_draft_timeout_seconds() -> float:
@@ -49,46 +55,6 @@ def _classify_outline_failure(exc: Exception) -> tuple[str, str, str]:
         "大纲生成失败，请稍后重试。",
         OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY.value,
     )
-
-
-def _is_outline_version_unique_violation(exc: Exception) -> bool:
-    text = str(exc)
-    return "Unique constraint failed" in text or "UniqueViolationError" in text
-
-
-async def _persist_outline_version(
-    *,
-    db,
-    session_id: str,
-    outline_version: int,
-    outline_doc: dict,
-    change_reason: str,
-) -> None:
-    payload = {
-        "sessionId": session_id,
-        "version": outline_version,
-        "outlineData": json.dumps(outline_doc),
-        "changeReason": change_reason,
-    }
-    try:
-        await db.outlineversion.create(data=payload)
-        return
-    except Exception as exc:
-        if not _is_outline_version_unique_violation(exc):
-            raise
-        existing = await db.outlineversion.find_first(
-            where={"sessionId": session_id, "version": outline_version},
-            order={"createdAt": "desc"},
-        )
-        if not existing:
-            raise
-        await db.outlineversion.update(
-            where={"id": existing.id},
-            data={
-                "outlineData": payload["outlineData"],
-                "changeReason": payload["changeReason"],
-            },
-        )
 
 
 async def execute_outline_draft_local(
@@ -133,7 +99,7 @@ async def execute_outline_draft_local(
         await _emit_outline_progress(append_event, session_id, trace_id)
         outline_started_at = time.perf_counter()
         outline_doc = await asyncio.wait_for(
-            _generate_outline_doc(
+            generate_outline_doc(
                 db=db,
                 session_id=session_id,
                 project_id=project_id,
@@ -159,7 +125,7 @@ async def execute_outline_draft_local(
             2,
         )
         persist_started_at = time.perf_counter()
-        await _persist_success(
+        await persist_outline_success(
             db=db,
             session_id=session_id,
             outline_doc=outline_doc,
@@ -169,10 +135,10 @@ async def execute_outline_draft_local(
             (time.perf_counter() - persist_started_at) * 1000,
             2,
         )
-        await _emit_outline_success(
+        await emit_outline_success(
             append_event,
-            session_id,
-            trace_id,
+            session_id=session_id,
+            trace_id=trace_id,
             outline_version=next_outline_version,
             stage_timings_ms=stage_timings_ms,
         )
@@ -185,7 +151,7 @@ async def execute_outline_draft_local(
             },
         )
     except Exception as draft_err:
-        if await _is_concurrently_completed(db, session_id, trace_id):
+        if await is_concurrently_completed(db, session_id, trace_id):
             return
 
         error_code, error_message, failure_state_reason = _classify_outline_failure(
@@ -200,14 +166,14 @@ async def execute_outline_draft_local(
             draft_err,
             exc_info=True,
         )
-        await _emit_outline_failure(
+        await emit_outline_failure(
             append_event,
-            session_id,
-            error_code,
-            error_message,
-            trace_id,
+            session_id=session_id,
+            error_code=error_code,
+            error_message=error_message,
+            trace_id=trace_id,
         )
-        await _persist_failure_fallback(
+        await persist_outline_failure_fallback(
             db=db,
             session_id=session_id,
             project_id=project_id,
@@ -215,10 +181,10 @@ async def execute_outline_draft_local(
             failure_state_reason=failure_state_reason,
             outline_version=next_outline_version,
         )
-        await _emit_outline_failure_state(
+        await emit_outline_failure_state(
             append_event,
-            session_id,
-            trace_id,
+            session_id=session_id,
+            trace_id=trace_id,
             failure_state_reason=failure_state_reason,
             outline_version=next_outline_version,
         )
@@ -231,268 +197,4 @@ async def _emit_outline_progress(append_event, session_id: str, trace_id: str) -
         state=GenerationState.DRAFTING_OUTLINE.value,
         progress=15,
         payload={"stage": "outline_draft", "trace_id": trace_id},
-    )
-
-
-async def _build_session_conversation_requirements(
-    *, db, project_id: str, session_id: str
-) -> str:
-    project = await db.project.find_unique(where={"id": project_id})
-    if not project:
-        return "生成课件大纲"
-
-    project_name = getattr(project, "name", None)
-    project_description = getattr(project, "description", None)
-
-    conversation_model = getattr(db, "conversation", None)
-    if conversation_model is None:
-        messages = []
-    else:
-        messages = await conversation_model.find_many(
-            where={"projectId": project_id, "sessionId": session_id},
-            take=10,
-            order={"createdAt": "desc"},
-        )
-    user_messages = [
-        msg
-        for msg in reversed(messages)
-        if getattr(msg, "role", None) == "user"
-        or (isinstance(msg, dict) and msg.get("role") == "user")
-    ]
-
-    requirement_parts = []
-    if project_name:
-        requirement_parts.append(f"项目名称：{project_name}")
-    if project_description:
-        requirement_parts.append(f"项目描述：{project_description}")
-    if user_messages:
-        requirement_parts.append("\n当前会话用户需求：")
-        for msg in user_messages[-3:]:
-            content = (
-                msg.get("content")
-                if isinstance(msg, dict)
-                else getattr(msg, "content", None)
-            )
-            if content:
-                requirement_parts.append(f"- {content}")
-    return "\n".join(requirement_parts) if requirement_parts else "生成课件大纲"
-
-
-async def _generate_outline_doc(
-    *, db, session_id: str, project_id: str, options, ai_service_obj
-):
-    requirements_started_at = time.perf_counter()
-    project = await db.project.find_unique(where={"id": project_id})
-    conversation_requirements = await _build_session_conversation_requirements(
-        db=db,
-        project_id=project_id,
-        session_id=session_id,
-    )
-    outline_requirements = _build_outline_requirements(project, options)
-    requirements_build_ms = round(
-        (time.perf_counter() - requirements_started_at) * 1000,
-        2,
-    )
-    requirement_text = "\n\n".join(
-        part.strip()
-        for part in [conversation_requirements, outline_requirements]
-        if part and part.strip()
-    )
-    template_style = (options or {}).get("template") or "default"
-    llm_started_at = time.perf_counter()
-    outline = await ai_service_obj.generate_outline(
-        project_id=project_id,
-        user_requirements=requirement_text,
-        template_style=template_style,
-        session_id=session_id,
-        rag_source_ids=(options or {}).get("rag_source_ids"),
-    )
-    outline_doc = _courseware_outline_to_document(
-        outline,
-        target_pages=(options or {}).get("pages"),
-    )
-    outline_doc["_requirements_build_ms"] = requirements_build_ms
-    outline_doc["_rag_context_ms"] = 0.0
-    outline_doc["_outline_llm_ms"] = round(
-        (time.perf_counter() - llm_started_at) * 1000,
-        2,
-    )
-    return outline_doc
-
-
-async def _persist_success(
-    *, db, session_id: str, outline_doc: dict, outline_version: int
-) -> None:
-    outline_doc = dict(outline_doc or {})
-    outline_doc["version"] = outline_version
-    await _persist_outline_version(
-        db=db,
-        session_id=session_id,
-        outline_version=outline_version,
-        outline_doc=outline_doc,
-        change_reason=OutlineChangeReason.DRAFTED_ASYNC.value,
-    )
-    await db.generationsession.update(
-        where={"id": session_id},
-        data={
-            "state": GenerationState.AWAITING_OUTLINE_CONFIRM.value,
-            "stateReason": OutlineGenerationStateReason.DRAFTED_ASYNC.value,
-            "currentOutlineVersion": outline_version,
-        },
-    )
-
-
-async def _emit_outline_success(
-    append_event,
-    session_id: str,
-    trace_id: str,
-    outline_version: int,
-    stage_timings_ms: Optional[dict] = None,
-) -> None:
-    await append_event(
-        session_id=session_id,
-        event_type=GenerationEventType.OUTLINE_UPDATED.value,
-        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
-        progress=100,
-        payload={
-            "version": outline_version,
-            "change_reason": OutlineChangeReason.DRAFTED_ASYNC.value,
-            "trace_id": trace_id,
-            "stage_timings_ms": stage_timings_ms or {},
-        },
-    )
-    await append_event(
-        session_id=session_id,
-        event_type=GenerationEventType.STATE_CHANGED.value,
-        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
-        state_reason=OutlineGenerationStateReason.DRAFTED_ASYNC.value,
-        payload={"trace_id": trace_id, "stage_timings_ms": stage_timings_ms or {}},
-    )
-
-
-async def _is_concurrently_completed(db, session_id: str, trace_id: str) -> bool:
-    try:
-        latest = await db.generationsession.find_unique(where={"id": session_id})
-        if latest:
-            latest_state = (
-                latest.get("state") if isinstance(latest, dict) else latest.state
-            )
-            latest_outline_version = (
-                latest.get("currentOutlineVersion")
-                if isinstance(latest, dict)
-                else latest.currentOutlineVersion
-            )
-            if (
-                latest_state == GenerationState.AWAITING_OUTLINE_CONFIRM.value
-                and (latest_outline_version or 0) >= 1
-            ):
-                logger.info(
-                    "Outline draft failure ignored due to concurrent completion: "
-                    "session=%s trace_id=%s",
-                    session_id,
-                    trace_id,
-                )
-                return True
-    except Exception as exc:
-        logger.debug(
-            "Outline concurrent completion probe failed: "
-            "session=%s trace_id=%s error=%s",
-            session_id,
-            trace_id,
-            exc,
-        )
-    return False
-
-
-async def _emit_outline_failure(
-    append_event,
-    session_id: str,
-    error_code: str,
-    error_message: str,
-    trace_id: str,
-) -> None:
-    await append_event(
-        session_id=session_id,
-        event_type=GenerationEventType.TASK_FAILED.value,
-        state=GenerationState.DRAFTING_OUTLINE.value,
-        payload={
-            "stage": "outline_draft",
-            "error_code": error_code,
-            "error_message": error_message,
-            "retryable": True,
-            "trace_id": trace_id,
-        },
-    )
-
-
-async def _persist_failure_fallback(
-    *,
-    db,
-    session_id: str,
-    project_id: str,
-    options: Optional[dict],
-    failure_state_reason: str,
-    outline_version: int,
-) -> None:
-    outline_title = "课堂教学大纲"
-    project_model = getattr(db, "project", None)
-    if project_model is not None and hasattr(project_model, "find_unique"):
-        try:
-            project = await project_model.find_unique(where={"id": project_id})
-            if project:
-                outline_title = (
-                    project.get("name")
-                    if isinstance(project, dict)
-                    else getattr(project, "name", None)
-                ) or outline_title
-        except Exception as exc:  # pragma: no cover - defensive path
-            logger.debug("Fallback outline project lookup failed: %s", exc)
-
-    fallback_outline = get_fallback_outline(str(outline_title or "课堂教学大纲"))
-    fallback_outline_doc = _courseware_outline_to_document(
-        fallback_outline,
-        target_pages=(options or {}).get("pages"),
-    )
-    fallback_outline_doc["version"] = outline_version
-
-    await _persist_outline_version(
-        db=db,
-        session_id=session_id,
-        outline_version=outline_version,
-        outline_doc=fallback_outline_doc,
-        change_reason=OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
-    )
-    await db.generationsession.update(
-        where={"id": session_id},
-        data={
-            "state": GenerationState.AWAITING_OUTLINE_CONFIRM.value,
-            "stateReason": failure_state_reason,
-            "currentOutlineVersion": outline_version,
-        },
-    )
-
-
-async def _emit_outline_failure_state(
-    append_event,
-    session_id: str,
-    trace_id: str,
-    failure_state_reason: str,
-    outline_version: int,
-) -> None:
-    await append_event(
-        session_id=session_id,
-        event_type=GenerationEventType.OUTLINE_UPDATED.value,
-        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
-        payload={
-            "version": outline_version,
-            "change_reason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
-            "trace_id": trace_id,
-        },
-    )
-    await append_event(
-        session_id=session_id,
-        event_type=GenerationEventType.STATE_CHANGED.value,
-        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
-        state_reason=failure_state_reason,
-        payload={"trace_id": trace_id},
     )
