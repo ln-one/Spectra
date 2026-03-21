@@ -3,9 +3,13 @@
 
 from __future__ import annotations
 
-import os
 from typing import Mapping
 from urllib.parse import urlparse
+
+try:
+    from scripts.env_bootstrap import build_script_env
+except ModuleNotFoundError:  # pragma: no cover - script entry fallback
+    from env_bootstrap import build_script_env
 
 RECOMMENDED_BACKUP_ROOTS = (
     "/var/backups/spectra",
@@ -153,7 +157,7 @@ def evaluate_backup_restore_readiness(
 
 
 def main() -> int:
-    messages, failures = evaluate_backup_restore_readiness(os.environ)
+    messages, failures = evaluate_backup_restore_readiness(build_script_env())
     for message in messages:
         print(message)
     return 1 if failures else 0

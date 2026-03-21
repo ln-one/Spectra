@@ -154,6 +154,8 @@ def test_export_preview_expected_render_version_conflict(client, monkeypatch, _a
     body = resp.json()
     assert body["success"] is False
     assert body["error"]["code"] == "RESOURCE_CONFLICT"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
 
 
 def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_user):

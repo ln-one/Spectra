@@ -3,8 +3,12 @@
 
 from __future__ import annotations
 
-import os
 from typing import Mapping
+
+try:
+    from scripts.env_bootstrap import build_script_env
+except ModuleNotFoundError:  # pragma: no cover - script entry fallback
+    from env_bootstrap import build_script_env
 
 LOCAL_RELATIVE_PREFIXES = ("./", "../")
 LOCAL_RUNTIME_DEFAULTS = {
@@ -96,7 +100,7 @@ def evaluate_storage_readiness(env: Mapping[str, str]) -> tuple[list[str], int]:
 
 
 def main() -> int:
-    messages, failures = evaluate_storage_readiness(os.environ)
+    messages, failures = evaluate_storage_readiness(build_script_env())
     for message in messages:
         print(message)
     return 1 if failures else 0

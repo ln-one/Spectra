@@ -58,6 +58,8 @@ class TestRequestIDMiddleware:
         # The error details should contain a request_id
         details = body.get("error", {}).get("details", {})
         assert "request_id" in details
+        assert body["error"]["retryable"] is False
+        assert body["error"]["trace_id"]
 
 
 # ---------------------------------------------------------------

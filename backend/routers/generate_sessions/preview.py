@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import time
 from typing import Optional
 from uuid import UUID
 
@@ -40,6 +42,7 @@ from utils.exceptions import (
 from utils.responses import success_response
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Backward-compatible aliases for tests and monkeypatches.
 _get_session_service = get_session_service
@@ -73,6 +76,7 @@ async def get_session_preview(
     user_id: str = Depends(get_current_user),
 ):
     """获取会话预览（session 作用域）。"""
+    started_at = time.perf_counter()
     snapshot = await _get_snapshot(session_id, user_id)
 
     try:
@@ -90,7 +94,7 @@ async def get_session_preview(
         session_id, project_id, anchor.get("artifact_id")
     )
 
-    return success_response(
+    response = success_response(
         data=build_preview_payload(
             session_id=session_id,
             snapshot=snapshot,
@@ -101,6 +105,19 @@ async def get_session_preview(
         ),
         message="预览获取成功",
     )
+    duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
+    logger.info(
+        "session_preview_loaded session_id=%s artifact_id=%s duration_ms=%s",
+        session_id,
+        anchor.get("artifact_id"),
+        duration_ms,
+        extra={
+            "session_id": session_id,
+            "artifact_id": anchor.get("artifact_id"),
+            "duration_ms": duration_ms,
+        },
+    )
+    return response
 
 
 @router.post("/sessions/{session_id}/preview/modify")
@@ -219,6 +236,7 @@ async def export_session(
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
     """导出课件文件（session 作用域）。"""
+    started_at = time.perf_counter()
     body = body or {}
     parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
     parsed_idempotency_key = _parse_idempotency_key(idempotency_key)
@@ -274,4 +292,22 @@ async def export_session(
     if candidate_change is not None:
         payload["candidate_change"] = candidate_change
 
-    return success_response(data=payload, message="导出成功")
+    response = success_response(data=payload, message="导出成功")
+    duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
+    logger.info(
+        (
+            "session_preview_exported session_id=%s "
+            "format=%s artifact_id=%s duration_ms=%s"
+        ),
+        session_id,
+        export_format,
+        anchor.get("artifact_id"),
+        duration_ms,
+        extra={
+            "session_id": session_id,
+            "export_format": export_format,
+            "artifact_id": anchor.get("artifact_id"),
+            "duration_ms": duration_ms,
+        },
+    )
+    return response

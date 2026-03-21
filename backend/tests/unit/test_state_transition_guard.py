@@ -47,3 +47,23 @@ def test_get_transitions_exposes_public_transition_table():
         "from_state": GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         "to_state": GenerationState.GENERATING_CONTENT.value,
     } in transitions
+
+
+def test_validate_regenerate_slide_transitions_success_to_rendering():
+    guard = StateTransitionGuard()
+    result = guard.validate(
+        GenerationState.SUCCESS.value,
+        GenerationCommandType.REGENERATE_SLIDE.value,
+    )
+    assert result.allowed is True
+    assert result.to_state == GenerationState.RENDERING.value
+
+
+def test_validate_resume_session_transitions_failed_to_configuring():
+    guard = StateTransitionGuard()
+    result = guard.validate(
+        GenerationState.FAILED.value,
+        GenerationCommandType.RESUME_SESSION.value,
+    )
+    assert result.allowed is True
+    assert result.to_state == GenerationState.CONFIGURING.value

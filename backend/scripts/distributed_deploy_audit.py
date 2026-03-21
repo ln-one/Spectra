@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Mapping
 
@@ -20,6 +19,7 @@ from scripts import docker_deploy_readiness_audit as docker_audit  # noqa: E402
 from scripts import postgres_backup_restore_audit as backup_audit  # noqa: E402
 from scripts import runtime_assumption_audit as runtime_audit  # noqa: E402
 from scripts import storage_deploy_readiness_audit as storage_audit  # noqa: E402
+from scripts.env_bootstrap import build_script_env  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE_COMPOSE = ROOT / "docker-compose.yml"
@@ -101,7 +101,7 @@ def main() -> int:
         SHADOW_COMPOSE.read_text(encoding="utf-8") if SHADOW_COMPOSE.exists() else None
     )
     messages, failures = evaluate_distributed_readiness(
-        os.environ,
+        build_script_env(root=ROOT),
         prisma_provider=_read_prisma_provider(),
         base_compose_text=base_compose_text,
         shadow_compose_text=shadow_compose_text,

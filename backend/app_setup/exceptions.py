@@ -21,6 +21,15 @@ from utils.responses import error_response
 logger = logging.getLogger(__name__)
 
 
+def _is_retryable_status(status_code: int) -> bool:
+    return status_code in {
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        status.HTTP_502_BAD_GATEWAY,
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        status.HTTP_504_GATEWAY_TIMEOUT,
+    }
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Register project-wide exception handlers."""
 
@@ -37,6 +46,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                 code=exc.error_code.value,
                 message=exc.message,
                 details=details or None,
+                retryable=_is_retryable_status(exc.status_code),
                 trace_id=request_id,
             ),
         )
@@ -125,5 +135,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                 code="INTERNAL_ERROR",
                 message="服务器内部错误",
                 details={"request_id": request_id},
+                retryable=False,
+                trace_id=request_id,
             ),
         )
