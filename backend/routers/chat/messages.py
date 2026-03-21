@@ -1,21 +1,17 @@
+import asyncio
 from typing import Optional
 from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, Query, status
+from fastapi import Depends, Header, Query
 
 from schemas.chat import SendMessageRequest
 from services.database import db_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException
+from utils.exceptions import APIException, InternalServerException
 from utils.responses import success_response
 
 from .runtime import process_chat_message
-from .shared import (
-    logger,
-    router,
-    to_message,
-    verify_project_ownership,
-)
+from .shared import logger, router, to_message, verify_project_ownership
 
 
 @router.post("/messages")
@@ -52,11 +48,17 @@ async def get_messages(
                 },
                 message="当前未绑定会话，返回空对话历史",
             )
-        messages, total = await db_service.get_conversations_paginated(
-            project_id=project_id,
-            page=page,
-            limit=limit,
-            session_id=session_id,
+        messages, total = await asyncio.gather(
+            db_service.get_conversation_messages(
+                project_id=project_id,
+                page=page,
+                limit=limit,
+                session_id=session_id,
+            ),
+            db_service.count_conversation_messages(
+                project_id=project_id,
+                session_id=session_id,
+            ),
         )
         return success_response(
             data={
@@ -72,7 +74,12 @@ async def get_messages(
         raise
     except Exception as exc:
         logger.error("Get messages failed: %s", exc, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取消息失败",
+        raise InternalServerException(
+            message="获取消息失败",
+            details={
+                "project_id": project_id,
+                "session_id": session_id,
+                "page": page,
+                "limit": limit,
+            },
         )

@@ -6,7 +6,11 @@ from typing import Optional
 
 from schemas.project_space import CandidateChangeStatus
 
-from .reference_validation import check_dag_cycle, validate_reference_creation
+from .reference_validation import (
+    check_dag_cycle,
+    validate_reference_activation,
+    validate_reference_creation,
+)
 from .references import create_candidate_change as create_candidate_change_record
 from .references import create_project_reference as create_project_reference_record
 from .references import delete_project_reference as delete_project_reference_record
@@ -127,6 +131,26 @@ class ProjectSpaceReferenceAPIMixin:
         return await validate_reference_creation(
             db=self.db,
             project_id=project_id,
+            target_project_id=target_project_id,
+            relation_type=relation_type,
+            mode=mode,
+            pinned_version_id=pinned_version_id,
+        )
+
+    async def validate_reference_activation(
+        self,
+        *,
+        project_id: str,
+        reference_id: str,
+        target_project_id: str,
+        relation_type: str,
+        mode: str,
+        pinned_version_id: Optional[str],
+    ):
+        return await validate_reference_activation(
+            db=self.db,
+            project_id=project_id,
+            reference_id=reference_id,
             target_project_id=target_project_id,
             relation_type=relation_type,
             mode=mode,

@@ -17,12 +17,8 @@ function formatLibraryError(error: unknown, fallback: string): string {
     if (error.status === 403 || error.code === "FORBIDDEN") {
       return "权限不足：当前账号无法访问该能力。";
     }
-    if (
-      error.status === 404 ||
-      error.status === 501 ||
-      error.code === "NOT_IMPLEMENTED"
-    ) {
-      return "后端尚未开放该能力（Phase 1 占位）。";
+    if (error.status === 409 || error.code === "CONFLICT") {
+      return `状态冲突：${error.message}`;
     }
     return `${error.code}: ${error.message}`;
   }
@@ -30,6 +26,32 @@ function formatLibraryError(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+function parsePriority(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : 10;
+}
+
+function inferArtifactExt(artifactType: Artifact["type"]): string {
+  switch (artifactType) {
+    case "gif":
+      return "gif";
+    case "mp4":
+      return "mp4";
+    case "html":
+      return "html";
+    case "mindmap":
+    case "summary":
+    case "exercise":
+      return "json";
+    case "pptx":
+      return "pptx";
+    case "docx":
+      return "docx";
+    default:
+      return "bin";
+  }
 }
 
 export function useLibraryDrawerData(projectId: string, open: boolean) {
@@ -59,8 +81,39 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     loading: false,
     error: null,
   });
+
   const [newReferenceTarget, setNewReferenceTarget] = useState("");
+  const [newReferenceRelationType, setNewReferenceRelationType] = useState<
+    "base" | "auxiliary"
+  >("auxiliary");
+  const [newReferenceMode, setNewReferenceMode] = useState<"follow" | "pinned">(
+    "follow"
+  );
+  const [newReferencePinnedVersion, setNewReferencePinnedVersion] =
+    useState("");
+  const [newReferencePriority, setNewReferencePriority] = useState("10");
+
+  const [newArtifactType, setNewArtifactType] = useState<
+    "mindmap" | "summary" | "exercise" | "html" | "gif" | "mp4"
+  >("summary");
+  const [newArtifactVisibility, setNewArtifactVisibility] = useState<
+    "private" | "project-visible" | "shared"
+  >("private");
+  const [newArtifactMode, setNewArtifactMode] = useState<"create" | "replace">(
+    "create"
+  );
+  const [newArtifactSessionId, setNewArtifactSessionId] = useState("");
+  const [newArtifactBasedVersionId, setNewArtifactBasedVersionId] =
+    useState("");
+
   const [newMemberUserId, setNewMemberUserId] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState<
+    "owner" | "editor" | "viewer"
+  >("viewer");
+
+  const [newChangeTitle, setNewChangeTitle] = useState("");
+  const [newChangeSummary, setNewChangeSummary] = useState("");
+  const [reviewComment, setReviewComment] = useState("");
 
   const loadReferences = useCallback(async () => {
     setReferencesState({ loading: true, error: null });
@@ -158,36 +211,117 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     try {
       await projectSpaceApi.createReference(projectId, {
         target_project_id: targetId,
-        relation_type: "auxiliary",
-        mode: "follow",
-        priority: 10,
+        relation_type: newReferenceRelationType,
+        mode: newReferenceMode,
+        pinned_version_id:
+          newReferenceMode === "pinned"
+            ? newReferencePinnedVersion.trim() || null
+            : null,
+        priority: parsePriority(newReferencePriority),
       });
+      setReferencesState({ loading: false, error: null });
       setNewReferenceTarget("");
+      setNewReferencePinnedVersion("");
       await loadReferences();
-    } catch {
-      // rely on list refresh state
+    } catch (error) {
+      setReferencesState({
+        loading: false,
+        error: formatLibraryError(error, "新增引用失败"),
+      });
     }
   };
 
   const handleDeleteReference = async (referenceId: string) => {
     try {
       await projectSpaceApi.deleteReference(projectId, referenceId);
+      setReferencesState({ loading: false, error: null });
       await loadReferences();
-    } catch {
-      // rely on list refresh state
+    } catch (error) {
+      setReferencesState({
+        loading: false,
+        error: formatLibraryError(error, "删除引用失败"),
+      });
     }
   };
 
-  const handleQuickCreateArtifact = async () => {
+  const handleToggleReferenceStatus = async (
+    referenceId: string,
+    currentStatus: ProjectReference["status"]
+  ) => {
+    try {
+      await projectSpaceApi.updateReference(projectId, referenceId, {
+        status: currentStatus === "active" ? "disabled" : "active",
+      });
+      setReferencesState({ loading: false, error: null });
+      await loadReferences();
+    } catch (error) {
+      setReferencesState({
+        loading: false,
+        error: formatLibraryError(error, "更新引用状态失败"),
+      });
+    }
+  };
+
+  const handleUpdateReferencePriority = async (
+    referenceId: string,
+    priority: number
+  ) => {
+    try {
+      await projectSpaceApi.updateReference(projectId, referenceId, {
+        priority,
+      });
+      setReferencesState({ loading: false, error: null });
+      await loadReferences();
+    } catch (error) {
+      setReferencesState({
+        loading: false,
+        error: formatLibraryError(error, "更新引用优先级失败"),
+      });
+    }
+  };
+
+  const handleCreateArtifact = async () => {
     try {
       await projectSpaceApi.createArtifact(projectId, {
-        type: "summary",
-        visibility: "private",
-        mode: "create",
+        type: newArtifactType,
+        visibility: newArtifactVisibility,
+        mode: newArtifactMode,
+        session_id: newArtifactSessionId.trim() || null,
+        based_on_version_id: newArtifactBasedVersionId.trim() || null,
       });
+      setArtifactsState({ loading: false, error: null });
       await loadArtifacts();
-    } catch {
-      // rely on list refresh state
+    } catch (error) {
+      setArtifactsState({
+        loading: false,
+        error: formatLibraryError(error, "创建工件失败"),
+      });
+    }
+  };
+
+  const handleDownloadArtifact = async (artifactId: string) => {
+    const target = artifacts.find((artifact) => artifact.id === artifactId);
+    if (!target) {
+      setArtifactsState({ loading: false, error: "未找到工件，无法下载" });
+      return;
+    }
+    try {
+      const blob = await projectSpaceApi.downloadArtifact(
+        projectId,
+        artifactId
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${target.type}-${target.id.slice(0, 8)}.${inferArtifactExt(target.type)}`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setArtifactsState({ loading: false, error: null });
+    } catch (error) {
+      setArtifactsState({
+        loading: false,
+        error: formatLibraryError(error, "下载工件失败"),
+      });
     }
   };
 
@@ -197,12 +331,103 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     try {
       await projectSpaceApi.addMember(projectId, {
         user_id: userId,
-        role: "viewer",
+        role: newMemberRole,
       });
+      setMembersState({ loading: false, error: null });
       setNewMemberUserId("");
       await loadMembers();
-    } catch {
-      // rely on list refresh state
+    } catch (error) {
+      setMembersState({
+        loading: false,
+        error: formatLibraryError(error, "添加成员失败"),
+      });
+    }
+  };
+
+  const handleUpdateMemberRole = async (
+    memberId: string,
+    role: "owner" | "editor" | "viewer"
+  ) => {
+    try {
+      await projectSpaceApi.updateMember(projectId, memberId, { role });
+      setMembersState({ loading: false, error: null });
+      await loadMembers();
+    } catch (error) {
+      setMembersState({
+        loading: false,
+        error: formatLibraryError(error, "更新成员角色失败"),
+      });
+    }
+  };
+
+  const handleToggleMemberStatus = async (
+    memberId: string,
+    currentStatus: ProjectMember["status"]
+  ) => {
+    try {
+      await projectSpaceApi.updateMember(projectId, memberId, {
+        status: currentStatus === "active" ? "disabled" : "active",
+      });
+      setMembersState({ loading: false, error: null });
+      await loadMembers();
+    } catch (error) {
+      setMembersState({
+        loading: false,
+        error: formatLibraryError(error, "更新成员状态失败"),
+      });
+    }
+  };
+
+  const handleDeleteMember = async (memberId: string) => {
+    try {
+      await projectSpaceApi.deleteMember(projectId, memberId);
+      setMembersState({ loading: false, error: null });
+      await loadMembers();
+    } catch (error) {
+      setMembersState({
+        loading: false,
+        error: formatLibraryError(error, "删除成员失败"),
+      });
+    }
+  };
+
+  const handleCreateCandidateChange = async () => {
+    const title = newChangeTitle.trim();
+    if (!title) return;
+    try {
+      await projectSpaceApi.createCandidateChange(projectId, {
+        title,
+        summary: newChangeSummary.trim() || undefined,
+      });
+      setChangesState({ loading: false, error: null });
+      setNewChangeTitle("");
+      setNewChangeSummary("");
+      await loadChanges();
+    } catch (error) {
+      setChangesState({
+        loading: false,
+        error: formatLibraryError(error, "提交候选变更失败"),
+      });
+    }
+  };
+
+  const handleReviewCandidateChange = async (
+    changeId: string,
+    action: "accept" | "reject"
+  ) => {
+    try {
+      await projectSpaceApi.reviewCandidateChange(projectId, changeId, {
+        action,
+        review_comment: reviewComment.trim() || undefined,
+      });
+      setChangesState({ loading: false, error: null });
+      await loadChanges();
+      await loadVersions();
+    } catch (error) {
+      setChangesState({
+        loading: false,
+        error: formatLibraryError(error, "审核候选变更失败"),
+      });
     }
   };
 
@@ -219,18 +444,61 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     artifactsState,
     membersState,
     changesState,
+
     newReferenceTarget,
     setNewReferenceTarget,
+    newReferenceRelationType,
+    setNewReferenceRelationType,
+    newReferenceMode,
+    setNewReferenceMode,
+    newReferencePinnedVersion,
+    setNewReferencePinnedVersion,
+    newReferencePriority,
+    setNewReferencePriority,
+
+    newArtifactType,
+    setNewArtifactType,
+    newArtifactVisibility,
+    setNewArtifactVisibility,
+    newArtifactMode,
+    setNewArtifactMode,
+    newArtifactSessionId,
+    setNewArtifactSessionId,
+    newArtifactBasedVersionId,
+    setNewArtifactBasedVersionId,
+
     newMemberUserId,
     setNewMemberUserId,
+    newMemberRole,
+    setNewMemberRole,
+
+    newChangeTitle,
+    setNewChangeTitle,
+    newChangeSummary,
+    setNewChangeSummary,
+    reviewComment,
+    setReviewComment,
+
     loadReferences,
     loadVersions,
     loadArtifacts,
     loadMembers,
     loadChanges,
+
     handleAddReference,
     handleDeleteReference,
-    handleQuickCreateArtifact,
+    handleToggleReferenceStatus,
+    handleUpdateReferencePriority,
+
+    handleCreateArtifact,
+    handleDownloadArtifact,
+
     handleAddMember,
+    handleUpdateMemberRole,
+    handleToggleMemberStatus,
+    handleDeleteMember,
+
+    handleCreateCandidateChange,
+    handleReviewCandidateChange,
   };
 }

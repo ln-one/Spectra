@@ -1,6 +1,6 @@
 # 剩余工作战役清单
 
-> 总执行图请优先参考：`/Users/ln1/Projects/Spectra/docs/master-execution-plan.md`
+> Status: reference-only
 > 本文档保留为当前活跃战役与产品化收尾清单。
 
 > 更新时间：2026-03-19
@@ -34,11 +34,11 @@ The current document supersedes earlier freeze-period checklists and intermediat
 
 ## 2. 设计目标回看
 
-根据以下文档：
+根据以下文档与当前代码：
 
-- `/Users/ln1/Projects/Spectra/docs/project/PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md`
-- `/Users/ln1/Projects/Spectra/docs/project/PROJECT_SPACE_API_DRAFT_2026-03-09.md`
-- `/Users/ln1/Projects/Spectra/docs/project/D_CONTRACT_V1.md`
+- `/Users/ln1/Projects/Spectra/docs/archived/project-space/PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md`
+- `/Users/ln1/Projects/Spectra/docs/archived/project-space/PROJECT_SPACE_API_DRAFT_2026-03-09.md`
+- `/Users/ln1/Projects/Spectra/docs/archived/specs/D_CONTRACT_V1_2026-03-16.md`
 - `/Users/ln1/Projects/Spectra/docs/project/requirements.md`
 
 当前系统最终想要的不是“一个能生成 PPT 的工具”，而是：

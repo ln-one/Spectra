@@ -172,6 +172,17 @@ FastAPI 自动提供两种 API 文档界面：
 - `AWAITING_OUTLINE_CONFIRM` 为唯一人工确认断点。
 - `FAILED` 必须返回 `error.code`、`error.message`、`retryable`。
 - 会话类接口优先返回 `session_id`，`task_id` 作为兼容字段保留。
+- `stateReason` 必须描述**当前状态的直接原因**：
+  - `SUCCESS -> task_completed`
+  - `FAILED ->` 具体失败原因
+  - 不允许成功态保留上一阶段的大纲或调度原因。
+- `session` 快照与 `sessionevent.payload` 必须共享同一终态语义：
+  - `task_id`
+  - `dispatch`
+  - `rq_job_id`
+  - `output_urls`
+  - `error_code`
+  - `retryable`
 
 ### 与旧契约兼容策略（已完成迁移）
 
@@ -189,6 +200,10 @@ FastAPI 自动提供两种 API 文档界面：
 3. **状态冲突语义**：
  - 对“状态不允许该操作”的场景统一返回 `409`，避免前端误判为参数错误。
  - 响应中使用 `allowed_actions` 与 `transition.validated_by` 告知可执行动作和校验器。
+3.1 **队列/调度语义**：
+ - RQ 可用性仅以 fresh worker 为准；stale worker 只能用于观测，不能视为可执行 worker。
+ - queue 状态读取失败时记为 `queue_health_unknown`，允许一次短重试后再决定是否 fallback。
+ - `local_async` 仅作为明确退化路径，必须在事件 payload 中记录 `dispatch` 与 fallback reason。
 4. **外部能力降级语义**：
  - 当 MinerU/Qwen-VL/Whisper 不可用时，不中断主流程，返回 `fallback`/`fallbacks` 信息。
  - 降级信息至少包含：`capability`、`fallback_used`、`fallback_target`、`user_message`。
@@ -210,7 +225,5 @@ FastAPI 自动提供两种 API 文档界面：
 
 ## 相关文档
 
-- [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
-- [Project-Space API 草案（2026-03-09）](../project/PROJECT_SPACE_API_DRAFT_2026-03-09.md)
-- [Project-Space 数据模型草案（2026-03-09）](../project/PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md)
-
+- [OpenAPI 模块化指南](../openapi/README.md)
+- [Project-Space 历史草案归档](../archived/project-space/)

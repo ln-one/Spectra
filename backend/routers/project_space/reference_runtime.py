@@ -1,0 +1,69 @@
+"""Runtime helpers for project-space reference routes."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+from services.database.prisma_compat import find_many_with_select_fallback
+
+logger = logging.getLogger(__name__)
+
+
+async def resolve_target_version_map(
+    *, db_service: Any, references
+) -> dict[str, str | None]:
+    target_project_ids = list(
+        {
+            ref.targetProjectId
+            for ref in references
+            if getattr(ref, "targetProjectId", None)
+        }
+    )
+    if not target_project_ids:
+        return {}
+
+    prisma = getattr(db_service, "db", None)
+    project_model = getattr(prisma, "project", None)
+    if project_model is not None and hasattr(project_model, "find_many"):
+        try:
+            rows = await find_many_with_select_fallback(
+                model=project_model,
+                where={"id": {"in": target_project_ids}},
+                select={"id": True, "currentVersionId": True},
+            )
+            by_id: dict[str, str | None] = {}
+            for row in rows:
+                row_id = (
+                    row.get("id") if isinstance(row, dict) else getattr(row, "id", None)
+                )
+                current_version_id = (
+                    row.get("currentVersionId")
+                    if isinstance(row, dict)
+                    else getattr(row, "currentVersionId", None)
+                )
+                if row_id:
+                    by_id[row_id] = current_version_id
+            return {
+                project_id: by_id.get(project_id) for project_id in target_project_ids
+            }
+        except Exception as exc:  # pragma: no cover - defensive fallback path
+            logger.warning(
+                "target version batch lookup failed; "
+                "fallback to per-project lookup: %s",
+                exc,
+            )
+
+    projects = await asyncio.gather(
+        *(
+            db_service.get_project(target_project_id)
+            for target_project_id in target_project_ids
+        )
+    )
+    return {
+        target_project_id: (
+            getattr(project, "currentVersionId", None) if project else None
+        )
+        for target_project_id, project in zip(target_project_ids, projects)
+    }

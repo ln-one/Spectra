@@ -4,6 +4,8 @@ import json
 import logging
 from typing import Optional
 
+from services.database.prisma_compat import find_many_with_select_fallback
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +24,7 @@ async def build_user_requirements(
         project_id=project_id,
         limit=10,
         session_id=session_id,
+        select={"role": True, "content": True},
     )
     user_messages = [msg for msg in messages if msg.role == "user"]
 
@@ -36,7 +39,8 @@ async def build_user_requirements(
 
     if rag_source_ids:
         try:
-            selected_uploads = await db_service.db.upload.find_many(
+            selected_uploads = await find_many_with_select_fallback(
+                model=db_service.db.upload,
                 where={"projectId": project_id, "id": {"in": rag_source_ids}},
                 select={"filename": True, "status": True},
             )

@@ -41,6 +41,6 @@ python -m pytest tests/ -v -m integration
 ## 说明
 
 - 集成测试依赖真实工具（如 Marp CLI、Pandoc）。
+- 依赖真实 provider 凭据的测试应在凭据缺失时显式 `skip`，不要把本机环境偶然通过当作默认门禁。
 - 回归测试用于保护质量指标和行为一致性。
-
 

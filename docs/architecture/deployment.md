@@ -55,7 +55,7 @@ docker-compose up -d
 
 | 特性 | 开发环境 | 演示环境 | 生产环境 |
 |------|---------|---------|---------|
-| 数据库 | SQLite | SQLite | PostgreSQL |
+| 数据库 | PostgreSQL | PostgreSQL | PostgreSQL |
 | 文件存储 | 本地 | 本地 | OSS/S3 |
 | 缓存 | 无 | 无 | Redis |
 | 认证 | JWT | JWT | JWT + 刷新 |

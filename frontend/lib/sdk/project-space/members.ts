@@ -1,10 +1,18 @@
-﻿import { MOCK_MODE, sdkClient, unwrap, withIdempotency } from "./base";
+import {
+  MOCK_MODE,
+  apiFetch,
+  sdkClient,
+  toApiError,
+  unwrap,
+  withIdempotency,
+} from "./base";
 import { createMockMember } from "./mocks";
 import type {
   ProjectMemberRequest,
   ProjectMemberResponse,
   ProjectMemberUpdateRequest,
   ProjectMembersResponse,
+  SimpleSuccessResponse,
 } from "./types";
 
 export async function getMembers(
@@ -82,4 +90,31 @@ export async function updateMember(
     }
   );
   return unwrap<ProjectMemberResponse>(result);
+}
+
+export async function deleteMember(
+  projectId: string,
+  memberId: string
+): Promise<SimpleSuccessResponse> {
+  if (MOCK_MODE) {
+    return {
+      success: true,
+      data: {},
+      message: "mock delete member",
+    };
+  }
+  const response = await apiFetch(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    let payload: unknown = { message: "删除成员失败" };
+    try {
+      payload = await response.json();
+    } catch {
+      // Keep fallback payload.
+    }
+    throw toApiError(payload, response.status);
+  }
+  return (await response.json()) as SimpleSuccessResponse;
 }

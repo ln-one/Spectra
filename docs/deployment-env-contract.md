@@ -41,8 +41,7 @@
 要求：
 
 - 演示环境必须配置
-- 本地可以是 SQLite
-- 多机 / PostgreSQL 阶段应切成明确的 Postgres 连接串
+- 本地/演示/多机统一使用明确的 PostgreSQL 连接串
 
 ### `JWT_SECRET_KEY`
 
@@ -84,6 +83,51 @@
 
 - `backend api` 与 `worker` 保持一致
 
+### `OUTLINE_DRAFT_TIMEOUT_SECONDS`
+
+用途：
+
+- 控制会话状态 `DRAFTING_OUTLINE` 阶段的大纲草拟超时
+- 超时后快速进入失败回退（避免用户长时间等待）
+
+要求：
+
+- 建议在 `backend api` 与 `worker` 保持一致（例如 `90`）
+- 值应为正数
+
+### `PREVIEW_REBUILD_TIMEOUT_SECONDS`
+
+用途：
+
+- 控制 preview 缓存缺失时的 AI 重建超时，避免 `/preview` 长尾阻塞
+
+要求：
+
+- 建议在 `backend api` 明确配置（例如 `8`）
+- 值应为正数；超时后接口应快速降级返回
+
+### `TOOL_CHECK_CACHE_TTL_SECONDS`
+
+用途：
+
+- 缓存 Marp/Pandoc 可用性探测结果，减少高频渲染时重复子进程检查开销
+
+要求：
+
+- 建议在 `backend api` 与 `worker` 保持一致
+- 设为 `0` 可关闭缓存（仅用于排障）
+
+### `HEALTH_TOOL_TIMEOUT_SECONDS`
+
+用途：
+
+- 控制 `/health` 对 Marp/Pandoc 工具链探测的超时时间
+
+要求：
+
+- 建议在 `backend api` 明确配置（例如 `2`）
+- 值应为正数，避免健康检查卡住
+
 ### `ALLOW_AI_STUB`
 
 用途：
@@ -93,6 +137,30 @@
 要求：
 
 - 演示环境默认不建议开启，除非明确接受降级演示
+
+### `ALLOW_OFFICE_PLACEHOLDER_ARTIFACTS`
+
+用途：
+
+- Office 产物渲染彻底失败时是否允许生成占位 DOCX/PPTX
+
+要求：
+
+- 默认关闭
+- 仅在显式开发调试场景建议开启
+- 若关闭则应让渲染失败显式暴露，而不是静默产出假文件
+
+### `ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS`
+
+用途：
+
+- GIF / MP4 等尚未正式渲染接入的 media 产物是否允许生成占位二进制
+
+要求：
+
+- 默认关闭
+- 仅在显式开发调试场景建议开启
+- 若关闭则应明确失败，而不是静默产出假媒体文件
 
 ### `DASHSCOPE_API_KEY`
 
@@ -395,6 +463,7 @@
 
 ### `DB_REQUIRED`
 ### `REDIS_REQUIRED`
+### `GENERATION_TOOLS_REQUIRED`
 
 用途：
 
@@ -403,6 +472,7 @@
 要求：
 
 - 演示环境建议按真实依赖设置，不要全部放松
+- 若演示链路依赖 PPT/Word 真实生成，建议 `GENERATION_TOOLS_REQUIRED=true`
 
 ---
 
@@ -418,6 +488,10 @@
 - `LARGE_MODEL`
 - `SMALL_MODEL`
 - `AI_REQUEST_TIMEOUT_SECONDS`
+- `PREVIEW_REBUILD_TIMEOUT_SECONDS`
+- `TOOL_CHECK_CACHE_TTL_SECONDS`
+- `HEALTH_TOOL_TIMEOUT_SECONDS`
+- `GENERATION_TOOLS_REQUIRED`
 - `REDIS_HOST`
 - `REDIS_PORT`
 - `CHROMA_HOST`
@@ -433,6 +507,7 @@
 - `LARGE_MODEL`
 - `SMALL_MODEL`
 - `AI_REQUEST_TIMEOUT_SECONDS`
+- `TOOL_CHECK_CACHE_TTL_SECONDS`
 - `REDIS_HOST`
 - `REDIS_PORT`
 - `CHROMA_HOST`

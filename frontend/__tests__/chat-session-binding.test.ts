@@ -74,4 +74,55 @@ describe("chat session binding", () => {
       })
     );
   });
+
+  it("ignores stale fetchMessages responses when switching sessions quickly", async () => {
+    const set = jest.fn();
+    const get = jest.fn();
+    const actions = createChatActions({ set, get });
+
+    let resolveS1: ((value: unknown) => void) | null = null;
+    let resolveS2: ((value: unknown) => void) | null = null;
+
+    (chatApi.getMessages as jest.Mock).mockImplementation(
+      ({ session_id }: { session_id: string }) =>
+        new Promise((resolve) => {
+          if (session_id === "s-1") resolveS1 = resolve;
+          if (session_id === "s-2") resolveS2 = resolve;
+        })
+    );
+
+    get.mockReturnValue({ activeSessionId: "s-1" });
+    const p1 = actions.fetchMessages("p-001", "s-1");
+
+    get.mockReturnValue({ activeSessionId: "s-2" });
+    const p2 = actions.fetchMessages("p-001", "s-2");
+
+    resolveS2?.({
+      data: {
+        messages: [
+          { id: "m-2", role: "assistant", content: "new", timestamp: "now" },
+        ],
+      },
+    });
+    resolveS1?.({
+      data: {
+        messages: [
+          { id: "m-1", role: "assistant", content: "old", timestamp: "now" },
+        ],
+      },
+    });
+
+    await Promise.all([p1, p2]);
+
+    expect(set).toHaveBeenCalledWith({
+      messages: [
+        { id: "m-2", role: "assistant", content: "new", timestamp: "now" },
+      ],
+    });
+    expect(set).not.toHaveBeenCalledWith({
+      messages: [
+        { id: "m-1", role: "assistant", content: "old", timestamp: "now" },
+      ],
+    });
+  });
 });

@@ -2,6 +2,7 @@
 RQ 任务队列服务单元测试
 """
 
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
 import pytest
@@ -9,6 +10,12 @@ from fakeredis import FakeStrictRedis
 from rq.job import Job
 
 from services.task_queue import TaskQueueService
+from services.task_queue.status import (
+    _is_worker_fresh,
+    inspect_worker_availability,
+    resolve_worker_availability,
+)
+from services.task_queue.status_constants import QueueWorkerAvailability
 
 
 @pytest.fixture
@@ -223,10 +230,12 @@ class TestTaskQueueService:
         mock_worker1 = Mock()
         mock_worker1.name = "worker-1"
         mock_worker1.get_state.return_value = "busy"
+        mock_worker1.last_heartbeat = datetime.now(timezone.utc)
 
         mock_worker2 = Mock()
         mock_worker2.name = "worker-2"
         mock_worker2.get_state.return_value = "idle"
+        mock_worker2.last_heartbeat = datetime.now(timezone.utc)
 
         mock_worker_all.return_value = [mock_worker1, mock_worker2]
 
@@ -240,6 +249,28 @@ class TestTaskQueueService:
         assert "worker-2" not in info["workers"]["active"]
 
     @patch("rq.Worker.all")
+    def test_get_queue_info_excludes_stale_workers(
+        self, mock_worker_all, task_queue_service, fake_redis
+    ):
+        fresh_worker = Mock()
+        fresh_worker.name = "worker-fresh"
+        fresh_worker.get_state.return_value = "idle"
+        fresh_worker.last_heartbeat = datetime.now(timezone.utc)
+
+        stale_worker = Mock()
+        stale_worker.name = "worker-stale"
+        stale_worker.get_state.return_value = "busy"
+        stale_worker.last_heartbeat = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+        mock_worker_all.return_value = [fresh_worker, stale_worker]
+
+        info = task_queue_service.get_queue_info()
+
+        assert info["workers"]["count"] == 1
+        assert info["workers"]["active"] == []
+        assert info["workers"]["stale"] == ["worker-stale"]
+
+    @patch("rq.Worker.all")
     def test_get_queue_info_with_error(self, mock_worker_all, task_queue_service):
         """测试获取队列信息时发生错误"""
         mock_worker_all.side_effect = Exception("Redis connection error")
@@ -248,3 +279,53 @@ class TestTaskQueueService:
 
         assert "error" in info
         assert info["workers"]["count"] == 0
+
+
+def test_inspect_worker_availability_marks_queue_error_as_unknown(task_queue_service):
+    task_queue_service.get_queue_info = Mock(
+        return_value={"workers": {"count": 0, "stale": ["worker-old"]}, "error": "boom"}
+    )
+
+    availability = inspect_worker_availability(task_queue_service)
+
+    assert availability["status"] == QueueWorkerAvailability.UNKNOWN.value
+    assert availability["worker_count"] == 0
+    assert availability["stale_worker_count"] == 1
+
+
+def test_is_worker_fresh_uses_worker_ttl_when_env_missing(monkeypatch):
+    monkeypatch.delenv("RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS", raising=False)
+    worker = Mock()
+    worker.last_heartbeat = datetime.now(timezone.utc) - timedelta(seconds=100)
+    worker.worker_ttl = 420
+
+    assert _is_worker_fresh(worker) is True
+
+
+def test_is_worker_fresh_respects_env_override(monkeypatch):
+    monkeypatch.setenv("RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS", "60")
+    worker = Mock()
+    worker.last_heartbeat = datetime.now(timezone.utc) - timedelta(seconds=100)
+    worker.worker_ttl = 420
+
+    assert _is_worker_fresh(worker) is False
+
+
+@pytest.mark.asyncio
+async def test_resolve_worker_availability_retries_unknown(task_queue_service):
+    task_queue_service.get_queue_info = Mock(
+        side_effect=[
+            {"workers": {"count": 0, "stale": []}, "error": "redis"},
+            {"workers": {"count": 1, "stale": ["worker-stale"]}},
+        ]
+    )
+
+    availability = await resolve_worker_availability(
+        task_queue_service,
+        retries=1,
+        retry_delay_seconds=0,
+    )
+
+    assert availability["status"] == QueueWorkerAvailability.AVAILABLE.value
+    assert availability["worker_count"] == 1
+    assert availability["stale_worker_count"] == 1

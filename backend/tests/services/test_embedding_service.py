@@ -4,6 +4,7 @@ EmbeddingService 单元测试
 使用 mock 避免真实 API 调用。
 """
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,7 +15,13 @@ from services.media.embedding import EmbeddingService
 @pytest.fixture
 def dashscope_svc():
     """DashScope 模式的 EmbeddingService"""
-    return EmbeddingService(model="qwen3-vl-embedding")
+    return EmbeddingService(model="text-embedding-v4")
+
+
+@pytest.fixture
+def dashscope_text_svc():
+    """DashScope TextEmbedding 模式的 EmbeddingService"""
+    return EmbeddingService(model="text-embedding-v4")
 
 
 @pytest.fixture
@@ -34,7 +41,7 @@ class TestEmbeddingServiceDashScope:
         return resp
 
     @pytest.mark.asyncio
-    async def test_embed_single_text(self, dashscope_svc):
+    async def test_embed_single_text_with_text_embedding(self, dashscope_svc):
         fake_emb = [0.1] * 1536
         mock_resp = self._mock_dashscope_response([fake_emb])
 
@@ -44,9 +51,91 @@ class TestEmbeddingServiceDashScope:
         mock_dashscope = MagicMock()
         mock_dashscope.TextEmbedding = mock_text_embedding
 
-        with patch.dict("sys.modules", {"dashscope": mock_dashscope}):
+        with (
+            patch.dict("sys.modules", {"dashscope": mock_dashscope}),
+            patch(
+                "services.media.embedding._resolve_dashscope_api_key",
+                return_value="sk-test",
+            ),
+        ):
             result = await dashscope_svc.embed_text("测试文本")
             assert len(result) == 1536
+            assert mock_text_embedding.call.call_args.kwargs["api_key"]
+            assert mock_text_embedding.call.call_args.kwargs["input"] == ["测试文本"]
+
+    @pytest.mark.asyncio
+    async def test_embed_single_text_with_multimodal(self):
+        fake_emb = [0.1] * 1536
+        mock_resp = self._mock_dashscope_response([fake_emb])
+
+        svc = EmbeddingService(model="qwen3-vl-embedding")
+        mock_multimodal_embedding = MagicMock()
+        mock_multimodal_embedding.call.return_value = mock_resp
+
+        mock_dashscope = MagicMock()
+        mock_dashscope.MultiModalEmbedding = mock_multimodal_embedding
+
+        with (
+            patch.dict("sys.modules", {"dashscope": mock_dashscope}),
+            patch(
+                "services.media.embedding._resolve_dashscope_api_key",
+                return_value="sk-test",
+            ),
+        ):
+            result = await svc.embed_text("测试文本")
+            assert len(result) == 1536
+            assert mock_multimodal_embedding.call.call_args.kwargs["api_key"]
+            assert mock_multimodal_embedding.call.call_args.kwargs["input"] == [
+                {"text": "测试文本"}
+            ]
+
+    @pytest.mark.asyncio
+    async def test_embed_dashscope_without_api_key_falls_back_to_local(self):
+        svc = EmbeddingService(model="text-embedding-v4")
+
+        with (
+            patch(
+                "services.media.embedding._resolve_dashscope_api_key", return_value=""
+            ),
+            patch.object(
+                svc,
+                "_embed_local",
+                return_value=[[0.2] * 384],
+            ) as local_mock,
+        ):
+            result = await svc.embed_texts(["测试文本"])
+
+        assert len(result[0]) == 384
+        local_mock.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_embed_dashscope_fallback_logs_structured_failure(self, caplog):
+        svc = EmbeddingService(model="text-embedding-v4")
+
+        with (
+            patch(
+                "services.media.embedding._resolve_dashscope_api_key", return_value=""
+            ),
+            patch.object(
+                svc,
+                "_embed_local",
+                return_value=[[0.2] * 384],
+            ),
+            caplog.at_level(logging.WARNING),
+        ):
+            await svc.embed_texts(["测试文本"])
+
+        record = next(
+            record
+            for record in caplog.records
+            if record.msg
+            == "DashScope embedding failed for model %s; falling back to local sentence-transformers"
+        )
+        assert record.embedding_model == "text-embedding-v4"
+        assert record.embedding_provider == "dashscope"
+        assert record.embedding_failure_type == "config_error"
+        assert record.fallback_used is True
+        assert record.fallback_target == "local_sentence_transformers"
 
     @pytest.mark.asyncio
     async def test_embed_empty_list(self, dashscope_svc):
@@ -58,6 +147,22 @@ class TestEmbeddingServiceDashScope:
 
     def test_use_dashscope_flag(self, dashscope_svc):
         assert dashscope_svc._use_dashscope() is True
+
+    def test_text_embedding_v4_is_treated_as_dashscope(self):
+        svc = EmbeddingService(model="text-embedding-v4")
+        assert svc._use_dashscope() is True
+
+    def test_qwen3_vl_embedding_uses_multimodal_interface(self):
+        svc = EmbeddingService(model="qwen3-vl-embedding")
+        assert svc._uses_multimodal_dashscope() is True
+
+    def test_text_embedding_v4_uses_batch_limit_10(self):
+        svc = EmbeddingService(model="text-embedding-v4")
+        assert svc._dashscope_batch_limit() == 10
+
+    def test_qwen3_vl_embedding_uses_batch_limit_10(self):
+        svc = EmbeddingService(model="qwen3-vl-embedding")
+        assert svc._dashscope_batch_limit() == 10
 
 
 class TestEmbeddingServiceLocal:

@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 
 from schemas.generation import TaskStatus
@@ -8,6 +9,7 @@ from schemas.project_semantics import (
 from schemas.project_space import ReferenceRelationType
 from schemas.project_vocabulary import ProjectReferenceMode
 from schemas.projects import ProjectCreate
+from services.database.prisma_compat import find_many_with_select_fallback
 from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
 from utils.exceptions import APIException, NotFoundException, ValidationException
 
@@ -173,17 +175,17 @@ class ProjectMixin:
         return await self.db.project.count(where=where)
 
     async def get_project_statistics(self, project_id: str) -> dict:
-        project = await self.db.project.find_unique(where={"id": project_id})
         file_where = self._project_file_where(project_id)
-        files_count = await self.db.upload.count(where=file_where)
-        messages_count = await self.db.conversation.count(
-            where={"projectId": project_id}
-        )
-        tasks_count = await self.db.generationtask.count(
-            where={"projectId": project_id}
-        )
-        completed_count = await self.db.generationtask.count(
-            where={"projectId": project_id, "status": TaskStatus.COMPLETED}
+        project, files_count, messages_count, tasks_count, completed_count = (
+            await asyncio.gather(
+                self.db.project.find_unique(where={"id": project_id}),
+                self.db.upload.count(where=file_where),
+                self.db.conversation.count(where={"projectId": project_id}),
+                self.db.generationtask.count(where={"projectId": project_id}),
+                self.db.generationtask.count(
+                    where={"projectId": project_id, "status": TaskStatus.COMPLETED}
+                ),
+            )
         )
         total_file_size = 0
         aggregate_available = False
@@ -205,7 +207,8 @@ class ProjectMixin:
             except (TypeError, ValueError, AttributeError):
                 aggregate_available = False
         if not aggregate_available:
-            uploads = await self.db.upload.find_many(
+            uploads = await find_many_with_select_fallback(
+                model=self.db.upload,
                 where=file_where,
                 select={"size": True},
             )

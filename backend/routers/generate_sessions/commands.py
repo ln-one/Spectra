@@ -161,6 +161,7 @@ async def confirm_outline(
 @router.post("/sessions/{session_id}/outline/redraft")
 async def redraft_outline(
     session_id: str,
+    request: Request,
     body: dict,
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
@@ -188,6 +189,7 @@ async def redraft_outline(
             "base_version": base_version,
         },
         idempotency_key=parse_idempotency_key(idempotency_key),
+        task_queue_service=get_task_queue_service(request),
     )
 
     return success_response(data=result, message="大纲重写请求已接受")

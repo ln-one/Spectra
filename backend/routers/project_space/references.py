@@ -21,6 +21,7 @@ from schemas.project_space import (
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
 
+from .reference_runtime import resolve_target_version_map
 from .shared import (
     COMMON_ERROR_RESPONSES,
     to_candidate_change_model,
@@ -29,21 +30,6 @@ from .shared import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-async def _target_version_map(references):
-    target_project_ids = {
-        ref.targetProjectId
-        for ref in references
-        if getattr(ref, "targetProjectId", None)
-    }
-    version_map: dict[str, str | None] = {}
-    for target_project_id in target_project_ids:
-        project = await project_space_service.db.get_project(target_project_id)
-        version_map[target_project_id] = (
-            getattr(project, "currentVersionId", None) if project else None
-        )
-    return version_map
 
 
 @router.post(
@@ -70,7 +56,10 @@ async def create_project_reference(
             pinned_version_id=body.pinned_version_id,
             priority=body.priority,
         )
-        version_map = await _target_version_map([reference])
+        version_map = await resolve_target_version_map(
+            db_service=project_space_service.db,
+            references=[reference],
+        )
         return ProjectReferenceResponse(
             success=True,
             data={
@@ -100,7 +89,10 @@ async def get_project_references(
         references = await project_space_service.get_project_references(
             project_id=project_id, user_id=user_id
         )
-        version_map = await _target_version_map(references)
+        version_map = await resolve_target_version_map(
+            db_service=project_space_service.db,
+            references=references,
+        )
         return ProjectReferencesResponse(
             success=True,
             data={
@@ -142,7 +134,10 @@ async def update_project_reference(
             priority=body.priority,
             status=body.status,
         )
-        version_map = await _target_version_map([updated_ref])
+        version_map = await resolve_target_version_map(
+            db_service=project_space_service.db,
+            references=[updated_ref],
+        )
         return ProjectReferenceResponse(
             success=True,
             data={

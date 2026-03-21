@@ -128,6 +128,7 @@ docker compose restart backend
 2. Redis 队列是否可用
 3. worker 日志里是否有 timeout / fallback / provider error
 4. session 是否长期停在 `DRAFTING_OUTLINE` 或 `PROCESSING`
+5. `stateReason` 是否与当前状态一致（例如成功态应为 `task_completed`）
 
 优先恢复动作：
 
@@ -139,11 +140,18 @@ docker compose restart worker
 - AI completion timeout
 - outline timeout failure code
 - task timeout failure code
+- queue health unknown -> 单次重试 -> local fallback
+- fresh worker / stale worker 分离判断
 
 所以如果仍大量卡住，优先看：
 - provider 可用性
 - queue/stuck job
 - worker 资源是否不足
+
+日志排查重点：
+- 上传链路：`parse_ms / normalize_ms / chunk_ms / embedding_ms / index_ms`
+- 对话链路：`history_ms / rag_ms / ai_generate_ms / persist_ms`
+- 生成链路：`content_generate_ms / render_ppt_ms / render_word_ms / persist_artifact_ms`
 
 如果怀疑是多机 / Docker 拓扑本身的问题，也可以先跑：
 

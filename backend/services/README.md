@@ -64,5 +64,5 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py
 
 更多后续规划见：
 
-- `/Users/ln1/Projects/Spectra/docs/service-topology-todo.md`
+- `/Users/ln1/Projects/Spectra/docs/archived/plans/service-topology-todo.md`
 - `/Users/ln1/Projects/Spectra/docs/standards/backend.md`

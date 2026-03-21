@@ -84,3 +84,20 @@ def test_video_analyze_project_id_from_form(client, monkeypatch, _as_user):
     )
     assert resp.status_code == 403
     assert resp.json()["error"]["code"] == "FORBIDDEN"
+
+
+def test_web_search_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        "routers.rag.enrichment.web_search_response",
+        AsyncMock(side_effect=RuntimeError("provider down")),
+    )
+    resp = client.post("/api/v1/rag/web-search?query=physics&project_id=p-001")
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "网络搜索失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]

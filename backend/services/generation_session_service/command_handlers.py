@@ -5,7 +5,18 @@ from typing import Awaitable, Callable, Optional
 
 from schemas.generation import TaskStatus
 from services.generation_session_service.capability_helpers import _normalize_task_type
+from services.generation_session_service.command_runtime import (
+    handle_regenerate_slide,
+    handle_resume_session,
+)
 from services.generation_session_service.constants import SessionLifecycleReason
+from services.generation_session_service.outline_versions import (
+    get_effective_outline_version,
+    load_latest_outline_record,
+    normalize_outline_document,
+    parse_outline_json,
+    persist_outline_version,
+)
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationCommandType
 
@@ -83,23 +94,52 @@ async def handle_update_outline(
     append_event: Callable[..., Awaitable[None]],
     conflict_error_cls,
 ) -> None:
-    base_version = command.get("base_version", 0)
-    outline_data = command.get("outline", {})
+    base_version = int(command.get("base_version", 0) or 0)
+    outline_data = command.get("outline", {}) or {}
     change_reason = command.get("change_reason")
+    effective_version = await get_effective_outline_version(db, session)
 
-    if session.currentOutlineVersion != base_version:
+    if effective_version != base_version:
+        latest_outline = await load_latest_outline_record(db, session.id)
+        latest_outline_doc = (
+            parse_outline_json(getattr(latest_outline, "outlineData", None))
+            if latest_outline
+            else None
+        )
+        normalized_existing = (
+            normalize_outline_document(latest_outline_doc, latest_outline.version)
+            if latest_outline and latest_outline_doc is not None
+            else None
+        )
+        normalized_requested = normalize_outline_document(
+            outline_data,
+            max(base_version + 1, effective_version),
+        )
+        if (
+            latest_outline
+            and latest_outline.version == normalized_requested["version"]
+            and normalized_existing == normalized_requested
+        ):
+            if session.currentOutlineVersion != latest_outline.version:
+                await db.generationsession.update(
+                    where={"id": session.id},
+                    data={
+                        "state": new_state,
+                        "currentOutlineVersion": latest_outline.version,
+                    },
+                )
+            return
         raise conflict_error_cls(
-            f"大纲版本冲突：期望 {base_version}，当前 {session.currentOutlineVersion}"
+            f"大纲版本冲突：期望 {base_version}，当前 {effective_version}"
         )
 
-    new_version = base_version + 1
-    await db.outlineversion.create(
-        data={
-            "sessionId": session.id,
-            "version": new_version,
-            "outlineData": json.dumps(outline_data),
-            "changeReason": change_reason,
-        }
+    new_version = effective_version + 1
+    await persist_outline_version(
+        db=db,
+        session_id=session.id,
+        version=new_version,
+        outline_data=outline_data,
+        change_reason=change_reason,
     )
     await db.generationsession.update(
         where={"id": session.id},
@@ -127,11 +167,12 @@ async def handle_redraft_outline(
     conflict_error_cls,
 ) -> None:
     instruction = command.get("instruction", "")
-    base_version = command.get("base_version", 0)
+    base_version = int(command.get("base_version", 0) or 0)
+    effective_version = await get_effective_outline_version(db, session)
 
-    if session.currentOutlineVersion != base_version:
+    if effective_version != base_version:
         raise conflict_error_cls(
-            f"大纲版本冲突：期望 {base_version}，当前 {session.currentOutlineVersion}"
+            f"大纲版本冲突：期望 {base_version}，当前 {effective_version}"
         )
 
     await db.generationsession.update(
@@ -160,6 +201,12 @@ async def handle_confirm_outline(
         raise conflict_error_cls(
             f"状态不匹配：期望 {expected_state}，当前 {session.state}"
         )
+    effective_outline_version = await get_effective_outline_version(db, session)
+    if effective_outline_version != getattr(session, "currentOutlineVersion", 0):
+        await db.generationsession.update(
+            where={"id": session.id},
+            data={"currentOutlineVersion": effective_outline_version},
+        )
 
     options: dict = {}
     if session.options:
@@ -169,7 +216,7 @@ async def handle_confirm_outline(
             options = {}
     task_type = _normalize_task_type(session.outputType, conflict_error_cls)
 
-    input_payload = {"outline_version": session.currentOutlineVersion}
+    input_payload = {"outline_version": effective_outline_version}
     if options.get("template_config"):
         input_payload["template_config"] = options.get("template_config")
 
@@ -203,63 +250,3 @@ async def handle_confirm_outline(
         },
     )
     return task.id
-
-
-async def handle_regenerate_slide(
-    *,
-    db,
-    session,
-    command: dict,
-    new_state: str,
-    append_event: Callable[..., Awaitable[None]],
-    conflict_error_cls,
-) -> None:
-    slide_id = command.get("slide_id")
-    patch = command.get("patch", {})
-    expected_render_version = command.get("expected_render_version")
-
-    if expected_render_version and session.renderVersion != expected_render_version:
-        raise conflict_error_cls(
-            f"渲染版本冲突：期望 {expected_render_version}，当前 {session.renderVersion}"
-        )
-
-    await db.generationsession.update(
-        where={"id": session.id},
-        data={"state": new_state, "renderVersion": {"increment": 1}},
-    )
-    await append_event(
-        session_id=session.id,
-        event_type=GenerationEventType.SLIDE_UPDATED.value,
-        state=new_state,
-        payload={
-            "slide_id": slide_id,
-            "patch_schema_version": patch.get("schema_version", 1),
-        },
-    )
-
-
-async def handle_resume_session(
-    *,
-    db,
-    session,
-    command: dict,
-    new_state: str,
-    append_event: Callable[..., Awaitable[None]],
-) -> None:
-    cursor = command.get("cursor")
-    await db.generationsession.update(
-        where={"id": session.id},
-        data={
-            "state": new_state,
-            "resumable": True,
-            "lastCursor": cursor,
-            "errorCode": None,
-            "errorMessage": None,
-        },
-    )
-    await append_event(
-        session_id=session.id,
-        event_type=GenerationEventType.SESSION_RECOVERED.value,
-        state=new_state,
-        payload={"resumed_from_cursor": cursor},
-    )

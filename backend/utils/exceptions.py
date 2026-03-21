@@ -25,6 +25,7 @@ class ErrorCode(str, Enum):
     NOT_FOUND = "NOT_FOUND"
     ALREADY_EXISTS = "ALREADY_EXISTS"
     RESOURCE_CONFLICT = "RESOURCE_CONFLICT"
+    INVALID_STATE_TRANSITION = "INVALID_STATE_TRANSITION"
     DAG_CONFLICT = "DAG_CONFLICT"
     REFERENCE_CONFLICT = "REFERENCE_CONFLICT"
 
@@ -43,6 +44,10 @@ class ErrorCode(str, Enum):
     INTERNAL_ERROR = "INTERNAL_ERROR"
     SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
     EXTERNAL_SERVICE_ERROR = "EXTERNAL_SERVICE_ERROR"
+    UPSTREAM_TIMEOUT = "UPSTREAM_TIMEOUT"
+    UPSTREAM_AUTH_ERROR = "UPSTREAM_AUTH_ERROR"
+    UPSTREAM_CONFIG_ERROR = "UPSTREAM_CONFIG_ERROR"
+    UPSTREAM_UNAVAILABLE = "UPSTREAM_UNAVAILABLE"
 
 
 class APIException(HTTPException):
@@ -58,6 +63,7 @@ class APIException(HTTPException):
         error_code: ErrorCode,
         message: str,
         details: Optional[Dict[str, Any]] = None,
+        retryable: Optional[bool] = None,
     ):
         """
         Initialize API exception
@@ -71,6 +77,7 @@ class APIException(HTTPException):
         self.error_code = error_code
         self.message = message
         self.details = details or {}
+        self.retryable = retryable
 
         # Create detail dict for HTTPException
         detail = {
@@ -81,6 +88,27 @@ class APIException(HTTPException):
             detail["details"] = details
 
         super().__init__(status_code=status_code, detail=detail)
+
+
+class ExternalServiceException(APIException):
+    """Upstream/provider failure surfaced as structured API error."""
+
+    def __init__(
+        self,
+        message: str = "上游服务不可用",
+        *,
+        status_code: int = status.HTTP_502_BAD_GATEWAY,
+        error_code: ErrorCode = ErrorCode.EXTERNAL_SERVICE_ERROR,
+        details: Optional[Dict[str, Any]] = None,
+        retryable: Optional[bool] = None,
+    ):
+        super().__init__(
+            status_code=status_code,
+            error_code=error_code,
+            message=message,
+            details=details,
+            retryable=retryable,
+        )
 
 
 # Convenience exception classes for common errors

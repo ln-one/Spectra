@@ -9,6 +9,12 @@ from services.platform.state_transition_guard import GenerationState
 
 from .helpers import _to_session_ref
 
+_REUSABLE_SESSION_STATES = {
+    GenerationState.IDLE.value,
+    GenerationState.CONFIGURING.value,
+    GenerationState.FAILED.value,
+}
+
 
 async def create_session(
     db,
@@ -57,11 +63,7 @@ async def create_session(
             )
             return _to_session_ref(session, contract_version, schema_version)
 
-        if existing_session.state in {
-            GenerationState.IDLE.value,
-            GenerationState.CONFIGURING.value,
-            GenerationState.FAILED.value,
-        }:
+        if existing_session.state in _REUSABLE_SESSION_STATES:
             update_data.update(
                 {
                     "state": GenerationState.DRAFTING_OUTLINE.value,
@@ -89,11 +91,14 @@ async def create_session(
             )
             return _to_session_ref(session, contract_version, schema_version)
 
-        session = await db.generationsession.update(
-            where={"id": existing_session.id},
-            data=update_data,
-        )
-        return _to_session_ref(session, contract_version, schema_version)
+        if existing_session.state == GenerationState.SUCCESS.value:
+            existing_session = None
+        else:
+            session = await db.generationsession.update(
+                where={"id": existing_session.id},
+                data=update_data,
+            )
+            return _to_session_ref(session, contract_version, schema_version)
 
     initial_state = (
         GenerationState.IDLE.value

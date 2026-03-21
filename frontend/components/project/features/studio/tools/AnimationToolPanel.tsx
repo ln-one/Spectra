@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -9,10 +9,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToolPanelShell } from "./ToolPanelShell";
 import type { ToolPanelProps } from "./types";
 
-export function AnimationToolPanel({ toolName }: ToolPanelProps) {
+export function AnimationToolPanel({
+  toolName,
+  onDraftChange,
+}: ToolPanelProps) {
   const [speed, setSpeed] = useState(50);
   const [showTrail, setShowTrail] = useState(true);
   const [splitView, setSplitView] = useState(true);
+
+  useEffect(() => {
+    onDraftChange?.({
+      speed,
+      show_trail: showTrail,
+      split_view: splitView,
+    });
+  }, [onDraftChange, showTrail, speed, splitView]);
 
   const codeText = useMemo(
     () =>

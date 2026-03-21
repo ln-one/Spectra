@@ -22,8 +22,11 @@ def ensure_previewable_state(snapshot: dict) -> None:
         GenerationState.SUCCESS.value,
         GenerationState.RENDERING.value,
         GenerationState.GENERATING_CONTENT.value,
+        GenerationState.FAILED.value,
+        GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        GenerationState.DRAFTING_OUTLINE.value,
     }:
-        raise ValueError(f"当前状态 {session_state} 不支持预览，需等待生成完成")
+        raise ValueError(f"当前状态 {session_state} 不支持预览")
 
 
 def ensure_exportable_state(

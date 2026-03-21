@@ -15,19 +15,6 @@ async def test_prepare_uploaded_file_refreshes_latest_status_after_sync_index(
     monkeypatch,
 ):
     upload = SimpleNamespace(id="file-001")
-    parsing_upload = SimpleNamespace(
-        id="file-001",
-        filename="lesson.pdf",
-        fileType="pdf",
-        mimeType="application/pdf",
-        size=12,
-        status="parsing",
-        parseResult=None,
-        errorMessage=None,
-        usageIntent=None,
-        createdAt=None,
-        updatedAt=None,
-    )
     failed_upload = SimpleNamespace(
         id="file-001",
         filename="lesson.pdf",
@@ -47,7 +34,7 @@ async def test_prepare_uploaded_file_refreshes_latest_status_after_sync_index(
         AsyncMock(return_value=upload),
     )
     update_status = AsyncMock()
-    get_file = AsyncMock(side_effect=[parsing_upload, failed_upload])
+    get_file = AsyncMock(return_value=failed_upload)
     monkeypatch.setattr(
         "services.file_upload_service.workflow.db_service.update_upload_status",
         update_status,
@@ -73,7 +60,7 @@ async def test_prepare_uploaded_file_refreshes_latest_status_after_sync_index(
 
     assert payload["status"] == "failed"
     assert payload["parse_error"] == "parser down"
-    assert get_file.await_count == 2
+    assert get_file.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -131,3 +118,42 @@ async def test_batch_upload_response_reports_partial_failure(monkeypatch):
     assert response["message"] == "批量上传完成，部分文件失败"
     assert response["data"]["total"] == 1
     assert response["data"]["failed"][0]["filename"] == "broken.pdf"
+
+
+@pytest.mark.asyncio
+async def test_upload_file_response_idempotency_hit_skips_prepare(monkeypatch):
+    verify_access = AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.verify_project_access",
+        verify_access,
+    )
+    get_idempotency = AsyncMock(
+        return_value={
+            "success": True,
+            "data": {"file": {"id": "f-cached"}},
+            "message": "文件上传成功",
+        }
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.db_service.get_idempotency_response",
+        get_idempotency,
+    )
+    prepare = AsyncMock(side_effect=AssertionError("prepare should not be called"))
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow._prepare_uploaded_file", prepare
+    )
+
+    response = await upload_file_response(
+        request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace())),
+        background_tasks=SimpleNamespace(add_task=lambda *args, **kwargs: None),
+        file=SimpleNamespace(filename="lesson.pdf"),
+        project_id="p-001",
+        session_id="s-001",
+        user_id="u-001",
+        idempotency_key="idem-001",
+    )
+
+    assert response["data"]["file"]["id"] == "f-cached"
+    verify_access.assert_awaited_once_with("p-001", "u-001")
+    get_idempotency.assert_awaited_once_with("files:single:u-001:p-001:s-001:idem-001")
+    prepare.assert_not_awaited()

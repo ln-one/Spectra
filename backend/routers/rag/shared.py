@@ -1,13 +1,13 @@
 import logging
 
-from fastapi import HTTPException, status
+from utils.exceptions import InternalServerException
 
 logger = logging.getLogger(__name__)
 
 
-def handle_rag_error(message: str, exc: Exception) -> HTTPException:
+def handle_rag_error(message: str, exc: Exception) -> InternalServerException:
     logger.error("%s: %s", message, exc, exc_info=True)
-    return HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=message,
+    return InternalServerException(
+        message=message,
+        details={"component": "rag_router", "exception_type": type(exc).__name__},
     )

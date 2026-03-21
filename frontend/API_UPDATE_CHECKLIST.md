@@ -195,5 +195,5 @@ npx openapi-typescript ../docs/openapi.yaml -o lib/sdk/types.ts
 ## 相关文档
 
 - [OpenAPI 规范](../docs/openapi.yaml)
-- [OpenAPI 使用指南](../docs/OPENAPI_GUIDE.md)
+- [OpenAPI 使用指南](../docs/openapi/README.md)
 - [API 增强总结](../docs/API_ENHANCEMENTS_SUMMARY.md)

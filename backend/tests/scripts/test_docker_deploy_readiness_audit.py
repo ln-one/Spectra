@@ -1,4 +1,7 @@
-from scripts.docker_deploy_readiness_audit import evaluate_docker_readiness
+from scripts.docker_deploy_readiness_audit import (
+    build_effective_env,
+    evaluate_docker_readiness,
+)
 
 
 def test_docker_readiness_flags_local_only_defaults():
@@ -59,3 +62,60 @@ def test_docker_readiness_accepts_distributed_topology_inputs():
         for message in messages
     )
     assert any("SYNC_RAG_INDEXING is async-friendly" in message for message in messages)
+
+
+def test_build_effective_env_prefers_backend_service_env_from_compose():
+    base_env = {
+        "REDIS_HOST": "localhost",
+        "CHROMA_HOST": "localhost",
+        "DATABASE_URL": "postgresql://spectra:pass@localhost:5432/spectra",
+    }
+    compose = """
+services:
+  backend:
+    environment:
+      REDIS_HOST: redis
+      CHROMA_HOST: chromadb
+      DATABASE_URL: postgresql://spectra:pass@postgres:5432/spectra
+"""
+
+    merged = build_effective_env(base_env, compose)
+
+    assert merged["REDIS_HOST"] == "redis"
+    assert merged["CHROMA_HOST"] == "chromadb"
+    assert merged["DATABASE_URL"] == "postgresql://spectra:pass@postgres:5432/spectra"
+
+
+def test_docker_readiness_warns_on_backend_worker_env_drift():
+    compose = """
+services:
+  backend:
+    environment:
+      REDIS_HOST: redis
+      CHROMA_HOST: chromadb
+      GENERATED_DIR: /var/lib/spectra/generated
+  worker:
+    environment:
+      REDIS_HOST: redis-worker
+      CHROMA_HOST: chromadb
+      GENERATED_DIR: /var/lib/spectra/generated-worker
+"""
+    messages, failures = evaluate_docker_readiness(
+        {
+            "DATABASE_URL": "postgresql://spectra:pass@postgres:5432/spectra",
+            "REDIS_HOST": "redis",
+            "CHROMA_HOST": "chromadb",
+        },
+        "postgresql",
+        compose,
+    )
+
+    assert failures == 0
+    assert any(
+        "backend/worker env drift detected: `REDIS_HOST` differs" in message
+        for message in messages
+    )
+    assert any(
+        "backend/worker env drift detected: `GENERATED_DIR` differs" in message
+        for message in messages
+    )

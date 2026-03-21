@@ -37,6 +37,14 @@ describe("resolvePreferredSessionId", () => {
   it("returns null when the project has no sessions yet", () => {
     expect(resolvePreferredSessionId(null, [], null)).toBeNull();
   });
+
+  it("keeps active session when history is not loaded yet", () => {
+    expect(resolvePreferredSessionId(null, [], "s-active")).toBe("s-active");
+  });
+
+  it("keeps query session when history is not loaded yet", () => {
+    expect(resolvePreferredSessionId("s-query", [], null)).toBe("s-query");
+  });
 });
 
 describe("dedupeGenerationHistory", () => {

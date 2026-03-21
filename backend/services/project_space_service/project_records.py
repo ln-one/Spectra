@@ -1,6 +1,7 @@
 from typing import Optional
 
 from schemas.project_space import ArtifactType, ArtifactVisibility
+from utils.exceptions import ConflictException, NotFoundException
 
 from .artifact_semantics import normalize_artifact_visibility
 from .artifacts import create_artifact_with_file, get_artifact_storage_path
@@ -42,6 +43,39 @@ async def get_project_versions(service, project_id: str):
 
 async def get_project_version(service, version_id: str):
     return await service.db.get_project_version(version_id)
+
+
+async def get_project_current_version_id(service, project_id: str) -> Optional[str]:
+    project = await service.db.get_project(project_id)
+    if not project:
+        raise NotFoundException(f"Project not found: {project_id}")
+    current_version_id = getattr(project, "currentVersionId", None)
+    if not current_version_id:
+        return None
+    current_version = await service.db.get_project_version(current_version_id)
+    if not current_version or current_version.projectId != project_id:
+        raise ConflictException(
+            "Project current version anchor is invalid or no longer "
+            "belongs to the project."
+        )
+    return current_version_id
+
+
+async def get_project_versions_with_context(service, project_id: str):
+    versions, current_version_id = await get_project_versions(
+        service, project_id
+    ), await get_project_current_version_id(service, project_id)
+    return versions, current_version_id
+
+
+async def get_project_version_with_context(service, project_id: str, version_id: str):
+    current_version_id = await get_project_current_version_id(service, project_id)
+    version = await get_project_version(service, version_id)
+    if not version or version.projectId != project_id:
+        raise NotFoundException(
+            f"Version {version_id} not found in project {project_id}"
+        )
+    return version, current_version_id
 
 
 async def get_project_artifacts(

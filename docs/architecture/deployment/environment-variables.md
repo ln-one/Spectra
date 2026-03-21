@@ -1,5 +1,4 @@
 # Environment Variables Configuration
-<!-- REVIEW #B8 (P1): 文档定义了 CORS_ORIGINS，但当前 backend/main.py 尚未消费该变量（仍硬编码 allow_origins=["*"]）。 -->
 
 ## 后端环境变量
 
@@ -22,7 +21,21 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 # AI/LLM Configuration
 # =============================================================================
 DASHSCOPE_API_KEY="sk-your-dashscope-api-key"
-DEFAULT_MODEL="qwen3.5-plus"
+DEFAULT_MODEL="qwen3.5-flash"
+LARGE_MODEL="qwen3.5-plus"
+SMALL_MODEL="qwen3.5-flash"
+AI_REQUEST_TIMEOUT_SECONDS=90
+AI_UPSTREAM_RETRY_ATTEMPTS=1
+AI_UPSTREAM_RETRY_DELAY_SECONDS=0.35
+OUTLINE_DRAFT_TIMEOUT_SECONDS=90
+PREVIEW_REBUILD_TIMEOUT_SECONDS=8
+TOOL_CHECK_CACHE_TTL_SECONDS=300
+HEALTH_TOOL_TIMEOUT_SECONDS=2
+GENERATION_TOOLS_REQUIRED=false
+ALLOW_AI_STUB=false
+ALLOW_COURSEWARE_FALLBACK=false
+ALLOW_OFFICE_PLACEHOLDER_ARTIFACTS=false
+ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS=false
 
 LLAMAPARSE_API_KEY="llx-your-llamaparse-api-key"
 OPENAI_API_KEY="sk-your-openai-api-key"
@@ -32,12 +45,14 @@ DOCUMENT_PARSER="local"
 # =============================================================================
 # Vector Database Configuration
 # =============================================================================
+CHROMA_MODE="persistent"
 CHROMA_HOST="localhost"
 CHROMA_PORT="8001"
 CHROMA_PERSIST_DIR="chroma_data"
 
-EMBEDDING_MODEL="qwen3-vl-embedding"
+EMBEDDING_MODEL="text-embedding-v4"
 EMBEDDING_DIMENSION=1536
+CHAT_RAG_TIMEOUT_SECONDS=5
 
 # =============================================================================
 # File Storage Configuration
@@ -54,6 +69,9 @@ DEBUG=True
 HOST="0.0.0.0"
 PORT=8000
 CORS_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+DB_REQUIRED="false"
+REDIS_REQUIRED="false"
+HEALTH_DEPENDENCY_TIMEOUT_SECONDS=3
 
 # =============================================================================
 # Logging Configuration
@@ -82,7 +100,21 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 小时
 # =============================================================================
 DASHSCOPE_API_KEY="sk-your-production-dashscope-api-key"
 LLAMAPARSE_API_KEY="llx-your-production-llamaparse-api-key"
-DEFAULT_MODEL="qwen3.5-plus"
+DEFAULT_MODEL="qwen3.5-flash"
+LARGE_MODEL="qwen3.5-plus"
+SMALL_MODEL="qwen3.5-flash"
+AI_REQUEST_TIMEOUT_SECONDS=90
+AI_UPSTREAM_RETRY_ATTEMPTS=1
+AI_UPSTREAM_RETRY_DELAY_SECONDS=0.35
+OUTLINE_DRAFT_TIMEOUT_SECONDS=90
+PREVIEW_REBUILD_TIMEOUT_SECONDS=8
+TOOL_CHECK_CACHE_TTL_SECONDS=300
+HEALTH_TOOL_TIMEOUT_SECONDS=2
+GENERATION_TOOLS_REQUIRED=true
+ALLOW_AI_STUB=false
+ALLOW_COURSEWARE_FALLBACK=false
+ALLOW_OFFICE_PLACEHOLDER_ARTIFACTS=false
+ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS=false
 
 # Document parser provider (see ADR-005)
 # 生产环境推荐 local（当前可用）；mineru（完全离线，待集成完成后再启用）
@@ -91,13 +123,18 @@ DOCUMENT_PARSER="local"
 # =============================================================================
 # Vector Database Configuration
 # =============================================================================
+CHROMA_MODE="persistent"
 CHROMA_HOST="chromadb"
 CHROMA_PORT="8000"
+CHROMA_PERSIST_DIR="/var/lib/spectra/chroma"
 
 # =============================================================================
 # File Storage Configuration
 # =============================================================================
 STORAGE_TYPE="oss"
+UPLOAD_DIR="/var/lib/spectra/uploads"
+ARTIFACT_STORAGE_DIR="/var/lib/spectra/artifacts"
+GENERATED_DIR="/var/lib/spectra/generated"
 OSS_ACCESS_KEY="your-oss-access-key"
 OSS_SECRET_KEY="your-oss-secret-key"
 OSS_BUCKET="spectra-prod"
@@ -117,6 +154,9 @@ DEBUG=False
 HOST="0.0.0.0"
 PORT=8000
 CORS_ORIGINS="https://spectra.com,https://www.spectra.com"
+DB_REQUIRED="true"
+REDIS_REQUIRED="true"
+HEALTH_DEPENDENCY_TIMEOUT_SECONDS=3
 
 # =============================================================================
 # Monitoring Configuration
@@ -173,6 +213,14 @@ NEXT_PUBLIC_DEBUG="false"
 ```
 
 ## 安全注意事项
+
+## 健康检查端点
+
+- `/health/live`：仅用于进程存活探测（不依赖数据库/Redis）。
+- `/health/ready`：用于编排器就绪探测（会检查数据库与 Redis）。
+- `/health`：兼容就绪探测语义，与 `/health/ready` 一致。
+
+当 `DB_REQUIRED=true` 或 `REDIS_REQUIRED=true` 且依赖不可用时，`/health` 和 `/health/ready` 返回 `503`，并带标准化 `error.code/retryable/trace_id`。
 
 ### JWT_SECRET_KEY 生成
 

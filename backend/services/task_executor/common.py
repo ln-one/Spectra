@@ -33,6 +33,7 @@ async def sync_session_terminal_state(
     error_message: Optional[str] = None,
     error_code: Optional[str] = None,
     retryable: bool = False,
+    payload_extra: Optional[dict] = None,
 ) -> None:
     """Keep session terminal state aligned with task terminal state."""
     if not session_id:
@@ -43,6 +44,7 @@ async def sync_session_terminal_state(
         output_fields = build_session_output_fields(output_urls)
         session_data = {
             "state": GenerationState.SUCCESS.value,
+            "stateReason": state_reason,
             "progress": 100,
             "errorCode": None,
             "errorMessage": None,
@@ -54,6 +56,7 @@ async def sync_session_terminal_state(
     else:
         session_data = {
             "state": GenerationState.FAILED.value,
+            "stateReason": state_reason,
             "errorCode": error_code or TaskExecutionErrorCode.FAILED.value,
             "errorMessage": error_message,
             "errorRetryable": retryable,
@@ -65,6 +68,8 @@ async def sync_session_terminal_state(
             "error_code": error_code or TaskExecutionErrorCode.FAILED.value,
             "retryable": retryable,
         }
+    if payload_extra:
+        payload.update(payload_extra)
 
     await db_service.db.generationsession.update(
         where={"id": session_id},

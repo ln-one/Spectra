@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ const QUIZ_BANK: QuizItem[] = [
   },
 ];
 
-export function QuizToolPanel({ toolName }: ToolPanelProps) {
+export function QuizToolPanel({ toolName, onDraftChange }: ToolPanelProps) {
   const [scope, setScope] = useState("函数单调性与极值");
   const [count, setCount] = useState("5");
   const [cursor, setCursor] = useState(0);
@@ -54,6 +54,16 @@ export function QuizToolPanel({ toolName }: ToolPanelProps) {
     () => QUIZ_BANK[(cursor + bankVersion) % QUIZ_BANK.length],
     [cursor, bankVersion]
   );
+
+  useEffect(() => {
+    onDraftChange?.({
+      scope,
+      count,
+      cursor,
+      question_id: current.id,
+      question: current.question,
+    });
+  }, [count, current.id, current.question, cursor, onDraftChange, scope]);
 
   const isCorrect = selectedIndex === current.answerIndex;
 

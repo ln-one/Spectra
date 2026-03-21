@@ -91,3 +91,50 @@ async def validate_reference_creation(
         raise ConflictException(
             f"Reference would create DAG cycle: {project_id} -> {target_project_id}"
         )
+
+
+async def validate_reference_activation(
+    db,
+    *,
+    project_id: str,
+    reference_id: str,
+    target_project_id: str,
+    relation_type: str,
+    mode: str,
+    pinned_version_id: Optional[str],
+):
+    source_project = await db.get_project(project_id)
+    if not source_project:
+        raise NotFoundException(f"Project not found: {project_id}")
+
+    target_project = await db.get_project(target_project_id)
+    if not target_project:
+        raise NotFoundException(f"Target project not found: {target_project_id}")
+
+    if not is_project_referenceable(target_project):
+        raise ValidationException(f"Target not referenceable: {target_project_id}")
+
+    if not allows_cross_owner_reference(source_project, target_project):
+        raise ForbiddenException(
+            "Target project is private across owners unless visibility is shared."
+        )
+
+    if relation_type == ReferenceRelationType.BASE.value:
+        existing_base = await db.get_base_reference(project_id)
+        if existing_base and getattr(existing_base, "id", None) != reference_id:
+            raise ConflictException("Project already has an active base reference.")
+
+    if mode == ReferenceMode.PINNED.value and not pinned_version_id:
+        raise ValidationException("mode=pinned requires pinned_version_id")
+
+    if pinned_version_id:
+        version = await db.get_project_version(pinned_version_id)
+        if not version or version.projectId != target_project_id:
+            raise ValidationException(
+                f"Invalid pinned_version_id for target project: {pinned_version_id}"
+            )
+
+    if await check_dag_cycle(db, project_id, target_project_id):
+        raise ConflictException(
+            f"Reference would create DAG cycle: {project_id} -> {target_project_id}"
+        )

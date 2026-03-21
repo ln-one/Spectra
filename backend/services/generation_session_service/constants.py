@@ -28,6 +28,7 @@ class SessionLifecycleReason(str, Enum):
 class DispatchFallbackReason(str, Enum):
     TASK_QUEUE_UNAVAILABLE = "task_queue_unavailable_fallback_local_execution"
     TASK_QUEUE_NO_WORKER = "task_queue_no_worker_fallback_local_execution"
+    QUEUE_HEALTH_UNKNOWN = "queue_health_unknown_fallback_local_execution"
     TASK_ENQUEUE_FAILED = "task_enqueue_failed_fallback_local_execution"
     RQ_JOB_FAILED = "rq_job_failed_fallback_local_execution"
 

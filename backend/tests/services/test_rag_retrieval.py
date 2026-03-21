@@ -10,8 +10,10 @@ class _FakeCollection:
     def __init__(self, project_id="p-001"):
         self.project_id = project_id
         self.queries = []
+        self.count_calls = 0
 
     def count(self):
+        self.count_calls += 1
         return 10
 
     def query(self, **kwargs):
@@ -185,3 +187,31 @@ async def test_search_includes_base_reference_after_local_content(monkeypatch):
     assert results[1].metadata["source_project_id"] == "p-base"
     assert results[1].metadata["source_scope"] == "reference_base"
     assert results[1].metadata["reference_relation_type"] == "base"
+
+
+@pytest.mark.asyncio
+async def test_search_reuses_collection_count_for_local_queries(monkeypatch):
+    collection = _FakeCollection()
+    service = SimpleNamespace(
+        _vector=_FakeVector({"p-001": collection}),
+        _embedding=_FakeEmbedding(),
+    )
+
+    async def _fake_get_project_references(_project_id):
+        return []
+
+    monkeypatch.setattr(
+        retrieval.db_service,
+        "get_project_references",
+        _fake_get_project_references,
+    )
+
+    await search(
+        service,
+        project_id="p-001",
+        query="生成课件",
+        top_k=5,
+        session_id="s-001",
+    )
+
+    assert collection.count_calls == 1

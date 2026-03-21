@@ -123,3 +123,86 @@ def test_preflight_checks_network_targets_when_configured():
     assert any(
         "PASS tcp postgres.internal:5432 reachable" in message for message in messages
     )
+
+
+def test_preflight_reports_render_toolchain_availability(monkeypatch):
+    def fake_which(binary: str):
+        if binary == "marp":
+            return "/usr/local/bin/marp"
+        return None
+
+    monkeypatch.setattr("scripts.deploy_preflight.shutil.which", fake_which)
+
+    messages, failures = evaluate_preflight(
+        {
+            "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
+            "JWT_SECRET_KEY": "real-secret",
+        },
+        skip_network=True,
+        timeout_seconds=0.1,
+    )
+
+    assert failures == 0
+    assert any("PASS marp available at /usr/local/bin/marp" in m for m in messages)
+    assert any("WARN pandoc missing" in m for m in messages)
+
+
+def test_preflight_validates_timeout_and_runtime_paths():
+    messages, failures = evaluate_preflight(
+        {
+            "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
+            "JWT_SECRET_KEY": "real-secret",
+            "AI_REQUEST_TIMEOUT_SECONDS": "invalid",
+            "OUTLINE_DRAFT_TIMEOUT_SECONDS": "0",
+            "PREVIEW_REBUILD_TIMEOUT_SECONDS": "0",
+            "HEALTH_TOOL_TIMEOUT_SECONDS": "0",
+            "TOOL_CHECK_CACHE_TTL_SECONDS": "-1",
+            "UPLOAD_DIR": "./uploads",
+            "ARTIFACT_STORAGE_DIR": "./uploads/artifacts",
+            "GENERATED_DIR": "./generated",
+            "ALLOW_AI_STUB": "true",
+        },
+        skip_network=True,
+        timeout_seconds=0.1,
+    )
+
+    assert failures == 5
+    assert any(
+        "AI_REQUEST_TIMEOUT_SECONDS must be a positive number" in m for m in messages
+    )
+    assert any(
+        "OUTLINE_DRAFT_TIMEOUT_SECONDS must be a positive number" in m for m in messages
+    )
+    assert any(
+        "PREVIEW_REBUILD_TIMEOUT_SECONDS must be a positive number" in m
+        for m in messages
+    )
+    assert any(
+        "HEALTH_TOOL_TIMEOUT_SECONDS must be a positive number" in m for m in messages
+    )
+    assert any(
+        "TOOL_CHECK_CACHE_TTL_SECONDS must be a non-negative number" in m
+        for m in messages
+    )
+    assert any("UPLOAD_DIR uses repo-relative path" in m for m in messages)
+    assert any("ALLOW_AI_STUB is enabled" in m for m in messages)
+
+
+def test_preflight_fails_when_generation_tools_required_but_binary_missing(monkeypatch):
+    monkeypatch.setattr("scripts.deploy_preflight.shutil.which", lambda _binary: None)
+
+    messages, failures = evaluate_preflight(
+        {
+            "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
+            "JWT_SECRET_KEY": "real-secret",
+            "GENERATION_TOOLS_REQUIRED": "true",
+        },
+        skip_network=True,
+        timeout_seconds=0.1,
+    )
+
+    assert failures == 1
+    assert any(
+        "GENERATION_TOOLS_REQUIRED=true but required tools are missing" in m
+        for m in messages
+    )

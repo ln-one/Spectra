@@ -54,6 +54,7 @@ export function SourcesPanel({
     isStudioExpanded,
     isExpandedContentCollapsed,
   });
+  const shouldAnimateList = files.length <= 12;
 
   return (
     <div
@@ -181,36 +182,69 @@ export function SourcesPanel({
                       isEffectiveCompact && "flex flex-col gap-2"
                     )}
                   >
-                    <AnimatePresence mode="popLayout">
-                      <div
-                        key={WEB_SOURCE_CARD_ID}
-                        ref={(element) =>
-                          registerFileRef(WEB_SOURCE_CARD_ID, element)
-                        }
-                      >
-                        <WebSourceCard isCompact={isEffectiveCompact} />
-                      </div>
-                      {files.map((file) => (
+                    {shouldAnimateList ? (
+                      <AnimatePresence mode="popLayout">
                         <div
-                          key={file.id}
-                          ref={(element) => registerFileRef(file.id, element)}
+                          key={WEB_SOURCE_CARD_ID}
+                          ref={(element) =>
+                            registerFileRef(WEB_SOURCE_CARD_ID, element)
+                          }
                         >
-                          <FileItem
-                            file={file}
-                            isSelected={selectedFileIds.includes(file.id)}
-                            onToggle={() => toggleFileSelection(file.id)}
-                            onDelete={() => handleDelete(file.id)}
-                            isCompact={isEffectiveCompact}
-                            isFocused={focusedFileId === file.id}
-                            focusDetail={
-                              focusedFileId === file.id ? focusPayload : null
-                            }
-                            isExpanded={!!expandedIds[file.id]}
-                            onCollapse={() => collapseFile(file.id)}
-                          />
+                          <WebSourceCard isCompact={isEffectiveCompact} />
                         </div>
-                      ))}
-                    </AnimatePresence>
+                        {files.map((file) => (
+                          <div
+                            key={file.id}
+                            ref={(element) => registerFileRef(file.id, element)}
+                          >
+                            <FileItem
+                              file={file}
+                              isSelected={selectedFileIds.includes(file.id)}
+                              onToggle={() => toggleFileSelection(file.id)}
+                              onDelete={() => handleDelete(file.id)}
+                              isCompact={isEffectiveCompact}
+                              isFocused={focusedFileId === file.id}
+                              focusDetail={
+                                focusedFileId === file.id ? focusPayload : null
+                              }
+                              isExpanded={!!expandedIds[file.id]}
+                              onCollapse={() => collapseFile(file.id)}
+                            />
+                          </div>
+                        ))}
+                      </AnimatePresence>
+                    ) : (
+                      <>
+                        <div
+                          key={WEB_SOURCE_CARD_ID}
+                          ref={(element) =>
+                            registerFileRef(WEB_SOURCE_CARD_ID, element)
+                          }
+                        >
+                          <WebSourceCard isCompact={isEffectiveCompact} />
+                        </div>
+                        {files.map((file) => (
+                          <div
+                            key={file.id}
+                            ref={(element) => registerFileRef(file.id, element)}
+                          >
+                            <FileItem
+                              file={file}
+                              isSelected={selectedFileIds.includes(file.id)}
+                              onToggle={() => toggleFileSelection(file.id)}
+                              onDelete={() => handleDelete(file.id)}
+                              isCompact={isEffectiveCompact}
+                              isFocused={focusedFileId === file.id}
+                              focusDetail={
+                                focusedFileId === file.id ? focusPayload : null
+                              }
+                              isExpanded={!!expandedIds[file.id]}
+                              onCollapse={() => collapseFile(file.id)}
+                            />
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
               </div>

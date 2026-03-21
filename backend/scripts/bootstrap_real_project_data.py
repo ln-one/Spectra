@@ -203,63 +203,6 @@ def _poll_file_status(
     raise TimeoutError("poll timeout: target file not found in project files list")
 
 
-def _parse_database_url(env_path: Path) -> Optional[str]:
-    if not env_path.exists():
-        return None
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        raw = line.strip()
-        if not raw or raw.startswith("#"):
-            continue
-        if raw.startswith("DATABASE_URL="):
-            value = raw.split("=", 1)[1].strip().strip('"').strip("'")
-            return value
-    return None
-
-
-def _resolve_db_candidates(repo_root: Path) -> list[Path]:
-    backend_dir = repo_root / "backend"
-    env_db = _parse_database_url(backend_dir / ".env")
-    candidates: list[Path] = []
-    if env_db and env_db.startswith("file:"):
-        relative = env_db.removeprefix("file:").lstrip("./")
-        candidates.append(backend_dir / relative)
-        candidates.append((backend_dir / "prisma") / relative)
-    candidates.extend(
-        [
-            backend_dir / "prisma" / "dev.db",
-            backend_dir / "prisma" / "prisma" / "dev.db",
-        ]
-    )
-    dedup: list[Path] = []
-    seen = set()
-    for path in candidates:
-        key = str(path.resolve()) if path.exists() else str(path)
-        if key in seen:
-            continue
-        seen.add(key)
-        dedup.append(path)
-    return dedup
-
-
-def _choose_valid_db(db_candidates: list[Path]) -> Optional[Path]:
-    for path in db_candidates:
-        if not path.exists():
-            continue
-        try:
-            conn = sqlite3.connect(path)
-            cur = conn.cursor()
-            exists = cur.execute(
-                "SELECT COUNT(*) FROM sqlite_master "
-                "WHERE type='table' AND name='Project'"
-            ).fetchone()[0]
-            conn.close()
-            if exists:
-                return path
-        except Exception:
-            continue
-    return None
-
-
 def _resolve_chroma_sqlite(repo_root: Path) -> Optional[Path]:
     backend_dir = repo_root / "backend"
     chroma_dir = backend_dir / "chroma_data"
@@ -284,52 +227,16 @@ def _resolve_chroma_sqlite(repo_root: Path) -> Optional[Path]:
     return None
 
 
-def _local_verify(repo_root: Path, project_id: str, file_id: str) -> dict[str, Any]:
+def _local_verify(repo_root: Path, project_id: str) -> dict[str, Any]:
     result: dict[str, Any] = {
-        "db_path": None,
-        "project_exists": None,
-        "upload_ready": None,
-        "parsed_chunk_count_for_file": None,
-        "parsed_chunk_count_for_project": None,
+        "db_path": "n/a-postgresql",
+        "project_exists": "n/a-postgresql",
+        "upload_ready": "n/a-postgresql",
+        "parsed_chunk_count_for_file": "n/a-postgresql",
+        "parsed_chunk_count_for_project": "n/a-postgresql",
         "chroma_path": None,
         "chroma_collection_exists": None,
     }
-
-    db_path = _choose_valid_db(_resolve_db_candidates(repo_root))
-    if db_path:
-        result["db_path"] = str(db_path)
-        conn = sqlite3.connect(db_path)
-        cur = conn.cursor()
-        result["project_exists"] = bool(
-            cur.execute(
-                "SELECT COUNT(*) FROM Project WHERE id = ?", (project_id,)
-            ).fetchone()[0]
-        )
-        result["upload_ready"] = bool(
-            cur.execute(
-                "SELECT COUNT(*) FROM Upload "
-                "WHERE id = ? AND projectId = ? AND status = 'ready'",
-                (file_id, project_id),
-            ).fetchone()[0]
-        )
-        result["parsed_chunk_count_for_file"] = int(
-            cur.execute(
-                "SELECT COUNT(*) FROM ParsedChunk WHERE uploadId = ?",
-                (file_id,),
-            ).fetchone()[0]
-        )
-        result["parsed_chunk_count_for_project"] = int(
-            cur.execute(
-                """
-                SELECT COUNT(*)
-                FROM ParsedChunk pc
-                JOIN Upload u ON u.id = pc.uploadId
-                WHERE u.projectId = ?
-                """,
-                (project_id,),
-            ).fetchone()[0]
-        )
-        conn.close()
 
     chroma_path = _resolve_chroma_sqlite(repo_root)
     if chroma_path:
@@ -400,7 +307,6 @@ def main() -> int:
         output["local_verify"] = _local_verify(
             repo_root=repo_root,
             project_id=project_id,
-            file_id=file_id,
         )
 
     print(json.dumps(output, ensure_ascii=False, indent=2))

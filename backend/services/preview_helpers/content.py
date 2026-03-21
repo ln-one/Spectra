@@ -1,90 +1,33 @@
-import json
 import logging
 from typing import Optional
 
-from schemas.generation import TaskStatus
 from services.database import db_service
 
 from .cache import load_preview_content, save_preview_content
+from .content_generation import get_or_generate_content as _get_or_generate_content
+from .material_lookup import resolve_preview_task
 from .rendering import build_lesson_plan, build_slides
 
 logger = logging.getLogger(__name__)
 
 
 async def get_or_generate_content(task, project) -> dict:
-    cached = await load_preview_content(task.id)
-    if cached:
-        return cached
-
-    task_status = getattr(task, "status", None)
-    if task_status in {TaskStatus.PENDING, TaskStatus.PROCESSING}:
-        return {
-            "title": project.name or "Generating",
-            "markdown_content": "",
-            "lesson_plan_markdown": "",
-        }
-
-    from services.ai import ai_service
-
-    session_id = getattr(task, "sessionId", None)
-    outline_document = None
-    outline_version = None
-    template_config = None
-    raw_template = getattr(task, "templateConfig", None)
-    if raw_template:
-        try:
-            template_config = json.loads(raw_template)
-        except (TypeError, json.JSONDecodeError):
-            logger.warning("Failed to decode templateConfig for task %s", task.id)
-            template_config = None
-
-    messages = await db_service.get_recent_conversation_messages(
-        project.id,
-        limit=5,
-        session_id=session_id,
+    return await _get_or_generate_content(
+        task,
+        project,
+        db_service,
+        load_preview_content_fn=load_preview_content,
+        save_preview_content_fn=save_preview_content,
     )
-    user_msgs = [message.content for message in messages if message.role == "user"]
-    user_requirements = "\n".join(user_msgs) if user_msgs else project.name
-
-    if session_id:
-        latest_outline = await db_service.db.outlineversion.find_first(
-            where={"sessionId": session_id},
-            order={"version": "desc"},
-        )
-        if latest_outline and latest_outline.outlineData:
-            try:
-                outline_document = json.loads(latest_outline.outlineData)
-                outline_version = latest_outline.version
-            except json.JSONDecodeError:
-                logger.warning(
-                    "Failed to decode outlineData for session %s",
-                    session_id,
-                )
-
-    courseware = await ai_service.generate_courseware_content(
-        project_id=project.id,
-        user_requirements=user_requirements,
-        outline_document=outline_document,
-        outline_version=outline_version,
-        session_id=session_id,
-        rag_source_ids=(template_config or {}).get("rag_source_ids"),
-    )
-    data = {
-        "title": courseware.title,
-        "markdown_content": courseware.markdown_content,
-        "lesson_plan_markdown": courseware.lesson_plan_markdown,
-    }
-    await save_preview_content(task.id, data)
-    return data
 
 
-async def load_preview_material(session_id: str, project_id: str):
-    tasks = await db_service.db.generationtask.find_many(
-        where={"sessionId": session_id},
-        order={"createdAt": "desc"},
-        take=1,
-    )
-    task = tasks[0] if tasks else None
+async def load_preview_material(
+    session_id: str,
+    project_id: str,
+    artifact_id: Optional[str] = None,
+    task_id: Optional[str] = None,
+):
+    task = await resolve_preview_task(db_service, session_id, artifact_id, task_id)
 
     slides: list[dict] = []
     lesson_plan: Optional[dict] = None

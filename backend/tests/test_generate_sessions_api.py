@@ -20,7 +20,7 @@ from services.generation_session_service.constants import (
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
-from utils.dependencies import get_current_user
+from utils.dependencies import get_current_user, get_current_user_optional
 
 
 def _build_test_app() -> FastAPI:
@@ -77,8 +77,10 @@ def mock_db_service():
 @pytest.fixture()
 def _as_user(app):
     app.dependency_overrides[get_current_user] = lambda: "u-001"
+    app.dependency_overrides[get_current_user_optional] = lambda: "u-001"
     yield
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_current_user_optional, None)
 
 
 @pytest.mark.anyio
@@ -245,6 +247,32 @@ async def test_create_session_reuses_current_session_when_client_session_id_matc
     )
 
 
+def test_redraft_outline_passes_task_queue_service_to_executor(app, _as_user):
+    client = TestClient(app)
+    app.state.task_queue_service = SimpleNamespace(name="queue-service")
+    mocked_result = {"accepted": True, "session": {"session_id": "s-001"}}
+
+    with patch(
+        "routers.generate_sessions.commands.execute_session_command_or_raise",
+        AsyncMock(return_value=mocked_result),
+    ) as execute_mock:
+        with patch(
+            "routers.generate_sessions.commands._get_session_service",
+            Mock(return_value=SimpleNamespace()),
+        ):
+            response = client.post(
+                "/api/v1/generate/sessions/s-001/outline/redraft",
+                json={"instruction": "请强化互动提问", "base_version": 1},
+            )
+
+    assert response.status_code == 200
+    execute_mock.assert_awaited_once()
+    call_kwargs = execute_mock.await_args.kwargs
+    assert call_kwargs["session_id"] == "s-001"
+    assert call_kwargs["command"]["command_type"] == "REDRAFT_OUTLINE"
+    assert call_kwargs["task_queue_service"] == app.state.task_queue_service
+
+
 @pytest.mark.anyio
 async def test_sse_events_sequence_success_path():
     from services.generation_session_service import GenerationSessionService
@@ -384,7 +412,8 @@ async def test_sse_events_sequence_failure_path():
     assert outline_data["version"] == 1
     assert outline_data["changeReason"] == "draft_failed_fallback_empty"
     outline_doc = json.loads(outline_data["outlineData"])
-    assert outline_doc["nodes"] == []
+    assert len(outline_doc["nodes"]) == 10
+    assert all(str(node.get("title", "")).strip() for node in outline_doc["nodes"])
 
     state_updates = [
         call.kwargs["data"]
@@ -459,6 +488,117 @@ async def test_idempotency_prevents_duplicate_creation(app):
     assert response.status_code == 200
     data = response.json()
     assert data["data"]["session"]["session_id"] == "s-001"
+
+
+@pytest.mark.anyio
+async def test_list_sessions_returns_expected_projection_shape(app, _as_user):
+    mock_project = SimpleNamespace(id="p-001", userId="u-001")
+    session = SimpleNamespace(
+        id="s-001",
+        projectId="p-001",
+        baseVersionId="ver-001",
+        outputType="ppt",
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    mock_db = SimpleNamespace(
+        generationsession=SimpleNamespace(
+            find_many=AsyncMock(return_value=[session]),
+            count=AsyncMock(return_value=1),
+        )
+    )
+
+    with (
+        patch.object(db_service, "get_project", AsyncMock(return_value=mock_project)),
+        patch.object(db_service, "db", mock_db),
+    ):
+        client = TestClient(app)
+        response = client.get("/api/v1/generate/sessions?project_id=p-001")
+
+    assert response.status_code == 200
+    find_many_kwargs = mock_db.generationsession.find_many.await_args.kwargs
+    assert find_many_kwargs["where"] == {"projectId": "p-001"}
+    assert find_many_kwargs["order"] == {"updatedAt": "desc"}
+    assert find_many_kwargs["take"] == 20
+
+
+@pytest.mark.anyio
+async def test_session_events_json_uses_runtime_guard_instead_of_snapshot(
+    app, _as_user
+):
+    session_service = SimpleNamespace(
+        get_session_runtime_state=AsyncMock(
+            return_value={"state": GenerationState.DRAFTING_OUTLINE.value}
+        ),
+        get_events=AsyncMock(return_value=[{"cursor": "cur-001"}]),
+    )
+
+    with patch(
+        "routers.generate_sessions.core.get_session_service",
+        return_value=session_service,
+    ):
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/generate/sessions/s-001/events?accept=application/json"
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["events"] == [{"cursor": "cur-001"}]
+    session_service.get_session_runtime_state.assert_awaited_once_with("s-001", "u-001")
+    session_service.get_events.assert_awaited_once_with("s-001", "u-001", cursor=None)
+
+
+@pytest.mark.anyio
+async def test_session_events_supports_accept_header_json_fallback(app, _as_user):
+    session_service = SimpleNamespace(
+        get_session_runtime_state=AsyncMock(
+            return_value={"state": GenerationState.DRAFTING_OUTLINE.value}
+        ),
+        get_events=AsyncMock(return_value=[{"cursor": "cur-header-001"}]),
+    )
+
+    with patch(
+        "routers.generate_sessions.core.get_session_service",
+        return_value=session_service,
+    ):
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/generate/sessions/s-001/events",
+            headers={"Accept": "application/json"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["events"] == [{"cursor": "cur-header-001"}]
+    session_service.get_session_runtime_state.assert_awaited_once_with("s-001", "u-001")
+    session_service.get_events.assert_awaited_once_with("s-001", "u-001", cursor=None)
+
+
+@pytest.mark.anyio
+async def test_session_events_rejects_invalid_accept_query_value(app, _as_user):
+    session_service = SimpleNamespace(
+        get_session_runtime_state=AsyncMock(
+            return_value={"state": GenerationState.DRAFTING_OUTLINE.value}
+        ),
+        get_events=AsyncMock(return_value=[]),
+    )
+
+    with patch(
+        "routers.generate_sessions.core.get_session_service",
+        return_value=session_service,
+    ):
+        client = TestClient(app)
+        response = client.get("/api/v1/generate/sessions/s-001/events?accept=xml")
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["detail"]["code"] == "INVALID_INPUT"
+    assert "accept must be one of" in payload["detail"]["message"]
+    session_service.get_events.assert_not_awaited()
 
 
 @pytest.mark.anyio
@@ -637,6 +777,23 @@ async def test_get_studio_card_execution_plan_returns_protocol_bindings(app, _as
     assert plan["initial_binding"]["endpoint"] == "/api/v1/generate/sessions"
     assert "document_variant" in plan["initial_binding"]["bound_config_keys"]
     assert plan["refine_binding"]["transport"] == "chat_message"
+
+
+@pytest.mark.anyio
+async def test_get_studio_card_execution_plan_uses_projects_artifact_endpoint(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/generate/studio-cards/interactive_quick_quiz/execution-plan"
+    )
+
+    assert response.status_code == 200
+    plan = response.json()["data"]["execution_plan"]
+    assert (
+        plan["initial_binding"]["endpoint"] == "/api/v1/projects/{project_id}/artifacts"
+    )
 
 
 @pytest.mark.anyio

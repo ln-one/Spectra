@@ -6,7 +6,7 @@ def test_smoke_checks_skip_authenticated_probe_without_token():
         base_url="http://api.internal",
         token=None,
         checks=(
-            Check("root-health", "/health"),
+            Check("root-health", "/health/ready"),
             Check(
                 "generate-capabilities",
                 "/api/v1/generate/capabilities",
@@ -33,7 +33,7 @@ def test_smoke_checks_skip_authenticated_probe_without_token():
 
 def test_smoke_checks_accumulate_failures():
     checks = (
-        Check("root-health", "/health"),
+        Check("root-health", "/health/ready"),
         Check("capabilities-health", "/api/v1/health/capabilities"),
     )
 

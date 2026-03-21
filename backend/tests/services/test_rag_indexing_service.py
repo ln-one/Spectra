@@ -53,6 +53,10 @@ async def test_index_upload_file_for_rag_success(monkeypatch):
     assert result["chunk_count"] == 2
     assert result["indexed_count"] == 2
     assert result["pages"] == 1
+    assert result["provider"] == "unknown"
+    assert result["fallback_used"] is False
+    assert "parse_ms" in result["stage_timings_ms"]
+    assert "embedding_ms" in result["stage_timings_ms"]
     index_mock.assert_awaited_once()
     rag_chunks = index_mock.await_args.args[1]
     assert rag_chunks[0].metadata["upload_id"] == "u-001"
@@ -126,6 +130,7 @@ async def test_index_upload_file_for_rag_parse_error_fallback(monkeypatch):
     assert result["fallback"] is True
     assert result["chunk_count"] == 1
     assert result["indexed_count"] == 1
+    assert result["fallback_used"] is True
     assert result["text_length"] > 0
     assert result["error"] == "parse failed"
 

@@ -1,12 +1,17 @@
-﻿import {
+import {
   createReference,
   deleteReference,
   getReferences,
   updateReference,
 } from "./references";
 import { getVersion, getVersions } from "./versions";
-import { createArtifact, getArtifact, getArtifacts } from "./artifacts";
-import { addMember, getMembers, updateMember } from "./members";
+import {
+  createArtifact,
+  downloadArtifact,
+  getArtifact,
+  getArtifacts,
+} from "./artifacts";
+import { addMember, deleteMember, getMembers, updateMember } from "./members";
 import {
   createCandidateChange,
   getCandidateChanges,
@@ -22,10 +27,12 @@ export const projectSpaceApi = {
   getVersion,
   getArtifacts,
   getArtifact,
+  downloadArtifact,
   createArtifact,
   getMembers,
   addMember,
   updateMember,
+  deleteMember,
   getCandidateChanges,
   createCandidateChange,
   reviewCandidateChange,

@@ -1,22 +1,39 @@
 """
 Embedding Service - 文本向量化
 
-支持 DashScopeqwen3-vl-embedding（主选）和 sentence-transformers 本地模型（备选）。
+支持 DashScope text-embedding-v4 / qwen3-vl-embedding 和 sentence-transformers 本地模型（备选）。
 """
 
 import logging
 import os
+from pathlib import Path
 from typing import Optional
 
 import anyio
+from dotenv import load_dotenv
+
+from utils.upstream_failures import classify_upstream_failure
 
 logger = logging.getLogger(__name__)
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "qwen3-vl-embedding")
+BASE_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
+
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
 
-# DashScope 单次批量限制
-DASHSCOPE_BATCH_LIMIT = 25
+# DashScope 单次批量限制（不同模型上限不同）
+DEFAULT_DASHSCOPE_BATCH_LIMIT = 25
+TEXT_EMBEDDING_V4_BATCH_LIMIT = 10
+MULTIMODAL_EMBEDDING_BATCH_LIMIT = 10
+
+
+def _resolve_embedding_dimension() -> int:
+    return int(os.getenv("EMBEDDING_DIMENSION", str(EMBEDDING_DIMENSION)))
+
+
+def _resolve_dashscope_api_key() -> str:
+    return os.getenv("DASHSCOPE_API_KEY", "").strip()
 
 
 class EmbeddingService:
@@ -35,7 +52,24 @@ class EmbeddingService:
 
     def _use_dashscope(self) -> bool:
         """判断是否使用 DashScope"""
-        return self._model == "qwen3-vl-embedding"
+        return (self._model or "").strip().lower() not in {
+            "",
+            "local",
+            "sentence-transformers",
+            "local-sentence-transformers",
+        }
+
+    def _uses_multimodal_dashscope(self) -> bool:
+        """qwen3-vl-embedding 需要走 MultiModalEmbedding 接口。"""
+        return (self._model or "").strip().lower() == "qwen3-vl-embedding"
+
+    def _dashscope_batch_limit(self) -> int:
+        model_name = (self._model or "").strip().lower()
+        if model_name == "qwen3-vl-embedding":
+            return MULTIMODAL_EMBEDDING_BATCH_LIMIT
+        if model_name == "text-embedding-v4":
+            return TEXT_EMBEDDING_V4_BATCH_LIMIT
+        return DEFAULT_DASHSCOPE_BATCH_LIMIT
 
     def get_dimension(self) -> int:
         """获取向量维度"""
@@ -43,7 +77,7 @@ class EmbeddingService:
             return self._dimension
 
         if self._use_dashscope():
-            self._dimension = EMBEDDING_DIMENSION
+            self._dimension = _resolve_embedding_dimension()
         else:
             model = self._get_local_model()
             self._dimension = model.get_sentence_embedding_dimension()
@@ -52,7 +86,14 @@ class EmbeddingService:
     def _get_local_model(self):
         """懒加载本地 sentence-transformers 模型"""
         if self._local_model is None:
-            from sentence_transformers import SentenceTransformer
+            try:
+                from sentence_transformers import SentenceTransformer
+            except Exception as exc:  # pragma: no cover - import-path specific
+                raise RuntimeError(
+                    "Local embedding fallback unavailable. "
+                    "Install sentence-transformers and its runtime dependencies, "
+                    "or configure a working remote embedding provider."
+                ) from exc
 
             model_name = "paraphrase-multilingual-MiniLM-L12-v2"
             logger.info(f"Loading local embedding model: {model_name}")
@@ -92,17 +133,33 @@ class EmbeddingService:
     async def _embed_dashscope(self, texts: list[str]) -> list[list[float]]:
         """使用 DashScope API 进行向量化"""
         try:
-            from dashscope import TextEmbedding
+            api_key = _resolve_dashscope_api_key()
+            if not api_key:
+                raise RuntimeError(
+                    "DashScope embedding unavailable: DASHSCOPE_API_KEY not set"
+                )
 
             all_embeddings: list[list[float]] = []
 
-            # 分批处理，每批最多 25 条
-            for i in range(0, len(texts), DASHSCOPE_BATCH_LIMIT):
-                batch = texts[i : i + DASHSCOPE_BATCH_LIMIT]
-                response = TextEmbedding.call(
-                    model=self._model,
-                    input=batch,
-                )
+            batch_limit = self._dashscope_batch_limit()
+            for i in range(0, len(texts), batch_limit):
+                batch = texts[i : i + batch_limit]
+                if self._uses_multimodal_dashscope():
+                    from dashscope import MultiModalEmbedding
+
+                    response = MultiModalEmbedding.call(
+                        model=self._model,
+                        input=[{"text": item} for item in batch],
+                        api_key=api_key,
+                    )
+                else:
+                    from dashscope import TextEmbedding
+
+                    response = TextEmbedding.call(
+                        model=self._model,
+                        input=batch,
+                        api_key=api_key,
+                    )
 
                 if response.status_code != 200:
                     raise RuntimeError(
@@ -115,7 +172,19 @@ class EmbeddingService:
             return all_embeddings
 
         except Exception as e:
-            logger.warning(f"DashScope embedding failed, falling back to local: {e}")
+            logger.warning(
+                "DashScope embedding failed for model %s; falling back to local "
+                "sentence-transformers",
+                self._model,
+                extra={
+                    "embedding_model": self._model,
+                    "embedding_provider": "dashscope",
+                    "embedding_failure_type": classify_upstream_failure(e),
+                    "fallback_used": True,
+                    "fallback_target": "local_sentence_transformers",
+                    "provider_message": str(e),
+                },
+            )
             return await self._embed_local(texts)
 
     def _embed_local_sync(self, texts: list[str]) -> list[list[float]]:

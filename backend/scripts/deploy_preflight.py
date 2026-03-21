@@ -5,10 +5,16 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import socket
 from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping
 from urllib.parse import urlparse
+
+try:
+    from scripts.env_bootstrap import build_script_env
+except ModuleNotFoundError:  # pragma: no cover - script entry fallback
+    from env_bootstrap import build_script_env
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0"}
 
@@ -26,11 +32,45 @@ ENV_CHECKS: tuple[EnvCheck, ...] = (
     EnvCheck("DEFAULT_MODEL", False, "default AI model routing target"),
     EnvCheck("LARGE_MODEL", False, "large AI model routing target"),
     EnvCheck("SMALL_MODEL", False, "small AI model routing target"),
+    EnvCheck("AI_REQUEST_TIMEOUT_SECONDS", False, "AI request timeout seconds"),
+    EnvCheck(
+        "OUTLINE_DRAFT_TIMEOUT_SECONDS",
+        False,
+        "outline draft timeout seconds",
+    ),
+    EnvCheck(
+        "PREVIEW_REBUILD_TIMEOUT_SECONDS",
+        False,
+        "preview rebuild timeout seconds",
+    ),
+    EnvCheck(
+        "TOOL_CHECK_CACHE_TTL_SECONDS",
+        False,
+        "generation tool check cache TTL seconds",
+    ),
+    EnvCheck(
+        "HEALTH_TOOL_TIMEOUT_SECONDS",
+        False,
+        "health endpoint generation tool probe timeout seconds",
+    ),
+    EnvCheck(
+        "GENERATION_TOOLS_REQUIRED",
+        False,
+        "whether /health should enforce Marp/Pandoc availability",
+    ),
     EnvCheck("DASHSCOPE_API_KEY", False, "provider key for video/LLM/embedding"),
     EnvCheck("REDIS_HOST", False, "queue/cache host"),
     EnvCheck("REDIS_PORT", False, "queue/cache port"),
     EnvCheck("CHROMA_HOST", False, "remote Chroma host"),
     EnvCheck("CHROMA_PORT", False, "remote Chroma port"),
+    EnvCheck("UPLOAD_DIR", False, "upload file root path"),
+    EnvCheck("ARTIFACT_STORAGE_DIR", False, "artifact storage root path"),
+    EnvCheck("GENERATED_DIR", False, "generated files root path"),
+)
+
+TOOL_CHECKS: tuple[tuple[str, str], ...] = (
+    ("marp", "Marp CLI for PPTX rendering"),
+    ("pandoc", "Pandoc for DOCX rendering"),
 )
 
 
@@ -46,6 +86,34 @@ def _is_placeholder_secret(value: str) -> bool:
         "change-me",
         "replace-me",
     }
+
+
+def _looks_truthy(raw: str | None) -> bool:
+    return (raw or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_positive_number(value: str | None) -> bool:
+    if value is None:
+        return False
+    raw = value.strip()
+    if not raw:
+        return False
+    try:
+        return float(raw) > 0
+    except ValueError:
+        return False
+
+
+def _is_non_negative_number(value: str | None) -> bool:
+    if value is None:
+        return False
+    raw = value.strip()
+    if not raw:
+        return False
+    try:
+        return float(raw) >= 0
+    except ValueError:
+        return False
 
 
 def _tcp_check(host: str, port: int, timeout_seconds: float) -> tuple[bool, str]:
@@ -178,6 +246,104 @@ def _iter_env_results(
     return messages, failures
 
 
+def _validate_runtime_env_contract(
+    env_get: Callable[[str], str | None] = os.getenv,
+) -> tuple[list[str], int]:
+    messages: list[str] = []
+    failures = 0
+
+    ai_timeout = env_get("AI_REQUEST_TIMEOUT_SECONDS")
+    if ai_timeout:
+        if _is_positive_number(ai_timeout):
+            messages.append(_format("PASS", "AI_REQUEST_TIMEOUT_SECONDS is valid"))
+        else:
+            failures += 1
+            messages.append(
+                _format(
+                    "FAIL",
+                    "AI_REQUEST_TIMEOUT_SECONDS must be a positive number",
+                )
+            )
+
+    outline_timeout = env_get("OUTLINE_DRAFT_TIMEOUT_SECONDS")
+    if outline_timeout:
+        if _is_positive_number(outline_timeout):
+            messages.append(_format("PASS", "OUTLINE_DRAFT_TIMEOUT_SECONDS is valid"))
+        else:
+            failures += 1
+            messages.append(
+                _format(
+                    "FAIL",
+                    "OUTLINE_DRAFT_TIMEOUT_SECONDS must be a positive number",
+                )
+            )
+
+    preview_timeout = env_get("PREVIEW_REBUILD_TIMEOUT_SECONDS")
+    if preview_timeout:
+        if _is_positive_number(preview_timeout):
+            messages.append(_format("PASS", "PREVIEW_REBUILD_TIMEOUT_SECONDS is valid"))
+        else:
+            failures += 1
+            messages.append(
+                _format(
+                    "FAIL",
+                    "PREVIEW_REBUILD_TIMEOUT_SECONDS must be a positive number",
+                )
+            )
+
+    health_tool_timeout = env_get("HEALTH_TOOL_TIMEOUT_SECONDS")
+    if health_tool_timeout:
+        if _is_positive_number(health_tool_timeout):
+            messages.append(_format("PASS", "HEALTH_TOOL_TIMEOUT_SECONDS is valid"))
+        else:
+            failures += 1
+            messages.append(
+                _format(
+                    "FAIL",
+                    "HEALTH_TOOL_TIMEOUT_SECONDS must be a positive number",
+                )
+            )
+
+    tool_cache_ttl = env_get("TOOL_CHECK_CACHE_TTL_SECONDS")
+    if tool_cache_ttl:
+        if _is_non_negative_number(tool_cache_ttl):
+            messages.append(_format("PASS", "TOOL_CHECK_CACHE_TTL_SECONDS is valid"))
+        else:
+            failures += 1
+            messages.append(
+                _format(
+                    "FAIL",
+                    "TOOL_CHECK_CACHE_TTL_SECONDS must be a non-negative number",
+                )
+            )
+
+    for key in ("UPLOAD_DIR", "ARTIFACT_STORAGE_DIR", "GENERATED_DIR"):
+        path_value = env_get(key)
+        if not path_value:
+            continue
+        normalized = path_value.strip()
+        if normalized.startswith("./") or normalized.startswith("../"):
+            messages.append(
+                _format(
+                    "WARN",
+                    (
+                        f"{key} uses repo-relative path `{normalized}`; "
+                        "prefer explicit runtime volume mount path in deployment"
+                    ),
+                )
+            )
+
+    if _looks_truthy(env_get("ALLOW_AI_STUB")):
+        messages.append(
+            _format(
+                "WARN",
+                "ALLOW_AI_STUB is enabled; production/demo should normally disable it",
+            )
+        )
+
+    return messages, failures
+
+
 def evaluate_preflight(
     env: Mapping[str, str],
     *,
@@ -191,6 +357,9 @@ def evaluate_preflight(
     env_messages, failures = _iter_env_results(ENV_CHECKS, env.get)
 
     messages.extend(env_messages)
+    validation_messages, validation_failures = _validate_runtime_env_contract(env.get)
+    messages.extend(validation_messages)
+    failures += validation_failures
 
     database_url = env.get("DATABASE_URL")
     contract_messages, contract_failures = _check_database_contract(
@@ -200,6 +369,45 @@ def evaluate_preflight(
     )
     messages.extend(contract_messages)
     failures += contract_failures
+
+    resolved_tools: dict[str, str | None] = {}
+    for binary, description in TOOL_CHECKS:
+        resolved = shutil.which(binary)
+        resolved_tools[binary] = resolved
+        if resolved:
+            messages.append(_format("PASS", f"{binary} available at {resolved}"))
+        else:
+            messages.append(
+                _format(
+                    "WARN",
+                    f"{binary} missing ({description}); generation chain may degrade",
+                )
+            )
+    if _looks_truthy(env.get("GENERATION_TOOLS_REQUIRED")):
+        missing_required_tools = [
+            binary for binary, resolved in resolved_tools.items() if not resolved
+        ]
+        if missing_required_tools:
+            failures += 1
+            missing_text = ", ".join(missing_required_tools)
+            messages.append(
+                _format(
+                    "FAIL",
+                    (
+                        "GENERATION_TOOLS_REQUIRED=true but required tools are "
+                        "missing: "
+                        f"{missing_text}"
+                    ),
+                )
+            )
+        else:
+            messages.append(
+                _format(
+                    "PASS",
+                    "GENERATION_TOOLS_REQUIRED=true and all required tools "
+                    "are available",
+                )
+            )
 
     if skip_network:
         return messages, failures
@@ -268,7 +476,7 @@ def main() -> int:
     args = parser.parse_args()
 
     messages, failures = evaluate_preflight(
-        os.environ,
+        build_script_env(),
         skip_network=args.skip_network,
         timeout_seconds=args.timeout_seconds,
         require_postgres=args.require_postgres,

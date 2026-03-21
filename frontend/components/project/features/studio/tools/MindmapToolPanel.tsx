@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ToolPanelShell } from "./ToolPanelShell";
 import type { ToolPanelProps } from "./types";
@@ -50,9 +50,16 @@ function injectChildren(node: MindNode, targetId: string): MindNode {
   };
 }
 
-export function MindmapToolPanel({ toolName }: ToolPanelProps) {
+export function MindmapToolPanel({ toolName, onDraftChange }: ToolPanelProps) {
   const [tree, setTree] = useState<MindNode>(INITIAL_TREE);
   const [selectedId, setSelectedId] = useState("root");
+
+  useEffect(() => {
+    onDraftChange?.({
+      selected_id: selectedId,
+      root_label: tree.label,
+    });
+  }, [onDraftChange, selectedId, tree.label]);
 
   const renderNode = (node: MindNode, depth = 0) => {
     const isSelected = selectedId === node.id;

@@ -55,6 +55,8 @@
 - 如何打包和验证
 - 如何生成前端类型
 
+旧的 `docs/OPENAPI_GUIDE.md` 已归档，不再作为默认入口。
+
 ---
 
 ## 目录结构
@@ -136,7 +138,7 @@ npm run watch:openapi
 2. 在对应的 `schemas/*.yaml` 文件中添加数据模型
 3. 先判断接口属于“已实现”还是“目标契约”
 4. 在对应入口文件中添加路径引用：
-   - 已实现接口 -> `docs/openapi-target-source.yaml`
+   - 已实现接口 -> `docs/openapi-source.yaml`
    - 规划接口 -> `docs/openapi-target-source.yaml`
 5. 运行对应的打包命令
 
@@ -147,7 +149,7 @@ npm run watch:openapi
 ## 注意事项
 
 - **不要直接编辑** `docs/openapi-target.yaml`，它是自动生成的
-- `docs/openapi-target.yaml` 是当前可联调规范，不应混入未实现接口
+- `docs/openapi.yaml` 是当前可联调规范，不应混入未实现接口
 - 目标接口先进入 `docs/openapi-target-source.yaml`，待后端落地后再切入正式规范
 - 开发时编辑 `docs/openapi/` 下的文件
 - 提交代码前记得运行打包命令

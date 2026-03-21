@@ -29,11 +29,28 @@ async def create_project_member(
     await service.check_project_permission(
         project_id, user_id, ProjectPermission.MANAGE
     )
-    existing = await service.db.get_project_member_by_user(project_id, target_user_id)
+    project = await service.db.get_project(project_id)
+    if project and target_user_id == project.userId:
+        raise ValidationException(
+            "Project owner is implicit and cannot be created as a managed member"
+        )
+    if normalize_project_member_role(role) == ProjectMemberRole.OWNER:
+        raise ValidationException("Managed members cannot be assigned owner role")
+
+    existing = await service.db.get_project_member_by_user(
+        project_id, target_user_id, include_inactive=True
+    )
     if existing:
+        existing_status = getattr(existing, "status", None)
+        if existing_status == ProjectMemberStatus.ACTIVE.value:
+            raise ConflictException(
+                "User "
+                f"{target_user_id} is already an active member of project {project_id}"
+            )
         raise ConflictException(
             "User "
-            f"{target_user_id} is already an active member of project {project_id}"
+            f"{target_user_id} already exists in project {project_id}; "
+            "update the existing membership instead of creating a duplicate"
         )
     return await service.db.create_project_member(
         project_id=project_id,
@@ -58,6 +75,14 @@ async def update_project_member(
     member = await service.db.get_project_member(member_id)
     if not member or member.projectId != project_id:
         raise NotFoundException(f"Member {member_id} not found in project {project_id}")
+    project = await service.db.get_project(project_id)
+    if project and member.userId == project.userId:
+        raise ValidationException("Cannot modify project owner membership semantics")
+    if (
+        role is not None
+        and normalize_project_member_role(role) == ProjectMemberRole.OWNER
+    ):
+        raise ValidationException("Managed members cannot be assigned owner role")
     return await service.db.update_project_member(
         member_id=member_id,
         role=normalize_project_member_role(role) if role is not None else None,

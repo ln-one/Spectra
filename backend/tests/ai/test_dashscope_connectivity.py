@@ -6,12 +6,14 @@ DashScope API 连通性测试
 """
 
 import asyncio
+import os
 
 import pytest
 
 import services.ai as ai_module
 from services.ai import AIService, _resolve_model_name
 from services.ai.model_router import ModelRouteFailureReason
+from utils.exceptions import ExternalServiceException
 
 
 class TestModelNameResolve:
@@ -52,12 +54,14 @@ async def test_generate_times_out_with_clear_error(monkeypatch):
 
     monkeypatch.setattr(ai_module, "acompletion", _slow_completion)
 
-    with pytest.raises(TimeoutError, match="timed out"):
+    with pytest.raises(ExternalServiceException) as exc_info:
         await ai_service.generate(
             prompt="timeout test",
             model="qwen3.5-plus",
             max_tokens=10,
         )
+    assert exc_info.value.status_code == 504
+    assert exc_info.value.details["failure_type"] == "timeout"
 
 
 @pytest.mark.asyncio
@@ -116,6 +120,13 @@ async def test_generate_completion_error_returns_stub_with_canonical_reason(
 @pytest.mark.integration
 class TestDashScopeConnectivity:
     """DashScope API 连通性测试（需要真实 API Key）"""
+
+    @pytest.fixture(autouse=True)
+    def require_dashscope_key(self):
+        if not os.getenv("DASHSCOPE_API_KEY", "").strip():
+            pytest.skip(
+                "DASHSCOPE_API_KEY not set; skipping DashScope connectivity tests"
+            )
 
     @pytest.fixture
     def ai_service(self):

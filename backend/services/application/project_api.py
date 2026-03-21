@@ -11,6 +11,22 @@ from utils.responses import success_response
 logger = logging.getLogger(__name__)
 
 
+async def _bootstrap_default_session(project_id: str, user_id: str) -> None:
+    from services.generation_session_service import GenerationSessionService
+
+    session_service = GenerationSessionService(db=db_service.db)
+    await session_service.create_session(
+        project_id=project_id,
+        user_id=user_id,
+        output_type="both",
+        bootstrap_only=True,
+    )
+    logger.info(
+        "project_default_session_created",
+        extra={"user_id": user_id, "project_id": project_id},
+    )
+
+
 async def create_project_response(
     project, user_id: str, idempotency_key: Optional[str]
 ):
@@ -27,6 +43,17 @@ async def create_project_response(
             return cached_response
 
     new_project = await db_service.create_project(project, user_id=user_id)
+    try:
+        await _bootstrap_default_session(new_project.id, user_id)
+    except Exception:
+        await db_service.delete_project(new_project.id)
+        logger.error(
+            "project_bootstrap_session_failed",
+            extra={"user_id": user_id, "project_id": new_project.id},
+            exc_info=True,
+        )
+        raise
+
     logger.info(
         "project_created",
         extra={"user_id": user_id, "project_id": new_project.id},

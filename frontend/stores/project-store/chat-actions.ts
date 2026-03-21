@@ -24,6 +24,8 @@ export function createChatActions({
   set,
   get,
 }: ProjectStoreContext): Pick<ProjectState, "fetchMessages" | "sendMessage"> {
+  let latestFetchRequestId = 0;
+
   const ensureSessionForChat = async (
     projectId: string,
     sessionId?: string | null
@@ -65,12 +67,15 @@ export function createChatActions({
 
   return {
     fetchMessages: async (projectId: string, sessionId?: string | null) => {
+      const requestId = ++latestFetchRequestId;
       set({ isMessagesLoading: true });
       try {
         const effectiveSessionId =
           sessionId ?? get().activeSessionId ?? undefined;
         if (!effectiveSessionId) {
-          set({ messages: [] });
+          if (requestId === latestFetchRequestId) {
+            set({ messages: [] });
+          }
           return;
         }
         const response = await chatApi.getMessages({
@@ -78,8 +83,11 @@ export function createChatActions({
           session_id: effectiveSessionId,
           limit: 50,
         });
-        set({ messages: response?.data?.messages ?? [] });
+        if (requestId === latestFetchRequestId) {
+          set({ messages: response?.data?.messages ?? [] });
+        }
       } catch (error) {
+        if (requestId !== latestFetchRequestId) return;
         const message = getErrorMessage(error);
         toast({
           title: "获取消息失败",
@@ -87,7 +95,9 @@ export function createChatActions({
           variant: "destructive",
         });
       } finally {
-        set({ isMessagesLoading: false });
+        if (requestId === latestFetchRequestId) {
+          set({ isMessagesLoading: false });
+        }
       }
     },
 

@@ -8,6 +8,12 @@ from typing import Optional
 from schemas.generation import CoursewareContent
 from schemas.outline import CoursewareOutline
 from services.ai.model_router import ModelRouteTask
+from services.courseware_ai.generation_support import (
+    build_outline_based_fallback_courseware,
+    merge_requirements_with_outline,
+    retrieve_rag_context,
+    sorted_outline_nodes,
+)
 from services.courseware_ai.parsing import (
     extract_frontmatter,
     parse_marp_slides,
@@ -180,14 +186,15 @@ async def generate_courseware_content(
             },
         )
 
-        outline_nodes = (outline_document or {}).get("nodes") or []
+        outline_nodes = sorted_outline_nodes(outline_document)
         if outline_document:
-            user_requirements = ai_service._merge_requirements_with_outline(
+            user_requirements = merge_requirements_with_outline(
                 user_requirements=user_requirements,
                 outline_document=outline_document,
             )
 
-        rag_context = await ai_service._retrieve_rag_context(
+        rag_context = await retrieve_rag_context(
+            ai_service,
             project_id,
             user_requirements,
             session_id=session_id,
@@ -237,35 +244,18 @@ async def generate_courseware_content(
             extra={"project_id": project_id},
             exc_info=True,
         )
+        if outline_nodes:
+            logger.warning(
+                "Using outline-based fallback courseware due to generation failure",
+                extra={
+                    "project_id": project_id,
+                    "outline_node_count": len(outline_nodes),
+                },
+            )
+            return build_outline_based_fallback_courseware(
+                user_requirements=user_requirements,
+                outline_document=outline_document,
+            )
         if ALLOW_COURSEWARE_FALLBACK:
             return ai_service._get_fallback_courseware(user_requirements)
         raise
-
-
-def merge_requirements_with_outline(
-    user_requirements: str, outline_document: dict
-) -> str:
-    """把确认后的大纲约束拼接回原始需求。"""
-    nodes = (outline_document or {}).get("nodes") or []
-    if not nodes:
-        return user_requirements
-
-    sorted_nodes = sorted(nodes, key=lambda item: item.get("order", 0))
-    outline_lines = []
-    for node in sorted_nodes:
-        title = node.get("title", "Untitled Slide")
-        points = node.get("key_points") or []
-        key_points = " | ".join(str(point) for point in points if point) or "N/A"
-        outline_lines.append(
-            f"- Slide {node.get('order', '?')}: {title} (key points: {key_points})"
-        )
-
-    outline_block = "\n".join(outline_lines)
-    return (
-        f"{user_requirements}\n\n"
-        "Confirmed outline (must follow strictly):\n"
-        f"- Exact slide count required: {len(sorted_nodes)}\n"
-        "- Do not add extra intro/summary slides unless they exist in outline.\n"
-        "- Keep the same slide order and titles as outline.\n"
-        f"{outline_block}"
-    )

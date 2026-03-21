@@ -86,6 +86,7 @@ async def schedule_local_execution(
     fallback_reason: str,
     append_event: Callable[..., Awaitable[None]],
     enqueue_error: Optional[str] = None,
+    dispatch_context: Optional[dict] = None,
 ) -> bool:
     try:
         from services.task_executor import execute_generation_task
@@ -116,6 +117,7 @@ async def schedule_local_execution(
                     "dispatch": DispatchMode.LOCAL_ASYNC.value,
                     "reason": fallback_reason,
                     "enqueue_error": enqueue_error,
+                    **(dispatch_context or {}),
                 },
             )
         except Exception as event_err:
@@ -152,6 +154,7 @@ async def mark_dispatch_failed(
         where={"id": session_id},
         data={
             "state": GenerationState.FAILED.value,
+            "stateReason": TaskFailureStateReason.DISPATCH_FAILED.value,
             "errorCode": TaskExecutionErrorCode.DISPATCH_FAILED.value,
             "errorMessage": error_message,
             "errorRetryable": True,

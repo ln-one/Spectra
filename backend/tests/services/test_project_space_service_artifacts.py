@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -12,6 +13,7 @@ from services.project_space_service.artifact_semantics import (
     is_artifact_shared,
     normalize_artifact_visibility,
 )
+from utils.exceptions import ConflictException
 
 
 @pytest.mark.asyncio
@@ -27,7 +29,9 @@ async def test_create_artifact_summary_outline_sets_metadata(monkeypatch):
     )
     service.db = SimpleNamespace(
         create_artifact=create_artifact,
-        get_project_version=AsyncMock(return_value=None),
+        get_project_version=AsyncMock(
+            return_value=SimpleNamespace(id="version-001", projectId="project-001")
+        ),
         get_project=AsyncMock(
             return_value=SimpleNamespace(
                 id="project-001", currentVersionId="version-001"
@@ -181,7 +185,9 @@ async def test_create_artifact_silently_accretes_text_into_library(monkeypatch):
     create_parsed_chunks = AsyncMock(return_value=[SimpleNamespace(id="chunk-001")])
     service.db = SimpleNamespace(
         create_artifact=create_artifact,
-        get_project_version=AsyncMock(return_value=None),
+        get_project_version=AsyncMock(
+            return_value=SimpleNamespace(id="version-001", projectId="project-001")
+        ),
         get_project=AsyncMock(
             return_value=SimpleNamespace(
                 id="project-001",
@@ -280,6 +286,287 @@ async def test_create_artifact_preserves_explicit_based_on_version_id(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_create_artifact_rejects_invalid_current_version_anchor(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock()
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(
+            side_effect=[
+                SimpleNamespace(id="version-other", projectId="project-other"),
+            ]
+        ),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001",
+                currentVersionId="version-other",
+            )
+        ),
+    )
+
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        AsyncMock(return_value="generated/summary.json"),
+    )
+
+    with pytest.raises(ConflictException, match="current version anchor is invalid"):
+        await service.create_artifact_with_file(
+            project_id="project-001",
+            artifact_type="summary",
+            visibility="private",
+            user_id="user-001",
+            content={"mode": "outline", "title": "课程大纲"},
+        )
+
+    create_artifact.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_silent_accretion_timeout_is_best_effort(monkeypatch):
+    service = ProjectSpaceService()
+    artifact = SimpleNamespace(
+        id="artifact-timeout",
+        projectId="project-001",
+        type="summary",
+        storagePath="generated/summary.json",
+    )
+    service.db = SimpleNamespace(
+        create_artifact=AsyncMock(return_value=artifact),
+        get_project_version=AsyncMock(
+            return_value=SimpleNamespace(id="version-001", projectId="project-001")
+        ),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001",
+                currentVersionId="version-001",
+            )
+        ),
+    )
+
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        AsyncMock(return_value="generated/summary.json"),
+    )
+
+    async def _timeout_wait_for(coro, timeout):
+        coro.close()
+        raise asyncio.TimeoutError
+
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.asyncio.wait_for",
+        _timeout_wait_for,
+    )
+    monkeypatch.setenv("ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS", "0.1")
+
+    created = await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        session_id="session-001",
+        content={"title": "带超时的摘要"},
+    )
+
+    assert created.id == "artifact-timeout"
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_disables_accretion_timeout_with_non_positive_value(
+    monkeypatch,
+):
+    service = ProjectSpaceService()
+    artifact = SimpleNamespace(
+        id="artifact-no-timeout",
+        projectId="project-001",
+        type="summary",
+        storagePath="generated/summary.json",
+    )
+    service.db = SimpleNamespace(
+        create_artifact=AsyncMock(return_value=artifact),
+        get_project_version=AsyncMock(
+            return_value=SimpleNamespace(id="version-001", projectId="project-001")
+        ),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001",
+                currentVersionId="version-001",
+            )
+        ),
+    )
+
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        AsyncMock(return_value="generated/summary.json"),
+    )
+    accrete_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts._silently_accrete_artifact",
+        accrete_mock,
+    )
+    wait_for_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.asyncio.wait_for",
+        wait_for_mock,
+    )
+    monkeypatch.setenv("ARTIFACT_SILENT_ACCRETION_TIMEOUT_SECONDS", "0")
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        session_id="session-001",
+        content={"title": "无超时摘要"},
+    )
+
+    accrete_mock.assert_awaited_once()
+    wait_for_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_replace_prefers_current_artifact_over_first_candidate(
+    monkeypatch,
+):
+    service = ProjectSpaceService()
+    superseded_artifact = SimpleNamespace(
+        id="artifact-old-superseded",
+        projectId="project-001",
+        type="summary",
+        visibility="private",
+        sessionId="session-001",
+        ownerUserId="user-001",
+        metadata='{"created_by":"user-001","mode":"create","is_current":false}',
+        basedOnVersionId="version-001",
+    )
+    current_artifact = SimpleNamespace(
+        id="artifact-old-current",
+        projectId="project-001",
+        type="summary",
+        visibility="private",
+        sessionId="session-001",
+        ownerUserId="user-001",
+        metadata='{"created_by":"user-001","mode":"create","is_current":true}',
+        basedOnVersionId="version-001",
+    )
+    new_artifact = SimpleNamespace(
+        id="artifact-new-current",
+        projectId="project-001",
+        type="summary",
+        storagePath="generated/summary.json",
+    )
+    create_artifact = AsyncMock(return_value=new_artifact)
+    update_artifact_metadata = AsyncMock()
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        update_artifact_metadata=update_artifact_metadata,
+        get_project_artifacts=AsyncMock(
+            return_value=[superseded_artifact, current_artifact]
+        ),
+        get_project_version=AsyncMock(
+            return_value=SimpleNamespace(id="version-001", projectId="project-001")
+        ),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001",
+                currentVersionId="version-001",
+            )
+        ),
+    )
+
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        AsyncMock(return_value="generated/summary.json"),
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        session_id="session-001",
+        content={"title": "更新后摘要"},
+        artifact_mode="replace",
+    )
+
+    assert (
+        create_artifact.await_args.kwargs["metadata"]["replaces_artifact_id"]
+        == "artifact-old-current"
+    )
+    assert update_artifact_metadata.await_args.args[0] == "artifact-old-current"
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_replace_prefers_matching_version_anchor(monkeypatch):
+    service = ProjectSpaceService()
+    current_other_version = SimpleNamespace(
+        id="artifact-current-other",
+        projectId="project-001",
+        type="summary",
+        visibility="private",
+        sessionId="session-001",
+        ownerUserId="user-001",
+        metadata='{"created_by":"user-001","mode":"create","is_current":true}',
+        basedOnVersionId="version-other",
+    )
+    current_target_version = SimpleNamespace(
+        id="artifact-current-target",
+        projectId="project-001",
+        type="summary",
+        visibility="private",
+        sessionId="session-001",
+        ownerUserId="user-001",
+        metadata='{"created_by":"user-001","mode":"create","is_current":true}',
+        basedOnVersionId="version-target",
+    )
+    new_artifact = SimpleNamespace(
+        id="artifact-new-target",
+        projectId="project-001",
+        type="summary",
+        storagePath="generated/summary.json",
+    )
+    create_artifact = AsyncMock(return_value=new_artifact)
+    update_artifact_metadata = AsyncMock()
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        update_artifact_metadata=update_artifact_metadata,
+        get_project_artifacts=AsyncMock(
+            return_value=[current_other_version, current_target_version]
+        ),
+        get_project_version=AsyncMock(
+            return_value=SimpleNamespace(id="version-target", projectId="project-001")
+        ),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(
+                id="project-001",
+                currentVersionId="version-current",
+            )
+        ),
+    )
+
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        AsyncMock(return_value="generated/summary.json"),
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        session_id="session-001",
+        based_on_version_id="version-target",
+        content={"title": "更新后摘要"},
+        artifact_mode="replace",
+    )
+
+    assert (
+        create_artifact.await_args.kwargs["metadata"]["replaces_artifact_id"]
+        == "artifact-current-target"
+    )
+    assert update_artifact_metadata.await_args.args[0] == "artifact-current-target"
+
+
+@pytest.mark.asyncio
 async def test_create_artifact_replace_marks_replacement_lineage(monkeypatch):
     service = ProjectSpaceService()
     previous_artifact = SimpleNamespace(
@@ -303,7 +590,9 @@ async def test_create_artifact_replace_marks_replacement_lineage(monkeypatch):
         create_artifact=create_artifact,
         update_artifact_metadata=update_artifact_metadata,
         get_project_artifacts=AsyncMock(return_value=[previous_artifact]),
-        get_project_version=AsyncMock(return_value=None),
+        get_project_version=AsyncMock(
+            return_value=SimpleNamespace(id="version-001", projectId="project-001")
+        ),
         get_project=AsyncMock(
             return_value=SimpleNamespace(
                 id="project-001",

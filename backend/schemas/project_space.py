@@ -189,11 +189,11 @@ class ArtifactsResponse(BaseModel):
 
 
 class ProjectReferenceBase(BaseModel):
-    target_project_id: str
+    target_project_id: str = Field(..., min_length=1)
     relation_type: ReferenceRelationType
     mode: ReferenceMode
     pinned_version_id: Optional[str] = None
-    priority: int = Field(default=0)
+    priority: int = Field(default=0, ge=0, le=100)
 
 
 class ProjectReferenceCreate(ProjectReferenceBase):
@@ -248,7 +248,7 @@ class SimpleSuccessResponse(BaseModel):
 
 
 class CandidateChangeBase(BaseModel):
-    title: str
+    title: str = Field(..., min_length=1, max_length=200)
     summary: Optional[str] = None
     payload: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = None

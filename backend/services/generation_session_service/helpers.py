@@ -1,10 +1,12 @@
 from .capability_helpers import (
     _default_capabilities,
     _extract_template_config,
+    _inspect_queue_worker_availability,
     _is_queue_worker_available,
     _normalize_task_type,
     _parse_json_object,
     _resolve_capability_from_artifact,
+    _resolve_queue_worker_availability,
 )
 from .outline_helpers import (
     _build_outline_requirements,
@@ -23,9 +25,11 @@ __all__ = [
     "_default_capabilities",
     "_extract_outline_style",
     "_extract_template_config",
+    "_inspect_queue_worker_availability",
     "_is_queue_worker_available",
     "_normalize_task_type",
     "_parse_json_object",
+    "_resolve_queue_worker_availability",
     "_resolve_capability_from_artifact",
     "_state_to_legacy_status",
     "_to_generation_event",

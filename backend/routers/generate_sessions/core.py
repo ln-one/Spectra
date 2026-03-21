@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from routers.generate_sessions.shared import (
     get_session_service,
     get_task_queue_service,
+    load_session_runtime_or_raise,
     load_session_snapshot_or_raise,
     parse_idempotency_key,
 )
@@ -29,6 +30,43 @@ from utils.responses import success_response
 
 router = APIRouter()
 
+_EVENTS_ACCEPT_JSON = "application/json"
+_EVENTS_ACCEPT_SSE = "text/event-stream"
+
+
+def _resolve_events_accept_mode(
+    *,
+    query_accept: Optional[str],
+    header_accept: Optional[str],
+) -> str:
+    """Resolve events transport mode with query-parameter priority.
+
+    Backward compatibility:
+    - keep supporting `accept=application/json` query parameter
+    - additionally allow standard HTTP Accept negotiation for SDK clients
+    """
+    if query_accept:
+        normalized = query_accept.strip().lower()
+        if _EVENTS_ACCEPT_JSON in normalized:
+            return _EVENTS_ACCEPT_JSON
+        if _EVENTS_ACCEPT_SSE in normalized:
+            return _EVENTS_ACCEPT_SSE
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=(
+                "accept must be one of "
+                f"[{_EVENTS_ACCEPT_SSE}, {_EVENTS_ACCEPT_JSON}]"
+            ),
+        )
+
+    normalized_header = (header_accept or "").lower()
+    if _EVENTS_ACCEPT_JSON in normalized_header:
+        return _EVENTS_ACCEPT_JSON
+    if _EVENTS_ACCEPT_SSE in normalized_header:
+        return _EVENTS_ACCEPT_SSE
+    return _EVENTS_ACCEPT_SSE
+
 
 @router.get("/sessions")
 async def list_sessions(
@@ -42,14 +80,14 @@ async def list_sessions(
         await get_owned_project(project_id, user_id)
 
         skip = (page - 1) * limit
-        sessions = await db_service.db.generationsession.find_many(
-            where={"projectId": project_id},
-            skip=skip,
-            take=limit,
-            order={"updatedAt": "desc"},
-        )
-        total = await db_service.db.generationsession.count(
-            where={"projectId": project_id}
+        sessions, total = await asyncio.gather(
+            db_service.db.generationsession.find_many(
+                where={"projectId": project_id},
+                skip=skip,
+                take=limit,
+                order={"updatedAt": "desc"},
+            ),
+            db_service.db.generationsession.count(where={"projectId": project_id}),
         )
 
         payload = [
@@ -169,9 +207,11 @@ async def get_generation_session(
 
 @router.get("/sessions/{session_id}/events")
 async def get_session_events(
+    request: Request,
     session_id: str,
     cursor: Optional[str] = Query(None, description="断线续传游标"),
-    accept: Optional[str] = Query("text/event-stream"),
+    accept: Optional[str] = Query(None),
+    accept_header: Optional[str] = Header(None, alias="Accept"),
     token: Optional[str] = Query(
         None, description="SSE token (when Authorization header is unavailable)"
     ),
@@ -187,9 +227,14 @@ async def get_session_events(
             raise UnauthorizedException(message="缺少认证信息")
     svc = get_session_service()
 
-    await load_session_snapshot_or_raise(svc, session_id, user_id)
+    await load_session_runtime_or_raise(svc, session_id, user_id)
 
-    if accept == "application/json":
+    mode = _resolve_events_accept_mode(
+        query_accept=request.query_params.get("accept") or accept,
+        header_accept=accept_header,
+    )
+
+    if mode == _EVENTS_ACCEPT_JSON:
         events = await svc.get_events(session_id, user_id, cursor=cursor)
         return success_response(data={"events": events}, message="获取事件成功")
 

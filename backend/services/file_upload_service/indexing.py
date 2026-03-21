@@ -5,6 +5,8 @@ from typing import Optional
 from fastapi import BackgroundTasks, Request
 
 from services.database import db_service
+from services.task_queue.status import inspect_worker_availability
+from services.task_queue.status_constants import QueueWorkerAvailability
 
 from .constants import UploadStatus
 
@@ -17,8 +19,6 @@ async def index_upload_for_rag(
     project_id: str,
     session_id: Optional[str] = None,
 ):
-    await db_service.update_upload_status(upload.id, status=UploadStatus.PARSING.value)
-
     try:
         from services.media.rag_indexing import (
             index_upload_file_for_rag as index_upload,
@@ -64,12 +64,16 @@ def dispatch_rag_indexing(
     task_queue_service = getattr(request.app.state, "task_queue_service", None)
     if task_queue_service is not None:
         try:
-            queue_info = task_queue_service.get_queue_info()
-            workers = (queue_info.get("workers") or {}).get("count", 0)
-            if workers <= 0:
+            availability = inspect_worker_availability(task_queue_service)
+            if availability["status"] != QueueWorkerAvailability.AVAILABLE.value:
                 logger.warning(
-                    "No RQ workers detected, fallback to BackgroundTasks: file_id=%s",
+                    "RAG indexing queue unavailable, fallback to BackgroundTasks: "
+                    "file_id=%s queue_health=%s workers=%s stale=%s error=%s",
                     upload.id,
+                    availability["status"],
+                    availability.get("worker_count", 0),
+                    availability.get("stale_worker_count", 0),
+                    availability.get("error"),
                 )
             else:
                 task_queue_service.enqueue_rag_indexing_task(
