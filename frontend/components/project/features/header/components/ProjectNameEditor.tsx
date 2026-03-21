@@ -49,7 +49,7 @@ export function ProjectNameEditor({
       <motion.div
         initial={{ opacity: 0, scale: 0.95, x: -10 }}
         animate={{ opacity: 1, scale: 1, x: 0 }}
-        className="flex items-center gap-1.5 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-1 shadow-sm"
+        className="project-title-editor-shell flex items-center gap-1.5 rounded-[var(--project-chip-radius)] border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-1 shadow-sm"
       >
         <Input
           ref={inputRef}
@@ -59,13 +59,13 @@ export function ProjectNameEditor({
             if (event.key === "Enter") handleSaveEdit();
             if (event.key === "Escape") handleCancelEdit();
           }}
-          className="h-8 w-[220px] border-0 px-2 text-[15px] font-semibold text-[var(--project-text-primary)] focus-visible:outline-none focus-visible:ring-0"
+          className="project-title-editor-input h-8 w-[220px] border-0 px-2 text-[15px] font-semibold text-[var(--project-text-primary)] focus-visible:outline-none focus-visible:ring-0"
           placeholder="输入项目名称"
         />
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+          className="project-title-editor-action-save h-7 w-7 rounded-[var(--project-chip-radius)] text-[var(--project-success)] hover:bg-[var(--project-success-soft)] hover:text-[var(--project-success)]"
           onClick={handleSaveEdit}
         >
           <Check className="w-4 h-4" />
@@ -73,7 +73,7 @@ export function ProjectNameEditor({
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
+          className="project-title-editor-action-cancel h-7 w-7 rounded-[var(--project-chip-radius)] text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
           onClick={handleCancelEdit}
         >
           <X className="w-4 h-4" />
@@ -87,12 +87,12 @@ export function ProjectNameEditor({
       onClick={handleStartEdit}
       title="点击编辑项目名称"
       whileTap={{ scale: 0.98 }}
-      className="group -ml-1.5 flex items-center gap-2 rounded-xl px-3 py-1.5 transition-all duration-300 hover:bg-[var(--project-surface)]"
+      className="project-title-trigger group -ml-1.5 flex items-center gap-2 rounded-[var(--project-chip-radius)] px-3 py-1.5 transition-all duration-300 hover:bg-[var(--project-surface)]"
     >
-      <h1 className="max-w-[320px] truncate text-[30px] font-bold leading-[1.05] tracking-tight text-[var(--project-heading,#27272a)]">
+      <h1 className="project-title-text max-w-[320px] truncate text-[30px] font-bold leading-[1.05] tracking-tight text-[var(--project-heading,#27272a)]">
         {projectName ?? "加载中..."}
       </h1>
-      <div className="-translate-x-2 flex items-center justify-center rounded-md bg-[var(--project-surface-muted)] px-1.5 py-0.5 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
+      <div className="project-title-edit-hint -translate-x-2 flex items-center justify-center rounded-[var(--project-chip-radius)] bg-[var(--project-surface-muted)] px-1.5 py-0.5 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
         <span className="text-[18px] font-medium text-[var(--project-text-muted)]">
           编辑
         </span>

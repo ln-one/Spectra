@@ -8,7 +8,11 @@ import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
 import { formatSessionTime } from "./constants";
-import { isThemePreset, PROJECT_THEME_STORAGE_KEY } from "./theme";
+import {
+  DEFAULT_PROJECT_THEME_PRESET,
+  PROJECT_THEME_STORAGE_KEY,
+  resolveProjectThemePreset,
+} from "./theme";
 import {
   resolvePreferredSessionId,
   useProjectPanelLayout,
@@ -55,7 +59,7 @@ export function useProjectDetailController() {
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [selectedThemePreset, setSelectedThemePreset] =
-    useState<ThemePresetId>("mist-zinc");
+    useState<ThemePresetId>(DEFAULT_PROJECT_THEME_PRESET);
 
   const panelLayout = useProjectPanelLayout({ layoutMode, isLoading });
 
@@ -87,9 +91,7 @@ export function useProjectDetailController() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const storedTheme = window.localStorage.getItem(PROJECT_THEME_STORAGE_KEY);
-    if (isThemePreset(storedTheme)) {
-      setSelectedThemePreset(storedTheme);
-    }
+    setSelectedThemePreset(resolveProjectThemePreset(storedTheme));
   }, []);
 
   useEffect(() => {

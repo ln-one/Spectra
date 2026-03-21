@@ -465,12 +465,12 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 
   return (
     <div
-      className="h-full bg-transparent"
+      className="project-panel-root h-full bg-transparent"
       style={{ transform: "translateZ(0)" }}
     >
-      <Card className="h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
+      <Card className="project-panel-card project-studio-panel h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <CardHeader
-          className="relative flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
+          className="project-panel-header relative flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
           style={{ height: "52px" }}
         >
           <div className="min-w-0 flex-1 overflow-hidden">
@@ -528,7 +528,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                 layoutId={`icon-${expandedTool}`}
                 layout="position"
                 className={cn(
-                  "flex items-center justify-center rounded-xl border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
+                  "project-tool-icon-shell flex items-center justify-center rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
                 )}
                 style={{
                   width: 40,
@@ -656,11 +656,11 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       </div>
                     ) : ExpandedToolComponent ? (
                       <div className="h-full flex flex-col gap-2">
-                        <div className="rounded-lg border border-zinc-200 bg-white/80 px-2 py-2 flex items-center gap-2">
+                        <div className="project-studio-protocol-bar rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-control-bg)] px-2 py-2 flex items-center gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 text-xs"
+                            className="project-studio-protocol-btn h-8 text-xs"
                             onClick={() => {
                               void handleStudioPreviewExecution();
                             }}
@@ -675,7 +675,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 text-xs"
+                            className="project-studio-protocol-btn h-8 text-xs"
                             onClick={() => {
                               void handleStudioLoadSources();
                             }}
@@ -697,7 +697,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                   [currentCardId]: event.target.value || null,
                                 }))
                               }
-                              className="h-8 rounded-md border border-zinc-200 bg-white px-2 text-xs"
+                              className="project-studio-protocol-select h-8 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-2 text-xs text-[var(--project-text-primary)]"
                             >
                               {sourceOptionsByCard[currentCardId].map(
                                 (item) => (
@@ -713,7 +713,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-8 text-xs"
+                              className="project-studio-protocol-btn h-8 text-xs"
                               onClick={() => {
                                 void handleStudioRefine();
                               }}
@@ -723,7 +723,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                             </Button>
                             <Button
                               size="sm"
-                              className="h-8 text-xs"
+                              className="project-studio-protocol-btn project-studio-protocol-btn-primary h-8 text-xs"
                               onClick={() => {
                                 void handleStudioExecute();
                               }}
@@ -734,23 +734,23 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                           </div>
                         </div>
                         {currentCardId ? (
-                          <div className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2 text-[11px] text-zinc-600">
+                          <div className="project-studio-protocol-meta rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-muted)] px-3 py-2 text-[11px] text-[var(--project-control-muted)]">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
+                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
                                 readiness: {currentReadiness ?? "loading"}
                               </span>
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
+                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
                                 context:{" "}
                                 {currentCapability?.context_mode ?? "unknown"}
                               </span>
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
+                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
                                 mode:{" "}
                                 {currentCapability?.execution_mode ?? "unknown"}
                               </span>
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
+                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
                                 refine: {supportsChatRefine ? "on" : "off"}
                               </span>
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
+                              <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
                                 source:{" "}
                                 {requiresSourceArtifact
                                   ? "required"

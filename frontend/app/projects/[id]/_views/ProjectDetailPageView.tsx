@@ -20,7 +20,11 @@ import {
   PANEL_TOP_INSET,
   springConfig,
 } from "./constants";
-import { getProjectTheme, getProjectThemeStyle } from "./theme";
+import {
+  getProjectTheme,
+  getProjectThemeAttributes,
+  getProjectThemeStyle,
+} from "./theme";
 import { useProjectDetailController } from "./useProjectDetailController";
 
 export default function ProjectDetailPage() {
@@ -65,10 +69,32 @@ export default function ProjectDetailPage() {
   const sourcesWidth = sourcesWidthPercent;
   const activeTheme = getProjectTheme(selectedThemePreset);
   const pageThemeStyle = getProjectThemeStyle(selectedThemePreset);
+  const pageThemeAttributes = getProjectThemeAttributes(selectedThemePreset);
+  const lightRayPreset =
+    activeTheme.styleVariant === "ocean-cyan"
+      ? { count: 9, blur: 48, speed: 16, opacityClass: "opacity-85" }
+      : activeTheme.styleVariant === "teal-mint"
+        ? { count: 8, blur: 40, speed: 17, opacityClass: "opacity-82" }
+        : activeTheme.styleVariant === "ink-sky"
+          ? { count: 7, blur: 28, speed: 15, opacityClass: "opacity-72" }
+          : activeTheme.styleVariant === "forest-emerald"
+            ? { count: 5, blur: 30, speed: 20, opacityClass: "opacity-55" }
+            : activeTheme.styleVariant === "sand-ochre"
+              ? { count: 4, blur: 24, speed: 21, opacityClass: "opacity-52" }
+              : activeTheme.styleVariant === "sunset-amber"
+                ? { count: 8, blur: 34, speed: 18, opacityClass: "opacity-76" }
+                : activeTheme.styleVariant === "graphite-blue"
+          ? { count: 6, blur: 26, speed: 14, opacityClass: "opacity-70" }
+          : activeTheme.styleVariant === "lavender-slate"
+            ? { count: 7, blur: 30, speed: 16, opacityClass: "opacity-74" }
+            : activeTheme.styleVariant === "rose-wine"
+              ? { count: 7, blur: 32, speed: 17, opacityClass: "opacity-76" }
+                : { count: 7, blur: 40, speed: 18, opacityClass: "opacity-80" };
 
   return (
     <div
-      className="h-screen flex flex-col bg-[var(--project-bg-base)] overflow-hidden relative"
+      {...pageThemeAttributes}
+      className="project-theme-root h-screen flex flex-col bg-[var(--project-bg-base)] overflow-hidden relative"
       style={pageThemeStyle}
     >
       <div
@@ -79,12 +105,12 @@ export default function ProjectDetailPage() {
         }}
       />
       <LightRays
-        count={7}
-        color={activeTheme.rayColor}
-        blur={40}
-        speed={18}
+        count={lightRayPreset.count}
+        color={activeTheme.colorTokens.rayColor}
+        blur={lightRayPreset.blur}
+        speed={lightRayPreset.speed}
         length="90vh"
-        className="opacity-80"
+        className={lightRayPreset.opacityClass}
       />
 
       <ProjectHeader
