@@ -158,6 +158,19 @@ async def test_get_project_members_filters_active_member_status():
 
 
 @pytest.mark.asyncio
+async def test_get_project_member_by_user_can_include_inactive():
+    service = DatabaseService()
+    find_first = AsyncMock(return_value=None)
+    service.db = SimpleNamespace(projectmember=SimpleNamespace(find_first=find_first))
+
+    await service.get_project_member_by_user("p-001", "u-002", include_inactive=True)
+
+    assert find_first.await_args.kwargs == {
+        "where": {"projectId": "p-001", "userId": "u-002"}
+    }
+
+
+@pytest.mark.asyncio
 async def test_update_project_reference_normalizes_mode_and_status():
     service = DatabaseService()
     update_reference = AsyncMock(return_value=SimpleNamespace(id="r-001"))

@@ -65,6 +65,12 @@
 - Meaning: placeholder PPTX/DOCX output is a development-only degradation path and should not be the default production behavior.
 - Why it matters: fake Office files hide render-toolchain failures and make success semantics misleading.
 
+### 2.8 Project owner is implicit, not a managed member concept
+
+- Status: `confirmed`
+- Meaning: the project owner is derived from `project.userId`; member-management APIs should not create duplicate owner memberships or allow owner membership semantics to be mutated into disabled/non-owner states.
+- Why it matters: mixing implicit ownership with editable managed-member records creates permission ambiguity and weakens project-space semantics.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated

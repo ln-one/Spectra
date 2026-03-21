@@ -69,6 +69,10 @@ def extract_completion_payload(response) -> tuple[str, int | None]:
     return content, tokens_used
 
 
+def normalize_route_task_value(route_task) -> str | None:
+    return str(route_task) if route_task is not None else None
+
+
 def describe_completion_error(exc: Exception) -> dict[str, Any]:
     raw_message = str(exc).strip() or exc.__class__.__name__
     lowered = raw_message.lower()

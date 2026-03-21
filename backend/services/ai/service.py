@@ -13,6 +13,7 @@ from services.ai.completion_runtime import (
     build_completion_payload,
     build_stub_payload,
     extract_completion_payload,
+    normalize_route_task_value,
     raise_external_service_error,
     with_route_failure,
 )
@@ -208,11 +209,7 @@ class AIService(CoursewareAIMixin):
                 exc=e,
                 requested_model=requested_model,
                 resolved_model=resolved_model,
-                route_task=(
-                    str(normalized_route_task)
-                    if normalized_route_task is not None
-                    else None
-                ),
+                route_task=normalize_route_task_value(normalized_route_task),
                 fallback_triggered=fallback_triggered,
             )
         except Exception as e:
@@ -282,11 +279,7 @@ class AIService(CoursewareAIMixin):
                 exc=e,
                 requested_model=requested_model,
                 resolved_model=resolved_model,
-                route_task=(
-                    str(normalized_route_task)
-                    if normalized_route_task is not None
-                    else None
-                ),
+                route_task=normalize_route_task_value(normalized_route_task),
                 fallback_triggered=fallback_triggered,
             )
 

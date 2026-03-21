@@ -20,14 +20,13 @@ class ProjectSpaceMemberMixin:
     async def get_project_member(self, member_id: str):
         return await self.db.projectmember.find_unique(where={"id": member_id})
 
-    async def get_project_member_by_user(self, project_id: str, user_id: str):
-        return await self.db.projectmember.find_first(
-            where={
-                "projectId": project_id,
-                "userId": user_id,
-                "status": ProjectMemberStatus.ACTIVE,
-            }
-        )
+    async def get_project_member_by_user(
+        self, project_id: str, user_id: str, *, include_inactive: bool = False
+    ):
+        where = {"projectId": project_id, "userId": user_id}
+        if not include_inactive:
+            where["status"] = ProjectMemberStatus.ACTIVE
+        return await self.db.projectmember.find_first(where=where)
 
     async def create_project_member(
         self,
