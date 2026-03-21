@@ -14,7 +14,7 @@ from services.media.embedding import EmbeddingService
 @pytest.fixture
 def dashscope_svc():
     """DashScope 模式的 EmbeddingService"""
-    return EmbeddingService(model="qwen3-vl-embedding")
+    return EmbeddingService(model="text-embedding-v2")
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ class TestEmbeddingServiceDashScope:
 
     @pytest.mark.asyncio
     async def test_embed_dashscope_without_api_key_falls_back_to_local(self):
-        svc = EmbeddingService(model="qwen3-vl-embedding")
+        svc = EmbeddingService(model="text-embedding-v2")
 
         with (
             patch("services.media.embedding.DASHSCOPE_API_KEY", ""),
@@ -76,6 +76,10 @@ class TestEmbeddingServiceDashScope:
 
     def test_use_dashscope_flag(self, dashscope_svc):
         assert dashscope_svc._use_dashscope() is True
+
+    def test_text_embedding_v2_is_treated_as_dashscope(self):
+        svc = EmbeddingService(model="text-embedding-v2")
+        assert svc._use_dashscope() is True
 
 
 class TestEmbeddingServiceLocal:

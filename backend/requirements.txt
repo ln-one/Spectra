@@ -21,7 +21,7 @@ slowapi==0.1.9                     # Rate limiting
 
 # AI & LLM (不使用 LangChain，仅用 LiteLLM 做路由)
 litellm==1.81.13           # LLM 统一接口（支持 Qwen/GPT/Claude）
-dashscope>=1.14.0          # 阿里云通义千问 SDK（DashScope qwen3-vl-embedding + Qwen）
+dashscope>=1.14.0          # 阿里云通义千问 SDK（DashScope text-embedding-v2 + Qwen）
 
 # Vector Database & RAG
 chromadb>=0.4.22           # 向量数据库（MVP 阶段嵌入式运行）
