@@ -28,6 +28,7 @@ export default function ProjectDetailPage() {
     router,
     project,
     isLoading,
+    isBootstrapping,
     projectId,
     isExpanded,
     sessionOptions,
@@ -53,7 +54,7 @@ export default function ProjectDetailPage() {
     handleToggleExpandedSources,
   } = useProjectDetailController();
 
-  if (isLoading) {
+  if (isLoading || isBootstrapping) {
     return <ProjectDetailLoading />;
   }
 

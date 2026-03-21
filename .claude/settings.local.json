@@ -24,7 +24,8 @@
       "Bash(flake8:*)",
       "Bash(xargs wc -l)",
       "Bash(find F:/Code/pycharm/Spectra/frontend -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.js\" -o -name \"*.jsx\" \\\\\\) ! -path \"*/node_modules/*\" ! -path \"*/ui/*\" ! -path \"*/.next/*\" -exec wc -l {} +)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(gh api:*)"
     ]
   }
 }
