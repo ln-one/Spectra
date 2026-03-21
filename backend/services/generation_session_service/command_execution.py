@@ -31,9 +31,36 @@ async def load_cached_command_response(
     cached = await db.idempotencykey.find_unique(
         where={"key": f"cmd:{user_id}:{session_id}:{idempotency_key}"}
     )
-    if cached:
-        return json.loads(cached.response)
-    return None
+    if not cached:
+        return None
+
+    raw_response = getattr(cached, "response", None)
+    if not isinstance(raw_response, str) or not raw_response.strip():
+        logger.warning(
+            "Skip malformed command idempotency cache entry: session=%s key=%s",
+            session_id,
+            idempotency_key,
+        )
+        return None
+
+    try:
+        parsed = json.loads(raw_response)
+    except json.JSONDecodeError:
+        logger.warning(
+            "Skip unreadable command idempotency cache entry: session=%s key=%s",
+            session_id,
+            idempotency_key,
+        )
+        return None
+
+    if not isinstance(parsed, dict):
+        logger.warning(
+            "Skip non-object command idempotency cache entry: session=%s key=%s",
+            session_id,
+            idempotency_key,
+        )
+        return None
+    return parsed
 
 
 async def load_and_validate_session(

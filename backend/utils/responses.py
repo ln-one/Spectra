@@ -153,12 +153,3 @@ def error_response(
         "error": error_dict,
         "message": root_message or "请求失败",
     }
-
-
-# TODO: Create response wrapper decorator
-# This decorator can automatically wrap route responses in the standard format
-# Example:
-# @router.get("/users")
-# @wrap_response
-# async def get_users():
-#     return {"users": [...]}  # Will be wrapped in success_response()

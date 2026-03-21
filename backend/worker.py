@@ -61,24 +61,6 @@ def signal_handler(signum, frame):
         sys.exit(0)
 
 
-async def _run_worker():
-    """Establish DB connection and run worker."""
-    from services.database import db_service as global_db
-
-    # Connect global DB service for the worker process
-    await global_db.connect()
-    try:
-        # main() now runs stale-task recovery before worker start.
-        # Keep DB connection logic near worker.work() initialization.
-        # worker.work() is blocking, so this helper stays as a placeholder.
-        pass
-    except Exception as e:
-        logger.error(f"Worker startup connection error: {e}")
-
-    # We'll actually do the connection in main() before worker.work()
-    # since worker.work() is blocking and synchronous.
-
-
 def main():
     """启动 RQ Worker"""
     global worker_instance
