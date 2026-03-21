@@ -87,6 +87,19 @@ async def load_session_snapshot_or_raise(
         raise _forbidden_session_access() from exc
 
 
+async def load_session_runtime_or_raise(
+    svc: GenerationSessionService,
+    session_id: str,
+    user_id: str,
+) -> dict:
+    try:
+        return await svc.get_session_runtime_state(session_id, user_id)
+    except ValueError as exc:
+        raise _not_found_session() from exc
+    except PermissionError as exc:
+        raise _forbidden_session_access() from exc
+
+
 async def execute_session_command_or_raise(
     svc: GenerationSessionService,
     *,

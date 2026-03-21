@@ -20,7 +20,7 @@ from services.generation_session_service.constants import (
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
-from utils.dependencies import get_current_user
+from utils.dependencies import get_current_user, get_current_user_optional
 
 
 def _build_test_app() -> FastAPI:
@@ -77,8 +77,10 @@ def mock_db_service():
 @pytest.fixture()
 def _as_user(app):
     app.dependency_overrides[get_current_user] = lambda: "u-001"
+    app.dependency_overrides[get_current_user_optional] = lambda: "u-001"
     yield
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_current_user_optional, None)
 
 
 @pytest.mark.anyio
@@ -486,6 +488,73 @@ async def test_idempotency_prevents_duplicate_creation(app):
     assert response.status_code == 200
     data = response.json()
     assert data["data"]["session"]["session_id"] == "s-001"
+
+
+@pytest.mark.anyio
+async def test_list_sessions_uses_lightweight_select_fields(app, _as_user):
+    mock_project = SimpleNamespace(id="p-001", userId="u-001")
+    session = SimpleNamespace(
+        id="s-001",
+        projectId="p-001",
+        baseVersionId="ver-001",
+        outputType="ppt",
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    mock_db = SimpleNamespace(
+        generationsession=SimpleNamespace(
+            find_many=AsyncMock(return_value=[session]),
+            count=AsyncMock(return_value=1),
+        )
+    )
+
+    with (
+        patch.object(db_service, "get_project", AsyncMock(return_value=mock_project)),
+        patch.object(db_service, "db", mock_db),
+    ):
+        client = TestClient(app)
+        response = client.get("/api/v1/generate/sessions?project_id=p-001")
+
+    assert response.status_code == 200
+    find_many_kwargs = mock_db.generationsession.find_many.await_args.kwargs
+    assert find_many_kwargs["select"] == {
+        "id": True,
+        "projectId": True,
+        "baseVersionId": True,
+        "outputType": True,
+        "state": True,
+        "createdAt": True,
+        "updatedAt": True,
+    }
+
+
+@pytest.mark.anyio
+async def test_session_events_json_uses_runtime_guard_instead_of_snapshot(
+    app, _as_user
+):
+    session_service = SimpleNamespace(
+        get_session_runtime_state=AsyncMock(
+            return_value={"state": GenerationState.DRAFTING_OUTLINE.value}
+        ),
+        get_events=AsyncMock(return_value=[{"cursor": "cur-001"}]),
+    )
+
+    with patch(
+        "routers.generate_sessions.core.get_session_service",
+        return_value=session_service,
+    ):
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/generate/sessions/s-001/events?accept=application/json"
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["events"] == [{"cursor": "cur-001"}]
+    session_service.get_session_runtime_state.assert_awaited_once_with("s-001", "u-001")
+    session_service.get_events.assert_awaited_once_with("s-001", "u-001", cursor=None)
 
 
 @pytest.mark.anyio

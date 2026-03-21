@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from routers.generate_sessions.shared import (
     get_session_service,
     get_task_queue_service,
+    load_session_runtime_or_raise,
     load_session_snapshot_or_raise,
     parse_idempotency_key,
 )
@@ -48,6 +49,15 @@ async def list_sessions(
                 skip=skip,
                 take=limit,
                 order={"updatedAt": "desc"},
+                select={
+                    "id": True,
+                    "projectId": True,
+                    "baseVersionId": True,
+                    "outputType": True,
+                    "state": True,
+                    "createdAt": True,
+                    "updatedAt": True,
+                },
             ),
             db_service.db.generationsession.count(where={"projectId": project_id}),
         )
@@ -187,7 +197,7 @@ async def get_session_events(
             raise UnauthorizedException(message="缺少认证信息")
     svc = get_session_service()
 
-    await load_session_snapshot_or_raise(svc, session_id, user_id)
+    await load_session_runtime_or_raise(svc, session_id, user_id)
 
     if accept == "application/json":
         events = await svc.get_events(session_id, user_id, cursor=cursor)
