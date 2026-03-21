@@ -53,7 +53,8 @@ def to_message(conv) -> dict:
             timestamp=conv.createdAt,
             citations=citations,
         ).model_dump(mode="json")
-    except Exception:
+    except Exception as exc:
+        logger.debug("to_message_fallback_used: id=%s error=%s", conv.id, exc)
         return Message(
             id=conv.id,
             role=conv.role,

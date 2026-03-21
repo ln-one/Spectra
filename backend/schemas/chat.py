@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -69,13 +69,20 @@ class SendMessageRequest(BaseModel):
 class SendMessageResponse(BaseModel):
     """Response data shape for send message endpoint."""
 
+    session_id: Optional[str] = Field(None, description="会话 ID")
     message: Message = Field(..., description="AI 回复消息")
+    rag_hit: bool = Field(False, description="是否命中 RAG")
+    observability: Optional[Dict[str, Any]] = Field(
+        None,
+        description="路由与提示链路观测字段",
+    )
     suggestions: Optional[list[str]] = Field(None, description="后续建议")
 
 
 class GetMessagesResponse(BaseModel):
     """Response data shape for get messages endpoint."""
 
+    session_id: Optional[str] = Field(None, description="会话 ID")
     messages: list[Message] = Field(..., description="消息列表")
     total: int = Field(..., description="总数")
     page: int = Field(..., description="当前页码")
@@ -85,10 +92,20 @@ class GetMessagesResponse(BaseModel):
 class VoiceMessageResponse(BaseModel):
     """Response data shape for voice message endpoint."""
 
+    session_id: Optional[str] = Field(None, description="会话 ID")
     text: str = Field(..., description="识别文本")
     confidence: float = Field(..., ge=0, le=1, description="识别置信度")
     duration: float = Field(..., description="音频时长（秒）")
     message: Message = Field(..., description="自动创建的消息")
+    rag_hit: bool = Field(False, description="语音链路是否命中 RAG")
+    capability_status: Optional[Dict[str, Any]] = Field(
+        None,
+        description="语音识别能力状态",
+    )
+    observability: Optional[Dict[str, Any]] = Field(
+        None,
+        description="路由与提示链路观测字段",
+    )
     suggestions: Optional[list[str]] = Field(None, description="后续建议")
 
 

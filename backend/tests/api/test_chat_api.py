@@ -467,6 +467,25 @@ def test_send_message_project_not_found_403(client, monkeypatch, _as_user):
     assert resp.status_code == 403
 
 
+def test_send_message_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        db_service,
+        "get_project",
+        AsyncMock(side_effect=RuntimeError("db unavailable")),
+    )
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "发送消息失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
+
+
 def test_get_messages_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     convs = [
@@ -593,6 +612,29 @@ def test_get_messages_missing_project_id_400(client, _as_user):
     assert resp.status_code == 400
 
 
+def test_get_messages_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        db_service,
+        "get_conversation_messages",
+        AsyncMock(side_effect=RuntimeError("query failed")),
+    )
+    _mock(monkeypatch, db_service, "count_conversation_messages", 0)
+
+    resp = client.get(
+        "/api/v1/chat/messages?project_id=p-001&page=1&limit=20&session_id=s-001"
+    )
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "获取消息失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
+
+
 def test_voice_message_no_token_401(client):
     resp = client.post(
         "/api/v1/chat/voice",
@@ -714,3 +756,26 @@ def test_voice_message_invalid_idempotency_key_400(client, _as_user):
         headers={"Idempotency-Key": "invalid-uuid"},
     )
     assert resp.status_code == 400
+
+
+def test_voice_message_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        "services.media.audio.transcribe_audio",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("stt down")),
+    )
+
+    resp = client.post(
+        "/api/v1/chat/voice",
+        files={"audio": ("v.wav", b"abc", "audio/wav")},
+        data={"project_id": "p-001"},
+    )
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "语音处理失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]

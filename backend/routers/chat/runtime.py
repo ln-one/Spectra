@@ -1,9 +1,9 @@
+import asyncio
 import os
 import time
 from uuid import UUID, uuid4
 
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 
 from schemas.chat import ChatRouteTask, SendMessageRequest
 from services.ai import ai_service
@@ -12,8 +12,8 @@ from services.database import db_service
 from services.generation_session_service import GenerationSessionService
 from services.generation_session_service.constants import SessionOutputType
 from services.prompt_service import contains_mechanical_option_pattern, prompt_service
-from utils.exceptions import APIException
-from utils.responses import error_response, success_response
+from utils.exceptions import APIException, InternalServerException
+from utils.responses import success_response
 
 from .citation_utils import (
     align_citations_with_content,
@@ -114,23 +114,20 @@ async def process_chat_message(
         )
 
         stage_started = time.perf_counter()
-        rag_results, citations, rag_hit, selected_files_hint, rag_payload = (
-            await load_rag_context(
+        rag_result, history_payload = await asyncio.gather(
+            load_rag_context(
                 project_id=body.project_id,
                 query=body.content,
                 session_id=session_id,
                 rag_source_ids=body.rag_source_ids,
-            )
+            ),
+            build_history_payload(
+                project_id=body.project_id,
+                session_id=session_id,
+            ),
         )
-        stage_timings_ms["load_rag_context"] = round(
-            (time.perf_counter() - stage_started) * 1000, 2
-        )
-        stage_started = time.perf_counter()
-        history_payload = await build_history_payload(
-            project_id=body.project_id,
-            session_id=session_id,
-        )
-        stage_timings_ms["load_history"] = round(
+        _rag_results, citations, rag_hit, selected_files_hint, rag_payload = rag_result
+        stage_timings_ms["load_rag_context_and_history"] = round(
             (time.perf_counter() - stage_started) * 1000, 2
         )
 
@@ -304,17 +301,18 @@ async def process_chat_message(
     except Exception as exc:
         logger.error("Send message failed: %s", exc, exc_info=True)
         debug_mode = os.getenv("DEBUG", "false").lower() == "true"
-        details = None
+        details = {
+            "project_id": body.project_id,
+            "session_id": body.session_id,
+        }
         if debug_mode:
-            details = {
-                "exception_type": type(exc).__name__,
-                "exception_message": str(exc),
-            }
-        return JSONResponse(
-            status_code=500,
-            content=error_response(
-                code="INTERNAL_ERROR",
-                message="发送消息失败",
-                details=details,
-            ),
+            details.update(
+                {
+                    "exception_type": type(exc).__name__,
+                    "exception_message": str(exc),
+                }
+            )
+        raise InternalServerException(
+            message="发送消息失败",
+            details=details,
         )
