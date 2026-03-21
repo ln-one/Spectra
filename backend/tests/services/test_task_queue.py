@@ -11,6 +11,7 @@ from rq.job import Job
 
 from services.task_queue import TaskQueueService
 from services.task_queue.status import (
+    _is_worker_fresh,
     inspect_worker_availability,
     resolve_worker_availability,
 )
@@ -290,6 +291,24 @@ def test_inspect_worker_availability_marks_queue_error_as_unknown(task_queue_ser
     assert availability["status"] == QueueWorkerAvailability.UNKNOWN.value
     assert availability["worker_count"] == 0
     assert availability["stale_worker_count"] == 1
+
+
+def test_is_worker_fresh_uses_worker_ttl_when_env_missing(monkeypatch):
+    monkeypatch.delenv("RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS", raising=False)
+    worker = Mock()
+    worker.last_heartbeat = datetime.now(timezone.utc) - timedelta(seconds=100)
+    worker.worker_ttl = 420
+
+    assert _is_worker_fresh(worker) is True
+
+
+def test_is_worker_fresh_respects_env_override(monkeypatch):
+    monkeypatch.setenv("RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS", "60")
+    worker = Mock()
+    worker.last_heartbeat = datetime.now(timezone.utc) - timedelta(seconds=100)
+    worker.worker_ttl = 420
+
+    assert _is_worker_fresh(worker) is False
 
 
 @pytest.mark.asyncio

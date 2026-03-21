@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -14,7 +15,31 @@ from .status_constants import (
 )
 
 logger = logging.getLogger(__name__)
-WORKER_HEARTBEAT_FRESHNESS_SECONDS = 45
+DEFAULT_WORKER_HEARTBEAT_FRESHNESS_SECONDS = 210
+
+
+def _resolve_worker_heartbeat_freshness_seconds(worker=None) -> int:
+    raw = os.getenv("RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS")
+    if raw is not None and str(raw).strip():
+        try:
+            parsed = int(str(raw).strip())
+            if parsed > 0:
+                return parsed
+        except ValueError:
+            logger.warning(
+                "Invalid RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=%s, using default",
+                raw,
+            )
+
+    worker_ttl = getattr(worker, "worker_ttl", None)
+    try:
+        parsed_ttl = int(worker_ttl)
+    except (TypeError, ValueError):
+        parsed_ttl = 0
+    if parsed_ttl > 0:
+        return max(45, parsed_ttl)
+
+    return DEFAULT_WORKER_HEARTBEAT_FRESHNESS_SECONDS
 
 
 def normalize_status(status) -> str:
@@ -28,7 +53,7 @@ def _is_worker_fresh(worker) -> bool:
     if last_heartbeat.tzinfo is None:
         last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
     age_seconds = (datetime.now(timezone.utc) - last_heartbeat).total_seconds()
-    return age_seconds <= WORKER_HEARTBEAT_FRESHNESS_SECONDS
+    return age_seconds <= _resolve_worker_heartbeat_freshness_seconds(worker)
 
 
 def get_job_status(service, job_id: str) -> Optional[dict]:

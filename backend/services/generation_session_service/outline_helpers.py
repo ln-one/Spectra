@@ -77,17 +77,63 @@ def _build_split_slide_title(base_title: str, idx: int, total: int) -> str:
     return f"{base_title}（{idx + 1}/{total}）"
 
 
-def _build_slide_key_points(base_key_points: list[str], idx: int) -> list[str]:
+def _pick_slide_focus_label(base_key_points: list[str], idx: int) -> str | None:
     points = _sanitize_key_points(base_key_points)
-    if any(
-        _focus in point for point in points for _focus in _SLIDE_FOCUS_SUFFIX
-    ):  # section already contains anchor semantics
+    if not points:
+        return None
+    return points[idx % len(points)]
+
+
+def _dedupe_preserve_order(items: list[str]) -> list[str]:
+    deduped: list[str] = []
+    for item in items:
+        if item not in deduped:
+            deduped.append(item)
+    return deduped
+
+
+def _build_split_slide_title_with_focus(
+    base_title: str,
+    base_key_points: list[str],
+    idx: int,
+    total: int,
+) -> str:
+    if total <= 1:
+        return base_title
+
+    focus_label = str(_pick_slide_focus_label(base_key_points, idx) or "").strip()
+    if not focus_label or focus_label in base_title:
+        return _build_split_slide_title(base_title, idx, total)
+
+    title = f"{base_title}：{focus_label}"
+    duplicate_focuses = [
+        _pick_slide_focus_label(base_key_points, cursor) for cursor in range(total)
+    ]
+    if duplicate_focuses.count(focus_label) > 1:
+        return f"{title}（{idx + 1}/{total}）"
+    return title
+
+
+def _build_slide_key_points(
+    base_key_points: list[str], idx: int, total: int
+) -> list[str]:
+    points = _sanitize_key_points(base_key_points)
+    if total <= 1:
         return points
+
+    window_size = min(max(_MIN_KEY_POINTS_PER_SLIDE, 3), max(len(points), 1))
+    start = min(idx, max(len(points) - 1, 0))
+    selected: list[str] = []
+    cursor = start
+    while len(selected) < min(window_size, len(points)):
+        selected.append(points[cursor % len(points)])
+        cursor += 1
+
     focus = _SLIDE_FOCUS_SUFFIX[idx % len(_SLIDE_FOCUS_SUFFIX)]
     focus_point = _SLIDE_FOCUS_POINTS.get(focus)
-    if focus_point and focus_point not in points:
-        points.append(focus_point)
-    return _sanitize_key_points(points)
+    if focus_point and not any(focus in point for point in selected):
+        selected.append(focus_point)
+    return _sanitize_key_points(_dedupe_preserve_order(selected))
 
 
 def _extract_outline_style(options: Optional[dict]) -> Optional[str]:
@@ -162,8 +208,13 @@ def _courseware_outline_to_document(
         count = section.slide_count or 1
         base_key_points = _sanitize_key_points(list(section.key_points or []))
         for idx in range(count):
-            title = _build_split_slide_title(str(section.title or "章节"), idx, count)
-            key_points = _build_slide_key_points(base_key_points, idx)
+            title = _build_split_slide_title_with_focus(
+                str(section.title or "章节"),
+                base_key_points,
+                idx,
+                count,
+            )
+            key_points = _build_slide_key_points(base_key_points, idx, count)
             nodes.append(
                 {
                     "id": str(uuid.uuid4()),

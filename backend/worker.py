@@ -19,6 +19,8 @@ from rq import Queue, SimpleWorker, Worker
 from rq.job import Job, JobStatus
 from rq.registry import StartedJobRegistry
 
+from services.task_queue.status import _resolve_worker_heartbeat_freshness_seconds
+
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -54,7 +56,7 @@ def _recover_stale_started_jobs(
     redis_conn: Redis,
     queue_names: list[str],
     stale_seconds: int = 90,
-    worker_freshness_seconds: int = 45,
+    worker_freshness_seconds: int | None = None,
 ) -> list[dict]:
     """
     Requeue RQ jobs left in STARTED after a worker crash.
@@ -66,7 +68,11 @@ def _recover_stale_started_jobs(
     fresh_worker_names = {
         worker.name
         for worker in workers
-        if _is_worker_fresh(worker, worker_freshness_seconds)
+        if _is_worker_fresh(
+            worker,
+            worker_freshness_seconds
+            or _resolve_worker_heartbeat_freshness_seconds(worker),
+        )
     }
     recovered: list[dict] = []
 
@@ -226,9 +232,7 @@ def main():
                 redis_conn=redis_conn,
                 queue_names=queues,
                 stale_seconds=int(os.getenv("RQ_STALE_JOB_SECONDS", "90")),
-                worker_freshness_seconds=int(
-                    os.getenv("RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS", "45")
-                ),
+                worker_freshness_seconds=_resolve_worker_heartbeat_freshness_seconds(),
             )
             if recovered_jobs:
                 logger.info("Recovered %s stale started RQ jobs", len(recovered_jobs))

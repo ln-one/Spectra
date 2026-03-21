@@ -68,6 +68,7 @@ services:
       - TOOL_CHECK_CACHE_TTL_SECONDS=300
       - HEALTH_TOOL_TIMEOUT_SECONDS=2
       - GENERATION_TOOLS_REQUIRED=true
+      - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CHROMA_MODE=persistent
@@ -141,6 +142,7 @@ services:
       - POSTGRES_BACKUP_PREFIX=spectra-dev
       - WORKER_NAME=worker-1
       - WORKER_RECOVERY_SCAN=true
+      - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
     command: sh -c "prisma migrate deploy && prisma generate && python worker.py"
     depends_on:
       redis:

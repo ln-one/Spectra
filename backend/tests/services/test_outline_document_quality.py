@@ -42,11 +42,11 @@ def test_outline_document_split_titles_are_not_repetitive_indexes():
 
     assert len(set(titles)) == 3
     assert titles == [
-        "核心知识点（1/3）",
-        "核心知识点（2/3）",
-        "核心知识点（3/3）",
+        "核心知识点：概念定义",
+        "核心知识点：例题拆解",
+        "核心知识点：误区辨析",
     ]
-    assert all("·" not in title for title in titles)
+    assert all("（" not in title for title in titles)
 
 
 def test_outline_document_split_key_points_include_focus_anchors():
@@ -69,6 +69,33 @@ def test_outline_document_split_key_points_include_focus_anchors():
     assert "知识地图" in merged_points
     assert "关键例题" in merged_points
     assert "易错点澄清" in merged_points
+
+
+def test_outline_document_split_key_points_are_not_cloned_for_each_slide():
+    outline = CoursewareOutline(
+        title="测试课程",
+        sections=[
+            OutlineSection(
+                title="导入与目标",
+                key_points=[
+                    "学习目标",
+                    "情境导入",
+                    "课堂互动提问",
+                    "板书逻辑预告",
+                    "知识地图",
+                ],
+                slide_count=3,
+            )
+        ],
+    )
+
+    document = _courseware_outline_to_document(outline, target_pages=3)
+    node_point_sets = [tuple(node["key_points"]) for node in document["nodes"]]
+
+    assert len(set(node_point_sets)) == 3
+    assert document["nodes"][0]["title"] == "导入与目标：学习目标"
+    assert document["nodes"][1]["title"] == "导入与目标：情境导入"
+    assert document["nodes"][2]["title"] == "导入与目标：课堂互动提问"
 
 
 def test_outline_document_respects_target_pages_when_need_truncate():
