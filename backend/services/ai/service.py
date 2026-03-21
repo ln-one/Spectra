@@ -40,7 +40,7 @@ class AIService(CoursewareAIMixin):
     """Service for AI operations using LiteLLM."""
 
     def __init__(self):
-        self.default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
+        self.default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-flash")
         self.large_model = os.getenv("LARGE_MODEL", self.default_model)
         self.small_model = os.getenv("SMALL_MODEL", self.default_model)
         self.request_timeout_seconds = float(

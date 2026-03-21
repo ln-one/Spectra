@@ -50,7 +50,7 @@ def _default_capabilities() -> list[dict]:
     video_health = health_status.get("video_understanding")
     speech_health = health_status.get("speech_recognition")
 
-    default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-plus")
+    default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-flash")
     llm_provider = (
         default_model.split("/", 1)[0] if "/" in default_model else default_model
     )
