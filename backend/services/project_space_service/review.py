@@ -15,6 +15,36 @@ from utils.exceptions import ConflictException, NotFoundException, ValidationExc
 logger = logging.getLogger(__name__)
 
 
+def _normalize_change_payload(payload):
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload) if payload else {}
+        except json.JSONDecodeError:
+            payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    return payload
+
+
+async def _validate_change_version_anchor(
+    db, *, project_id: str, base_version_id: Optional[str]
+):
+    if not base_version_id:
+        return
+    base_version = await db.get_project_version(base_version_id)
+    if not base_version or getattr(base_version, "projectId", None) != project_id:
+        raise ConflictException(
+            "Base version is missing or no longer belongs to the project."
+        )
+
+
+async def _validate_created_version(db, *, project_id: str, version):
+    if not version or getattr(version, "projectId", project_id) != project_id:
+        raise ConflictException(
+            "Accepted candidate change created an invalid project version."
+        )
+
+
 async def review_candidate_change(
     db,
     project_id: str,
@@ -53,14 +83,13 @@ async def review_candidate_change(
                 "Base version conflicts with current project version."
             )
 
-        payload = change.payload
-        if isinstance(payload, str):
-            try:
-                payload = json.loads(payload) if payload else {}
-            except json.JSONDecodeError:
-                payload = {}
-        if not isinstance(payload, dict):
-            payload = {}
+        await _validate_change_version_anchor(
+            db,
+            project_id=change.projectId,
+            base_version_id=base_version_id,
+        )
+
+        payload = _normalize_change_payload(change.payload)
 
         references = await db.get_project_references(change.projectId)
         reference_summary = [
@@ -90,6 +119,11 @@ async def review_candidate_change(
             change_type=ChangeType.MERGE_CHANGE,
             snapshot_data=version_snapshot,
             created_by=reviewer_user_id,
+        )
+        await _validate_created_version(
+            db,
+            project_id=change.projectId,
+            version=new_version,
         )
         await db.update_project_current_version(change.projectId, new_version.id)
         review_payload = dict(version_snapshot)

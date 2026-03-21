@@ -71,6 +71,12 @@
 - Meaning: the project owner is derived from `project.userId`; member-management APIs should not create duplicate owner memberships or allow owner membership semantics to be mutated into disabled/non-owner states.
 - Why it matters: mixing implicit ownership with editable managed-member records creates permission ambiguity and weakens project-space semantics.
 
+### 2.9 Candidate-change acceptance must keep version anchors real
+
+- Status: `confirmed`
+- Meaning: accepting a `CandidateChange` is allowed only when its `baseVersionId` still resolves to a real version in the same project, and the accepted merge must create a new version that still belongs to that project before `currentVersionId` advances.
+- Why it matters: comparing `baseVersionId` to `project.currentVersionId` is not enough on its own; without anchor revalidation, the version chain can look successful while drifting semantically.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated
