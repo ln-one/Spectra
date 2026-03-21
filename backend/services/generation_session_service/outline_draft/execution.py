@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
 import uuid
 from typing import Awaitable, Callable, Optional
 
 from services.ai import ai_service
+from services.courseware_ai.outline import get_fallback_outline
 from services.generation_session_service.constants import (
     OutlineChangeReason,
     OutlineGenerationErrorCode,
@@ -19,6 +22,15 @@ from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
 logger = logging.getLogger(__name__)
+
+
+def _outline_draft_timeout_seconds() -> float:
+    raw = os.getenv("OUTLINE_DRAFT_TIMEOUT_SECONDS", "25").strip()
+    try:
+        parsed = float(raw)
+        return parsed if parsed > 0 else 25.0
+    except ValueError:
+        return 25.0
 
 
 def _classify_outline_failure(exc: Exception) -> tuple[str, str, str]:
@@ -74,12 +86,15 @@ async def execute_outline_draft_local(
         next_outline_version = max(int(current_outline_version or 0), 0) + 1
 
         await _emit_outline_progress(append_event, session_id, trace_id)
-        outline_doc = await _generate_outline_doc(
-            db=db,
-            session_id=session_id,
-            project_id=project_id,
-            options=options,
-            ai_service_obj=ai_service_obj,
+        outline_doc = await asyncio.wait_for(
+            _generate_outline_doc(
+                db=db,
+                session_id=session_id,
+                project_id=project_id,
+                options=options,
+                ai_service_obj=ai_service_obj,
+            ),
+            timeout=_outline_draft_timeout_seconds(),
         )
         await _persist_success(
             db=db,
@@ -121,6 +136,8 @@ async def execute_outline_draft_local(
         await _persist_failure_fallback(
             db=db,
             session_id=session_id,
+            project_id=project_id,
+            options=options,
             failure_state_reason=failure_state_reason,
             outline_version=next_outline_version,
         )
@@ -316,14 +333,40 @@ async def _emit_outline_failure(
 
 
 async def _persist_failure_fallback(
-    *, db, session_id: str, failure_state_reason: str, outline_version: int
+    *,
+    db,
+    session_id: str,
+    project_id: str,
+    options: Optional[dict],
+    failure_state_reason: str,
+    outline_version: int,
 ) -> None:
-    empty_outline = {"version": outline_version, "nodes": [], "summary": None}
+    outline_title = "课堂教学大纲"
+    project_model = getattr(db, "project", None)
+    if project_model is not None and hasattr(project_model, "find_unique"):
+        try:
+            project = await project_model.find_unique(where={"id": project_id})
+            if project:
+                outline_title = (
+                    project.get("name")
+                    if isinstance(project, dict)
+                    else getattr(project, "name", None)
+                ) or outline_title
+        except Exception as exc:  # pragma: no cover - defensive path
+            logger.debug("Fallback outline project lookup failed: %s", exc)
+
+    fallback_outline = get_fallback_outline(str(outline_title or "课堂教学大纲"))
+    fallback_outline_doc = _courseware_outline_to_document(
+        fallback_outline,
+        target_pages=(options or {}).get("pages"),
+    )
+    fallback_outline_doc["version"] = outline_version
+
     await db.outlineversion.create(
         data={
             "sessionId": session_id,
             "version": outline_version,
-            "outlineData": json.dumps(empty_outline),
+            "outlineData": json.dumps(fallback_outline_doc),
             "changeReason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
         }
     )

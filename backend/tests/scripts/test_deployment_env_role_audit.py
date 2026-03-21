@@ -40,6 +40,10 @@ def test_backend_role_warns_for_recommended_values_only():
         for message in messages
     )
     assert any(
+        "WARN recommended OUTLINE_DRAFT_TIMEOUT_SECONDS missing" in message
+        for message in messages
+    )
+    assert any(
         "PASS recommended UPLOAD_DIR configured" in message for message in messages
     )
     assert any(

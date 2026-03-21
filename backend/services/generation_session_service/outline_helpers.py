@@ -172,8 +172,18 @@ def _courseware_outline_to_document(
             )
             order += 1
 
-    if target_pages and len(nodes) < target_pages:
-        while len(nodes) < target_pages:
+    normalized_target_pages = None
+    if target_pages is not None:
+        try:
+            parsed_target_pages = int(target_pages)
+            normalized_target_pages = (
+                parsed_target_pages if parsed_target_pages > 0 else None
+            )
+        except (TypeError, ValueError):
+            normalized_target_pages = None
+
+    if normalized_target_pages and len(nodes) < normalized_target_pages:
+        while len(nodes) < normalized_target_pages:
             template_idx = (len(nodes) - 1) % len(_EXTRA_PAGE_SCAFFOLD)
             template_title, template_points = _EXTRA_PAGE_SCAFFOLD[template_idx]
             nodes.append(
@@ -186,6 +196,11 @@ def _courseware_outline_to_document(
                 }
             )
             order += 1
+    elif normalized_target_pages and len(nodes) > normalized_target_pages:
+        nodes = nodes[:normalized_target_pages]
+
+    for idx, node in enumerate(nodes, start=1):
+        node["order"] = idx
 
     return {
         "version": 1,

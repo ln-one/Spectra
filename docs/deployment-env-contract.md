@@ -83,6 +83,18 @@
 
 - `backend api` 与 `worker` 保持一致
 
+### `OUTLINE_DRAFT_TIMEOUT_SECONDS`
+
+用途：
+
+- 控制会话状态 `DRAFTING_OUTLINE` 阶段的大纲草拟超时
+- 超时后快速进入失败回退（避免用户长时间等待）
+
+要求：
+
+- 建议在 `backend api` 与 `worker` 保持一致（例如 `25`）
+- 值应为正数
+
 ### `PREVIEW_REBUILD_TIMEOUT_SECONDS`
 
 用途：

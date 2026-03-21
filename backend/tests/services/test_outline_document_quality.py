@@ -65,3 +65,27 @@ def test_outline_document_split_key_points_include_focus_anchors():
     assert "知识地图" in merged_points
     assert "关键例题" in merged_points
     assert "易错点澄清" in merged_points
+
+
+def test_outline_document_respects_target_pages_when_need_truncate():
+    outline = CoursewareOutline(
+        title="测试课程",
+        sections=[
+            OutlineSection(
+                title="导入",
+                key_points=["目标", "提问", "板书"],
+                slide_count=3,
+            ),
+            OutlineSection(
+                title="核心",
+                key_points=["知识地图", "关键例题", "易错点澄清"],
+                slide_count=3,
+            ),
+        ],
+    )
+
+    document = _courseware_outline_to_document(outline, target_pages=4)
+    nodes = document["nodes"]
+
+    assert len(nodes) == 4
+    assert [node["order"] for node in nodes] == [1, 2, 3, 4]

@@ -133,7 +133,7 @@ def _build_deterministic_outline(
     outline = CoursewareOutline(
         title=user_requirements[:50] or "课堂教学大纲",
         sections=sections,
-        total_slides=sum(section.slide_count for section in sections) + 2,
+        total_slides=sum(section.slide_count for section in sections),
         summary="已按课堂可执行结构生成知识地图+例题+易错点闭环大纲",
     )
     return _align_slide_count_with_target(outline, pages)
@@ -174,7 +174,7 @@ def _inject_focus_anchors(outline: CoursewareOutline) -> CoursewareOutline:
     return CoursewareOutline(
         title=outline.title,
         sections=enriched_sections,
-        total_slides=sum(item.slide_count for item in enriched_sections) + 2,
+        total_slides=sum(item.slide_count for item in enriched_sections),
         summary=outline.summary,
     )
 
@@ -219,7 +219,7 @@ def _align_slide_count_with_target(
     return CoursewareOutline(
         title=outline.title,
         sections=normalized_sections,
-        total_slides=sum(adjusted) + 2,
+        total_slides=sum(adjusted),
         summary=outline.summary,
     )
 
@@ -294,7 +294,7 @@ def _enrich_sparse_outline(outline: CoursewareOutline) -> CoursewareOutline:
         )
         existing_titles.add(normalized_title)
 
-    total_slides = sum(section.slide_count for section in enriched) + 2
+    total_slides = sum(section.slide_count for section in enriched)
     return CoursewareOutline(
         title=outline.title,
         sections=enriched,
@@ -375,7 +375,7 @@ async def generate_outline(
         sections = [OutlineSection(**section) for section in parsed.get("sections", [])]
         if not sections:
             raise ValueError("LLM returned empty sections list")
-        total_slides = sum(section.slide_count for section in sections) + 2
+        total_slides = sum(section.slide_count for section in sections)
 
         outline = CoursewareOutline(
             title=parsed.get("title", user_requirements[:50]),
@@ -428,6 +428,6 @@ def get_fallback_outline(user_requirements: str) -> CoursewareOutline:
                 slide_count=2,
             ),
         ],
-        total_slides=14,
+        total_slides=12,
         summary="基础教学大纲",
     )

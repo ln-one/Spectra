@@ -153,6 +153,7 @@ def test_preflight_validates_timeout_and_runtime_paths():
             "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
             "JWT_SECRET_KEY": "real-secret",
             "AI_REQUEST_TIMEOUT_SECONDS": "invalid",
+            "OUTLINE_DRAFT_TIMEOUT_SECONDS": "0",
             "PREVIEW_REBUILD_TIMEOUT_SECONDS": "0",
             "HEALTH_TOOL_TIMEOUT_SECONDS": "0",
             "TOOL_CHECK_CACHE_TTL_SECONDS": "-1",
@@ -165,9 +166,12 @@ def test_preflight_validates_timeout_and_runtime_paths():
         timeout_seconds=0.1,
     )
 
-    assert failures == 4
+    assert failures == 5
     assert any(
         "AI_REQUEST_TIMEOUT_SECONDS must be a positive number" in m for m in messages
+    )
+    assert any(
+        "OUTLINE_DRAFT_TIMEOUT_SECONDS must be a positive number" in m for m in messages
     )
     assert any(
         "PREVIEW_REBUILD_TIMEOUT_SECONDS must be a positive number" in m

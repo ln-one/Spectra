@@ -34,6 +34,11 @@ ENV_CHECKS: tuple[EnvCheck, ...] = (
     EnvCheck("SMALL_MODEL", False, "small AI model routing target"),
     EnvCheck("AI_REQUEST_TIMEOUT_SECONDS", False, "AI request timeout seconds"),
     EnvCheck(
+        "OUTLINE_DRAFT_TIMEOUT_SECONDS",
+        False,
+        "outline draft timeout seconds",
+    ),
+    EnvCheck(
         "PREVIEW_REBUILD_TIMEOUT_SECONDS",
         False,
         "preview rebuild timeout seconds",
@@ -257,6 +262,19 @@ def _validate_runtime_env_contract(
                 _format(
                     "FAIL",
                     "AI_REQUEST_TIMEOUT_SECONDS must be a positive number",
+                )
+            )
+
+    outline_timeout = env_get("OUTLINE_DRAFT_TIMEOUT_SECONDS")
+    if outline_timeout:
+        if _is_positive_number(outline_timeout):
+            messages.append(_format("PASS", "OUTLINE_DRAFT_TIMEOUT_SECONDS is valid"))
+        else:
+            failures += 1
+            messages.append(
+                _format(
+                    "FAIL",
+                    "OUTLINE_DRAFT_TIMEOUT_SECONDS must be a positive number",
                 )
             )
 

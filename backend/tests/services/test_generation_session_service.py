@@ -946,7 +946,8 @@ async def test_execute_outline_draft_local_failure_path():
     assert outline_data["version"] == 1
     assert outline_data["changeReason"] == "draft_failed_fallback_empty"
     outline_doc = json.loads(outline_data["outlineData"])
-    assert outline_doc["nodes"] == []
+    assert len(outline_doc["nodes"]) == 10
+    assert all(str(node.get("title", "")).strip() for node in outline_doc["nodes"])
 
     state_updates = [
         call.kwargs["data"]

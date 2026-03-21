@@ -54,7 +54,7 @@ class TestGenerateOutline:
         assert "核心" in section_titles
         assert "总结" in section_titles
         # sparse-outline enrichment may expand sections/slides, but should keep baseline size
-        assert outline.total_slides >= 2 + 4 + 1 + 2
+        assert outline.total_slides >= 2 + 4 + 1
         assert outline.summary == "Python 基础教学大纲"
 
     @pytest.mark.asyncio
@@ -324,7 +324,7 @@ class TestGenerateOutline:
         outline = AIService._get_fallback_outline("数学课件")
         assert outline.title == "数学课件"
         assert len(outline.sections) == 4
-        assert outline.total_slides == 14
+        assert outline.total_slides == 12
         section_titles = [s.title for s in outline.sections]
         assert "导入" in section_titles
         assert "总结" in section_titles
