@@ -67,7 +67,7 @@ export function GenerationConfigPanel({
   } = useGenerationConfigPanel({ onGenerate });
 
   return (
-    <div className="relative h-full min-h-0 overflow-hidden p-1">
+    <div className="relative h-full min-h-0 overflow-hidden p-2 lg:p-3">
       <div className="pointer-events-none absolute inset-0 opacity-60">
         <div className="absolute -left-20 top-8 h-44 w-44 rounded-full bg-blue-200/30 blur-3xl" />
         <div className="absolute right-4 top-24 h-36 w-36 rounded-full bg-cyan-200/25 blur-3xl" />
@@ -77,7 +77,7 @@ export function GenerationConfigPanel({
         className={cn(
           "relative z-10 grid h-full min-h-0 gap-3",
           compact
-            ? "grid-cols-1 lg:grid-cols-[152px_minmax(0,1fr)]"
+            ? "grid-cols-1 lg:grid-cols-[132px_minmax(0,1fr)]"
             : "grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]"
         )}
       >
@@ -87,20 +87,23 @@ export function GenerationConfigPanel({
         />
 
         <Card className="h-full min-h-0 border-zinc-200/80 bg-white/85 text-zinc-900 shadow-[0_20px_60px_-45px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-          <ScrollArea className="h-full min-h-0 pr-2">
+          <ScrollArea className="h-full min-h-0 pr-2 lg:pr-3">
             <motion.div
               variants={containerVariants}
               initial="hidden"
               animate="visible"
-              className={cn("space-y-4 px-2 pb-4", compact ? "pt-3" : "pt-4")}
+              className={cn(
+                "space-y-4 px-3 pb-5 lg:px-4",
+                compact ? "pt-3" : "pt-4"
+              )}
             >
               <motion.section variants={itemVariants} className="lg:hidden">
                 <PptWorkflowRail currentStep={1} />
               </motion.section>
 
               <motion.section variants={itemVariants}>
-                <Card className="overflow-hidden border-zinc-200 bg-[linear-gradient(155deg,#ffffff,#f8fafc)] text-zinc-900 shadow-sm">
-                  <CardHeader className="pb-4">
+                <Card className="overflow-hidden rounded-2xl border-zinc-200 bg-[linear-gradient(155deg,#ffffff,#f8fafc)] text-zinc-900 shadow-sm">
+                  <CardHeader className="px-4 pb-4 pt-4 sm:px-5">
                     <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
                       <Wand2 className="h-4 w-4 text-blue-600" />
                       先把课件方向说清楚
@@ -112,7 +115,7 @@ export function GenerationConfigPanel({
                       不用专业术语，像和同事沟通一样写出你的需求就行。
                     </p>
                   </CardHeader>
-                  <CardContent className="grid gap-2 sm:grid-cols-3">
+                  <CardContent className="grid gap-2 px-4 pb-4 pt-0 sm:grid-cols-3 sm:px-5">
                     <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
                       <p className="text-[11px] font-medium text-zinc-500">讲什么</p>
                       <p className="mt-1 text-xs font-medium text-zinc-900">课程主题</p>
@@ -133,14 +136,14 @@ export function GenerationConfigPanel({
                 variants={itemVariants}
                 className="grid gap-4 lg:grid-cols-5"
               >
-                <Card className="border-zinc-200 bg-white/95 text-zinc-900 shadow-sm lg:col-span-3">
-                  <CardHeader className="pb-3">
+                <Card className="rounded-2xl border-zinc-200 bg-white/95 text-zinc-900 shadow-sm lg:col-span-3">
+                  <CardHeader className="px-4 pb-3 pt-4 sm:px-5">
                     <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
                       <Compass className="h-4 w-4 text-blue-600" />
                       课件需求说明
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-2 px-4 pb-4 pt-0 sm:px-5">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label
@@ -167,14 +170,14 @@ export function GenerationConfigPanel({
                   </CardContent>
                 </Card>
 
-                <Card className="border-zinc-200 bg-white/95 text-zinc-900 shadow-sm lg:col-span-2">
-                  <CardHeader className="pb-3">
+                <Card className="rounded-2xl border-zinc-200 bg-white/95 text-zinc-900 shadow-sm lg:col-span-2">
+                  <CardHeader className="px-4 pb-3 pt-4 sm:px-5">
                     <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
                       <FileStack className="h-4 w-4 text-blue-600" />
                       页面设置
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-4 px-4 pb-4 pt-0 sm:px-5">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
                         <FileText className="h-3.5 w-3.5 text-zinc-500" />
@@ -237,8 +240,8 @@ export function GenerationConfigPanel({
               </motion.section>
 
               <motion.section variants={itemVariants}>
-                <Card className="border-zinc-200 bg-white/95 text-zinc-900 shadow-sm">
-                  <CardHeader className="pb-2">
+                <Card className="rounded-2xl border-zinc-200 bg-white/95 text-zinc-900 shadow-sm">
+                  <CardHeader className="px-4 pb-2 pt-4 sm:px-5">
                     <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
                       <Lightbulb className="h-4 w-4 text-amber-500" />
                       不会写也没关系
@@ -259,7 +262,7 @@ export function GenerationConfigPanel({
                       </Button>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="px-4 pb-4 pt-0 sm:px-5">
                     <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
                       {suggestions.map((item, idx) => (
                         <motion.button
@@ -283,8 +286,8 @@ export function GenerationConfigPanel({
               </motion.section>
 
               <motion.section variants={itemVariants} className="pb-1">
-                <Card className="border-zinc-200 bg-white/95 text-zinc-900 shadow-sm">
-                  <CardContent className="flex flex-col gap-3 pt-4 lg:flex-row lg:items-center lg:justify-between">
+                <Card className="rounded-2xl border-zinc-200 bg-white/95 text-zinc-900 shadow-sm">
+                  <CardContent className="flex flex-col gap-3 px-4 pb-4 pt-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-zinc-900">
                         开始生成大纲
