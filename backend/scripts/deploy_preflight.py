@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import socket
 from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping
@@ -36,6 +37,11 @@ ENV_CHECKS: tuple[EnvCheck, ...] = (
     EnvCheck("REDIS_PORT", False, "queue/cache port"),
     EnvCheck("CHROMA_HOST", False, "remote Chroma host"),
     EnvCheck("CHROMA_PORT", False, "remote Chroma port"),
+)
+
+TOOL_CHECKS: tuple[tuple[str, str], ...] = (
+    ("marp", "Marp CLI for PPTX rendering"),
+    ("pandoc", "Pandoc for DOCX rendering"),
 )
 
 
@@ -205,6 +211,18 @@ def evaluate_preflight(
     )
     messages.extend(contract_messages)
     failures += contract_failures
+
+    for binary, description in TOOL_CHECKS:
+        resolved = shutil.which(binary)
+        if resolved:
+            messages.append(_format("PASS", f"{binary} available at {resolved}"))
+        else:
+            messages.append(
+                _format(
+                    "WARN",
+                    f"{binary} missing ({description}); generation chain may degrade",
+                )
+            )
 
     if skip_network:
         return messages, failures

@@ -123,3 +123,25 @@ def test_preflight_checks_network_targets_when_configured():
     assert any(
         "PASS tcp postgres.internal:5432 reachable" in message for message in messages
     )
+
+
+def test_preflight_reports_render_toolchain_availability(monkeypatch):
+    def fake_which(binary: str):
+        if binary == "marp":
+            return "/usr/local/bin/marp"
+        return None
+
+    monkeypatch.setattr("scripts.deploy_preflight.shutil.which", fake_which)
+
+    messages, failures = evaluate_preflight(
+        {
+            "DATABASE_URL": "postgresql://spectra:pass@postgres.internal:5432/spectra",
+            "JWT_SECRET_KEY": "real-secret",
+        },
+        skip_network=True,
+        timeout_seconds=0.1,
+    )
+
+    assert failures == 0
+    assert any("PASS marp available at /usr/local/bin/marp" in m for m in messages)
+    assert any("WARN pandoc missing" in m for m in messages)

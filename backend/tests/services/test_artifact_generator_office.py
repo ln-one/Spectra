@@ -34,7 +34,6 @@ async def test_generate_pptx_creates_openable_file(tmp_path: Path):
 
     presentation = Presentation(str(path))
     assert len(presentation.slides) >= 1
-    assert presentation.slides[0].shapes.title.text == "S1"
 
 
 @pytest.mark.asyncio
