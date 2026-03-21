@@ -16,6 +16,13 @@ _SCAFFOLD_SECTIONS = [
     ("练习与总结", ["课堂练习", "结果反馈", "总结迁移", "提问回扣"], 2),
 ]
 _FOCUS_ANCHORS = ("知识地图", "关键例题", "易错点澄清", "互动提问", "板书逻辑")
+_GENERIC_TITLE_PATTERNS = (
+    "核心知识点",
+    "知识点",
+    "内容讲解",
+    "课程内容",
+    "章节",
+)
 
 
 def _normalize_title(title: str) -> str:
@@ -44,6 +51,92 @@ def _contains_anchor(text: str, anchor: str) -> bool:
     if not normalized:
         return False
     return anchor in normalized
+
+
+def _is_generic_title(title: str) -> bool:
+    normalized = _normalize_title(title)
+    compact = re.sub(r"\d+", "", normalized)
+    return any(pattern in compact for pattern in _GENERIC_TITLE_PATTERNS)
+
+
+def _is_placeholder_point(point: str) -> bool:
+    text = str(point or "").strip()
+    if not text:
+        return True
+    normalized = re.sub(r"\s+", "", text)
+    patterns = (
+        r"^(要点|知识点|重点|难点|内容|核心知识点)[A-Za-z0-9一二三四五六七八九十]*$",
+        r"^关键内容$",
+        r"^课堂内容$",
+    )
+    return any(re.match(pattern, normalized) for pattern in patterns)
+
+
+def _looks_low_quality_outline(outline: CoursewareOutline) -> bool:
+    sections = list(outline.sections or [])
+    if not sections:
+        return True
+
+    generic_title_count = sum(_is_generic_title(section.title) for section in sections)
+    generic_title_ratio = generic_title_count / max(len(sections), 1)
+    if generic_title_ratio >= 0.5:
+        return True
+
+    key_points = [
+        point
+        for section in sections
+        for point in (section.key_points or [])
+        if str(point).strip()
+    ]
+    if not key_points:
+        return True
+    placeholder_ratio = sum(_is_placeholder_point(point) for point in key_points) / max(
+        len(key_points), 1
+    )
+    if placeholder_ratio >= 0.5:
+        return True
+    return False
+
+
+def _build_deterministic_outline(
+    user_requirements: str,
+    target_pages: int | None,
+) -> CoursewareOutline:
+    pages = target_pages or 12
+    sections = [
+        OutlineSection(
+            title="导入与目标",
+            key_points=["学习目标", "情境导入", "课堂互动提问", "板书逻辑预告"],
+            slide_count=2,
+        ),
+        OutlineSection(
+            title="知识地图构建",
+            key_points=["知识地图", "概念关系梳理", "核心原理拆解", "板书主线搭建"],
+            slide_count=2,
+        ),
+        OutlineSection(
+            title="关键例题精讲",
+            key_points=["关键例题", "解题步骤可视化", "变式题训练", "课堂追问"],
+            slide_count=3,
+        ),
+        OutlineSection(
+            title="易错点澄清",
+            key_points=["易错点澄清", "反例辨析", "纠错策略", "板书归纳"],
+            slide_count=2,
+        ),
+        OutlineSection(
+            title="互动练习与总结",
+            key_points=["分层练习", "互动问答", "课堂小结", "作业延伸"],
+            slide_count=2,
+        ),
+    ]
+    outline = CoursewareOutline(
+        title=user_requirements[:50] or "课堂教学大纲",
+        sections=sections,
+        total_slides=sum(section.slide_count for section in sections) + 2,
+        summary="已按课堂可执行结构生成知识地图+例题+易错点闭环大纲",
+    )
+    return _align_slide_count_with_target(outline, pages)
 
 
 def _inject_focus_anchors(outline: CoursewareOutline) -> CoursewareOutline:
@@ -293,6 +386,11 @@ async def generate_outline(
         if _is_outline_too_sparse(outline):
             logger.warning("Outline generation returned sparse structure, enriching")
             outline = _enrich_sparse_outline(outline)
+        if _looks_low_quality_outline(outline):
+            logger.warning(
+                "Outline generation returned low-quality placeholders, rebuilding"
+            )
+            outline = _build_deterministic_outline(user_requirements, target_pages)
         outline = _inject_focus_anchors(outline)
         outline = _align_slide_count_with_target(outline, target_pages)
         return outline

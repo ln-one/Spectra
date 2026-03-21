@@ -22,7 +22,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 # =============================================================================
 DASHSCOPE_API_KEY="sk-your-dashscope-api-key"
 DEFAULT_MODEL="qwen3.5-plus"
+LARGE_MODEL="qwen3.5-plus"
+SMALL_MODEL="qwen3.5-plus"
+AI_REQUEST_TIMEOUT_SECONDS=45
 TOOL_CHECK_CACHE_TTL_SECONDS=300
+HEALTH_TOOL_TIMEOUT_SECONDS=2
+GENERATION_TOOLS_REQUIRED=false
 
 LLAMAPARSE_API_KEY="llx-your-llamaparse-api-key"
 OPENAI_API_KEY="sk-your-openai-api-key"
@@ -86,7 +91,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440 # 24 小时
 DASHSCOPE_API_KEY="sk-your-production-dashscope-api-key"
 LLAMAPARSE_API_KEY="llx-your-production-llamaparse-api-key"
 DEFAULT_MODEL="qwen3.5-plus"
+LARGE_MODEL="qwen3.5-plus"
+SMALL_MODEL="qwen3.5-plus"
+AI_REQUEST_TIMEOUT_SECONDS=45
 TOOL_CHECK_CACHE_TTL_SECONDS=300
+HEALTH_TOOL_TIMEOUT_SECONDS=2
+GENERATION_TOOLS_REQUIRED=true
 
 # Document parser provider (see ADR-005)
 # 生产环境推荐 local（当前可用）；mineru（完全离线，待集成完成后再启用）
@@ -97,11 +107,15 @@ DOCUMENT_PARSER="local"
 # =============================================================================
 CHROMA_HOST="chromadb"
 CHROMA_PORT="8000"
+CHROMA_PERSIST_DIR="/var/lib/spectra/chroma"
 
 # =============================================================================
 # File Storage Configuration
 # =============================================================================
 STORAGE_TYPE="oss"
+UPLOAD_DIR="/var/lib/spectra/uploads"
+ARTIFACT_STORAGE_DIR="/var/lib/spectra/artifacts"
+GENERATED_DIR="/var/lib/spectra/generated"
 OSS_ACCESS_KEY="your-oss-access-key"
 OSS_SECRET_KEY="your-oss-secret-key"
 OSS_BUCKET="spectra-prod"

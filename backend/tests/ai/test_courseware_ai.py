@@ -271,6 +271,54 @@ class TestGenerateOutline:
         assert isinstance(outline, CoursewareOutline)
         assert sum(section.slide_count for section in outline.sections) == 12
 
+    @pytest.mark.asyncio
+    async def test_outline_generic_placeholder_sections_are_rebuilt(self):
+        """当 LLM 返回“核心知识点/要点1”占位结构时，应自动重建为可用大纲。"""
+        ai = AIService()
+        generic_json = json.dumps(
+            {
+                "title": "测试大纲",
+                "sections": [
+                    {
+                        "title": f"核心知识点{i}",
+                        "key_points": ["要点1", "要点2", "要点3"],
+                        "slide_count": 1,
+                    }
+                    for i in range(1, 7)
+                ],
+                "summary": "占位结构",
+            }
+        )
+
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                return_value={"content": generic_json},
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            outline = await ai.generate_outline(
+                "proj-generic",
+                "生成“知识地图 + 关键例题 + 易错点澄清”风格大纲，12 页，强调课堂互动提问与板书逻辑。",
+            )
+
+        section_titles = [section.title for section in outline.sections]
+        assert "知识地图构建" in section_titles
+        assert "关键例题精讲" in section_titles
+        assert "易错点澄清" in section_titles
+        assert sum(section.slide_count for section in outline.sections) == 12
+        merged_points = " ".join(
+            point
+            for section in outline.sections
+            for point in (section.key_points or [])
+        )
+        assert "互动提问" in merged_points
+        assert "板书逻辑" in merged_points
+
     def test_fallback_outline_structure(self):
         """fallback 大纲结构完整"""
         outline = AIService._get_fallback_outline("数学课件")

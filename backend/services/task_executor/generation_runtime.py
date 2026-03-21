@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -120,12 +121,60 @@ async def render_generation_outputs(
 
     generation_type = normalize_generation_type(context.task_type)
 
-    if requires_pptx_output(generation_type):
+    async def _generate_pptx_output() -> str:
+        started_at = time.perf_counter()
         logger.info("Generating PPTX for task %s", context.task_id)
-        pptx_path = await generation_service.generate_pptx(
+        pptx_path_local = await generation_service.generate_pptx(
             courseware_content, context.task_id, tpl_config
         )
-        logger.info("PPTX generated: %s", pptx_path)
+        logger.info(
+            "PPTX generated for task %s in %.2fs: %s",
+            context.task_id,
+            time.perf_counter() - started_at,
+            pptx_path_local,
+        )
+        return pptx_path_local
+
+    async def _generate_docx_output() -> str:
+        started_at = time.perf_counter()
+        logger.info("Generating DOCX for task %s", context.task_id)
+        docx_path_local = await generation_service.generate_docx(
+            courseware_content, context.task_id, tpl_config
+        )
+        logger.info(
+            "DOCX generated for task %s in %.2fs: %s",
+            context.task_id,
+            time.perf_counter() - started_at,
+            docx_path_local,
+        )
+        return docx_path_local
+
+    need_pptx = requires_pptx_output(generation_type)
+    need_docx = requires_docx_output(generation_type)
+
+    if need_pptx and need_docx:
+        logger.info(
+            "Generating PPTX and DOCX in parallel for task %s",
+            context.task_id,
+        )
+        pptx_path, docx_path = await asyncio.gather(
+            _generate_pptx_output(),
+            _generate_docx_output(),
+        )
+        artifact_paths["pptx"] = pptx_path
+        artifact_paths["docx"] = docx_path
+        output_urls.update(
+            build_task_output_urls(
+                pptx_url=export_endpoint or pptx_path,
+                docx_url=export_endpoint or docx_path,
+            )
+        )
+        await db_service.update_generation_task_status(
+            context.task_id, TaskStatus.PROCESSING, 90
+        )
+
+    if need_pptx and not need_docx:
+        pptx_path = await _generate_pptx_output()
         artifact_paths["pptx"] = pptx_path
         output_urls.update(
             build_task_output_urls(pptx_url=export_endpoint or pptx_path)
@@ -134,12 +183,8 @@ async def render_generation_outputs(
             context.task_id, TaskStatus.PROCESSING, 60
         )
 
-    if requires_docx_output(generation_type):
-        logger.info("Generating DOCX for task %s", context.task_id)
-        docx_path = await generation_service.generate_docx(
-            courseware_content, context.task_id, tpl_config
-        )
-        logger.info("DOCX generated: %s", docx_path)
+    if need_docx and not need_pptx:
+        docx_path = await _generate_docx_output()
         artifact_paths["docx"] = docx_path
         output_urls.update(
             build_task_output_urls(docx_url=export_endpoint or docx_path)
