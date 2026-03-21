@@ -84,3 +84,38 @@ services:
     assert merged["REDIS_HOST"] == "redis"
     assert merged["CHROMA_HOST"] == "chromadb"
     assert merged["DATABASE_URL"] == "postgresql://spectra:pass@postgres:5432/spectra"
+
+
+def test_docker_readiness_warns_on_backend_worker_env_drift():
+    compose = """
+services:
+  backend:
+    environment:
+      REDIS_HOST: redis
+      CHROMA_HOST: chromadb
+      GENERATED_DIR: /var/lib/spectra/generated
+  worker:
+    environment:
+      REDIS_HOST: redis-worker
+      CHROMA_HOST: chromadb
+      GENERATED_DIR: /var/lib/spectra/generated-worker
+"""
+    messages, failures = evaluate_docker_readiness(
+        {
+            "DATABASE_URL": "postgresql://spectra:pass@postgres:5432/spectra",
+            "REDIS_HOST": "redis",
+            "CHROMA_HOST": "chromadb",
+        },
+        "postgresql",
+        compose,
+    )
+
+    assert failures == 0
+    assert any(
+        "backend/worker env drift detected: `REDIS_HOST` differs" in message
+        for message in messages
+    )
+    assert any(
+        "backend/worker env drift detected: `GENERATED_DIR` differs" in message
+        for message in messages
+    )

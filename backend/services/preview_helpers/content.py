@@ -89,7 +89,10 @@ def _extract_task_id_from_artifact(artifact) -> Optional[str]:
             if isinstance(task_id, str) and task_id.strip():
                 return task_id.strip()
         except (TypeError, json.JSONDecodeError):
-            pass
+            logger.debug(
+                "artifact_metadata_task_id_parse_failed: artifact_metadata=%s",
+                metadata_raw,
+            )
 
     storage_path = getattr(artifact, "storagePath", None)
     if not storage_path:

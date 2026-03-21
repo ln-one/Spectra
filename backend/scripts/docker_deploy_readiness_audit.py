@@ -20,6 +20,22 @@ BASE_COMPOSE = ROOT / "docker-compose.yml"
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0"}
 PLACEHOLDER_FRONTEND_API = "http://localhost:8000"
+_SHARED_RUNTIME_ENV_KEYS = (
+    "DATABASE_URL",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "CHROMA_HOST",
+    "CHROMA_PORT",
+    "UPLOAD_DIR",
+    "ARTIFACT_STORAGE_DIR",
+    "GENERATED_DIR",
+    "CHROMA_PERSIST_DIR",
+    "AI_REQUEST_TIMEOUT_SECONDS",
+    "DEFAULT_MODEL",
+    "LARGE_MODEL",
+    "SMALL_MODEL",
+    "JWT_SECRET_KEY",
+)
 
 
 def _format(kind: str, message: str) -> str:
@@ -75,6 +91,15 @@ def _extract_service_env(compose_text: str | None, service_name: str) -> dict[st
     return extracted
 
 
+def _collect_compose_service_envs(
+    compose_text: str | None,
+) -> dict[str, dict[str, str]]:
+    return {
+        "backend": _extract_service_env(compose_text, "backend"),
+        "worker": _extract_service_env(compose_text, "worker"),
+    }
+
+
 def build_effective_env(
     env: Mapping[str, str], compose_text: str | None
 ) -> dict[str, str]:
@@ -127,9 +152,62 @@ def _classify_path_env(key: str, value: str | None) -> tuple[list[str], int]:
     return [_format("INFO", f"{key} configured as `{path}`")], 0
 
 
+def _evaluate_shared_env_alignment(compose_text: str | None) -> list[str]:
+    if not compose_text:
+        return []
+
+    service_envs = _collect_compose_service_envs(compose_text)
+    backend_env = service_envs["backend"]
+    worker_env = service_envs["worker"]
+    if not backend_env or not worker_env:
+        return []
+
+    messages: list[str] = []
+    compared = 0
+    for key in _SHARED_RUNTIME_ENV_KEYS:
+        backend_value = backend_env.get(key)
+        worker_value = worker_env.get(key)
+        if backend_value is None and worker_value is None:
+            continue
+        compared += 1
+        if backend_value is None:
+            messages.append(
+                _format(
+                    "WARN",
+                    f"backend/worker env drift detected: `{key}` missing on backend",
+                )
+            )
+            continue
+        if worker_value is None:
+            messages.append(
+                _format(
+                    "WARN",
+                    f"backend/worker env drift detected: `{key}` missing on worker",
+                )
+            )
+            continue
+        if backend_value != worker_value:
+            messages.append(
+                _format(
+                    "WARN",
+                    (
+                        f"backend/worker env drift detected: `{key}` differs "
+                        f"(backend=`{backend_value}` worker=`{worker_value}`)"
+                    ),
+                )
+            )
+
+    if compared and not messages:
+        messages.append(
+            _format("PASS", "backend/worker shared runtime env remains aligned")
+        )
+    return messages
+
+
 def evaluate_docker_readiness(
     env: Mapping[str, str],
     prisma_provider: str | None,
+    compose_text: str | None = None,
 ) -> tuple[list[str], int]:
     messages: list[str] = []
     failures = 0
@@ -206,6 +284,8 @@ def evaluate_docker_readiness(
     else:
         messages.append(_format("PASS", "SYNC_RAG_INDEXING is async-friendly"))
 
+    messages.extend(_evaluate_shared_env_alignment(compose_text))
+
     return messages, failures
 
 
@@ -217,6 +297,7 @@ def main() -> int:
     messages, failures = evaluate_docker_readiness(
         build_effective_env(build_script_env(), compose_text),
         provider,
+        compose_text,
     )
 
     print("Docker Deployment Readiness Audit")

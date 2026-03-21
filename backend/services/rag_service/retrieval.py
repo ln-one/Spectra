@@ -126,10 +126,22 @@ def _sort_key(item: RAGResult) -> tuple[int, int, float]:
     return (scope_rank, priority, -item.score)
 
 
-def _query_collection(collection, query_embedding, top_k: int, where: Optional[dict]):
+def _query_collection(
+    collection,
+    query_embedding,
+    top_k: int,
+    where: Optional[dict],
+    *,
+    collection_size: Optional[int] = None,
+):
+    if collection_size is None:
+        collection_size = collection.count()
+    limit = min(top_k, collection_size)
+    if limit <= 0:
+        return None
     return collection.query(
         query_embeddings=[query_embedding],
-        n_results=min(top_k, collection.count()),
+        n_results=limit,
         where=where,
         include=["documents", "metadatas", "distances"],
     )
@@ -145,7 +157,10 @@ async def search(
     session_id: Optional[str] = None,
 ) -> list[RAGResult]:
     collection = service._vector.get_collection_if_exists(project_id)
-    if collection is None or collection.count() == 0:
+    collection_size = 0
+    if collection is not None:
+        collection_size = collection.count()
+    if collection is None or collection_size == 0:
         collection = None
 
     query_embedding = await service._embedding.embed_text(query)
@@ -154,41 +169,64 @@ async def search(
     session_where = _build_where_clause(session_id=session_id, filters=filters)
 
     if collection is not None and session_where is not None:
-        result_sets.append(
-            (
-                _query_collection(collection, query_embedding, top_k, session_where),
-                {
-                    "source_project_id": project_id,
-                    "source_scope": "local_session",
-                },
-            )
+        local_session_result = _query_collection(
+            collection,
+            query_embedding,
+            top_k,
+            session_where,
+            collection_size=collection_size,
         )
+        if local_session_result is not None:
+            result_sets.append(
+                (
+                    local_session_result,
+                    {
+                        "source_project_id": project_id,
+                        "source_scope": "local_session",
+                    },
+                )
+            )
     if collection is not None:
-        result_sets.append(
-            (
-                _query_collection(collection, query_embedding, top_k, base_where),
-                {
-                    "source_project_id": project_id,
-                    "source_scope": "local_project",
-                },
-            )
+        local_project_result = _query_collection(
+            collection,
+            query_embedding,
+            top_k,
+            base_where,
+            collection_size=collection_size,
         )
+        if local_project_result is not None:
+            result_sets.append(
+                (
+                    local_project_result,
+                    {
+                        "source_project_id": project_id,
+                        "source_scope": "local_project",
+                    },
+                )
+            )
 
     if not (filters and filters.get("file_ids")):
         for target in await _list_active_reference_targets(project_id):
             target_collection = service._vector.get_collection_if_exists(
                 target["source_project_id"]
             )
-            if target_collection is None or target_collection.count() == 0:
+            if target_collection is None:
+                continue
+            target_collection_size = target_collection.count()
+            if target_collection_size == 0:
+                continue
+            target_result = _query_collection(
+                target_collection,
+                query_embedding,
+                top_k,
+                base_where,
+                collection_size=target_collection_size,
+            )
+            if target_result is None:
                 continue
             result_sets.append(
                 (
-                    _query_collection(
-                        target_collection,
-                        query_embedding,
-                        top_k,
-                        base_where,
-                    ),
+                    target_result,
                     target,
                 )
             )
@@ -283,8 +321,13 @@ async def _get_chunk_context(
                     prev_chunk = result["documents"][0]
                 else:
                     next_chunk = result["documents"][0]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug(
+                "rag_chunk_context_lookup_failed: upload_id=%s chunk_index=%s error=%s",
+                upload_id,
+                target_idx,
+                exc,
+            )
     if prev_chunk or next_chunk:
         return ChunkContext(previous_chunk=prev_chunk, next_chunk=next_chunk)
     return None

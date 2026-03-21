@@ -219,5 +219,10 @@ async def save_cached_command_response(
                 "response": json.dumps(response_data),
             }
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            "Skip idempotency command cache write: session=%s key=%s error=%s",
+            session_id,
+            idempotency_key,
+            exc,
+        )

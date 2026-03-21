@@ -115,7 +115,9 @@ def evaluate_distributed_readiness(
         failures += topology_failures
 
     docker_messages, docker_failures = docker_audit.evaluate_docker_readiness(
-        effective_env, prisma_provider
+        effective_env,
+        prisma_provider,
+        base_compose_text,
     )
     messages.extend(_prefix("docker", docker_messages))
     failures += docker_failures
