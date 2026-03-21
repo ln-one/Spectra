@@ -51,7 +51,14 @@ def _resolve_events_accept_mode(
             return _EVENTS_ACCEPT_JSON
         if _EVENTS_ACCEPT_SSE in normalized:
             return _EVENTS_ACCEPT_SSE
-        return _EVENTS_ACCEPT_SSE
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=(
+                "accept must be one of "
+                f"[{_EVENTS_ACCEPT_SSE}, {_EVENTS_ACCEPT_JSON}]"
+            ),
+        )
 
     normalized_header = (header_accept or "").lower()
     if _EVENTS_ACCEPT_JSON in normalized_header:

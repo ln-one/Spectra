@@ -585,6 +585,29 @@ async def test_session_events_supports_accept_header_json_fallback(app, _as_user
 
 
 @pytest.mark.anyio
+async def test_session_events_rejects_invalid_accept_query_value(app, _as_user):
+    session_service = SimpleNamespace(
+        get_session_runtime_state=AsyncMock(
+            return_value={"state": GenerationState.DRAFTING_OUTLINE.value}
+        ),
+        get_events=AsyncMock(return_value=[]),
+    )
+
+    with patch(
+        "routers.generate_sessions.core.get_session_service",
+        return_value=session_service,
+    ):
+        client = TestClient(app)
+        response = client.get("/api/v1/generate/sessions/s-001/events?accept=xml")
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["detail"]["code"] == "INVALID_INPUT"
+    assert "accept must be one of" in payload["detail"]["message"]
+    session_service.get_events.assert_not_awaited()
+
+
+@pytest.mark.anyio
 async def test_preview_response_contains_unified_artifact_anchor(app, _as_user):
     session_service = SimpleNamespace(
         get_session_snapshot=AsyncMock(
