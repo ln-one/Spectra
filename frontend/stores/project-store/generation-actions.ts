@@ -2,6 +2,12 @@
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
 import { groupArtifactsByTool } from "@/lib/project-space/artifact-history";
+import {
+  mapSessionsToHistory,
+  normalizeGenerationOptions,
+  resolveOutputType,
+  resolveReusableGenerationSessionId,
+} from "./generation-actions.helpers";
 import type {
   Artifact,
   GenerationHistory,
@@ -12,7 +18,6 @@ import type {
   ProjectState,
   SessionStatePayload,
 } from "./types";
-import { GENERATION_TOOLS } from "./types";
 
 function inferArtifactDownloadExt(artifactType: Artifact["type"]): string {
   switch (artifactType) {
@@ -53,27 +58,14 @@ export function createGenerationActions({
     ) => {
       try {
         const { selectedFileIds, activeSessionId, generationSession } = get();
-        const currentSessionId =
-          activeSessionId ??
-          generationSession?.session?.session_id ??
-          undefined;
-        const normalizedOptions: GenerationOptions = {
-          template: options?.template || "default",
-          show_page_number: options?.show_page_number ?? true,
-          include_animations: options?.include_animations ?? false,
-          include_games: options?.include_games ?? false,
-          use_text_to_image: options?.use_text_to_image ?? false,
-          ...options,
-        };
+        const currentSessionId = resolveReusableGenerationSessionId(
+          activeSessionId,
+          generationSession
+        );
+        const normalizedOptions = normalizeGenerationOptions(options);
         const response = await generateApi.createSession({
           project_id: projectId,
-          output_type:
-            tool.type === "ppt" ||
-            tool.type === "mindmap" ||
-            tool.type === "outline" ||
-            tool.type === "animation"
-              ? "ppt"
-              : "word",
+          output_type: resolveOutputType(tool),
           options: {
             ...normalizedOptions,
             rag_source_ids:
@@ -152,30 +144,7 @@ export function createGenerationActions({
           limit: 20,
         });
         const sessions = response?.data?.sessions ?? [];
-        const history: GenerationHistory[] = sessions.map((s) => {
-          let status: GenerationHistory["status"] = "processing";
-          if (s.state === "SUCCESS") status = "completed";
-          else if (s.state === "FAILED") status = "failed";
-          else if (s.state === "IDLE") status = "pending";
-
-          const toolId =
-            s.output_type === "ppt"
-              ? "ppt"
-              : s.output_type === "word"
-                ? "word"
-                : "ppt";
-          const tool = GENERATION_TOOLS.find((t) => t.id === toolId);
-
-          return {
-            id: s.session_id,
-            toolId,
-            toolName: tool?.name || "生成任务",
-            status,
-            sessionState: s.state,
-            createdAt: s.created_at,
-            title: tool?.name || "生成任务",
-          };
-        });
+        const history: GenerationHistory[] = mapSessionsToHistory(sessions);
         const activeSessionId =
           get().activeSessionId ??
           get().generationSession?.session?.session_id ??
@@ -197,34 +166,26 @@ export function createGenerationActions({
       sessionId?: string | null
     ) => {
       try {
-        const response = await projectSpaceApi.getArtifacts(projectId);
-        const artifacts =
-          ((response?.data?.artifacts ?? []) as Artifact[]) || [];
         const effectiveSessionId =
           sessionId ??
           get().activeSessionId ??
           get().generationSession?.session?.session_id ??
           null;
-        const allHistoryByTool = groupArtifactsByTool(artifacts);
-        const allArtifacts = Object.values(allHistoryByTool)
-          .flat()
-          .sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
 
         if (!effectiveSessionId) {
           set({
-            artifactHistoryByTool: allHistoryByTool,
-            currentSessionArtifacts: allArtifacts,
+            artifactHistoryByTool: groupArtifactsByTool([]),
+            currentSessionArtifacts: [],
           });
           return;
         }
 
-        const sessionHistoryByTool = groupArtifactsByTool(
-          artifacts,
-          effectiveSessionId
-        );
+        const response = await projectSpaceApi.getArtifacts(projectId, {
+          session_id: effectiveSessionId,
+        });
+        const artifacts =
+          ((response?.data?.artifacts ?? []) as Artifact[]) || [];
+        const sessionHistoryByTool = groupArtifactsByTool(artifacts);
         const sessionArtifacts = Object.values(sessionHistoryByTool)
           .flat()
           .sort(
@@ -232,20 +193,16 @@ export function createGenerationActions({
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
 
-        if (sessionArtifacts.length === 0 && allArtifacts.length > 0) {
-          set({
-            artifactHistoryByTool: allHistoryByTool,
-            currentSessionArtifacts: allArtifacts,
-          });
-          return;
-        }
-
         set({
           artifactHistoryByTool: sessionHistoryByTool,
           currentSessionArtifacts: sessionArtifacts,
         });
       } catch (error) {
         const message = getErrorMessage(error);
+        set({
+          artifactHistoryByTool: groupArtifactsByTool([]),
+          currentSessionArtifacts: [],
+        });
         toast({
           title: "获取成果历史失败",
           description: message,

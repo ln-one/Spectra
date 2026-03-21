@@ -115,6 +115,33 @@ export function useProjectDetailController() {
         fetchFiles(projectId),
         fetchGenerationHistory(projectId),
       ]);
+
+      if (cancelled) return;
+
+      const history = useProjectStore.getState().generationHistory;
+      if (history.length > 0) {
+        return;
+      }
+
+      const response = await generateApi.createSession({
+        project_id: projectId,
+        output_type: "both",
+        bootstrap_only: true,
+      });
+      const bootstrapSessionId = response.data?.session?.session_id;
+      if (!bootstrapSessionId || cancelled) return;
+
+      setActiveSessionId(bootstrapSessionId);
+      updateSessionInUrl(bootstrapSessionId);
+      await fetchGenerationHistory(projectId);
+      const [, , sessionResponse] = await Promise.all([
+        fetchMessages(projectId, bootstrapSessionId),
+        fetchArtifactHistory(projectId, bootstrapSessionId),
+        generateApi.getSession(bootstrapSessionId),
+      ]);
+      useProjectStore.setState({
+        generationSession: sessionResponse?.data ?? null,
+      });
     };
 
     void bootstrap();
@@ -129,7 +156,11 @@ export function useProjectDetailController() {
     fetchProject,
     fetchFiles,
     fetchGenerationHistory,
+    fetchMessages,
+    fetchArtifactHistory,
     reset,
+    setActiveSessionId,
+    updateSessionInUrl,
   ]);
 
   useEffect(() => {
@@ -143,6 +174,7 @@ export function useProjectDetailController() {
       if (activeSessionId !== null) {
         setActiveSessionId(null);
       }
+      useProjectStore.setState({ generationSession: null });
       void fetchMessages(projectId, null);
       void fetchArtifactHistory(projectId, null);
       return;
@@ -153,6 +185,16 @@ export function useProjectDetailController() {
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
+      void generateApi
+        .getSession(nextSessionId)
+        .then((response) => {
+          useProjectStore.setState({
+            generationSession: response?.data ?? null,
+          });
+        })
+        .catch(() => {
+          useProjectStore.setState({ generationSession: null });
+        });
     }
 
     if (nextSessionId) {
@@ -182,8 +224,21 @@ export function useProjectDetailController() {
       if (!sessionId || sessionId === "empty") return;
       setActiveSessionId(sessionId);
       updateSessionInUrl(sessionId);
-      await fetchMessages(projectId, sessionId);
-      await fetchArtifactHistory(projectId, sessionId);
+      const [messagesResult, artifactsResult, sessionResult] =
+        await Promise.allSettled([
+          fetchMessages(projectId, sessionId),
+          fetchArtifactHistory(projectId, sessionId),
+          generateApi.getSession(sessionId),
+        ]);
+      if (sessionResult.status === "fulfilled") {
+        useProjectStore.setState({
+          generationSession: sessionResult.value?.data ?? null,
+        });
+      } else {
+        useProjectStore.setState({ generationSession: null });
+      }
+      void messagesResult;
+      void artifactsResult;
     },
     [
       fetchArtifactHistory,

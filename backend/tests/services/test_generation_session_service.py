@@ -18,6 +18,7 @@ from services.generation_session_service.command_handlers import handle_update_o
 from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
+    SessionLifecycleReason,
     SessionOutputType,
 )
 from services.platform.generation_event_constants import GenerationEventType
@@ -768,6 +769,82 @@ async def test_get_session_runtime_state_uses_lightweight_select():
         "lastCursor",
         "updatedAt",
     }
+
+
+@pytest.mark.anyio
+async def test_create_session_creates_new_session_when_existing_success_is_terminal():
+    existing_session = SimpleNamespace(
+        id="s-success",
+        projectId="p-001",
+        userId="u-001",
+        baseVersionId="ver-old-001",
+        state=GenerationState.SUCCESS.value,
+        stateReason="task_completed",
+        outputType=SessionOutputType.PPT.value,
+        options=None,
+        clientSessionId="s-success",
+        renderVersion=2,
+        currentOutlineVersion=1,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=100,
+    )
+    created_session = SimpleNamespace(
+        id="s-new",
+        projectId="p-001",
+        userId="u-001",
+        baseVersionId="ver-current-002",
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        stateReason=SessionLifecycleReason.SESSION_CREATED.value,
+        outputType=SessionOutputType.PPT.value,
+        options='{"pages": 12}',
+        clientSessionId="s-success",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+    )
+    db = SimpleNamespace(
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="p-001",
+                    currentVersionId="ver-current-002",
+                )
+            )
+        ),
+        generationsession=SimpleNamespace(
+            find_first=AsyncMock(return_value=existing_session),
+            create=AsyncMock(return_value=created_session),
+            update=AsyncMock(),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+
+    service = GenerationSessionService(db=db)
+    service._schedule_outline_draft_task = AsyncMock()
+
+    session_ref = await service.create_session(
+        project_id="p-001",
+        user_id="u-001",
+        output_type=SessionOutputType.PPT.value,
+        client_session_id="s-success",
+        options={"pages": 12},
+        task_queue_service=None,
+    )
+
+    assert session_ref["session_id"] == "s-new"
+    db.generationsession.create.assert_awaited_once()
+    create_payload = db.generationsession.create.await_args.kwargs["data"]
+    assert create_payload["projectId"] == "p-001"
+    assert create_payload["clientSessionId"] == "s-success"
+    event_data = db.sessionevent.create.await_args.kwargs["data"]
+    assert event_data["state"] == GenerationState.DRAFTING_OUTLINE.value
+    assert (
+        json.loads(event_data["payload"]).get("reason")
+        == SessionLifecycleReason.SESSION_CREATED.value
+    )
 
 
 @pytest.mark.anyio

@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from main import app
+from services.application import project_api
 from services.database import db_service
 from utils.dependencies import get_current_user
 
@@ -139,6 +140,11 @@ def test_create_project_with_project_space_fields_success(
         visibility="shared", isReferenceable=True, currentVersionId="v-1"
     )
     _mock(monkeypatch, db_service, "create_project", created)
+    monkeypatch.setattr(
+        project_api,
+        "_bootstrap_default_session",
+        AsyncMock(return_value=None),
+    )
 
     resp = client.post(
         "/api/v1/projects",
@@ -156,6 +162,21 @@ def test_create_project_with_project_space_fields_success(
     assert body["success"] is True
     assert body["data"]["project"]["visibility"] == "shared"
     assert body["data"]["project"]["isReferenceable"] is True
+
+
+def test_create_project_bootstraps_default_session(client, monkeypatch, _as_user):
+    created = _fake_project()
+    _mock(monkeypatch, db_service, "create_project", created)
+    bootstrap_mock = AsyncMock(return_value=None)
+    monkeypatch.setattr(project_api, "_bootstrap_default_session", bootstrap_mock)
+
+    resp = client.post(
+        "/api/v1/projects",
+        json={"name": "Project A", "description": "desc"},
+    )
+
+    assert resp.status_code == 200
+    bootstrap_mock.assert_awaited_once_with(_PROJECT_ID, _USER_ID)
 
 
 def test_create_project_rejects_invalid_reference_mode(client, _as_user):
