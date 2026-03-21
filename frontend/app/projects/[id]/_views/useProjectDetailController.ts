@@ -53,6 +53,7 @@ export function useProjectDetailController() {
 
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [selectedThemePreset, setSelectedThemePreset] =
     useState<ThemePresetId>("mist-zinc");
 
@@ -70,13 +71,17 @@ export function useProjectDetailController() {
 
   const updateSessionInUrl = useCallback(
     (sessionId: string) => {
-      const nextSearch = new URLSearchParams(searchParams.toString());
+      const nextSearch = new URLSearchParams(
+        typeof window !== "undefined"
+          ? window.location.search
+          : ""
+      );
       nextSearch.set("session", sessionId);
       router.replace(`/projects/${projectId}?${nextSearch.toString()}`, {
         scroll: false,
       });
     },
-    [projectId, router, searchParams]
+    [projectId, router]
   );
 
   useEffect(() => {
@@ -96,6 +101,7 @@ export function useProjectDetailController() {
     let cancelled = false;
 
     const bootstrap = async () => {
+      setIsBootstrapping(true);
       let token = TokenStorage.getAccessToken();
       if (!token && TokenStorage.getRefreshToken()) {
         const refreshed = await authService.refreshToken();
@@ -132,7 +138,13 @@ export function useProjectDetailController() {
       if (!bootstrapSessionId || cancelled) return;
 
       setActiveSessionId(bootstrapSessionId);
-      updateSessionInUrl(bootstrapSessionId);
+      const currentSessionInUrl =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("session")
+          : null;
+      if (currentSessionInUrl !== bootstrapSessionId) {
+        updateSessionInUrl(bootstrapSessionId);
+      }
       await fetchGenerationHistory(projectId);
       const [, , sessionResponse] = await Promise.all([
         fetchMessages(projectId, bootstrapSessionId),
@@ -144,7 +156,11 @@ export function useProjectDetailController() {
       });
     };
 
-    void bootstrap();
+    void bootstrap().finally(() => {
+      if (!cancelled) {
+        setIsBootstrapping(false);
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -281,6 +297,7 @@ export function useProjectDetailController() {
     router,
     project,
     isLoading,
+    isBootstrapping,
     projectId,
     isExpanded: panelLayout.isExpanded,
     sessionOptions,
