@@ -1,5 +1,4 @@
 # Environment Variables Configuration
-<!-- REVIEW #B8 (P1): 文档定义了 CORS_ORIGINS，但当前 backend/main.py 尚未消费该变量（仍硬编码 allow_origins=["*"]）。 -->
 
 ## 后端环境变量
 

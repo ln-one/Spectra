@@ -259,8 +259,6 @@ app.add_middleware(
  allow_headers=["*"],
 )
 ```
-<!-- REVIEW #B8 (P1): 当前实现 backend/main.py 仍为 allow_origins=[\"*\"]，未读取 CORS_ORIGINS 环境变量，和此处配置建议未对齐。 -->
-
 ## 敏感信息保护
 
 ```python

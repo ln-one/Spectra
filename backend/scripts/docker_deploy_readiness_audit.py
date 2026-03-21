@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Mapping
 from urllib.parse import urlparse
 
+import yaml
+
 try:
     from scripts.env_bootstrap import build_script_env
 except ModuleNotFoundError:  # pragma: no cover - script entry fallback
@@ -14,6 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover - script entry fallback
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "backend/prisma/schema.prisma"
+BASE_COMPOSE = ROOT / "docker-compose.yml"
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0"}
 PLACEHOLDER_FRONTEND_API = "http://localhost:8000"
@@ -40,6 +43,44 @@ def _parse_database_host(database_url: str | None) -> str | None:
         return None
     parsed = urlparse(database_url)
     return parsed.hostname
+
+
+def _extract_service_env(compose_text: str | None, service_name: str) -> dict[str, str]:
+    if not compose_text:
+        return {}
+    loaded = yaml.safe_load(compose_text) or {}
+    if not isinstance(loaded, dict):
+        return {}
+    services = loaded.get("services") or {}
+    if not isinstance(services, dict):
+        return {}
+    service = services.get(service_name) or {}
+    if not isinstance(service, dict):
+        return {}
+    environment = service.get("environment") or {}
+    extracted: dict[str, str] = {}
+    if isinstance(environment, dict):
+        for key, value in environment.items():
+            if value is not None:
+                extracted[str(key)] = str(value)
+        return extracted
+    if isinstance(environment, list):
+        for item in environment:
+            if not isinstance(item, str) or "=" not in item:
+                continue
+            key, _, value = item.partition("=")
+            key = key.strip()
+            if key:
+                extracted[key] = value
+    return extracted
+
+
+def build_effective_env(
+    env: Mapping[str, str], compose_text: str | None
+) -> dict[str, str]:
+    merged = dict(env)
+    merged.update(_extract_service_env(compose_text, "backend"))
+    return merged
 
 
 def _classify_host(
@@ -170,7 +211,13 @@ def evaluate_docker_readiness(
 
 def main() -> int:
     provider = _read_prisma_provider()
-    messages, failures = evaluate_docker_readiness(build_script_env(), provider)
+    compose_text = (
+        BASE_COMPOSE.read_text(encoding="utf-8") if BASE_COMPOSE.exists() else None
+    )
+    messages, failures = evaluate_docker_readiness(
+        build_effective_env(build_script_env(), compose_text),
+        provider,
+    )
 
     print("Docker Deployment Readiness Audit")
     print(f"- Root: {ROOT}")
