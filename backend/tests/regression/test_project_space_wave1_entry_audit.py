@@ -3,9 +3,7 @@ import json
 import pytest
 
 from eval.project_space_wave1_entry_audit import compute_metrics, run_audit
-from services.project_space_service.artifact_semantics import (
-    ProjectCapability,
-)
+from services.project_space_service.artifact_semantics import ProjectCapability
 
 
 def test_compute_metrics_all_pass():

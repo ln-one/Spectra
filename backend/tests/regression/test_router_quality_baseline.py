@@ -2,11 +2,7 @@ import json
 
 import pytest
 
-from eval.router_quality_baseline import (
-    Guardrails,
-    check_regression,
-    freeze_baseline,
-)
+from eval.router_quality_baseline import Guardrails, check_regression, freeze_baseline
 
 
 def _result_payload(
