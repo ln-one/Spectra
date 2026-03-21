@@ -283,8 +283,14 @@ async def _is_concurrently_completed(db, session_id: str, trace_id: str) -> bool
                     trace_id,
                 )
                 return True
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            "Outline concurrent completion probe failed: "
+            "session=%s trace_id=%s error=%s",
+            session_id,
+            trace_id,
+            exc,
+        )
     return False
 
 

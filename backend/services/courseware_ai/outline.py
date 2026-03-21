@@ -24,13 +24,19 @@ def _normalize_title(title: str) -> str:
 
 def _extract_target_pages(user_requirements: str) -> int | None:
     text = str(user_requirements or "")
-    match = re.search(r"目标页数[：:]\s*(\d+)", text)
-    if not match:
-        return None
-    pages = int(match.group(1))
-    if pages <= 0:
-        return None
-    return min(max(pages, 6), 40)
+    patterns = (
+        r"目标页数\s*[：:]\s*(\d{1,3})",
+        r"(?:共|总|约|大约|预计)?\s*(\d{1,3})\s*(?:页|slides?|pages?)\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if not match:
+            continue
+        pages = int(match.group(1))
+        if pages <= 0:
+            continue
+        return min(max(pages, 6), 40)
+    return None
 
 
 def _contains_anchor(text: str, anchor: str) -> bool:
@@ -292,7 +298,10 @@ async def generate_outline(
         return outline
     except Exception as exc:
         logger.warning("Outline generation failed: %s, using fallback", exc)
-        return get_fallback_outline(user_requirements)
+        fallback = get_fallback_outline(user_requirements)
+        fallback = _inject_focus_anchors(fallback)
+        fallback = _align_slide_count_with_target(fallback, target_pages)
+        return fallback
 
 
 def get_fallback_outline(user_requirements: str) -> CoursewareOutline:

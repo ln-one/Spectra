@@ -247,6 +247,30 @@ class TestGenerateOutline:
         assert isinstance(outline, CoursewareOutline)
         assert outline.summary == "基础教学大纲"
 
+    @pytest.mark.asyncio
+    async def test_outline_fallback_aligns_with_plain_target_page_phrase(self):
+        """当需求写成“12 页”时，fallback 也应对齐目标页数。"""
+        ai = AIService()
+
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("API down"),
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            outline = await ai.generate_outline(
+                "proj6",
+                "生成“知识地图 + 关键例题 + 易错点澄清”风格大纲，12 页，强调课堂互动提问与板书逻辑。",
+            )
+
+        assert isinstance(outline, CoursewareOutline)
+        assert sum(section.slide_count for section in outline.sections) == 12
+
     def test_fallback_outline_structure(self):
         """fallback 大纲结构完整"""
         outline = AIService._get_fallback_outline("数学课件")
