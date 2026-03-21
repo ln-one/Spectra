@@ -1,8 +1,10 @@
-Ôªø"use client";
+"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
+  Compass,
+  FileStack,
   FileText,
   LayoutTemplate,
   Lightbulb,
@@ -18,6 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { OutlineEditorPanel } from "@/components/project";
+import { PptWorkflowRail } from "./components/PptWorkflowRail";
 import {
   containerVariants,
   itemVariants,
@@ -64,184 +67,261 @@ export function GenerationConfigPanel({
   } = useGenerationConfigPanel({ onGenerate });
 
   return (
-    <div className="relative h-full min-h-0">
-      <ScrollArea className="h-full min-h-0 pr-2">
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className={cn("space-y-4 pb-4", compact ? "pt-1" : "pt-3")}
-        >
-          <motion.section variants={itemVariants}>
-            <Card className="border-[var(--project-border)] bg-[var(--project-surface-elevated)] text-[var(--project-text-primary)] shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Wand2 className="h-4 w-4 text-[var(--project-text-primary)]" />
-                  ÁîüÊàêÂâçÈÖçÁΩÆ
-                  <Badge
-                    variant="secondary"
-                    className="ml-auto bg-[var(--project-surface-muted)] text-[var(--project-text-primary)]"
-                  >
-                    Step 1 / 2
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium text-[var(--project-text-muted)]">
-                      ÊèêÁ§∫ËØç
-                    </label>
-                    <span className="text-[11px] text-[var(--project-text-muted)]">
-                      {prompt.length}/1200
-                    </span>
-                  </div>
-                  <Textarea
-                    value={prompt}
-                    onChange={(event) => setPrompt(event.target.value)}
-                    placeholder="‰æãÂ¶ÇÔºöÁîüÊàê‰∏Ä‰ªΩ„ÄäÂõæÂΩ¢ÊòæÁ§∫ËÆæÂ§á„ÄãÊïôÂ≠¶PPTÔºåÈù¢ÂêëÂ§ß‰∫åÂ≠¶ÁîüÔºåË¶ÅÊ±ÇÁêÜËÆ∫ËÆ≤Ëß£ + Ê°à‰æãÂàÜÊûê + ËØæÂ†ÇËÆ®ËÆ∫„ÄÇ"
-                    className="min-h-[110px] resize-none rounded-xl border-[var(--project-border)] bg-[var(--project-surface)] text-sm shadow-inner focus-visible:ring-[var(--project-border-strong)]"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </motion.section>
+    <div className="relative h-full min-h-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 opacity-70">
+        <div className="absolute -left-20 top-8 h-52 w-52 rounded-full bg-blue-200/35 blur-3xl" />
+        <div className="absolute right-2 top-24 h-44 w-44 rounded-full bg-cyan-200/35 blur-3xl" />
+        <div className="absolute bottom-4 left-1/3 h-36 w-36 rounded-full bg-amber-100/35 blur-3xl" />
+      </div>
 
-          <motion.section variants={itemVariants}>
-            <Card className="border-[var(--project-border)] bg-[var(--project-surface-elevated)] text-[var(--project-text-primary)] shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Lightbulb className="h-4 w-4 text-amber-500" />
-                  Â§ßÁ∫≤ÊèêÁ§∫ËØçÊé®Ëçê
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-auto h-7 text-xs text-[var(--project-text-muted)]"
-                    onClick={() => void generateSuggestionBatch()}
-                    disabled={loadingSuggestions}
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "mr-1 h-3.5 w-3.5",
-                        loadingSuggestions && "animate-spin"
-                      )}
-                    />
-                    Êç¢‰∏ÄÊâπ
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-2">
-                  {suggestions.map((item, idx) => (
-                    <motion.button
-                      key={`${item}-${idx}`}
-                      whileHover={{ y: -2, scale: 1.003 }}
-                      whileTap={{ scale: 0.997 }}
-                      onClick={() => setPrompt(item)}
-                      className="w-full rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-3 py-2 text-left text-xs text-[var(--project-text-primary)] transition-colors hover:border-[var(--project-border-strong)] hover:brightness-95"
-                    >
-                      {item}
-                    </motion.button>
-                  ))}
-                  {loadingSuggestions && suggestions.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-[var(--project-border)] px-3 py-4 text-center text-xs text-[var(--project-text-muted)]">
-                      Ê≠£Âú®ÁªìÂêàÂΩìÂâçÈ°πÁõÆËµÑÊñôÁîüÊàêÊé®ËçêÊèêÁ§∫ËØç...
-                    </div>
-                  ) : null}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.section>
+      <div
+        className={cn(
+          "relative z-10 grid h-full min-h-0 gap-3",
+          compact
+            ? "grid-cols-1 lg:grid-cols-[180px_minmax(0,1fr)]"
+            : "grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)]"
+        )}
+      >
+        <PptWorkflowRail
+          currentStep={1}
+          className="hidden h-full min-h-0 overflow-y-auto lg:block"
+        />
 
-          <motion.section variants={itemVariants}>
-            <Card className="border-[var(--project-border)] bg-[var(--project-surface-elevated)] text-[var(--project-text-primary)] shadow-sm">
-              <CardContent className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-medium text-[var(--project-text-muted)]">
-                    <FileText className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
-                    È°µÊï∞ÈÄâÊã©
-                    <Badge variant="outline" className="ml-auto text-[11px]">
-                      {pageCount} È°µ ¬∑ {pageLabel}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-5 gap-2">
-                    {PAGE_PRESETS.map((value) => (
-                      <button
-                        key={value}
-                        onClick={() => setPageCount(value)}
-                        className={cn(
-                          "rounded-lg border px-2 py-1.5 text-xs transition-all",
-                          pageCount === value
-                            ? "border-[var(--project-accent)] bg-[var(--project-accent)] text-[var(--project-accent-text)]"
-                            : "border-[var(--project-border)] bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] hover:border-[var(--project-border-strong)]"
-                        )}
-                      >
-                        {value}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <Separator />
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-medium text-[var(--project-text-muted)]">
-                    <LayoutTemplate className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
-                    Â§ßÁ∫≤È£éÊ†º
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {OUTLINE_STYLES.map((style) => (
-                      <motion.button
-                        key={style.id}
-                        whileHover={{ y: -1 }}
-                        onClick={() => setOutlineStyle(style.id)}
-                        className={cn(
-                          "rounded-xl border px-3 py-2.5 text-left transition-all",
-                          outlineStyle === style.id
-                            ? "border-[var(--project-border-strong)] bg-[var(--project-surface-muted)] shadow-sm"
-                            : "border-[var(--project-border)] bg-[var(--project-surface-muted)] hover:border-[var(--project-border-strong)]"
-                        )}
-                      >
-                        <p className="text-xs font-medium text-[var(--project-text-primary)]">
-                          {style.name}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-[var(--project-text-muted)]">
-                          {style.desc}
-                        </p>
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.section>
-
-          <motion.section variants={itemVariants} className="pb-1">
-            <Button
-              onClick={() => void handleGenerate()}
-              disabled={!prompt.trim() || isCreatingSession}
-              className={cn(
-                "h-11 w-full rounded-xl border border-[var(--project-accent)] bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-sm transition-all hover:bg-[var(--project-accent-hover)] hover:shadow-md",
-                (!prompt.trim() || isCreatingSession) && "opacity-70"
-              )}
+        <Card className="h-full min-h-0 border-zinc-200/80 bg-white/80 text-zinc-900 shadow-[0_24px_80px_-45px_rgba(15,23,42,0.45)] backdrop-blur-sm">
+          <ScrollArea className="h-full min-h-0 pr-2">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className={cn("space-y-4 pb-4", compact ? "pt-1.5" : "pt-3")}
             >
-              {isCreatingSession ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Ê≠£Âú®ÂàõÂª∫ÁîüÊàê‰ªªÂä°...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  ÁîüÊàêÂ§ßÁ∫≤
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </>
-              )}
-            </Button>
-            <p className="mt-2 text-center text-[11px] text-[var(--project-text-muted)]">
-              ÁÇπÂáªÂêéÂ∞ÜËøõÂÖ•Â§ßÁ∫≤ÁºñËæëÈ°µÔºåÂπ∂ÂÆûÊó∂Á≠âÂæÖÂ§ßÁ∫≤ÁîüÊàêÁªìÊûú
-            </p>
-          </motion.section>
-        </motion.div>
-      </ScrollArea>
+              <motion.section variants={itemVariants} className="lg:hidden">
+                <PptWorkflowRail currentStep={1} />
+              </motion.section>
+
+              <motion.section variants={itemVariants}>
+                <Card className="overflow-hidden border-zinc-200/80 bg-[linear-gradient(150deg,#ffffff,#f8fafc)] text-zinc-900 shadow-[0_16px_50px_-35px_rgba(15,23,42,0.45)]">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
+                      <Wand2 className="h-4 w-4 text-blue-600" />
+                      “ªº¸¥ÓΩ®…˙≥…¿∂Õº
+                      <Badge className="ml-auto border-blue-200 bg-blue-50 text-blue-700">
+                        Step 1 / 3
+                      </Badge>
+                    </CardTitle>
+                    <p className="text-xs leading-5 text-zinc-600">
+                      ’‚“ª“≥÷ª◊ˆ»˝º˛ ¬£∫∂®“Âƒø±Í°¢—°‘ÒΩ·ππ°¢…˙≥…¥Û∏Ÿ°£¡˜≥Ãª·◊‘∂ØœŒΩ”µΩœ¬“ª≤Ω¥Û∏Ÿπ≤¥¥°£
+                    </p>
+                  </CardHeader>
+                  <CardContent className="grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
+                      <p className="text-[11px] font-medium text-zinc-500">ΩÃ—ßƒø±Í</p>
+                      <p className="mt-1 text-xs font-medium text-zinc-900">œ»–¥°∞ΩÃ ≤√¥°±</p>
+                    </div>
+                    <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
+                      <p className="text-[11px] font-medium text-zinc-500"> ‹÷⁄≤„¥Œ</p>
+                      <p className="mt-1 text-xs font-medium text-zinc-900">‘Ÿ–¥°∞∏¯À≠—ß°±</p>
+                    </div>
+                    <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
+                      <p className="text-[11px] font-medium text-zinc-500">øŒÃ√ªÓ∂Ø</p>
+                      <p className="mt-1 text-xs font-medium text-zinc-900">◊Ó∫Û–¥°∞‘ı√¥—ß°±</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.section>
+
+              <motion.section
+                variants={itemVariants}
+                className="grid gap-4 lg:grid-cols-5"
+              >
+                <Card className="border-zinc-200/80 bg-white/90 text-zinc-900 shadow-sm lg:col-span-3">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
+                      <Compass className="h-4 w-4 text-blue-600" />
+                      –Ë«Û√Ë ˆ
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label
+                          htmlFor="ppt-prompt-input"
+                          className="text-xs font-medium text-zinc-600"
+                        >
+                          Ã· æ¥ 
+                        </label>
+                        <span className="text-[11px] text-zinc-500">
+                          {prompt.length}/1200
+                        </span>
+                      </div>
+                      <Textarea
+                        id="ppt-prompt-input"
+                        value={prompt}
+                        onChange={(event) => setPrompt(event.target.value)}
+                        placeholder="¿˝»Á£∫…˙≥…“ª∑›°∂Õº–Œœ‘ æ…Ë±∏°∑ΩÃ—ßPPT£¨√ÊœÚ¥Û∂˛—ß…˙£¨“™«Û¿Ì¬€Ω≤Ω‚ + ∞∏¿˝∑÷Œˆ + øŒÃ√Ã÷¬€°£"
+                        className="min-h-[160px] resize-none rounded-2xl border-zinc-200 bg-zinc-50/60 text-sm leading-6 shadow-inner focus-visible:ring-blue-300"
+                      />
+                    </div>
+                    <p className="text-[11px] leading-5 text-zinc-500">
+                      Ω®“È∞¸∫¨£∫øŒÃ‚°¢∂‘œÛ°¢’¬Ω⁄∑∂Œß°¢øŒÃ√ªÓ∂Ø–Œ Ω°£
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-zinc-200/80 bg-white/90 text-zinc-900 shadow-sm lg:col-span-2">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
+                      <FileStack className="h-4 w-4 text-blue-600" />
+                      “≥√Ê≤Œ ˝
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
+                        <FileText className="h-3.5 w-3.5 text-zinc-500" />
+                        “≥ ˝—°‘Ò
+                        <Badge
+                          variant="outline"
+                          className="ml-auto border-zinc-200 bg-zinc-50 text-[11px] text-zinc-700"
+                        >
+                          {pageCount} “≥ °§ {pageLabel}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-5 gap-2">
+                        {PAGE_PRESETS.map((value) => (
+                          <button
+                            key={value}
+                            onClick={() => setPageCount(value)}
+                            className={cn(
+                              "rounded-xl border px-2 py-1.5 text-xs font-medium transition-all",
+                              pageCount === value
+                                ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                                : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-white"
+                            )}
+                          >
+                            {value}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <Separator className="bg-zinc-200" />
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-medium text-zinc-600">
+                        <LayoutTemplate className="h-3.5 w-3.5 text-zinc-500" />
+                        ¥Û∏Ÿ∑Á∏Ò
+                      </div>
+                      <div className="grid grid-cols-1 gap-2">
+                        {OUTLINE_STYLES.map((style) => (
+                          <motion.button
+                            key={style.id}
+                            whileHover={{ y: -1 }}
+                            onClick={() => setOutlineStyle(style.id)}
+                            className={cn(
+                              "rounded-xl border px-3 py-2.5 text-left transition-all",
+                              outlineStyle === style.id
+                                ? "border-blue-600 bg-blue-50/70 shadow-sm"
+                                : "border-zinc-200 bg-zinc-50/70 hover:border-zinc-300 hover:bg-white"
+                            )}
+                          >
+                            <p className="text-xs font-medium text-zinc-900">
+                              {style.name}
+                            </p>
+                            <p className="mt-0.5 text-[11px] leading-5 text-zinc-500">
+                              {style.desc}
+                            </p>
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.section>
+
+              <motion.section variants={itemVariants}>
+                <Card className="border-zinc-200/80 bg-white/90 text-zinc-900 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
+                      <Lightbulb className="h-4 w-4 text-amber-500" />
+                      ÷«ƒ‹Ã· æ¥ Õ∆ºˆ
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="ml-auto h-8 rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-600 hover:bg-zinc-100"
+                        onClick={() => void generateSuggestionBatch()}
+                        disabled={loadingSuggestions}
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "mr-1.5 h-3.5 w-3.5",
+                            loadingSuggestions && "animate-spin"
+                          )}
+                        />
+                        À¢–¬Õ∆ºˆ
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                      {suggestions.map((item, idx) => (
+                        <motion.button
+                          key={`${item}-${idx}`}
+                          whileHover={{ y: -2, scale: 1.002 }}
+                          whileTap={{ scale: 0.996 }}
+                          onClick={() => setPrompt(item)}
+                          className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left text-xs leading-5 text-zinc-700 transition-colors hover:border-blue-300 hover:bg-blue-50/40"
+                        >
+                          {item}
+                        </motion.button>
+                      ))}
+                      {loadingSuggestions && suggestions.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-500 lg:col-span-2">
+                          ’˝‘⁄Ω·∫œœÓƒø◊ ¡œ…˙≥…Õ∆ºˆÃ· æ¥ ...
+                        </div>
+                      ) : null}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.section>
+
+              <motion.section variants={itemVariants} className="pb-1">
+                <Card className="border-zinc-200/80 bg-white/90 text-zinc-900 shadow-sm">
+                  <CardContent className="flex flex-col gap-3 pt-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-900">
+                        …˙≥…¥Û∏Ÿ≤¢Ω¯»Îπ≤¥¥
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">
+                        œµÕ≥Ω´¥¥Ω®ª·ª∞≤¢µ»¥˝¥Û∏ŸÕÍ≥…£¨ÀÊ∫Û◊‘∂ØΩ¯»Îµ⁄ 2 ≤Ω±‡º≠«¯°£
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => void handleGenerate()}
+                      disabled={!prompt.trim() || isCreatingSession}
+                      className={cn(
+                        "h-11 min-w-[180px] rounded-xl border border-blue-700 bg-blue-700 px-4 text-white shadow-sm transition-all hover:bg-blue-600",
+                        (!prompt.trim() || isCreatingSession) && "opacity-70"
+                      )}
+                    >
+                      {isCreatingSession ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          ¥¥Ω®»ŒŒÒ÷–...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Ω¯»Î¥Û∏Ÿ±‡º≠
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.section>
+            </motion.div>
+          </ScrollArea>
+        </Card>
+      </div>
 
       <AnimatePresence mode="wait">
         {showOutlineEditor ? (

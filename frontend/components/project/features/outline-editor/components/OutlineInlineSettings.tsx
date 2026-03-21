@@ -1,4 +1,4 @@
-ï»¿"use client";
+"use client";
 
 import { motion } from "framer-motion";
 import { Image as ImageIcon, Layers, Palette, Tag, X } from "lucide-react";
@@ -47,13 +47,13 @@ export function OutlineInlineSettings({
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: "auto" }}
       exit={{ opacity: 0, height: 0 }}
-      className="mb-6 p-4 bg-zinc-50 rounded-2xl border border-zinc-200"
+      className="mb-6 rounded-2xl border border-zinc-200 bg-white/90 p-4 shadow-sm"
     >
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-600 flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5" />
-            å†…å®¹è¯¦ç»†ç¨‹åº¦
+            ÄÚÈİÏêÏ¸¶È
           </label>
           <ToggleGroup
             type="single"
@@ -68,7 +68,7 @@ export function OutlineInlineSettings({
               <ToggleGroupItem
                 key={level.value}
                 value={level.value}
-                className="flex-1 h-9 text-xs data-[state=on]:bg-zinc-900 data-[state=on]:text-zinc-50 border border-zinc-200 hover:bg-zinc-100"
+                className="flex-1 h-9 text-xs border border-zinc-200 text-zinc-600 data-[state=on]:border-blue-500 data-[state=on]:bg-blue-50 data-[state=on]:text-blue-700"
               >
                 {level.label}
               </ToggleGroupItem>
@@ -79,7 +79,7 @@ export function OutlineInlineSettings({
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-600 flex items-center gap-1.5">
             <Palette className="w-3.5 h-3.5" />
-            è§†è§‰ä¸»é¢˜
+            ÊÓ¾õÖ÷Ìâ
           </label>
           <div className="flex flex-wrap gap-1.5">
             {VISUAL_THEMES.map((theme) => (
@@ -87,10 +87,10 @@ export function OutlineInlineSettings({
                 key={theme.id}
                 onClick={() => setVisualTheme(theme.id)}
                 className={cn(
-                  "px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                  "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all",
                   visualTheme === theme.id
-                    ? `bg-gradient-to-r ${theme.gradient} text-white border-transparent shadow-md`
-                    : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
+                    ? `bg-gradient-to-r ${theme.gradient} border-transparent text-white`
+                    : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
                 )}
               >
                 {theme.name}
@@ -102,16 +102,16 @@ export function OutlineInlineSettings({
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-600 flex items-center gap-1.5">
             <ImageIcon className="w-3.5 h-3.5" />
-            é…å›¾é£æ ¼
+            ÅäÍ¼·ç¸ñ
           </label>
           <Select value={imageStyle} onValueChange={setImageStyle}>
-            <SelectTrigger className="w-full h-9 bg-white border-zinc-200">
+            <SelectTrigger className="w-full h-9 border-zinc-200 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-white shadow-lg">
               {IMAGE_STYLES.map((style) => (
                 <SelectItem key={style.value} value={style.value}>
-                  <span className="mr-1.5">{style.icon}</span>
+                  <span className="mr-1.5 text-[11px] text-zinc-400">{style.icon}</span>
                   {style.label}
                 </SelectItem>
               ))}
@@ -123,42 +123,42 @@ export function OutlineInlineSettings({
       <div className="mt-4 space-y-2">
         <label className="text-xs font-medium text-zinc-600 flex items-center gap-1.5">
           <Tag className="w-3.5 h-3.5" />
-          å…³é”®è¯æ ‡ç­¾
+          ¹Ø¼ü´Ê±êÇ©
         </label>
         <div className="flex flex-wrap gap-1.5 items-center">
           {keywords.map((keyword) => (
             <motion.span
               key={keyword}
               layout
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-zinc-100 text-zinc-700"
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs text-zinc-700"
             >
               {keyword}
               <button
                 onClick={() => onRemoveKeyword(keyword)}
-                className="hover:text-zinc-900"
+                className="rounded-full p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
               >
                 <X className="w-3 h-3" />
               </button>
             </motion.span>
           ))}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <Input
               value={keywordInput}
               onChange={(event) => setKeywordInput(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && onAddKeyword()}
-              placeholder="æ·»åŠ å…³é”®è¯..."
-              className="h-7 w-24 text-xs bg-white border-zinc-200"
+              placeholder="Ìí¼Ó¹Ø¼ü´Ê..."
+              className="h-8 w-32 text-xs border-zinc-200 bg-white"
             />
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={onAddKeyword}
-              className="h-7 px-2 text-xs text-zinc-500 hover:text-zinc-700"
+              className="h-8 px-3 text-xs border-zinc-200"
             >
-              +
+              Ìí¼Ó
             </Button>
           </div>
         </div>
