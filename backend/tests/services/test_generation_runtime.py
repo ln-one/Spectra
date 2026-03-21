@@ -8,6 +8,7 @@ from services.task_executor.generation_runtime import (
     GenerationExecutionContext,
     _build_project_space_download_url,
     persist_generation_artifacts,
+    persist_preview_payload,
     render_generation_outputs,
 )
 
@@ -205,3 +206,40 @@ async def test_render_generation_outputs_non_session_still_emits_direct_urls():
     db_service.update_generation_task_status.assert_awaited_once_with(
         "task-3", TaskStatus.PROCESSING, 90
     )
+
+
+@pytest.mark.asyncio
+async def test_persist_preview_payload_merges_existing_input_data():
+    find_unique = AsyncMock(
+        return_value=SimpleNamespace(
+            inputData='{"template_config":{"style":"gaia"},"foo":"bar"}'
+        )
+    )
+    update = AsyncMock()
+    db_service = SimpleNamespace(
+        db=SimpleNamespace(
+            generationtask=SimpleNamespace(
+                find_unique=find_unique,
+                update=update,
+            )
+        )
+    )
+
+    await persist_preview_payload(
+        db_service,
+        task_id="task-100",
+        preview_payload={
+            "title": "T",
+            "markdown_content": "# Slide",
+            "lesson_plan_markdown": "plan",
+        },
+    )
+
+    find_unique.assert_awaited_once_with(
+        where={"id": "task-100"},
+        select={"inputData": True},
+    )
+    update.assert_awaited_once()
+    payload = update.await_args.kwargs["data"]["inputData"]
+    assert '"template_config"' in payload
+    assert '"preview_content"' in payload

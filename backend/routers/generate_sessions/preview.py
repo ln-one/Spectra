@@ -91,7 +91,10 @@ async def get_session_preview(
     anchor = await _resolve_anchor(session_id, snapshot, artifact_id)
     project_id = snapshot["session"]["project_id"]
     task, slides, lesson_plan, _ = await _load_preview_material(
-        session_id, project_id, anchor.get("artifact_id")
+        session_id,
+        project_id,
+        anchor.get("artifact_id"),
+        snapshot["session"].get("task_id"),
     )
 
     response = success_response(
@@ -200,7 +203,10 @@ async def get_session_slide_preview(
     anchor = await _resolve_anchor(session_id, snapshot, artifact_id)
     project_id = snapshot["session"]["project_id"]
     _, slides, lesson_plan, _ = await _load_preview_material(
-        session_id, project_id, anchor.get("artifact_id")
+        session_id,
+        project_id,
+        anchor.get("artifact_id"),
+        snapshot["session"].get("task_id"),
     )
 
     try:
@@ -259,7 +265,10 @@ async def export_session(
     anchor = await _resolve_anchor(session_id, snapshot, body.get("artifact_id"))
     project_id = snapshot["session"]["project_id"]
     task, slides, lesson_plan, content = await _load_preview_material(
-        session_id, project_id, anchor.get("artifact_id")
+        session_id,
+        project_id,
+        anchor.get("artifact_id"),
+        snapshot["session"].get("task_id"),
     )
     export_format = str(body.get("format") or "markdown")
     payload = build_export_payload(

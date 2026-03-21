@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 from uuid import UUID
@@ -11,6 +13,61 @@ from .cache import load_preview_content, save_preview_content
 from .rendering import build_lesson_plan, build_slides
 
 logger = logging.getLogger(__name__)
+_TASK_PREVIEW_SELECT = {
+    "id": True,
+    "status": True,
+    "sessionId": True,
+    "templateConfig": True,
+    "inputData": True,
+}
+
+
+def _preview_rebuild_timeout_seconds() -> float:
+    raw = os.getenv("PREVIEW_REBUILD_TIMEOUT_SECONDS", "8").strip()
+    try:
+        parsed = float(raw)
+        return parsed if parsed > 0 else 8.0
+    except ValueError:
+        return 8.0
+
+
+def _build_fallback_preview_payload(project_name: str) -> dict:
+    return {
+        "title": project_name or "课件预览",
+        "markdown_content": "",
+        "lesson_plan_markdown": "",
+    }
+
+
+def _parse_preview_content_from_input_data(raw_input_data: object) -> Optional[dict]:
+    if not raw_input_data:
+        return None
+    if not isinstance(raw_input_data, str):
+        return None
+    try:
+        payload = json.loads(raw_input_data)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    preview_content = payload.get("preview_content")
+    if not isinstance(preview_content, dict):
+        return None
+
+    title = preview_content.get("title")
+    markdown_content = preview_content.get("markdown_content")
+    lesson_plan_markdown = preview_content.get("lesson_plan_markdown")
+    if not isinstance(title, str):
+        return None
+    if not isinstance(markdown_content, str):
+        return None
+    if not isinstance(lesson_plan_markdown, str):
+        return None
+    return {
+        "title": title,
+        "markdown_content": markdown_content,
+        "lesson_plan_markdown": lesson_plan_markdown,
+    }
 
 
 async def get_or_generate_content(task, project) -> dict:
@@ -18,13 +75,23 @@ async def get_or_generate_content(task, project) -> dict:
     if cached:
         return cached
 
+    persisted = _parse_preview_content_from_input_data(getattr(task, "inputData", None))
+    if persisted:
+        try:
+            await save_preview_content(task.id, persisted)
+        except Exception as exc:  # pragma: no cover - defensive cache path
+            logger.warning(
+                "Failed to rehydrate preview cache from task inputData for task %s: %s",
+                task.id,
+                exc,
+            )
+        return persisted
+
     task_status = getattr(task, "status", None)
     if task_status in {TaskStatus.PENDING, TaskStatus.PROCESSING}:
-        return {
-            "title": project.name or "Generating",
-            "markdown_content": "",
-            "lesson_plan_markdown": "",
-        }
+        return _build_fallback_preview_payload(project.name or "Generating")
+    if task_status == TaskStatus.FAILED:
+        return _build_fallback_preview_payload(project.name)
 
     from services.ai import ai_service
 
@@ -63,14 +130,34 @@ async def get_or_generate_content(task, project) -> dict:
                     session_id,
                 )
 
-    courseware = await ai_service.generate_courseware_content(
-        project_id=project.id,
-        user_requirements=user_requirements,
-        outline_document=outline_document,
-        outline_version=outline_version,
-        session_id=session_id,
-        rag_source_ids=(template_config or {}).get("rag_source_ids"),
-    )
+    try:
+        courseware = await asyncio.wait_for(
+            ai_service.generate_courseware_content(
+                project_id=project.id,
+                user_requirements=user_requirements,
+                outline_document=outline_document,
+                outline_version=outline_version,
+                session_id=session_id,
+                rag_source_ids=(template_config or {}).get("rag_source_ids"),
+            ),
+            timeout=_preview_rebuild_timeout_seconds(),
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "Preview AI rebuild timed out for task %s, project %s",
+            task.id,
+            project.id,
+        )
+        return _build_fallback_preview_payload(project.name)
+    except Exception as exc:
+        logger.warning(
+            "Preview AI rebuild failed for task %s, project %s: %s",
+            task.id,
+            project.id,
+            exc,
+        )
+        return _build_fallback_preview_payload(project.name)
+
     data = {
         "title": courseware.title,
         "markdown_content": courseware.markdown_content,
@@ -108,7 +195,10 @@ def _extract_task_id_from_artifact(artifact) -> Optional[str]:
 async def _resolve_task_by_artifact(session_id: str, artifact_id: Optional[str]):
     if not artifact_id:
         return None
-    artifact = await db_service.db.artifact.find_unique(where={"id": artifact_id})
+    artifact = await db_service.db.artifact.find_unique(
+        where={"id": artifact_id},
+        select={"sessionId": True, "metadata": True, "storagePath": True},
+    )
     if not artifact:
         return None
     if getattr(artifact, "sessionId", None) != session_id:
@@ -116,7 +206,10 @@ async def _resolve_task_by_artifact(session_id: str, artifact_id: Optional[str])
 
     task_id = _extract_task_id_from_artifact(artifact)
     if task_id:
-        task = await db_service.db.generationtask.find_unique(where={"id": task_id})
+        task = await db_service.db.generationtask.find_unique(
+            where={"id": task_id},
+            select=_TASK_PREVIEW_SELECT,
+        )
         if task and getattr(task, "sessionId", None) == session_id:
             return task
     return None
@@ -126,13 +219,22 @@ async def load_preview_material(
     session_id: str,
     project_id: str,
     artifact_id: Optional[str] = None,
+    task_id: Optional[str] = None,
 ):
     task = await _resolve_task_by_artifact(session_id, artifact_id)
+    if task is None and task_id:
+        task = await db_service.db.generationtask.find_unique(
+            where={"id": task_id},
+            select=_TASK_PREVIEW_SELECT,
+        )
+        if task and getattr(task, "sessionId", None) != session_id:
+            task = None
     if task is None:
         tasks = await db_service.db.generationtask.find_many(
             where={"sessionId": session_id},
             order={"createdAt": "desc"},
             take=1,
+            select=_TASK_PREVIEW_SELECT,
         )
         task = tasks[0] if tasks else None
 

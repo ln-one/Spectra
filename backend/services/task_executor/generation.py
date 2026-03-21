@@ -19,6 +19,7 @@ from .generation_runtime import (
     cache_preview_content,
     finalize_generation_success,
     persist_generation_artifacts,
+    persist_preview_payload,
     render_generation_outputs,
 )
 
@@ -91,7 +92,12 @@ async def execute_generation_task(
         )
 
         cache_started_at = time.perf_counter()
-        await cache_preview_content(task_id, courseware_content)
+        preview_payload = await cache_preview_content(task_id, courseware_content)
+        await persist_preview_payload(
+            db_service,
+            task_id=task_id,
+            preview_payload=preview_payload,
+        )
         timings["cache_preview_ms"] = round(
             (time.perf_counter() - cache_started_at) * 1000, 2
         )

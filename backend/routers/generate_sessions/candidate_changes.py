@@ -225,7 +225,15 @@ def without_sources(slides: list[dict], lesson_plan: Optional[dict]):
 
 
 async def load_session_preview_material(
-    session_id: str, project_id: str, artifact_id: Optional[str] = None
+    session_id: str,
+    project_id: str,
+    artifact_id: Optional[str] = None,
+    task_id: Optional[str] = None,
 ):
     """Backward-compatible wrapper for tests and patches."""
-    return await load_preview_material(session_id, project_id, artifact_id)
+    return await load_preview_material(
+        session_id,
+        project_id,
+        artifact_id,
+        task_id,
+    )
