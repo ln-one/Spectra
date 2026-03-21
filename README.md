@@ -17,6 +17,9 @@ The repository has completed its first major structural convergence:
 - docs home: `/Users/ln1/Projects/Spectra/docs/README.md`
 - canonical project philosophy: `/Users/ln1/Projects/Spectra/docs/project/SYSTEM_PHILOSOPHY_2026-03-19.md`
 - engineering standards: `/Users/ln1/Projects/Spectra/docs/standards/README.md`
+- repository agent contract: `/Users/ln1/Projects/Spectra/AGENTS.md`
+- backend agent contract: `/Users/ln1/Projects/Spectra/backend/AGENTS.md`
+- frontend agent contract: `/Users/ln1/Projects/Spectra/frontend/AGENTS.md`
 - battle plan for remaining work: `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`
 - service topology notes: `/Users/ln1/Projects/Spectra/docs/service-topology-todo.md`
 - changelog: `/Users/ln1/Projects/Spectra/CHANGELOG.md`
@@ -47,6 +50,7 @@ docker-compose up --build
 ```
 
 For more detail, see `/Users/ln1/Projects/Spectra/docs/guides/docker-setup.md`.
+Runtime configuration should come from `/Users/ln1/Projects/Spectra/backend/.env`, using `/Users/ln1/Projects/Spectra/backend/.env.example` as the template.
 
 ### Backend
 
@@ -71,5 +75,6 @@ npm run dev
 1. `/Users/ln1/Projects/Spectra/docs/project/SYSTEM_PHILOSOPHY_2026-03-19.md`
 2. `/Users/ln1/Projects/Spectra/docs/standards/backend.md`
 3. `/Users/ln1/Projects/Spectra/docs/standards/frontend.md`
-4. `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`
+4. `/Users/ln1/Projects/Spectra/AGENTS.md`
 5. `/Users/ln1/Projects/Spectra/backend/scripts/architecture_guard.py`
+6. `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`

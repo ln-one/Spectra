@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from services.artifact_generator import office as office_module
 from services.artifact_generator.office import ArtifactOfficeMixin
 
 
@@ -59,3 +60,24 @@ async def test_generate_docx_creates_openable_file(tmp_path: Path):
     texts = [paragraph.text for paragraph in document.paragraphs]
     assert any("Demo DOCX" in text for text in texts)
     assert any("Intro" in text for text in texts)
+
+
+@pytest.mark.asyncio
+async def test_generate_pptx_fails_explicitly_when_placeholder_disabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    generator = _OfficeGenerator(tmp_path)
+    monkeypatch.delenv("ALLOW_OFFICE_PLACEHOLDER_ARTIFACTS", raising=False)
+
+    async def _render_fail(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(generator, "_render_pptx_with_marp", _render_fail)
+    monkeypatch.setattr(office_module, "Presentation", None)
+
+    with pytest.raises(RuntimeError, match="placeholder artifacts are disabled"):
+        await generator.generate_pptx(
+            {"title": "Demo PPTX", "slides": [{"title": "S1", "content": "C1"}]},
+            "project-1",
+            "artifact-disabled",
+        )

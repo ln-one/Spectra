@@ -15,23 +15,23 @@ from services.ai.completion_runtime import (
     extract_completion_payload,
     with_route_failure,
 )
-from services.ai.intents import (
-    classify_intent,
-    classify_intent_by_keywords,
-    parse_modify_intent,
-    parse_modify_intent_by_keywords,
-)
 from services.ai.model_resolution import _resolve_model_name
 from services.ai.model_router import (
     ModelRouteFailureReason,
     ModelRouter,
     ModelRouteTask,
 )
-from services.ai.rag_context import retrieve_rag_context
+from services.ai.service_intents import (
+    classify_intent_by_keywords_only,
+    classify_intent_with_service,
+    parse_modify_intent_by_keywords_only,
+    parse_modify_intent_with_service,
+    retrieve_rag_context_bound,
+)
+from services.ai.service_support import resolve_requested_model, resolve_timeout_seconds
 from services.courseware_ai import CoursewareAIMixin
 
 logger = logging.getLogger(__name__)
-
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
@@ -55,6 +55,15 @@ class AIService(CoursewareAIMixin):
         )
         self.allow_ai_stub = os.getenv("ALLOW_AI_STUB", "false").lower() == "true"
 
+    def _resolve_timeout_seconds(
+        self, route_task: Optional[ModelRouteTask | str]
+    ) -> float:
+        return resolve_timeout_seconds(
+            route_task,
+            request_timeout_seconds=self.request_timeout_seconds,
+            chat_request_timeout_seconds=self.chat_request_timeout_seconds,
+        )
+
     async def _run_completion(
         self,
         *,
@@ -74,16 +83,6 @@ class AIService(CoursewareAIMixin):
             timeout=timeout_seconds,
         )
 
-    def _resolve_timeout_seconds(
-        self, route_task: Optional[ModelRouteTask | str]
-    ) -> float:
-        normalized_route_task = (
-            route_task.value if isinstance(route_task, ModelRouteTask) else route_task
-        )
-        if normalized_route_task == ModelRouteTask.CHAT_RESPONSE.value:
-            return self.chat_request_timeout_seconds
-        return self.request_timeout_seconds
-
     async def generate(
         self,
         prompt: str,
@@ -97,21 +96,16 @@ class AIService(CoursewareAIMixin):
         def _elapsed_ms() -> float:
             return round((time.perf_counter() - started_at) * 1000.0, 2)
 
-        route_decision = None
-        requested_model = model
-        normalized_route_task = (
-            route_task.value if isinstance(route_task, ModelRouteTask) else route_task
+        route_decision, requested_model, normalized_route_task = (
+            resolve_requested_model(
+                model_router=self.model_router,
+                default_model=self.default_model,
+                model=model,
+                route_task=route_task,
+                prompt=prompt,
+                has_rag_context=has_rag_context,
+            )
         )
-        if not requested_model:
-            if normalized_route_task:
-                route_decision = self.model_router.route(
-                    normalized_route_task,
-                    prompt=prompt,
-                    has_rag_context=has_rag_context,
-                )
-                requested_model = route_decision.selected_model
-            else:
-                requested_model = self.default_model
         resolved_model = requested_model
         fallback_triggered = False
         fallback_model = route_decision.fallback_model if route_decision else None
@@ -278,34 +272,13 @@ class AIService(CoursewareAIMixin):
             raise
 
     async def classify_intent(self, user_message: str):
-        return await classify_intent(self, user_message)
-
-    @staticmethod
-    def _classify_intent_by_keywords(message: str):
-        return classify_intent_by_keywords(message)
+        return await classify_intent_with_service(self, user_message)
 
     async def parse_modify_intent(self, instruction: str):
-        return await parse_modify_intent(self, instruction)
+        return await parse_modify_intent_with_service(self, instruction)
 
-    @staticmethod
-    def _parse_modify_intent_by_keywords(instruction: str):
-        return parse_modify_intent_by_keywords(instruction)
-
-    async def _retrieve_rag_context(
-        self,
-        project_id: str,
-        query: str,
-        top_k: int = 5,
-        score_threshold: float = 0.3,
-        session_id: Optional[str] = None,
-        filters: Optional[dict] = None,
-    ):
-        return await retrieve_rag_context(
-            self,
-            project_id=project_id,
-            query=query,
-            top_k=top_k,
-            score_threshold=score_threshold,
-            session_id=session_id,
-            filters=filters,
-        )
+    _classify_intent_by_keywords = staticmethod(classify_intent_by_keywords_only)
+    _parse_modify_intent_by_keywords = staticmethod(
+        parse_modify_intent_by_keywords_only
+    )
+    _retrieve_rag_context = retrieve_rag_context_bound

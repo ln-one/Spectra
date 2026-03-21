@@ -1,8 +1,4 @@
-"""
-Vector Service - ChromaDB 连接管理
-
-提供 ChromaDB 向量数据库的初始化、collection 管理和生命周期管理。
-"""
+"""Vector Service - ChromaDB 连接管理与 collection 生命周期封装。"""
 
 import logging
 import os

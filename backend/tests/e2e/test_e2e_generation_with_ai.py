@@ -13,6 +13,20 @@ from services.ai import ai_service
 from services.generation import generation_service
 
 
+@pytest.fixture(autouse=True)
+def _stabilize_ai_timeouts(monkeypatch):
+    monkeypatch.setattr(
+        ai_service,
+        "request_timeout_seconds",
+        max(getattr(ai_service, "request_timeout_seconds", 45.0), 90.0),
+    )
+    monkeypatch.setattr(
+        ai_service,
+        "chat_request_timeout_seconds",
+        max(getattr(ai_service, "chat_request_timeout_seconds", 90.0), 90.0),
+    )
+
+
 class TestE2EGenerationWithAI:
     """端到端生成测试"""
 

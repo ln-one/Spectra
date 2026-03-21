@@ -59,6 +59,12 @@
   - Word generation depends on Pandoc
 - Why it matters: generation debugging must distinguish AI/content failure from render-toolchain failure.
 
+### 2.7 Office placeholder artifacts must stay explicit
+
+- Status: `confirmed`
+- Meaning: placeholder PPTX/DOCX output is a development-only degradation path and should not be the default production behavior.
+- Why it matters: fake Office files hide render-toolchain failures and make success semantics misleading.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated
