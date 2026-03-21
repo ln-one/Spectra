@@ -365,3 +365,93 @@ async def test_update_project_current_version_accepts_version_from_same_project(
         where={"id": "p-001"},
         data={"currentVersionId": "v-002"},
     )
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_rejects_session_from_other_project():
+    service = DatabaseService()
+    create_artifact = AsyncMock()
+    service.db = SimpleNamespace(
+        artifact=SimpleNamespace(create=create_artifact),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(id="s-001", projectId="p-other")
+            )
+        ),
+    )
+    service.get_project_version = AsyncMock()
+
+    with pytest.raises(ValidationException, match="session_id"):
+        await service.create_artifact(
+            project_id="p-001",
+            artifact_type="pptx",
+            visibility="private",
+            session_id="s-001",
+        )
+
+    create_artifact.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_rejects_version_anchor_from_other_project():
+    service = DatabaseService()
+    create_artifact = AsyncMock()
+    service.db = SimpleNamespace(
+        artifact=SimpleNamespace(create=create_artifact),
+        generationsession=SimpleNamespace(find_unique=AsyncMock()),
+    )
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-001", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="based_on_version_id"):
+        await service.create_artifact(
+            project_id="p-001",
+            artifact_type="pptx",
+            visibility="private",
+            based_on_version_id="v-001",
+        )
+
+    create_artifact.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_accepts_valid_session_and_version_anchor():
+    service = DatabaseService()
+    create_artifact = AsyncMock(return_value=SimpleNamespace(id="a-001"))
+    service.db = SimpleNamespace(
+        artifact=SimpleNamespace(create=create_artifact),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(id="s-001", projectId="p-001")
+            )
+        ),
+    )
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-001", projectId="p-001")
+    )
+
+    result = await service.create_artifact(
+        project_id="p-001",
+        artifact_type="pptx",
+        visibility="private",
+        session_id="s-001",
+        based_on_version_id="v-001",
+        owner_user_id="u-001",
+        storage_path="/tmp/output.pptx",
+        metadata={"kind": "courseware"},
+    )
+
+    assert result.id == "a-001"
+    create_artifact.assert_awaited_once_with(
+        data={
+            "projectId": "p-001",
+            "type": "pptx",
+            "visibility": "private",
+            "sessionId": "s-001",
+            "basedOnVersionId": "v-001",
+            "ownerUserId": "u-001",
+            "storagePath": "/tmp/output.pptx",
+            "metadata": '{"kind": "courseware"}',
+        }
+    )

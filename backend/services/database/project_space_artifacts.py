@@ -3,6 +3,7 @@ import os
 from typing import Optional
 
 from schemas.project_space import ArtifactType, ArtifactVisibility
+from utils.exceptions import ValidationException
 
 _DEFAULT_ARTIFACT_LIST_LIMIT = 200
 
@@ -27,6 +28,29 @@ def _normalize_artifact_visibility(value: ArtifactVisibility | str) -> str:
 
 
 class ProjectSpaceArtifactMixin:
+    async def _validate_artifact_session(
+        self, *, project_id: str, session_id: Optional[str]
+    ) -> None:
+        if not session_id:
+            return
+        session = await self.db.generationsession.find_unique(where={"id": session_id})
+        if not session or getattr(session, "projectId", None) != project_id:
+            raise ValidationException(
+                f"session_id {session_id} does not belong to project {project_id}"
+            )
+
+    async def _validate_artifact_version_anchor(
+        self, *, project_id: str, based_on_version_id: Optional[str]
+    ) -> None:
+        if not based_on_version_id:
+            return
+        version = await self.get_project_version(based_on_version_id)
+        if not version or getattr(version, "projectId", None) != project_id:
+            raise ValidationException(
+                "based_on_version_id "
+                f"{based_on_version_id} does not belong to project {project_id}"
+            )
+
     async def get_project_artifacts(
         self,
         project_id: str,
@@ -70,6 +94,14 @@ class ProjectSpaceArtifactMixin:
         storage_path: Optional[str] = None,
         metadata: Optional[dict] = None,
     ):
+        await self._validate_artifact_session(
+            project_id=project_id,
+            session_id=session_id,
+        )
+        await self._validate_artifact_version_anchor(
+            project_id=project_id,
+            based_on_version_id=based_on_version_id,
+        )
         data = {
             "projectId": project_id,
             "type": artifact_type,

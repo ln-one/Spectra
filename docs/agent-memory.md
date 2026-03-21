@@ -131,6 +131,12 @@
 - Meaning: low-level `create_project_reference()` and `update_project_reference()` must reject `mode=pinned` without `pinned_version_id`, and must validate that the pinned version still belongs to the target project.
 - Why it matters: otherwise service-layer checks can be bypassed and the repository can persist cross-project reference anchors that only fail much later during retrieval or review flows.
 
+### 2.19 Artifact creation must validate session and version anchors at write time
+
+- Status: `confirmed`
+- Meaning: low-level `create_artifact()` must reject `session_id` that does not belong to the same project and must reject `based_on_version_id` that does not belong to the same project.
+- Why it matters: artifact lineage is formal system state; if the DB boundary accepts foreign session/version anchors, later preview, download, and review flows can look successful while the underlying project-space graph is already inconsistent.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated
