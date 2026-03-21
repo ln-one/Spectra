@@ -30,6 +30,7 @@ ROLE_CONTRACTS: dict[str, RoleContract] = {
             "LARGE_MODEL",
             "SMALL_MODEL",
             "AI_REQUEST_TIMEOUT_SECONDS",
+            "PREVIEW_REBUILD_TIMEOUT_SECONDS",
             "TOOL_CHECK_CACHE_TTL_SECONDS",
             "HEALTH_TOOL_TIMEOUT_SECONDS",
             "GENERATION_TOOLS_REQUIRED",

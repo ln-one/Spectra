@@ -83,6 +83,17 @@
 
 - `backend api` 与 `worker` 保持一致
 
+### `PREVIEW_REBUILD_TIMEOUT_SECONDS`
+
+用途：
+
+- 控制 preview 缓存缺失时的 AI 重建超时，避免 `/preview` 长尾阻塞
+
+要求：
+
+- 建议在 `backend api` 明确配置（例如 `8`）
+- 值应为正数；超时后接口应快速降级返回
+
 ### `TOOL_CHECK_CACHE_TTL_SECONDS`
 
 用途：
@@ -441,6 +452,7 @@
 - `LARGE_MODEL`
 - `SMALL_MODEL`
 - `AI_REQUEST_TIMEOUT_SECONDS`
+- `PREVIEW_REBUILD_TIMEOUT_SECONDS`
 - `TOOL_CHECK_CACHE_TTL_SECONDS`
 - `HEALTH_TOOL_TIMEOUT_SECONDS`
 - `GENERATION_TOOLS_REQUIRED`
