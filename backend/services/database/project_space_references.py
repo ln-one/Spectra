@@ -121,6 +121,12 @@ class ProjectSpaceReferenceMixin:
         return await self.db.projectversion.create(data=data)
 
     async def update_project_current_version(self, project_id: str, version_id: str):
+        version = await self.get_project_version(version_id)
+        if not version or getattr(version, "projectId", None) != project_id:
+            raise ValidationException(
+                "current_version_id "
+                f"{version_id} does not belong to project {project_id}"
+            )
         return await self.db.project.update(
             where={"id": project_id},
             data={"currentVersionId": version_id},

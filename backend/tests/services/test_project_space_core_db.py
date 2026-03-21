@@ -216,3 +216,36 @@ async def test_create_project_version_rejects_parent_from_other_project():
         )
 
     create_version.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_project_current_version_rejects_version_from_other_project():
+    service = DatabaseService()
+    update_project = AsyncMock()
+    service.db = SimpleNamespace(project=SimpleNamespace(update=update_project))
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-002", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="current_version_id"):
+        await service.update_project_current_version("p-001", "v-002")
+
+    update_project.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_project_current_version_accepts_version_from_same_project():
+    service = DatabaseService()
+    update_project = AsyncMock(return_value=SimpleNamespace(id="p-001"))
+    service.db = SimpleNamespace(project=SimpleNamespace(update=update_project))
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-002", projectId="p-001")
+    )
+
+    result = await service.update_project_current_version("p-001", "v-002")
+
+    assert result.id == "p-001"
+    update_project.assert_awaited_once_with(
+        where={"id": "p-001"},
+        data={"currentVersionId": "v-002"},
+    )

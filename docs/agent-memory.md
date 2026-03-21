@@ -119,6 +119,12 @@
 - Meaning: `AI completion`, `embedding`, and `RAG` degradation should classify upstream failures with the same core vocabulary: `auth_error`, `config_error`, `timeout`, `provider_unavailable`, `completion_error`.
 - Why it matters: if each pipeline invents its own names, observability fragments and incident triage turns into message-string archaeology.
 
+### 2.17 Project current version updates must validate real ownership
+
+- Status: `confirmed`
+- Meaning: `update_project_current_version()` must validate that the target version still exists and still belongs to the same project before updating `project.currentVersionId`.
+- Why it matters: otherwise later code can bypass higher-level review checks and silently write a cross-project or dangling version anchor into the project's formal state.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated
