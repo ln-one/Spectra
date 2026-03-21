@@ -28,6 +28,7 @@ These directories describe the current system and should stay aligned with code:
 - [guides/](./guides/README.md): onboarding, local development, testing, CI/CD
 - [openapi/](./openapi/README.md): current API contract sources
 - [project/](./project/README.md): canonical philosophy and limited product-design memory
+  - also includes current team role model and technical deep-dive maps tied to execution quality
 - [competition/](./competition/README.md): competition submission materials
 
 ## 3. Runtime and Delivery Docs

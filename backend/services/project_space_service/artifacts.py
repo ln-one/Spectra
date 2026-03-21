@@ -49,6 +49,42 @@ def _parse_artifact_metadata(raw_metadata: Any) -> Dict[str, Any]:
     return {}
 
 
+def _is_current_artifact(artifact: Any) -> bool:
+    metadata = _parse_artifact_metadata(getattr(artifact, "metadata", None))
+    return bool(metadata.get("is_current", True))
+
+
+def _select_replaced_artifact(
+    candidates: list[Any],
+    *,
+    based_on_version_id: Optional[str],
+) -> Any | None:
+    if not candidates:
+        return None
+
+    if based_on_version_id:
+        version_matched = [
+            artifact
+            for artifact in candidates
+            if getattr(artifact, "basedOnVersionId", None) == based_on_version_id
+        ]
+        current_version_matched = [
+            artifact for artifact in version_matched if _is_current_artifact(artifact)
+        ]
+        if current_version_matched:
+            return current_version_matched[0]
+        if version_matched:
+            return version_matched[0]
+
+    current_candidates = [
+        artifact for artifact in candidates if _is_current_artifact(artifact)
+    ]
+    if current_candidates:
+        return current_candidates[0]
+
+    return candidates[0]
+
+
 async def _silently_accrete_artifact(
     *,
     db,
@@ -127,8 +163,10 @@ async def create_artifact_with_file(
             based_on_version_id_filter=None,
             session_id_filter=session_id,
         )
-        if candidates:
-            replaced_artifact = candidates[0]
+        replaced_artifact = _select_replaced_artifact(
+            list(candidates or []),
+            based_on_version_id=based_on_version_id,
+        )
 
     if artifact_type not in SUPPORTED_FILE_ARTIFACT_TYPES:
         raise ValidationException(

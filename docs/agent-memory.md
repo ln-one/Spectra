@@ -77,6 +77,12 @@
 - Meaning: accepting a `CandidateChange` is allowed only when its `baseVersionId` still resolves to a real version in the same project, and the accepted merge must create a new version that still belongs to that project before `currentVersionId` advances.
 - Why it matters: comparing `baseVersionId` to `project.currentVersionId` is not enough on its own; without anchor revalidation, the version chain can look successful while drifting semantically.
 
+### 2.10 Artifact replacement should target the current lineage anchor
+
+- Status: `confirmed`
+- Meaning: `artifact_mode=replace` should prefer the current artifact in the active lineage, and when a `based_on_version_id` is explicitly supplied it should prefer the current artifact anchored to that same version.
+- Why it matters: replacing the first returned artifact is not stable enough; it can supersede an already superseded result and corrupt artifact lineage semantics.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated

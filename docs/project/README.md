@@ -15,6 +15,10 @@ These are the only documents here that should be read by default:
   - Original product and competition requirements.
 - [卡片功能.md](./卡片功能.md)
   - Current product-facing card semantics and interaction intent.
+- [ABCD_ROLE_MODEL.md](./ABCD_ROLE_MODEL.md)
+  - Current team collaboration model and default ownership map.
+- [D_TECH_DEEP_DIVE_MAP.md](./D_TECH_DEEP_DIVE_MAP.md)
+  - Current technical deep-dive map for the specialized backend role.
 - [tech-stack.md](./tech-stack.md)
   - Compatibility redirect to the live tech-stack document.
 
@@ -42,8 +46,10 @@ If you want to understand the project correctly and quickly:
 1. `SYSTEM_PHILOSOPHY_2026-03-19.md`
 2. `requirements.md`
 3. `卡片功能.md`
-4. `../architecture/README.md`
-5. `../standards/README.md`
+4. `ABCD_ROLE_MODEL.md`
+5. `D_TECH_DEEP_DIVE_MAP.md`
+6. `../architecture/README.md`
+7. `../standards/README.md`
 
 ## 4. Interpretation Rules
 
@@ -61,6 +67,8 @@ This directory is for:
 
 - canonical project philosophy
 - product intent that still guides implementation
+- team collaboration defaults that affect execution quality
+- stable technical deep-dive maps tied to current code
 - a small set of stable design anchors
 
 It is not for:
