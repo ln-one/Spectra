@@ -109,7 +109,11 @@ async def execute_session_command_or_raise(
     except PermissionError as exc:
         raise _forbidden_session_access() from exc
     except ConflictError as exc:
-        raise_conflict(str(exc))
+        raise_conflict(
+            str(exc),
+            error_code=getattr(exc, "error_code", "RESOURCE_CONFLICT"),
+            details=getattr(exc, "details", None),
+        )
 
 
 def _not_found_session():
@@ -120,10 +124,27 @@ def _forbidden_session_access():
     return ForbiddenException(message="无权访问该会话", error_code=ErrorCode.FORBIDDEN)
 
 
-def raise_conflict(msg: str):
+def raise_conflict(
+    msg: str,
+    *,
+    error_code: str | ErrorCode = ErrorCode.RESOURCE_CONFLICT,
+    details: Optional[dict] = None,
+):
+    resolved_code = _resolve_conflict_error_code(error_code)
+    payload = dict(details or {})
+    payload.setdefault("transition_guard", "StateTransitionGuard")
     raise APIException(
         status_code=status.HTTP_409_CONFLICT,
-        error_code=ErrorCode.RESOURCE_CONFLICT,
+        error_code=resolved_code,
         message=msg,
-        details={"transition_guard": "StateTransitionGuard"},
+        details=payload,
     )
+
+
+def _resolve_conflict_error_code(value: str | ErrorCode) -> ErrorCode:
+    if isinstance(value, ErrorCode):
+        return value
+    try:
+        return ErrorCode(value)
+    except ValueError:
+        return ErrorCode.RESOURCE_CONFLICT
