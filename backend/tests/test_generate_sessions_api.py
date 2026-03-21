@@ -491,7 +491,7 @@ async def test_idempotency_prevents_duplicate_creation(app):
 
 
 @pytest.mark.anyio
-async def test_list_sessions_uses_lightweight_select_fields(app, _as_user):
+async def test_list_sessions_returns_expected_projection_shape(app, _as_user):
     mock_project = SimpleNamespace(id="p-001", userId="u-001")
     session = SimpleNamespace(
         id="s-001",
@@ -518,15 +518,9 @@ async def test_list_sessions_uses_lightweight_select_fields(app, _as_user):
 
     assert response.status_code == 200
     find_many_kwargs = mock_db.generationsession.find_many.await_args.kwargs
-    assert find_many_kwargs["select"] == {
-        "id": True,
-        "projectId": True,
-        "baseVersionId": True,
-        "outputType": True,
-        "state": True,
-        "createdAt": True,
-        "updatedAt": True,
-    }
+    assert find_many_kwargs["where"] == {"projectId": "p-001"}
+    assert find_many_kwargs["order"] == {"updatedAt": "desc"}
+    assert find_many_kwargs["take"] == 20
 
 
 @pytest.mark.anyio

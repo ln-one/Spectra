@@ -40,10 +40,7 @@ async def _load_latest_task_id(db, session) -> Optional[str]:
 async def _load_project_current_version_id(db, project_id: str) -> Optional[str]:
     project_model = getattr(db, "project", None)
     if project_model is not None and hasattr(project_model, "find_unique"):
-        project = await project_model.find_unique(
-            where={"id": project_id},
-            select={"currentVersionId": True},
-        )
+        project = await project_model.find_unique(where={"id": project_id})
         return getattr(project, "currentVersionId", None) if project else None
 
     get_project = getattr(db, "get_project", None)
@@ -61,10 +58,6 @@ async def _load_latest_session_artifact(db, project_id: str, session_id: str):
     return await artifact_model.find_first(
         where={"projectId": project_id, "sessionId": session_id},
         order={"updatedAt": "desc"},
-        select={
-            "id": True,
-            "basedOnVersionId": True,
-        },
     )
 
 

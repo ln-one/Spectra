@@ -203,10 +203,7 @@ async def get_events(
 
     where: dict = {"sessionId": session_id}
     if cursor:
-        pivot = await db.sessionevent.find_unique(
-            where={"cursor": cursor},
-            select={"sessionId": True, "createdAt": True},
-        )
+        pivot = await db.sessionevent.find_unique(where={"cursor": cursor})
         if pivot and getattr(pivot, "sessionId", None) == session_id:
             where["createdAt"] = {"gt": pivot.createdAt}
 
@@ -214,17 +211,6 @@ async def get_events(
         where=where,
         order={"createdAt": "asc"},
         take=limit,
-        select={
-            "id": True,
-            "schemaVersion": True,
-            "eventType": True,
-            "state": True,
-            "stateReason": True,
-            "progress": True,
-            "createdAt": True,
-            "cursor": True,
-            "payload": True,
-        },
     )
 
     return [_to_generation_event(e) for e in events]

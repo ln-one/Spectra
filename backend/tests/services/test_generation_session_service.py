@@ -713,6 +713,43 @@ async def test_get_session_runtime_state_uses_lightweight_select():
 
 
 @pytest.mark.anyio
+async def test_get_session_runtime_state_fallbacks_when_select_not_supported():
+    calls: list[dict] = []
+
+    async def _find_unique(**kwargs):
+        calls.append(kwargs)
+        if "select" in kwargs:
+            raise TypeError(
+                "GenerationSessionActions.find_unique() got an unexpected keyword argument 'select'"
+            )
+        return SimpleNamespace(
+            userId="u-001",
+            state="RENDERING",
+            lastCursor="c-202",
+            updatedAt=datetime.now(timezone.utc),
+        )
+
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(side_effect=_find_unique)
+        )
+    )
+    service = GenerationSessionService(db=db)
+
+    runtime = await service.get_session_runtime_state(
+        session_id="s-001",
+        user_id="u-001",
+    )
+
+    assert runtime["state"] == "RENDERING"
+    assert runtime["last_cursor"] == "c-202"
+    assert len(calls) == 2
+    assert "select" in calls[0]
+    assert "select" not in calls[1]
+    assert calls[1]["where"] == {"id": "s-001"}
+
+
+@pytest.mark.anyio
 async def test_get_session_preview_snapshot_uses_lightweight_queries():
     session = _fake_session(state=GenerationState.SUCCESS.value)
     session.pptUrl = "/api/v1/projects/p-001/artifacts/a-ppt/download"

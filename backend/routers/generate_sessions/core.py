@@ -86,15 +86,6 @@ async def list_sessions(
                 skip=skip,
                 take=limit,
                 order={"updatedAt": "desc"},
-                select={
-                    "id": True,
-                    "projectId": True,
-                    "baseVersionId": True,
-                    "outputType": True,
-                    "state": True,
-                    "createdAt": True,
-                    "updatedAt": True,
-                },
             ),
             db_service.db.generationsession.count(where={"projectId": project_id}),
         )
