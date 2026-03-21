@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, Query
 
 from schemas import ProjectUpdate
 from services.application.access import get_owned_project
@@ -11,7 +11,7 @@ from services.application.project_api import (
 )
 from services.database import db_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException
+from utils.exceptions import APIException, InternalServerException
 from utils.responses import success_response
 
 from .shared import logger
@@ -46,9 +46,9 @@ async def get_project(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取项目详情失败",
+        raise InternalServerException(
+            message="获取项目详情失败",
+            details={"project_id": project_id},
         )
 
 
@@ -72,9 +72,9 @@ async def update_project(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="更新项目失败",
+        raise InternalServerException(
+            message="更新项目失败",
+            details={"project_id": project_id},
         )
 
 
@@ -101,9 +101,9 @@ async def delete_project(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="删除项目失败",
+        raise InternalServerException(
+            message="删除项目失败",
+            details={"project_id": project_id},
         )
 
 
@@ -126,9 +126,9 @@ async def get_project_statistics(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取统计信息失败",
+        raise InternalServerException(
+            message="获取统计信息失败",
+            details={"project_id": project_id},
         )
 
 
@@ -160,7 +160,7 @@ async def get_project_files(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取项目文件列表失败",
+        raise InternalServerException(
+            message="获取项目文件列表失败",
+            details={"project_id": project_id, "page": page, "limit": limit},
         )

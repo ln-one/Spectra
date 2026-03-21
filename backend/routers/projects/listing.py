@@ -1,13 +1,14 @@
+import asyncio
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, Query
 
 from schemas import ProjectCreate
 from services.application.project_api import create_project_response
 from services.database import db_service
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException
+from utils.exceptions import APIException, InternalServerException
 from utils.responses import success_response
 
 from .shared import logger
@@ -39,9 +40,8 @@ async def create_project(
             extra={"user_id": user_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="创建项目失败",
+        raise InternalServerException(
+            message="创建项目失败",
         )
 
 
@@ -57,15 +57,17 @@ async def search_projects(
 ):
     """按关键字搜索项目。"""
     try:
-        projects = await db_service.search_projects(
-            user_id=user_id,
-            q=q,
-            status=project_status,
-            page=page,
-            limit=limit,
-        )
-        total = await db_service.count_search_projects(
-            user_id=user_id, q=q, status=project_status
+        projects, total = await asyncio.gather(
+            db_service.search_projects(
+                user_id=user_id,
+                q=q,
+                status=project_status,
+                page=page,
+                limit=limit,
+            ),
+            db_service.count_search_projects(
+                user_id=user_id, q=q, status=project_status
+            ),
         )
         logger.info(
             "projects_searched",
@@ -84,9 +86,14 @@ async def search_projects(
             extra={"user_id": user_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="搜索项目失败",
+        raise InternalServerException(
+            message="搜索项目失败",
+            details={
+                "query": q,
+                "status": project_status,
+                "page": page,
+                "limit": limit,
+            },
         )
 
 
@@ -98,8 +105,10 @@ async def get_projects(
 ):
     """获取项目列表（分页）。"""
     try:
-        projects = await db_service.get_projects_by_user(user_id, page, limit)
-        total = await db_service.count_projects_by_user(user_id)
+        projects, total = await asyncio.gather(
+            db_service.get_projects_by_user(user_id, page, limit),
+            db_service.count_projects_by_user(user_id),
+        )
 
         logger.info(
             "projects_fetched",
@@ -124,4 +133,7 @@ async def get_projects(
             extra={"user_id": user_id},
             exc_info=True,
         )
-        raise
+        raise InternalServerException(
+            message="获取项目列表失败",
+            details={"page": page, "limit": limit},
+        )

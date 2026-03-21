@@ -78,6 +78,25 @@ def test_get_project_forbidden_403(client, monkeypatch, _as_user):
     assert resp.status_code == 403
 
 
+def test_get_project_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        db_service,
+        "get_project",
+        AsyncMock(side_effect=RuntimeError("db down")),
+    )
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}")
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "获取项目详情失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
+
+
 def test_search_projects_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "search_projects", [_fake_project()])
     _mock(monkeypatch, db_service, "count_search_projects", 1)
@@ -91,6 +110,26 @@ def test_search_projects_success(client, monkeypatch, _as_user):
 def test_search_projects_missing_q_400(client, _as_user):
     resp = client.get("/api/v1/projects/search")
     assert resp.status_code == 400
+
+
+def test_search_projects_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        db_service,
+        "search_projects",
+        AsyncMock(side_effect=RuntimeError("search failed")),
+    )
+    _mock(monkeypatch, db_service, "count_search_projects", 0)
+
+    resp = client.get("/api/v1/projects/search?q=Project&page=1&limit=20")
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "搜索项目失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
 
 
 def test_create_project_with_project_space_fields_success(

@@ -121,6 +121,28 @@ def test_upload_file_forbidden_403(client, monkeypatch, _as_user):
     assert resp.status_code == 403
 
 
+def test_upload_file_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        "routers.files.uploads.upload_file_response",
+        AsyncMock(side_effect=RuntimeError("upload failed")),
+    )
+
+    resp = client.post(
+        "/api/v1/files",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"project_id": _PROJECT_ID},
+    )
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "文件上传失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
+
+
 def test_batch_upload_partial_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
 
@@ -239,6 +261,24 @@ def test_delete_file_forbidden_403(client, monkeypatch, _as_user):
 
     resp = client.delete(f"/api/v1/files/{_FILE_ID}")
     assert resp.status_code == 403
+
+
+def test_delete_file_internal_error_uses_unified_error_contract(
+    client, monkeypatch, _as_user
+):
+    monkeypatch.setattr(
+        "routers.files.mutations.delete_file_response",
+        AsyncMock(side_effect=RuntimeError("delete failed")),
+    )
+
+    resp = client.delete(f"/api/v1/files/{_FILE_ID}")
+    assert resp.status_code == 500
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "INTERNAL_ERROR"
+    assert body["error"]["message"] == "删除文件失败"
+    assert body["error"]["retryable"] is False
+    assert body["error"]["trace_id"]
 
 
 def test_files_no_token_401(client):

@@ -8,10 +8,8 @@ from fastapi import (
     File,
     Form,
     Header,
-    HTTPException,
     Request,
     UploadFile,
-    status,
 )
 
 from services.file_upload_service import (
@@ -19,7 +17,7 @@ from services.file_upload_service import (
     upload_file_response,
 )
 from utils.dependencies import get_current_user
-from utils.exceptions import APIException
+from utils.exceptions import APIException, InternalServerException
 
 from .shared import logger
 
@@ -65,9 +63,9 @@ async def upload_file(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload file.",
+        raise InternalServerException(
+            message="文件上传失败",
+            details={"project_id": project_id, "session_id": session_id},
         )
 
 
@@ -112,7 +110,7 @@ async def batch_upload_files(
             extra={"user_id": user_id, "project_id": project_id},
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to batch upload files.",
+        raise InternalServerException(
+            message="批量上传文件失败",
+            details={"project_id": project_id, "session_id": session_id},
         )
