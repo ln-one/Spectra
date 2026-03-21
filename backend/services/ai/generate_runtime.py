@@ -10,6 +10,7 @@ from typing import Optional
 from services.ai.completion_runtime import (
     build_completion_payload,
     build_stub_payload,
+    describe_completion_error,
     extract_completion_payload,
     normalize_route_task_value,
     raise_external_service_error,
@@ -162,6 +163,7 @@ async def generate_with_routing(
             str(exc),
             exc_info=True,
         )
+        error_info = describe_completion_error(exc)
         if service.upstream_retry_attempts > 0 and should_retry_completion_error(exc):
             try:
                 response, retry_attempts = await retry_transient_completion(
@@ -196,8 +198,13 @@ async def generate_with_routing(
                 )
             except Exception as retry_exc:
                 exc = retry_exc
+                error_info = describe_completion_error(exc)
 
-        if fallback_model and fallback_model != requested_model:
+        can_fallback = error_info["failure_type"] not in {
+            "auth_error",
+            "config_error",
+        }
+        if can_fallback and fallback_model and fallback_model != requested_model:
             try:
                 fallback_resolved = _resolve_model_name(fallback_model)
                 fallback_target = fallback_resolved
