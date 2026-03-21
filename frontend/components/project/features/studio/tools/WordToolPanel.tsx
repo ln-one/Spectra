@@ -7,11 +7,9 @@ import {
   BookText,
   CircleCheck,
   Download,
-  Eye,
   FileText,
   Loader2,
   RefreshCw,
-  Settings2,
   WandSparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { WorkflowStepper, type WorkflowStepItem } from "../../generation/components/PptWorkflowRail";
 import type { ToolPanelProps } from "./types";
 
 type WordStep = "config" | "generate" | "preview";
@@ -60,29 +58,24 @@ const LAYERS = [
   { value: "C层", label: "C层（探究提升）" },
 ] as const;
 
-const STEP_META: Array<{
-  id: WordStep;
-  title: string;
-  desc: string;
-  icon: typeof Settings2;
-}> = [
+const WORD_WORKFLOW_STEPS: WorkflowStepItem[] = [
   {
     id: "config",
-    title: "1. 配置",
-    desc: "告诉系统你要哪类文档",
-    icon: Settings2,
+    title: "配置",
+    description: "先选文档类型，再填写课题和教学目标。",
+    caption: "准备参数",
   },
   {
     id: "generate",
-    title: "2. 生成",
-    desc: "确认参数并开始生成",
-    icon: WandSparkles,
+    title: "生成",
+    description: "确认参数，绑定源成果后执行生成。",
+    caption: "开始生成",
   },
   {
     id: "preview",
-    title: "3. 预览",
-    desc: "在当前面板查看结果",
-    icon: Eye,
+    title: "预览",
+    description: "在当前面板查看内容并导出结果。",
+    caption: "查看结果",
   },
 ];
 
@@ -244,43 +237,15 @@ export function WordToolPanel({
             </span>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {STEP_META.map((step) => {
-              const Icon = step.icon;
-              const active = activeStep === step.id;
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => setActiveStep(step.id)}
-                  className={cn(
-                    "rounded-xl border px-3 py-2 text-left transition-colors",
-                    active
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-zinc-200 bg-white hover:bg-zinc-50"
-                  )}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Icon
-                      className={cn(
-                        "h-3.5 w-3.5",
-                        active ? "text-blue-600" : "text-zinc-500"
-                      )}
-                    />
-                    <p
-                      className={cn(
-                        "text-xs font-semibold",
-                        active ? "text-blue-700" : "text-zinc-700"
-                      )}
-                    >
-                      {step.title}
-                    </p>
-                  </div>
-                  <p className="mt-1 text-[11px] text-zinc-500">{step.desc}</p>
-                </button>
-              );
-            })}
-          </div>
+          <WorkflowStepper
+            className="mt-3"
+            layout="inline"
+            currentStep={activeStep}
+            steps={WORD_WORKFLOW_STEPS}
+            onStepChange={(stepId) => setActiveStep(stepId as WordStep)}
+            title="文档生成流程"
+            subtitle="Workflow"
+          />
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -297,12 +262,11 @@ export function WordToolPanel({
                       key={item.id}
                       type="button"
                       onClick={() => setDocType(item.id)}
-                      className={cn(
-                        "rounded-xl border px-3 py-2 text-left transition-colors",
+                      className={`rounded-xl border px-3 py-2 text-left transition-colors ${
                         docType === item.id
                           ? "border-blue-500 bg-blue-50"
                           : "border-zinc-200 bg-white hover:bg-zinc-50"
-                      )}
+                      }`}
                     >
                       <p className="text-xs font-semibold text-zinc-800">
                         {item.label}
@@ -429,7 +393,7 @@ export function WordToolPanel({
                     <p className="mt-1 text-[11px] text-zinc-500">
                       {flowContext?.requiresSourceArtifact
                         ? "这个卡片需要绑定一个已有成果后才能执行。"
-                        : "可选：绑定一个已有成果，让生成更贴近你的项目语境。"}
+                        : "可选：绑定已有成果，让生成更贴近你的项目语境。"}
                     </p>
                   </div>
                   <Button
