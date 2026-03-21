@@ -82,7 +82,8 @@ services:
       - POSTGRES_BACKUP_PREFIX=spectra-dev
       - DB_REQUIRED=true
       - REDIS_REQUIRED=false
-    command: sh -c "prisma migrate deploy && prisma generate && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      - UVICORN_RELOAD=false
+    command: sh -c "prisma migrate deploy && prisma generate && if [ \"$${UVICORN_RELOAD:-false}\" = \"true\" ]; then uvicorn main:app --host 0.0.0.0 --port 8000 --reload; else uvicorn main:app --host 0.0.0.0 --port 8000; fi"
     depends_on:
       redis:
         condition: service_healthy

@@ -21,6 +21,93 @@ ALLOW_COURSEWARE_FALLBACK = (
 )
 
 
+def _sorted_outline_nodes(outline_document: Optional[dict]) -> list[dict]:
+    nodes = (
+        (outline_document or {}).get("nodes")
+        if isinstance(outline_document, dict)
+        else None
+    )
+    if not isinstance(nodes, list):
+        return []
+    normalized = [node for node in nodes if isinstance(node, dict)]
+    return sorted(normalized, key=lambda item: int(item.get("order") or 0))
+
+
+def _normalize_key_points(raw_points: object) -> list[str]:
+    if not isinstance(raw_points, list):
+        raw_points = []
+    points = [str(point).strip() for point in raw_points if str(point).strip()]
+    deduped: list[str] = []
+    for point in points:
+        if point not in deduped:
+            deduped.append(point)
+    if not any("互动" in point or "提问" in point for point in deduped):
+        deduped.append("互动提问与即时反馈")
+    if not any("板书" in point for point in deduped):
+        deduped.append("板书逻辑主线归纳")
+    while len(deduped) < 3:
+        if len(deduped) == 0:
+            deduped.append("核心概念梳理")
+        elif len(deduped) == 1:
+            deduped.append("关键例题分步讲解")
+        else:
+            deduped.append("易错点澄清与纠偏")
+    return deduped[:6]
+
+
+def _build_outline_based_fallback_courseware(
+    user_requirements: str,
+    outline_document: Optional[dict],
+) -> CoursewareContent:
+    nodes = _sorted_outline_nodes(outline_document)
+    title = (
+        str((outline_document or {}).get("title") or "").strip()
+        if isinstance(outline_document, dict)
+        else ""
+    )
+    if not title:
+        title = (user_requirements or "课程主题")[:50]
+
+    markdown_slides: list[str] = []
+    lesson_plan_lines: list[str] = [
+        "# 教学目标",
+        "- 围绕已确认大纲完成完整课堂讲解",
+        "- 用关键例题与易错点实现知识闭环",
+        "",
+        "# 教学过程",
+    ]
+
+    for index, node in enumerate(nodes, start=1):
+        raw_title = str(node.get("title") or "").strip()
+        slide_title = raw_title or f"第{index}页"
+        key_points = _normalize_key_points(node.get("key_points"))
+        markdown_slides.append(
+            "\n".join([f"# {slide_title}", "", *[f"- {point}" for point in key_points]])
+        )
+        lesson_plan_lines.extend(
+            [
+                f"## {index:02d}. {slide_title}",
+                f"- 教学目标：完成“{slide_title}”核心理解与表达。",
+                f"- 互动提问：围绕“{key_points[0]}”设计追问并收集反馈。",
+                f"- 板书逻辑：以“{key_points[1]}”组织板书主线。",
+                f"- 易错提醒：结合“{key_points[2]}”进行反例澄清。",
+            ]
+        )
+
+    if not markdown_slides:
+        return CoursewareContent(
+            title=title,
+            markdown_content=f"# {title}\n\n- 核心内容待补充",
+            lesson_plan_markdown="# 教学目标\n- 补充课程内容后再生成正式教案",
+        )
+
+    return CoursewareContent(
+        title=title,
+        markdown_content="\n\n---\n\n".join(markdown_slides),
+        lesson_plan_markdown="\n".join(lesson_plan_lines),
+    )
+
+
 async def modify_courseware(
     ai_service,
     current_content: str,
@@ -237,6 +324,18 @@ async def generate_courseware_content(
             extra={"project_id": project_id},
             exc_info=True,
         )
+        if outline_nodes:
+            logger.warning(
+                "Using outline-based fallback courseware due to generation failure",
+                extra={
+                    "project_id": project_id,
+                    "outline_node_count": len(outline_nodes),
+                },
+            )
+            return _build_outline_based_fallback_courseware(
+                user_requirements=user_requirements,
+                outline_document=outline_document,
+            )
         if ALLOW_COURSEWARE_FALLBACK:
             return ai_service._get_fallback_courseware(user_requirements)
         raise

@@ -404,30 +404,17 @@ async def generate_outline(
 
 def get_fallback_outline(user_requirements: str) -> CoursewareOutline:
     """大纲生成失败时的兜底结果。"""
+    target_pages = _extract_target_pages(user_requirements)
+    normalized_requirements = str(user_requirements or "").strip() or "课堂教学大纲"
+    fallback = _build_deterministic_outline(
+        user_requirements=normalized_requirements,
+        target_pages=target_pages,
+    )
+    fallback = _inject_focus_anchors(fallback)
+    fallback = _align_slide_count_with_target(fallback, target_pages)
     return CoursewareOutline(
-        title=user_requirements[:50],
-        sections=[
-            OutlineSection(
-                title="导入",
-                key_points=["主题引入", "学习动机", "互动提问", "板书框架"],
-                slide_count=2,
-            ),
-            OutlineSection(
-                title="核心概念",
-                key_points=["关键概念", "原理讲解", "知识地图", "课堂追问"],
-                slide_count=5,
-            ),
-            OutlineSection(
-                title="练习与讨论",
-                key_points=["关键例题", "课堂练习", "易错点澄清", "小组讨论"],
-                slide_count=3,
-            ),
-            OutlineSection(
-                title="总结",
-                key_points=["要点回顾", "板书收束", "作业布置"],
-                slide_count=2,
-            ),
-        ],
-        total_slides=12,
+        title=fallback.title,
+        sections=fallback.sections,
+        total_slides=fallback.total_slides,
         summary="基础教学大纲",
     )

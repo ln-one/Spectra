@@ -323,11 +323,64 @@ class TestGenerateOutline:
         """fallback 大纲结构完整"""
         outline = AIService._get_fallback_outline("数学课件")
         assert outline.title == "数学课件"
-        assert len(outline.sections) == 4
+        assert len(outline.sections) >= 5
         assert outline.total_slides == 12
         section_titles = [s.title for s in outline.sections]
-        assert "导入" in section_titles
-        assert "总结" in section_titles
+        assert "导入与目标" in section_titles
+        assert "知识地图构建" in section_titles
+        assert "关键例题精讲" in section_titles
+        assert "易错点澄清" in section_titles
+
+    @pytest.mark.asyncio
+    async def test_generate_courseware_content_uses_outline_based_fallback_on_timeout(
+        self,
+    ):
+        """课件生成超时时，应基于确认大纲兜底并保持页数与教学要素。"""
+        ai = AIService()
+        outline_document = {
+            "title": "二次函数图像与性质",
+            "nodes": [
+                {
+                    "order": 1,
+                    "title": "知识地图构建",
+                    "key_points": ["知识地图", "概念关系梳理", "核心原理拆解"],
+                },
+                {
+                    "order": 2,
+                    "title": "关键例题精讲",
+                    "key_points": ["关键例题", "分步求解", "易错点澄清"],
+                },
+            ],
+        }
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                side_effect=TimeoutError("provider timeout"),
+            ),
+            patch.object(
+                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
+            ),
+        ):
+            result = await ai.generate_courseware_content(
+                project_id="proj-outline-fallback",
+                user_requirements="高一数学：二次函数",
+                outline_document=outline_document,
+                outline_version=3,
+            )
+
+        assert isinstance(result, CoursewareContent)
+        slides = [
+            block
+            for block in result.markdown_content.split("\n\n---\n\n")
+            if block.strip()
+        ]
+        assert len(slides) == 2
+        assert "知识地图构建" in result.markdown_content
+        assert "关键例题精讲" in result.markdown_content
+        assert "互动提问" in result.markdown_content
+        assert "板书逻辑" in result.lesson_plan_markdown
 
 
 class TestExtractStructuredContent:
