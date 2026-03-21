@@ -83,7 +83,7 @@ export function OutlineSlidesEditor({
                   onChange={(event) =>
                     onUpdateSlide(slide.id, { title: event.target.value })
                   }
-                  placeholder="ÊäÈë»ÃµÆÆ¬±êÌâ..."
+                  placeholder="è¾“å…¥å¹»ç¯ç‰‡æ ‡é¢˜..."
                   className="h-10 rounded-xl border-zinc-200 bg-white/80 text-sm font-medium shadow-none focus-visible:ring-blue-300"
                   disabled={isGenerating || isOutlineHydrating}
                 />
@@ -91,7 +91,7 @@ export function OutlineSlidesEditor({
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-zinc-500 flex items-center gap-1.5">
                     <Layers className="w-3 h-3" />
-                    ºËĞÄÖªÊ¶µã
+                    æ ¸å¿ƒçŸ¥è¯†ç‚¹
                   </label>
                   <Textarea
                     value={slide.keyPoints.join("\n")}
@@ -102,7 +102,7 @@ export function OutlineSlidesEditor({
                           .filter(Boolean),
                       })
                     }
-                    placeholder="Ã¿ĞĞÒ»¸öÖªÊ¶µã..."
+                    placeholder="æ¯è¡Œä¸€ä¸ªçŸ¥è¯†ç‚¹..."
                     className="min-h-[96px] rounded-xl border-zinc-200 bg-white/80 text-sm leading-6 focus-visible:ring-blue-300"
                     disabled={isGenerating || isOutlineHydrating}
                   />
@@ -111,11 +111,11 @@ export function OutlineSlidesEditor({
                 <div className="flex items-center gap-4 text-xs text-zinc-500">
                   <span className="inline-flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    Ô¤¼Æ {slide.estimatedMinutes} ·ÖÖÓ
+                    é¢„è®¡ {slide.estimatedMinutes} åˆ†é’Ÿ
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Layers className="h-3 w-3" />
-                    {slide.keyPoints.length} ¸öÖªÊ¶µã
+                    {slide.keyPoints.length} ä¸ªçŸ¥è¯†ç‚¹
                   </span>
                 </div>
               </div>
@@ -134,7 +134,7 @@ export function OutlineSlidesEditor({
                   <DropdownMenuContent align="end" className="w-40">
                     <DropdownMenuItem onClick={() => onDuplicateSlide(slide)}>
                       <Copy className="mr-2 h-4 w-4" />
-                      ¸´ÖÆ»ÃµÆÆ¬
+                      å¤åˆ¶å¹»ç¯ç‰‡
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -148,7 +148,7 @@ export function OutlineSlidesEditor({
                       }
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      É¾³ı
+                      åˆ é™¤
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -167,7 +167,7 @@ export function OutlineSlidesEditor({
       >
         <span className="inline-flex items-center gap-2">
           <Plus className="h-4 w-4" />
-          Ìí¼ÓĞÂ»ÃµÆÆ¬
+          æ·»åŠ æ–°å¹»ç¯ç‰‡
         </span>
       </motion.button>
     </div>

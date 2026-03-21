@@ -73,17 +73,17 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
             <Settings2 className="w-4 h-4 text-sky-300" />
-            Éú³ÉÅäÖÃ
+            ç”Ÿæˆé…ç½®
           </h3>
           <p className="mt-1 text-[11px] leading-5 text-zinc-300">
-            µ±Ç°´¦ÓÚµÚ 2 ²½£¬È·ÈÏ²ÎÊıºó¿ÉÖ±½ÓÆô¶¯ÄÚÈİÉú³É¡£
+            å½“å‰å¤„äºç¬¬ 2 æ­¥ï¼Œç¡®è®¤å‚æ•°åå¯ç›´æ¥å¯åŠ¨å†…å®¹ç”Ÿæˆã€‚
           </p>
         </div>
 
         <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
           <label className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
             <Monitor className="w-3.5 h-3.5" />
-            Ò³Ãæ±ÈÀı
+            é¡µé¢æ¯”ä¾‹
           </label>
           <div className="grid grid-cols-3 gap-1.5">
             {ASPECT_RATIO_OPTIONS.map((ratio) => (
@@ -104,7 +104,7 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
         </div>
 
         <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-          <label className="text-xs font-medium text-zinc-300">ÄÚÈİÏêÏ¸¶È</label>
+          <label className="text-xs font-medium text-zinc-300">å†…å®¹è¯¦ç»†åº¦</label>
           <ToggleGroup
             type="single"
             value={props.detailLevel}
@@ -127,7 +127,7 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
         </div>
 
         <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-          <label className="text-xs font-medium text-zinc-300">ÊÓ¾õÖ÷Ìâ</label>
+          <label className="text-xs font-medium text-zinc-300">è§†è§‰ä¸»é¢˜</label>
           <div className="grid grid-cols-2 gap-1.5">
             {VISUAL_THEMES.map((theme) => (
               <button
@@ -147,7 +147,7 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
         </div>
 
         <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-          <label className="text-xs font-medium text-zinc-300">ÅäÍ¼·ç¸ñ</label>
+          <label className="text-xs font-medium text-zinc-300">é…å›¾é£æ ¼</label>
           <Select value={props.imageStyle} onValueChange={props.setImageStyle}>
             <SelectTrigger className="w-full h-9 border-white/20 bg-white/[0.06] text-zinc-100">
               <SelectValue />
@@ -167,7 +167,7 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
       <motion.div variants={itemVariants} className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
         <label className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
           <Tag className="w-3 h-3" />
-          ¹Ø¼ü´Ê±êÇ©
+          å…³é”®è¯æ ‡ç­¾
         </label>
         <div className="flex flex-wrap gap-1.5">
           {props.keywords.map((keyword) => (
@@ -194,7 +194,7 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
             value={props.keywordInput}
             onChange={(e) => props.setKeywordInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && props.onAddKeyword()}
-            placeholder="Ìí¼Ó¹Ø¼ü´Ê..."
+            placeholder="æ·»åŠ å…³é”®è¯..."
             className="h-8 text-xs border-white/20 bg-white/[0.06] text-zinc-100 placeholder:text-zinc-400"
           />
           <Button
@@ -203,7 +203,7 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
             onClick={props.onAddKeyword}
             className="h-8 px-3 text-xs border-white/20 bg-white/[0.06] text-zinc-100 hover:bg-white/15"
           >
-            Ìí¼Ó
+            æ·»åŠ 
           </Button>
         </div>
       </motion.div>
@@ -213,34 +213,34 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
         className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3"
       >
         {props.isOutlineHydrating ? (
-          <p className="text-xs text-zinc-300">´ó¸Ù¼ÓÔØÖĞ£¬ÇëÉÔºò...</p>
+          <p className="text-xs text-zinc-300">å¤§çº²åŠ è½½ä¸­ï¼Œè¯·ç¨å€™...</p>
         ) : null}
         {props.generationFailed ? (
           <p className="text-xs text-rose-300">{props.generationFailed}</p>
         ) : null}
         {props.outlineIncomplete ? (
           <p className="text-xs text-zinc-300">
-            ´ó¸ÙÉú³ÉÖĞ£º{props.slidesCount}/{props.expectedPages} Ò³
+            å¤§çº²ç”Ÿæˆä¸­ï¼š{props.slidesCount}/{props.expectedPages} é¡µ
           </p>
         ) : null}
 
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2">
-            <p className="text-[10px] text-zinc-400">Ê±³¤</p>
+            <p className="text-[10px] text-zinc-400">æ—¶é•¿</p>
             <p className="mt-1 flex items-center gap-1 text-xs font-medium text-zinc-100">
               <Clock className="h-3 w-3 text-zinc-400" />
               {props.totalEstimatedMinutes}m
             </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2">
-            <p className="text-[10px] text-zinc-400">Ò³Êı</p>
+            <p className="text-[10px] text-zinc-400">é¡µæ•°</p>
             <p className="mt-1 flex items-center gap-1 text-xs font-medium text-zinc-100">
               <Layers className="h-3 w-3 text-zinc-400" />
               {props.slidesCount}
             </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2">
-            <p className="text-[10px] text-zinc-400">±ÈÀı</p>
+            <p className="text-[10px] text-zinc-400">æ¯”ä¾‹</p>
             <p className="mt-1 flex items-center gap-1 text-xs font-medium text-zinc-100">
               <Monitor className="h-3 w-3 text-zinc-400" />
               {props.aspectRatio}
@@ -267,10 +267,10 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
                 className="w-full h-11 rounded-xl border border-sky-400/50 bg-[linear-gradient(120deg,#0284c7,#2563eb)] text-white text-sm font-medium shadow-lg shadow-blue-950/30 transition-all hover:brightness-110"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
-                ¿ªÊ¼Éú³É¿Î¼ş
+                å¼€å§‹ç”Ÿæˆè¯¾ä»¶
               </Button>
               <p className="text-[10px] text-zinc-400 text-center">
-                Ô¤¼ÆÏûºÄÔ¼ {props.estimatedTokens} tokens
+                é¢„è®¡æ¶ˆè€—çº¦ {props.estimatedTokens} tokens
               </p>
             </motion.div>
           ) : (
@@ -312,7 +312,7 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
                 className="w-full h-11 rounded-xl border border-sky-400/50 bg-[linear-gradient(120deg,#0284c7,#2563eb)] text-white text-sm font-medium shadow-lg shadow-blue-950/30 hover:brightness-110"
               >
                 <Play className="w-4 h-4 mr-2" />
-                ½øÈëÊµÊ±Éú³ÉÒ³
+                è¿›å…¥å®æ—¶ç”Ÿæˆé¡µ
               </Button>
             </motion.div>
           )}

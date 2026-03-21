@@ -53,7 +53,7 @@ export function OutlineInlineSettings({
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-600 flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5" />
-            ÄÚÈİÏêÏ¸¶È
+            å†…å®¹è¯¦ç»†åº¦
           </label>
           <ToggleGroup
             type="single"
@@ -79,7 +79,7 @@ export function OutlineInlineSettings({
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-600 flex items-center gap-1.5">
             <Palette className="w-3.5 h-3.5" />
-            ÊÓ¾õÖ÷Ìâ
+            è§†è§‰ä¸»é¢˜
           </label>
           <div className="flex flex-wrap gap-1.5">
             {VISUAL_THEMES.map((theme) => (
@@ -102,7 +102,7 @@ export function OutlineInlineSettings({
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-600 flex items-center gap-1.5">
             <ImageIcon className="w-3.5 h-3.5" />
-            ÅäÍ¼·ç¸ñ
+            é…å›¾é£æ ¼
           </label>
           <Select value={imageStyle} onValueChange={setImageStyle}>
             <SelectTrigger className="w-full h-9 border-zinc-200 bg-white">
@@ -123,7 +123,7 @@ export function OutlineInlineSettings({
       <div className="mt-4 space-y-2">
         <label className="text-xs font-medium text-zinc-600 flex items-center gap-1.5">
           <Tag className="w-3.5 h-3.5" />
-          ¹Ø¼ü´Ê±êÇ©
+          å…³é”®è¯æ ‡ç­¾
         </label>
         <div className="flex flex-wrap gap-1.5 items-center">
           {keywords.map((keyword) => (
@@ -149,7 +149,7 @@ export function OutlineInlineSettings({
               value={keywordInput}
               onChange={(event) => setKeywordInput(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && onAddKeyword()}
-              placeholder="Ìí¼Ó¹Ø¼ü´Ê..."
+              placeholder="æ·»åŠ å…³é”®è¯..."
               className="h-8 w-32 text-xs border-zinc-200 bg-white"
             />
             <Button
@@ -158,7 +158,7 @@ export function OutlineInlineSettings({
               onClick={onAddKeyword}
               className="h-8 px-3 text-xs border-zinc-200"
             >
-              Ìí¼Ó
+              æ·»åŠ 
             </Button>
           </div>
         </div>

@@ -36,7 +36,7 @@ export function DefaultOutlineNav({
           className="text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
         >
           <ArrowLeft className="w-4 h-4 mr-1.5" />
-          ·µ»ØÏîÄ¿
+          è¿”å›žé¡¹ç›®
         </Button>
         <div className="h-4 w-px bg-zinc-200" />
         <span className="truncate text-sm font-medium text-zinc-800 max-w-[320px]">
@@ -46,7 +46,7 @@ export function DefaultOutlineNav({
           variant="secondary"
           className="border-blue-200 bg-blue-50 text-blue-700 text-[10px]"
         >
-          {slideCount} Ò³
+          {slideCount} é¡µ
         </Badge>
       </div>
       <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export function DefaultOutlineNav({
           className="border-zinc-200 text-zinc-600 hover:bg-zinc-50"
         >
           <Eye className="w-4 h-4 mr-1.5" />
-          Ô¤ÀÀ
+          é¢„è§ˆ
         </Button>
         <Button
           variant="ghost"
@@ -66,7 +66,7 @@ export function DefaultOutlineNav({
           className="text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
         >
           <HelpCircle className="w-4 h-4 mr-1.5" />
-          °ïÖú
+          å¸®åŠ©
         </Button>
       </div>
     </motion.nav>
