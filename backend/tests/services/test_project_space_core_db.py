@@ -175,7 +175,17 @@ async def test_update_project_reference_normalizes_mode_and_status():
     service = DatabaseService()
     update_reference = AsyncMock(return_value=SimpleNamespace(id="r-001"))
     service.db = SimpleNamespace(
-        projectreference=SimpleNamespace(update=update_reference)
+        projectreference=SimpleNamespace(
+            update=update_reference,
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="r-001",
+                    targetProjectId="p-target",
+                    mode="follow",
+                    pinnedVersionId=None,
+                )
+            ),
+        )
     )
 
     await service.update_project_reference(
@@ -194,6 +204,112 @@ async def test_update_project_reference_normalizes_mode_and_status():
             "status": "disabled",
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_create_project_reference_rejects_pinned_mode_without_version():
+    service = DatabaseService()
+    create_reference = AsyncMock()
+    service.db = SimpleNamespace(
+        projectreference=SimpleNamespace(create=create_reference)
+    )
+
+    with pytest.raises(ValidationException, match="mode=pinned requires"):
+        await service.create_project_reference(
+            project_id="p-001",
+            target_project_id="p-target",
+            relation_type="base",
+            mode="pinned",
+            pinned_version_id=None,
+            priority=0,
+            created_by="u-001",
+        )
+
+    create_reference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_project_reference_rejects_foreign_pinned_version():
+    service = DatabaseService()
+    create_reference = AsyncMock()
+    service.db = SimpleNamespace(
+        projectreference=SimpleNamespace(create=create_reference)
+    )
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-001", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="pinned_version_id"):
+        await service.create_project_reference(
+            project_id="p-001",
+            target_project_id="p-target",
+            relation_type="base",
+            mode="pinned",
+            pinned_version_id="v-001",
+            priority=0,
+            created_by="u-001",
+        )
+
+    create_reference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_project_reference_rejects_foreign_pinned_version():
+    service = DatabaseService()
+    update_reference = AsyncMock()
+    service.db = SimpleNamespace(
+        projectreference=SimpleNamespace(update=update_reference)
+    )
+    service.get_project_reference = AsyncMock(
+        return_value=SimpleNamespace(
+            id="r-001",
+            targetProjectId="p-target",
+            mode="follow",
+            pinnedVersionId=None,
+        )
+    )
+    service.get_project_version = AsyncMock(
+        return_value=SimpleNamespace(id="v-002", projectId="p-other")
+    )
+
+    with pytest.raises(ValidationException, match="pinned_version_id"):
+        await service.update_project_reference(
+            reference_id="r-001",
+            mode="pinned",
+            pinned_version_id="v-002",
+            priority=None,
+            status=None,
+        )
+
+    update_reference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_project_reference_rejects_pinned_mode_without_version():
+    service = DatabaseService()
+    update_reference = AsyncMock()
+    service.db = SimpleNamespace(
+        projectreference=SimpleNamespace(update=update_reference)
+    )
+    service.get_project_reference = AsyncMock(
+        return_value=SimpleNamespace(
+            id="r-001",
+            targetProjectId="p-target",
+            mode="follow",
+            pinnedVersionId=None,
+        )
+    )
+
+    with pytest.raises(ValidationException, match="mode=pinned requires"):
+        await service.update_project_reference(
+            reference_id="r-001",
+            mode="pinned",
+            pinned_version_id=None,
+            priority=None,
+            status=None,
+        )
+
+    update_reference.assert_not_awaited()
 
 
 @pytest.mark.asyncio

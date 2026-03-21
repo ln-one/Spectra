@@ -125,6 +125,12 @@
 - Meaning: `update_project_current_version()` must validate that the target version still exists and still belongs to the same project before updating `project.currentVersionId`.
 - Why it matters: otherwise later code can bypass higher-level review checks and silently write a cross-project or dangling version anchor into the project's formal state.
 
+### 2.18 Reference pinning must validate target-project ownership at the DB boundary
+
+- Status: `confirmed`
+- Meaning: low-level `create_project_reference()` and `update_project_reference()` must reject `mode=pinned` without `pinned_version_id`, and must validate that the pinned version still belongs to the target project.
+- Why it matters: otherwise service-layer checks can be bypassed and the repository can persist cross-project reference anchors that only fail much later during retrieval or review flows.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated
