@@ -40,8 +40,8 @@ Before editing code, read these in order:
 For product behavior and current surface semantics, also inspect:
 
 - [docs/project/卡片功能.md](/Users/ln1/Projects/Spectra/docs/project/卡片功能.md)
-- [docs/project/D_CONTRACT_V1.md](/Users/ln1/Projects/Spectra/docs/project/D_CONTRACT_V1.md)
-- [docs/project/D8_MODEL_ROUTER_STRATEGY_V1.md](/Users/ln1/Projects/Spectra/docs/project/D8_MODEL_ROUTER_STRATEGY_V1.md)
+- [docs/architecture/api-contract.md](/Users/ln1/Projects/Spectra/docs/architecture/api-contract.md)
+- `backend/services/ai/model_router.py`
 
 For actual implementation truth, inspect live code and tests.
 
@@ -59,6 +59,8 @@ Use this trust order:
 3. OpenAPI contracts and runtime behavior
 4. Active design references in `docs/project`
 5. Historical notes and archived documents
+
+Tool-local docs under `.ai/` and `.kiro/` are not part of the default product or architecture truth unless a task explicitly targets those workflows.
 
 ### 3.2 Stale-doc rules
 
@@ -80,7 +82,7 @@ Example:
 
 ### 3.4 Historical docs
 
-Anything under archived folders or clearly marked as historical is context, not command.
+Anything under archived folders or clearly marked as historical/reference-only is context, not command.
 
 If you use a historical doc:
 

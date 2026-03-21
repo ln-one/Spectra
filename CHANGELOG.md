@@ -103,7 +103,7 @@
   - `embedding.py`
   - `vector.py`
   - `rag_indexing.py`
-- Added `/Users/ln1/Projects/Spectra/docs/service-topology-todo.md` to track staged grouping work and remaining candidates.
+- Added `/Users/ln1/Projects/Spectra/docs/archived/plans/service-topology-todo.md` to preserve the staged grouping work and remaining candidates.
 - Grouped application-oriented orchestration helpers under `/Users/ln1/Projects/Spectra/backend/services/application/`:
   - `project_api.py`
   - `file_management.py`

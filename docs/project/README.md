@@ -1,61 +1,71 @@
 # Project Design Workspace
 
-> Updated: 2026-03-19
-> Purpose: keep the design workspace orderly, readable, and aligned with the system's living ontology.
+> Updated: 2026-03-21
+> Status: active
 
-This directory is not a pile of notes. It is the design memory of Spectra.
+This directory is now a controlled design surface, not a dumping ground for every historical project-space draft.
 
-Use it in three layers:
+## 1. Canonical Documents
 
-## 1. Canonical
+These are the only documents here that should be read by default:
 
-These documents define the highest-level worldview and the live product direction.
+- [SYSTEM_PHILOSOPHY_2026-03-19.md](./SYSTEM_PHILOSOPHY_2026-03-19.md)
+  - The highest-level ontology and worldview.
+- [requirements.md](./requirements.md)
+  - Original product and competition requirements.
+- [卡片功能.md](./卡片功能.md)
+  - Current product-facing card semantics and interaction intent.
+- [tech-stack.md](./tech-stack.md)
+  - Compatibility redirect to the live tech-stack document.
 
-- [`SYSTEM_PHILOSOPHY_2026-03-19.md`](./SYSTEM_PHILOSOPHY_2026-03-19.md)
-  - The absolute philosophy of the project.
-  - Read this first when deciding what the system should become.
-- [`requirements.md`](./requirements.md)
-  - The original competition and product requirements.
-- [`卡片功能.md`](./卡片功能.md)
-  - The current product-facing card capability design.
+## 2. What Moved Out
 
-## 2. Active Design References
+The following project-space and route-strategy drafts are no longer part of the active surface:
 
-These documents still matter when we shape product behavior, ontology, contracts, and evolution.
+- project-space model drafts
+- project-space API drafts
+- project-space evolution notes
+- model-router strategy draft
+- old D-contract draft
 
-- [`SPACE_MODEL_INDEX_2026-03-09.md`](./SPACE_MODEL_INDEX_2026-03-09.md)
-- [`LIBRARY_MODEL_RULES_DRAFT_2026-03-09.md`](./LIBRARY_MODEL_RULES_DRAFT_2026-03-09.md)
-- [`PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md`](./PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md)
-- [`PROJECT_SPACE_API_DRAFT_2026-03-09.md`](./PROJECT_SPACE_API_DRAFT_2026-03-09.md)
-- [`PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md`](./PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md)
-- [`PROJECT_SPACE_DATA_MODEL_ADDENDUM_2026-03-12.md`](./PROJECT_SPACE_DATA_MODEL_ADDENDUM_2026-03-12.md)
-- [`D_CONTRACT_V1.md`](./D_CONTRACT_V1.md)
-- [`D8_MODEL_ROUTER_STRATEGY_V1.md`](./D8_MODEL_ROUTER_STRATEGY_V1.md)
-- [`tech-stack.md`](./tech-stack.md)
+They now live in:
 
-## 3. Historical Notes
+- [../archived/project-space/](../archived/project-space/)
+- [../archived/specs/](../archived/specs/)
 
-The older alignment notes, early-stage research packages, and team handoff material have been moved out of the active design surface.
+Read them only when historical context is necessary.
 
-- [`../archived/project/README.md`](../archived/project/README.md)
+## 3. Reading Order
 
-Use them only when you need historical context or want to understand how the current ontology emerged.
-
-## 4. Reading Order
-
-If you want to understand the project quickly and correctly:
+If you want to understand the project correctly and quickly:
 
 1. `SYSTEM_PHILOSOPHY_2026-03-19.md`
 2. `requirements.md`
 3. `卡片功能.md`
-4. `SPACE_MODEL_INDEX_2026-03-09.md`
-5. `PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md`
-6. `PROJECT_SPACE_API_DRAFT_2026-03-09.md`
-7. `D_CONTRACT_V1.md`
+4. `../architecture/README.md`
+5. `../standards/README.md`
 
-## 5. Rules of Interpretation
+## 4. Interpretation Rules
 
-- If philosophy and implementation tension appear, begin from `SYSTEM_PHILOSOPHY_2026-03-19.md`.
-- If product and interface tension appear, compare `卡片功能.md`, `D_CONTRACT_V1.md`, and the live backend protocol.
-- If a document describes an old team split or interim rollout plan, treat it as historical context rather than current truth.
-- The current execution roadmap lives outside this folder in `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`.
+- Philosophy beats local draft.
+- Current tested code beats historical plan.
+- Active docs beat archived docs.
+- If product behavior and implementation differ, compare:
+  - `卡片功能.md`
+  - live backend/OpenAPI contract
+  - current tests
+
+## 5. Scope of This Directory
+
+This directory is for:
+
+- canonical project philosophy
+- product intent that still guides implementation
+- a small set of stable design anchors
+
+It is not for:
+
+- old execution plans
+- implementation checklists
+- superseded project-space rollout drafts
+- historical team handoff notes

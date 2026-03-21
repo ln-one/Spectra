@@ -1,63 +1,76 @@
 # Spectra Documentation
 
-> Updated: 2026-03-19
-> Goal: a clean entry point, a clear status model, and documentation that matches the code.
+> Updated: 2026-03-21
+> Status: active
 
-## 1. Core Entry Points
+This directory is the controlled documentation surface for Spectra.
 
-- [Project Philosophy (Canonical)](./project/SYSTEM_PHILOSOPHY_2026-03-19.md)
-- [Architecture Index](./architecture/README.md)
-- [Tech Stack](./architecture/tech-stack.md)
-- [OpenAPI Docs](./openapi/README.md)
-- [Contributing Guide](./CONTRIBUTING.md)
+Do not treat every Markdown file in the repository as equally authoritative.
+Start here, then move outward only when needed.
 
-## 2. Engineering and Delivery
+## 1. Canonical Entry Points
 
-- [Guides](./guides/README.md)
-- [Standards](./standards/README.md)
-- [Master Execution Plan](./master-execution-plan.md)
-- [Remaining Work Battle Plan](./remaining-work-battle-plan.md)
-- [Optimization Work Packet](./optimization-work-packet.md)
-- [Studio Card Backend Protocol](./studio-card-backend-protocol.md)
-- [PostgreSQL Migration Checklist](./postgres-migration-checklist.md)
-- [Deployment Topology](./deployment-topology.md)
+Read these first:
+
+1. [Project Philosophy](./project/SYSTEM_PHILOSOPHY_2026-03-19.md)
+2. [Repository README](../README.md)
+3. [Repository Agent Guide](../AGENTS.md)
+4. [Architecture Index](./architecture/README.md)
+5. [Standards Index](./standards/README.md)
+6. [OpenAPI Index](./openapi/README.md)
+
+## 2. Active Documentation Surface
+
+These directories describe the current system and should stay aligned with code:
+
+- [architecture/](./architecture/README.md): current architecture, deployment, runtime contracts
+- [standards/](./standards/README.md): stable engineering rules
+- [guides/](./guides/README.md): onboarding, local development, testing, CI/CD
+- [openapi/](./openapi/README.md): current API contract sources
+- [project/](./project/README.md): canonical philosophy and limited product-design memory
+- [competition/](./competition/README.md): competition submission materials
+
+## 3. Runtime and Delivery Docs
+
+Use these when operating or deploying the system:
+
 - [Deployment Environment Contract](./deployment-env-contract.md)
+- [Deployment Topology](./deployment-topology.md)
 - [Main Deployment Runbook](./runbook-main-deploy.md)
 - [Incident Response Runbook](./runbook-incident-response.md)
 
-## 3. Operational Scripts
+## 4. Historical and Reference-Only Docs
 
-- `backend/scripts/compat_surface_audit.py` - compatibility surface audit
-- `backend/scripts/deploy_preflight.py` - pre-deploy environment and network checks
-- `backend/scripts/deploy_smoke_check.py` - post-deploy smoke checks
-- `backend/scripts/deploy_release_record.py` - release record skeleton generator
-- `backend/scripts/incident_record.py` - incident record skeleton generator
-- `backend/scripts/postgres_readiness_audit.py` - PostgreSQL readiness audit
-- `backend/scripts/postgres_shadow_stack_audit.py` - PostgreSQL shadow stack audit
-- `backend/scripts/postgres_shadow_smoke.py` - live PostgreSQL shadow stack smoke gate
-- `backend/scripts/postgres_cutover_audit.py` - PostgreSQL cutover readiness audit
-- `backend/scripts/postgres_backup.py` - build or execute PostgreSQL backup commands for cutover drills
-- `backend/scripts/postgres_restore.py` - build or execute PostgreSQL restore commands for rollback drills
-- `backend/scripts/postgres_recovery_drill.py` - run a dry recovery rehearsal across backup/restore prerequisites and commands
-- `backend/scripts/postgres_cutover_rehearsal.py` - aggregate cutover audit, recovery drill, and optional live shadow smoke
-- `backend/scripts/docker_compose_topology_audit.py` - Docker Compose topology audit
-- `backend/scripts/docker_deploy_readiness_audit.py` - Docker/distributed deployment readiness audit
-- `backend/scripts/distributed_deploy_audit.py` - aggregate Docker/distributed deployment audit
-- `backend/scripts/storage_deploy_readiness_audit.py` - storage/path readiness audit for distributed deployment
-- `backend/scripts/deployment_env_role_audit.py` - role-aware deployment env audit
-- `backend/scripts/runtime_assumption_audit.py` - scan for lingering local-runtime defaults across backend/docs
-- `backend/scripts/worker_queue_diagnose.py` - worker/queue/stuck-job diagnosis
+Historical plans, obsolete drafts, superseded specs, and one-off execution records live under:
 
-## 4. Product Design and Historical Planning
+- [archived/](./archived/)
 
-- [Project Design Workspace](./project/README.md)
-- [Original Requirements](./project/requirements.md)
-- [Competition Materials](./competition/)
-- [Archived Documents](./archived/)
+Use archived docs only for context. They are not the default truth for implementation decisions.
 
-## 5. Status Labels
+## 5. Interpretation Rules
 
-- `Canonical`: the highest-level source for a concept or worldview.
-- `Implemented`: reflected in the codebase today.
-- `In Progress`: active direction, but not fully complete.
-- `Archived`: kept for context, not for current implementation decisions.
+- If code and docs disagree, prefer current tested code plus canonical docs.
+- If two docs disagree, prefer the more canonical one:
+  - philosophy and standards before design drafts
+  - active docs before archived docs
+  - current runtime/deployment docs before old plans
+- If a document only exists to preserve history or redirect old links, mark it `reference-only` or archive it.
+
+## 6. Tool-Local Docs
+
+The repository also contains tool-local markdown outside `docs/`, such as:
+
+- `.ai/`
+- `.kiro/`
+
+Treat them as workflow/tooling context, not product or architecture truth, unless a task explicitly targets those tools.
+## 7. What Is No Longer Active
+
+These categories have been removed from the active default reading path:
+
+- old execution plans and optimization packets
+- project-space design drafts from 2026-03-09 / 2026-03-12
+- legacy OpenAPI guide duplicates
+- typo/compatibility entry docs such as `docs/standard/README.md`
+
+They remain preserved under `docs/archived/` when historical context still matters.

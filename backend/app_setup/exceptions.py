@@ -46,7 +46,11 @@ def register_exception_handlers(app: FastAPI) -> None:
                 code=exc.error_code.value,
                 message=exc.message,
                 details=details or None,
-                retryable=_is_retryable_status(exc.status_code),
+                retryable=(
+                    exc.retryable
+                    if exc.retryable is not None
+                    else _is_retryable_status(exc.status_code)
+                ),
                 trace_id=request_id,
             ),
         )

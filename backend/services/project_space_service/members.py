@@ -31,9 +31,16 @@ async def create_project_member(
     )
     existing = await service.db.get_project_member_by_user(project_id, target_user_id)
     if existing:
+        existing_status = getattr(existing, "status", None)
+        if existing_status == ProjectMemberStatus.ACTIVE.value:
+            raise ConflictException(
+                "User "
+                f"{target_user_id} is already an active member of project {project_id}"
+            )
         raise ConflictException(
             "User "
-            f"{target_user_id} is already an active member of project {project_id}"
+            f"{target_user_id} already exists in project {project_id}; "
+            "update the existing membership instead of creating a duplicate"
         )
     return await service.db.create_project_member(
         project_id=project_id,

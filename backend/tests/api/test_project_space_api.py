@@ -767,6 +767,20 @@ def test_create_reference_rejects_invalid_mode_at_schema_layer(client, _as_user)
     assert resp.status_code == 400
 
 
+def test_create_reference_rejects_negative_priority_at_schema_layer(client, _as_user):
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/references",
+        json={
+            "target_project_id": "p-target-001",
+            "relation_type": "auxiliary",
+            "mode": "follow",
+            "priority": -1,
+        },
+    )
+
+    assert resp.status_code == 400
+
+
 def test_get_project_references_reports_pinned_upstream_update(
     client, monkeypatch, _as_user
 ):
@@ -853,6 +867,15 @@ def test_review_candidate_change_rejects_invalid_action_at_schema_layer(
     resp = client.post(
         f"/api/v1/projects/{_PROJECT_ID}/candidate-changes/c-001/review",
         json={"action": "reopen"},
+    )
+
+    assert resp.status_code == 400
+
+
+def test_create_candidate_change_rejects_empty_title_at_schema_layer(client, _as_user):
+    resp = client.post(
+        f"/api/v1/projects/{_PROJECT_ID}/candidate-changes",
+        json={"title": "", "summary": "summary"},
     )
 
     assert resp.status_code == 400

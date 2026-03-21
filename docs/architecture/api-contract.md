@@ -225,6 +225,5 @@ FastAPI 自动提供两种 API 文档界面：
 
 ## 相关文档
 
-- [OpenAPI 模块化指南](../OPENAPI_GUIDE.md)
-- [Project-Space API 草案（2026-03-09）](../project/PROJECT_SPACE_API_DRAFT_2026-03-09.md)
-- [Project-Space 数据模型草案（2026-03-09）](../project/PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md)
+- [OpenAPI 模块化指南](../openapi/README.md)
+- [Project-Space 历史草案归档](../archived/project-space/)

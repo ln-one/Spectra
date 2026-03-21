@@ -13,6 +13,7 @@ from services.ai.completion_runtime import (
     build_completion_payload,
     build_stub_payload,
     extract_completion_payload,
+    raise_external_service_error,
     with_route_failure,
 )
 from services.ai.model_resolution import _resolve_model_name
@@ -203,9 +204,17 @@ class AIService(CoursewareAIMixin):
                     fallback_triggered=fallback_triggered,
                     latency_ms=latency_ms,
                 )
-            raise TimeoutError(
-                f"AI request timed out after {timeout_seconds:.1f}s"
-            ) from e
+            raise_external_service_error(
+                exc=e,
+                requested_model=requested_model,
+                resolved_model=resolved_model,
+                route_task=(
+                    str(normalized_route_task)
+                    if normalized_route_task is not None
+                    else None
+                ),
+                fallback_triggered=fallback_triggered,
+            )
         except Exception as e:
             logger.warning(
                 "AI generation failed with %s: %s",
@@ -269,7 +278,17 @@ class AIService(CoursewareAIMixin):
                     fallback_triggered=fallback_triggered,
                     latency_ms=latency_ms,
                 )
-            raise
+            raise_external_service_error(
+                exc=e,
+                requested_model=requested_model,
+                resolved_model=resolved_model,
+                route_task=(
+                    str(normalized_route_task)
+                    if normalized_route_task is not None
+                    else None
+                ),
+                fallback_triggered=fallback_triggered,
+            )
 
     async def classify_intent(self, user_message: str):
         return await classify_intent_with_service(self, user_message)

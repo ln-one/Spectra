@@ -21,7 +21,7 @@ The repository has completed its first major structural convergence:
 - backend agent contract: `/Users/ln1/Projects/Spectra/backend/AGENTS.md`
 - frontend agent contract: `/Users/ln1/Projects/Spectra/frontend/AGENTS.md`
 - battle plan for remaining work: `/Users/ln1/Projects/Spectra/docs/remaining-work-battle-plan.md`
-- service topology notes: `/Users/ln1/Projects/Spectra/docs/service-topology-todo.md`
+- archived plans and historical drafts: `/Users/ln1/Projects/Spectra/docs/archived/`
 - changelog: `/Users/ln1/Projects/Spectra/CHANGELOG.md`
 
 ## Recommended Structural Reading

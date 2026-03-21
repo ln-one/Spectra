@@ -12,6 +12,7 @@ import pytest
 import services.ai as ai_module
 from services.ai import AIService, _resolve_model_name
 from services.ai.model_router import ModelRouteFailureReason
+from utils.exceptions import ExternalServiceException
 
 
 class TestModelNameResolve:
@@ -52,12 +53,14 @@ async def test_generate_times_out_with_clear_error(monkeypatch):
 
     monkeypatch.setattr(ai_module, "acompletion", _slow_completion)
 
-    with pytest.raises(TimeoutError, match="timed out"):
+    with pytest.raises(ExternalServiceException) as exc_info:
         await ai_service.generate(
             prompt="timeout test",
             model="qwen3.5-plus",
             max_tokens=10,
         )
+    assert exc_info.value.status_code == 504
+    assert exc_info.value.details["failure_type"] == "timeout"
 
 
 @pytest.mark.asyncio

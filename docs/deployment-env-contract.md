@@ -92,7 +92,7 @@
 
 要求：
 
-- 建议在 `backend api` 与 `worker` 保持一致（例如 `25`）
+- 建议在 `backend api` 与 `worker` 保持一致（例如 `90`）
 - 值应为正数
 
 ### `PREVIEW_REBUILD_TIMEOUT_SECONDS`
@@ -149,6 +149,18 @@
 - 默认关闭
 - 仅在显式开发调试场景建议开启
 - 若关闭则应让渲染失败显式暴露，而不是静默产出假文件
+
+### `ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS`
+
+用途：
+
+- GIF / MP4 等尚未正式渲染接入的 media 产物是否允许生成占位二进制
+
+要求：
+
+- 默认关闭
+- 仅在显式开发调试场景建议开启
+- 若关闭则应明确失败，而不是静默产出假媒体文件
 
 ### `DASHSCOPE_API_KEY`
 
