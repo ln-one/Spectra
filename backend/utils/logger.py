@@ -50,6 +50,17 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_data, ensure_ascii=False)
 
 
+class ContextSafeFormatter(logging.Formatter):
+    """Text formatter that tolerates missing request/user context fields."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        if not hasattr(record, "request_id"):
+            record.request_id = "-"  # type: ignore[attr-defined]
+        if not hasattr(record, "user_id"):
+            record.user_id = "-"  # type: ignore[attr-defined]
+        return super().format(record)
+
+
 def setup_logging(log_level: str = "INFO", log_format: str = "text") -> None:
     """
     Setup application logging
@@ -84,7 +95,7 @@ def setup_logging(log_level: str = "INFO", log_format: str = "text") -> None:
             )
     else:
         # Text format – include request_id / user_id when available
-        formatter = logging.Formatter(
+        formatter = ContextSafeFormatter(
             fmt=(
                 "%(asctime)s - %(name)s - %(levelname)s"
                 " [rid=%(request_id)s uid=%(user_id)s] %(message)s"
