@@ -6,8 +6,13 @@ import os
 from typing import Awaitable, Callable, Optional
 
 from services.generation_session_service.capability_helpers import (
-    _is_queue_worker_available,
+    _resolve_queue_worker_availability,
 )
+from services.generation_session_service.constants import (
+    DispatchFallbackReason,
+    DispatchMode,
+)
+from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 from services.task_queue.status_constants import (
     CANCELABLE_QUEUE_JOB_STATUSES,
@@ -15,6 +20,16 @@ from services.task_queue.status_constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _safe_append_dispatch_event(
+    append_event: Callable[..., Awaitable[None]],
+    **kwargs,
+) -> None:
+    try:
+        await append_event(**kwargs)
+    except Exception as exc:  # pragma: no cover - observability safeguard
+        logger.warning("Failed to append outline dispatch event: %s", exc)
 
 
 async def schedule_outline_draft_task(
@@ -27,7 +42,16 @@ async def schedule_outline_draft_task(
     append_event: Callable[..., Awaitable[None]],
     execute_outline_draft_local: Callable[..., Awaitable[None]],
 ) -> None:
-    if task_queue_service and _is_queue_worker_available(task_queue_service):
+    availability = await _resolve_queue_worker_availability(task_queue_service)
+    dispatch_payload = {
+        "dispatch": DispatchMode.LOCAL_ASYNC.value,
+        "queue_health": availability["status"],
+        "queue_worker_count": availability.get("worker_count", 0),
+        "stale_worker_count": availability.get("stale_worker_count", 0),
+        "queue_error": availability.get("error"),
+    }
+
+    if task_queue_service and availability["status"] == "available":
         try:
             job = task_queue_service.enqueue_outline_draft_task(
                 session_id=session_id,
@@ -40,6 +64,19 @@ async def schedule_outline_draft_task(
                 "Outline draft task enqueued: session=%s job_id=%s",
                 session_id,
                 job.id,
+            )
+            await _safe_append_dispatch_event(
+                append_event,
+                session_id=session_id,
+                event_type=GenerationEventType.STATE_CHANGED.value,
+                state=GenerationState.DRAFTING_OUTLINE.value,
+                payload={
+                    "dispatch": "rq",
+                    "rq_job_id": job.id,
+                    "queue_health": availability["status"],
+                    "queue_worker_count": availability.get("worker_count", 0),
+                    "stale_worker_count": availability.get("stale_worker_count", 0),
+                },
             )
             schedule_outline_draft_watchdog(
                 db=db,
@@ -57,11 +94,48 @@ async def schedule_outline_draft_task(
                 enqueue_err,
                 exc_info=True,
             )
+            dispatch_payload["enqueue_error"] = str(enqueue_err)
+            fallback_reason = DispatchFallbackReason.TASK_ENQUEUE_FAILED.value
+            await _safe_append_dispatch_event(
+                append_event,
+                session_id=session_id,
+                event_type=GenerationEventType.STATE_CHANGED.value,
+                state=GenerationState.DRAFTING_OUTLINE.value,
+                state_reason=fallback_reason,
+                payload={**dispatch_payload, "reason": fallback_reason},
+            )
     elif task_queue_service:
+        fallback_reason = (
+            DispatchFallbackReason.QUEUE_HEALTH_UNKNOWN.value
+            if availability["status"] == "unknown"
+            else DispatchFallbackReason.TASK_QUEUE_NO_WORKER.value
+        )
         logger.warning(
-            "Outline draft queue worker unavailable, fallback to local async: "
-            "session=%s",
+            "Outline draft queue unavailable, fallback to local async: "
+            "session=%s status=%s workers=%s stale=%s error=%s",
             session_id,
+            availability["status"],
+            availability.get("worker_count", 0),
+            availability.get("stale_worker_count", 0),
+            availability.get("error"),
+        )
+        await _safe_append_dispatch_event(
+            append_event,
+            session_id=session_id,
+            event_type=GenerationEventType.STATE_CHANGED.value,
+            state=GenerationState.DRAFTING_OUTLINE.value,
+            state_reason=fallback_reason,
+            payload={**dispatch_payload, "reason": fallback_reason},
+        )
+    else:
+        fallback_reason = DispatchFallbackReason.TASK_QUEUE_UNAVAILABLE.value
+        await _safe_append_dispatch_event(
+            append_event,
+            session_id=session_id,
+            event_type=GenerationEventType.STATE_CHANGED.value,
+            state=GenerationState.DRAFTING_OUTLINE.value,
+            state_reason=fallback_reason,
+            payload={**dispatch_payload, "reason": fallback_reason},
         )
 
     asyncio.create_task(

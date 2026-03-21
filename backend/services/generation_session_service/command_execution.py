@@ -8,8 +8,8 @@ from typing import Awaitable, Callable, Optional
 from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.capability_helpers import (
     _extract_template_config,
-    _is_queue_worker_available,
     _normalize_task_type,
+    _resolve_queue_worker_availability,
 )
 from services.generation_session_service.constants import DispatchFallbackReason
 from services.generation_session_service.serialization_helpers import _to_session_ref
@@ -123,13 +123,23 @@ async def dispatch_created_task(
 
     task_type = _normalize_task_type(session.outputType, conflict_error_cls)
     template_config = _extract_template_config(session.options)
-    worker_available = _is_queue_worker_available(task_queue_service)
+    availability = await _resolve_queue_worker_availability(task_queue_service)
+    dispatch_context = {
+        "queue_health": availability["status"],
+        "queue_worker_count": availability.get("worker_count", 0),
+        "stale_worker_count": availability.get("stale_worker_count", 0),
+        "queue_error": availability.get("error"),
+    }
 
-    if task_queue_service is None or not worker_available:
+    if task_queue_service is None or availability["status"] != "available":
         fallback_reason = (
             DispatchFallbackReason.TASK_QUEUE_UNAVAILABLE.value
             if task_queue_service is None
-            else DispatchFallbackReason.TASK_QUEUE_NO_WORKER.value
+            else (
+                DispatchFallbackReason.QUEUE_HEALTH_UNKNOWN.value
+                if availability["status"] == "unknown"
+                else DispatchFallbackReason.TASK_QUEUE_NO_WORKER.value
+            )
         )
         scheduled = await schedule_local_execution(
             session_id=session_id,
@@ -138,6 +148,7 @@ async def dispatch_created_task(
             task_type=task_type,
             template_config=template_config,
             fallback_reason=fallback_reason,
+            dispatch_context=dispatch_context,
         )
         if scheduled:
             warnings.append(fallback_reason)
@@ -191,6 +202,7 @@ async def dispatch_created_task(
             template_config=template_config,
             fallback_reason=DispatchFallbackReason.TASK_ENQUEUE_FAILED.value,
             enqueue_error=str(enqueue_err),
+            dispatch_context=dispatch_context,
         )
         if scheduled:
             warnings.append(DispatchFallbackReason.TASK_ENQUEUE_FAILED.value)

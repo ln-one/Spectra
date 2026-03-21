@@ -7,6 +7,7 @@ from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import ChatRouteTask, SendMessageRequest
 from services.ai import ai_service
+from services.ai.model_resolution import _resolve_model_name
 from services.ai.model_router import ModelRouteTask
 from services.database import db_service
 from services.generation_session_service import GenerationSessionService
@@ -113,23 +114,31 @@ async def process_chat_message(
             (time.perf_counter() - stage_started) * 1000, 2
         )
 
-        stage_started = time.perf_counter()
-        rag_result, history_payload = await asyncio.gather(
-            load_rag_context(
+        async def _timed_rag_context():
+            started_at = time.perf_counter()
+            result = await load_rag_context(
                 project_id=body.project_id,
                 query=body.content,
                 session_id=session_id,
                 rag_source_ids=body.rag_source_ids,
-            ),
-            build_history_payload(
+            )
+            return result, round((time.perf_counter() - started_at) * 1000, 2)
+
+        async def _timed_history_payload():
+            started_at = time.perf_counter()
+            result = await build_history_payload(
                 project_id=body.project_id,
                 session_id=session_id,
-            ),
+            )
+            return result, round((time.perf_counter() - started_at) * 1000, 2)
+
+        (rag_result, rag_ms), (history_payload, history_ms) = await asyncio.gather(
+            _timed_rag_context(),
+            _timed_history_payload(),
         )
         _rag_results, citations, rag_hit, selected_files_hint, rag_payload = rag_result
-        stage_timings_ms["load_rag_context_and_history"] = round(
-            (time.perf_counter() - stage_started) * 1000, 2
-        )
+        stage_timings_ms["rag_ms"] = rag_ms
+        stage_timings_ms["history_ms"] = history_ms
 
         message_hints = []
         if selected_files_hint:
@@ -157,8 +166,13 @@ async def process_chat_message(
         request_id = str(uuid4())
         prompt_digest = prompt_hash(prompt)
         route_info = {}
-        selected_model = "unknown"
-        provider_model = "unknown"
+        attempted_route = ai_service.model_router.route(
+            ModelRouteTask.CHAT_RESPONSE.value,
+            prompt=prompt,
+            has_rag_context=rag_hit,
+        )
+        selected_model = attempted_route.selected_model
+        provider_model = _resolve_model_name(selected_model)
         fallback_triggered = False
         mechanical_pattern_hit = False
         latency_ms = None
@@ -172,7 +186,7 @@ async def process_chat_message(
                 has_rag_context=rag_hit,
                 max_tokens=500,
             )
-            stage_timings_ms["ai_generate"] = round(
+            stage_timings_ms["ai_generate_ms"] = round(
                 (time.perf_counter() - stage_started) * 1000, 2
             )
             assistant_content = (
@@ -205,7 +219,7 @@ async def process_chat_message(
                     route_task=ModelRouteTask.SHORT_TEXT_POLISH,
                     max_tokens=500,
                 )
-                stage_timings_ms["ai_rewrite"] = round(
+                stage_timings_ms["ai_rewrite_ms"] = round(
                     (time.perf_counter() - stage_started) * 1000, 2
                 )
                 rewritten_content = (rewrite_result.get("content") or "").strip()
@@ -264,7 +278,7 @@ async def process_chat_message(
             ),
             session_id=session_id,
         )
-        stage_timings_ms["persist_assistant_message"] = round(
+        stage_timings_ms["persist_ms"] = round(
             (time.perf_counter() - stage_started) * 1000, 2
         )
         total_duration_ms = round((time.perf_counter() - request_started) * 1000, 2)

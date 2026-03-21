@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -6,7 +7,11 @@ from rq import Worker
 from rq.job import Job
 from rq.registry import FailedJobRegistry, FinishedJobRegistry, StartedJobRegistry
 
-from .status_constants import CANCELABLE_QUEUE_JOB_STATUSES, QueueJobStatus
+from .status_constants import (
+    CANCELABLE_QUEUE_JOB_STATUSES,
+    QueueJobStatus,
+    QueueWorkerAvailability,
+)
 
 logger = logging.getLogger(__name__)
 WORKER_HEARTBEAT_FRESHNESS_SECONDS = 45
@@ -114,3 +119,70 @@ def get_queue_info(service) -> dict:
             },
             "error": str(e),
         }
+
+
+def inspect_worker_availability(service) -> dict:
+    if service is None:
+        return {
+            "status": QueueWorkerAvailability.UNAVAILABLE.value,
+            "worker_count": 0,
+            "stale_worker_count": 0,
+            "error": None,
+        }
+
+    try:
+        queue_info = service.get_queue_info()
+    except Exception as exc:
+        logger.warning("Failed to inspect queue worker availability: %s", exc)
+        return {
+            "status": QueueWorkerAvailability.UNKNOWN.value,
+            "worker_count": 0,
+            "stale_worker_count": 0,
+            "error": str(exc),
+        }
+
+    if not isinstance(queue_info, dict):
+        return {
+            "status": QueueWorkerAvailability.UNKNOWN.value,
+            "worker_count": 0,
+            "stale_worker_count": 0,
+            "error": "queue_info_not_dict",
+        }
+
+    workers = queue_info.get("workers") or {}
+    worker_count = int(workers.get("count") or 0)
+    stale_workers = workers.get("stale") or []
+    stale_worker_count = len(stale_workers) if isinstance(stale_workers, list) else 0
+    error = queue_info.get("error")
+    if error:
+        status = QueueWorkerAvailability.UNKNOWN.value
+    elif worker_count > 0:
+        status = QueueWorkerAvailability.AVAILABLE.value
+    else:
+        status = QueueWorkerAvailability.UNAVAILABLE.value
+
+    return {
+        "status": status,
+        "worker_count": worker_count,
+        "stale_worker_count": stale_worker_count,
+        "error": str(error) if error else None,
+    }
+
+
+async def resolve_worker_availability(
+    service,
+    *,
+    retries: int = 1,
+    retry_delay_seconds: float = 0.15,
+) -> dict:
+    availability = inspect_worker_availability(service)
+    if availability["status"] != QueueWorkerAvailability.UNKNOWN.value:
+        return availability
+
+    attempts = max(0, int(retries))
+    for _ in range(attempts):
+        await asyncio.sleep(max(0.0, retry_delay_seconds))
+        availability = inspect_worker_availability(service)
+        if availability["status"] != QueueWorkerAvailability.UNKNOWN.value:
+            break
+    return availability

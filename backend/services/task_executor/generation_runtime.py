@@ -171,7 +171,7 @@ async def render_generation_outputs(
     db_service,
     context: GenerationExecutionContext,
     courseware_content,
-) -> tuple[dict, dict]:
+) -> tuple[dict, dict, dict[str, float]]:
     from services.generation import generation_service
     from services.template import TemplateConfig
 
@@ -182,6 +182,7 @@ async def render_generation_outputs(
     )
     output_urls = {}
     artifact_paths: dict[str, str] = {}
+    render_timings_ms: dict[str, float] = {}
     should_emit_direct_output_urls = not bool(context.session_id)
 
     generation_type = normalize_generation_type(context.task_type)
@@ -191,6 +192,10 @@ async def render_generation_outputs(
         logger.info("Generating PPTX for task %s", context.task_id)
         pptx_path_local = await generation_service.generate_pptx(
             courseware_content, context.task_id, tpl_config
+        )
+        render_timings_ms["render_ppt_ms"] = round(
+            (time.perf_counter() - started_at) * 1000,
+            2,
         )
         logger.info(
             "PPTX generated for task %s in %.2fs: %s",
@@ -205,6 +210,10 @@ async def render_generation_outputs(
         logger.info("Generating DOCX for task %s", context.task_id)
         docx_path_local = await generation_service.generate_docx(
             courseware_content, context.task_id, tpl_config
+        )
+        render_timings_ms["render_word_ms"] = round(
+            (time.perf_counter() - started_at) * 1000,
+            2,
         )
         logger.info(
             "DOCX generated for task %s in %.2fs: %s",
@@ -257,7 +266,7 @@ async def render_generation_outputs(
             context.task_id, TaskStatus.PROCESSING, 90
         )
 
-    return output_urls, artifact_paths
+    return output_urls, artifact_paths, render_timings_ms
 
 
 async def persist_generation_artifacts(
@@ -350,6 +359,7 @@ async def finalize_generation_success(
     db_service,
     context: GenerationExecutionContext,
     output_urls: dict,
+    payload_extra: Optional[dict] = None,
 ) -> None:
     from .common import sync_session_terminal_state
 
@@ -368,6 +378,7 @@ async def finalize_generation_success(
             state=GenerationState.SUCCESS.value,
             state_reason=TaskFailureStateReason.COMPLETED.value,
             output_urls=output_urls,
+            payload_extra=payload_extra,
         )
         if context.session_id:
             logger.info(
@@ -393,6 +404,7 @@ async def finalize_generation_success(
             "task_id": context.task_id,
             "project_id": context.project_id,
             "output_urls": output_urls,
+            **(payload_extra or {}),
             "execution_time": time.time() - context.start_time,
             "timestamp": time.time(),
         },

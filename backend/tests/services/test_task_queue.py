@@ -10,6 +10,11 @@ from fakeredis import FakeStrictRedis
 from rq.job import Job
 
 from services.task_queue import TaskQueueService
+from services.task_queue.status import (
+    inspect_worker_availability,
+    resolve_worker_availability,
+)
+from services.task_queue.status_constants import QueueWorkerAvailability
 
 
 @pytest.fixture
@@ -273,3 +278,35 @@ class TestTaskQueueService:
 
         assert "error" in info
         assert info["workers"]["count"] == 0
+
+
+def test_inspect_worker_availability_marks_queue_error_as_unknown(task_queue_service):
+    task_queue_service.get_queue_info = Mock(
+        return_value={"workers": {"count": 0, "stale": ["worker-old"]}, "error": "boom"}
+    )
+
+    availability = inspect_worker_availability(task_queue_service)
+
+    assert availability["status"] == QueueWorkerAvailability.UNKNOWN.value
+    assert availability["worker_count"] == 0
+    assert availability["stale_worker_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_worker_availability_retries_unknown(task_queue_service):
+    task_queue_service.get_queue_info = Mock(
+        side_effect=[
+            {"workers": {"count": 0, "stale": []}, "error": "redis"},
+            {"workers": {"count": 1, "stale": ["worker-stale"]}},
+        ]
+    )
+
+    availability = await resolve_worker_availability(
+        task_queue_service,
+        retries=1,
+        retry_delay_seconds=0,
+    )
+
+    assert availability["status"] == QueueWorkerAvailability.AVAILABLE.value
+    assert availability["worker_count"] == 1
+    assert availability["stale_worker_count"] == 1

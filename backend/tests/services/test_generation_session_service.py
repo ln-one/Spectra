@@ -267,6 +267,7 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
     service = GenerationSessionService(db=db)
 
     queue = Mock()
+    queue.get_queue_info.return_value = {"workers": {"count": 1, "stale": []}}
     queue.enqueue_generation_task.return_value = SimpleNamespace(id="rq-1")
 
     monkeypatch.setattr(
@@ -355,6 +356,7 @@ async def test_execute_command_fallbacks_to_local_when_enqueue_fails(monkeypatch
     service._schedule_local_execution = AsyncMock(return_value=True)
 
     queue = Mock()
+    queue.get_queue_info.return_value = {"workers": {"count": 1, "stale": []}}
     queue.enqueue_generation_task.side_effect = RuntimeError("redis down")
 
     monkeypatch.setattr(
@@ -1348,6 +1350,38 @@ async def test_schedule_outline_draft_task_fallback_to_local_when_no_worker():
 
     mock_queue_service = Mock()
     mock_queue_service.get_queue_info = Mock(return_value={"workers": {"count": 0}})
+    mock_queue_service.enqueue_outline_draft_task = Mock()
+
+    def _close_task(coro):
+        coro.close()
+        return Mock()
+
+    with patch("asyncio.create_task", side_effect=_close_task) as mock_create_task:
+        await service._schedule_outline_draft_task(
+            session_id="s-001",
+            project_id="p-001",
+            options={"pages": 10},
+            task_queue_service=mock_queue_service,
+        )
+
+    mock_create_task.assert_called_once()
+    mock_queue_service.enqueue_outline_draft_task.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_schedule_outline_draft_task_fallback_to_local_when_queue_health_unknown():
+    from unittest.mock import patch
+
+    db = SimpleNamespace()
+    service = GenerationSessionService(db=db)
+
+    mock_queue_service = Mock()
+    mock_queue_service.get_queue_info = Mock(
+        return_value={
+            "workers": {"count": 0, "stale": ["worker-old"]},
+            "error": "redis",
+        }
+    )
     mock_queue_service.enqueue_outline_draft_task = Mock()
 
     def _close_task(coro):

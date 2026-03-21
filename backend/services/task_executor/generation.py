@@ -1,6 +1,7 @@
 """Generation task execution workflow."""
 
 import asyncio
+import json
 import logging
 import time
 from typing import Optional
@@ -24,6 +25,24 @@ from .generation_runtime import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_required_output_urls(
+    *,
+    task_type: str,
+    output_urls: dict,
+) -> None:
+    normalized_task_type = normalize_generation_type(task_type).value
+    missing_outputs: list[str] = []
+    if normalized_task_type in {"pptx", "both"} and not output_urls.get("pptx"):
+        missing_outputs.append("pptx")
+    if normalized_task_type in {"docx", "both"} and not output_urls.get("docx"):
+        missing_outputs.append("docx")
+    if missing_outputs:
+        raise ValueError(
+            "Missing required persisted generation outputs: "
+            + ", ".join(missing_outputs)
+        )
 
 
 def run_generation_task(
@@ -87,7 +106,7 @@ async def execute_generation_task(
 
         ai_started_at = time.perf_counter()
         courseware_content = await build_generation_inputs(db_service, context)
-        timings["build_inputs_ms"] = round(
+        timings["content_generate_ms"] = round(
             (time.perf_counter() - ai_started_at) * 1000, 2
         )
 
@@ -98,7 +117,7 @@ async def execute_generation_task(
             task_id=task_id,
             preview_payload=preview_payload,
         )
-        timings["cache_preview_ms"] = round(
+        timings["persist_preview_ms"] = round(
             (time.perf_counter() - cache_started_at) * 1000, 2
         )
         await db_service.update_generation_task_status(
@@ -106,13 +125,17 @@ async def execute_generation_task(
         )
 
         render_started_at = time.perf_counter()
-        output_urls, artifact_paths = await render_generation_outputs(
-            db_service=db_service,
-            context=context,
-            courseware_content=courseware_content,
+        output_urls, artifact_paths, render_timings_ms = (
+            await render_generation_outputs(
+                db_service=db_service,
+                context=context,
+                courseware_content=courseware_content,
+            )
         )
-        timings["render_outputs_ms"] = round(
-            (time.perf_counter() - render_started_at) * 1000, 2
+        timings.update(render_timings_ms)
+        timings["render_total_ms"] = round(
+            (time.perf_counter() - render_started_at) * 1000,
+            2,
         )
 
         persist_started_at = time.perf_counter()
@@ -121,30 +144,37 @@ async def execute_generation_task(
             context=context,
             artifact_paths=artifact_paths,
         )
-        timings["persist_artifacts_ms"] = round(
+        timings["persist_artifact_ms"] = round(
             (time.perf_counter() - persist_started_at) * 1000, 2
         )
         if persisted_output_urls:
             output_urls.update(persisted_output_urls)
+        _validate_required_output_urls(
+            task_type=normalized_task_type,
+            output_urls=output_urls,
+        )
 
         finalize_started_at = time.perf_counter()
         await finalize_generation_success(
             db_service=db_service,
             context=context,
             output_urls=output_urls,
+            payload_extra={
+                "stage_timings_ms": timings,
+                "output_urls": output_urls,
+            },
         )
-        timings["finalize_ms"] = round(
+        timings["terminal_state_sync_ms"] = round(
             (time.perf_counter() - finalize_started_at) * 1000, 2
         )
         logger.info(
-            "generation_task_stage_timing task_id=%s session_id=%s timings=%s",
-            task_id,
-            context.session_id,
-            timings,
+            "generation_task_stage_timing",
             extra={
                 "task_id": task_id,
                 "session_id": context.session_id,
                 "timings": timings,
+                "output_urls": output_urls,
+                "stage_timings_json": json.dumps(timings, ensure_ascii=False),
             },
         )
 

@@ -23,8 +23,19 @@ class RAGService:
         self._vector = vec_service or vector_service
         self._embedding = emb_service or embedding_service
 
-    async def index_chunks(self, project_id: str, chunks: list) -> int:
-        return await index_chunks(self, project_id, chunks)
+    async def index_chunks(
+        self,
+        project_id: str,
+        chunks: list,
+        *,
+        return_details: bool = False,
+    ):
+        return await index_chunks(
+            self,
+            project_id,
+            chunks,
+            return_details=return_details,
+        )
 
     async def search(
         self,

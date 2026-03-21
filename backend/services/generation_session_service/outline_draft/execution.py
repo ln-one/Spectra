@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import uuid
 from typing import Awaitable, Callable, Optional
 
@@ -102,6 +103,7 @@ async def execute_outline_draft_local(
 ) -> None:
     trace_id = trace_id or str(uuid.uuid4())
     next_outline_version = 1
+    stage_timings_ms: dict[str, float] = {}
     try:
         session = await db.generationsession.find_unique(where={"id": session_id})
         if not session:
@@ -129,6 +131,7 @@ async def execute_outline_draft_local(
         next_outline_version = max(int(current_outline_version or 0), 0) + 1
 
         await _emit_outline_progress(append_event, session_id, trace_id)
+        outline_started_at = time.perf_counter()
         outline_doc = await asyncio.wait_for(
             _generate_outline_doc(
                 db=db,
@@ -139,19 +142,47 @@ async def execute_outline_draft_local(
             ),
             timeout=_outline_draft_timeout_seconds(),
         )
+        stage_timings_ms["outline_total_ms"] = round(
+            (time.perf_counter() - outline_started_at) * 1000,
+            2,
+        )
+        stage_timings_ms["requirements_build_ms"] = round(
+            float(outline_doc.pop("_requirements_build_ms", 0.0)),
+            2,
+        )
+        stage_timings_ms["rag_context_ms"] = round(
+            float(outline_doc.pop("_rag_context_ms", 0.0)),
+            2,
+        )
+        stage_timings_ms["outline_llm_ms"] = round(
+            float(outline_doc.pop("_outline_llm_ms", 0.0)),
+            2,
+        )
+        persist_started_at = time.perf_counter()
         await _persist_success(
             db=db,
             session_id=session_id,
             outline_doc=outline_doc,
             outline_version=next_outline_version,
         )
-        await _emit_outline_success(
-            append_event, session_id, trace_id, outline_version=next_outline_version
+        stage_timings_ms["persist_outline_ms"] = round(
+            (time.perf_counter() - persist_started_at) * 1000,
+            2,
         )
-        logger.info(
-            "Outline draft completed successfully: session=%s trace_id=%s",
+        await _emit_outline_success(
+            append_event,
             session_id,
             trace_id,
+            outline_version=next_outline_version,
+            stage_timings_ms=stage_timings_ms,
+        )
+        logger.info(
+            "outline_draft_stage_timing",
+            extra={
+                "session_id": session_id,
+                "trace_id": trace_id,
+                "stage_timings_ms": stage_timings_ms,
+            },
         )
     except Exception as draft_err:
         if await _is_concurrently_completed(db, session_id, trace_id):
@@ -250,6 +281,7 @@ async def _build_session_conversation_requirements(
 async def _generate_outline_doc(
     *, db, session_id: str, project_id: str, options, ai_service_obj
 ):
+    requirements_started_at = time.perf_counter()
     project = await db.project.find_unique(where={"id": project_id})
     conversation_requirements = await _build_session_conversation_requirements(
         db=db,
@@ -257,12 +289,17 @@ async def _generate_outline_doc(
         session_id=session_id,
     )
     outline_requirements = _build_outline_requirements(project, options)
+    requirements_build_ms = round(
+        (time.perf_counter() - requirements_started_at) * 1000,
+        2,
+    )
     requirement_text = "\n\n".join(
         part.strip()
         for part in [conversation_requirements, outline_requirements]
         if part and part.strip()
     )
     template_style = (options or {}).get("template") or "default"
+    llm_started_at = time.perf_counter()
     outline = await ai_service_obj.generate_outline(
         project_id=project_id,
         user_requirements=requirement_text,
@@ -270,10 +307,17 @@ async def _generate_outline_doc(
         session_id=session_id,
         rag_source_ids=(options or {}).get("rag_source_ids"),
     )
-    return _courseware_outline_to_document(
+    outline_doc = _courseware_outline_to_document(
         outline,
         target_pages=(options or {}).get("pages"),
     )
+    outline_doc["_requirements_build_ms"] = requirements_build_ms
+    outline_doc["_rag_context_ms"] = 0.0
+    outline_doc["_outline_llm_ms"] = round(
+        (time.perf_counter() - llm_started_at) * 1000,
+        2,
+    )
+    return outline_doc
 
 
 async def _persist_success(
@@ -299,7 +343,11 @@ async def _persist_success(
 
 
 async def _emit_outline_success(
-    append_event, session_id: str, trace_id: str, outline_version: int
+    append_event,
+    session_id: str,
+    trace_id: str,
+    outline_version: int,
+    stage_timings_ms: Optional[dict] = None,
 ) -> None:
     await append_event(
         session_id=session_id,
@@ -310,6 +358,7 @@ async def _emit_outline_success(
             "version": outline_version,
             "change_reason": OutlineChangeReason.DRAFTED_ASYNC.value,
             "trace_id": trace_id,
+            "stage_timings_ms": stage_timings_ms or {},
         },
     )
     await append_event(
@@ -317,7 +366,7 @@ async def _emit_outline_success(
         event_type=GenerationEventType.STATE_CHANGED.value,
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         state_reason=OutlineGenerationStateReason.DRAFTED_ASYNC.value,
-        payload={"trace_id": trace_id},
+        payload={"trace_id": trace_id, "stage_timings_ms": stage_timings_ms or {}},
     )
 
 

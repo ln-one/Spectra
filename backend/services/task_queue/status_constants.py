@@ -12,6 +12,12 @@ class QueueJobStatus(str, Enum):
     FAILED = "failed"
 
 
+class QueueWorkerAvailability(str, Enum):
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+    UNKNOWN = "unknown"
+
+
 CANCELABLE_QUEUE_JOB_STATUSES: frozenset[str] = frozenset(
     {
         QueueJobStatus.QUEUED.value,
