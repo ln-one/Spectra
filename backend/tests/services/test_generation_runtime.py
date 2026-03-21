@@ -90,10 +90,7 @@ async def test_render_generation_outputs_parallel_for_both():
 
     assert mock_pptx.await_count == 1
     assert mock_docx.await_count == 1
-    assert output_urls == {
-        "pptx": "/api/v1/generate/sessions/s-1/preview/export",
-        "docx": "/api/v1/generate/sessions/s-1/preview/export",
-    }
+    assert output_urls == {}
     assert artifact_paths == {
         "pptx": "/tmp/task-1.pptx",
         "docx": "/tmp/task-1.docx",
@@ -125,10 +122,37 @@ async def test_render_generation_outputs_pptx_only_keeps_progress_contract():
         )
 
     assert mock_pptx.await_count == 1
-    assert output_urls == {
-        "pptx": "/api/v1/generate/sessions/s-2/preview/export",
-    }
+    assert output_urls == {}
     assert artifact_paths == {"pptx": "/tmp/task-2.pptx"}
     db_service.update_generation_task_status.assert_awaited_once_with(
         "task-2", TaskStatus.PROCESSING, 60
+    )
+
+
+@pytest.mark.asyncio
+async def test_render_generation_outputs_non_session_still_emits_direct_urls():
+    db_service = SimpleNamespace(update_generation_task_status=AsyncMock())
+    context = GenerationExecutionContext(
+        task_id="task-3",
+        project_id="p-1",
+        task_type="docx",
+        template_config=None,
+        session_id=None,
+    )
+
+    with patch(
+        "services.generation.generation_service.generate_docx",
+        new=AsyncMock(return_value="/tmp/task-3.docx"),
+    ) as mock_docx:
+        output_urls, artifact_paths = await render_generation_outputs(
+            db_service=db_service,
+            context=context,
+            courseware_content=SimpleNamespace(),
+        )
+
+    assert mock_docx.await_count == 1
+    assert output_urls == {"docx": "/tmp/task-3.docx"}
+    assert artifact_paths == {"docx": "/tmp/task-3.docx"}
+    db_service.update_generation_task_status.assert_awaited_once_with(
+        "task-3", TaskStatus.PROCESSING, 90
     )

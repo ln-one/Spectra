@@ -113,11 +113,7 @@ async def render_generation_outputs(
     )
     output_urls = {}
     artifact_paths: dict[str, str] = {}
-    export_endpoint = (
-        f"/api/v1/generate/sessions/{context.session_id}/preview/export"
-        if context.session_id
-        else None
-    )
+    should_emit_direct_output_urls = not bool(context.session_id)
 
     generation_type = normalize_generation_type(context.task_type)
 
@@ -163,12 +159,13 @@ async def render_generation_outputs(
         )
         artifact_paths["pptx"] = pptx_path
         artifact_paths["docx"] = docx_path
-        output_urls.update(
-            build_task_output_urls(
-                pptx_url=export_endpoint or pptx_path,
-                docx_url=export_endpoint or docx_path,
+        if should_emit_direct_output_urls:
+            output_urls.update(
+                build_task_output_urls(
+                    pptx_url=pptx_path,
+                    docx_url=docx_path,
+                )
             )
-        )
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 90
         )
@@ -176,9 +173,8 @@ async def render_generation_outputs(
     if need_pptx and not need_docx:
         pptx_path = await _generate_pptx_output()
         artifact_paths["pptx"] = pptx_path
-        output_urls.update(
-            build_task_output_urls(pptx_url=export_endpoint or pptx_path)
-        )
+        if should_emit_direct_output_urls:
+            output_urls.update(build_task_output_urls(pptx_url=pptx_path))
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 60
         )
@@ -186,9 +182,8 @@ async def render_generation_outputs(
     if need_docx and not need_pptx:
         docx_path = await _generate_docx_output()
         artifact_paths["docx"] = docx_path
-        output_urls.update(
-            build_task_output_urls(docx_url=export_endpoint or docx_path)
-        )
+        if should_emit_direct_output_urls:
+            output_urls.update(build_task_output_urls(docx_url=docx_path))
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 90
         )
