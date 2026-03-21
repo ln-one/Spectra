@@ -30,6 +30,36 @@ from utils.responses import success_response
 
 router = APIRouter()
 
+_EVENTS_ACCEPT_JSON = "application/json"
+_EVENTS_ACCEPT_SSE = "text/event-stream"
+
+
+def _resolve_events_accept_mode(
+    *,
+    query_accept: Optional[str],
+    header_accept: Optional[str],
+) -> str:
+    """Resolve events transport mode with query-parameter priority.
+
+    Backward compatibility:
+    - keep supporting `accept=application/json` query parameter
+    - additionally allow standard HTTP Accept negotiation for SDK clients
+    """
+    if query_accept:
+        normalized = query_accept.strip().lower()
+        if _EVENTS_ACCEPT_JSON in normalized:
+            return _EVENTS_ACCEPT_JSON
+        if _EVENTS_ACCEPT_SSE in normalized:
+            return _EVENTS_ACCEPT_SSE
+        return _EVENTS_ACCEPT_SSE
+
+    normalized_header = (header_accept or "").lower()
+    if _EVENTS_ACCEPT_JSON in normalized_header:
+        return _EVENTS_ACCEPT_JSON
+    if _EVENTS_ACCEPT_SSE in normalized_header:
+        return _EVENTS_ACCEPT_SSE
+    return _EVENTS_ACCEPT_SSE
+
 
 @router.get("/sessions")
 async def list_sessions(
@@ -179,9 +209,11 @@ async def get_generation_session(
 
 @router.get("/sessions/{session_id}/events")
 async def get_session_events(
+    request: Request,
     session_id: str,
     cursor: Optional[str] = Query(None, description="断线续传游标"),
-    accept: Optional[str] = Query("text/event-stream"),
+    accept: Optional[str] = Query(None),
+    accept_header: Optional[str] = Header(None, alias="Accept"),
     token: Optional[str] = Query(
         None, description="SSE token (when Authorization header is unavailable)"
     ),
@@ -199,7 +231,12 @@ async def get_session_events(
 
     await load_session_runtime_or_raise(svc, session_id, user_id)
 
-    if accept == "application/json":
+    mode = _resolve_events_accept_mode(
+        query_accept=request.query_params.get("accept") or accept,
+        header_accept=accept_header,
+    )
+
+    if mode == _EVENTS_ACCEPT_JSON:
         events = await svc.get_events(session_id, user_id, cursor=cursor)
         return success_response(data={"events": events}, message="获取事件成功")
 

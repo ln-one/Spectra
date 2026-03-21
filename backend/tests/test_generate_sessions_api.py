@@ -558,6 +558,33 @@ async def test_session_events_json_uses_runtime_guard_instead_of_snapshot(
 
 
 @pytest.mark.anyio
+async def test_session_events_supports_accept_header_json_fallback(app, _as_user):
+    session_service = SimpleNamespace(
+        get_session_runtime_state=AsyncMock(
+            return_value={"state": GenerationState.DRAFTING_OUTLINE.value}
+        ),
+        get_events=AsyncMock(return_value=[{"cursor": "cur-header-001"}]),
+    )
+
+    with patch(
+        "routers.generate_sessions.core.get_session_service",
+        return_value=session_service,
+    ):
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/generate/sessions/s-001/events",
+            headers={"Accept": "application/json"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["events"] == [{"cursor": "cur-header-001"}]
+    session_service.get_session_runtime_state.assert_awaited_once_with("s-001", "u-001")
+    session_service.get_events.assert_awaited_once_with("s-001", "u-001", cursor=None)
+
+
+@pytest.mark.anyio
 async def test_preview_response_contains_unified_artifact_anchor(app, _as_user):
     session_service = SimpleNamespace(
         get_session_snapshot=AsyncMock(
