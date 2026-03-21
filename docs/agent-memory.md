@@ -101,6 +101,12 @@
 - Meaning: tests that require a live provider key or live upstream service should skip themselves when the required env is absent, instead of failing as if product behavior regressed.
 - Why it matters: this keeps the default backend gate focused on repository regressions, while still preserving explicit connectivity checks for environments that opt in.
 
+### 2.14 Artifact version anchors must validate the project current version
+
+- Status: `confirmed`
+- Meaning: when artifact creation implicitly inherits `project.currentVersionId`, that anchor must still resolve to a real version owned by the same project before the artifact is persisted.
+- Why it matters: artifact lineage should not inherit a dangling or cross-project version pointer just because the caller omitted `based_on_version_id`.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated

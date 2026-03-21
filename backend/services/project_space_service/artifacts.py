@@ -20,6 +20,7 @@ from .artifact_semantics import (
     normalize_artifact_type,
     normalize_artifact_visibility,
 )
+from .artifact_versioning import resolve_based_on_version_id
 
 logger = logging.getLogger(__name__)
 
@@ -136,20 +137,11 @@ async def create_artifact_with_file(
 
     mode = _normalize_artifact_mode(artifact_mode)
 
-    if based_on_version_id:
-        version = await db.get_project_version(based_on_version_id)
-        if not version or version.projectId != project_id:
-            raise ValidationException(
-                "based_on_version_id "
-                f"{based_on_version_id} is invalid for project {project_id}"
-            )
-    else:
-        project = await db.get_project(project_id)
-        current_version_id = (
-            getattr(project, "currentVersionId", None) if project else None
-        )
-        if current_version_id:
-            based_on_version_id = current_version_id
+    based_on_version_id = await resolve_based_on_version_id(
+        db=db,
+        project_id=project_id,
+        based_on_version_id=based_on_version_id,
+    )
 
     normalized_content = normalize_artifact_content(artifact_type, content)
 
