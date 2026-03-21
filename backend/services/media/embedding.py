@@ -1,7 +1,7 @@
 """
 Embedding Service - 文本向量化
 
-支持 DashScope text-embedding-v2（主选）和 sentence-transformers 本地模型（备选）。
+支持 DashScope qwen3-vl-embedding / text-embedding-v2 和 sentence-transformers 本地模型（备选）。
 """
 
 import logging
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-v2")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "qwen3-vl-embedding")
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "").strip()
 
@@ -47,6 +47,10 @@ class EmbeddingService:
             "sentence-transformers",
             "local-sentence-transformers",
         }
+
+    def _uses_multimodal_dashscope(self) -> bool:
+        """qwen3-vl-embedding 需要走 MultiModalEmbedding 接口。"""
+        return (self._model or "").strip().lower() == "qwen3-vl-embedding"
 
     def get_dimension(self) -> int:
         """获取向量维度"""
@@ -103,8 +107,6 @@ class EmbeddingService:
     async def _embed_dashscope(self, texts: list[str]) -> list[list[float]]:
         """使用 DashScope API 进行向量化"""
         try:
-            from dashscope import TextEmbedding
-
             if not DASHSCOPE_API_KEY:
                 raise RuntimeError(
                     "DashScope embedding unavailable: DASHSCOPE_API_KEY not set"
@@ -115,11 +117,22 @@ class EmbeddingService:
             # 分批处理，每批最多 25 条
             for i in range(0, len(texts), DASHSCOPE_BATCH_LIMIT):
                 batch = texts[i : i + DASHSCOPE_BATCH_LIMIT]
-                response = TextEmbedding.call(
-                    model=self._model,
-                    input=batch,
-                    api_key=DASHSCOPE_API_KEY,
-                )
+                if self._uses_multimodal_dashscope():
+                    from dashscope import MultiModalEmbedding
+
+                    response = MultiModalEmbedding.call(
+                        model=self._model,
+                        input=[{"text": item} for item in batch],
+                        api_key=DASHSCOPE_API_KEY,
+                    )
+                else:
+                    from dashscope import TextEmbedding
+
+                    response = TextEmbedding.call(
+                        model=self._model,
+                        input=batch,
+                        api_key=DASHSCOPE_API_KEY,
+                    )
 
                 if response.status_code != 200:
                     raise RuntimeError(
