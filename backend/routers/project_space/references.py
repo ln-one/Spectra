@@ -1,5 +1,6 @@
 """Reference and candidate change routes for Project Space."""
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -37,13 +38,21 @@ async def _target_version_map(references):
         for ref in references
         if getattr(ref, "targetProjectId", None)
     }
-    version_map: dict[str, str | None] = {}
-    for target_project_id in target_project_ids:
-        project = await project_space_service.db.get_project(target_project_id)
-        version_map[target_project_id] = (
+    if not target_project_ids:
+        return {}
+
+    projects = await asyncio.gather(
+        *(
+            project_space_service.db.get_project(target_project_id)
+            for target_project_id in target_project_ids
+        )
+    )
+    return {
+        target_project_id: (
             getattr(project, "currentVersionId", None) if project else None
         )
-    return version_map
+        for target_project_id, project in zip(target_project_ids, projects)
+    }
 
 
 @router.post(
