@@ -804,6 +804,49 @@ def test_get_project_references_reports_pinned_upstream_update(
     assert reference["upstream_updated"] is True
 
 
+def test_get_project_references_prefers_batch_target_version_lookup(
+    client, monkeypatch, _as_user
+):
+    ref_a = _fake_reference(reference_id="r-a")
+    ref_b = SimpleNamespace(
+        **{
+            **_fake_reference(reference_id="r-b").__dict__,
+            "targetProjectId": "p-target-002",
+        }
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_project_references",
+        AsyncMock(return_value=[ref_a, ref_b]),
+    )
+
+    batch_lookup = AsyncMock(
+        return_value=[
+            {"id": "p-target-001", "currentVersionId": "v-batch-001"},
+            {"id": "p-target-002", "currentVersionId": "v-batch-002"},
+        ]
+    )
+    monkeypatch.setattr(
+        project_space_service.db,
+        "db",
+        SimpleNamespace(project=SimpleNamespace(find_many=batch_lookup)),
+    )
+    fallback_get_project = AsyncMock(
+        side_effect=AssertionError("fallback not expected")
+    )
+    monkeypatch.setattr(project_space_service.db, "get_project", fallback_get_project)
+
+    resp = client.get(f"/api/v1/projects/{_PROJECT_ID}/references")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    refs = {item["target_project_id"]: item for item in body["data"]["references"]}
+    assert refs["p-target-001"]["upstream_current_version_id"] == "v-batch-001"
+    assert refs["p-target-002"]["upstream_current_version_id"] == "v-batch-002"
+    batch_lookup.assert_awaited_once()
+    fallback_get_project.assert_not_awaited()
+
+
 def test_review_candidate_change_rejects_invalid_action_at_schema_layer(
     client, _as_user
 ):
