@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
@@ -257,11 +257,26 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     onToolClick?.(tool);
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setLayoutMode("normal");
     setExpandedTool(null);
     setHoveredToolId(null);
-  };
+  }, [setExpandedTool, setLayoutMode]);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      handleClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleClose, isExpanded]);
 
   const buildStudioExecutionRequest = () => {
     if (!project || !currentCardId) return null;
