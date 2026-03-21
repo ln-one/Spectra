@@ -86,13 +86,16 @@ export function useSourcesPanelController({
 
     checkWidth();
     window.addEventListener("resize", checkWidth);
-    const resizeObserver = new ResizeObserver(checkWidth);
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(checkWidth)
+        : null;
     if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
+      resizeObserver?.observe(containerRef.current);
     }
     return () => {
       window.removeEventListener("resize", checkWidth);
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
     };
   }, [files.length, selectedFileIds.length, uploadingTasksCount]);
 

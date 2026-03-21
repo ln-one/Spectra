@@ -15,8 +15,18 @@ export function createFileActions({
   | "focusSourceByChunk"
   | "clearActiveSource"
 > {
+  let filesPollingTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearFilesPollingTimer = () => {
+    if (filesPollingTimer) {
+      clearTimeout(filesPollingTimer);
+      filesPollingTimer = null;
+    }
+  };
+
   return {
     fetchFiles: async (projectId: string) => {
+      clearFilesPollingTimer();
       try {
         const response = await filesApi.getProjectFiles(projectId);
         if (response?.data?.files) {
@@ -30,7 +40,7 @@ export function createFileActions({
           });
 
           if (hasPending) {
-            setTimeout(() => {
+            filesPollingTimer = setTimeout(() => {
               get().fetchFiles(projectId);
             }, 3000);
           }
@@ -132,8 +142,6 @@ export function createFileActions({
           description: message,
           variant: "destructive",
         });
-      } finally {
-        set({ isMessagesLoading: false });
       }
     },
 

@@ -94,12 +94,15 @@ export function useProjectPanelLayout({
     };
     syncSize();
 
-    const observer = new ResizeObserver(syncSize);
-    observer.observe(target);
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(syncSize)
+        : null;
+    observer?.observe(target);
     window.addEventListener("resize", syncSize);
 
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
       window.removeEventListener("resize", syncSize);
     };
   }, [isLoading]);

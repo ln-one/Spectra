@@ -95,7 +95,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     await sendMessage(projectId, content);
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing) {
+      return;
+    }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       void handleSend();

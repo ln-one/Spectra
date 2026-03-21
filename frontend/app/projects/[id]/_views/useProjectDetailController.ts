@@ -8,7 +8,10 @@ import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
 import { formatSessionTime } from "./constants";
 import { isThemePreset, PROJECT_THEME_STORAGE_KEY } from "./theme";
-import { useProjectPanelLayout } from "./useProjectPanelLayout";
+import {
+  resolvePreferredSessionId,
+  useProjectPanelLayout,
+} from "./useProjectPanelLayout";
 
 export function useProjectDetailController() {
   const params = useParams();
@@ -116,14 +119,13 @@ export function useProjectDetailController() {
   ]);
 
   useEffect(() => {
-    const allSessionIds = generationHistory.map((item) => item.id);
-    const preferredSessionId = querySessionId
-      ? allSessionIds.includes(querySessionId)
-        ? querySessionId
-        : null
-      : null;
+    const nextSessionId = resolvePreferredSessionId(
+      querySessionId,
+      generationHistory,
+      activeSessionId
+    );
 
-    if (!preferredSessionId) {
+    if (!nextSessionId) {
       if (activeSessionId !== null) {
         setActiveSessionId(null);
       }
@@ -132,21 +134,14 @@ export function useProjectDetailController() {
       return;
     }
 
-    const nextSessionId =
-      querySessionId && allSessionIds.includes(querySessionId)
-        ? querySessionId
-        : preferredSessionId;
-
-    if (nextSessionId && nextSessionId !== activeSessionId) {
+    if (nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
     }
 
-    if (nextSessionId) {
-      void fetchMessages(projectId, nextSessionId);
-    }
+    void fetchMessages(projectId, nextSessionId);
 
-    if (nextSessionId && querySessionId !== nextSessionId) {
+    if (querySessionId !== nextSessionId) {
       updateSessionInUrl(nextSessionId);
     }
   }, [

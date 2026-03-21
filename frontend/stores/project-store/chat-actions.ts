@@ -24,6 +24,8 @@ export function createChatActions({
   set,
   get,
 }: ProjectStoreContext): Pick<ProjectState, "fetchMessages" | "sendMessage"> {
+  let createSessionPromise: Promise<string> | null = null;
+
   const ensureSessionForChat = async (
     projectId: string,
     sessionId?: string | null
@@ -33,34 +35,46 @@ export function createChatActions({
       return currentSessionId;
     }
 
-    const response = await generateApi.createSession({
-      project_id: projectId,
-      output_type: "both",
-      bootstrap_only: true,
-    });
-    const createdSessionId = response?.data?.session?.session_id;
-    if (!createdSessionId) {
-      throw new Error("会话初始化失败");
+    if (createSessionPromise) {
+      return createSessionPromise;
     }
 
-    set((state) => ({
-      activeSessionId: createdSessionId,
-      generationHistory: [
-        buildBootstrapHistoryItem(createdSessionId),
-        ...state.generationHistory.filter(
-          (item) => item.id !== createdSessionId
-        ),
-      ],
-    }));
+    createSessionPromise = (async () => {
+      const response = await generateApi.createSession({
+        project_id: projectId,
+        output_type: "both",
+        bootstrap_only: true,
+      });
+      const createdSessionId = response?.data?.session?.session_id;
+      if (!createdSessionId) {
+        throw new Error("会话初始化失败");
+      }
+
+      set((state) => ({
+        activeSessionId: createdSessionId,
+        generationHistory: [
+          buildBootstrapHistoryItem(createdSessionId),
+          ...state.generationHistory.filter(
+            (item) => item.id !== createdSessionId
+          ),
+        ],
+      }));
+
+      try {
+        const sessionResponse = await generateApi.getSession(createdSessionId);
+        set({ generationSession: sessionResponse?.data ?? null });
+      } catch {
+        set({ generationSession: null });
+      }
+
+      return createdSessionId;
+    })();
 
     try {
-      const sessionResponse = await generateApi.getSession(createdSessionId);
-      set({ generationSession: sessionResponse?.data ?? null });
-    } catch {
-      set({ generationSession: null });
+      return await createSessionPromise;
+    } finally {
+      createSessionPromise = null;
     }
-
-    return createdSessionId;
   };
 
   return {
@@ -130,15 +144,24 @@ export function createChatActions({
 
         await get().fetchGenerationHistory(projectId);
 
-        if (response?.data?.message) {
-          set((state) => ({
-            messages: [
-              ...state.messages.slice(0, -1),
-              userMessage,
-              response.data!.message!,
-            ],
-          }));
-        }
+        set((state) => {
+          const current = state.messages;
+          const hasTemp = current.some((m) => m.id === tempId);
+          const assistantMessage = response?.data?.message;
+          const resolvedMessages: Message[] = hasTemp
+            ? current.flatMap((m) => {
+                if (m.id !== tempId) return [m];
+                return assistantMessage
+                  ? [userMessage, assistantMessage]
+                  : [userMessage];
+              })
+            : [
+                ...current,
+                userMessage,
+                ...(assistantMessage ? [assistantMessage] : []),
+              ];
+          return { messages: resolvedMessages };
+        });
       } catch (error) {
         const message = getErrorMessage(error);
         set((state) => ({

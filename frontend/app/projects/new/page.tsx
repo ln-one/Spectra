@@ -8,6 +8,7 @@ import { Loader2, ArrowLeft } from "lucide-react";
 export default function NewProjectPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -20,6 +21,7 @@ export default function NewProjectPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     setIsLoading(true);
 
     try {
@@ -35,9 +37,13 @@ export default function NewProjectPage() {
       const projectId = response?.data?.project?.id;
       if (projectId) {
         router.push(`/projects/${projectId}`);
+        return;
       }
+      setErrorMessage("创建失败：未返回项目 ID，请稍后重试。");
     } catch (error) {
       console.error("Failed to create project:", error);
+      setErrorMessage("创建失败，请稍后重试。");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -205,6 +211,11 @@ export default function NewProjectPage() {
               )}
             </button>
           </div>
+          {errorMessage ? (
+            <p className="text-sm text-red-600" role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
         </form>
       </div>
     </div>
