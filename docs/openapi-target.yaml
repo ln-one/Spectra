@@ -1591,6 +1591,36 @@ paths:
                 $ref: '#/components/schemas/HealthCheckResponse'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /health/ready:
+    get:
+      summary: 服务就绪检查
+      operationId: getHealthReady
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /health/live:
+    get:
+      summary: 服务存活检查
+      operationId: getHealthLive
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthLivenessResponse'
   /api/v1/health/capabilities:
     get:
       summary: 获取能力健康状态
@@ -5138,6 +5168,8 @@ components:
         - redis
         - db_required
         - redis_required
+        - dependency_timeout_seconds
+        - latency_ms
       properties:
         status:
           type: string
@@ -5158,6 +5190,30 @@ components:
           type: boolean
         redis_required:
           type: boolean
+        dependency_timeout_seconds:
+          type: number
+          format: float
+        latency_ms:
+          type: object
+          required:
+            - database
+            - redis
+          properties:
+            database:
+              type: number
+              format: float
+            redis:
+              type: number
+              format: float
+    HealthLivenessResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - alive
     CapabilitiesHealthResponse:
       type: object
       required:

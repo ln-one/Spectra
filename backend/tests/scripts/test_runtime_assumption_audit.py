@@ -1,3 +1,4 @@
+import scripts.runtime_assumption_audit as audit
 from scripts.runtime_assumption_audit import AssumptionPattern, _find_hits
 
 
@@ -54,3 +55,20 @@ def test_find_hits_skips_tests_and_virtualenv_paths(tmp_path):
 
     assert len(hits) == 1
     assert str(active_target) in hits[0]
+
+
+def test_find_hits_skips_audit_script_file(monkeypatch, tmp_path):
+    script_file = tmp_path / "runtime_assumption_audit.py"
+    script_file.write_text('DATABASE_URL = "file:./dev.db"\n', encoding="utf-8")
+
+    monkeypatch.setattr(audit, "SCRIPT_FILE", script_file.resolve())
+
+    hits = _find_hits(
+        AssumptionPattern(
+            name="sqlite_default",
+            needle="file:./dev.db",
+            scope=(tmp_path,),
+        )
+    )
+
+    assert hits == []

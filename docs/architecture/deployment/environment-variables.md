@@ -53,6 +53,9 @@ DEBUG=True
 HOST="0.0.0.0"
 PORT=8000
 CORS_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+DB_REQUIRED="false"
+REDIS_REQUIRED="false"
+HEALTH_DEPENDENCY_TIMEOUT_SECONDS=3
 
 # =============================================================================
 # Logging Configuration
@@ -116,6 +119,9 @@ DEBUG=False
 HOST="0.0.0.0"
 PORT=8000
 CORS_ORIGINS="https://spectra.com,https://www.spectra.com"
+DB_REQUIRED="true"
+REDIS_REQUIRED="true"
+HEALTH_DEPENDENCY_TIMEOUT_SECONDS=3
 
 # =============================================================================
 # Monitoring Configuration
@@ -172,6 +178,14 @@ NEXT_PUBLIC_DEBUG="false"
 ```
 
 ## 安全注意事项
+
+## 健康检查端点
+
+- `/health/live`：仅用于进程存活探测（不依赖数据库/Redis）。
+- `/health/ready`：用于编排器就绪探测（会检查数据库与 Redis）。
+- `/health`：兼容就绪探测语义，与 `/health/ready` 一致。
+
+当 `DB_REQUIRED=true` 或 `REDIS_REQUIRED=true` 且依赖不可用时，`/health` 和 `/health/ready` 返回 `503`，并带标准化 `error.code/retryable/trace_id`。
 
 ### JWT_SECRET_KEY 生成
 

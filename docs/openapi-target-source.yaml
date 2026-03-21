@@ -107,6 +107,10 @@ paths:
   # Health
   /health:
     $ref: './openapi/paths/health.yaml#/~1health'
+  /health/ready:
+    $ref: './openapi/paths/health.yaml#/~1health~1ready'
+  /health/live:
+    $ref: './openapi/paths/health.yaml#/~1health~1live'
   /api/v1/health/capabilities:
     $ref: './openapi/paths/health.yaml#/~1api~1v1~1health~1capabilities'
 

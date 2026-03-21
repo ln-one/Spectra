@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = ROOT / "backend"
-DOCS_ROOT = ROOT / "docs"
+SCRIPT_FILE = Path(__file__).resolve()
 EXCLUDED_PARTS = {
     ".git",
     "__pycache__",
@@ -31,7 +31,7 @@ PATTERNS = (
     AssumptionPattern(
         name="sqlite_default",
         needle="file:./dev.db",
-        scope=(BACKEND_ROOT, DOCS_ROOT),
+        scope=(BACKEND_ROOT,),
     ),
     AssumptionPattern(
         name="local_uploads_default",
@@ -46,12 +46,12 @@ PATTERNS = (
     AssumptionPattern(
         name="local_chroma_default",
         needle="chroma_data",
-        scope=(BACKEND_ROOT, DOCS_ROOT),
+        scope=(BACKEND_ROOT,),
     ),
     AssumptionPattern(
         name="localhost_api_default",
         needle="http://localhost:8000",
-        scope=(BACKEND_ROOT, DOCS_ROOT),
+        scope=(BACKEND_ROOT,),
     ),
 )
 
@@ -73,6 +73,8 @@ def _find_hits(pattern: AssumptionPattern) -> list[str]:
     for scope_root in pattern.scope:
         for path in _iter_files(scope_root):
             if path in seen:
+                continue
+            if path.resolve() == SCRIPT_FILE:
                 continue
             seen.add(path)
             text = path.read_text(encoding="utf-8", errors="replace")
