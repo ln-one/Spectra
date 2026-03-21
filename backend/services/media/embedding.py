@@ -34,6 +34,29 @@ def _resolve_dashscope_api_key() -> str:
     return os.getenv("DASHSCOPE_API_KEY", "").strip()
 
 
+def _classify_embedding_failure(exc: Exception) -> str:
+    message = (str(exc) or exc.__class__.__name__).lower()
+    if "timeout" in message or "timed out" in message:
+        return "timeout"
+    if (
+        "api key" in message
+        or "authentication" in message
+        or "access denied" in message
+        or "unauthorized" in message
+    ):
+        return "provider_auth"
+    if "not set" in message or "not configured" in message:
+        return "provider_config"
+    if (
+        "network" in message
+        or "connection" in message
+        or "503" in message
+        or "service unavailable" in message
+    ):
+        return "provider_unavailable"
+    return "unexpected"
+
+
 class EmbeddingService:
     """文本向量化服务"""
 
@@ -172,9 +195,16 @@ class EmbeddingService:
         except Exception as e:
             logger.warning(
                 "DashScope embedding failed for model %s; falling back to local "
-                "sentence-transformers. This is a degraded and slower path: %s",
+                "sentence-transformers",
                 self._model,
-                e,
+                extra={
+                    "embedding_model": self._model,
+                    "embedding_provider": "dashscope",
+                    "embedding_failure_type": _classify_embedding_failure(e),
+                    "fallback_used": True,
+                    "fallback_target": "local_sentence_transformers",
+                    "provider_message": str(e),
+                },
             )
             return await self._embed_local(texts)
 

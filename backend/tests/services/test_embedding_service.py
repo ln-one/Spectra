@@ -4,6 +4,7 @@ EmbeddingService 单元测试
 使用 mock 避免真实 API 调用。
 """
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -106,6 +107,35 @@ class TestEmbeddingServiceDashScope:
 
         assert len(result[0]) == 384
         local_mock.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_embed_dashscope_fallback_logs_structured_failure(self, caplog):
+        svc = EmbeddingService(model="text-embedding-v4")
+
+        with (
+            patch(
+                "services.media.embedding._resolve_dashscope_api_key", return_value=""
+            ),
+            patch.object(
+                svc,
+                "_embed_local",
+                return_value=[[0.2] * 384],
+            ),
+            caplog.at_level(logging.WARNING),
+        ):
+            await svc.embed_texts(["测试文本"])
+
+        record = next(
+            record
+            for record in caplog.records
+            if record.msg
+            == "DashScope embedding failed for model %s; falling back to local sentence-transformers"
+        )
+        assert record.embedding_model == "text-embedding-v4"
+        assert record.embedding_provider == "dashscope"
+        assert record.embedding_failure_type == "provider_config"
+        assert record.fallback_used is True
+        assert record.fallback_target == "local_sentence_transformers"
 
     @pytest.mark.asyncio
     async def test_embed_empty_list(self, dashscope_svc):

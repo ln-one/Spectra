@@ -107,6 +107,12 @@
 - Meaning: when artifact creation implicitly inherits `project.currentVersionId`, that anchor must still resolve to a real version owned by the same project before the artifact is persisted.
 - Why it matters: artifact lineage should not inherit a dangling or cross-project version pointer just because the caller omitted `based_on_version_id`.
 
+### 2.15 Embedding degradation should log structured fallback semantics
+
+- Status: `confirmed`
+- Meaning: when remote embedding fails and the system degrades to local sentence-transformers, logs should record failure type, provider, model, and fallback target explicitly.
+- Why it matters: otherwise RAG slowness looks opaque and downstream logs cannot distinguish provider config/auth failures from normal retrieval misses.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated
