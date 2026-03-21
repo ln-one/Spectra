@@ -10,6 +10,7 @@ from schemas.project_space import (
     ProjectPermission,
     ReferenceMode,
     ReferenceRelationType,
+    ReferenceStatus,
 )
 from services.platform.state_transition_guard import GenerationState
 from utils.exceptions import ConflictException, NotFoundException, ValidationException
@@ -73,6 +74,9 @@ async def update_project_reference(
         raise NotFoundException(
             f"Reference {reference_id} not found in project {project_id}"
         )
+    next_mode = getattr(reference, "mode", None)
+    next_pinned_version_id = getattr(reference, "pinnedVersionId", None)
+    next_status = getattr(reference, "status", None)
 
     if mode is not None:
         try:
@@ -80,26 +84,42 @@ async def update_project_reference(
         except ValueError as exc:
             raise ValidationException("mode 仅支持 follow 或 pinned") from exc
         mode = normalized_mode.value
+        next_mode = mode
 
     if status is not None:
         try:
             status = normalize_reference_status(status).value
         except ValueError as exc:
             raise ValidationException("status 仅支持 active 或 disabled") from exc
+        next_status = status
 
-    if mode == ReferenceMode.PINNED.value and not pinned_version_id:
+    if pinned_version_id is not None:
+        next_pinned_version_id = pinned_version_id
+
+    if next_mode == ReferenceMode.PINNED.value and not next_pinned_version_id:
         raise ValidationException("mode=pinned requires pinned_version_id")
 
-    if pinned_version_id:
-        version = await service.db.get_project_version(pinned_version_id)
+    if next_pinned_version_id:
+        version = await service.db.get_project_version(next_pinned_version_id)
         if not version or version.projectId != reference.targetProjectId:
             raise ValidationException(
-                f"pinned_version_id {pinned_version_id} does not belong to "
+                f"pinned_version_id {next_pinned_version_id} does not belong to "
                 f"target project {reference.targetProjectId}"
             )
 
     if mode is not None:
         _, pinned_version_id = resolve_reference_pin_state(mode, pinned_version_id)
+        next_pinned_version_id = pinned_version_id
+
+    if next_status == ReferenceStatus.ACTIVE.value:
+        await service.validate_reference_activation(
+            project_id=project_id,
+            reference_id=reference_id,
+            target_project_id=reference.targetProjectId,
+            relation_type=reference.relationType,
+            mode=next_mode,
+            pinned_version_id=next_pinned_version_id,
+        )
 
     return await service.db.update_project_reference(
         reference_id=reference_id,
@@ -191,8 +211,18 @@ async def create_candidate_change(
             raise ValidationException(
                 f"session_id {session_id} does not belong to project {project_id}"
             )
+        session_base_version_id = getattr(session, "baseVersionId", None)
+        if (
+            base_version_id is not None
+            and session_base_version_id is not None
+            and base_version_id != session_base_version_id
+        ):
+            raise ValidationException(
+                "base_version_id must match the session base version "
+                "when session_id is provided"
+            )
         if base_version_id is None:
-            base_version_id = getattr(session, "baseVersionId", None)
+            base_version_id = session_base_version_id
 
     if base_version_id is None:
         project = await service.db.get_project(project_id)

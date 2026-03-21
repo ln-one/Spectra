@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from services.project_space_service.reference_validation import (
+    validate_reference_activation,
     validate_reference_creation,
 )
 from utils.exceptions import ConflictException, ValidationException
@@ -49,6 +50,10 @@ async def test_update_project_reference_follow_clears_stale_pinned_version():
                 id="r-001",
                 projectId="p-001",
                 targetProjectId="p-target-001",
+                relationType="auxiliary",
+                mode="follow",
+                pinnedVersionId=None,
+                status="active",
             )
         ),
         update_project_reference=AsyncMock(return_value=SimpleNamespace(id="r-001")),
@@ -56,6 +61,7 @@ async def test_update_project_reference_follow_clears_stale_pinned_version():
     service = SimpleNamespace(
         db=db,
         check_project_permission=AsyncMock(return_value=True),
+        validate_reference_activation=AsyncMock(return_value=None),
     )
 
     await update_project_reference(
@@ -75,6 +81,48 @@ async def test_update_project_reference_follow_clears_stale_pinned_version():
         pinned_version_id=None,
         priority=3,
         status="active",
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_project_reference_reactivating_base_reference_revalidates_constraints():
+    from services.project_space_service.references import update_project_reference
+
+    db = SimpleNamespace(
+        get_project_reference=AsyncMock(
+            return_value=SimpleNamespace(
+                id="r-001",
+                projectId="p-001",
+                targetProjectId="p-target-001",
+                relationType="base",
+                mode="follow",
+                pinnedVersionId=None,
+                status="disabled",
+            )
+        ),
+        update_project_reference=AsyncMock(return_value=SimpleNamespace(id="r-001")),
+    )
+    service = SimpleNamespace(
+        db=db,
+        check_project_permission=AsyncMock(return_value=True),
+        validate_reference_activation=AsyncMock(return_value=None),
+    )
+
+    await update_project_reference(
+        service,
+        project_id="p-001",
+        reference_id="r-001",
+        user_id="u-001",
+        status="active",
+    )
+
+    service.validate_reference_activation.assert_awaited_once_with(
+        project_id="p-001",
+        reference_id="r-001",
+        target_project_id="p-target-001",
+        relation_type="base",
+        mode="follow",
+        pinned_version_id=None,
     )
 
 
@@ -231,3 +279,36 @@ async def test_delete_project_reference_blocks_when_pending_change_depends_on_cu
         await delete_project_reference(service, "p-001", "r-001", "u-001")
 
     service.db.delete_project_reference.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_validate_reference_activation_rejects_second_active_base():
+    db = SimpleNamespace(
+        get_project=AsyncMock(
+            side_effect=[
+                SimpleNamespace(id="p-001", userId="u-001"),
+                SimpleNamespace(
+                    id="p-002",
+                    userId="u-001",
+                    visibility="private",
+                    isReferenceable=True,
+                ),
+            ]
+        ),
+        get_base_reference=AsyncMock(
+            return_value=SimpleNamespace(id="r-other", projectId="p-001")
+        ),
+        get_project_version=AsyncMock(return_value=None),
+        get_project_references=AsyncMock(return_value=[]),
+    )
+
+    with pytest.raises(ConflictException, match="active base reference"):
+        await validate_reference_activation(
+            db,
+            project_id="p-001",
+            reference_id="r-001",
+            target_project_id="p-002",
+            relation_type="base",
+            mode="follow",
+            pinned_version_id=None,
+        )

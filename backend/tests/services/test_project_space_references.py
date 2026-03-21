@@ -117,3 +117,38 @@ async def test_create_candidate_change_rejects_session_from_other_project():
         )
 
     service.db.create_candidate_change.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_candidate_change_rejects_base_version_mismatch_with_session():
+    service = SimpleNamespace(
+        check_project_permission=AsyncMock(),
+        db=SimpleNamespace(
+            db=SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_unique=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="s-001", projectId="p-001", baseVersionId="v-session-001"
+                        )
+                    )
+                )
+            ),
+            get_project=AsyncMock(),
+            get_project_version=AsyncMock(),
+            create_candidate_change=AsyncMock(),
+        ),
+    )
+
+    with pytest.raises(
+        ValidationException, match="must match the session base version"
+    ):
+        await create_candidate_change(
+            service,
+            project_id="p-001",
+            user_id="u-001",
+            title="candidate",
+            session_id="s-001",
+            base_version_id="v-other-009",
+        )
+
+    service.db.create_candidate_change.assert_not_awaited()
