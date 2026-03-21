@@ -2,6 +2,16 @@ import logging
 from typing import Any, Dict
 from zipfile import ZIP_DEFLATED, ZipFile
 
+try:
+    from docx import Document
+except Exception:  # pragma: no cover - optional dependency guard
+    Document = None
+
+try:
+    from pptx import Presentation
+except Exception:  # pragma: no cover - optional dependency guard
+    Presentation = None
+
 logger = logging.getLogger(__name__)
 
 PKG_CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
@@ -27,7 +37,87 @@ class ArtifactOfficeMixin:
         self, content: Dict[str, Any], project_id: str, artifact_id: str
     ) -> str:
         storage_path = self.get_storage_path(project_id, "pptx", artifact_id)
-        title = str(content.get("title", "Project Space PPTX")).replace("&", "&amp;")
+        title = str(content.get("title", "Project Space PPTX")).strip()
+
+        if Presentation is not None:
+            try:
+                presentation = Presentation()
+                slides = content.get("slides")
+                slide_items = slides if isinstance(slides, list) else []
+                if not slide_items:
+                    slide_items = [{"title": title, "content": ""}]
+
+                for item in slide_items:
+                    slide_title = str(item.get("title") or title).strip()
+                    slide_content = str(
+                        item.get("content")
+                        or item.get("description")
+                        or item.get("summary")
+                        or ""
+                    ).strip()
+                    layout = presentation.slide_layouts[1]
+                    slide = presentation.slides.add_slide(layout)
+                    slide.shapes.title.text = slide_title
+                    placeholder = slide.placeholders[1]
+                    placeholder.text = slide_content
+
+                presentation.save(storage_path)
+                logger.info("Generated PPTX artifact at %s", storage_path)
+                return storage_path
+            except Exception as exc:
+                logger.warning(
+                    "python-pptx generation failed, fallback to placeholder: %s", exc
+                )
+
+        self._generate_pptx_placeholder(storage_path, title)
+        logger.info("Generated PPTX placeholder at %s", storage_path)
+        return storage_path
+
+    async def generate_docx(
+        self, content: Dict[str, Any], project_id: str, artifact_id: str
+    ) -> str:
+        storage_path = self.get_storage_path(project_id, "docx", artifact_id)
+        title = str(content.get("title", "Project Space DOCX")).strip()
+
+        if Document is not None:
+            try:
+                document = Document()
+                document.add_heading(title, level=1)
+                sections = content.get("sections")
+                section_items = sections if isinstance(sections, list) else []
+                if not section_items and content.get("summary"):
+                    section_items = [
+                        {"title": "Summary", "content": content["summary"]}
+                    ]
+
+                for item in section_items:
+                    section_title = str(item.get("title") or "").strip()
+                    section_content = str(
+                        item.get("content")
+                        or item.get("description")
+                        or item.get("summary")
+                        or ""
+                    ).strip()
+                    if section_title:
+                        document.add_heading(section_title, level=2)
+                    if section_content:
+                        document.add_paragraph(section_content)
+
+                document.save(storage_path)
+                logger.info("Generated DOCX artifact at %s", storage_path)
+                return storage_path
+            except Exception as exc:
+                logger.warning(
+                    "python-docx generation failed, fallback to placeholder: %s", exc
+                )
+
+        self._generate_docx_placeholder(storage_path, title)
+        logger.info("Generated DOCX placeholder at %s", storage_path)
+        return storage_path
+
+    @staticmethod
+    def _generate_pptx_placeholder(storage_path: str, title: str) -> None:
+        safe_title = title.replace("&", "&amp;")
         with ZipFile(storage_path, "w", compression=ZIP_DEFLATED) as zf:
             zf.writestr(
                 "[Content_Types].xml",
@@ -62,18 +152,14 @@ class ArtifactOfficeMixin:
                     f'xmlns:p="{PRESENTATIONML_NS}">'
                     "<p:sldMasterIdLst/><p:sldIdLst/>"
                     '<p:notesSz cx="6858000" cy="9144000"/>'
-                    f'<p:extLst><p:ext uri="{title}"/></p:extLst>'
+                    f'<p:extLst><p:ext uri="{safe_title}"/></p:extLst>'
                     "</p:presentation>"
                 ),
             )
-        logger.info("Generated PPTX placeholder at %s", storage_path)
-        return storage_path
 
-    async def generate_docx(
-        self, content: Dict[str, Any], project_id: str, artifact_id: str
-    ) -> str:
-        storage_path = self.get_storage_path(project_id, "docx", artifact_id)
-        title = str(content.get("title", "Project Space DOCX")).replace("&", "&amp;")
+    @staticmethod
+    def _generate_docx_placeholder(storage_path: str, title: str) -> None:
+        safe_title = title.replace("&", "&amp;")
         with ZipFile(storage_path, "w", compression=ZIP_DEFLATED) as zf:
             zf.writestr(
                 "[Content_Types].xml",
@@ -105,9 +191,7 @@ class ArtifactOfficeMixin:
                     '<?xml version="1.0" encoding="UTF-8"?>'
                     f'<w:document xmlns:w="{WORDML_NS}">'
                     "<w:body><w:p><w:r><w:t>"
-                    f"{title}"
+                    f"{safe_title}"
                     "</w:t></w:r></w:p></w:body></w:document>"
                 ),
             )
-        logger.info("Generated DOCX placeholder at %s", storage_path)
-        return storage_path
