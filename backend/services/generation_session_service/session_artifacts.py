@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Optional
 
 from services.generation_session_service.capability_helpers import (
@@ -46,6 +47,14 @@ def _artifact_lineage_flags(
     )
 
 
+def _history_sort_key(item: dict) -> tuple[bool, bool, str]:
+    return (
+        bool(item.get("is_current", True)),
+        item.get("capability") == "outline",
+        item.get("updated_at") or "",
+    )
+
+
 async def get_latest_session_candidate_change(
     *, db, project_id: str, session_id: str
 ) -> Optional[dict]:
@@ -80,11 +89,18 @@ async def get_session_artifact_history(
             "artifact_anchor": build_artifact_anchor(session_id, None),
         }
 
-    artifacts = await artifact_model.find_many(
+    artifact_query = artifact_model.find_many(
         where={"projectId": project_id, "sessionId": session_id},
         order={"updatedAt": "desc"},
     )
-    project = await db.get_project(project_id) if hasattr(db, "get_project") else None
+    if hasattr(db, "get_project"):
+        artifacts, project = await asyncio.gather(
+            artifact_query,
+            db.get_project(project_id),
+        )
+    else:
+        artifacts = await artifact_query
+        project = None
     current_version_id = getattr(project, "currentVersionId", None) if project else None
 
     history_items: list[dict] = []
@@ -134,20 +150,14 @@ async def get_session_artifact_history(
         history_items.append(item)
         grouped.setdefault(capability, []).append(item)
 
-    history_items.sort(
-        key=lambda item: (
-            not bool(item.get("is_current", True)),
-            item.get("updated_at") or "",
-        ),
-        reverse=False,
-    )
+    history_items.sort(key=_history_sort_key, reverse=True)
     for items in grouped.values():
         items.sort(
             key=lambda item: (
-                not bool(item.get("is_current", True)),
+                bool(item.get("is_current", True)),
                 item.get("updated_at") or "",
             ),
-            reverse=False,
+            reverse=True,
         )
 
     grouped_items = [

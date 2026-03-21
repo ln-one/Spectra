@@ -1,7 +1,7 @@
 """Unit tests for GenerationSessionService."""
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Optional
 from unittest.mock import AsyncMock, Mock, patch
@@ -503,6 +503,59 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
         where={"projectId": "p-001", "sessionId": "s-001"},
         order={"updatedAt": "desc"},
     )
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_prefers_latest_current_artifact_for_anchor():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    now = datetime.now(timezone.utc)
+    artifacts = [
+        SimpleNamespace(
+            id="art-current-old",
+            type="pptx",
+            metadata='{"is_current":true}',
+            basedOnVersionId="ver-001",
+            createdAt=now,
+            updatedAt=now,
+        ),
+        SimpleNamespace(
+            id="art-current-new",
+            type="pptx",
+            metadata='{"is_current":true}',
+            basedOnVersionId="ver-002",
+            createdAt=now,
+            updatedAt=now + timedelta(microseconds=1),
+        ),
+        SimpleNamespace(
+            id="art-superseded-newest",
+            type="pptx",
+            metadata='{"is_current":false,"superseded_by_artifact_id":"art-current-new"}',
+            basedOnVersionId="ver-003",
+            createdAt=now,
+            updatedAt=now + timedelta(microseconds=2),
+        ),
+    ]
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        artifact=SimpleNamespace(find_many=AsyncMock(return_value=artifacts)),
+        candidatechange=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="p-001", currentVersionId="ver-003")
+        ),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert payload["artifact_id"] == "art-current-new"
+    assert payload["artifact_anchor"] == {
+        "session_id": "s-001",
+        "artifact_id": "art-current-new",
+        "based_on_version_id": "ver-002",
+    }
+    assert payload["session_artifacts"][0]["artifact_id"] == "art-current-new"
+    assert payload["session_artifacts"][0]["is_current"] is True
 
 
 @pytest.mark.anyio
