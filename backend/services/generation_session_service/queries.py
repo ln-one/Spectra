@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Optional
 
@@ -17,6 +18,72 @@ from services.generation_session_service.session_artifacts import (
 from services.platform.state_transition_guard import GenerationState
 
 
+def _parse_json_object(raw: object) -> Optional[dict]:
+    if not raw:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    if not isinstance(raw, str):
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _parse_json_array(raw: object) -> list[dict]:
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, dict)]
+    if not isinstance(raw, str):
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [item for item in parsed if isinstance(item, dict)]
+
+
+async def _load_latest_outline(db, session) -> Optional[dict]:
+    relation_versions = getattr(session, "outlineVersions", None)
+    if relation_versions:
+        latest = max(relation_versions, key=lambda v: v.version)
+        return _parse_json_object(getattr(latest, "outlineData", None))
+
+    outline_model = getattr(db, "outlineversion", None)
+    if outline_model is None or not hasattr(outline_model, "find_first"):
+        return None
+
+    latest = await outline_model.find_first(
+        where={"sessionId": session.id},
+        order={"version": "desc"},
+    )
+    if not latest:
+        return None
+    return _parse_json_object(getattr(latest, "outlineData", None))
+
+
+async def _load_latest_task_id(db, session) -> Optional[str]:
+    relation_tasks = getattr(session, "tasks", None)
+    if relation_tasks:
+        latest_task = max(relation_tasks, key=lambda t: t.createdAt)
+        return latest_task.id
+
+    task_model = getattr(db, "generationtask", None)
+    if task_model is None or not hasattr(task_model, "find_first"):
+        return None
+
+    latest = await task_model.find_first(
+        where={"sessionId": session.id},
+        order={"createdAt": "desc"},
+    )
+    return getattr(latest, "id", None) if latest else None
+
+
 async def get_session_snapshot(
     *,
     db,
@@ -30,39 +97,28 @@ async def get_session_snapshot(
         db=db,
         session_id=session_id,
         user_id=user_id,
-        include={"outlineVersions": True, "tasks": True},
     )
 
-    outline = None
-    if session.outlineVersions:
-        latest = max(session.outlineVersions, key=lambda v: v.version)
-        try:
-            outline = json.loads(latest.outlineData)
-        except (json.JSONDecodeError, AttributeError):
-            outline = None
-
-    fallbacks = []
-    if session.fallbacksJson:
-        try:
-            fallbacks = json.loads(session.fallbacksJson)
-        except json.JSONDecodeError:
-            fallbacks = []
-
-    latest_task_id = None
-    if session.tasks:
-        latest_task = max(session.tasks, key=lambda t: t.createdAt)
-        latest_task_id = latest_task.id
-
-    artifact_history = await get_session_artifact_history(
-        db=db,
-        project_id=session.projectId,
-        session_id=session.id,
+    (
+        outline,
+        latest_task_id,
+        artifact_history,
+        latest_candidate_change,
+    ) = await asyncio.gather(
+        _load_latest_outline(db, session),
+        _load_latest_task_id(db, session),
+        get_session_artifact_history(
+            db=db,
+            project_id=session.projectId,
+            session_id=session.id,
+        ),
+        get_latest_session_candidate_change(
+            db=db,
+            project_id=session.projectId,
+            session_id=session.id,
+        ),
     )
-    latest_candidate_change = await get_latest_session_candidate_change(
-        db=db,
-        project_id=session.projectId,
-        session_id=session.id,
-    )
+    fallbacks = _parse_json_array(getattr(session, "fallbacksJson", None))
 
     return {
         "session": _to_session_ref(
@@ -71,7 +127,7 @@ async def get_session_snapshot(
             schema_version,
             task_id=latest_task_id,
         ),
-        "options": json.loads(session.options) if session.options else None,
+        "options": _parse_json_object(getattr(session, "options", None)),
         "outline": outline,
         "context_snapshot": None,
         "capabilities": _default_capabilities(),

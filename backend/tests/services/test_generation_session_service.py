@@ -651,6 +651,45 @@ async def test_get_session_runtime_state_uses_lightweight_select():
     }
 
 
+@pytest.mark.anyio
+async def test_get_session_snapshot_loads_latest_outline_and_task_from_models():
+    session = _fake_session(
+        state=GenerationState.SUCCESS.value, options='{"pages": 12}'
+    )
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        outlineversion=SimpleNamespace(
+            find_first=AsyncMock(
+                return_value=SimpleNamespace(
+                    version=2,
+                    outlineData='{"title":"优化后大纲","sections":[]}',
+                )
+            )
+        ),
+        generationtask=SimpleNamespace(
+            find_first=AsyncMock(return_value=SimpleNamespace(id="task-999"))
+        ),
+        candidatechange=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert payload["outline"]["title"] == "优化后大纲"
+    assert payload["session"]["task_id"] == "task-999"
+    db.outlineversion.find_first.assert_awaited_once_with(
+        where={"sessionId": "s-001"},
+        order={"version": "desc"},
+    )
+    db.generationtask.find_first.assert_awaited_once_with(
+        where={"sessionId": "s-001"},
+        order={"createdAt": "desc"},
+    )
+    session_lookup = db.generationsession.find_unique.await_args.kwargs
+    assert "include" not in session_lookup
+
+
 # ===========================================================================
 # Outline streaming regression tests (Issue-backend)
 # ===========================================================================

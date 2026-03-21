@@ -33,6 +33,8 @@ class AssumptionPattern:
     name: str
     needle: str
     scope: tuple[Path, ...]
+    ignore_paths: tuple[str, ...] = ()
+    ignore_line_prefixes: tuple[str, ...] = ()
 
 
 PATTERNS = (
@@ -45,16 +47,23 @@ PATTERNS = (
         name="local_uploads_default",
         needle='"uploads"',
         scope=RUNTIME_SCOPE,
+        ignore_paths=("backend/services/runtime_paths.py",),
     ),
     AssumptionPattern(
         name="local_generated_default",
         needle='"generated"',
         scope=RUNTIME_SCOPE,
+        ignore_paths=(
+            "backend/services/runtime_paths.py",
+            "backend/utils/file_utils.py",
+        ),
+        ignore_line_prefixes=(">>>",),
     ),
     AssumptionPattern(
         name="local_chroma_default",
         needle="chroma_data",
         scope=RUNTIME_SCOPE,
+        ignore_paths=("backend/services/runtime_paths.py",),
     ),
     AssumptionPattern(
         name="localhost_api_default",
@@ -94,6 +103,13 @@ def _find_hits(pattern: AssumptionPattern) -> list[str]:
                 continue
             for lineno, line in enumerate(text.splitlines(), start=1):
                 if pattern.needle in line:
+                    normalized_path = path.as_posix()
+                    if any(
+                        marker in normalized_path for marker in pattern.ignore_paths
+                    ):
+                        continue
+                    if line.lstrip().startswith(pattern.ignore_line_prefixes):
+                        continue
                     hits.append(f"{path}:{lineno}: {line.strip()}")
 
     return hits

@@ -83,6 +83,17 @@
 
 - `backend api` 与 `worker` 保持一致
 
+### `TOOL_CHECK_CACHE_TTL_SECONDS`
+
+用途：
+
+- 缓存 Marp/Pandoc 可用性探测结果，减少高频渲染时重复子进程检查开销
+
+要求：
+
+- 建议在 `backend api` 与 `worker` 保持一致
+- 设为 `0` 可关闭缓存（仅用于排障）
+
 ### `ALLOW_AI_STUB`
 
 用途：

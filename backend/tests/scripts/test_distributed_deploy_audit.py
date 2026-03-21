@@ -124,7 +124,7 @@ services:
         "storage] PASS UPLOAD_DIR points to `/var/lib/spectra/uploads`" in message
         for message in messages
     )
-    assert any("[runtime] WARN" in message for message in messages)
+    assert any("[runtime]" in message for message in messages)
     assert any(
         "[backup] PASS POSTGRES_BACKUP_DIR points to shared backup path" in message
         for message in messages

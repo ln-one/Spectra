@@ -9,7 +9,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from services.generation import CoursewareContent, GenerationService
-from services.generation.tool_checker import check_tools_installed
+from services.generation.tool_checker import (
+    check_tools_installed,
+    clear_tool_check_cache,
+)
 from utils.generation_exceptions import (
     FileSystemError,
     ToolExecutionError,
@@ -19,6 +22,12 @@ from utils.generation_exceptions import (
 
 class TestToolCheckerErrors:
     """测试工具检测错误"""
+
+    @pytest.fixture(autouse=True)
+    def _clear_tool_checker_cache(self):
+        clear_tool_check_cache()
+        yield
+        clear_tool_check_cache()
 
     def test_check_marp_installed_not_found(self):
         """测试 Marp 未安装检测"""
@@ -57,6 +66,21 @@ class TestToolCheckerErrors:
 
                 # 不应该抛出异常
                 check_tools_installed()
+
+    def test_check_marp_installed_uses_cache(self):
+        """同一进程内重复检测应命中缓存，避免重复子进程开销。"""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = type(
+                "Result",
+                (),
+                {"returncode": 0, "stdout": "1.0.0"},
+            )()
+
+            from services.generation.tool_checker import check_marp_installed
+
+            assert check_marp_installed() is True
+            assert check_marp_installed() is True
+            assert mock_run.call_count == 1
 
 
 class TestGenerationServiceErrorHandling:
