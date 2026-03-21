@@ -94,6 +94,17 @@
 - 建议在 `backend api` 与 `worker` 保持一致
 - 设为 `0` 可关闭缓存（仅用于排障）
 
+### `HEALTH_TOOL_TIMEOUT_SECONDS`
+
+用途：
+
+- 控制 `/health` 对 Marp/Pandoc 工具链探测的超时时间
+
+要求：
+
+- 建议在 `backend api` 明确配置（例如 `2`）
+- 值应为正数，避免健康检查卡住
+
 ### `ALLOW_AI_STUB`
 
 用途：
@@ -405,6 +416,7 @@
 
 ### `DB_REQUIRED`
 ### `REDIS_REQUIRED`
+### `GENERATION_TOOLS_REQUIRED`
 
 用途：
 
@@ -413,6 +425,7 @@
 要求：
 
 - 演示环境建议按真实依赖设置，不要全部放松
+- 若演示链路依赖 PPT/Word 真实生成，建议 `GENERATION_TOOLS_REQUIRED=true`
 
 ---
 
@@ -428,6 +441,9 @@
 - `LARGE_MODEL`
 - `SMALL_MODEL`
 - `AI_REQUEST_TIMEOUT_SECONDS`
+- `TOOL_CHECK_CACHE_TTL_SECONDS`
+- `HEALTH_TOOL_TIMEOUT_SECONDS`
+- `GENERATION_TOOLS_REQUIRED`
 - `REDIS_HOST`
 - `REDIS_PORT`
 - `CHROMA_HOST`
@@ -443,6 +459,7 @@
 - `LARGE_MODEL`
 - `SMALL_MODEL`
 - `AI_REQUEST_TIMEOUT_SECONDS`
+- `TOOL_CHECK_CACHE_TTL_SECONDS`
 - `REDIS_HOST`
 - `REDIS_PORT`
 - `CHROMA_HOST`

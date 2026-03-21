@@ -63,6 +63,9 @@ services:
       - LARGE_MODEL=qwen3.5-plus
       - SMALL_MODEL=qwen3.5-plus
       - AI_REQUEST_TIMEOUT_SECONDS=45
+      - TOOL_CHECK_CACHE_TTL_SECONDS=300
+      - HEALTH_TOOL_TIMEOUT_SECONDS=2
+      - GENERATION_TOOLS_REQUIRED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CHROMA_HOST=chromadb
@@ -113,6 +116,9 @@ services:
       - LARGE_MODEL=qwen3.5-plus
       - SMALL_MODEL=qwen3.5-plus
       - AI_REQUEST_TIMEOUT_SECONDS=45
+      - TOOL_CHECK_CACHE_TTL_SECONDS=300
+      - HEALTH_TOOL_TIMEOUT_SECONDS=2
+      - GENERATION_TOOLS_REQUIRED=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CHROMA_HOST=chromadb
