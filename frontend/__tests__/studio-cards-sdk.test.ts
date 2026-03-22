@@ -60,4 +60,74 @@ describe("studio cards sdk", () => {
       studioCardsApi.execute("word_document", { project_id: "proj_1" })
     ).rejects.toBeInstanceOf(ApiError);
   });
+
+  test("posts simulator turn payload", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          message: "ok",
+          data: {
+            artifact: { id: "a-next" },
+            turn_result: {
+              turn_anchor: "turn-2",
+              student_profile: "detail_oriented",
+              student_question: "为什么这里不能直接套公式？",
+              teacher_answer: "先看边界条件。",
+              feedback: "可以再补一步推导。",
+              score: 82,
+              next_focus: "受力分解",
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    );
+    global.fetch = fetchMock as typeof global.fetch;
+
+    const result = await studioCardsApi.turn({
+      project_id: "proj_1",
+      artifact_id: "artifact_1",
+      teacher_answer: "先看边界条件。",
+      rag_source_ids: ["file-1"],
+    });
+
+    expect(result.data.turn_result.turn_anchor).toBe("turn-2");
+    const request = fetchMock.mock.calls[0]?.[0] as Request;
+    expect(request.url).toContain(
+      "/api/v1/generate/studio-cards/classroom_qa_simulator/turn"
+    );
+  });
+
+  test("posts structured refine payload", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          message: "ok",
+          data: {
+            execution_result: {
+              resource_kind: "artifact",
+              artifact: { id: "a-2" },
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    );
+    global.fetch = fetchMock as typeof global.fetch;
+
+    const result = await studioCardsApi.refineArtifact("speaker_notes", {
+      project_id: "proj_1",
+      artifact_id: "artifact_1",
+      message: "改一下第 3 页过渡语",
+      config: { selected_script_segment: "slide-3:transition" },
+    });
+
+    expect(result.data.execution_result.artifact.id).toBe("a-2");
+    const request = fetchMock.mock.calls[0]?.[0] as Request;
+    expect(request.url).toContain(
+      "/api/v1/generate/studio-cards/speaker_notes/refine"
+    );
+  });
 });

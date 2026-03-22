@@ -78,6 +78,10 @@ class ArtifactJsonMixin:
             "title": content.get("title", "课程总结"),
             "summary": content.get("summary", ""),
             "key_points": content.get("key_points", []),
+            "slides": content.get("slides", []),
+            "turns": content.get("turns", []),
+            "question_focus": content.get("question_focus"),
+            "student_profiles": content.get("student_profiles", []),
             "metadata": {"generated_at": "now", "artifact_id": artifact_id},
         }
         with open(storage_path, "w", encoding="utf-8") as f:

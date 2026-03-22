@@ -112,6 +112,7 @@ class StudioCardExecutionPreviewRequest(BaseModel):
     config: dict = Field(default_factory=dict)
     visibility: Optional[str] = None
     source_artifact_id: Optional[str] = None
+    rag_source_ids: Optional[List[str]] = None
     client_session_id: Optional[str] = None
 
 
@@ -156,6 +157,42 @@ class StudioCardExecutionResponse(BaseModel):
     success: bool = True
     data: dict
     message: str = "Studio 卡片执行成功"
+
+
+class StudioCardRefineRequest(BaseModel):
+    project_id: str
+    message: str = ""
+    artifact_id: Optional[str] = None
+    session_id: Optional[str] = None
+    config: dict = Field(default_factory=dict)
+    visibility: Optional[str] = None
+    source_artifact_id: Optional[str] = None
+    rag_source_ids: Optional[List[str]] = None
+
+
+class StudioCardTurnRequest(BaseModel):
+    project_id: str
+    artifact_id: str
+    teacher_answer: str
+    config: dict = Field(default_factory=dict)
+    rag_source_ids: Optional[List[str]] = None
+    turn_anchor: Optional[str] = None
+
+
+class StudioCardTurnResult(BaseModel):
+    turn_anchor: str
+    student_profile: str
+    student_question: str
+    teacher_answer: str
+    feedback: str
+    score: int
+    next_focus: Optional[str] = None
+
+
+class StudioCardTurnResponse(BaseModel):
+    success: bool = True
+    data: dict
+    message: str = "Studio 卡片轮次推进成功"
 
 
 class StudioCardSourceArtifact(BaseModel):
