@@ -254,11 +254,6 @@ export default function NewProjectPage() {
               )}
             </button>
           </div>
-          {errorMessage ? (
-            <p className="text-sm text-red-600" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
         </form>
       </div>
     </div>
