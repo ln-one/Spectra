@@ -89,7 +89,7 @@ export function AnimationToolPanel({
   };
 
   return (
-    <div className="h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
+    <div className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
       <div className="flex h-full min-h-0 flex-col">
         <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
           <div className="flex items-start justify-between gap-3">
@@ -190,3 +190,5 @@ export function AnimationToolPanel({
     </div>
   );
 }
+
+
