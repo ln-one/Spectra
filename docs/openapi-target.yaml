@@ -1107,6 +1107,40 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/generate/studio-cards/classroom_qa_simulator/turn:
+    post:
+      summary: 推进课堂问答模拟轮次
+      operationId: postGenerateStudioCardSimulatorTurn
+      description: 基于已有 classroom_qa_simulator artifact 追加或替换一轮问答模拟。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioCardTurnRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardTurnResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/generate/studio-cards/{card_id}/sources:
     get:
       summary: 获取 Studio 卡片可绑定源成果
@@ -4730,6 +4764,10 @@ components:
             - shared
         source_artifact_id:
           type: string
+        rag_source_ids:
+          type: array
+          items:
+            type: string
         client_session_id:
           type: string
     StudioCardResolvedRequest:
@@ -4852,6 +4890,8 @@ components:
       properties:
         project_id:
           type: string
+        artifact_id:
+          type: string
         session_id:
           type: string
         message:
@@ -4903,6 +4943,74 @@ components:
               $ref: '#/components/schemas/ChatObservability'
             refine_request:
               $ref: '#/components/schemas/StudioCardResolvedRequest'
+        message:
+          type: string
+    StudioCardTurnRequest:
+      type: object
+      required:
+        - project_id
+        - artifact_id
+        - teacher_answer
+      properties:
+        project_id:
+          type: string
+        artifact_id:
+          type: string
+        teacher_answer:
+          type: string
+        turn_anchor:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        rag_source_ids:
+          type: array
+          items:
+            type: string
+    StudioCardTurnResult:
+      type: object
+      required:
+        - turn_anchor
+        - student_profile
+        - student_question
+        - teacher_answer
+        - feedback
+        - score
+      properties:
+        turn_anchor:
+          type: string
+        student_profile:
+          type: string
+        student_question:
+          type: string
+        teacher_answer:
+          type: string
+        feedback:
+          type: string
+        score:
+          type: integer
+        next_focus:
+          type: string
+    StudioCardTurnResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - artifact
+            - turn_result
+          properties:
+            artifact:
+              type: object
+              additionalProperties: true
+            turn_result:
+              $ref: '#/components/schemas/StudioCardTurnResult'
         message:
           type: string
     StudioCardSourceArtifact:

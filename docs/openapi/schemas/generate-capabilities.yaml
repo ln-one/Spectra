@@ -337,6 +337,10 @@ StudioCardExecutionPreviewRequest:
       enum: [private, project-visible, shared]
     source_artifact_id:
       type: string
+    rag_source_ids:
+      type: array
+      items:
+        type: string
     client_session_id:
       type: string
 
@@ -432,6 +436,8 @@ StudioCardRefineRequest:
   properties:
     project_id:
       type: string
+    artifact_id:
+      type: string
     session_id:
       type: string
     message:
@@ -475,6 +481,71 @@ StudioCardRefineResponse:
           $ref: './chat.yaml#/ChatObservability'
         refine_request:
           $ref: '#/StudioCardResolvedRequest'
+    message:
+      type: string
+
+StudioCardTurnRequest:
+  type: object
+  required: [project_id, artifact_id, teacher_answer]
+  properties:
+    project_id:
+      type: string
+    artifact_id:
+      type: string
+    teacher_answer:
+      type: string
+    turn_anchor:
+      type: string
+    config:
+      type: object
+      additionalProperties: true
+    rag_source_ids:
+      type: array
+      items:
+        type: string
+
+StudioCardTurnResult:
+  type: object
+  required:
+    [
+      turn_anchor,
+      student_profile,
+      student_question,
+      teacher_answer,
+      feedback,
+      score,
+    ]
+  properties:
+    turn_anchor:
+      type: string
+    student_profile:
+      type: string
+    student_question:
+      type: string
+    teacher_answer:
+      type: string
+    feedback:
+      type: string
+    score:
+      type: integer
+    next_focus:
+      type: string
+
+StudioCardTurnResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [artifact, turn_result]
+      properties:
+        artifact:
+          type: object
+          additionalProperties: true
+        turn_result:
+          $ref: '#/StudioCardTurnResult'
     message:
       type: string
 

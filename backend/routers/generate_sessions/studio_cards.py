@@ -3,12 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, Request
 
 from routers.chat.runtime import process_chat_message
-from schemas.chat import SendMessageRequest
-from schemas.studio_cards import (
-    StudioCardExecutionPreviewRequest,
-    StudioCardRefineRequest,
-    StudioCardTurnRequest,
-)
 from services.generation_session_service.card_capabilities import (
     get_studio_card_capabilities,
     get_studio_card_capability,
@@ -34,9 +28,33 @@ from utils.exceptions import APIException, ErrorCode, NotFoundException
 from utils.responses import success_response
 
 from .shared import get_session_service, get_task_queue_service
-from .studio_card_refine_helpers import build_chat_refine_metadata
+from .studio_card_route_support import (
+    build_chat_refine_request,
+    build_execution_request,
+    build_refine_request,
+    build_turn_request,
+    require_body_field,
+    require_project_id,
+)
 
 router = APIRouter()
+
+
+def _build_preview_or_raise(card_id: str, body: dict):
+    preview = build_studio_card_execution_preview(
+        card_id=card_id,
+        project_id=body.get("project_id"),
+        config=body.get("config"),
+        visibility=body.get("visibility"),
+        source_artifact_id=body.get("source_artifact_id"),
+        rag_source_ids=body.get("rag_source_ids"),
+    )
+    if preview is None:
+        raise NotFoundException(
+            message="Studio 卡片不存在",
+            error_code=ErrorCode.NOT_FOUND,
+        )
+    return preview
 
 
 @router.get("/studio-cards")
@@ -95,26 +113,8 @@ async def preview_studio_card_execution(
     user_id: str = Depends(get_current_user),
 ):
     """根据卡片配置返回当前可直接调用的后端请求预览。"""
-    project_id = body.get("project_id")
-    if not project_id:
-        raise APIException(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="project_id 为必填字段",
-        )
-    preview = build_studio_card_execution_preview(
-        card_id=card_id,
-        project_id=project_id,
-        config=body.get("config"),
-        visibility=body.get("visibility"),
-        source_artifact_id=body.get("source_artifact_id"),
-        rag_source_ids=body.get("rag_source_ids"),
-    )
-    if preview is None:
-        raise NotFoundException(
-            message="Studio 卡片不存在",
-            error_code=ErrorCode.NOT_FOUND,
-        )
+    body = {**body, "project_id": require_project_id(body)}
+    preview = _build_preview_or_raise(card_id, body)
 
     return success_response(
         data={"execution_preview": preview.model_dump(mode="json")},
@@ -130,24 +130,11 @@ async def execute_studio_card(
     user_id: str = Depends(get_current_user),
 ):
     """执行已达到 foundation-ready 的 Studio 卡片初始动作。"""
-    project_id = body.get("project_id")
-    if not project_id:
-        raise APIException(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="project_id 为必填字段",
-        )
+    project_id = require_project_id(body)
 
     result = await execute_studio_card_initial_request(
         card_id=card_id,
-        body=StudioCardExecutionPreviewRequest(
-            project_id=project_id,
-            config=body.get("config") or {},
-            visibility=body.get("visibility"),
-            source_artifact_id=body.get("source_artifact_id"),
-            rag_source_ids=body.get("rag_source_ids"),
-            client_session_id=body.get("client_session_id"),
-        ),
+        body=build_execution_request(project_id=project_id, body=body),
         user_id=user_id,
         session_service=get_session_service(),
         task_queue_service=get_task_queue_service(request),
@@ -166,24 +153,8 @@ async def refine_studio_card(
     user_id: str = Depends(get_current_user),
 ):
     """执行卡片 refine；结构化更新优先，chat 作为兼容后备路径。"""
-    project_id = body.get("project_id")
-    message = body.get("message")
-    if not project_id:
-        raise APIException(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="project_id 为必填字段",
-        )
-    refine_body = StudioCardRefineRequest(
-        project_id=project_id,
-        artifact_id=body.get("artifact_id"),
-        session_id=body.get("session_id"),
-        message=str(message or ""),
-        config=body.get("config") or {},
-        visibility=body.get("visibility"),
-        source_artifact_id=body.get("source_artifact_id"),
-        rag_source_ids=body.get("rag_source_ids"),
-    )
+    project_id = require_project_id(body)
+    refine_body = build_refine_request(project_id=project_id, body=body)
 
     if supports_structured_refine(card_id) and refine_body.artifact_id:
         result = await execute_studio_card_refine_request(
@@ -196,26 +167,15 @@ async def refine_studio_card(
             message="Studio 卡片 refine 成功",
         )
 
-    if not message:
+    if not refine_body.message:
         raise APIException(
             status_code=400,
             error_code=ErrorCode.INVALID_INPUT,
             message="message 为必填字段",
         )
 
-    preview = build_studio_card_execution_preview(
-        card_id=card_id,
-        project_id=project_id,
-        config=body.get("config"),
-        visibility=body.get("visibility"),
-        source_artifact_id=body.get("source_artifact_id"),
-        rag_source_ids=body.get("rag_source_ids"),
-    )
-    if preview is None:
-        raise NotFoundException(
-            message="Studio 卡片不存在",
-            error_code=ErrorCode.NOT_FOUND,
-        )
+    body = {**body, "project_id": project_id}
+    preview = _build_preview_or_raise(card_id, body)
     if preview.refine_request is None:
         raise APIException(
             status_code=409,
@@ -224,12 +184,11 @@ async def refine_studio_card(
         )
 
     payload = preview.refine_request.payload
-    chat_body = SendMessageRequest(
+    chat_body = build_chat_refine_request(
+        card_id=card_id,
         project_id=project_id,
-        session_id=body.get("session_id"),
-        content=message,
-        metadata=build_chat_refine_metadata(card_id, body, payload),
-        rag_source_ids=body.get("rag_source_ids"),
+        body=body,
+        payload=payload,
     )
     result = await process_chat_message(chat_body, user_id=user_id)
     result["data"]["card_id"] = card_id
@@ -243,36 +202,24 @@ async def advance_classroom_simulator_turn(
     body: dict,
     user_id: str = Depends(get_current_user),
 ):
-    project_id = body.get("project_id")
-    artifact_id = body.get("artifact_id")
-    teacher_answer = body.get("teacher_answer")
-    if not project_id:
-        raise APIException(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="project_id 为必填字段",
-        )
-    if not artifact_id:
-        raise APIException(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="artifact_id 为必填字段",
-        )
-    if not teacher_answer:
-        raise APIException(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="teacher_answer 为必填字段",
-        )
+    project_id = require_project_id(body)
+    artifact_id = require_body_field(
+        body,
+        "artifact_id",
+        message="artifact_id 为必填字段",
+    )
+    teacher_answer = require_body_field(
+        body,
+        "teacher_answer",
+        message="teacher_answer 为必填字段",
+    )
 
     artifact_payload, turn_result = await execute_classroom_simulator_turn(
-        body=StudioCardTurnRequest(
+        body=build_turn_request(
             project_id=project_id,
             artifact_id=artifact_id,
             teacher_answer=teacher_answer,
-            config=body.get("config") or {},
-            rag_source_ids=body.get("rag_source_ids"),
-            turn_anchor=body.get("turn_anchor"),
+            body=body,
         ),
         user_id=user_id,
     )

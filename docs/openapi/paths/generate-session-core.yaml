@@ -400,6 +400,40 @@
       '409':
         $ref: '../components/responses.yaml#/Conflict'
 
+/api/v1/generate/studio-cards/classroom_qa_simulator/turn:
+  post:
+    summary: 推进课堂问答模拟轮次
+    operationId: postGenerateStudioCardSimulatorTurn
+    description: 基于已有 classroom_qa_simulator artifact 追加或替换一轮问答模拟。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/generate-capabilities.yaml#/StudioCardTurnRequest'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-capabilities.yaml#/StudioCardTurnResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+
 /api/v1/generate/studio-cards/{card_id}/sources:
   get:
     summary: 获取 Studio 卡片可绑定源成果
