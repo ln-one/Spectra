@@ -1,7 +1,10 @@
 # D Execution Backlog
 
-> Updated: 2026-03-21
-> Status: active
+> Updated: 2026-03-22
+> Status: historical / reference-only
+
+> This file was moved out of the active `docs/project` surface during doc cleanup.
+> It is preserved for historical context only.
 
 ## 1. Purpose
 
