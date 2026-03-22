@@ -2,6 +2,7 @@
   BookText,
   CircleCheck,
   Download,
+  Loader2,
   MessageSquareText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,11 +21,63 @@ interface PreviewStepProps {
   strategyOffset: number;
   lastGeneratedAt: string | null;
   flowContext?: ToolFlowContext;
+  isSubmittingTurn?: boolean;
   onRegenerate: () => void;
   onAnswerChange: (value: string) => void;
   onSubmitAnswer: () => void;
   onNextRound: () => void;
   onOpenStrategies: () => void;
+}
+
+interface BackendTurnItem {
+  student: string;
+  question: string;
+  feedback?: string;
+  score?: number;
+  teacherHint?: string;
+}
+
+function parseBackendTurns(flowContext?: ToolFlowContext): BackendTurnItem[] {
+  if (!flowContext?.resolvedArtifact) return [];
+  if (flowContext.resolvedArtifact.contentKind !== "json") return [];
+  if (
+    !flowContext.resolvedArtifact.content ||
+    typeof flowContext.resolvedArtifact.content !== "object"
+  ) {
+    return [];
+  }
+
+  const content = flowContext.resolvedArtifact.content as Record<string, unknown>;
+  const rawTurns = Array.isArray(content.turns) ? content.turns : [];
+
+  return rawTurns
+    .map((turn) => {
+      if (!turn || typeof turn !== "object") return null;
+      const row = turn as Record<string, unknown>;
+      const student =
+        typeof row.student === "string" && row.student.trim()
+          ? row.student.trim()
+          : "虚拟学生";
+      const prompt =
+        typeof row.question === "string" && row.question.trim()
+          ? row.question.trim()
+          : "";
+      if (!prompt) return null;
+      return {
+        student,
+        question: prompt,
+        feedback:
+          typeof row.feedback === "string" && row.feedback.trim()
+            ? row.feedback.trim()
+            : undefined,
+        score: typeof row.score === "number" ? row.score : undefined,
+        teacherHint:
+          typeof row.teacher_hint === "string" && row.teacher_hint.trim()
+            ? row.teacher_hint.trim()
+            : undefined,
+      };
+    })
+    .filter((item): item is BackendTurnItem => Boolean(item));
 }
 
 export function PreviewStep({
@@ -36,6 +89,7 @@ export function PreviewStep({
   strategyOffset,
   lastGeneratedAt,
   flowContext,
+  isSubmittingTurn = false,
   onRegenerate,
   onAnswerChange,
   onSubmitAnswer,
@@ -43,22 +97,35 @@ export function PreviewStep({
   onOpenStrategies,
 }: PreviewStepProps) {
   const capabilityStatus =
-    flowContext?.capabilityStatus ?? "backend_not_implemented";
+    flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
-    flowContext?.capabilityReason ??
-    "后端暂未提供多轮问答仿真结构，当前使用前端示意预演。";
+    flowContext?.capabilityReason ?? "正在等待学情预演生成，暂时先显示当前草稿。";
   const visibleStrategies = [
     STRATEGY_POOL[(strategyOffset + 0) % STRATEGY_POOL.length],
     STRATEGY_POOL[(strategyOffset + 1) % STRATEGY_POOL.length],
     STRATEGY_POOL[(strategyOffset + 2) % STRATEGY_POOL.length],
   ];
-  const activeStudent = students.find((item) => item.id === question?.studentId);
+  const backendTurns = parseBackendTurns(flowContext);
+  const backendMode =
+    capabilityStatus === "backend_ready" && backendTurns.length > 0;
+  const activeBackendTurn = backendMode
+    ? backendTurns[backendTurns.length - 1]
+    : null;
+  const activeStudent = backendMode
+    ? { name: activeBackendTurn?.student ?? "虚拟学生", tag: "AI" }
+    : students.find((item) => item.id === question?.studentId);
+  const displayQuestion = backendMode
+    ? activeBackendTurn?.question ?? "暂无问题"
+    : question?.text ?? "暂无问题，请先点击“下一轮提问”。";
+  const displayJudgeText =
+    judgeText || (backendMode ? activeBackendTurn?.feedback ?? "" : "");
+  const showFallbackHint = !backendMode;
 
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-zinc-200 bg-white p-3">
         <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-        {capabilityStatus !== "backend_ready" ? (
+        {showFallbackHint ? (
           <div className="mt-3">
             <FallbackPreviewHint />
           </div>
@@ -113,16 +180,24 @@ export function PreviewStep({
                   : "未选择"}
               </span>
             </div>
-            <p className="mt-2 text-sm text-zinc-800">
-              {question?.text ?? "暂无问题，请先点击“下一轮提问”。"}
-            </p>
+            <p className="mt-2 text-sm text-zinc-800">{displayQuestion}</p>
+            {backendMode && activeBackendTurn?.teacherHint ? (
+              <p className="mt-2 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] text-sky-700">
+                教师提示：{activeBackendTurn.teacherHint}
+              </p>
+            ) : null}
+            {backendMode && typeof activeBackendTurn?.score === "number" ? (
+              <p className="mt-2 text-[11px] text-zinc-500">
+                当前评分：{activeBackendTurn.score}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex gap-2">
             <Input
               value={answer}
               onChange={(event) => onAnswerChange(event.target.value)}
-              placeholder="在这里输入你的回答..."
+              placeholder={backendMode ? "输入你的回应，直接发给当前虚拟学生…" : "在这里输入你的回答..."}
               className="h-9 text-xs"
             />
             <Button
@@ -130,14 +205,22 @@ export function PreviewStep({
               size="sm"
               className="h-9 text-xs"
               onClick={onSubmitAnswer}
+              disabled={isSubmittingTurn}
             >
-              提交作答
+              {isSubmittingTurn ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  提交中
+                </>
+              ) : (
+                "提交作答"
+              )}
             </Button>
           </div>
 
-          {judgeText ? (
+          {displayJudgeText ? (
             <div className="rounded-md border border-emerald-300 bg-emerald-50 p-2 text-xs text-emerald-700">
-              {judgeText}
+              {displayJudgeText}
             </div>
           ) : null}
 
@@ -149,7 +232,7 @@ export function PreviewStep({
               className="h-8 text-xs"
               onClick={onNextRound}
             >
-              下一轮提问
+              {backendMode ? "查看下一条" : "下一轮提问"}
             </Button>
             {includeStrategyPanel ? (
               <Button
