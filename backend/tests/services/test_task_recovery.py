@@ -8,10 +8,7 @@ import pytest
 
 from schemas.generation import TaskStatus
 from services.platform.generation_event_constants import GenerationEventType
-from services.platform.recovery_constants import (
-    RecoveryErrorCode,
-    RecoveryStateReason,
-)
+from services.platform.recovery_constants import RecoveryErrorCode, RecoveryStateReason
 from services.platform.state_transition_guard import GenerationState
 from services.platform.task_recovery import TaskRecoveryService
 

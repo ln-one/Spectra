@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
@@ -20,6 +21,24 @@ const runCommand = (command, cwd) => {
 const rootDir = path.join(__dirname, '..');
 const frontendDir = path.join(rootDir, 'frontend');
 const backendDir = path.join(rootDir, 'backend');
+const venvBinDir =
+  process.platform === 'win32'
+    ? path.join(rootDir, '.venv', 'Scripts')
+    : path.join(rootDir, '.venv', 'bin');
+
+const resolveVenvTool = (name, fallback = name) => {
+  const candidate = path.join(venvBinDir, name);
+  if (fs.existsSync(candidate)) {
+    return candidate;
+  }
+  return fallback;
+};
+
+const blackCmd = resolveVenvTool('black');
+const isortCmd = resolveVenvTool('isort');
+const flake8Cmd = resolveVenvTool('flake8');
+const pytestCmd = resolveVenvTool('pytest');
+const prismaCmd = resolveVenvTool('prisma');
 
 const CONTRACT_HEALTH_URL =
   process.env.CONTRACT_ALIGNMENT_HEALTH_URL || 'http://localhost:8000/health';
@@ -63,14 +82,38 @@ if (!runCommand('npm run build', frontendDir)) {
 // Backend checks
 console.log('\n🐍 Backend checks...');
 console.log('  ├─ Checking Prisma schema...');
-if (!runCommand('prisma validate', backendDir)) {
+if (!runCommand(`${prismaCmd} validate`, backendDir)) {
   console.error('\n❌ Prisma schema validation failed!');
   process.exit(1);
 }
 
 console.log('  ├─ Generating Prisma client...');
-if (!runCommand('prisma generate', backendDir)) {
+if (!runCommand(`${prismaCmd} generate`, backendDir)) {
   console.error('\n❌ Prisma client generation failed!');
+  process.exit(1);
+}
+
+console.log('  ├─ Checking code format (black --check)...');
+if (!runCommand(`${blackCmd} --check .`, backendDir)) {
+  console.error('\n❌ Backend formatting check failed!');
+  process.exit(1);
+}
+
+console.log('  ├─ Checking import sorting (isort --check)...');
+if (!runCommand(`${isortCmd} --check .`, backendDir)) {
+  console.error('\n❌ Backend import sorting check failed!');
+  process.exit(1);
+}
+
+console.log('  ├─ Linting (flake8)...');
+if (!runCommand(`${flake8Cmd} . --max-line-length=88 --extend-ignore=E203`, backendDir)) {
+  console.error('\n❌ Backend lint failed!');
+  process.exit(1);
+}
+
+console.log('  ├─ Running tests...');
+if (!runCommand(`${pytestCmd} -m "not integration and not slow"`, backendDir)) {
+  console.error('\n❌ Backend tests failed!');
   process.exit(1);
 }
 

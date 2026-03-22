@@ -29,11 +29,7 @@ from .runtime_helpers import (
     load_chat_context,
     persist_assistant_message,
 )
-from .shared import (
-    logger,
-    to_message,
-    verify_project_ownership,
-)
+from .shared import logger, to_message, verify_project_ownership
 
 
 async def _ensure_chat_session(
