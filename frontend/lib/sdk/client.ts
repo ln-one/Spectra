@@ -6,11 +6,20 @@ export const API_BASE_URL =
 export const API_VERSION = "/api/v1";
 export const DEFAULT_CONTRACT_VERSION = "2026-03";
 
+function generateUuidFallback(): string {
+  const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+  return template.replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = char === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
+
 export function generateIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  return `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  return generateUuidFallback();
 }
 
 export class ApiError extends Error {
