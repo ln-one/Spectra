@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -156,7 +156,7 @@ export function GenerationConfigPanel({
                       课件需求说明
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 px-4 pb-4 pt-0 sm:px-5">
+                  <CardContent className="space-y-4 px-4 pb-4 pt-0 sm:px-5">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label
@@ -174,12 +174,51 @@ export function GenerationConfigPanel({
                         value={prompt}
                         onChange={(event) => setPrompt(event.target.value)}
                         placeholder="例如：我要做一份《图形显示设备》课件，面向大二学生，包含讲解、案例和课堂讨论。"
-                        className="min-h-[160px] resize-none rounded-2xl border-zinc-200 bg-zinc-50/70 text-sm leading-6 shadow-inner focus-visible:ring-blue-300"
+                        className="min-h-[240px] resize-none rounded-2xl border-zinc-200 bg-zinc-50/70 text-sm leading-6 shadow-inner focus-visible:ring-blue-300"
                       />
                     </div>
                     <p className="text-[11px] leading-5 text-zinc-500">
                       小建议：写清楚主题、对象、课堂活动，生成质量会更稳。
                     </p>
+                    <div className="space-y-2 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3">
+                      <div className="flex items-center gap-2 text-sm font-medium text-zinc-800">
+                        <Lightbulb className="h-4 w-4 text-amber-500" />
+                        不会写也没关系
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto h-8 rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-600 hover:bg-zinc-100"
+                          onClick={() => void generateSuggestionBatch()}
+                          disabled={loadingSuggestions}
+                        >
+                          <RefreshCw
+                            className={cn(
+                              "mr-1.5 h-3.5 w-3.5",
+                              loadingSuggestions && "animate-spin"
+                            )}
+                          />
+                          换几个示例
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                        {suggestions.map((item, idx) => (
+                          <motion.button
+                            key={`${item}-${idx}`}
+                            whileHover={{ y: -2, scale: 1.002 }}
+                            whileTap={{ scale: 0.996 }}
+                            onClick={() => setPrompt(item)}
+                            className="w-full rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 text-left text-xs leading-5 text-zinc-700 transition-colors hover:border-blue-300 hover:bg-blue-50/40"
+                          >
+                            {item}
+                          </motion.button>
+                        ))}
+                        {loadingSuggestions && suggestions.length === 0 ? (
+                          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-3 py-4 text-center text-xs text-zinc-500 lg:col-span-2">
+                            正在准备示例内容...
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -247,52 +286,6 @@ export function GenerationConfigPanel({
                           </motion.button>
                         ))}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.section>
-
-              <motion.section variants={itemVariants}>
-                <Card className="rounded-2xl border-zinc-200 bg-white/95 text-zinc-900 shadow-sm">
-                  <CardHeader className="px-4 pb-2 pt-4 sm:px-5">
-                    <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
-                      <Lightbulb className="h-4 w-4 text-amber-500" />
-                      不会写也没关系
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto h-8 rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-600 hover:bg-zinc-100"
-                        onClick={() => void generateSuggestionBatch()}
-                        disabled={loadingSuggestions}
-                      >
-                        <RefreshCw
-                          className={cn(
-                            "mr-1.5 h-3.5 w-3.5",
-                            loadingSuggestions && "animate-spin"
-                          )}
-                        />
-                        换几个示例
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 pt-0 sm:px-5">
-                    <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                      {suggestions.map((item, idx) => (
-                        <motion.button
-                          key={`${item}-${idx}`}
-                          whileHover={{ y: -2, scale: 1.002 }}
-                          whileTap={{ scale: 0.996 }}
-                          onClick={() => setPrompt(item)}
-                          className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-left text-xs leading-5 text-zinc-700 transition-colors hover:border-blue-300 hover:bg-blue-50/40"
-                        >
-                          {item}
-                        </motion.button>
-                      ))}
-                      {loadingSuggestions && suggestions.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-500 lg:col-span-2">
-                          正在准备示例内容...
-                        </div>
-                      ) : null}
                     </div>
                   </CardContent>
                 </Card>
