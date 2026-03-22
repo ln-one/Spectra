@@ -178,6 +178,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const workflowRunIdByToolRef = useRef<
     Partial<Record<GenerationToolType, string>>
   >({});
+  const artifactRefreshTimersRef = useRef<number[]>([]);
   const isExpanded = layoutMode === "expanded";
   const {
     groupedHistory,
@@ -217,6 +218,24 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     return workflowRunIdByToolRef.current[toolType] ?? null;
   }, []);
 
+  const scheduleArtifactRefresh = useCallback(
+    (projectId: string, sessionId: string | null) => {
+      if (!sessionId) return;
+      for (const timer of artifactRefreshTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      artifactRefreshTimersRef.current = [];
+      const delays = [2000, 5000, 10000, 16000, 24000];
+      for (const delay of delays) {
+        const timerId = window.setTimeout(() => {
+          void fetchArtifactHistory(projectId, sessionId);
+        }, delay);
+        artifactRefreshTimersRef.current.push(timerId);
+      }
+    },
+    [fetchArtifactHistory]
+  );
+
   const resolvePptRunId = useCallback(
     (fallback?: string | null) => {
       const stateRunId = activeRunId;
@@ -252,6 +271,14 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         "spectra:open-archive-history",
         handleOpenArchiveHistory
       );
+    };
+  }, []);
+  useEffect(() => {
+    return () => {
+      for (const timer of artifactRefreshTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      artifactRefreshTimersRef.current = [];
     };
   }, []);
   const currentTool = GENERATION_TOOLS.find(
@@ -921,7 +948,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       if (sessionId) {
         setActiveSessionId(sessionId);
       }
-      await fetchArtifactHistory(project.id, sessionId ?? activeSessionId);
+      const effectiveSessionId = sessionId ?? activeSessionId;
+      await fetchArtifactHistory(project.id, effectiveSessionId);
+      scheduleArtifactRefresh(project.id, effectiveSessionId);
       toast({
         title: "Studio 执行成功",
         description: sessionId
