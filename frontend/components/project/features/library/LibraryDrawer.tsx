@@ -99,7 +99,7 @@ export function LibraryDrawer({
             animate="visible"
             exit="hidden"
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 bg-black/15 backdrop-blur-[2px]"
+            className="project-library-overlay fixed inset-0 z-50 bg-[var(--project-overlay)] backdrop-blur-[2px]"
             onClick={() => onOpenChange(false)}
           />
 
@@ -109,21 +109,21 @@ export function LibraryDrawer({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed z-50 right-5 top-[76px] bottom-5 w-[480px] rounded-3xl bg-zinc-50/97 backdrop-blur-2xl border border-white/50 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.03)] flex flex-col overflow-hidden"
+            className="project-library-drawer fixed z-50 right-5 top-[76px] bottom-5 w-[480px] rounded-3xl backdrop-blur-2xl border border-white/50 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.03)] flex flex-col overflow-hidden"
             style={{ willChange: "transform, opacity" }}
           >
-            <div className="px-6 py-5 border-b border-zinc-200/60 bg-white/50 relative overflow-hidden shrink-0">
+            <div className="project-library-header px-6 py-5 border-b border-[var(--project-control-border)] bg-[var(--project-control-bg)] relative overflow-hidden shrink-0">
               <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 bg-zinc-900 text-white rounded-lg shadow-sm">
+                  <span className="p-1.5 bg-[var(--project-logo-end)] text-[var(--project-logo-text)] rounded-[var(--project-chip-radius)] shadow-sm">
                     <Layers className="w-4 h-4" />
                   </span>
                   <div>
-                    <h2 className="text-[17px] font-bold text-zinc-900 leading-tight">
+                    <h2 className="text-[17px] font-bold text-[var(--project-text-primary)] leading-tight">
                       Library
                     </h2>
-                    <p className="text-[12px] text-zinc-500 mt-0.5 leading-snug">
+                    <p className="text-[12px] text-[var(--project-control-muted)] mt-0.5 leading-snug">
                       资源 路 版本 路 工件 路 成员 路 变更
                     </p>
                   </div>
@@ -133,7 +133,7 @@ export function LibraryDrawer({
                   whileTap={{ scale: 0.9 }}
                   transition={{ type: "spring", stiffness: 400, damping: 20 }}
                   onClick={() => onOpenChange(false)}
-                  className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+                  className="project-library-close-btn p-1.5 rounded-[var(--project-chip-radius)] text-[var(--project-control-muted)] hover:text-[var(--project-control-text)] hover:bg-[var(--project-surface-muted)] transition-colors"
                 >
                   <X className="w-4.5 h-4.5" />
                 </motion.button>
@@ -146,34 +146,34 @@ export function LibraryDrawer({
                 onValueChange={setActiveTab}
                 className="flex-1 min-h-0 flex flex-col"
               >
-                <TabsList className="grid grid-cols-5 w-full bg-zinc-200/50 backdrop-blur-md border border-zinc-200/80 rounded-xl p-1 gap-1 h-auto shrink-0">
+                <TabsList className="project-library-tabs grid grid-cols-5 w-full backdrop-blur-md border border-[var(--project-control-border)] rounded-[var(--project-chip-radius)] p-1 gap-1 h-auto shrink-0">
                   <TabsTrigger
                     value="references"
-                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
                   >
                     引用
                   </TabsTrigger>
                   <TabsTrigger
                     value="versions"
-                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
                   >
                     版本
                   </TabsTrigger>
                   <TabsTrigger
                     value="artifacts"
-                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
                   >
                     工件
                   </TabsTrigger>
                   <TabsTrigger
                     value="members"
-                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
                   >
                     成员
                   </TabsTrigger>
                   <TabsTrigger
                     value="changes"
-                    className="text-[13px] font-semibold py-1.5 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 transition-all text-zinc-500"
+                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
                   >
                     变更
                   </TabsTrigger>

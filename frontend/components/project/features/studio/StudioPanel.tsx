@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
@@ -8,6 +8,7 @@ import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
+import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import type {
   StudioCardCapability,
   StudioCardExecutionPlan,
@@ -25,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { GenerationConfigPanel } from "@/components/project";
 import { STUDIO_TOOL_COMPONENTS } from "./tools";
-import type { StudioToolKey, ToolDraftState } from "./tools";
+import type { StudioToolKey, ToolDraftState, ToolFlowContext } from "./tools";
 import {
   ICON_LAYOUT_TRANSITION,
   TOOL_COLORS,
@@ -33,6 +34,8 @@ import {
   TOOL_LABELS,
   type StudioTool,
 } from "./constants";
+import { useStudioWorkflowHistory } from "./history/useStudioWorkflowHistory";
+import type { StudioHistoryItem, StudioHistoryStep } from "./history/types";
 import { SessionArtifacts } from "./components/SessionArtifacts";
 import { ToolGrid } from "./components/ToolGrid";
 
@@ -69,6 +72,20 @@ function isDraftStateEqual(
   });
 }
 
+function normalizeHistoryStep(
+  stepId: string | null | undefined
+): StudioHistoryStep {
+  if (
+    stepId === "config" ||
+    stepId === "generate" ||
+    stepId === "preview" ||
+    stepId === "outline"
+  ) {
+    return stepId;
+  }
+  return "config";
+}
+
 export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const router = useRouter();
   const {
@@ -76,7 +93,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     layoutMode,
     expandedTool,
     artifactHistoryByTool,
-    currentSessionArtifacts,
     activeSessionId,
     setActiveSessionId,
     fetchArtifactHistory,
@@ -90,7 +106,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       layoutMode: state.layoutMode,
       expandedTool: state.expandedTool,
       artifactHistoryByTool: state.artifactHistoryByTool,
-      currentSessionArtifacts: state.currentSessionArtifacts,
       activeSessionId: state.activeSessionId,
       setActiveSessionId: state.setActiveSessionId,
       fetchArtifactHistory: state.fetchArtifactHistory,
@@ -118,10 +133,33 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     Record<string, StudioCardExecutionPlan>
   >({});
   const [isLoadingCardProtocol, setIsLoadingCardProtocol] = useState(false);
-  const isExpanded = layoutMode === "expanded";
-  const groupedArtifacts = Object.entries(artifactHistoryByTool).filter(
-    ([, items]) => items.length > 0
+  const [pptResumeStage, setPptResumeStage] = useState<"config" | "outline">(
+    "config"
   );
+  const [pptResumeSignal, setPptResumeSignal] = useState(0);
+  const isExpanded = layoutMode === "expanded";
+  const {
+    groupedHistory,
+    currentStepByTool,
+    requestedStepByTool,
+    trackStep,
+    requestStep,
+    acknowledgeStep,
+    recordWorkflowEntry,
+  } = useStudioWorkflowHistory(artifactHistoryByTool);
+  const hasHistory = groupedHistory.length > 0;
+  const requestedHistoryStep = expandedTool
+    ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)
+    : null;
+
+  useEffect(() => {
+    if (!expandedTool) return;
+    trackStep(expandedTool as GenerationToolType, "config");
+  }, [expandedTool, trackStep]);
+
+  useEffect(() => {
+    trackStep("ppt", "config");
+  }, [trackStep]);
   const currentTool = GENERATION_TOOLS.find(
     (tool) => tool.type === expandedTool
   );
@@ -175,6 +213,12 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     !isProtocolPending &&
     supportsChatRefine &&
     (!requiresSourceArtifact || hasSourceBinding);
+  const currentToolArtifacts =
+    expandedTool && expandedTool !== "ppt"
+      ? artifactHistoryByTool[
+          expandedTool as keyof typeof artifactHistoryByTool
+        ]
+      : [];
   const handleExpandedToolDraftChange = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") {
       return undefined;
@@ -251,17 +295,116 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }));
   }, [currentCardId, draftSourceArtifactId, selectedSourceId]);
 
+  const openPptPreviewPage = useCallback(
+    (sessionId?: string | null, artifactId?: string | null) => {
+      if (!project) return;
+      const query = new URLSearchParams();
+      if (sessionId) {
+        query.set("session", sessionId);
+      }
+      if (artifactId) {
+        query.set("artifact_id", artifactId);
+      }
+      router.push(
+        `/projects/${project.id}/generate${query.toString() ? `?${query.toString()}` : ""}`
+      );
+    },
+    [project, router]
+  );
+
+  const handleOpenHistoryItem = useCallback(
+    (item: StudioHistoryItem) => {
+      if (!project) return;
+
+      if (item.sessionId) {
+        setActiveSessionId(item.sessionId);
+      }
+
+      if (item.toolType === "ppt") {
+        if (item.origin === "artifact" || item.step === "preview") {
+          openPptPreviewPage(item.sessionId, item.artifactId);
+          return;
+        }
+        setLayoutMode("expanded");
+        setExpandedTool("ppt");
+        setPptResumeStage(item.step === "outline" ? "outline" : "config");
+        setPptResumeSignal((prev) => prev + 1);
+        requestStep("ppt", item.step === "outline" ? "outline" : "config");
+        return;
+      }
+
+      setLayoutMode("expanded");
+      setExpandedTool(item.toolType as StudioToolKey);
+      requestStep(
+        item.toolType,
+        item.step === "outline" ? "preview" : normalizeHistoryStep(item.step)
+      );
+    },
+    [
+      openPptPreviewPage,
+      project,
+      requestStep,
+      setActiveSessionId,
+      setExpandedTool,
+      setLayoutMode,
+    ]
+  );
+
+  const handleManagedToolStepChange = useCallback(
+    (stepId: string) => {
+      if (!expandedTool || expandedTool === "ppt") return;
+      const toolType = expandedTool as GenerationToolType;
+      const step = normalizeHistoryStep(stepId);
+      trackStep(toolType, step);
+      acknowledgeStep(toolType, step);
+      if (step !== "generate" && step !== "preview") return;
+      recordWorkflowEntry({
+        toolType,
+        title:
+          step === "generate"
+            ? `${TOOL_LABELS[toolType]}草稿中`
+            : `${TOOL_LABELS[toolType]}预览草稿`,
+        status: "draft",
+        step,
+        sessionId: activeSessionId,
+      });
+    },
+    [
+      acknowledgeStep,
+      activeSessionId,
+      expandedTool,
+      recordWorkflowEntry,
+      trackStep,
+    ]
+  );
+
   const handleToolClick = (tool: StudioTool) => {
     setLayoutMode("expanded");
     setExpandedTool(tool.type);
+    trackStep(tool.type as GenerationToolType, "config");
     onToolClick?.(tool);
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setLayoutMode("normal");
     setExpandedTool(null);
     setHoveredToolId(null);
-  };
+  }, [setExpandedTool, setLayoutMode]);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      handleClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleClose, isExpanded]);
 
   const buildStudioExecutionRequest = () => {
     if (!project || !currentCardId) return null;
@@ -352,15 +495,15 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }
   };
 
-  const handleStudioExecute = async () => {
-    if (!project || !currentCardId || isStudioActionRunning) return;
+  const handleStudioExecute = async (): Promise<string | null> => {
+    if (!project || !currentCardId || isStudioActionRunning) return null;
     if (isProtocolPending) {
       toast({
         title: "卡片协议未就绪",
         description: "当前卡片仍在协议补齐中，暂不可执行。",
         variant: "destructive",
       });
-      return;
+      return null;
     }
     if (requiresSourceArtifact && !hasSourceBinding) {
       toast({
@@ -368,10 +511,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         description: "当前卡片需要先绑定 source artifact。",
         variant: "destructive",
       });
-      return;
+      return null;
     }
     const requestBody = buildStudioExecutionRequest();
-    if (!requestBody) return;
+    if (!requestBody) return null;
     try {
       setIsStudioActionRunning(true);
       const response = await studioCardsApi.execute(currentCardId, requestBody);
@@ -394,12 +537,14 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           ? `已生成会话 ${sessionId.slice(0, 8)}`
           : "已提交生成并刷新成果列表",
       });
+      return sessionId;
     } catch (error) {
       toast({
         title: "Studio 执行失败",
         description: getErrorMessage(error),
         variant: "destructive",
       });
+      return null;
     } finally {
       setIsStudioActionRunning(false);
     }
@@ -463,14 +608,81 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }
   };
 
+  const isCardManagedFlowExpanded =
+    expandedTool === "word" ||
+    expandedTool === "mindmap" ||
+    expandedTool === "outline" ||
+    expandedTool === "quiz" ||
+    expandedTool === "summary" ||
+    expandedTool === "animation" ||
+    expandedTool === "handout";
+  const toolFlowContext: ToolFlowContext = {
+    readiness: currentReadiness,
+    isLoadingProtocol: isLoadingCardProtocol,
+    isActionRunning: isStudioActionRunning,
+    isProtocolPending,
+    requiresSourceArtifact,
+    supportsChatRefine,
+    canExecute,
+    canRefine,
+    sourceOptions: currentCardId
+      ? (sourceOptionsByCard[currentCardId] ?? [])
+      : [],
+    selectedSourceId,
+    requestedStep: requestedHistoryStep,
+    latestArtifacts: currentToolArtifacts.map((item) => ({
+      artifactId: item.artifactId,
+      title: item.title,
+      status: item.status,
+      createdAt: item.createdAt,
+    })),
+    onStepChange: handleManagedToolStepChange,
+    onSelectedSourceChange: (sourceId) => {
+      if (!currentCardId) return;
+      setSelectedSourceByCard((prev) => ({
+        ...prev,
+        [currentCardId]: sourceId,
+      }));
+    },
+    onLoadSources: () => handleStudioLoadSources(),
+    onPreviewExecution: () => handleStudioPreviewExecution(),
+    onExecute: async () => {
+      if (!expandedTool || expandedTool === "ppt") return;
+      const toolType = expandedTool as GenerationToolType;
+      const flowStep =
+        normalizeHistoryStep(currentStepByTool[toolType]) === "preview"
+          ? "preview"
+          : "generate";
+      recordWorkflowEntry({
+        toolType,
+        title: `${TOOL_LABELS[toolType]}生成中`,
+        status: "processing",
+        step: flowStep,
+        sessionId: activeSessionId,
+      });
+      const nextSessionId = await handleStudioExecute();
+      if (nextSessionId) {
+        recordWorkflowEntry({
+          toolType,
+          title: `${TOOL_LABELS[toolType]}生成中`,
+          status: "processing",
+          step: flowStep,
+          sessionId: nextSessionId,
+        });
+      }
+    },
+    onRefine: () => handleStudioRefine(),
+    onExportArtifact: (artifactId) => exportArtifact(artifactId),
+  };
+
   return (
     <div
-      className="h-full bg-transparent"
+      className="project-panel-root h-full bg-transparent"
       style={{ transform: "translateZ(0)" }}
     >
-      <Card className="h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
+      <Card className="project-panel-card project-studio-panel h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <CardHeader
-          className="relative flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
+          className="project-panel-header relative flex flex-row items-center justify-between px-4 py-0 shrink-0 space-y-0"
           style={{ height: "52px" }}
         >
           <div className="min-w-0 flex-1 overflow-hidden">
@@ -528,7 +740,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                 layoutId={`icon-${expandedTool}`}
                 layout="position"
                 className={cn(
-                  "flex items-center justify-center rounded-xl border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
+                  "project-tool-icon-shell flex items-center justify-center rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
                 )}
                 style={{
                   width: 40,
@@ -568,32 +780,15 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                     onHoveredToolIdChange={setHoveredToolId}
                     onToolClick={handleToolClick}
                   />
-                  {currentSessionArtifacts.length > 0 && !isExpanded ? (
+                  {hasHistory && !isExpanded ? (
                     <SessionArtifacts
-                      groupedArtifacts={groupedArtifacts}
+                      groupedHistory={groupedHistory}
                       toolLabels={TOOL_LABELS}
                       onRefresh={() => {
                         if (!project) return;
                         void fetchArtifactHistory(project.id, activeSessionId);
                       }}
-                      onOpenArtifact={(item) => {
-                        if (!project) return;
-                        if (item.sessionId) setActiveSessionId(item.sessionId);
-                        const query = new URLSearchParams();
-                        const targetSessionId =
-                          item.sessionId ?? activeSessionId ?? "";
-                        if (targetSessionId) {
-                          query.set("session", targetSessionId);
-                        }
-                        if (item.artifactId) {
-                          query.set("artifact_id", item.artifactId);
-                        }
-                        router.push(
-                          `/projects/${project.id}/generate${
-                            query.toString() ? `?${query.toString()}` : ""
-                          }`
-                        );
-                      }}
+                      onOpenHistoryItem={handleOpenHistoryItem}
                       onExportArtifact={(artifactId) => {
                         void exportArtifact(artifactId);
                       }}
@@ -624,6 +819,37 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       <div className="h-full">
                         <GenerationConfigPanel
                           variant="compact"
+                          resumeStage={pptResumeStage}
+                          resumeSignal={pptResumeSignal}
+                          onWorkflowStageChange={(stage, payload) => {
+                            if (stage === "config") {
+                              trackStep("ppt", "config");
+                              acknowledgeStep("ppt", "config");
+                              return;
+                            }
+                            if (stage === "generating_outline") {
+                              trackStep("ppt", "generate");
+                              recordWorkflowEntry({
+                                toolType: "ppt",
+                                title: "PPT 大纲生成中",
+                                status: "processing",
+                                step: "generate",
+                                sessionId:
+                                  payload?.sessionId ?? activeSessionId ?? null,
+                              });
+                              return;
+                            }
+                            trackStep("ppt", "outline");
+                            acknowledgeStep("ppt", "outline");
+                            recordWorkflowEntry({
+                              toolType: "ppt",
+                              title: "PPT 大纲配置中",
+                              status: "draft",
+                              step: "outline",
+                              sessionId:
+                                payload?.sessionId ?? activeSessionId ?? null,
+                            });
+                          }}
                           onGenerate={async (config) => {
                             const tool = GENERATION_TOOLS.find(
                               (item) => item.type === expandedTool
@@ -635,146 +861,173 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               problem: "问题驱动、启发式、强调思考",
                               workshop: "实操导向、案例化、可落地",
                             };
-                            await startGeneration(project.id, tool, {
-                              template: "default",
-                              show_page_number: true,
-                              include_animations: false,
-                              include_games: false,
-                              use_text_to_image: false,
-                              pages: Number(config.pageCount) || 15,
-                              audience: "intermediate",
-                              system_prompt_tone: [
-                                `[outline_style=${config.outlineStyle}]`,
-                                config.prompt,
-                                `【大纲风格】${styleToneMap[config.outlineStyle] || "逻辑清晰"}`,
-                                "【页面比例】16:9",
-                                "请在每页中给出明确教学目标与讲解节奏。",
-                              ].join("\n"),
-                            });
+                            const sessionId = await startGeneration(
+                              project.id,
+                              tool,
+                              {
+                                template: "default",
+                                show_page_number: true,
+                                include_animations: false,
+                                include_games: false,
+                                use_text_to_image: false,
+                                pages: Number(config.pageCount) || 15,
+                                audience: "intermediate",
+                                system_prompt_tone: [
+                                  `[outline_style=${config.outlineStyle}]`,
+                                  config.prompt,
+                                  `【大纲风格】${styleToneMap[config.outlineStyle] || "逻辑清晰"}`,
+                                  "【页面比例】16:9",
+                                  "请在每页中给出明确教学目标与讲解节奏。",
+                                ].join("\n"),
+                              }
+                            );
+                            if (sessionId) {
+                              setActiveSessionId(sessionId);
+                              recordWorkflowEntry({
+                                toolType: "ppt",
+                                title: "PPT 大纲生成中",
+                                status: "processing",
+                                step: "generate",
+                                sessionId,
+                              });
+                            }
+                            return sessionId;
                           }}
                         />
                       </div>
                     ) : ExpandedToolComponent ? (
                       <div className="h-full flex flex-col gap-2">
-                        <div className="rounded-lg border border-zinc-200 bg-white/80 px-2 py-2 flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs"
-                            onClick={() => {
-                              void handleStudioPreviewExecution();
-                            }}
-                            disabled={
-                              !currentCardId ||
-                              isStudioActionRunning ||
-                              isLoadingCardProtocol
-                            }
-                          >
-                            预览协议
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs"
-                            onClick={() => {
-                              void handleStudioLoadSources();
-                            }}
-                            disabled={
-                              !currentCardId ||
-                              isStudioActionRunning ||
-                              isLoadingCardProtocol
-                            }
-                          >
-                            源成果
-                          </Button>
-                          {currentCardId &&
-                          sourceOptionsByCard[currentCardId]?.length > 0 ? (
-                            <select
-                              value={selectedSourceByCard[currentCardId] ?? ""}
-                              onChange={(event) =>
-                                setSelectedSourceByCard((prev) => ({
-                                  ...prev,
-                                  [currentCardId]: event.target.value || null,
-                                }))
-                              }
-                              className="h-8 rounded-md border border-zinc-200 bg-white px-2 text-xs"
-                            >
-                              {sourceOptionsByCard[currentCardId].map(
-                                (item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {(item.title || item.id.slice(0, 8)) +
-                                      (item.type ? ` (${item.type})` : "")}
-                                  </option>
-                                )
-                              )}
-                            </select>
-                          ) : null}
-                          <div className="ml-auto flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs"
-                              onClick={() => {
-                                void handleStudioRefine();
-                              }}
-                              disabled={!canRefine || isLoadingCardProtocol}
-                            >
-                              Refine
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs"
-                              onClick={() => {
-                                void handleStudioExecute();
-                              }}
-                              disabled={!canExecute || isLoadingCardProtocol}
-                            >
-                              执行
-                            </Button>
-                          </div>
-                        </div>
-                        {currentCardId ? (
-                          <div className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2 text-[11px] text-zinc-600">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
-                                readiness: {currentReadiness ?? "loading"}
-                              </span>
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
-                                context:{" "}
-                                {currentCapability?.context_mode ?? "unknown"}
-                              </span>
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
-                                mode:{" "}
-                                {currentCapability?.execution_mode ?? "unknown"}
-                              </span>
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
-                                refine: {supportsChatRefine ? "on" : "off"}
-                              </span>
-                              <span className="rounded bg-white px-2 py-0.5 border border-zinc-200">
-                                source:{" "}
-                                {requiresSourceArtifact
-                                  ? "required"
-                                  : "optional"}
-                              </span>
+                        {!isCardManagedFlowExpanded ? (
+                          <>
+                            <div className="project-studio-protocol-bar rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-control-bg)] px-2 py-2 flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="project-studio-protocol-btn h-8 text-xs"
+                                onClick={() => {
+                                  void handleStudioPreviewExecution();
+                                }}
+                                disabled={
+                                  !currentCardId ||
+                                  isStudioActionRunning ||
+                                  isLoadingCardProtocol
+                                }
+                              >
+                                预览协议
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="project-studio-protocol-btn h-8 text-xs"
+                                onClick={() => {
+                                  void handleStudioLoadSources();
+                                }}
+                                disabled={
+                                  !currentCardId ||
+                                  isStudioActionRunning ||
+                                  isLoadingCardProtocol
+                                }
+                              >
+                                源成果
+                              </Button>
+                              {currentCardId &&
+                              sourceOptionsByCard[currentCardId]?.length > 0 ? (
+                                <select
+                                  value={
+                                    selectedSourceByCard[currentCardId] ?? ""
+                                  }
+                                  onChange={(event) =>
+                                    setSelectedSourceByCard((prev) => ({
+                                      ...prev,
+                                      [currentCardId]:
+                                        event.target.value || null,
+                                    }))
+                                  }
+                                  className="project-studio-protocol-select h-8 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-2 text-xs text-[var(--project-text-primary)]"
+                                >
+                                  {sourceOptionsByCard[currentCardId].map(
+                                    (item) => (
+                                      <option key={item.id} value={item.id}>
+                                        {(item.title || item.id.slice(0, 8)) +
+                                          (item.type ? ` (${item.type})` : "")}
+                                      </option>
+                                    )
+                                  )}
+                                </select>
+                              ) : null}
+                              <div className="ml-auto flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="project-studio-protocol-btn h-8 text-xs"
+                                  onClick={() => {
+                                    void handleStudioRefine();
+                                  }}
+                                  disabled={!canRefine || isLoadingCardProtocol}
+                                >
+                                  Refine
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="project-studio-protocol-btn project-studio-protocol-btn-primary h-8 text-xs"
+                                  onClick={() => {
+                                    void handleStudioExecute();
+                                  }}
+                                  disabled={
+                                    !canExecute || isLoadingCardProtocol
+                                  }
+                                >
+                                  执行
+                                </Button>
+                              </div>
                             </div>
-                            {requiresSourceArtifact && !hasSourceBinding ? (
-                              <p className="mt-1 text-amber-700">
-                                当前卡片执行需要先绑定源成果。
-                              </p>
+                            {currentCardId ? (
+                              <div className="project-studio-protocol-meta rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-muted)] px-3 py-2 text-[11px] text-[var(--project-control-muted)]">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    readiness: {currentReadiness ?? "loading"}
+                                  </span>
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    context:{" "}
+                                    {currentCapability?.context_mode ??
+                                      "unknown"}
+                                  </span>
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    mode:{" "}
+                                    {currentCapability?.execution_mode ??
+                                      "unknown"}
+                                  </span>
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    refine: {supportsChatRefine ? "on" : "off"}
+                                  </span>
+                                  <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
+                                    source:{" "}
+                                    {requiresSourceArtifact
+                                      ? "required"
+                                      : "optional"}
+                                  </span>
+                                </div>
+                                {requiresSourceArtifact && !hasSourceBinding ? (
+                                  <p className="mt-1 text-amber-700">
+                                    当前卡片执行需要先绑定源成果。
+                                  </p>
+                                ) : null}
+                                {isProtocolPending ? (
+                                  <p className="mt-1 text-amber-700">
+                                    当前卡片协议处于
+                                    protocol_pending，执行/refine 已禁用。
+                                  </p>
+                                ) : null}
+                              </div>
                             ) : null}
-                            {isProtocolPending ? (
-                              <p className="mt-1 text-amber-700">
-                                当前卡片协议处于 protocol_pending，执行/refine
-                                已禁用。
-                              </p>
-                            ) : null}
-                          </div>
+                          </>
                         ) : null}
                         <div className="min-h-0 flex-1">
                           <ExpandedToolComponent
                             toolId={expandedTool as StudioToolKey}
                             toolName={TOOL_LABELS[expandedTool] ?? expandedTool}
                             onDraftChange={handleExpandedToolDraftChange}
+                            flowContext={toolFlowContext}
                           />
                         </div>
                       </div>

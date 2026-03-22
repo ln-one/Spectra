@@ -1,0 +1,184 @@
+﻿[data-project-style="ocean-cyan"] .project-panel-card {
+  background: linear-gradient(
+    145deg,
+    color-mix(
+      in srgb,
+      var(--project-surface-elevated) 68%,
+      rgba(255, 255, 255, 0.28)
+    ),
+    color-mix(in srgb, var(--project-surface) 54%, rgba(255, 255, 255, 0.12))
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--project-border) 62%,
+    rgba(255, 255, 255, 0.78)
+  );
+  box-shadow:
+    0 26px 48px -34px rgba(8, 64, 82, 0.54),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+[data-project-style="ocean-cyan"] .project-header-shell {
+  backdrop-filter: blur(22px);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--project-border) 52%, rgba(255, 255, 255, 0.65));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--project-bg-base) 74%, rgba(255, 255, 255, 0.45)),
+    color-mix(in srgb, transparent 70%, var(--project-bg-base))
+  );
+}
+
+[data-project-style="ocean-cyan"] .project-header-control,
+[data-project-style="ocean-cyan"] .project-session-trigger {
+  border-width: 1px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 10px 18px -16px rgba(8, 64, 82, 0.45);
+}
+
+[data-project-style="ocean-cyan"] .project-header-menu,
+[data-project-style="ocean-cyan"] .project-session-menu {
+  backdrop-filter: blur(24px);
+}
+
+[data-project-style="ocean-cyan"] .project-header-logo {
+  border-color: color-mix(
+    in srgb,
+    var(--project-border-strong) 46%,
+    rgba(255, 255, 255, 0.7)
+  );
+  box-shadow:
+    0 12px 24px -16px rgba(8, 64, 82, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+}
+
+[data-project-style="ocean-cyan"] .project-header-library-btn,
+[data-project-style="ocean-cyan"] .project-header-action-btn,
+[data-project-style="ocean-cyan"] .project-header-avatar-btn {
+  border-color: color-mix(
+    in srgb,
+    var(--project-border-strong) 52%,
+    rgba(255, 255, 255, 0.6)
+  );
+  background: color-mix(
+    in srgb,
+    var(--project-control-bg) 88%,
+    rgba(255, 255, 255, 0.16)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 10px 18px -14px rgba(8, 64, 82, 0.5);
+}
+
+[data-project-style="ocean-cyan"] .project-header-divider {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--project-border-strong) 72%, white),
+    transparent
+  );
+}
+
+[data-project-style="ocean-cyan"] .project-session-overlay,
+[data-project-style="ocean-cyan"] .project-library-overlay {
+  backdrop-filter: blur(4px);
+}
+
+[data-project-style="ocean-cyan"] .project-session-menu-content {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--project-menu-bg) 86%, rgba(255, 255, 255, 0.22)),
+    color-mix(in srgb, var(--project-menu-bg) 78%, rgba(255, 255, 255, 0.12))
+  );
+}
+
+[data-project-style="ocean-cyan"] .project-tool-card {
+  background: linear-gradient(
+    160deg,
+    color-mix(
+      in srgb,
+      var(--project-surface-muted) 66%,
+      rgba(255, 255, 255, 0.2)
+    ),
+    color-mix(in srgb, var(--project-surface) 50%, rgba(255, 255, 255, 0.05))
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--project-border) 58%,
+    rgba(255, 255, 255, 0.75)
+  );
+  box-shadow:
+    0 18px 30px -24px rgba(8, 64, 82, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+[data-project-style="ocean-cyan"] .project-session-item-active {
+  box-shadow:
+    0 14px 22px -16px rgba(8, 64, 82, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+
+[data-project-style="ocean-cyan"] .project-session-title,
+[data-project-style="ocean-cyan"] .project-title-text {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--project-heading) 90%, #ffffff),
+    color-mix(in srgb, var(--project-accent) 72%, #ffffff)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+[data-project-style="ocean-cyan"] .project-chat-input-shell,
+[data-project-style="ocean-cyan"] .project-chat-loading-shell,
+[data-project-style="ocean-cyan"] .project-studio-protocol-bar,
+[data-project-style="ocean-cyan"] .project-studio-protocol-meta {
+  background: color-mix(
+    in srgb,
+    var(--project-surface-elevated) 68%,
+    rgba(255, 255, 255, 0.25)
+  );
+  backdrop-filter: blur(18px);
+  border-color: color-mix(
+    in srgb,
+    var(--project-border) 62%,
+    rgba(255, 255, 255, 0.64)
+  );
+}
+
+[data-project-style="ocean-cyan"]
+  .project-library-tab-trigger[data-state="active"] {
+  border-color: color-mix(
+    in srgb,
+    var(--project-border-strong) 58%,
+    rgba(255, 255, 255, 0.75)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 12px 22px -18px rgba(8, 64, 82, 0.52);
+}
+
+[data-project-style="ocean-cyan"] .project-sources-empty-icon {
+  background: linear-gradient(
+    155deg,
+    color-mix(
+      in srgb,
+      var(--project-surface-muted) 76%,
+      rgba(255, 255, 255, 0.3)
+    ),
+    color-mix(in srgb, var(--project-surface) 62%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    0 14px 20px -18px rgba(8, 64, 82, 0.46);
+}
+
+[data-project-style="ocean-cyan"] .project-chat-fade-top {
+  opacity: 0.85;
+}
+
+[data-project-style="ocean-cyan"] .project-chat-fade-bottom {
+  opacity: 0.78;
+}

@@ -19,21 +19,34 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
-EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
-
 # DashScope 单次批量限制（不同模型上限不同）
 DEFAULT_DASHSCOPE_BATCH_LIMIT = 25
 TEXT_EMBEDDING_V4_BATCH_LIMIT = 10
 MULTIMODAL_EMBEDDING_BATCH_LIMIT = 10
+_FALLBACK_LOG_MESSAGE = (
+    "DashScope embedding failed for model %s; "
+    "falling back to local sentence-transformers"
+)
+_NO_FALLBACK_LOG_MESSAGE = (
+    "DashScope embedding failed for model %s; " "local fallback disabled"
+)
+
+
+def _resolve_embedding_model() -> str:
+    return os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
 
 
 def _resolve_embedding_dimension() -> int:
-    return int(os.getenv("EMBEDDING_DIMENSION", str(EMBEDDING_DIMENSION)))
+    return int(os.getenv("EMBEDDING_DIMENSION", "1536"))
 
 
 def _resolve_dashscope_api_key() -> str:
     return os.getenv("DASHSCOPE_API_KEY", "").strip()
+
+
+def _allow_local_fallback() -> bool:
+    value = os.getenv("EMBEDDING_ALLOW_LOCAL_FALLBACK", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
 
 
 class EmbeddingService:
@@ -46,7 +59,7 @@ class EmbeddingService:
         Args:
             model: Embedding 模型名称，默认从环境变量读取
         """
-        self._model = model or EMBEDDING_MODEL
+        self._model = model if model is not None else _resolve_embedding_model()
         self._local_model = None
         self._dimension: Optional[int] = None
 
@@ -172,20 +185,24 @@ class EmbeddingService:
             return all_embeddings
 
         except Exception as e:
+            fallback_enabled = _allow_local_fallback()
             logger.warning(
-                "DashScope embedding failed for model %s; falling back to local "
-                "sentence-transformers",
+                _FALLBACK_LOG_MESSAGE if fallback_enabled else _NO_FALLBACK_LOG_MESSAGE,
                 self._model,
                 extra={
                     "embedding_model": self._model,
                     "embedding_provider": "dashscope",
                     "embedding_failure_type": classify_upstream_failure(e),
-                    "fallback_used": True,
-                    "fallback_target": "local_sentence_transformers",
+                    "fallback_used": fallback_enabled,
+                    "fallback_target": (
+                        "local_sentence_transformers" if fallback_enabled else None
+                    ),
                     "provider_message": str(e),
                 },
             )
-            return await self._embed_local(texts)
+            if fallback_enabled:
+                return await self._embed_local(texts)
+            raise
 
     def _embed_local_sync(self, texts: list[str]) -> list[list[float]]:
         """使用本地 sentence-transformers 模型进行向量化（同步）"""

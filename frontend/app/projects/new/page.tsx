@@ -226,7 +226,10 @@ export default function NewProjectPage() {
           ) : null}
 
           {submitError ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div
+              className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              role="alert"
+            >
               {submitError}
             </div>
           ) : null}
@@ -251,6 +254,11 @@ export default function NewProjectPage() {
               )}
             </button>
           </div>
+          {errorMessage ? (
+            <p className="text-sm text-red-600" role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
         </form>
       </div>
     </div>

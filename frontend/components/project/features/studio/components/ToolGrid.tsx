@@ -49,7 +49,7 @@ export function ToolGrid({
             onMouseEnter={() => !isExpanded && onHoveredToolIdChange(tool.id)}
             onMouseLeave={() => onHoveredToolIdChange(null)}
             className={cn(
-              "group relative flex h-auto w-full flex-col items-center justify-center rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-3 backdrop-blur-sm",
+              "project-tool-card group relative flex h-auto w-full flex-col items-center justify-center rounded-[var(--project-chip-radius)] border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-3 backdrop-blur-sm",
               "cursor-pointer transition-shadow duration-200 ease-out"
             )}
             style={{
@@ -67,7 +67,7 @@ export function ToolGrid({
               layoutId={`icon-${tool.id}`}
               layout="position"
               className={cn(
-                "mb-1.5 flex items-center justify-center rounded-xl border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
+                "project-tool-icon mb-1.5 flex items-center justify-center rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
               )}
               style={{
                 width: 40,
@@ -83,7 +83,7 @@ export function ToolGrid({
               {tool.name}
             </span>
             <motion.div
-              className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              className="project-tool-card-glow pointer-events-none absolute inset-0 rounded-[var(--project-chip-radius)] opacity-0 transition-opacity duration-200 group-hover:opacity-100"
               style={{
                 background: `radial-gradient(circle at center, ${color.glow}, transparent 70%)`,
               }}

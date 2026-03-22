@@ -1,0 +1,139 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: spectra
+      POSTGRES_PASSWORD: spectra
+      POSTGRES_DB: spectra
+    volumes:
+      - /var/lib/spectra/postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spectra -d spectra"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - /var/lib/spectra/redis:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  chromadb:
+    image: chromadb/chroma:0.5.2
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/chroma
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - /var/lib/spectra/chroma:/chroma/chroma
+    ports:
+      - "127.0.0.1:8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  backend:
+    image: spectra-backend:deploy
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.deploy
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: "8000"
+      CHROMA_PERSIST_DIR: /var/lib/spectra/chroma
+      UPLOAD_DIR: /var/lib/spectra/uploads
+      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
+      GENERATED_DIR: /var/lib/spectra/generated
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
+      DB_REQUIRED: "true"
+      REDIS_REQUIRED: "false"
+      UVICORN_RELOAD: "false"
+    volumes:
+      - /var/lib/spectra:/var/lib/spectra
+    ports:
+      - "8000:8000"
+    command: >-
+      sh -c "prisma migrate deploy && prisma generate && uvicorn main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    image: spectra-backend:deploy
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: "8000"
+      CHROMA_PERSIST_DIR: /var/lib/spectra/chroma
+      UPLOAD_DIR: /var/lib/spectra/uploads
+      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
+      GENERATED_DIR: /var/lib/spectra/generated
+      POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
+      POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
+      WORKER_NAME: worker-1
+      WORKER_RECOVERY_SCAN: "true"
+    volumes:
+      - /var/lib/spectra:/var/lib/spectra
+    command: >-
+      sh -c "prisma migrate deploy && prisma generate && python worker.py"
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    image: spectra-frontend:deploy
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.deploy
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://116.62.77.198:8000}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      - "80:3000"
+    depends_on:
+      backend:
+        condition: service_healthy

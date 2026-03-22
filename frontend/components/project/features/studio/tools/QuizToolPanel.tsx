@@ -1,170 +1,237 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { ToolPanelShell } from "./ToolPanelShell";
+import { WorkflowStepper } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
+import { ConfigStep } from "./quiz/ConfigStep";
+import {
+  getDifficultyLabel,
+  getQuestionTypeLabel,
+  getReadinessLabel,
+  QUIZ_STEPS,
+} from "./quiz/constants";
+import { GenerateStep } from "./quiz/GenerateStep";
+import { buildQuizCards, isAnswerCorrect } from "./quiz/question-bank";
+import { PreviewStep } from "./quiz/PreviewStep";
+import type {
+  QuizCardItem,
+  QuizDifficulty,
+  QuizQuestionType,
+  QuizStep,
+} from "./quiz/types";
+import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
-interface QuizItem {
-  id: string;
-  question: string;
-  options: string[];
-  answerIndex: number;
-  explainCorrect: string;
-  explainWrong: string;
+function clampNumber(
+  value: string,
+  min: number,
+  max: number,
+  fallback: number
+): number {
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
 }
 
-const QUIZ_BANK: QuizItem[] = [
-  {
-    id: "q1",
-    question: "函数 y=x^2 在 x=0 附近的单调性如何？",
-    options: ["严格递增", "先减后增", "严格递减", "保持不变"],
-    answerIndex: 1,
-    explainCorrect: "x^2 在负半轴递减、正半轴递增，x=0 是最小值点。",
-    explainWrong: "易错点在于把“整体趋势”误当作“局部全程递增”。",
-  },
-  {
-    id: "q2",
-    question: "下列哪个是课堂即时测验最合适的题型？",
-    options: ["20分钟大题", "单题概念判断", "整套期末卷", "纯记忆填空"],
-    answerIndex: 1,
-    explainCorrect: "随堂小测强调即时反馈，单题判断更适合快速诊断。",
-    explainWrong: "该选项难以在课堂节奏内完成即时反馈闭环。",
-  },
-  {
-    id: "q3",
-    question: "若要提升辨析能力，更推荐哪类追问？",
-    options: ["背定义", "解释错因", "抄答案", "重复题干"],
-    answerIndex: 1,
-    explainCorrect: "解释错因能暴露思维路径，便于精准纠错。",
-    explainWrong: "仅复述结果无法定位学生的认知偏差来源。",
-  },
-];
-
-export function QuizToolPanel({ toolName, onDraftChange }: ToolPanelProps) {
+export function QuizToolPanel({
+  toolName,
+  onDraftChange,
+  flowContext,
+}: ToolPanelProps) {
+  const [activeStep, setActiveStep] = useState<QuizStep>("config");
+  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [scope, setScope] = useState("函数单调性与极值");
-  const [count, setCount] = useState("5");
-  const [cursor, setCursor] = useState(0);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [bankVersion, setBankVersion] = useState(0);
-
-  const current = useMemo(
-    () => QUIZ_BANK[(cursor + bankVersion) % QUIZ_BANK.length],
-    [cursor, bankVersion]
+  const [countInput, setCountInput] = useState("5");
+  const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
+  const [questionType, setQuestionType] = useState<QuizQuestionType>("single");
+  const [styleTags, setStyleTags] = useState<string[]>(["优先考易错点"]);
+  const [cards, setCards] = useState<QuizCardItem[]>(() =>
+    buildQuizCards(5, {
+      scope: "函数单调性与极值",
+      difficulty: "medium",
+      questionType: "single",
+      includeHumor: false,
+    })
   );
+  const [cursor, setCursor] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+
+  const count = useMemo(() => clampNumber(countInput, 1, 20, 5), [countInput]);
+  const difficultyLabel = getDifficultyLabel(difficulty);
+  const questionTypeLabel = getQuestionTypeLabel(questionType);
+  const currentQuestion = cards[cursor] ?? cards[0];
 
   useEffect(() => {
+    if (!currentQuestion) return;
     onDraftChange?.({
       scope,
       count,
-      cursor,
-      question_id: current.id,
-      question: current.question,
+      difficulty,
+      question_type: questionType,
+      style_tags: styleTags,
+      question_id: currentQuestion.id,
+      source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
-  }, [count, current.id, current.question, cursor, onDraftChange, scope]);
+  }, [
+    count,
+    currentQuestion,
+    difficulty,
+    flowContext?.selectedSourceId,
+    onDraftChange,
+    questionType,
+    scope,
+    styleTags,
+  ]);
 
-  const isCorrect = selectedIndex === current.answerIndex;
+  const handleToggleTag = (tag: string) => {
+    setStyleTags((prev) =>
+      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]
+    );
+  };
+
+  const resetQuestionState = () => {
+    setSelectedAnswers([]);
+    setIsSubmitted(false);
+    setIsCorrect(false);
+  };
+
+  const handleGenerate = async () => {
+    const nextCards = buildQuizCards(count, {
+      scope,
+      difficulty,
+      questionType,
+      includeHumor: styleTags.includes("加入幽默干扰项"),
+    });
+    setCards(nextCards);
+    setCursor(0);
+    resetQuestionState();
+
+    if (!flowContext?.onExecute) {
+      setLastGeneratedAt(new Date().toISOString());
+      setActiveStep("preview");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      await flowContext.onExecute();
+      setLastGeneratedAt(new Date().toISOString());
+      setActiveStep("preview");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleToggleOption = (index: number) => {
+    if (isSubmitted) return;
+    if (questionType === "multiple") {
+      setSelectedAnswers((prev) =>
+        prev.includes(index)
+          ? prev.filter((item) => item !== index)
+          : [...prev, index]
+      );
+      return;
+    }
+    setSelectedAnswers([index]);
+  };
+
+  const handleSubmitAnswer = () => {
+    if (!currentQuestion || selectedAnswers.length === 0) return;
+    setIsCorrect(isAnswerCorrect(currentQuestion.answers, selectedAnswers));
+    setIsSubmitted(true);
+  };
+
+  const handleNextQuestion = () => {
+    setCursor((prev) => (prev + 1) % Math.max(1, cards.length));
+    resetQuestionState();
+  };
 
   return (
-    <ToolPanelShell
-      stepTitle={`${toolName}配置`}
-      stepDescription="输入考察范围后进入单题闪卡模式，当前为纯前端交互。"
-      previewTitle="沉浸式闪卡预览"
-      previewDescription="点击选项后立即展示解析，再切换下一题。"
-      footer={
-        <div className="flex items-center justify-between gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 rounded-lg text-xs"
-            onClick={() => {
-              setSelectedIndex(null);
-              setBankVersion((prev) => prev + 1);
-            }}
-          >
-            重新生成当前题
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 rounded-lg text-xs"
-            onClick={() => {
-              setSelectedIndex(null);
-              setCursor((prev) => (prev + 1) % QUIZ_BANK.length);
-            }}
-          >
-            下一题 →
-          </Button>
-        </div>
-      }
-      preview={
-        <div className="space-y-3">
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-            <p className="text-xs text-zinc-500">
-              第 {(cursor % QUIZ_BANK.length) + 1} 题
-            </p>
-            <p className="text-sm font-medium text-zinc-800 mt-1">
-              {current.question}
-            </p>
-          </div>
-          <div className="space-y-2">
-            {current.options.map((option, index) => {
-              const selected = selectedIndex === index;
-              const shouldHighlight =
-                selectedIndex !== null && index === current.answerIndex;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setSelectedIndex(index)}
-                  className={`w-full rounded-lg border px-3 py-2 text-xs text-left transition-colors ${
-                    selected
-                      ? "border-zinc-900 bg-zinc-900 text-white"
-                      : shouldHighlight
-                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
-                  }`}
-                >
-                  {String.fromCharCode(65 + index)}. {option}
-                </button>
-              );
-            })}
-          </div>
-          {selectedIndex !== null ? (
-            <div
-              className={`rounded-lg border p-3 text-xs ${
-                isCorrect
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                  : "border-amber-300 bg-amber-50 text-amber-700"
-              }`}
-            >
-              {isCorrect ? current.explainCorrect : current.explainWrong}
+    <div className="h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900">
+                {toolName}三步工作台{" "}
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                先配置，再生成，最后在面板里用闯关模式逐题预览和讲解。{" "}
+              </p>
             </div>
-          ) : null}
+            <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
+              {getReadinessLabel(flowContext?.readiness)}
+            </span>
+          </div>
         </div>
-      }
-    >
-      <section className="grid grid-cols-2 gap-2">
-        <div className="space-y-1.5">
-          <Label className="text-[11px] text-zinc-500">考察范围</Label>
-          <Input
-            value={scope}
-            onChange={(e) => setScope(e.target.value)}
-            className="h-9 text-xs"
-          />
+
+        <div className="min-h-0 flex-1 overflow-hidden p-4">
+          <div className="flex h-full min-h-0 gap-4">
+            <WorkflowStepper
+              className="w-[228px] shrink-0"
+              layout="rail"
+              currentStep={activeStep}
+              steps={QUIZ_STEPS}
+              onStepChange={(stepId) => setActiveStep(stepId as QuizStep)}
+              title="随堂小测流程"
+              subtitle="Workflow"
+            />
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              {activeStep === "config" ? (
+                <ConfigStep
+                  scope={scope}
+                  countInput={countInput}
+                  difficulty={difficulty}
+                  questionType={questionType}
+                  styleTags={styleTags}
+                  onScopeChange={setScope}
+                  onCountChange={setCountInput}
+                  onDifficultyChange={setDifficulty}
+                  onQuestionTypeChange={setQuestionType}
+                  onToggleTag={handleToggleTag}
+                  onNext={() => setActiveStep("generate")}
+                />
+              ) : null}
+
+              {activeStep === "generate" ? (
+                <GenerateStep
+                  scope={scope}
+                  count={count}
+                  difficultyLabel={difficultyLabel}
+                  questionTypeLabel={questionTypeLabel}
+                  styleTags={styleTags}
+                  flowContext={flowContext}
+                  isGenerating={isGenerating}
+                  onBack={() => setActiveStep("config")}
+                  onGenerate={() => void handleGenerate()}
+                />
+              ) : null}
+
+              {activeStep === "preview" && currentQuestion ? (
+                <PreviewStep
+                  question={currentQuestion}
+                  questionIndex={cursor}
+                  totalQuestions={cards.length}
+                  questionType={questionType}
+                  selectedAnswers={selectedAnswers}
+                  isSubmitted={isSubmitted}
+                  isCorrect={isCorrect}
+                  lastGeneratedAt={lastGeneratedAt}
+                  flowContext={flowContext}
+                  onRegenerate={() => setActiveStep("generate")}
+                  onToggleOption={handleToggleOption}
+                  onSubmitAnswer={handleSubmitAnswer}
+                  onNextQuestion={handleNextQuestion}
+                  onResetCurrent={resetQuestionState}
+                />
+              ) : null}
+            </div>
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-[11px] text-zinc-500">题量</Label>
-          <Input
-            value={count}
-            onChange={(e) => setCount(e.target.value)}
-            className="h-9 text-xs"
-          />
-        </div>
-      </section>
-    </ToolPanelShell>
+      </div>
+    </div>
   );
 }

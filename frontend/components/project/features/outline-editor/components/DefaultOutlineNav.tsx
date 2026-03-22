@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
 import { ArrowLeft, Eye, HelpCircle } from "lucide-react";
@@ -26,23 +26,25 @@ export function DefaultOutlineNav({
       variants={itemVariants}
       initial="hidden"
       animate="visible"
-      className="h-14 px-4 lg:px-6 flex items-center justify-between w-full border-b border-zinc-200/70 bg-white/90 backdrop-blur-md shrink-0"
+      className="h-14 px-4 lg:px-6 flex items-center justify-between w-full border-b border-zinc-200/80 bg-white/80 backdrop-blur-sm shrink-0"
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 min-w-0">
         <Button
           variant="ghost"
           size="sm"
           onClick={onBack}
-          className="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100"
+          className="text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+          <ArrowLeft className="w-4 h-4 mr-1.5" />
           返回项目
         </Button>
         <div className="h-4 w-px bg-zinc-200" />
-        <span className="text-sm font-medium text-zinc-700">{topic}</span>
+        <span className="truncate text-sm font-medium text-zinc-800 max-w-[320px]">
+          {topic}
+        </span>
         <Badge
           variant="secondary"
-          className="bg-violet-100 text-violet-700 border-violet-200 text-[10px]"
+          className="border-blue-200 bg-blue-50 text-blue-700 text-[10px]"
         >
           {slideCount} 页
         </Badge>
@@ -52,7 +54,7 @@ export function DefaultOutlineNav({
           variant="outline"
           size="sm"
           onClick={onPreview}
-          className="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 border-zinc-200"
+          className="border-zinc-200 text-zinc-600 hover:bg-zinc-50"
         >
           <Eye className="w-4 h-4 mr-1.5" />
           预览
@@ -61,7 +63,7 @@ export function DefaultOutlineNav({
           variant="ghost"
           size="sm"
           onClick={onHelp}
-          className="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100"
+          className="text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
         >
           <HelpCircle className="w-4 h-4 mr-1.5" />
           帮助

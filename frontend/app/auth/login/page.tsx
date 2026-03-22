@@ -36,6 +36,13 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+function normalizeRedirectPath(input: string | null | undefined): string {
+  if (!input) return "/projects";
+  if (!input.startsWith("/")) return "/projects";
+  if (input.startsWith("//")) return "/projects";
+  return input;
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,7 +50,7 @@ function LoginForm() {
   const { success, error } = useNotification();
   const prefersReducedMotion = useReducedMotion() ?? false;
 
-  const redirect = searchParams?.get("redirect") || "/projects";
+  const redirect = normalizeRedirectPath(searchParams?.get("redirect"));
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
