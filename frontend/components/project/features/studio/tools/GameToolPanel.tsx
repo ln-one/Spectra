@@ -9,6 +9,7 @@ import { GenerateStep } from "./game/GenerateStep";
 import { PreviewStep } from "./game/PreviewStep";
 import { buildPseudoCode, buildSandboxDescription, buildSandboxTitle } from "./game/templates";
 import type { GameMode, GameStep } from "./game/types";
+import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 function clampNumber(value: string, min: number, max: number, fallback: number): number {
   const parsed = Number(value);
@@ -22,6 +23,7 @@ export function GameToolPanel({
   flowContext,
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<GameStep>("config");
+  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [topic, setTopic] = useState("工业革命关键事件");
   const [mode, setMode] = useState<GameMode>("timeline_sort");
   const [countdownInput, setCountdownInput] = useState("60");

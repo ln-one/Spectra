@@ -14,6 +14,7 @@ import {
   injectChildren,
 } from "./mindmap/tree-utils";
 import type { MindNode, MindmapFocus, MindmapStep } from "./mindmap/types";
+import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 export function MindmapToolPanel({
   toolName,
@@ -21,6 +22,7 @@ export function MindmapToolPanel({
   flowContext,
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<MindmapStep>("config");
+  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [topic, setTopic] = useState("化学反应速率");
   const [depth, setDepth] = useState("3");
   const [focus, setFocus] = useState<MindmapFocus>("concept");

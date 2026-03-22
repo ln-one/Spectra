@@ -13,6 +13,7 @@ import { GenerateStep } from "./animation/GenerateStep";
 import { PreviewStep } from "./animation/PreviewStep";
 import { buildAnimationCode, buildAnimationDescription } from "./animation/templates";
 import type { AnimationScene, AnimationStep } from "./animation/types";
+import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 export function AnimationToolPanel({
   toolName,
@@ -20,6 +21,7 @@ export function AnimationToolPanel({
   flowContext,
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<AnimationStep>("config");
+  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [topic, setTopic] = useState("冒泡排序每轮交换过程");
   const [scene, setScene] = useState<AnimationScene>("bubble_sort");
   const [speed, setSpeed] = useState(50);

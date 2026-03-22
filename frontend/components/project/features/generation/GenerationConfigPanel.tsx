@@ -38,6 +38,12 @@ interface GenerationConfigPanelProps {
   onGenerate?: (
     config: GenerationConfig
   ) => Promise<string | void | null> | string | void | null;
+  resumeStage?: "config" | "outline" | null;
+  resumeSignal?: number;
+  onWorkflowStageChange?: (
+    stage: "config" | "generating_outline" | "outline",
+    payload?: { sessionId?: string | null }
+  ) => void;
 }
 
 export { type GenerationConfig } from "./useGenerationConfigPanel";
@@ -45,6 +51,9 @@ export { type GenerationConfig } from "./useGenerationConfigPanel";
 export function GenerationConfigPanel({
   variant = "default",
   onGenerate,
+  resumeStage,
+  resumeSignal,
+  onWorkflowStageChange,
 }: GenerationConfigPanelProps) {
   const compact = variant === "compact";
   const {
@@ -64,7 +73,12 @@ export function GenerationConfigPanel({
     generateSuggestionBatch,
     handleGenerate,
     handleGoToPreview,
-  } = useGenerationConfigPanel({ onGenerate });
+  } = useGenerationConfigPanel({
+    onGenerate,
+    resumeStage,
+    resumeSignal,
+    onWorkflowStageChange,
+  });
 
   return (
     <div className="relative h-full min-h-0 overflow-hidden p-2 lg:p-3">
@@ -77,7 +91,7 @@ export function GenerationConfigPanel({
         className={cn(
           "relative z-10 grid h-full min-h-0 gap-3",
           compact
-            ? "grid-cols-1 lg:grid-cols-[132px_minmax(0,1fr)]"
+            ? "grid-cols-1 lg:grid-cols-[130px_minmax(0,1fr)]"
             : "grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]"
         )}
       >

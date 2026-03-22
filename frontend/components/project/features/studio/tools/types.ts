@@ -41,7 +41,9 @@ export interface ToolFlowContext {
   canRefine?: boolean;
   sourceOptions?: ToolSourceOption[];
   selectedSourceId?: string | null;
+  requestedStep?: string | null;
   latestArtifacts?: ToolArtifactPreviewItem[];
+  onStepChange?: (stepId: string) => void;
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
   onPreviewExecution?: () => Promise<void> | void;

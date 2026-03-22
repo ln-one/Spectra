@@ -19,6 +19,7 @@ import type {
   QuizQuestionType,
   QuizStep,
 } from "./quiz/types";
+import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 function clampNumber(value: string, min: number, max: number, fallback: number): number {
   const parsed = Number(value);
@@ -32,6 +33,7 @@ export function QuizToolPanel({
   flowContext,
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<QuizStep>("config");
+  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [scope, setScope] = useState("函数单调性与极值");
   const [countInput, setCountInput] = useState("5");
   const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");

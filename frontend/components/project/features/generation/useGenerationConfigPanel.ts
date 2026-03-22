@@ -36,10 +36,19 @@ interface UseGenerationConfigPanelArgs {
   onGenerate?: (
     config: GenerationConfig
   ) => Promise<string | void | null> | string | void | null;
+  resumeStage?: "config" | "outline" | null;
+  resumeSignal?: number;
+  onWorkflowStageChange?: (
+    stage: "config" | "generating_outline" | "outline",
+    payload?: { sessionId?: string | null }
+  ) => void;
 }
 
 export function useGenerationConfigPanel({
   onGenerate,
+  resumeStage,
+  resumeSignal,
+  onWorkflowStageChange,
 }: UseGenerationConfigPanelArgs) {
   const router = useRouter();
   const params = useParams();
@@ -64,6 +73,17 @@ export function useGenerationConfigPanel({
   const [showOutlineEditor, setShowOutlineEditor] = useState(false);
   const sessionId = generationSession?.session?.session_id || "";
   const suggestionRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    if (!resumeStage) return;
+    setShowOutlineEditor(resumeStage === "outline");
+  }, [resumeSignal, resumeStage]);
+
+  useEffect(() => {
+    onWorkflowStageChange?.(showOutlineEditor ? "outline" : "config", {
+      sessionId: sessionId || null,
+    });
+  }, [onWorkflowStageChange, sessionId, showOutlineEditor]);
 
   const pageLabel = useMemo(() => {
     if (pageCount <= 10) return "简洁版";
@@ -160,6 +180,9 @@ export function useGenerationConfigPanel({
     if (!prompt.trim()) return;
     setShowOutlineEditor(false);
     setIsCreatingSession(true);
+    onWorkflowStageChange?.("generating_outline", {
+      sessionId: sessionId || null,
+    });
     try {
       const creationResult = await onGenerate?.({
         prompt: prompt.trim(),
@@ -175,6 +198,9 @@ export function useGenerationConfigPanel({
       if (!sessionIdFromStore) {
         throw new Error("generation session was not created");
       }
+      onWorkflowStageChange?.("generating_outline", {
+        sessionId: sessionIdFromStore,
+      });
 
       const maxAttempts = 60;
       const intervalMs = 2000;
@@ -247,7 +273,16 @@ export function useGenerationConfigPanel({
     } finally {
       setIsCreatingSession(false);
     }
-  }, [onGenerate, outlineStyle, pageCount, projectId, prompt, router]);
+  }, [
+    onGenerate,
+    onWorkflowStageChange,
+    outlineStyle,
+    pageCount,
+    projectId,
+    prompt,
+    router,
+    sessionId,
+  ]);
 
   const handleGoToPreview = useCallback(() => {
     if (!projectId || !sessionId) return;

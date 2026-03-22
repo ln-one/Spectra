@@ -8,6 +8,7 @@ import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
+import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import type {
   StudioCardCapability,
   StudioCardExecutionPlan,
@@ -33,6 +34,8 @@ import {
   TOOL_LABELS,
   type StudioTool,
 } from "./constants";
+import { useStudioWorkflowHistory } from "./history/useStudioWorkflowHistory";
+import type { StudioHistoryItem, StudioHistoryStep } from "./history/types";
 import { SessionArtifacts } from "./components/SessionArtifacts";
 import { ToolGrid } from "./components/ToolGrid";
 
@@ -69,6 +72,18 @@ function isDraftStateEqual(
   });
 }
 
+function normalizeHistoryStep(stepId: string | null | undefined): StudioHistoryStep {
+  if (
+    stepId === "config" ||
+    stepId === "generate" ||
+    stepId === "preview" ||
+    stepId === "outline"
+  ) {
+    return stepId;
+  }
+  return "config";
+}
+
 export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const router = useRouter();
   const {
@@ -76,7 +91,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     layoutMode,
     expandedTool,
     artifactHistoryByTool,
-    currentSessionArtifacts,
     activeSessionId,
     setActiveSessionId,
     fetchArtifactHistory,
@@ -90,7 +104,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       layoutMode: state.layoutMode,
       expandedTool: state.expandedTool,
       artifactHistoryByTool: state.artifactHistoryByTool,
-      currentSessionArtifacts: state.currentSessionArtifacts,
       activeSessionId: state.activeSessionId,
       setActiveSessionId: state.setActiveSessionId,
       fetchArtifactHistory: state.fetchArtifactHistory,
@@ -118,10 +131,33 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     Record<string, StudioCardExecutionPlan>
   >({});
   const [isLoadingCardProtocol, setIsLoadingCardProtocol] = useState(false);
-  const isExpanded = layoutMode === "expanded";
-  const groupedArtifacts = Object.entries(artifactHistoryByTool).filter(
-    ([, items]) => items.length > 0
+  const [pptResumeStage, setPptResumeStage] = useState<"config" | "outline">(
+    "config"
   );
+  const [pptResumeSignal, setPptResumeSignal] = useState(0);
+  const isExpanded = layoutMode === "expanded";
+  const {
+    groupedHistory,
+    currentStepByTool,
+    requestedStepByTool,
+    trackStep,
+    requestStep,
+    acknowledgeStep,
+    recordWorkflowEntry,
+  } = useStudioWorkflowHistory(artifactHistoryByTool);
+  const hasHistory = groupedHistory.length > 0;
+  const requestedHistoryStep = expandedTool
+    ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)
+    : null;
+
+  useEffect(() => {
+    if (!expandedTool) return;
+    trackStep(expandedTool as GenerationToolType, "config");
+  }, [expandedTool, trackStep]);
+
+  useEffect(() => {
+    trackStep("ppt", "config");
+  }, [trackStep]);
   const currentTool = GENERATION_TOOLS.find(
     (tool) => tool.type === expandedTool
   );
@@ -255,9 +291,93 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }));
   }, [currentCardId, draftSourceArtifactId, selectedSourceId]);
 
+  const openPptPreviewPage = useCallback(
+    (sessionId?: string | null, artifactId?: string | null) => {
+      if (!project) return;
+      const query = new URLSearchParams();
+      if (sessionId) {
+        query.set("session", sessionId);
+      }
+      if (artifactId) {
+        query.set("artifact_id", artifactId);
+      }
+      router.push(
+        `/projects/${project.id}/generate${query.toString() ? `?${query.toString()}` : ""}`
+      );
+    },
+    [project, router]
+  );
+
+  const handleOpenHistoryItem = useCallback(
+    (item: StudioHistoryItem) => {
+      if (!project) return;
+
+      if (item.sessionId) {
+        setActiveSessionId(item.sessionId);
+      }
+
+      if (item.toolType === "ppt") {
+        if (item.origin === "artifact" || item.step === "preview") {
+          openPptPreviewPage(item.sessionId, item.artifactId);
+          return;
+        }
+        setLayoutMode("expanded");
+        setExpandedTool("ppt");
+        setPptResumeStage(item.step === "outline" ? "outline" : "config");
+        setPptResumeSignal((prev) => prev + 1);
+        requestStep("ppt", item.step === "outline" ? "outline" : "config");
+        return;
+      }
+
+      setLayoutMode("expanded");
+      setExpandedTool(item.toolType as StudioToolKey);
+      requestStep(
+        item.toolType,
+        item.step === "outline" ? "preview" : normalizeHistoryStep(item.step)
+      );
+    },
+    [
+      openPptPreviewPage,
+      project,
+      requestStep,
+      setActiveSessionId,
+      setExpandedTool,
+      setLayoutMode,
+    ]
+  );
+
+  const handleManagedToolStepChange = useCallback(
+    (stepId: string) => {
+      if (!expandedTool || expandedTool === "ppt") return;
+      const toolType = expandedTool as GenerationToolType;
+      const step = normalizeHistoryStep(stepId);
+      trackStep(toolType, step);
+      acknowledgeStep(toolType, step);
+      if (step !== "generate" && step !== "preview") return;
+      recordWorkflowEntry({
+        toolType,
+        title:
+          step === "generate"
+            ? `${TOOL_LABELS[toolType]}草稿中`
+            : `${TOOL_LABELS[toolType]}预览草稿`,
+        status: "draft",
+        step,
+        sessionId: activeSessionId,
+      });
+    },
+    [
+      acknowledgeStep,
+      activeSessionId,
+      expandedTool,
+      recordWorkflowEntry,
+      trackStep,
+    ]
+  );
+
   const handleToolClick = (tool: StudioTool) => {
     setLayoutMode("expanded");
     setExpandedTool(tool.type);
+    trackStep(tool.type as GenerationToolType, "config");
     onToolClick?.(tool);
   };
 
@@ -371,15 +491,15 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }
   };
 
-  const handleStudioExecute = async () => {
-    if (!project || !currentCardId || isStudioActionRunning) return;
+  const handleStudioExecute = async (): Promise<string | null> => {
+    if (!project || !currentCardId || isStudioActionRunning) return null;
     if (isProtocolPending) {
       toast({
         title: "卡片协议未就绪",
         description: "当前卡片仍在协议补齐中，暂不可执行。",
         variant: "destructive",
       });
-      return;
+      return null;
     }
     if (requiresSourceArtifact && !hasSourceBinding) {
       toast({
@@ -387,10 +507,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         description: "当前卡片需要先绑定 source artifact。",
         variant: "destructive",
       });
-      return;
+      return null;
     }
     const requestBody = buildStudioExecutionRequest();
-    if (!requestBody) return;
+    if (!requestBody) return null;
     try {
       setIsStudioActionRunning(true);
       const response = await studioCardsApi.execute(currentCardId, requestBody);
@@ -413,12 +533,14 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           ? `已生成会话 ${sessionId.slice(0, 8)}`
           : "已提交生成并刷新成果列表",
       });
+      return sessionId;
     } catch (error) {
       toast({
         title: "Studio 执行失败",
         description: getErrorMessage(error),
         variant: "destructive",
       });
+      return null;
     } finally {
       setIsStudioActionRunning(false);
     }
@@ -501,12 +623,14 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     canRefine,
     sourceOptions: currentCardId ? (sourceOptionsByCard[currentCardId] ?? []) : [],
     selectedSourceId,
+    requestedStep: requestedHistoryStep,
     latestArtifacts: currentToolArtifacts.map((item) => ({
       artifactId: item.artifactId,
       title: item.title,
       status: item.status,
       createdAt: item.createdAt,
     })),
+    onStepChange: handleManagedToolStepChange,
     onSelectedSourceChange: (sourceId) => {
       if (!currentCardId) return;
       setSelectedSourceByCard((prev) => ({
@@ -516,7 +640,31 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     },
     onLoadSources: () => handleStudioLoadSources(),
     onPreviewExecution: () => handleStudioPreviewExecution(),
-    onExecute: () => handleStudioExecute(),
+    onExecute: async () => {
+      if (!expandedTool || expandedTool === "ppt") return;
+      const toolType = expandedTool as GenerationToolType;
+      const flowStep =
+        normalizeHistoryStep(currentStepByTool[toolType]) === "preview"
+          ? "preview"
+          : "generate";
+      recordWorkflowEntry({
+        toolType,
+        title: `${TOOL_LABELS[toolType]}生成中`,
+        status: "processing",
+        step: flowStep,
+        sessionId: activeSessionId,
+      });
+      const nextSessionId = await handleStudioExecute();
+      if (nextSessionId) {
+        recordWorkflowEntry({
+          toolType,
+          title: `${TOOL_LABELS[toolType]}生成中`,
+          status: "processing",
+          step: flowStep,
+          sessionId: nextSessionId,
+        });
+      }
+    },
     onRefine: () => handleStudioRefine(),
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
   };
@@ -626,32 +774,15 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                     onHoveredToolIdChange={setHoveredToolId}
                     onToolClick={handleToolClick}
                   />
-                  {currentSessionArtifacts.length > 0 && !isExpanded ? (
+                  {hasHistory && !isExpanded ? (
                     <SessionArtifacts
-                      groupedArtifacts={groupedArtifacts}
+                      groupedHistory={groupedHistory}
                       toolLabels={TOOL_LABELS}
                       onRefresh={() => {
                         if (!project) return;
                         void fetchArtifactHistory(project.id, activeSessionId);
                       }}
-                      onOpenArtifact={(item) => {
-                        if (!project) return;
-                        if (item.sessionId) setActiveSessionId(item.sessionId);
-                        const query = new URLSearchParams();
-                        const targetSessionId =
-                          item.sessionId ?? activeSessionId ?? "";
-                        if (targetSessionId) {
-                          query.set("session", targetSessionId);
-                        }
-                        if (item.artifactId) {
-                          query.set("artifact_id", item.artifactId);
-                        }
-                        router.push(
-                          `/projects/${project.id}/generate${
-                            query.toString() ? `?${query.toString()}` : ""
-                          }`
-                        );
-                      }}
+                      onOpenHistoryItem={handleOpenHistoryItem}
                       onExportArtifact={(artifactId) => {
                         void exportArtifact(artifactId);
                       }}
@@ -682,6 +813,37 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       <div className="h-full">
                         <GenerationConfigPanel
                           variant="compact"
+                          resumeStage={pptResumeStage}
+                          resumeSignal={pptResumeSignal}
+                          onWorkflowStageChange={(stage, payload) => {
+                            if (stage === "config") {
+                              trackStep("ppt", "config");
+                              acknowledgeStep("ppt", "config");
+                              return;
+                            }
+                            if (stage === "generating_outline") {
+                              trackStep("ppt", "generate");
+                              recordWorkflowEntry({
+                                toolType: "ppt",
+                                title: "PPT 大纲生成中",
+                                status: "processing",
+                                step: "generate",
+                                sessionId:
+                                  payload?.sessionId ?? activeSessionId ?? null,
+                              });
+                              return;
+                            }
+                            trackStep("ppt", "outline");
+                            acknowledgeStep("ppt", "outline");
+                            recordWorkflowEntry({
+                              toolType: "ppt",
+                              title: "PPT 大纲配置中",
+                              status: "draft",
+                              step: "outline",
+                              sessionId:
+                                payload?.sessionId ?? activeSessionId ?? null,
+                            });
+                          }}
                           onGenerate={async (config) => {
                             const tool = GENERATION_TOOLS.find(
                               (item) => item.type === expandedTool
@@ -693,7 +855,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               problem: "问题驱动、启发式、强调思考",
                               workshop: "实操导向、案例化、可落地",
                             };
-                            await startGeneration(project.id, tool, {
+                            const sessionId = await startGeneration(project.id, tool, {
                               template: "default",
                               show_page_number: true,
                               include_animations: false,
@@ -709,6 +871,17 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                 "请在每页中给出明确教学目标与讲解节奏。",
                               ].join("\n"),
                             });
+                            if (sessionId) {
+                              setActiveSessionId(sessionId);
+                              recordWorkflowEntry({
+                                toolType: "ppt",
+                                title: "PPT 大纲生成中",
+                                status: "processing",
+                                step: "generate",
+                                sessionId,
+                              });
+                            }
+                            return sessionId;
                           }}
                         />
                       </div>

@@ -13,6 +13,7 @@ import { GenerateStep } from "./speaker-notes/GenerateStep";
 import { PreviewStep } from "./speaker-notes/PreviewStep";
 import { buildSlideScripts } from "./speaker-notes/templates";
 import type { SlideScriptItem, SpeakerNotesStep, SpeechTone } from "./speaker-notes/types";
+import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 export function SpeakerNotesToolPanel({
   toolName,
@@ -20,6 +21,7 @@ export function SpeakerNotesToolPanel({
   flowContext,
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<SpeakerNotesStep>("config");
+  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [topic, setTopic] = useState("函数单调性公开课说课");
   const [tone, setTone] = useState<SpeechTone>("professional");

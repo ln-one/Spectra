@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { WorkflowStepper, type WorkflowStepItem } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
+import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 type WordStep = "config" | "generate" | "preview";
 
@@ -92,6 +93,7 @@ export function WordToolPanel({
   flowContext,
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<WordStep>("config");
+  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [docType, setDocType] =
     useState<(typeof DOC_TYPES)[number]["id"]>("layered-plan");
   const [model, setModel] = useState<(typeof MODEL_OPTIONS)[number]>("BOPPPS");

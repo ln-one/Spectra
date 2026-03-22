@@ -17,6 +17,7 @@ import {
 } from "./simulation/question-bank";
 import { PreviewStep } from "./simulation/PreviewStep";
 import type { SimulationQuestion, SimulationStep, StudentProfile } from "./simulation/types";
+import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 export function SimulationToolPanel({
   toolName,
@@ -24,6 +25,7 @@ export function SimulationToolPanel({
   flowContext,
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<SimulationStep>("config");
+  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [topic, setTopic] = useState("牛顿第二定律边界条件");
   const [intensity, setIntensity] = useState(60);
   const [profile, setProfile] = useState<StudentProfile>("detail_oriented");
