@@ -58,11 +58,8 @@ const STUDIO_CARD_BY_TOOL: Partial<Record<StudioToolKey, string>> = {
   handout: "classroom_qa_simulator",
 };
 
-const DEFAULT_CAPABILITY_ERROR: CapabilityResolution = {
-  status: "backend_error",
-  reason: "能力状态初始化失败，已回退前端示意内容。",
-  resolvedArtifact: null,
-};
+const DEFAULT_CAPABILITY_PENDING_REASON =
+  "正在检测后端能力状态，当前先展示前端示意内容。";
 
 function isDraftStateEqual(
   left: ToolDraftState | undefined,
@@ -290,6 +287,24 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const currentCapabilityState = currentCardId
     ? capabilityStateByCardId[currentCardId]
     : undefined;
+  const fallbackCapabilityState = useMemo(() => {
+    if (!expandedTool || expandedTool === "ppt") {
+      return {
+        status: "backend_placeholder" as const,
+        reason: DEFAULT_CAPABILITY_PENDING_REASON,
+        resolvedArtifact: null,
+        isLoading: false,
+      };
+    }
+    const defaultResolution = buildCapabilityWithoutArtifact(
+      expandedTool as StudioToolKey
+    );
+    return {
+      ...defaultResolution,
+      isLoading: defaultResolution.status !== "backend_not_implemented",
+    };
+  }, [expandedTool]);
+  const activeCapabilityState = currentCapabilityState ?? fallbackCapabilityState;
   const handleExpandedToolDraftChange = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") {
       return undefined;
@@ -814,10 +829,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     supportsChatRefine,
     canExecute,
     canRefine,
-    capabilityStatus: currentCapabilityState?.status ?? DEFAULT_CAPABILITY_ERROR.status,
-    capabilityReason: currentCapabilityState?.reason ?? DEFAULT_CAPABILITY_ERROR.reason,
-    isCapabilityLoading: currentCapabilityState?.isLoading ?? false,
-    resolvedArtifact: currentCapabilityState?.resolvedArtifact ?? null,
+    capabilityStatus: activeCapabilityState.status,
+    capabilityReason: activeCapabilityState.reason,
+    isCapabilityLoading: activeCapabilityState.isLoading,
+    resolvedArtifact: activeCapabilityState.resolvedArtifact,
     sourceOptions: currentCardId
       ? (sourceOptionsByCard[currentCardId] ?? [])
       : [],
@@ -1341,3 +1356,5 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 }
 
 export { StudioPanel as StudioExpandedPanel };
+
+
