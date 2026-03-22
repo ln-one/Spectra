@@ -897,7 +897,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               if (!resolvedSessionId) {
                                 return;
                               }
-                              const runId = startWorkflowRun("ppt");
+                              const runId =
+                                getCurrentWorkflowRun("ppt") ??
+                                startWorkflowRun("ppt");
                               trackStep("ppt", "generate");
                               recordWorkflowEntry({
                                 toolType: "ppt",

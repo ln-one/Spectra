@@ -85,10 +85,19 @@ export function useGenerationConfigPanel({
   }, [resumeSignal, resumeStage]);
 
   useEffect(() => {
-    workflowStageChangeRef.current?.(showOutlineEditor ? "outline" : "config", {
+    if (showOutlineEditor) {
+      workflowStageChangeRef.current?.(
+        isCreatingSession ? "generating_outline" : "outline",
+        {
+          sessionId: sessionId || null,
+        }
+      );
+      return;
+    }
+    workflowStageChangeRef.current?.("config", {
       sessionId: sessionId || null,
     });
-  }, [sessionId, showOutlineEditor]);
+  }, [isCreatingSession, sessionId, showOutlineEditor]);
 
   const pageLabel = useMemo(() => {
     if (pageCount <= 10) return "简洁版";

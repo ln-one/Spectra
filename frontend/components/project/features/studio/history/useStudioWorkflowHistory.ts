@@ -157,12 +157,33 @@ export function useStudioWorkflowHistory(
     };
 
     setWorkflowItems((prev) => {
-      const index = prev.findIndex((item) => item.id === nextItem.id);
+      let resolvedItemId = nextItem.id;
+      if (!input.runId && input.sessionId) {
+        // When runId is not available (e.g. resume/reopen), continue writing
+        // to the latest workflow item in the same session to avoid duplicates.
+        const sameSessionItem = prev.find(
+          (item) =>
+            item.origin === "workflow" &&
+            item.toolType === input.toolType &&
+            item.sessionId === input.sessionId
+        );
+        if (sameSessionItem) {
+          resolvedItemId = sameSessionItem.id;
+        }
+      }
+      const index = prev.findIndex((item) => item.id === resolvedItemId);
+      const itemWithResolvedId =
+        resolvedItemId === nextItem.id
+          ? nextItem
+          : {
+              ...nextItem,
+              id: resolvedItemId,
+            };
       if (index < 0) {
-        return [nextItem, ...prev].slice(0, 80);
+        return [itemWithResolvedId, ...prev].slice(0, 80);
       }
       const rest = prev.filter((_, idx) => idx !== index);
-      return [nextItem, ...rest];
+      return [itemWithResolvedId, ...rest];
     });
 
     if (!input.titleSource?.trim()) return;
