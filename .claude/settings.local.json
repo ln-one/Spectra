@@ -28,7 +28,8 @@
       "Bash(gh api:*)",
       "Bash(while read f)",
       "Bash(do wc -l \"$f\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(netstat:*)"
     ]
   }
 }
