@@ -265,6 +265,9 @@ export function useGenerationConfigPanel({
           description: "已进入编辑页，可手动补充或稍后重试生成。",
         });
       }
+      workflowStageChangeRef.current?.("outline", {
+        sessionId: sessionIdFromStore,
+      });
       setShowOutlineEditor(true);
     } catch (error) {
       const message =
