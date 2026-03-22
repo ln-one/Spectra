@@ -62,6 +62,9 @@ export function useStudioWorkflowHistory(
   artifactHistoryByTool: ArtifactHistoryByTool
 ) {
   const [workflowItems, setWorkflowItems] = useState<StudioHistoryItem[]>([]);
+  const [hiddenHistoryIds, setHiddenHistoryIds] = useState<Record<string, true>>(
+    {}
+  );
   const [requestedStepByTool, setRequestedStepByTool] =
     useState<RequestedStepByTool>({});
   const [currentStepByTool, setCurrentStepByTool] = useState<CurrentStepByTool>(
@@ -126,6 +129,16 @@ export function useStudioWorkflowHistory(
     []
   );
 
+  const hideHistoryItem = useCallback((item: StudioHistoryItem) => {
+    setHiddenHistoryIds((prev) => {
+      if (prev[item.id]) return prev;
+      return {
+        ...prev,
+        [item.id]: true,
+      };
+    });
+  }, []);
+
   const groupedHistory = useMemo(() => {
     const artifactItems = TOOL_ORDER.flatMap((toolType) =>
       (artifactHistoryByTool[toolType] ?? []).map(toArtifactHistoryItem)
@@ -142,6 +155,7 @@ export function useStudioWorkflowHistory(
 
     return TOOL_ORDER.map((toolType) => {
       const items = [...filteredWorkflow, ...artifactItems]
+        .filter((item) => !hiddenHistoryIds[item.id])
         .filter((item) => item.toolType === toolType)
         .sort(
           (a, b) =>
@@ -149,7 +163,7 @@ export function useStudioWorkflowHistory(
         );
       return [toolType, items] as [GenerationToolType, StudioHistoryItem[]];
     }).filter(([, items]) => items.length > 0);
-  }, [artifactHistoryByTool, workflowItems]);
+  }, [artifactHistoryByTool, hiddenHistoryIds, workflowItems]);
 
   return {
     groupedHistory,
@@ -159,5 +173,6 @@ export function useStudioWorkflowHistory(
     requestStep,
     acknowledgeStep,
     recordWorkflowEntry,
+    hideHistoryItem,
   };
 }

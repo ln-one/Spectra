@@ -1,7 +1,25 @@
-"use client";
+﻿"use client";
 
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, Clock3, Download, Loader2, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock3,
+  Download,
+  Loader2,
+  Trash2,
+  XCircle,
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { StudioHistoryItem } from "../history/types";
@@ -12,6 +30,7 @@ interface SessionArtifactsProps {
   onRefresh: () => void;
   onOpenHistoryItem: (item: StudioHistoryItem) => void;
   onExportArtifact: (artifactId: string) => void;
+  onDeleteHistoryItem: (item: StudioHistoryItem) => void;
 }
 
 function statusText(status: StudioHistoryItem["status"]) {
@@ -40,7 +59,11 @@ export function SessionArtifacts({
   onRefresh,
   onOpenHistoryItem,
   onExportArtifact,
+  onDeleteHistoryItem,
 }: SessionArtifactsProps) {
+  const [pendingDeleteItem, setPendingDeleteItem] =
+    useState<StudioHistoryItem | null>(null);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -81,7 +104,7 @@ export function SessionArtifacts({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
                   transition={{ delay: index * 0.04 }}
-                  className="flex items-center gap-2 rounded-xl bg-[var(--project-surface-muted)] p-2 transition-colors hover:brightness-95"
+                  className="group flex items-center gap-2 rounded-xl bg-[var(--project-surface-muted)] p-2 transition-colors hover:brightness-95"
                 >
                   <button
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-elevated)] shadow-sm"
@@ -108,38 +131,79 @@ export function SessionArtifacts({
                       >
                         {statusText(item.status)}
                       </span>
-                      <span>
-                        {new Date(item.createdAt).toLocaleString("zh-CN")}
-                      </span>
+                      <span>{new Date(item.createdAt).toLocaleString("zh-CN")}</span>
                     </p>
                   </div>
-                  {item.artifactId ? (
+
+                  <div className="flex items-center gap-1">
+                    {item.artifactId ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-lg"
+                        onClick={() => {
+                          if (!item.artifactId) return;
+                          onExportArtifact(item.artifactId);
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
+                      </Button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="h-7 rounded-lg border border-[var(--project-control-border)] px-2 text-[10px] text-[var(--project-text-muted)]"
+                        onClick={() => onOpenHistoryItem(item)}
+                      >
+                        继续
+                      </button>
+                    )}
+
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-lg"
-                      onClick={() => {
-                        if (!item.artifactId) return;
-                        onExportArtifact(item.artifactId);
-                      }}
+                      className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() => setPendingDeleteItem(item)}
                     >
-                      <Download className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="h-7 rounded-lg border border-[var(--project-control-border)] px-2 text-[10px] text-[var(--project-text-muted)]"
-                      onClick={() => onOpenHistoryItem(item)}
-                    >
-                      继续
-                    </button>
-                  )}
+                  </div>
                 </motion.div>
               ))}
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
+
+      <AlertDialog
+        open={Boolean(pendingDeleteItem)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteItem(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除这条记录？</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后会从当前历史列表中移除，无法在此面板恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDeleteItem) {
+                  onDeleteHistoryItem(pendingDeleteItem);
+                }
+                setPendingDeleteItem(null);
+              }}
+            >
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 }

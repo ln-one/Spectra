@@ -146,6 +146,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     requestStep,
     acknowledgeStep,
     recordWorkflowEntry,
+    hideHistoryItem,
   } = useStudioWorkflowHistory(artifactHistoryByTool);
   const hasHistory = groupedHistory.length > 0;
   const requestedHistoryStep = expandedTool
@@ -792,6 +793,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       onExportArtifact={(artifactId) => {
                         void exportArtifact(artifactId);
                       }}
+                      onDeleteHistoryItem={hideHistoryItem}
                     />
                   ) : null}
                 </div>
