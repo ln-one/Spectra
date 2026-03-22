@@ -147,7 +147,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     acknowledgeStep,
     recordWorkflowEntry,
     hideHistoryItem,
-  } = useStudioWorkflowHistory(artifactHistoryByTool);
+  } = useStudioWorkflowHistory(artifactHistoryByTool, activeSessionId);
   const hasHistory = groupedHistory.length > 0;
   const requestedHistoryStep = expandedTool
     ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)

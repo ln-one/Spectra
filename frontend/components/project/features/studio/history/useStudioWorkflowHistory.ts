@@ -59,7 +59,8 @@ type RequestedStepByTool = Partial<
 type CurrentStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
 
 export function useStudioWorkflowHistory(
-  artifactHistoryByTool: ArtifactHistoryByTool
+  artifactHistoryByTool: ArtifactHistoryByTool,
+  activeSessionId?: string | null
 ) {
   const [workflowItems, setWorkflowItems] = useState<StudioHistoryItem[]>([]);
   const [hiddenHistoryIds, setHiddenHistoryIds] = useState<Record<string, true>>(
@@ -148,7 +149,17 @@ export function useStudioWorkflowHistory(
         .filter((item) => item.status === "completed" && item.sessionId)
         .map((item) => `${item.toolType}:${item.sessionId}`)
     );
-    const filteredWorkflow = workflowItems.filter((item) => {
+    const sessionScopedWorkflow = workflowItems.filter((item) => {
+      if (!activeSessionId) {
+        return !item.sessionId;
+      }
+      if (!item.sessionId) {
+        return true;
+      }
+      return item.sessionId === activeSessionId;
+    });
+
+    const filteredWorkflow = sessionScopedWorkflow.filter((item) => {
       if (item.status !== "processing" || !item.sessionId) return true;
       return !completedSessions.has(`${item.toolType}:${item.sessionId}`);
     });
@@ -163,7 +174,7 @@ export function useStudioWorkflowHistory(
         );
       return [toolType, items] as [GenerationToolType, StudioHistoryItem[]];
     }).filter(([, items]) => items.length > 0);
-  }, [artifactHistoryByTool, hiddenHistoryIds, workflowItems]);
+  }, [activeSessionId, artifactHistoryByTool, hiddenHistoryIds, workflowItems]);
 
   return {
     groupedHistory,
