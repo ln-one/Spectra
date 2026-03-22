@@ -1,7 +1,7 @@
 import { BookText, CircleCheck, Download, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ToolFlowContext } from "../types";
-import { MindmapTreeList } from "./MindmapTreeList";
+import { MindmapCanvas } from "./MindmapCanvas";
 import type { MindNode } from "./types";
 
 interface PreviewStepProps {
@@ -72,13 +72,11 @@ export function PreviewStep({
               为当前节点补充子分支
             </Button>
           </div>
-          <div className="space-y-1.5">
-            <MindmapTreeList
-              node={tree}
-              selectedId={selectedId}
-              onSelect={onSelectNode}
-            />
-          </div>
+          <MindmapCanvas
+            tree={tree}
+            selectedId={selectedId}
+            onSelectNode={onSelectNode}
+          />
           <p className="mt-3 text-[11px] text-zinc-500">
             提示：选中节点后，可在右上角 Chat 输入“把这个点再展开两层”继续细化。
           </p>
