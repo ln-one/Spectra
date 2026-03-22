@@ -110,7 +110,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     expandedTool,
     artifactHistoryByTool,
     activeSessionId,
+    activeRunId,
+    generationSession,
     setActiveSessionId,
+    setActiveRunId,
     fetchArtifactHistory,
     exportArtifact,
     setLayoutMode,
@@ -126,7 +129,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       expandedTool: state.expandedTool,
       artifactHistoryByTool: state.artifactHistoryByTool,
       activeSessionId: state.activeSessionId,
+      activeRunId: state.activeRunId,
+      generationSession: state.generationSession,
       setActiveSessionId: state.setActiveSessionId,
+      setActiveRunId: state.setActiveRunId,
       fetchArtifactHistory: state.fetchArtifactHistory,
       exportArtifact: state.exportArtifact,
       setLayoutMode: state.setLayoutMode,
@@ -210,6 +216,19 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const getCurrentWorkflowRun = useCallback((toolType: GenerationToolType) => {
     return workflowRunIdByToolRef.current[toolType] ?? null;
   }, []);
+
+  const resolvePptRunId = useCallback(
+    (fallback?: string | null) => {
+      const stateRunId = activeRunId;
+      if (stateRunId) return stateRunId;
+      const sessionRunId = (
+        generationSession as { current_run?: { run_id?: string } } | null
+      )?.current_run?.run_id;
+      if (sessionRunId) return sessionRunId;
+      return fallback ?? null;
+    },
+    [activeRunId, generationSession]
+  );
 
   useEffect(() => {
     if (!expandedTool) return;
@@ -575,7 +594,11 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   }, [currentCardId, currentToolArtifacts, expandedTool, project?.id]);
 
   const openPptPreviewPage = useCallback(
-    (sessionId?: string | null, artifactId?: string | null) => {
+    (
+      sessionId?: string | null,
+      artifactId?: string | null,
+      runId?: string | null
+    ) => {
       if (!project) return;
       const query = new URLSearchParams();
       if (sessionId) {
@@ -584,13 +607,15 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       if (artifactId) {
         query.set("artifact_id", artifactId);
       }
+      if (runId) {
+        query.set("run", runId);
+      }
       router.push(
         `/projects/${project.id}/generate${query.toString() ? `?${query.toString()}` : ""}`
       );
     },
     [project, router]
   );
-
   const handleOpenHistoryItem = useCallback(
     async (item: StudioHistoryItem) => {
       if (!project) return;
@@ -598,14 +623,24 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       if (item.sessionId) {
         setActiveSessionId(item.sessionId);
       }
+      if (item.runId) {
+        setActiveRunId(item.runId);
+      }
       const sessionId = item.sessionId ?? null;
 
       if (item.toolType === "ppt" && item.step === "outline" && sessionId) {
         try {
           const sessionResponse = await generateApi.getSession(sessionId);
           const latestSession = sessionResponse?.data ?? null;
+          let latestRunId: string | null = null;
           if (latestSession) {
-            useProjectStore.setState({ generationSession: latestSession });
+            latestRunId = (
+              latestSession as { current_run?: { run_id?: string } }
+            ).current_run?.run_id ?? null;
+            useProjectStore.setState({
+              generationSession: latestSession,
+              activeRunId: latestRunId,
+            });
           }
           const latestState = latestSession?.session?.state;
           const isPreviewState =
@@ -615,7 +650,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           if (isPreviewState) {
             trackStep("ppt", "preview");
             acknowledgeStep("ppt", "preview");
-            const runId = getCurrentWorkflowRun("ppt") || undefined;
+            const runId = item.runId || resolvePptRunId(latestRunId) || undefined;
             recordWorkflowEntry({
               toolType: "ppt",
               title: "PPT 预览中",
@@ -625,7 +660,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
               runId,
               toolLabel: TOOL_LABELS.ppt,
             });
-            openPptPreviewPage(sessionId, item.artifactId);
+            openPptPreviewPage(sessionId, item.artifactId, runId);
             return;
           }
         } catch {
@@ -635,7 +670,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 
       if (item.toolType === "ppt") {
         if (item.origin === "artifact" || item.step === "preview") {
-          openPptPreviewPage(sessionId, item.artifactId);
+          const runId = item.runId || resolvePptRunId() || undefined;
+          openPptPreviewPage(sessionId, item.artifactId, runId);
           return;
         }
         const shouldOpenOutlineStage =
@@ -659,9 +695,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       openPptPreviewPage,
       project,
       acknowledgeStep,
-      getCurrentWorkflowRun,
       recordWorkflowEntry,
       requestStep,
+      resolvePptRunId,
+      setActiveRunId,
       setActiveSessionId,
       setExpandedTool,
       setLayoutMode,
@@ -1174,9 +1211,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               if (!resolvedSessionId) {
                                 return;
                               }
-                              const runId =
-                                getCurrentWorkflowRun("ppt") ??
-                                startWorkflowRun("ppt");
+                              const runId = resolvePptRunId() || undefined;
                               trackStep("ppt", "generate");
                               recordWorkflowEntry({
                                 toolType: "ppt",
@@ -1197,8 +1232,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               }
                               trackStep("ppt", "preview");
                               acknowledgeStep("ppt", "preview");
-                              const runId =
-                                getCurrentWorkflowRun("ppt") || undefined;
+                              const runId = resolvePptRunId() || undefined;
                               recordWorkflowEntry({
                                 toolType: "ppt",
                                 title: "PPT 预览中",
@@ -1212,7 +1246,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                             }
                             trackStep("ppt", "outline");
                             acknowledgeStep("ppt", "outline");
-                            const runId = getCurrentWorkflowRun("ppt") || undefined;
+                            const runId = resolvePptRunId() || undefined;
                             recordWorkflowEntry({
                               toolType: "ppt",
                               title: "PPT 大纲配置中",
@@ -1484,5 +1518,16 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 }
 
 export { StudioPanel as StudioExpandedPanel };
+
+
+
+
+
+
+
+
+
+
+
 
 

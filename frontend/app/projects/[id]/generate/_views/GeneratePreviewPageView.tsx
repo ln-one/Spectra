@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { generateApi } from "@/lib/sdk";
 import { SlideCard } from "./SlideCard";
 import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { PreviewHeader } from "./components/PreviewHeader";
@@ -32,16 +33,16 @@ export default function GeneratePreviewPage() {
   const slidesRef = useRef<HTMLDivElement>(null);
   const activeSlideIndexRef = useRef(0);
 
-  useEffect(() => {
-    activeSlideIndexRef.current = activeSlideIndex;
-  }, [activeSlideIndex]);
-
   const sessionIdFromQuery = searchParams?.get("session") || null;
+  const runIdFromQuery = searchParams?.get("run") || null;
   const artifactIdFromQuery = searchParams?.get("artifact_id") || null;
+  const searchQueryString = searchParams?.toString() || "";
+
   const projectBackHref = (sessionId: string | null) =>
     sessionId
       ? `/projects/${projectId}?session=${encodeURIComponent(sessionId)}`
       : `/projects/${projectId}`;
+
   const {
     slides,
     isLoading,
@@ -58,8 +59,38 @@ export default function GeneratePreviewPage() {
   } = useGeneratePreviewState({
     projectId,
     sessionIdFromQuery,
+    runIdFromQuery,
     artifactIdFromQuery,
   });
+
+  useEffect(() => {
+    if (!sessionIdFromQuery || runIdFromQuery || !projectId) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const runsResponse = await generateApi.listRuns(sessionIdFromQuery, {
+          limit: 1,
+        });
+        const latestRunId = runsResponse?.data?.runs?.[0]?.run_id || null;
+        if (!latestRunId || cancelled) return;
+
+        const query = new URLSearchParams(searchQueryString);
+        query.set("run", latestRunId);
+        router.replace(`/projects/${projectId}/generate?${query.toString()}`);
+      } catch {
+        // Keep legacy session-only URL behavior when run lookup fails.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, router, runIdFromQuery, searchQueryString, sessionIdFromQuery]);
+
+  useEffect(() => {
+    activeSlideIndexRef.current = activeSlideIndex;
+  }, [activeSlideIndex]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -67,8 +98,7 @@ export default function GeneratePreviewPage() {
 
     const updateActiveSlideByViewport = () => {
       if (!containerRef.current) return;
-      const slideElements =
-        containerRef.current.querySelectorAll(".slide-card");
+      const slideElements = containerRef.current.querySelectorAll(".slide-card");
       let currentActiveIndex = activeSlideIndexRef.current;
       const containerTop = containerRef.current.scrollTop;
       const containerCenter =
@@ -249,3 +279,5 @@ export default function GeneratePreviewPage() {
     </TooltipProvider>
   );
 }
+
+

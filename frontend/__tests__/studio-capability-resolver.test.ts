@@ -21,15 +21,15 @@ function makeArtifact(
 }
 
 describe("studio capability resolver", () => {
-  it("marks word/summary/handout as backend not implemented", () => {
+  it("marks word/summary/handout as backend placeholder", () => {
     expect(buildCapabilityWithoutArtifact("word").status).toBe(
-      "backend_not_implemented"
+      "backend_placeholder"
     );
     expect(buildCapabilityWithoutArtifact("summary").status).toBe(
-      "backend_not_implemented"
+      "backend_placeholder"
     );
     expect(buildCapabilityWithoutArtifact("handout").status).toBe(
-      "backend_not_implemented"
+      "backend_placeholder"
     );
   });
 
@@ -58,7 +58,7 @@ describe("studio capability resolver", () => {
     });
 
     expect(result.status).toBe("backend_placeholder");
-    expect(result.reason).toContain("空 nodes");
+    expect(result.reason).toContain("暂时为空");
   });
 
   it("marks quiz exercise as ready only when questions is non-empty", async () => {
@@ -109,3 +109,4 @@ describe("studio capability resolver", () => {
     expect(ready.resolvedArtifact?.contentKind).toBe("media");
   });
 });
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -23,6 +23,8 @@ const TOOL_ORDER: GenerationToolType[] = [
   "handout",
 ];
 
+const WORKFLOW_HISTORY_STORAGE_VERSION = "run-v2";
+
 type WorkflowEntryInput = {
   toolType: GenerationToolType;
   title: string;
@@ -32,6 +34,7 @@ type WorkflowEntryInput = {
   artifactId?: string;
   createdAt?: string;
   runId?: string;
+  runNo?: number | null;
   titleSource?: string;
   toolLabel?: string;
 };
@@ -41,8 +44,8 @@ function summarizeTitleFromText(text: string, toolLabel: string): string {
     .replace(/[`*_#>[\](){}]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!cleaned) return `${toolLabel}任务`;
-  const sentence = cleaned.split(/[。！？；\n\r,.!?;:]/)[0]?.trim() || cleaned;
+  if (!cleaned) return `${toolLabel}浠诲姟`;
+  const sentence = cleaned.split(/[銆傦紒锛燂紱\n\r,.!?;:]/)[0]?.trim() || cleaned;
   return sentence.slice(0, 16);
 }
 
@@ -57,6 +60,8 @@ function toArtifactHistoryItem(item: ArtifactHistoryItem): StudioHistoryItem {
     sessionId: item.sessionId ?? null,
     step: "preview",
     artifactId: item.artifactId,
+    runId: item.runId ?? null,
+    runNo: item.runNo ?? null,
   };
 }
 
@@ -90,7 +95,7 @@ function readPersistedWorkflowHistory(
 ): PersistedWorkflowHistory {
   if (typeof window === "undefined") return {};
   if (!projectId) return {};
-  const storageKey = `studio-workflow-history:${projectId}`;
+  const storageKey = `studio-workflow-history:${WORKFLOW_HISTORY_STORAGE_VERSION}:${projectId}`;
   try {
     const raw = window.localStorage.getItem(storageKey);
     if (!raw) return {};
@@ -134,7 +139,7 @@ export function useStudioWorkflowHistory(
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!projectId) return;
-    const storageKey = `studio-workflow-history:${projectId}`;
+    const storageKey = `studio-workflow-history:${WORKFLOW_HISTORY_STORAGE_VERSION}:${projectId}`;
     const payload = {
       workflowItems,
       hiddenHistoryIds,
@@ -154,6 +159,8 @@ export function useStudioWorkflowHistory(
       sessionId: input.sessionId ?? null,
       step: input.step,
       artifactId: input.artifactId,
+      runId: input.runId ?? null,
+      runNo: input.runNo ?? null,
     };
 
     setWorkflowItems((prev) => {
@@ -278,11 +285,18 @@ export function useStudioWorkflowHistory(
     const artifactItems = TOOL_ORDER.flatMap((toolType) =>
       (artifactHistoryByTool[toolType] ?? []).map(toArtifactHistoryItem)
     );
-    const completedSessions = new Set(
-      artifactItems
-        .filter((item) => item.status === "completed" && item.sessionId)
-        .map((item) => `${item.toolType}:${item.sessionId}`)
-    );
+    const latestCompletedBySession = new Map<string, number>();
+    artifactItems.forEach((item) => {
+      if (item.status !== "completed" || !item.sessionId) {
+        return;
+      }
+      const key = `${item.toolType}:${item.sessionId}`;
+      const completedAt = new Date(item.createdAt).getTime();
+      const previous = latestCompletedBySession.get(key) ?? Number.NEGATIVE_INFINITY;
+      if (completedAt > previous) {
+        latestCompletedBySession.set(key, completedAt);
+      }
+    });
     const sessionScopedWorkflow = workflowItems.filter((item) => {
       if (!activeSessionId) {
         return !item.sessionId;
@@ -300,7 +314,13 @@ export function useStudioWorkflowHistory(
       ) {
         return true;
       }
-      return !completedSessions.has(`${item.toolType}:${item.sessionId}`);
+      const key = `${item.toolType}:${item.sessionId}`;
+      const latestCompletedAt = latestCompletedBySession.get(key);
+      if (latestCompletedAt == null) {
+        return true;
+      }
+      const workflowStartedAt = new Date(item.createdAt).getTime();
+      return workflowStartedAt > latestCompletedAt;
     });
 
     return TOOL_ORDER.map((toolType) => {
@@ -328,3 +348,8 @@ export function useStudioWorkflowHistory(
     unarchiveHistoryItem,
   };
 }
+
+
+
+
+

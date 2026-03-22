@@ -9,14 +9,23 @@ import type { components } from "@/lib/sdk/types";
 import { useShallow } from "zustand/react/shallow";
 
 type Slide = components["schemas"]["Slide"];
+type SessionStatePayload = components["schemas"]["SessionStatePayload"];
+
+type SessionStatePayloadWithRun = SessionStatePayload & {
+  current_run?: {
+    run_id?: string;
+  };
+};
 
 export function useGeneratePreviewState({
   projectId,
   sessionIdFromQuery,
+  runIdFromQuery,
   artifactIdFromQuery,
 }: {
   projectId: string;
   sessionIdFromQuery: string | null;
+  runIdFromQuery: string | null;
   artifactIdFromQuery: string | null;
 }) {
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -36,14 +45,18 @@ export function useGeneratePreviewState({
   const {
     generationSession,
     generationHistory,
+    activeRunId: activeRunIdInStore,
     fetchGenerationHistory,
     setActiveSessionId,
+    setActiveRunId,
   } = useProjectStore(
     useShallow((state) => ({
       generationSession: state.generationSession,
       generationHistory: state.generationHistory,
+      activeRunId: state.activeRunId,
       fetchGenerationHistory: state.fetchGenerationHistory,
       setActiveSessionId: state.setActiveSessionId,
+      setActiveRunId: state.setActiveRunId,
     }))
   );
 
@@ -52,10 +65,21 @@ export function useGeneratePreviewState({
     generationSession?.session.session_id ||
     (generationHistory.length > 0 ? generationHistory[0].id : null);
 
+  const activeRunId =
+    runIdFromQuery ||
+    activeRunIdInStore ||
+    ((generationSession as SessionStatePayloadWithRun | null)?.current_run
+      ?.run_id ?? null);
+
   useEffect(() => {
     if (!sessionIdFromQuery) return;
     setActiveSessionId(sessionIdFromQuery);
   }, [sessionIdFromQuery, setActiveSessionId]);
+
+  useEffect(() => {
+    if (!runIdFromQuery) return;
+    setActiveRunId(runIdFromQuery);
+  }, [runIdFromQuery, setActiveRunId]);
 
   useEffect(() => {
     if (artifactIdFromQuery) {
@@ -88,14 +112,21 @@ export function useGeneratePreviewState({
       setPreviewBlockedReason(null);
       const response = await previewApi.getSessionPreview(activeSessionId, {
         artifact_id: currentArtifactId ?? undefined,
+        run_id: activeRunId ?? undefined,
       });
 
-      if (response.success && response.data.slides) {
+      if (response.success && response.data?.slides) {
         setSlides(response.data.slides.sort((a, b) => a.index - b.index));
         setCurrentArtifactId(response.data.artifact_id ?? null);
       }
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
+        const reason =
+          typeof error.details?.reason === "string" ? error.details.reason : null;
+        if (reason === "run_not_ready") {
+          setPreviewBlockedReason("当前运行尚未产生可预览内容，请稍候。");
+          return;
+        }
         toast({
           title: "版本已变化",
           description: "版本变化，请刷新后重试。",
@@ -109,9 +140,7 @@ export function useGeneratePreviewState({
           const sessionResp = await generateApi.getSession(activeSessionId);
           const state = sessionResp?.data?.session?.state;
           if (state === "AWAITING_OUTLINE_CONFIRM") {
-            setPreviewBlockedReason(
-              "当前会话仍在大纲确认阶段，请先确认后再预览。"
-            );
+            setPreviewBlockedReason("当前会话仍在大纲确认阶段，请先确认后再预览。");
           } else {
             setPreviewBlockedReason(error.message);
           }
@@ -124,7 +153,7 @@ export function useGeneratePreviewState({
     } finally {
       setIsLoading(false);
     }
-  }, [activeSessionId, currentArtifactId]);
+  }, [activeRunId, activeSessionId, currentArtifactId]);
 
   const handleResume = useCallback(async () => {
     if (!activeSessionId || isResuming) return;
@@ -157,7 +186,7 @@ export function useGeneratePreviewState({
   ]);
 
   useEffect(() => {
-    loadSlides();
+    void loadSlides();
   }, [loadSlides]);
 
   useEffect(() => {
@@ -182,7 +211,7 @@ export function useGeneratePreviewState({
       latestEvent?.event_type === "task.completed" ||
       latestEvent?.state === "SUCCESS"
     ) {
-      loadSlides();
+      void loadSlides();
     }
   }, [latestEvent, loadSlides]);
 
@@ -192,11 +221,13 @@ export function useGeneratePreviewState({
       setIsExporting(true);
       const response = await previewApi.exportSessionPreview(activeSessionId, {
         artifact_id: currentArtifactId ?? undefined,
+        run_id: activeRunId ?? undefined,
         format: "html",
         include_sources: true,
       });
       const content = response?.data?.content ?? "";
       if (!content) return;
+
       const blob = new Blob([content], { type: "text/html;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -217,7 +248,7 @@ export function useGeneratePreviewState({
     } finally {
       setIsExporting(false);
     }
-  }, [activeSessionId, currentArtifactId, isExporting]);
+  }, [activeRunId, activeSessionId, currentArtifactId, isExporting]);
 
   const handleRegenerateSlide = useCallback(
     async (slide: Slide) => {
@@ -239,9 +270,7 @@ export function useGeneratePreviewState({
         });
       } catch (error) {
         const message =
-          error instanceof ApiError
-            ? error.message
-            : "局部重绘失败，请稍后重试";
+          error instanceof ApiError ? error.message : "局部重绘失败，请稍后重试";
         toast({
           title: "局部重绘失败",
           description: message,
@@ -263,6 +292,7 @@ export function useGeneratePreviewState({
     previewBlockedReason,
     isSessionGenerating,
     activeSessionId,
+    activeRunId,
     handleExport,
     handleResume,
     handleRegenerateSlide,

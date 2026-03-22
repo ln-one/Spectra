@@ -23,6 +23,8 @@ export interface ArtifactHistoryItem {
   createdAt: string;
   basedOnVersionId: string | null;
   storagePath?: string;
+  runId?: string | null;
+  runNo?: number | null;
 }
 
 export type ArtifactHistoryByTool = Record<
@@ -76,6 +78,19 @@ function readArtifactKind(artifact: Artifact): string | null {
   if (typeof rawKind !== "string") return null;
   const normalized = rawKind.trim();
   return normalized || null;
+}
+
+
+function readRunNo(metadata: Artifact["metadata"]): number | null {
+  const raw = readMetadataField(metadata, "run_no");
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return Math.trunc(raw);
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
@@ -152,6 +167,8 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
     createdAt: artifact.created_at,
     basedOnVersionId: artifact.based_on_version_id ?? null,
     storagePath: artifact.storage_path,
+    runId: (readMetadataField(artifact.metadata, "run_id") as string | undefined) || null,
+    runNo: readRunNo(artifact.metadata),
   };
 }
 
@@ -175,3 +192,6 @@ export function groupArtifactsByTool(
 
   return grouped;
 }
+
+
+

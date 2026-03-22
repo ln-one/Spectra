@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Awaitable, Callable, Optional
 from uuid import UUID
 
-PreviewAnchorResolver = Callable[[str, dict, Optional[str]], Awaitable[dict]]
+PreviewAnchorResolver = Callable[[str, dict, Optional[str], Optional[str]], Awaitable[dict]]
 PreviewMaterialLoader = Callable[
-    [str, str, Optional[str], Optional[str]], Awaitable[tuple]
+    [str, str, Optional[str], Optional[str], Optional[str]], Awaitable[tuple]
 ]
 SessionSnapshotLoader = Callable[[str, str], Awaitable[dict]]
 CandidateChangeAttacher = Callable[..., Awaitable[Optional[dict]]]
@@ -16,10 +16,11 @@ async def load_preview_material_for_snapshot(
     session_id: str,
     snapshot: dict,
     artifact_id: Optional[str],
+    run_id: Optional[str],
     resolve_preview_anchor: PreviewAnchorResolver,
     load_preview_material: PreviewMaterialLoader,
 ) -> tuple[dict, object, list, object, dict]:
-    anchor = await resolve_preview_anchor(session_id, snapshot, artifact_id)
+    anchor = await resolve_preview_anchor(session_id, snapshot, artifact_id, run_id)
     project_id = snapshot["session"]["project_id"]
     task_id = snapshot["session"].get("task_id")
     task, slides, lesson_plan, content = await load_preview_material(
@@ -27,6 +28,7 @@ async def load_preview_material_for_snapshot(
         project_id,
         anchor.get("artifact_id"),
         task_id,
+        anchor.get("run_id"),
     )
     return anchor, task, slides, lesson_plan, content
 

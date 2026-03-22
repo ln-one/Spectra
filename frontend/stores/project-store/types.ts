@@ -13,6 +13,20 @@ export type OutlineDocument = sdkComponents["schemas"]["OutlineDocument"];
 export type GenerationOptions = sdkComponents["schemas"]["GenerationOptions"];
 export type SessionStatePayload =
   sdkComponents["schemas"]["SessionStatePayload"];
+
+export interface SessionRun {
+  run_id: string;
+  session_id?: string | null;
+  project_id?: string;
+  tool_type?: string;
+  run_no?: number;
+  run_title?: string;
+  run_status?: string;
+  run_step?: string;
+  artifact_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
 export type SourceDetailResponse =
   sdkComponents["schemas"]["SourceDetailResponse"];
 export type SourceDetail = SourceDetailResponse["data"];
@@ -94,6 +108,7 @@ export interface ProjectState {
   studioChatContext: StudioChatContext | null;
   chatComposerFocusSignal: number;
   activeSessionId: string | null;
+  activeRunId: string | null;
   lastFailedInput: string | null;
   activeSourceDetail: SourceDetail | null;
 
@@ -148,6 +163,7 @@ export interface ProjectState {
   ) => Promise<void>;
   exportArtifact: (artifactId: string) => Promise<void>;
   setActiveSessionId: (sessionId: string | null) => void;
+  setActiveRunId: (runId: string | null) => void;
   updateOutline: (sessionId: string, outline: OutlineDocument) => Promise<void>;
   redraftOutline: (sessionId: string, instruction: string) => Promise<void>;
   confirmOutline: (sessionId: string) => Promise<void>;
@@ -231,6 +247,7 @@ export const initialState = {
   studioChatContext: null as StudioChatContext | null,
   chatComposerFocusSignal: 0,
   activeSessionId: null as string | null,
+  activeRunId: null as string | null,
   lastFailedInput: null as string | null,
   activeSourceDetail: null as SourceDetail | null,
   layoutMode: "normal" as LayoutMode,
@@ -252,3 +269,6 @@ export type ProjectStoreContext = {
   ) => void;
   get: () => ProjectState;
 };
+
+
+

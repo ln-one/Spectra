@@ -1,4 +1,4 @@
-import type { GenerationToolType } from "@/lib/project-space/artifact-history";
+﻿import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 
 export type StudioHistoryStatus =
   | "draft"
@@ -20,4 +20,8 @@ export interface StudioHistoryItem {
   sessionId: string | null;
   step: StudioHistoryStep;
   artifactId?: string;
+  runId?: string | null;
+  runNo?: number | null;
 }
+
+

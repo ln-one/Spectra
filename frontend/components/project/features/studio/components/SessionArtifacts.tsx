@@ -117,7 +117,7 @@ export function SessionArtifacts({
                     <span>{toolLabels[toolKey] ?? toolKey}</span>
                   </p>
                   {items.slice(0, 4).map((item, index) => {
-                    const runNo = items.length - index;
+                    const runNo = item.runNo ?? items.length - index;
                     return (
                       <motion.div
                         key={item.id}
@@ -213,4 +213,5 @@ export function SessionArtifacts({
     </motion.div>
   );
 }
+
 

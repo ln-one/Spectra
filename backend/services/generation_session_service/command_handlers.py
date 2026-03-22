@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
@@ -27,6 +27,10 @@ from services.generation_session_service.session_history import (
     build_run_trace_payload,
     create_session_run,
     serialize_session_run,
+    update_session_run,
+)
+from services.generation_session_service.run_queries import (
+    get_latest_active_session_run_by_tool,
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationCommandType
@@ -98,7 +102,7 @@ async def dispatch_command(
         )
         return None
 
-    raise ValueError(f"未处理的命令类型：{command_type}")
+    raise ValueError(f"Unhandled command type: {command_type}")
 
 
 async def handle_update_outline(
@@ -146,7 +150,7 @@ async def handle_update_outline(
                 )
             return
         raise conflict_error_cls(
-            f"大纲版本冲突：期望 {base_version}，当前 {effective_version}"
+            f"澶х翰鐗堟湰鍐茬獊锛氭湡鏈?{base_version}锛屽綋鍓?{effective_version}"
         )
 
     new_version = effective_version + 1
@@ -188,7 +192,7 @@ async def handle_redraft_outline(
 
     if effective_version != base_version:
         raise conflict_error_cls(
-            f"大纲版本冲突：期望 {base_version}，当前 {effective_version}"
+            f"澶х翰鐗堟湰鍐茬獊锛氭湡鏈?{base_version}锛屽綋鍓?{effective_version}"
         )
 
     run = await create_session_run(
@@ -228,7 +232,7 @@ async def handle_confirm_outline(
     expected_state = command.get("expected_state")
     if expected_state and session.state != expected_state:
         raise conflict_error_cls(
-            f"状态不匹配：期望 {expected_state}，当前 {session.state}"
+            f"鐘舵€佷笉鍖归厤锛氭湡鏈?{expected_state}锛屽綋鍓?{session.state}"
         )
     effective_outline_version = await get_effective_outline_version(db, session)
     if effective_outline_version != getattr(session, "currentOutlineVersion", 0):
@@ -254,14 +258,30 @@ async def handle_confirm_outline(
         "word": "word_generate",
         "both": "both_generate",
     }.get(str(session.outputType or "").strip().lower(), "both_generate")
-    run = await create_session_run(
-        db=db,
-        session_id=session.id,
-        project_id=session.projectId,
-        tool_type=tool_type,
-        step=RUN_STEP_GENERATE,
-        status=RUN_STATUS_PENDING,
+    active_outline_run = await get_latest_active_session_run_by_tool(
+        db,
+        session.id,
+        tool_type,
     )
+    run = None
+    if active_outline_run and getattr(active_outline_run, "step", None) == RUN_STEP_OUTLINE:
+        run = await update_session_run(
+            db=db,
+            run_id=active_outline_run.id,
+            step=RUN_STEP_GENERATE,
+            status=RUN_STATUS_PENDING,
+        )
+        run = run or active_outline_run
+    else:
+        run = await create_session_run(
+            db=db,
+            session_id=session.id,
+            project_id=session.projectId,
+            tool_type=tool_type,
+            step=RUN_STEP_GENERATE,
+            status=RUN_STATUS_PENDING,
+        )
+
     task = await db.generationtask.create(
         data={
             "projectId": session.projectId,
@@ -324,3 +344,9 @@ async def handle_set_session_title(
             "displayTitleUpdatedAt": datetime.now(timezone.utc),
         },
     )
+
+
+
+
+
+

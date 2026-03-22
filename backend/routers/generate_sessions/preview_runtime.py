@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import logging
 import time
@@ -31,10 +31,23 @@ from utils.responses import success_response
 logger = logging.getLogger(__name__)
 
 
+def _raise_run_not_ready(run_id: str) -> None:
+    raise APIException(
+        status_code=status.HTTP_409_CONFLICT,
+        error_code=ErrorCode.RESOURCE_CONFLICT,
+        message="指定运行尚未产出可预览内容",
+        details={
+            "reason": "run_not_ready",
+            "run_id": run_id,
+        },
+    )
+
+
 async def get_session_preview_response(
     *,
     session_id: str,
     artifact_id: Optional[str],
+    run_id: Optional[str],
     user_id: str,
     get_preview_snapshot_or_raise: SessionSnapshotLoader,
     resolve_preview_anchor: PreviewAnchorResolver,
@@ -54,9 +67,13 @@ async def get_session_preview_response(
         session_id=session_id,
         snapshot=snapshot,
         artifact_id=artifact_id,
+        run_id=run_id,
         resolve_preview_anchor=resolve_preview_anchor,
         load_preview_material=load_preview_material,
     )
+    if run_id and task is None:
+        _raise_run_not_ready(run_id)
+
     response = success_response(
         data=build_preview_payload(
             session_id=session_id,
@@ -66,17 +83,19 @@ async def get_session_preview_response(
             lesson_plan=lesson_plan,
             anchor=anchor,
         ),
-        message="预览获取成功",
+        message="棰勮鑾峰彇鎴愬姛",
     )
     duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
     logger.info(
-        "session_preview_loaded session_id=%s artifact_id=%s duration_ms=%s",
+        "session_preview_loaded session_id=%s artifact_id=%s run_id=%s duration_ms=%s",
         session_id,
         anchor.get("artifact_id"),
+        run_id,
         duration_ms,
         extra={
             "session_id": session_id,
             "artifact_id": anchor.get("artifact_id"),
+            "run_id": run_id,
             "duration_ms": duration_ms,
         },
     )
@@ -106,7 +125,7 @@ async def modify_session_preview_response(
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=ErrorCode.INVALID_INPUT,
-            message="slide_id 和 patch 为必填字段",
+            message="slide_id 鍜?patch 涓哄繀濉瓧娈?",
         )
 
     expected_render_version = resolve_modify_expected_render_version(body)
@@ -126,7 +145,12 @@ async def modify_session_preview_response(
         idempotency_key=parsed_idempotency_key,
     )
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
-    anchor = await resolve_preview_anchor(session_id, snapshot, body.get("artifact_id"))
+    anchor = await resolve_preview_anchor(
+        session_id,
+        snapshot,
+        body.get("artifact_id"),
+        body.get("run_id"),
+    )
     payload = build_modify_payload(
         session_id=session_id,
         snapshot=snapshot,
@@ -146,7 +170,7 @@ async def modify_session_preview_response(
         payload=payload,
         attach_auto_candidate_change=attach_auto_candidate_change,
     )
-    return success_response(data=payload, message="预览修改请求已接受")
+    return success_response(data=payload, message="棰勮淇敼璇锋眰宸叉帴鍙?")
 
 
 async def get_session_slide_preview_response(
@@ -154,19 +178,24 @@ async def get_session_slide_preview_response(
     session_id: str,
     slide_id: str,
     artifact_id: Optional[str],
+    run_id: Optional[str],
     user_id: str,
     get_preview_snapshot_or_raise: SessionSnapshotLoader,
     resolve_preview_anchor: PreviewAnchorResolver,
     load_preview_material: PreviewMaterialLoader,
 ):
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
-    anchor, _, slides, lesson_plan, _ = await load_preview_material_for_snapshot(
+    anchor, task, slides, lesson_plan, _ = await load_preview_material_for_snapshot(
         session_id=session_id,
         snapshot=snapshot,
         artifact_id=artifact_id,
+        run_id=run_id,
         resolve_preview_anchor=resolve_preview_anchor,
         load_preview_material=load_preview_material,
     )
+    if run_id and task is None:
+        _raise_run_not_ready(run_id)
+
     try:
         selected_slide, teaching_plan, related_slides = resolve_slide_preview(
             slide_id=slide_id,
@@ -184,7 +213,7 @@ async def get_session_slide_preview_response(
             teaching_plan=teaching_plan,
             related_slides=related_slides,
         ),
-        message="页面预览获取成功",
+        message="椤甸潰棰勮鑾峰彇鎴愬姛",
     )
 
 
@@ -192,6 +221,7 @@ async def export_session_response(
     *,
     session_id: str,
     body: Optional[dict],
+    run_id: Optional[str],
     user_id: str,
     idempotency_key: Optional[UUID],
     parse_candidate_change_payload: Callable[[object, str], None],
@@ -209,6 +239,7 @@ async def export_session_response(
     parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
     parsed_idempotency_key = parse_idempotency_key(idempotency_key)
     export_format = normalize_export_format(body.get("format"))
+    resolved_run_id = run_id or body.get("run_id")
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
     expected_render_version = body.get("expected_render_version")
     if expected_render_version is not None:
@@ -228,10 +259,14 @@ async def export_session_response(
             session_id=session_id,
             snapshot=snapshot,
             artifact_id=body.get("artifact_id"),
+            run_id=resolved_run_id,
             resolve_preview_anchor=resolve_preview_anchor,
             load_preview_material=load_preview_material,
         )
     )
+    if resolved_run_id and task is None:
+        _raise_run_not_ready(resolved_run_id)
+
     payload = build_export_payload(
         session_id=session_id,
         snapshot=snapshot,
@@ -254,27 +289,30 @@ async def export_session_response(
             "command_type": "EXPORT_PREVIEW",
             "format": export_format,
             "include_sources": bool(body.get("include_sources", True)),
+            "run_id": resolved_run_id,
         },
         generation_result=payload,
         trigger="preview_export",
         payload=payload,
         attach_auto_candidate_change=attach_auto_candidate_change,
     )
-    response = success_response(data=payload, message="导出成功")
+    response = success_response(data=payload, message="瀵煎嚭鎴愬姛")
     duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
     logger.info(
         (
             "session_preview_exported session_id=%s "
-            "format=%s artifact_id=%s duration_ms=%s"
+            "format=%s artifact_id=%s run_id=%s duration_ms=%s"
         ),
         session_id,
         export_format,
         anchor.get("artifact_id"),
+        resolved_run_id,
         duration_ms,
         extra={
             "session_id": session_id,
             "export_format": export_format,
             "artifact_id": anchor.get("artifact_id"),
+            "run_id": resolved_run_id,
             "duration_ms": duration_ms,
         },
     )
