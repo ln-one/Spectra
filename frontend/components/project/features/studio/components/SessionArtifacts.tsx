@@ -76,13 +76,14 @@ export function SessionArtifacts({
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-[var(--project-text-muted)]"
+            size="sm"
+            className="h-6 gap-1 px-2 text-[10px] text-[var(--project-text-muted)]"
             onClick={() => setShowArchivePanel((prev) => !prev)}
             title="查看归档历史"
             aria-label="查看归档历史"
           >
             <Settings2 className="h-3.5 w-3.5" />
+            设置
           </Button>
           <Button
             variant="ghost"
@@ -104,7 +105,7 @@ export function SessionArtifacts({
         >
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[11px] font-medium text-[var(--project-text-primary)]">
-              归档历史
+              全部归档记录
             </p>
             <span className="text-[10px] text-[var(--project-text-muted)]">
               {archivedHistory.length} 条
@@ -131,14 +132,15 @@ export function SessionArtifacts({
                     </p>
                   </div>
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 rounded-[var(--project-chip-radius)] text-[var(--project-text-muted)] hover:text-[var(--project-text-primary)]"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 gap-1 rounded-[var(--project-chip-radius)] border-[var(--project-control-border)] px-2 text-[9px] text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
                     onClick={() => onUnarchiveHistoryItem(item.id)}
                     title="取消归档"
                     aria-label="取消归档"
                   >
                     <ArchiveRestore className="h-3.5 w-3.5" />
+                    取消归档
                   </Button>
                 </div>
               ))}
