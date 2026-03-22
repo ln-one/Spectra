@@ -36,6 +36,11 @@ def _resolve_dashscope_api_key() -> str:
     return os.getenv("DASHSCOPE_API_KEY", "").strip()
 
 
+def _allow_local_fallback() -> bool:
+    value = os.getenv("EMBEDDING_ALLOW_LOCAL_FALLBACK", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 class EmbeddingService:
     """文本向量化服务"""
 
@@ -172,20 +177,31 @@ class EmbeddingService:
             return all_embeddings
 
         except Exception as e:
+            fallback_enabled = _allow_local_fallback()
             logger.warning(
-                "DashScope embedding failed for model %s; falling back to local "
-                "sentence-transformers",
+                (
+                    "DashScope embedding failed for model %s; falling back to local "
+                    "sentence-transformers"
+                )
+                if fallback_enabled
+                else (
+                    "DashScope embedding failed for model %s; local fallback disabled"
+                ),
                 self._model,
                 extra={
                     "embedding_model": self._model,
                     "embedding_provider": "dashscope",
                     "embedding_failure_type": classify_upstream_failure(e),
-                    "fallback_used": True,
-                    "fallback_target": "local_sentence_transformers",
+                    "fallback_used": fallback_enabled,
+                    "fallback_target": (
+                        "local_sentence_transformers" if fallback_enabled else None
+                    ),
                     "provider_message": str(e),
                 },
             )
-            return await self._embed_local(texts)
+            if fallback_enabled:
+                return await self._embed_local(texts)
+            raise
 
     def _embed_local_sync(self, texts: list[str]) -> list[list[float]]:
         """使用本地 sentence-transformers 模型进行向量化（同步）"""
