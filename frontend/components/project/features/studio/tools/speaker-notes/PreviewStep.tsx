@@ -1,5 +1,6 @@
-import { BookText, CircleCheck, Download, Mic2 } from "lucide-react";
+﻿import { BookText, CircleCheck, Download, Mic2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CapabilityNotice, FallbackPreviewHint } from "../CapabilityNotice";
 import type { ToolFlowContext } from "../types";
 import { ACTION_HINT_STYLE } from "./constants";
 import type { SlideScriptItem } from "./types";
@@ -25,19 +26,28 @@ export function PreviewStep({
   onSelectPage,
   onToggleHighlight,
 }: PreviewStepProps) {
-  const activeScript =
-    scripts.find((item) => item.page === activePage) ?? scripts[0];
+  const capabilityStatus =
+    flowContext?.capabilityStatus ?? "backend_not_implemented";
+  const capabilityReason =
+    flowContext?.capabilityReason ??
+    "后端暂未提供结构化讲稿产物，当前使用前端示意提词稿。";
+  const activeScript = scripts.find((item) => item.page === activePage) ?? scripts[0];
 
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-zinc-200 bg-white p-3">
-        <div className="flex items-start justify-between gap-2">
+        <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
+        {capabilityStatus !== "backend_ready" ? (
+          <div className="mt-3">
+            <FallbackPreviewHint />
+          </div>
+        ) : null}
+
+        <div className="mt-3 flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <CircleCheck className="h-4 w-4 text-emerald-600" />
             <div>
-              <p className="text-xs font-semibold text-zinc-800">
-                提词器视图（面板内）
-              </p>
+              <p className="text-xs font-semibold text-zinc-800">提词器视图（面板内）</p>
               <p className="mt-1 text-[11px] text-zinc-500">
                 {lastGeneratedAt
                   ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
@@ -94,9 +104,7 @@ export function PreviewStep({
             </div>
 
             <div className="mt-3 space-y-3">
-              <p className="text-[17px] leading-8 text-zinc-800">
-                {activeScript.script}
-              </p>
+              <p className="text-[17px] leading-8 text-zinc-800">{activeScript.script}</p>
               {activeScript.actionHint ? (
                 <p
                   className={`inline-flex rounded px-2 py-1 text-xs ${ACTION_HINT_STYLE} ${
@@ -129,17 +137,14 @@ export function PreviewStep({
           </Button>
         </div>
         <div className="mt-2 space-y-2">
-          {flowContext?.latestArtifacts &&
-          flowContext.latestArtifacts.length > 0 ? (
+          {flowContext?.latestArtifacts && flowContext.latestArtifacts.length > 0 ? (
             flowContext.latestArtifacts.slice(0, 4).map((item) => (
               <div
                 key={item.artifactId}
                 className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-zinc-800">
-                    {item.title}
-                  </p>
+                  <p className="truncate text-xs font-medium text-zinc-800">{item.title}</p>
                   <p className="mt-1 text-[11px] text-zinc-500">
                     {new Date(item.createdAt).toLocaleString()} · {item.status}
                   </p>
@@ -149,9 +154,7 @@ export function PreviewStep({
                   variant="outline"
                   size="sm"
                   className="h-8 shrink-0 text-xs"
-                  onClick={() =>
-                    void flowContext.onExportArtifact?.(item.artifactId)
-                  }
+                  onClick={() => void flowContext.onExportArtifact?.(item.artifactId)}
                 >
                   <Download className="mr-1.5 h-3.5 w-3.5" />
                   下载

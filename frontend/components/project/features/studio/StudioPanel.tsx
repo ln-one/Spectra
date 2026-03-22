@@ -6,7 +6,7 @@ import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { ArchiveRestore, Sparkles, X } from "lucide-react";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
-import { studioCardsApi } from "@/lib/sdk";
+import { generateApi, projectSpaceApi, studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import type {
@@ -38,6 +38,11 @@ import { useStudioWorkflowHistory } from "./history/useStudioWorkflowHistory";
 import type { StudioHistoryItem, StudioHistoryStep } from "./history/types";
 import { SessionArtifacts } from "./components/SessionArtifacts";
 import { ToolGrid } from "./components/ToolGrid";
+import {
+  buildCapabilityWithoutArtifact,
+  resolveCapabilityFromArtifact,
+  type CapabilityResolution,
+} from "./tools/capability-resolver";
 
 interface StudioPanelProps {
   onToolClick?: (tool: StudioTool) => void;
@@ -51,6 +56,12 @@ const STUDIO_CARD_BY_TOOL: Partial<Record<StudioToolKey, string>> = {
   summary: "speaker_notes",
   animation: "demonstration_animations",
   handout: "classroom_qa_simulator",
+};
+
+const DEFAULT_CAPABILITY_ERROR: CapabilityResolution = {
+  status: "backend_error",
+  reason: "能力状态初始化失败，已回退前端示意内容。",
+  resolvedArtifact: null,
 };
 
 function isDraftStateEqual(
@@ -133,6 +144,14 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     Record<string, StudioCardExecutionPlan>
   >({});
   const [isLoadingCardProtocol, setIsLoadingCardProtocol] = useState(false);
+  const [capabilityStateByCardId, setCapabilityStateByCardId] = useState<
+    Record<
+      string,
+      CapabilityResolution & {
+        isLoading: boolean;
+      }
+    >
+  >({});
   const [pptResumeStage, setPptResumeStage] = useState<"config" | "outline">(
     "config"
   );
@@ -258,12 +277,19 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     !isProtocolPending &&
     supportsChatRefine &&
     (!requiresSourceArtifact || hasSourceBinding);
-  const currentToolArtifacts =
-    expandedTool && expandedTool !== "ppt"
-      ? artifactHistoryByTool[
-          expandedTool as keyof typeof artifactHistoryByTool
-        ]
-      : [];
+  const currentToolArtifacts = useMemo(() => {
+    if (!expandedTool || expandedTool === "ppt") {
+      return [];
+    }
+    return (
+      artifactHistoryByTool[
+        expandedTool as keyof typeof artifactHistoryByTool
+      ] ?? []
+    );
+  }, [artifactHistoryByTool, expandedTool]);
+  const currentCapabilityState = currentCardId
+    ? capabilityStateByCardId[currentCardId]
+    : undefined;
   const handleExpandedToolDraftChange = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") {
       return undefined;
@@ -340,6 +366,75 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }));
   }, [currentCardId, draftSourceArtifactId, selectedSourceId]);
 
+  useEffect(() => {
+    if (!currentCardId || !expandedTool || expandedTool === "ppt") return;
+
+    const toolId = expandedTool as StudioToolKey;
+    const latestArtifact = currentToolArtifacts[0];
+    let cancelled = false;
+
+    const applyResolution = (resolution: CapabilityResolution, isLoading = false) => {
+      if (cancelled) return;
+      setCapabilityStateByCardId((prev) => ({
+        ...prev,
+        [currentCardId]: {
+          ...resolution,
+          isLoading,
+        },
+      }));
+    };
+
+    const defaultResolution = buildCapabilityWithoutArtifact(toolId);
+    if (defaultResolution.status === "backend_not_implemented") {
+      applyResolution(defaultResolution);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!project?.id || !latestArtifact) {
+      applyResolution(defaultResolution);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    applyResolution(
+      {
+        status: defaultResolution.status,
+        reason: defaultResolution.reason,
+        resolvedArtifact: null,
+      },
+      true
+    );
+
+    const loadCapability = async () => {
+      try {
+        const blob = await projectSpaceApi.downloadArtifact(
+          project.id,
+          latestArtifact.artifactId
+        );
+        const resolved = await resolveCapabilityFromArtifact({
+          toolId,
+          artifact: latestArtifact,
+          blob,
+        });
+        applyResolution(resolved);
+      } catch (error) {
+        applyResolution({
+          status: "backend_error",
+          reason: `读取后端成果失败：${getErrorMessage(error)}。已回退前端示意内容。`,
+          resolvedArtifact: null,
+        });
+      }
+    };
+
+    void loadCapability();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentCardId, currentToolArtifacts, expandedTool, project?.id]);
+
   const openPptPreviewPage = useCallback(
     (sessionId?: string | null, artifactId?: string | null) => {
       if (!project) return;
@@ -358,16 +453,50 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   );
 
   const handleOpenHistoryItem = useCallback(
-    (item: StudioHistoryItem) => {
+    async (item: StudioHistoryItem) => {
       if (!project) return;
 
       if (item.sessionId) {
         setActiveSessionId(item.sessionId);
       }
+      const sessionId = item.sessionId ?? null;
+
+      if (item.toolType === "ppt" && item.step === "outline" && sessionId) {
+        try {
+          const sessionResponse = await generateApi.getSession(sessionId);
+          const latestSession = sessionResponse?.data ?? null;
+          if (latestSession) {
+            useProjectStore.setState({ generationSession: latestSession });
+          }
+          const latestState = latestSession?.session?.state;
+          const isPreviewState =
+            latestState === "GENERATING_CONTENT" ||
+            latestState === "RENDERING" ||
+            latestState === "SUCCESS";
+          if (isPreviewState) {
+            trackStep("ppt", "preview");
+            acknowledgeStep("ppt", "preview");
+            const runId = getCurrentWorkflowRun("ppt") || undefined;
+            recordWorkflowEntry({
+              toolType: "ppt",
+              title: "PPT 预览中",
+              status: "previewing",
+              step: "preview",
+              sessionId,
+              runId,
+              toolLabel: TOOL_LABELS.ppt,
+            });
+            openPptPreviewPage(sessionId, item.artifactId);
+            return;
+          }
+        } catch {
+          // If session state sync fails, keep existing routing behavior below.
+        }
+      }
 
       if (item.toolType === "ppt") {
         if (item.origin === "artifact" || item.step === "preview") {
-          openPptPreviewPage(item.sessionId, item.artifactId);
+          openPptPreviewPage(sessionId, item.artifactId);
           return;
         }
         const shouldOpenOutlineStage =
@@ -390,10 +519,14 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     [
       openPptPreviewPage,
       project,
+      acknowledgeStep,
+      getCurrentWorkflowRun,
+      recordWorkflowEntry,
       requestStep,
       setActiveSessionId,
       setExpandedTool,
       setLayoutMode,
+      trackStep,
     ]
   );
 
@@ -681,6 +814,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     supportsChatRefine,
     canExecute,
     canRefine,
+    capabilityStatus: currentCapabilityState?.status ?? DEFAULT_CAPABILITY_ERROR.status,
+    capabilityReason: currentCapabilityState?.reason ?? DEFAULT_CAPABILITY_ERROR.reason,
+    isCapabilityLoading: currentCapabilityState?.isLoading ?? false,
+    resolvedArtifact: currentCapabilityState?.resolvedArtifact ?? null,
     sourceOptions: currentCardId
       ? (sourceOptionsByCard[currentCardId] ?? [])
       : [],
@@ -852,9 +989,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         void fetchArtifactHistory(project.id, activeSessionId);
                       }}
                       onOpenHistoryItem={handleOpenHistoryItem}
-                      onExportArtifact={(artifactId) => {
-                        void exportArtifact(artifactId);
-                      }}
                       onArchiveHistoryItem={archiveHistoryItem}
                     />
                   ) : null}
@@ -906,6 +1040,27 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                 title: "PPT 大纲生成中",
                                 status: "processing",
                                 step: "generate",
+                                sessionId: resolvedSessionId,
+                                runId,
+                                toolLabel: TOOL_LABELS.ppt,
+                              });
+                              return;
+                            }
+                            if (stage === "preview") {
+                              const resolvedSessionId =
+                                payload?.sessionId ?? activeSessionId ?? null;
+                              if (!resolvedSessionId) {
+                                return;
+                              }
+                              trackStep("ppt", "preview");
+                              acknowledgeStep("ppt", "preview");
+                              const runId =
+                                getCurrentWorkflowRun("ppt") || undefined;
+                              recordWorkflowEntry({
+                                toolType: "ppt",
+                                title: "PPT 预览中",
+                                status: "previewing",
+                                step: "preview",
                                 sessionId: resolvedSessionId,
                                 runId,
                                 toolLabel: TOOL_LABELS.ppt,
