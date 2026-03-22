@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
@@ -137,21 +137,43 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     "config"
   );
   const [pptResumeSignal, setPptResumeSignal] = useState(0);
+  const workflowRunIdByToolRef = useRef<
+    Partial<Record<GenerationToolType, string>>
+  >({});
   const isExpanded = layoutMode === "expanded";
   const {
     groupedHistory,
+    archivedHistory,
     currentStepByTool,
     requestedStepByTool,
     trackStep,
     requestStep,
     acknowledgeStep,
     recordWorkflowEntry,
-    hideHistoryItem,
+    archiveHistoryItem,
+    unarchiveHistoryItem,
   } = useStudioWorkflowHistory(artifactHistoryByTool, activeSessionId);
   const hasHistory = groupedHistory.length > 0;
   const requestedHistoryStep = expandedTool
     ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)
     : null;
+
+  const createWorkflowRunId = useCallback(() => {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }, []);
+
+  const startWorkflowRun = useCallback(
+    (toolType: GenerationToolType) => {
+      const runId = createWorkflowRunId();
+      workflowRunIdByToolRef.current[toolType] = runId;
+      return runId;
+    },
+    [createWorkflowRunId]
+  );
+
+  const getCurrentWorkflowRun = useCallback((toolType: GenerationToolType) => {
+    return workflowRunIdByToolRef.current[toolType] ?? null;
+  }, []);
 
   useEffect(() => {
     if (!expandedTool) return;
@@ -361,6 +383,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       trackStep(toolType, step);
       acknowledgeStep(toolType, step);
       if (step !== "generate" && step !== "preview") return;
+      const runId =
+        getCurrentWorkflowRun(toolType) ||
+        (step === "generate" ? startWorkflowRun(toolType) : null);
       recordWorkflowEntry({
         toolType,
         title:
@@ -370,13 +395,19 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         status: "draft",
         step,
         sessionId: activeSessionId,
+        runId: runId || undefined,
+        titleSource: JSON.stringify(currentToolDraft),
+        toolLabel: TOOL_LABELS[toolType],
       });
     },
     [
       acknowledgeStep,
       activeSessionId,
+      currentToolDraft,
       expandedTool,
+      getCurrentWorkflowRun,
       recordWorkflowEntry,
+      startWorkflowRun,
       trackStep,
     ]
   );
@@ -656,12 +687,16 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         normalizeHistoryStep(currentStepByTool[toolType]) === "preview"
           ? "preview"
           : "generate";
+      const runId = startWorkflowRun(toolType);
       recordWorkflowEntry({
         toolType,
         title: `${TOOL_LABELS[toolType]}生成中`,
         status: "processing",
         step: flowStep,
         sessionId: activeSessionId,
+        runId,
+        titleSource: JSON.stringify(currentToolDraft),
+        toolLabel: TOOL_LABELS[toolType],
       });
       const nextSessionId = await handleStudioExecute();
       if (nextSessionId) {
@@ -671,6 +706,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           status: "processing",
           step: flowStep,
           sessionId: nextSessionId,
+          runId,
+          titleSource: JSON.stringify(currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
         });
       }
     },
@@ -786,6 +824,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                   {hasHistory && !isExpanded ? (
                     <SessionArtifacts
                       groupedHistory={groupedHistory}
+                      archivedHistory={archivedHistory}
                       toolLabels={TOOL_LABELS}
                       onRefresh={() => {
                         if (!project) return;
@@ -795,7 +834,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       onExportArtifact={(artifactId) => {
                         void exportArtifact(artifactId);
                       }}
-                      onDeleteHistoryItem={hideHistoryItem}
+                      onArchiveHistoryItem={archiveHistoryItem}
+                      onUnarchiveHistoryItem={unarchiveHistoryItem}
                     />
                   ) : null}
                 </div>
@@ -837,6 +877,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               if (!resolvedSessionId) {
                                 return;
                               }
+                              const runId = startWorkflowRun("ppt");
                               trackStep("ppt", "generate");
                               recordWorkflowEntry({
                                 toolType: "ppt",
@@ -844,11 +885,14 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                 status: "processing",
                                 step: "generate",
                                 sessionId: resolvedSessionId,
+                                runId,
+                                toolLabel: TOOL_LABELS.ppt,
                               });
                               return;
                             }
                             trackStep("ppt", "outline");
                             acknowledgeStep("ppt", "outline");
+                            const runId = getCurrentWorkflowRun("ppt") || undefined;
                             recordWorkflowEntry({
                               toolType: "ppt",
                               title: "PPT 大纲配置中",
@@ -856,6 +900,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               step: "outline",
                               sessionId:
                                 payload?.sessionId ?? activeSessionId ?? null,
+                              runId,
+                              titleSource: "PPT 大纲编辑",
+                              toolLabel: TOOL_LABELS.ppt,
                             });
                           }}
                           onGenerate={async (config) => {
@@ -891,13 +938,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                             );
                             if (sessionId) {
                               setActiveSessionId(sessionId);
-                              recordWorkflowEntry({
-                                toolType: "ppt",
-                                title: "PPT 大纲生成中",
-                                status: "processing",
-                                step: "generate",
-                                sessionId,
-                              });
                             }
                             return sessionId;
                           }}

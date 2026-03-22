@@ -3,34 +3,29 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Archive,
+  ArchiveRestore,
   CheckCircle2,
   Clock3,
   Download,
   Loader2,
-  Trash2,
+  Settings2,
   XCircle,
 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LightDeleteConfirm } from "@/components/project/features/shared/LightDeleteConfirm";
 import type { StudioHistoryItem } from "../history/types";
 
 interface SessionArtifactsProps {
   groupedHistory: Array<[string, StudioHistoryItem[]]>;
+  archivedHistory: StudioHistoryItem[];
   toolLabels: Record<string, string>;
   onRefresh: () => void;
   onOpenHistoryItem: (item: StudioHistoryItem) => void;
   onExportArtifact: (artifactId: string) => void;
-  onDeleteHistoryItem: (item: StudioHistoryItem) => void;
+  onArchiveHistoryItem: (item: StudioHistoryItem) => void;
+  onUnarchiveHistoryItem: (itemId: string) => void;
 }
 
 function statusText(status: StudioHistoryItem["status"]) {
@@ -55,14 +50,17 @@ function statusIcon(status: StudioHistoryItem["status"]) {
 
 export function SessionArtifacts({
   groupedHistory,
+  archivedHistory,
   toolLabels,
   onRefresh,
   onOpenHistoryItem,
   onExportArtifact,
-  onDeleteHistoryItem,
+  onArchiveHistoryItem,
+  onUnarchiveHistoryItem,
 }: SessionArtifactsProps) {
-  const [pendingDeleteItem, setPendingDeleteItem] =
+  const [pendingArchiveItem, setPendingArchiveItem] =
     useState<StudioHistoryItem | null>(null);
+  const [showArchivePanel, setShowArchivePanel] = useState(false);
 
   return (
     <motion.div
@@ -75,15 +73,79 @@ export function SessionArtifacts({
         <h3 className="text-xs font-medium text-[var(--project-text-muted)]">
           历史记录
         </h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-[10px] text-[var(--project-text-muted)]"
-          onClick={onRefresh}
-        >
-          刷新
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-[var(--project-text-muted)]"
+            onClick={() => setShowArchivePanel((prev) => !prev)}
+            title="查看归档历史"
+            aria-label="查看归档历史"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px] text-[var(--project-text-muted)]"
+            onClick={onRefresh}
+          >
+            刷新
+          </Button>
+        </div>
       </div>
+
+      {showArchivePanel ? (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          className="mb-2 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] p-2"
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[11px] font-medium text-[var(--project-text-primary)]">
+              归档历史
+            </p>
+            <span className="text-[10px] text-[var(--project-text-muted)]">
+              {archivedHistory.length} 条
+            </span>
+          </div>
+          {archivedHistory.length === 0 ? (
+            <p className="px-1 py-1 text-[10px] text-[var(--project-text-muted)]">
+              暂无归档记录
+            </p>
+          ) : (
+            <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
+              {archivedHistory.map((item) => (
+                <div
+                  key={`archived-${item.id}`}
+                  className="flex items-center gap-2 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface)] px-2 py-1.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[10px] font-medium text-[var(--project-text-primary)]">
+                      {item.title}
+                    </p>
+                    <p className="truncate text-[9px] text-[var(--project-text-muted)]">
+                      {toolLabels[item.toolType] ?? item.toolType} ·{" "}
+                      {new Date(item.createdAt).toLocaleString("zh-CN")}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 rounded-[var(--project-chip-radius)] text-[var(--project-text-muted)] hover:text-[var(--project-text-primary)]"
+                    onClick={() => onUnarchiveHistoryItem(item.id)}
+                    title="取消归档"
+                    aria-label="取消归档"
+                  >
+                    <ArchiveRestore className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      ) : null}
       <div className="space-y-2">
         <AnimatePresence>
           {groupedHistory.map(([toolKey, items]) => (
@@ -97,7 +159,9 @@ export function SessionArtifacts({
               <p className="text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
                 {toolLabels[toolKey] ?? toolKey}
               </p>
-              {items.slice(0, 4).map((item, index) => (
+              {items.slice(0, 4).map((item, index) => {
+                const runNo = items.length - index;
+                return (
                 <motion.div
                   key={item.id}
                   initial={{ opacity: 0, x: -10 }}
@@ -114,7 +178,7 @@ export function SessionArtifacts({
                   </button>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)]">
-                      {item.title}
+                      第 {runNo} 次 · {item.title}
                     </p>
                     <p className="flex items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
                       <span
@@ -162,48 +226,37 @@ export function SessionArtifacts({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
-                      onClick={() => setPendingDeleteItem(item)}
+                      onClick={() => setPendingArchiveItem(item)}
+                      aria-label="归档历史记录"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Archive className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </motion.div>
-              ))}
+                );
+              })}
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
 
-      <AlertDialog
-        open={Boolean(pendingDeleteItem)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingDeleteItem(null);
-          }
+      <LightDeleteConfirm
+        open={Boolean(pendingArchiveItem)}
+        title="归档历史记录"
+        description={
+          pendingArchiveItem
+            ? `将「${pendingArchiveItem.title}」归档后，会从当前历史列表中移除。`
+            : ""
+        }
+        confirmText="归档"
+        kind="archive"
+        onCancel={() => setPendingArchiveItem(null)}
+        onConfirm={() => {
+          if (!pendingArchiveItem) return;
+          onArchiveHistoryItem(pendingArchiveItem);
+          setPendingArchiveItem(null);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这条记录？</AlertDialogTitle>
-            <AlertDialogDescription>
-              删除后会从当前历史列表中移除，无法在此面板恢复。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (pendingDeleteItem) {
-                  onDeleteHistoryItem(pendingDeleteItem);
-                }
-                setPendingDeleteItem(null);
-              }}
-            >
-              确认删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      />
     </motion.div>
   );
 }

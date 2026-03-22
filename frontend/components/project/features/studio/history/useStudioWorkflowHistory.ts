@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type {
   ArtifactHistoryByTool,
   ArtifactHistoryItem,
@@ -31,7 +31,20 @@ type WorkflowEntryInput = {
   sessionId?: string | null;
   artifactId?: string;
   createdAt?: string;
+  runId?: string;
+  titleSource?: string;
+  toolLabel?: string;
 };
+
+function summarizeTitleFromText(text: string, toolLabel: string): string {
+  const cleaned = text
+    .replace(/[`*_#>[\](){}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return `${toolLabel}任务`;
+  const sentence = cleaned.split(/[。！？；\n\r,.!?;:]/)[0]?.trim() || cleaned;
+  return sentence.slice(0, 16);
+}
 
 function toArtifactHistoryItem(item: ArtifactHistoryItem): StudioHistoryItem {
   return {
@@ -48,6 +61,9 @@ function toArtifactHistoryItem(item: ArtifactHistoryItem): StudioHistoryItem {
 }
 
 function makeWorkflowId(input: WorkflowEntryInput): string {
+  if (input.runId) {
+    return `workflow:${input.toolType}:${input.runId}`;
+  }
   if (input.sessionId) {
     return `workflow:${input.toolType}:${input.sessionId}`;
   }
@@ -68,9 +84,13 @@ export function useStudioWorkflowHistory(
   activeSessionId?: string | null
 ) {
   const [workflowItems, setWorkflowItems] = useState<StudioHistoryItem[]>([]);
+  const polishedTitleRequestedRef = useRef<Record<string, true>>({});
   const [hiddenHistoryIds, setHiddenHistoryIds] = useState<Record<string, true>>(
     {}
   );
+  const [archivedHistoryById, setArchivedHistoryById] = useState<
+    Record<string, StudioHistoryItem>
+  >({});
   const [requestedStepByTool, setRequestedStepByTool] =
     useState<RequestedStepByTool>({});
   const [currentStepByTool, setCurrentStepByTool] = useState<CurrentStepByTool>(
@@ -98,6 +118,20 @@ export function useStudioWorkflowHistory(
       const rest = prev.filter((_, idx) => idx !== index);
       return [nextItem, ...rest];
     });
+
+    if (!input.titleSource?.trim()) return;
+    if (polishedTitleRequestedRef.current[nextItem.id]) return;
+    polishedTitleRequestedRef.current[nextItem.id] = true;
+    const polishedTitle = summarizeTitleFromText(
+      input.titleSource.trim(),
+      input.toolLabel || input.title
+    );
+    if (!polishedTitle) return;
+    setWorkflowItems((prev) =>
+      prev.map((item) =>
+        item.id === nextItem.id ? { ...item, title: polishedTitle } : item
+      )
+    );
   }, []);
 
   const trackStep = useCallback(
@@ -135,7 +169,7 @@ export function useStudioWorkflowHistory(
     []
   );
 
-  const hideHistoryItem = useCallback((item: StudioHistoryItem) => {
+  const archiveHistoryItem = useCallback((item: StudioHistoryItem) => {
     setHiddenHistoryIds((prev) => {
       if (prev[item.id]) return prev;
       return {
@@ -143,7 +177,35 @@ export function useStudioWorkflowHistory(
         [item.id]: true,
       };
     });
+    setArchivedHistoryById((prev) => ({
+      ...prev,
+      [item.id]: item,
+    }));
   }, []);
+
+  const unarchiveHistoryItem = useCallback((itemId: string) => {
+    setHiddenHistoryIds((prev) => {
+      if (!prev[itemId]) return prev;
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+    setArchivedHistoryById((prev) => {
+      if (!prev[itemId]) return prev;
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+  }, []);
+
+  const archivedHistory = useMemo(
+    () =>
+      Object.values(archivedHistoryById).sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    [archivedHistoryById]
+  );
 
   const groupedHistory = useMemo(() => {
     const artifactItems = TOOL_ORDER.flatMap((toolType) =>
@@ -189,6 +251,8 @@ export function useStudioWorkflowHistory(
     requestStep,
     acknowledgeStep,
     recordWorkflowEntry,
-    hideHistoryItem,
+    archiveHistoryItem,
+    archivedHistory,
+    unarchiveHistoryItem,
   };
 }
