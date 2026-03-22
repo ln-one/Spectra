@@ -102,6 +102,12 @@ function toStudioManagedTool(
   return toolType as StudioManagedTool;
 }
 
+function waitFor(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const router = useRouter();
   const {
@@ -937,6 +943,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       setIsStudioActionRunning(true);
       const response = await studioCardsApi.execute(currentCardId, requestBody);
       const executionResult = response?.data?.execution_result ?? {};
+      const resourceKind =
+        typeof executionResult.resource_kind === "string"
+          ? executionResult.resource_kind
+          : null;
       const session =
         typeof executionResult.session === "object"
           ? (executionResult.session as Record<string, unknown>)
@@ -945,17 +955,64 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         (session?.session_id as string | undefined) ||
         (session?.id as string | undefined) ||
         null;
+      const run =
+        typeof executionResult.run === "object" &&
+        executionResult.run !== null
+          ? (executionResult.run as Record<string, unknown>)
+          : null;
+      const runId =
+        (run?.run_id as string | undefined) ||
+        (run?.id as string | undefined) ||
+        null;
       if (sessionId) {
         setActiveSessionId(sessionId);
+      }
+      if (runId) {
+        setActiveRunId(runId);
       }
       const effectiveSessionId = sessionId ?? activeSessionId;
       await fetchArtifactHistory(project.id, effectiveSessionId);
       scheduleArtifactRefresh(project.id, effectiveSessionId);
+      if (expandedTool === "word" && sessionId) {
+        void (async () => {
+          let hasConfirmedOutline = false;
+          for (let index = 0; index < 28; index += 1) {
+            try {
+              const sessionPayload = await generateApi.getSession(sessionId);
+              const sessionState =
+                (
+                  (sessionPayload?.data as { session?: { state?: string } })
+                    ?.session?.state ??
+                  (sessionPayload?.data as { state?: string })?.state ??
+                  ""
+                ).toUpperCase();
+              if (
+                !hasConfirmedOutline &&
+                sessionState === "AWAITING_OUTLINE_CONFIRM"
+              ) {
+                await generateApi.confirmOutline(sessionId, {});
+                hasConfirmedOutline = true;
+                continue;
+              }
+              if (sessionState === "SUCCESS" || sessionState === "FAILED") {
+                break;
+              }
+            } catch {
+              // Ignore transient polling failures and keep retrying.
+            }
+            await waitFor(1800);
+          }
+          await fetchArtifactHistory(project.id, sessionId);
+        })();
+      }
       toast({
         title: "Studio 执行成功",
-        description: sessionId
-          ? `已生成会话 ${sessionId.slice(0, 8)}`
-          : "已提交生成并刷新成果列表",
+        description:
+          resourceKind === "session" && sessionId
+            ? `已启动文档生成流程 ${sessionId.slice(0, 8)}`
+            : sessionId
+              ? `已生成会话 ${sessionId.slice(0, 8)}`
+              : "已提交生成并刷新成果列表",
       });
       return sessionId;
     } catch (error) {
