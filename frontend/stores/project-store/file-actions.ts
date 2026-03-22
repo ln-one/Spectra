@@ -64,12 +64,10 @@ export function createFileActions({
         };
       });
       try {
-        const activeSessionId = get().activeSessionId ?? undefined;
         const response = await filesApi.uploadFile(
           file,
           projectId,
-          options?.onProgress,
-          activeSessionId
+          options?.onProgress
         );
         await get().fetchFiles(projectId);
         return response?.data?.file;
