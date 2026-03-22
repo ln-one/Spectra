@@ -58,21 +58,61 @@ export function useProjectDetailController() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [sessionTitleOverrides, setSessionTitleOverrides] = useState<
+    Record<string, string>
+  >({});
+  const [hiddenSessionIds, setHiddenSessionIds] = useState<Record<string, true>>(
+    {}
+  );
   const [selectedThemePreset, setSelectedThemePreset] = useState<ThemePresetId>(
     DEFAULT_PROJECT_THEME_PRESET
   );
 
   const panelLayout = useProjectPanelLayout({ layoutMode, isLoading });
 
+  const visibleGenerationHistory = useMemo(
+    () => generationHistory.filter((item) => !hiddenSessionIds[item.id]),
+    [generationHistory, hiddenSessionIds]
+  );
+
   const sessionOptions: SessionSwitcherItem[] = useMemo(
     () =>
-      generationHistory.map((item) => ({
+      visibleGenerationHistory.map((item) => ({
         sessionId: item.id,
-        title: (item.title || "").trim() || `会话 ${item.id.slice(-6)}`,
+        title:
+          (sessionTitleOverrides[item.id] || item.title || "").trim() ||
+          `会话 ${item.id.slice(-6)}`,
         updatedAt: formatSessionTime(item.createdAt),
       })),
-    [generationHistory]
+    [sessionTitleOverrides, visibleGenerationHistory]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const titleKey = `project-session-title-overrides:${projectId}`;
+    const hiddenKey = `project-hidden-sessions:${projectId}`;
+    try {
+      const rawTitleMap = window.localStorage.getItem(titleKey);
+      const rawHiddenMap = window.localStorage.getItem(hiddenKey);
+      setSessionTitleOverrides(
+        rawTitleMap ? (JSON.parse(rawTitleMap) as Record<string, string>) : {}
+      );
+      setHiddenSessionIds(
+        rawHiddenMap ? (JSON.parse(rawHiddenMap) as Record<string, true>) : {}
+      );
+    } catch {
+      setSessionTitleOverrides({});
+      setHiddenSessionIds({});
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const titleKey = `project-session-title-overrides:${projectId}`;
+    const hiddenKey = `project-hidden-sessions:${projectId}`;
+    window.localStorage.setItem(titleKey, JSON.stringify(sessionTitleOverrides));
+    window.localStorage.setItem(hiddenKey, JSON.stringify(hiddenSessionIds));
+  }, [hiddenSessionIds, projectId, sessionTitleOverrides]);
 
   const updateSessionInUrl = useCallback(
     (sessionId: string) => {
@@ -183,7 +223,7 @@ export function useProjectDetailController() {
   useEffect(() => {
     const preferredSessionId = resolvePreferredSessionId(
       querySessionId,
-      generationHistory,
+      visibleGenerationHistory,
       activeSessionId
     );
 
@@ -222,7 +262,7 @@ export function useProjectDetailController() {
       updateSessionInUrl(nextSessionId);
     }
   }, [
-    generationHistory,
+    visibleGenerationHistory,
     querySessionId,
     activeSessionId,
     fetchArtifactHistory,
@@ -276,6 +316,12 @@ export function useProjectDetailController() {
       });
       const newSessionId = response.data?.session?.session_id;
       if (!newSessionId) return;
+      setHiddenSessionIds((prev) => {
+        if (!prev[newSessionId]) return prev;
+        const next = { ...prev };
+        delete next[newSessionId];
+        return next;
+      });
 
       await fetchGenerationHistory(projectId);
       await handleChangeSession(newSessionId);
@@ -295,14 +341,9 @@ export function useProjectDetailController() {
   }, [fetchGenerationHistory, handleChangeSession, projectId]);
 
   const handleRenameSession = useCallback(
-    (sessionId: string) => {
+    (sessionId: string, nextTitle: string) => {
       const target = generationHistory.find((item) => item.id === sessionId);
       if (!target) return;
-
-      const fallbackTitle = `会话 ${sessionId.slice(-6)}`;
-      const currentTitle = (target.title || "").trim() || fallbackTitle;
-      const nextTitle = window.prompt("请输入会话名称", currentTitle);
-      if (nextTitle === null) return;
 
       const normalizedTitle = nextTitle.trim();
       if (!normalizedTitle) {
@@ -313,10 +354,9 @@ export function useProjectDetailController() {
         return;
       }
 
-      useProjectStore.setState((state) => ({
-        generationHistory: state.generationHistory.map((item) =>
-          item.id === sessionId ? { ...item, title: normalizedTitle } : item
-        ),
+      setSessionTitleOverrides((prev) => ({
+        ...prev,
+        [sessionId]: normalizedTitle,
       }));
       toast({
         title: "会话名称已更新",
@@ -329,7 +369,7 @@ export function useProjectDetailController() {
     async (sessionId: string) => {
       const target = generationHistory.find((item) => item.id === sessionId);
       if (!target) return;
-      if (generationHistory.length <= 1) {
+      if (visibleGenerationHistory.length <= 1) {
         toast({
           title: "至少保留一个会话",
           description: "当前项目需要保留可用会话上下文",
@@ -338,15 +378,12 @@ export function useProjectDetailController() {
         return;
       }
 
-      const title = (target.title || "").trim() || `会话 ${sessionId.slice(-6)}`;
-      const confirmed = window.confirm(`确认删除「${title}」吗？`);
-      if (!confirmed) return;
-
-      const remaining = generationHistory.filter((item) => item.id !== sessionId);
-      useProjectStore.setState((state) => ({
-        generationHistory: state.generationHistory.filter(
-          (item) => item.id !== sessionId
-        ),
+      const remaining = visibleGenerationHistory.filter(
+        (item) => item.id !== sessionId
+      );
+      setHiddenSessionIds((prev) => ({
+        ...prev,
+        [sessionId]: true,
       }));
 
       if (activeSessionId === sessionId && remaining.length > 0) {
@@ -357,7 +394,7 @@ export function useProjectDetailController() {
         title: "会话已删除",
       });
     },
-    [activeSessionId, generationHistory, handleChangeSession]
+    [activeSessionId, generationHistory, handleChangeSession, visibleGenerationHistory]
   );
 
   return {
