@@ -1,8 +1,8 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Loader2, Plus } from "lucide-react";
+import { ChevronDown, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
@@ -17,6 +17,8 @@ interface SessionSwitcherProps {
   sessions: SessionSwitcherItem[];
   activeSessionId: string | null;
   onChangeSession: (sessionId: string) => void;
+  onRenameSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
   onCreateSession: () => void;
   isCreatingSession: boolean;
 }
@@ -25,10 +27,16 @@ export function SessionSwitcher({
   sessions,
   activeSessionId,
   onChangeSession,
+  onRenameSession,
+  onDeleteSession,
   onCreateSession,
   isCreatingSession,
 }: SessionSwitcherProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isSessionMenuOpen, setIsSessionMenuOpen] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
+    null
+  );
   const normalizedActiveSessionId =
     activeSessionId ??
     (sessions.length > 0 ? sessions[0].sessionId : undefined);
@@ -36,8 +44,19 @@ export function SessionSwitcher({
     (session) => session.sessionId === normalizedActiveSessionId
   );
 
+  useEffect(() => {
+    // Keep menu in themed subtree to preserve CSS variables and scoped classes.
+    const themeRoot = containerRef.current?.closest(
+      "[data-project-theme]"
+    ) as HTMLElement | null;
+    setPortalContainer(themeRoot);
+  }, []);
+
   return (
-    <div className="project-session-wrap justify-self-center w-full max-w-[720px] px-2 flex justify-center">
+    <div
+      ref={containerRef}
+      className="project-session-wrap justify-self-center w-full max-w-[720px] px-2 flex justify-center"
+    >
       {isSessionMenuOpen ? (
         <div
           className="project-session-overlay fixed inset-0 z-[170] bg-[var(--project-overlay)] backdrop-blur-[1px] transition-opacity duration-150"
@@ -65,7 +84,7 @@ export function SessionSwitcher({
             {activeSession ? (
               <motion.div
                 layoutId="session-indicator"
-                className="project-session-indicator w-1.5 h-1.5 rounded-full bg-[var(--project-success)]"
+                className="project-session-indicator w-1.5 h-1.5 rounded-full bg-[var(--project-success,#10b981)]"
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
               />
             ) : null}
@@ -78,7 +97,7 @@ export function SessionSwitcher({
             </motion.div>
           </motion.button>
         </DropdownMenuTrigger>
-        <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Portal container={portalContainer ?? undefined}>
           <DropdownMenuPrimitive.Content
             align="center"
             sideOffset={10}
@@ -110,11 +129,11 @@ export function SessionSwitcher({
                         )}
                       >
                         {session.sessionId === normalizedActiveSessionId ? (
-                          <div className="project-session-item-marker absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-[var(--project-success)]" />
+                          <div className="project-session-item-marker absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-[var(--project-success,#10b981)]" />
                         ) : null}
                         <button
                           onClick={() => onChangeSession(session.sessionId)}
-                          className="flex flex-1 items-center justify-between gap-3 text-left"
+                          className="flex min-w-0 flex-1 items-center justify-between gap-3 pr-1 text-left"
                         >
                           <span
                             className={cn(
@@ -130,6 +149,24 @@ export function SessionSwitcher({
                             {session.updatedAt}
                           </span>
                         </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => onRenameSession(session.sessionId)}
+                            className="rounded-[var(--project-chip-radius)] p-1.5 text-[var(--project-control-muted)] transition-colors hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-control-text)]"
+                            aria-label="编辑会话"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteSession(session.sessionId)}
+                            className="rounded-[var(--project-chip-radius)] p-1.5 text-[var(--project-control-muted)] transition-colors hover:bg-[var(--project-danger-soft,rgba(220,38,38,0.12))] hover:text-[var(--project-danger,#dc2626)]"
+                            aria-label="删除会话"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                     <DropdownMenuSeparator className="my-2 bg-[var(--project-control-border)]" />

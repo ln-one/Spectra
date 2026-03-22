@@ -49,6 +49,8 @@ export default function ProjectDetailPage() {
     expandedChatHeight,
     handleToolClick,
     handleChangeSession,
+    handleRenameSession,
+    handleDeleteSession,
     handleCreateSession,
     handleMouseDown,
     sourcesWidthPercent,
@@ -137,6 +139,8 @@ export default function ProjectDetailPage() {
         sessions={sessionOptions}
         activeSessionId={activeSessionId}
         onChangeSession={handleChangeSession}
+        onRenameSession={handleRenameSession}
+        onDeleteSession={handleDeleteSession}
         onCreateSession={handleCreateSession}
         isCreatingSession={isCreatingSession}
         onOpenLibrary={() => setIsLibraryOpen(true)}

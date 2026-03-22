@@ -68,7 +68,7 @@ export function useProjectDetailController() {
     () =>
       generationHistory.map((item) => ({
         sessionId: item.id,
-        title: `会话 ${item.id.slice(-6)}`,
+        title: (item.title || "").trim() || `会话 ${item.id.slice(-6)}`,
         updatedAt: formatSessionTime(item.createdAt),
       })),
     [generationHistory]
@@ -294,6 +294,72 @@ export function useProjectDetailController() {
     }
   }, [fetchGenerationHistory, handleChangeSession, projectId]);
 
+  const handleRenameSession = useCallback(
+    (sessionId: string) => {
+      const target = generationHistory.find((item) => item.id === sessionId);
+      if (!target) return;
+
+      const fallbackTitle = `会话 ${sessionId.slice(-6)}`;
+      const currentTitle = (target.title || "").trim() || fallbackTitle;
+      const nextTitle = window.prompt("请输入会话名称", currentTitle);
+      if (nextTitle === null) return;
+
+      const normalizedTitle = nextTitle.trim();
+      if (!normalizedTitle) {
+        toast({
+          title: "会话名称不能为空",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      useProjectStore.setState((state) => ({
+        generationHistory: state.generationHistory.map((item) =>
+          item.id === sessionId ? { ...item, title: normalizedTitle } : item
+        ),
+      }));
+      toast({
+        title: "会话名称已更新",
+      });
+    },
+    [generationHistory]
+  );
+
+  const handleDeleteSession = useCallback(
+    async (sessionId: string) => {
+      const target = generationHistory.find((item) => item.id === sessionId);
+      if (!target) return;
+      if (generationHistory.length <= 1) {
+        toast({
+          title: "至少保留一个会话",
+          description: "当前项目需要保留可用会话上下文",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const title = (target.title || "").trim() || `会话 ${sessionId.slice(-6)}`;
+      const confirmed = window.confirm(`确认删除「${title}」吗？`);
+      if (!confirmed) return;
+
+      const remaining = generationHistory.filter((item) => item.id !== sessionId);
+      useProjectStore.setState((state) => ({
+        generationHistory: state.generationHistory.filter(
+          (item) => item.id !== sessionId
+        ),
+      }));
+
+      if (activeSessionId === sessionId && remaining.length > 0) {
+        await handleChangeSession(remaining[0].id);
+      }
+
+      toast({
+        title: "会话已删除",
+      });
+    },
+    [activeSessionId, generationHistory, handleChangeSession]
+  );
+
   return {
     router,
     project,
@@ -315,6 +381,8 @@ export function useProjectDetailController() {
     expandedChatHeight: panelLayout.expandedChatHeight,
     handleToolClick,
     handleChangeSession,
+    handleRenameSession,
+    handleDeleteSession,
     handleCreateSession,
     handleMouseDown: panelLayout.handleMouseDown,
     sourcesWidthPercent: panelLayout.sourcesWidthPercent,
