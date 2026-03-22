@@ -159,9 +159,9 @@ export function GameToolPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="flex h-full min-h-0 gap-4">
+          <div className="grid h-full min-h-0 gap-3 grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]">
             <WorkflowStepper
-              className="w-[228px] shrink-0"
+              className="hidden h-full min-h-0 overflow-y-auto lg:block"
               layout="rail"
               currentStep={activeStep}
               steps={GAME_STEPS}
@@ -170,6 +170,16 @@ export function GameToolPanel({
               subtitle="Workflow"
             />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="mb-4 lg:hidden">
+                <WorkflowStepper
+                  layout="inline"
+                  currentStep={activeStep}
+                  steps={GAME_STEPS}
+                  onStepChange={(stepId) => setActiveStep(stepId as GameStep)}
+                  title="互动游戏流程"
+                  subtitle="Workflow"
+                />
+              </div>
               {activeStep === "config" ? (
                 <ConfigStep
                   topic={topic}
