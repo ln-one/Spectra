@@ -1666,7 +1666,8 @@ paths:
       operationId: patchSystemSettings
       description: |
         仅修改系统级业务配置，不涉及数据库连接、JWT、API Key、Redis、存储路径等部署级敏感配置。
-        配置修改后全局生效，至少影响后续新请求。
+        当前实现主要面向开发调试和单进程联调场景：配置修改后会影响当前进程中的后续新请求，
+        但不会替代持久化配置中心，也不保证跨进程、跨 worker 或重启后继续生效。
       tags:
         - SystemSettings
       security:
@@ -3782,12 +3783,14 @@ components:
         accepted:
           type: boolean
         error:
-          type: object
-          properties:
-            code:
-              type: string
-            message:
-              type: string
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                code:
+                  type: string
+                message:
+                  type: string
     GenerationEventTarget:
       type: object
       required:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +12,7 @@ class SystemSettingsModels(BaseModel):
 
 
 class SystemSettingsGenerationDefaults(BaseModel):
-    default_output_type: str = "ppt"
+    default_output_type: Literal["ppt", "word", "both"] = "ppt"
     default_page_count: int = Field(default=12, ge=1, le=100)
     default_outline_style: str = "structured"
 
@@ -42,7 +42,7 @@ class SystemSettingsModelsUpdate(BaseModel):
 
 
 class SystemSettingsGenerationDefaultsUpdate(BaseModel):
-    default_output_type: Optional[str] = None
+    default_output_type: Optional[Literal["ppt", "word", "both"]] = None
     default_page_count: Optional[int] = Field(default=None, ge=1, le=100)
     default_outline_style: Optional[str] = None
 

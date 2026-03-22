@@ -149,7 +149,11 @@ _TRANSITION_TABLE: dict[tuple[str, str], str] = {
 _ALLOWED_ACTIONS: dict[str, list[str]] = {
     GenerationState.IDLE.value: ["configure", "set_session_title"],
     GenerationState.CONFIGURING.value: ["analyze", "cancel", "set_session_title"],
-    GenerationState.ANALYZING.value: ["resume_session", "cancel"],
+    GenerationState.ANALYZING.value: [
+        "resume_session",
+        "cancel",
+        "set_session_title",
+    ],
     GenerationState.DRAFTING_OUTLINE.value: [
         "update_outline",
         "redraft_outline",
