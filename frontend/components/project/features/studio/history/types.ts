@@ -3,6 +3,7 @@ import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 export type StudioHistoryStatus =
   | "draft"
   | "processing"
+  | "previewing"
   | "completed"
   | "failed"
   | "pending";

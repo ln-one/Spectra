@@ -6,7 +6,7 @@ import {
   Archive,
   CheckCircle2,
   Clock3,
-  Download,
+  Eye,
   Loader2,
   XCircle,
 } from "lucide-react";
@@ -21,7 +21,6 @@ interface SessionArtifactsProps {
   toolLabels: Record<string, string>;
   onRefresh: () => void;
   onOpenHistoryItem: (item: StudioHistoryItem) => void;
-  onExportArtifact: (artifactId: string) => void;
   onArchiveHistoryItem: (item: StudioHistoryItem) => void;
 }
 
@@ -71,7 +70,6 @@ export function SessionArtifacts({
   toolLabels,
   onRefresh,
   onOpenHistoryItem,
-  onExportArtifact,
   onArchiveHistoryItem,
 }: SessionArtifactsProps) {
   const [pendingArchiveItem, setPendingArchiveItem] =
@@ -165,27 +163,15 @@ export function SessionArtifacts({
                         </div>
 
                         <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            className="h-7 rounded-lg border border-[var(--project-control-border)] px-2 text-[10px] text-[var(--project-text-muted)]"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-lg text-[var(--project-text-muted)]"
                             onClick={() => onOpenHistoryItem(item)}
+                            aria-label="查看预览"
                           >
-                            查看
-                          </button>
-
-                          {item.artifactId ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-lg"
-                              onClick={() => {
-                                if (!item.artifactId) return;
-                                onExportArtifact(item.artifactId);
-                              }}
-                            >
-                              <Download className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
-                            </Button>
-                          ) : null}
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
 
                           <Button
                             variant="ghost"

@@ -39,7 +39,7 @@ interface UseGenerationConfigPanelArgs {
   resumeStage?: "config" | "outline" | null;
   resumeSignal?: number;
   onWorkflowStageChange?: (
-    stage: "config" | "generating_outline" | "outline",
+    stage: "config" | "generating_outline" | "outline" | "preview",
     payload?: { sessionId?: string | null }
   ) => void;
 }
@@ -242,6 +242,9 @@ export function useGenerationConfigPanel({
           state === "RENDERING" ||
           state === "SUCCESS"
         ) {
+          workflowStageChangeRef.current?.("preview", {
+            sessionId: sessionIdFromStore,
+          });
           router.push(
             `/projects/${projectId}/generate?session=${sessionIdFromStore}`
           );
@@ -302,6 +305,9 @@ export function useGenerationConfigPanel({
 
   const handleGoToPreview = useCallback(() => {
     if (!projectId || !sessionId) return;
+    workflowStageChangeRef.current?.("preview", {
+      sessionId: sessionId || null,
+    });
     router.push(`/projects/${projectId}/generate?session=${sessionId}`);
   }, [projectId, router, sessionId]);
 

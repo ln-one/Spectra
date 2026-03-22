@@ -294,7 +294,12 @@ export function useStudioWorkflowHistory(
     });
 
     const filteredWorkflow = sessionScopedWorkflow.filter((item) => {
-      if (item.status !== "processing" || !item.sessionId) return true;
+      if (
+        (item.status !== "processing" && item.status !== "previewing") ||
+        !item.sessionId
+      ) {
+        return true;
+      }
       return !completedSessions.has(`${item.toolType}:${item.sessionId}`);
     });
 
