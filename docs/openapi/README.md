@@ -47,6 +47,23 @@
 
 > `generate` 模块采用二级拆分：`generate-session.yaml` 为索引入口，具体定义在 `generate-session-*.yaml` 子文件中。
 
+### 当前阶段 target 重点
+
+如果你要对齐下一阶段并行开发，优先看这些 target 文件：
+
+- 系统级业务配置页
+  - `paths/system-settings-target.yaml`
+  - `schemas/system-settings-target.yaml`
+- 会话标题与 Run 历史
+  - `paths/chat-target.yaml`
+  - `schemas/chat-target.yaml`
+  - `schemas/generate-session-models-target.yaml`
+- 结构化生成流与单页局部修改
+  - `paths/generate-session-core-target.yaml`
+  - `paths/generate-session-edit-target.yaml`
+  - `schemas/generate-session-requests-target.yaml`
+  - `schemas/generate-command-core-target.yaml`
+
 ### 完整工作流程
 
 参考 [`.ai/guides/api-workflow.md`](../../.ai/guides/api-workflow.md) 了解：
@@ -74,8 +91,12 @@ docs/
  │ ├── files.yaml # 文件上传接口
 │ ├── generate-session.yaml # 课件生成接口索引
 │ ├── generate-session-core.yaml # 会话核心路径
+│ ├── generate-session-core-target.yaml # 会话核心路径（target 扩展）
 │ ├── generate-session-edit.yaml # 会话编辑路径
+│ ├── generate-session-edit-target.yaml # 会话编辑路径（target 扩展）
 │ ├── generate-session-command.yaml # 会话命令路径
+│ ├── chat-target.yaml # 聊天接口（target 扩展）
+│ ├── system-settings-target.yaml # 系统级业务配置接口（target）
  │ ├── rag.yaml # 知识库检索接口
  │ └── project.yaml # 项目管理接口
  │ ├── project-target.yaml # 项目管理（target 扩展）
@@ -84,10 +105,15 @@ docs/
  │ ├── common.yaml # 通用响应模型
  │ ├── auth.yaml # 认证相关模型
  │ ├── chat.yaml # 对话相关模型
- │ ├── files.yaml # 文件相关模型
+│ ├── files.yaml # 文件相关模型
 │ ├── generate.yaml # 生成相关模型
+│ ├── generate-command-core-target.yaml # 命令模型（target 扩展）
+│ ├── generate-session-models-target.yaml # 会话/事件模型（target 扩展）
+│ ├── generate-session-requests-target.yaml # 会话请求响应（target 扩展）
+│ ├── chat-target.yaml # 聊天响应模型（target 扩展）
  │ ├── preview.yaml # 预览相关模型
  │ ├── rag.yaml # RAG 相关模型
+│ ├── system-settings-target.yaml # 系统级业务配置模型（target）
  │ └── project.yaml # 项目相关模型
  │ ├── project-target.yaml # 项目扩展模型（target）
  │ └── project-space.yaml # 项目空间扩展模型

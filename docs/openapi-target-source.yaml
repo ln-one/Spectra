@@ -26,9 +26,9 @@ paths:
 
   # Chat
   /api/v1/chat/messages:
-    $ref: './openapi/paths/chat.yaml#/~1api~1v1~1chat~1messages'
+    $ref: './openapi/paths/chat-target.yaml#/~1api~1v1~1chat~1messages'
   /api/v1/chat/voice:
-    $ref: './openapi/paths/chat.yaml#/~1api~1v1~1chat~1voice'
+    $ref: './openapi/paths/chat-target.yaml#/~1api~1v1~1chat~1voice'
 
   # Files
   /api/v1/files:
@@ -42,15 +42,15 @@ paths:
 
   # Generate
   /api/v1/generate/sessions:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions'
+    $ref: './openapi/paths/generate-session-core-target.yaml#/~1api~1v1~1generate~1sessions'
   /api/v1/generate/sessions/{session_id}:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}'
+    $ref: './openapi/paths/generate-session-core-target.yaml#/~1api~1v1~1generate~1sessions~1{session_id}'
   /api/v1/generate/sessions/{session_id}/events:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1events'
+    $ref: './openapi/paths/generate-session-core-target.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1events'
   /api/v1/generate/sessions/{session_id}/outline:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline'
   /api/v1/generate/sessions/{session_id}/commands:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
+    $ref: './openapi/paths/generate-session-edit-target.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1commands'
   /api/v1/generate/sessions/{session_id}/confirm:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1confirm'
   /api/v1/generate/sessions/{session_id}/candidate-change:
@@ -58,9 +58,9 @@ paths:
   /api/v1/generate/sessions/{session_id}/outline/redraft:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1outline~1redraft'
   /api/v1/generate/sessions/{session_id}/resume:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1resume'
+    $ref: './openapi/paths/generate-session-core-target.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1resume'
   /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
-    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1slides~1{slide_id}~1regenerate'
+    $ref: './openapi/paths/generate-session-edit-target.yaml#/~1api~1v1~1generate~1sessions~1{session_id}~1slides~1{slide_id}~1regenerate'
   /api/v1/generate/capabilities:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1capabilities'
   /api/v1/generate/studio-cards:
@@ -113,6 +113,10 @@ paths:
     $ref: './openapi/paths/health.yaml#/~1health~1live'
   /api/v1/health/capabilities:
     $ref: './openapi/paths/health.yaml#/~1api~1v1~1health~1capabilities'
+
+  # System Settings (Target)
+  /api/v1/system-settings:
+    $ref: './openapi/paths/system-settings-target.yaml#/~1api~1v1~1system-settings'
 
   # Project
   /api/v1/projects:

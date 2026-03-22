@@ -10,6 +10,7 @@ from routers.health import router as health_router
 from routers.project_space import router as project_space_router
 from routers.projects import router as projects_router
 from routers.rag import router as rag_router
+from routers.system_settings import router as system_settings_router
 
 
 def register_routes(app: FastAPI) -> None:
@@ -23,4 +24,8 @@ def register_routes(app: FastAPI) -> None:
     api_v1_router.include_router(projects_router, tags=["Projects"])
     api_v1_router.include_router(project_space_router, tags=["Project Space"])
     api_v1_router.include_router(rag_router, tags=["RAG"])
+    api_v1_router.include_router(
+        system_settings_router,
+        tags=["System Settings"],
+    )
     app.include_router(api_v1_router)

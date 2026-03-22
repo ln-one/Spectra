@@ -144,7 +144,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SendMessageResponse'
+                $ref: '#/components/schemas/SendMessageResponseTarget'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -414,7 +414,7 @@ paths:
     get:
       summary: 获取生成会话列表
       operationId: getGenerateSessions
-      description: 返回项目内生成会话列表（按更新时间倒序）
+      description: 返回项目内生成会话列表（按更新时间倒序），包含展示标题字段。
       tags:
         - Generate
       security:
@@ -447,7 +447,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenerationSessionListResponse'
+                $ref: '#/components/schemas/GenerationSessionListResponseTarget'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -455,7 +455,7 @@ paths:
     post:
       summary: 创建生成会话
       operationId: postGenerateSessions
-      description: 创建可中断、可恢复的课件生成会话（契约优先主入口）
+      description: 创建可中断、可恢复的课件生成会话，并初始化会话展示标题。
       tags:
         - Generate
       security:
@@ -475,7 +475,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateGenerationSessionResponse'
+                $ref: '#/components/schemas/CreateGenerationSessionResponseTarget'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -503,7 +503,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenerationSessionResponse'
+                $ref: '#/components/schemas/GenerationSessionResponseTarget'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -516,7 +516,7 @@ paths:
       operationId: getGenerateSessionsBySessionIdEvents
       description: |
         默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
-        返回短轮询事件列表。
+        返回短轮询事件列表。目标契约中事件 payload 需要支持 run 追踪、大纲逐条输出、PPT 逐页输出与单页局部修改进展。
       tags:
         - Generate
       security:
@@ -532,7 +532,6 @@ paths:
           required: false
           schema:
             type: string
-          description: 事件游标（用于断线续传）
         - name: accept
           in: query
           required: false
@@ -550,10 +549,10 @@ paths:
             text/event-stream:
               schema:
                 type: string
-                description: SSE stream，data 字段符合 GenerationEvent
+                description: SSE stream，data 字段符合 GenerationEventTarget
             application/json:
               schema:
-                $ref: '#/components/schemas/GenerationEventListResponse'
+                $ref: '#/components/schemas/GenerationEventListResponseTarget'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -607,7 +606,7 @@ paths:
       operationId: postGenerateSessionsBySessionIdCommands
       description: |
         所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
-        服务层必须通过统一状态转换校验器（StateTransitionGuard）决定是否允许执行。
+        目标契约中补充支持会话手动改名，以及带明确需求的单页局部修改。
       tags:
         - Generate
       security:
@@ -625,14 +624,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GenerationSessionCommandRequest'
+              $ref: '#/components/schemas/GenerationSessionCommandRequestTarget'
       responses:
         '200':
           description: 命令已执行或接受
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenerationSessionCommandResponse'
+                $ref: '#/components/schemas/GenerationSessionCommandResponseTarget'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -834,7 +833,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResumeSessionResponse'
+                $ref: '#/components/schemas/ResumeSessionResponseTarget'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -845,9 +844,11 @@ paths:
           $ref: '#/components/responses/Conflict'
   /api/v1/generate/sessions/{session_id}/slides/{slide_id}/regenerate:
     post:
-      summary: 局部重绘单页
+      summary: 提交单页局部修改
       operationId: postGenerateSessionsBySessionIdSlidesBySlideIdRegenerate
-      description: 兼容别名，等价于 command_type=REGENERATE_SLIDE
+      description: |
+        兼容别名，等价于 command_type=REGENERATE_SLIDE。
+        目标契约中，这个能力的产品语义是“按用户明确需求只修改当前页”，而不是无条件重绘。
       deprecated: true
       tags:
         - Generate
@@ -871,14 +872,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegenerateSlideRequest'
+              $ref: '#/components/schemas/LocalModifySlideRequestTarget'
       responses:
         '200':
-          description: 局部重绘成功
+          description: 单页局部修改已接受
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegenerateSlideResponse'
+                $ref: '#/components/schemas/LocalModifySlideResponseTarget'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1638,6 +1639,60 @@ paths:
                 $ref: '#/components/schemas/CapabilitiesHealthResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+  /api/v1/system-settings:
+    get:
+      summary: 获取系统级业务配置
+      operationId: getSystemSettings
+      description: 返回全局生效的业务运行配置，主要用于开发调试和前后端联调。
+      tags:
+        - SystemSettings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    patch:
+      summary: 更新系统级业务配置
+      operationId: patchSystemSettings
+      description: |
+        仅修改系统级业务配置，不涉及数据库连接、JWT、API Key、Redis、存储路径等部署级敏感配置。
+        配置修改后全局生效，至少影响后续新请求。
+      tags:
+        - SystemSettings
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSystemSettingsRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSettingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/projects:
     post:
       summary: 创建项目（支持引用式创建）
@@ -2815,6 +2870,24 @@ components:
                 type: string
         message:
           type: string
+    SendMessageResponseTarget:
+      allOf:
+        - $ref: '#/components/schemas/SendMessageResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                session_title_updated:
+                  type: boolean
+                session_title:
+                  type: string
+                session_title_source:
+                  type: string
+                  enum:
+                    - default
+                    - first_message
+                    - manual
     CapabilityStatus:
       type: object
       description: 能力执行状态与降级信息（统一字段，适用于解析/视频/语音）
@@ -3144,7 +3217,25 @@ components:
         updated_at:
           type: string
           format: date-time
-    GenerationSessionListResponse:
+    SessionTitleSource:
+      type: string
+      enum:
+        - default
+        - first_message
+        - manual
+    GenerationSessionListItemTarget:
+      allOf:
+        - $ref: '#/components/schemas/GenerationSessionListItem'
+        - type: object
+          properties:
+            display_title:
+              type: string
+            display_title_source:
+              $ref: '#/components/schemas/SessionTitleSource'
+            display_title_updated_at:
+              type: string
+              format: date-time
+    GenerationSessionListResponseTarget:
       type: object
       required:
         - success
@@ -3164,7 +3255,7 @@ components:
             sessions:
               type: array
               items:
-                $ref: '#/components/schemas/GenerationSessionListItem'
+                $ref: '#/components/schemas/GenerationSessionListItemTarget'
             total:
               type: integer
               minimum: 0
@@ -3319,7 +3410,19 @@ components:
         updated_at:
           type: string
           format: date-time
-    CreateGenerationSessionResponse:
+    SessionRefTarget:
+      allOf:
+        - $ref: '#/components/schemas/SessionRef'
+        - type: object
+          properties:
+            display_title:
+              type: string
+            display_title_source:
+              $ref: '#/components/schemas/SessionTitleSource'
+            display_title_updated_at:
+              type: string
+              format: date-time
+    CreateGenerationSessionResponseTarget:
       type: object
       required:
         - success
@@ -3334,7 +3437,7 @@ components:
             - session
           properties:
             session:
-              $ref: '#/components/schemas/SessionRef'
+              $ref: '#/components/schemas/SessionRefTarget'
         message:
           type: string
     OutlineNode:
@@ -3456,13 +3559,82 @@ components:
         user_message:
           type: string
           description: 可直接展示给用户的降级提示语
-    SessionStatePayload:
+    RunTitleSource:
+      type: string
+      enum:
+        - pending
+        - auto
+        - manual
+        - fallback
+    RunStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - completed
+        - failed
+    RunStep:
+      type: string
+      enum:
+        - config
+        - outline
+        - generate
+        - preview
+        - modify_slide
+        - completed
+    SessionRun:
+      type: object
+      required:
+        - run_id
+        - session_id
+        - project_id
+        - tool_type
+        - run_no
+        - run_title
+        - run_title_source
+        - run_status
+        - run_step
+        - created_at
+        - updated_at
+      properties:
+        run_id:
+          type: string
+        session_id:
+          type: string
+        project_id:
+          type: string
+        tool_type:
+          type: string
+        run_no:
+          type: integer
+          minimum: 1
+        run_title:
+          type: string
+        run_title_source:
+          $ref: '#/components/schemas/RunTitleSource'
+        run_title_updated_at:
+          type: string
+          format: date-time
+        run_status:
+          $ref: '#/components/schemas/RunStatus'
+        run_step:
+          $ref: '#/components/schemas/RunStep'
+        artifact_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    SessionStatePayloadTarget:
       type: object
       required:
         - session
       properties:
         session:
-          $ref: '#/components/schemas/SessionRef'
+          $ref: '#/components/schemas/SessionRefTarget'
         options:
           $ref: '#/components/schemas/GenerationOptions'
         outline:
@@ -3471,20 +3643,18 @@ components:
           $ref: '#/components/schemas/SessionContextSnapshot'
         capabilities:
           type: array
-          description: 服务端能力声明（状态、供应商、可用操作）
           items:
             $ref: '#/components/schemas/CapabilityDeclaration'
         fallbacks:
           type: array
-          description: 当前会话发生过的能力降级记录（按时间追加）
           items:
             $ref: '#/components/schemas/ExternalFallbackInfo'
         allowed_actions:
           type: array
-          description: 当前状态下允许的下一步动作（防止前后端状态错配）
           items:
             type: string
-            example: update_outline
+        current_run:
+          $ref: '#/components/schemas/SessionRun'
         result:
           type: object
           properties:
@@ -3504,13 +3674,7 @@ components:
               type: string
             retryable:
               type: boolean
-            fallback:
-              $ref: '#/components/schemas/ExternalFallbackInfo'
-            transition_guard:
-              type: string
-              description: 状态转换校验器名称
-              example: StateTransitionGuard
-    GenerationSessionResponse:
+    GenerationSessionResponseTarget:
       type: object
       required:
         - success
@@ -3520,10 +3684,10 @@ components:
         success:
           type: boolean
         data:
-          $ref: '#/components/schemas/SessionStatePayload'
+          $ref: '#/components/schemas/SessionStatePayloadTarget'
         message:
           type: string
-    GenerationEventType:
+    GenerationEventTypeTarget:
       type: string
       enum:
         - state.changed
@@ -3534,7 +3698,73 @@ components:
         - task.completed
         - task.failed
         - session.recovered
-    GenerationEvent:
+        - outline.started
+        - outline.section.generated
+        - outline.completed
+        - slides.started
+        - slide.generating
+        - slide.generated
+        - slides.completed
+        - generation.completed
+        - generation.failed
+        - slide.modify.started
+        - slide.modify.processing
+        - slide.modify.failed
+    RunTracePayload:
+      type: object
+      properties:
+        run_id:
+          type: string
+        run_no:
+          type: integer
+          minimum: 1
+        tool_type:
+          type: string
+        run_title:
+          type: string
+        run_title_source:
+          $ref: '#/components/schemas/RunTitleSource'
+        run_title_updated_at:
+          type: string
+          format: date-time
+        run_status:
+          $ref: '#/components/schemas/RunStatus'
+        run_step:
+          $ref: '#/components/schemas/RunStep'
+        progress_message:
+          type: string
+        partial:
+          type: boolean
+        final:
+          type: boolean
+        section_index:
+          type: integer
+          minimum: 1
+        section_title:
+          type: string
+        section_payload:
+          type: object
+          additionalProperties: true
+        slide_id:
+          type: string
+        slide_index:
+          type: integer
+          minimum: 1
+        slide_payload:
+          type: object
+          additionalProperties: true
+        command_id:
+          type: string
+        accepted:
+          type: boolean
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    GenerationEventTarget:
       type: object
       required:
         - event_id
@@ -3550,7 +3780,7 @@ components:
           minimum: 1
           default: 1
         event_type:
-          $ref: '#/components/schemas/GenerationEventType'
+          $ref: '#/components/schemas/GenerationEventTypeTarget'
         state:
           $ref: '#/components/schemas/GenerationState'
         state_reason:
@@ -3566,9 +3796,8 @@ components:
           type: string
           description: 增量消费游标
         payload:
-          type: object
-          description: 事件附带的业务数据
-    GenerationEventListResponse:
+          $ref: '#/components/schemas/RunTracePayload'
+    GenerationEventListResponseTarget:
       type: object
       required:
         - success
@@ -3583,7 +3812,7 @@ components:
             events:
               type: array
               items:
-                $ref: '#/components/schemas/GenerationEvent'
+                $ref: '#/components/schemas/GenerationEventTarget'
         message:
           type: string
     UpdateOutlineRequest:
@@ -3670,6 +3899,10 @@ components:
           default: true
         expected_state:
           $ref: '#/components/schemas/GenerationState'
+    SlideModifyScope:
+      type: string
+      enum:
+        - current_slide_only
     StructuredPatchOperationType:
       type: string
       enum:
@@ -3712,12 +3945,12 @@ components:
           maxItems: 30
           items:
             $ref: '#/components/schemas/StructuredSlidePatchOperation'
-    RegenerateSlideCommand:
+    RegenerateSlideCommandTarget:
       type: object
       required:
         - command_type
         - slide_id
-        - patch
+        - instruction
       properties:
         command_type:
           type: string
@@ -3725,11 +3958,27 @@ components:
             - REGENERATE_SLIDE
         slide_id:
           type: string
-        patch:
-          $ref: '#/components/schemas/StructuredSlidePatch'
+        instruction:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: 用户对当前页的明确修改需求
         expected_render_version:
           type: integer
           minimum: 1
+        preserve_style:
+          type: boolean
+          default: true
+        preserve_layout:
+          type: boolean
+          default: true
+        preserve_deck_consistency:
+          type: boolean
+          default: true
+        scope:
+          $ref: '#/components/schemas/SlideModifyScope'
+        patch:
+          $ref: '#/components/schemas/StructuredSlidePatch'
     ResumeSessionCommand:
       type: object
       required:
@@ -3743,23 +3992,38 @@ components:
           type: string
         last_known_state:
           $ref: '#/components/schemas/GenerationState'
-    GenerationCommandEnvelope:
+    SetSessionTitleCommandTarget:
+      type: object
+      required:
+        - command_type
+        - display_title
+      properties:
+        command_type:
+          type: string
+          enum:
+            - SET_SESSION_TITLE
+        display_title:
+          type: string
+          minLength: 1
+          maxLength: 120
+    GenerationCommandEnvelopeTarget:
       oneOf:
         - $ref: '#/components/schemas/UpdateOutlineCommand'
         - $ref: '#/components/schemas/RedraftOutlineCommand'
         - $ref: '#/components/schemas/ConfirmOutlineCommand'
-        - $ref: '#/components/schemas/RegenerateSlideCommand'
+        - $ref: '#/components/schemas/RegenerateSlideCommandTarget'
         - $ref: '#/components/schemas/ResumeSessionCommand'
+        - $ref: '#/components/schemas/SetSessionTitleCommandTarget'
       discriminator:
         propertyName: command_type
-    GenerationSessionCommandRequest:
+    GenerationSessionCommandRequestTarget:
       type: object
       required:
         - command
       properties:
         command:
-          $ref: '#/components/schemas/GenerationCommandEnvelope'
-    GenerationCommandType:
+          $ref: '#/components/schemas/GenerationCommandEnvelopeTarget'
+    GenerationCommandTypeTarget:
       type: string
       enum:
         - UPDATE_OUTLINE
@@ -3767,7 +4031,8 @@ components:
         - CONFIRM_OUTLINE
         - REGENERATE_SLIDE
         - RESUME_SESSION
-    AppliedTransition:
+        - SET_SESSION_TITLE
+    AppliedTransitionTarget:
       type: object
       required:
         - command_type
@@ -3776,7 +4041,7 @@ components:
         - validated_by
       properties:
         command_type:
-          $ref: '#/components/schemas/GenerationCommandType'
+          $ref: '#/components/schemas/GenerationCommandTypeTarget'
         from_state:
           $ref: '#/components/schemas/GenerationState'
         to_state:
@@ -3784,7 +4049,7 @@ components:
         validated_by:
           type: string
           example: StateTransitionGuard
-    GenerationSessionCommandResponse:
+    GenerationSessionCommandResponseTarget:
       type: object
       required:
         - success
@@ -3805,9 +4070,11 @@ components:
               type: boolean
               default: true
             transition:
-              $ref: '#/components/schemas/AppliedTransition'
+              $ref: '#/components/schemas/AppliedTransitionTarget'
             session:
-              $ref: '#/components/schemas/SessionRef'
+              $ref: '#/components/schemas/SessionRefTarget'
+            run:
+              $ref: '#/components/schemas/SessionRun'
             warnings:
               type: array
               items:
@@ -3986,7 +4253,7 @@ components:
           description: 上次消费到的事件游标
         last_known_state:
           $ref: '#/components/schemas/GenerationState'
-    ResumeSessionResponse:
+    ResumeSessionResponseTarget:
       type: object
       required:
         - success
@@ -3999,55 +4266,41 @@ components:
           type: object
           properties:
             session:
-              $ref: '#/components/schemas/SessionRef'
+              $ref: '#/components/schemas/SessionRefTarget'
             latest_event:
-              $ref: '#/components/schemas/GenerationEvent'
+              $ref: '#/components/schemas/GenerationEventTarget'
         message:
           type: string
-    RegenerateSlideRequest:
+    LocalModifySlideRequestTarget:
       type: object
       required:
-        - patch
+        - instruction
       properties:
         instruction:
           type: string
           minLength: 1
           maxLength: 2000
-          description: 可选自然语言补充说明，最终以结构化 patch 为准
+          description: 用户对当前页的明确修改需求
         slide_index:
           type: integer
           minimum: 1
-        patch:
-          $ref: '#/components/schemas/StructuredSlidePatch'
         expected_render_version:
           type: integer
           minimum: 1
-          description: 防止并发覆盖的版本控制字段
-    preview_SourceReference:
-      type: object
-      required:
-        - chunk_id
-        - source_type
-        - filename
-      properties:
-        chunk_id:
-          type: string
-          description: 来源片段唯一标识，可用于查询来源详情
-        source_type:
-          type: string
-          enum:
-            - video
-            - document
-            - ai_generated
-        filename:
-          type: string
-        page_number:
-          type: integer
-        timestamp:
-          type: string
-        preview_text:
-          type: string
-    RegenerateSlideResponse:
+        preserve_style:
+          type: boolean
+          default: true
+        preserve_layout:
+          type: boolean
+          default: true
+        preserve_deck_consistency:
+          type: boolean
+          default: true
+        scope:
+          $ref: '#/components/schemas/SlideModifyScope'
+        patch:
+          $ref: '#/components/schemas/StructuredSlidePatch'
+    LocalModifySlideResponseTarget:
       type: object
       required:
         - success
@@ -4059,25 +4312,27 @@ components:
         data:
           type: object
           properties:
+            accepted:
+              type: boolean
+              default: true
+            command_id:
+              type: string
             session:
-              $ref: '#/components/schemas/SessionRef'
-            updated_slide:
-              type: object
-              properties:
-                slide_id:
-                  type: string
-                slide_index:
-                  type: integer
-                content_markdown:
-                  type: string
-                sources:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/preview_SourceReference'
-                render_version:
-                  type: integer
+              $ref: '#/components/schemas/SessionRefTarget'
+            run:
+              $ref: '#/components/schemas/SessionRun'
+            slide_id:
+              type: string
         message:
           type: string
+    GenerationCommandType:
+      type: string
+      enum:
+        - UPDATE_OUTLINE
+        - REDRAFT_OUTLINE
+        - CONFIRM_OUTLINE
+        - REGENERATE_SLIDE
+        - RESUME_SESSION
     StudioCardConfigOption:
       type: object
       required:
@@ -4673,6 +4928,30 @@ components:
         based_on_version_id:
           type: string
           nullable: true
+    preview_SourceReference:
+      type: object
+      required:
+        - chunk_id
+        - source_type
+        - filename
+      properties:
+        chunk_id:
+          type: string
+          description: 来源片段唯一标识，可用于查询来源详情
+        source_type:
+          type: string
+          enum:
+            - video
+            - document
+            - ai_generated
+        filename:
+          type: string
+        page_number:
+          type: integer
+        timestamp:
+          type: string
+        preview_text:
+          type: string
     Slide:
       type: object
       required:
@@ -5270,6 +5549,80 @@ components:
               $ref: '#/components/schemas/CapabilityStatus'
         message:
           type: string
+    SystemSettingsModels:
+      type: object
+      properties:
+        default_model:
+          type: string
+        large_model:
+          type: string
+        small_model:
+          type: string
+    SystemSettingsGenerationDefaults:
+      type: object
+      properties:
+        default_output_type:
+          $ref: '#/components/schemas/GenerationSessionMode'
+        default_page_count:
+          type: integer
+          minimum: 1
+          maximum: 100
+        default_outline_style:
+          type: string
+    SystemSettingsFeatureFlags:
+      type: object
+      properties:
+        enable_ai_generation:
+          type: boolean
+        enable_file_upload:
+          type: boolean
+        feature_flags:
+          type: object
+          additionalProperties: true
+    SystemSettingsExperience:
+      type: object
+      properties:
+        chat_timeout_seconds:
+          type: integer
+          minimum: 1
+        ai_request_timeout_seconds:
+          type: integer
+          minimum: 1
+    SystemSettings:
+      type: object
+      properties:
+        models:
+          $ref: '#/components/schemas/SystemSettingsModels'
+        generation_defaults:
+          $ref: '#/components/schemas/SystemSettingsGenerationDefaults'
+        feature_flags:
+          $ref: '#/components/schemas/SystemSettingsFeatureFlags'
+        experience:
+          $ref: '#/components/schemas/SystemSettingsExperience'
+    SystemSettingsResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/SystemSettings'
+        message:
+          type: string
+    UpdateSystemSettingsRequest:
+      type: object
+      properties:
+        models:
+          $ref: '#/components/schemas/SystemSettingsModels'
+        generation_defaults:
+          $ref: '#/components/schemas/SystemSettingsGenerationDefaults'
+        feature_flags:
+          $ref: '#/components/schemas/SystemSettingsFeatureFlags'
+        experience:
+          $ref: '#/components/schemas/SystemSettingsExperience'
     Project:
       type: object
       required:
