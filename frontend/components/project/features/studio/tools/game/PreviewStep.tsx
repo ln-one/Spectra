@@ -16,6 +16,28 @@ interface PreviewStepProps {
   onActionReward: () => void;
 }
 
+function resolveBackendHtml(flowContext?: ToolFlowContext): string | null {
+  if (!flowContext?.resolvedArtifact) return null;
+  if (flowContext.resolvedArtifact.contentKind !== "text") return null;
+  if (typeof flowContext.resolvedArtifact.content !== "string") return null;
+  const raw = flowContext.resolvedArtifact.content.trim();
+  if (!raw) return null;
+  if (raw.startsWith("{") || raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof parsed.html === "string" && parsed.html.trim()) {
+        return parsed.html.trim();
+      }
+      if (typeof parsed.content_html === "string" && parsed.content_html.trim()) {
+        return parsed.content_html.trim();
+      }
+    } catch {
+      // Ignore parse error and fall back to raw text.
+    }
+  }
+  return raw;
+}
+
 export function PreviewStep({
   sandboxTitle,
   sandboxDescription,
@@ -32,11 +54,7 @@ export function PreviewStep({
   const capabilityReason =
     flowContext?.capabilityReason ?? "未获取到后端游戏 HTML 内容，已回退前端示意内容。";
   const backendHtml =
-    capabilityStatus === "backend_ready" &&
-    flowContext?.resolvedArtifact?.contentKind === "text" &&
-    typeof flowContext.resolvedArtifact.content === "string"
-      ? flowContext.resolvedArtifact.content
-      : null;
+    capabilityStatus === "backend_ready" ? resolveBackendHtml(flowContext) : null;
 
   return (
     <div className="space-y-4">
