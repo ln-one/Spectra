@@ -139,7 +139,9 @@ const PRESET_DEFINITION_MAP = new Map<ThemePresetId, ProjectThemeDefinition>(
   })
 );
 
-export const THEME_PRESET_DEFINITIONS = Array.from(PRESET_DEFINITION_MAP.values());
+export const THEME_PRESET_DEFINITIONS = Array.from(
+  PRESET_DEFINITION_MAP.values()
+);
 export const THEME_PRESET_SET = new Set<ThemePresetId>(
   THEME_PRESET_DEFINITIONS.map((theme) => theme.id)
 );

@@ -111,7 +111,9 @@ export function OutlineInlineSettings({
             <SelectContent className="bg-white shadow-lg">
               {IMAGE_STYLES.map((style) => (
                 <SelectItem key={style.value} value={style.value}>
-                  <span className="mr-1.5 text-[11px] text-zinc-400">{style.icon}</span>
+                  <span className="mr-1.5 text-[11px] text-zinc-400">
+                    {style.icon}
+                  </span>
                   {style.label}
                 </SelectItem>
               ))}

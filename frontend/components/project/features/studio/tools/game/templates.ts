@@ -34,7 +34,8 @@ export function buildSandboxDescription(data: GameDraftData): string {
 }
 
 export function buildPseudoCode(data: GameDraftData): string {
-  const ruleTags = data.ideaTags.length > 0 ? data.ideaTags.join(" / ") : "无额外规则";
+  const ruleTags =
+    data.ideaTags.length > 0 ? data.ideaTags.join(" / ") : "无额外规则";
   return [
     "const gameConfig = {",
     `  topic: "${topicOrDefault(data.topic)}",`,

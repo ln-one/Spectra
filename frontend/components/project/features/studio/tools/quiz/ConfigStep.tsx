@@ -69,7 +69,9 @@ export function ConfigStep({
           <Label className="text-xs text-zinc-600">难度</Label>
           <Select
             value={difficulty}
-            onValueChange={(value) => onDifficultyChange(value as QuizDifficulty)}
+            onValueChange={(value) =>
+              onDifficultyChange(value as QuizDifficulty)
+            }
           >
             <SelectTrigger className="h-9 text-xs">
               <SelectValue />
@@ -112,7 +114,9 @@ export function ConfigStep({
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-3">
-        <p className="text-xs font-semibold text-zinc-800">出题风格（可多选）</p>
+        <p className="text-xs font-semibold text-zinc-800">
+          出题风格（可多选）
+        </p>
         <p className="mt-1 text-[11px] text-zinc-500">
           选中的标签会影响题目语气和干扰项设计。
         </p>

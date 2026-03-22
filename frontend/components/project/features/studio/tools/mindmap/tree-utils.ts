@@ -86,7 +86,10 @@ export function countNodes(node: MindNode): number {
   return 1 + childrenCount;
 }
 
-export function findNodeById(node: MindNode, targetId: string): MindNode | null {
+export function findNodeById(
+  node: MindNode,
+  targetId: string
+): MindNode | null {
   if (node.id === targetId) return node;
   for (const child of node.children ?? []) {
     const result = findNodeById(child, targetId);

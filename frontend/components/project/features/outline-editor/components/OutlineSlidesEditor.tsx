@@ -147,9 +147,7 @@ export function OutlineSlidesEditor({
                         onDeleteSlide(slide.id);
                       }}
                       className="text-red-600 focus:text-red-600"
-                      disabled={
-                        slides.length <= 1 || isLocked
-                      }
+                      disabled={slides.length <= 1 || isLocked}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       删除

@@ -99,7 +99,10 @@ export function ConfigStep({
 
         <div className="space-y-1.5">
           <Label className="text-xs text-zinc-600">讲稿风格</Label>
-          <Select value={tone} onValueChange={(value) => onToneChange(value as SpeechTone)}>
+          <Select
+            value={tone}
+            onValueChange={(value) => onToneChange(value as SpeechTone)}
+          >
             <SelectTrigger className="h-9 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -112,7 +115,10 @@ export function ConfigStep({
             </SelectContent>
           </Select>
           <p className="text-[11px] text-zinc-500">
-            {SPEECH_TONE_OPTIONS.find((item) => item.value === tone)?.description}
+            {
+              SPEECH_TONE_OPTIONS.find((item) => item.value === tone)
+                ?.description
+            }
           </p>
         </div>
 
@@ -127,7 +133,9 @@ export function ConfigStep({
                 : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
             }`}
           >
-            {emphasizeInteraction ? "开启：优先加入提问停顿" : "关闭：以讲解连贯为主"}
+            {emphasizeInteraction
+              ? "开启：优先加入提问停顿"
+              : "关闭：以讲解连贯为主"}
           </button>
         </div>
       </section>

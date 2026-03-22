@@ -174,6 +174,16 @@ class TestEmbeddingServiceDashScope:
             os.getenv("EMBEDDING_DIMENSION", "1536")
         )
 
+    def test_default_model_reads_env_on_init(self, monkeypatch):
+        monkeypatch.setenv("EMBEDDING_MODEL", "qwen3-vl-embedding")
+        svc = EmbeddingService()
+        assert svc._uses_multimodal_dashscope() is True
+
+    def test_default_dimension_reads_env(self, monkeypatch):
+        monkeypatch.setenv("EMBEDDING_DIMENSION", "1024")
+        svc = EmbeddingService(model="text-embedding-v4")
+        assert svc.get_dimension() == 1024
+
     def test_use_dashscope_flag(self, dashscope_svc):
         assert dashscope_svc._use_dashscope() is True
 

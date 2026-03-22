@@ -16,7 +16,11 @@ import {
   buildSimulationQuestions,
 } from "./simulation/question-bank";
 import { PreviewStep } from "./simulation/PreviewStep";
-import type { SimulationQuestion, SimulationStep, StudentProfile } from "./simulation/types";
+import type {
+  SimulationQuestion,
+  SimulationStep,
+  StudentProfile,
+} from "./simulation/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 export function SimulationToolPanel({
@@ -47,7 +51,8 @@ export function SimulationToolPanel({
 
   const currentQuestion = questions[cursor] ?? null;
   const profileLabel =
-    STUDENT_PROFILES.find((item) => item.value === profile)?.label ?? "细节型理科生";
+    STUDENT_PROFILES.find((item) => item.value === profile)?.label ??
+    "细节型理科生";
 
   useEffect(() => {
     onDraftChange?.({
@@ -111,78 +116,82 @@ export function SimulationToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台              </h3>
+                {toolName}三步工作台{" "}
+              </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先配置学生画像，再生成提问场景，最后在群聊面板里完成预演训练。              </p>
+                先配置学生画像，再生成提问场景，最后在群聊面板里完成预演训练。{" "}
+              </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
             </span>
           </div>
-
-
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
           <div className="flex h-full min-h-0 gap-4">
-          <WorkflowStepper
-            className="w-[228px] shrink-0"
-            layout="rail"
-            currentStep={activeStep}
-            steps={SIMULATION_STEPS}
-            onStepChange={(stepId) => setActiveStep(stepId as SimulationStep)}
-            title="学情预演流程"
-            subtitle="Workflow"
-          />
+            <WorkflowStepper
+              className="w-[228px] shrink-0"
+              layout="rail"
+              currentStep={activeStep}
+              steps={SIMULATION_STEPS}
+              onStepChange={(stepId) => setActiveStep(stepId as SimulationStep)}
+              title="学情预演流程"
+              subtitle="Workflow"
+            />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {activeStep === "config" ? (
-            <ConfigStep
-              topic={topic}
-              intensity={intensity}
-              profile={profile}
-              includeStrategyPanel={includeStrategyPanel}
-              onTopicChange={setTopic}
-              onIntensityChange={setIntensity}
-              onProfileChange={setProfile}
-              onIncludeStrategyPanelChange={setIncludeStrategyPanel}
-              onNext={() => setActiveStep("generate")}
-            />
-          ) : null}
+              {activeStep === "config" ? (
+                <ConfigStep
+                  topic={topic}
+                  intensity={intensity}
+                  profile={profile}
+                  includeStrategyPanel={includeStrategyPanel}
+                  onTopicChange={setTopic}
+                  onIntensityChange={setIntensity}
+                  onProfileChange={setProfile}
+                  onIncludeStrategyPanelChange={setIncludeStrategyPanel}
+                  onNext={() => setActiveStep("generate")}
+                />
+              ) : null}
 
-          {activeStep === "generate" ? (
-            <GenerateStep
-              topic={topic}
-              intensity={intensity}
-              profileLabel={profileLabel}
-              includeStrategyPanel={includeStrategyPanel}
-              flowContext={flowContext}
-              isGenerating={isGenerating}
-              onBack={() => setActiveStep("config")}
-              onGenerate={() => void handleGenerate()}
-            />
-          ) : null}
+              {activeStep === "generate" ? (
+                <GenerateStep
+                  topic={topic}
+                  intensity={intensity}
+                  profileLabel={profileLabel}
+                  includeStrategyPanel={includeStrategyPanel}
+                  flowContext={flowContext}
+                  isGenerating={isGenerating}
+                  onBack={() => setActiveStep("config")}
+                  onGenerate={() => void handleGenerate()}
+                />
+              ) : null}
 
-          {activeStep === "preview" ? (
-            <PreviewStep
-              students={DEFAULT_STUDENTS}
-              question={currentQuestion}
-              answer={answer}
-              judgeText={judgeText}
-              includeStrategyPanel={includeStrategyPanel}
-              strategyOffset={strategyOffset}
-              lastGeneratedAt={lastGeneratedAt}
-              flowContext={flowContext}
-              onRegenerate={() => setActiveStep("generate")}
-              onAnswerChange={setAnswer}
-              onSubmitAnswer={() => setJudgeText(buildJudgeComment(answer, intensity))}
-              onNextRound={() => {
-                setCursor((prev) => (prev + 1) % Math.max(1, questions.length));
-                setAnswer("");
-                setJudgeText("");
-              }}
-              onOpenStrategies={() => setStrategyOffset((prev) => prev + 1)}
-            />
-          ) : null}
+              {activeStep === "preview" ? (
+                <PreviewStep
+                  students={DEFAULT_STUDENTS}
+                  question={currentQuestion}
+                  answer={answer}
+                  judgeText={judgeText}
+                  includeStrategyPanel={includeStrategyPanel}
+                  strategyOffset={strategyOffset}
+                  lastGeneratedAt={lastGeneratedAt}
+                  flowContext={flowContext}
+                  onRegenerate={() => setActiveStep("generate")}
+                  onAnswerChange={setAnswer}
+                  onSubmitAnswer={() =>
+                    setJudgeText(buildJudgeComment(answer, intensity))
+                  }
+                  onNextRound={() => {
+                    setCursor(
+                      (prev) => (prev + 1) % Math.max(1, questions.length)
+                    );
+                    setAnswer("");
+                    setJudgeText("");
+                  }}
+                  onOpenStrategies={() => setStrategyOffset((prev) => prev + 1)}
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -190,5 +199,3 @@ export function SimulationToolPanel({
     </div>
   );
 }
-
-

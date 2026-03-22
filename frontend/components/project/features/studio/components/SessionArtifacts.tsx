@@ -108,7 +108,9 @@ export function SessionArtifacts({
                       >
                         {statusText(item.status)}
                       </span>
-                      <span>{new Date(item.createdAt).toLocaleString("zh-CN")}</span>
+                      <span>
+                        {new Date(item.createdAt).toLocaleString("zh-CN")}
+                      </span>
                     </p>
                   </div>
                   {item.artifactId ? (

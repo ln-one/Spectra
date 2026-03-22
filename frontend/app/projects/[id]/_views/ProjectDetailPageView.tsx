@@ -84,12 +84,32 @@ export default function ProjectDetailPage() {
               : activeTheme.styleVariant === "sunset-amber"
                 ? { count: 8, blur: 34, speed: 18, opacityClass: "opacity-76" }
                 : activeTheme.styleVariant === "graphite-blue"
-          ? { count: 6, blur: 26, speed: 14, opacityClass: "opacity-70" }
-          : activeTheme.styleVariant === "lavender-slate"
-            ? { count: 7, blur: 30, speed: 16, opacityClass: "opacity-74" }
-            : activeTheme.styleVariant === "rose-wine"
-              ? { count: 7, blur: 32, speed: 17, opacityClass: "opacity-76" }
-                : { count: 7, blur: 40, speed: 18, opacityClass: "opacity-80" };
+                  ? {
+                      count: 6,
+                      blur: 26,
+                      speed: 14,
+                      opacityClass: "opacity-70",
+                    }
+                  : activeTheme.styleVariant === "lavender-slate"
+                    ? {
+                        count: 7,
+                        blur: 30,
+                        speed: 16,
+                        opacityClass: "opacity-74",
+                      }
+                    : activeTheme.styleVariant === "rose-wine"
+                      ? {
+                          count: 7,
+                          blur: 32,
+                          speed: 17,
+                          opacityClass: "opacity-76",
+                        }
+                      : {
+                          count: 7,
+                          blur: 40,
+                          speed: 18,
+                          opacityClass: "opacity-80",
+                        };
 
   return (
     <div

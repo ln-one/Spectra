@@ -55,6 +55,7 @@ export function getReadinessLabel(status?: string | null): string {
 
 export function getToneLabel(value: SpeechTone): string {
   return (
-    SPEECH_TONE_OPTIONS.find((item) => item.value === value)?.label ?? "温和讲解"
+    SPEECH_TONE_OPTIONS.find((item) => item.value === value)?.label ??
+    "温和讲解"
   );
 }

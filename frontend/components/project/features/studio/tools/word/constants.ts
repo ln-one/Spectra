@@ -63,7 +63,10 @@ export const TEACHING_MODE_OPTIONS: Array<{
   { value: "project_based", label: "项目式" },
 ];
 
-export const GRADE_BAND_OPTIONS: Array<{ value: WordGradeBand; label: string }> = [
+export const GRADE_BAND_OPTIONS: Array<{
+  value: WordGradeBand;
+  label: string;
+}> = [
   { value: "primary", label: "小学" },
   { value: "middle", label: "初中" },
   { value: "high", label: "高中" },
@@ -88,17 +91,20 @@ export function getReadinessLabel(status?: string | null): string {
 
 export function getVariantLabel(variant: WordDocumentVariant): string {
   return (
-    DOCUMENT_VARIANTS.find((item) => item.value === variant)?.label ?? "分层教案"
+    DOCUMENT_VARIANTS.find((item) => item.value === variant)?.label ??
+    "分层教案"
   );
 }
 
 export function getTeachingModelLabel(value: WordTeachingModel): string {
   return (
-    TEACHING_MODE_OPTIONS.find((item) => item.value === value)?.label ?? "探究式"
+    TEACHING_MODE_OPTIONS.find((item) => item.value === value)?.label ??
+    "探究式"
   );
 }
 
 export function getGradeBandLabel(value: WordGradeBand): string {
-  return GRADE_BAND_OPTIONS.find((item) => item.value === value)?.label ?? "高中";
+  return (
+    GRADE_BAND_OPTIONS.find((item) => item.value === value)?.label ?? "高中"
+  );
 }
-

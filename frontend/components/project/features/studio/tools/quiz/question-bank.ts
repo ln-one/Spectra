@@ -23,12 +23,7 @@ function resolveOptions(questionType: QuizQuestionType): string[] {
       "回到题干逐句验证",
     ];
   }
-  return [
-    "直接套公式",
-    "先判断题目考点",
-    "把选项都试一遍",
-    "先看答案再反推",
-  ];
+  return ["直接套公式", "先判断题目考点", "把选项都试一遍", "先看答案再反推"];
 }
 
 function resolveAnswers(questionType: QuizQuestionType): number[] {

@@ -58,8 +58,9 @@ export function useProjectDetailController() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [selectedThemePreset, setSelectedThemePreset] =
-    useState<ThemePresetId>(DEFAULT_PROJECT_THEME_PRESET);
+  const [selectedThemePreset, setSelectedThemePreset] = useState<ThemePresetId>(
+    DEFAULT_PROJECT_THEME_PRESET
+  );
 
   const panelLayout = useProjectPanelLayout({ layoutMode, isLoading });
 
@@ -76,9 +77,7 @@ export function useProjectDetailController() {
   const updateSessionInUrl = useCallback(
     (sessionId: string) => {
       const nextSearch = new URLSearchParams(
-        typeof window !== "undefined"
-          ? window.location.search
-          : ""
+        typeof window !== "undefined" ? window.location.search : ""
       );
       nextSearch.set("session", sessionId);
       router.replace(`/projects/${projectId}?${nextSearch.toString()}`, {

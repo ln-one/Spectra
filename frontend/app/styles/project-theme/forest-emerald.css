@@ -1,151 +1,153 @@
-﻿  [data-project-style="forest-emerald"] .project-panel-card {
-    background: linear-gradient(
+﻿[data-project-style="forest-emerald"] .project-panel-card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--project-surface) 96%, #fbf6ea),
+    color-mix(in srgb, var(--project-surface-muted) 94%, #f8f0dd)
+  );
+  border-style: solid;
+  box-shadow:
+    0 14px 24px -22px rgba(107, 72, 24, 0.5),
+    inset 0 0 0 1px
+      color-mix(in srgb, var(--project-border-strong) 42%, transparent);
+}
+
+[data-project-style="forest-emerald"] .project-header-shell {
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--project-border-strong) 55%, transparent);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(130, 96, 46, 0.03),
+      rgba(130, 96, 46, 0.03) 2px,
+      transparent 2px,
+      transparent 8px
+    ),
+    linear-gradient(
       180deg,
-      color-mix(in srgb, var(--project-surface) 96%, #fbf6ea),
-      color-mix(in srgb, var(--project-surface-muted) 94%, #f8f0dd)
+      color-mix(in srgb, var(--project-surface) 86%, #f7ecd6),
+      color-mix(in srgb, var(--project-bg-base) 72%, transparent)
     );
-    border-style: solid;
-    box-shadow:
-      0 14px 24px -22px rgba(107, 72, 24, 0.5),
-      inset 0 0 0 1px color-mix(in srgb, var(--project-border-strong) 42%, transparent);
-  }
+}
 
-  [data-project-style="forest-emerald"] .project-header-shell {
-    border-bottom: 1px solid color-mix(in srgb, var(--project-border-strong) 55%, transparent);
-    background:
-      repeating-linear-gradient(
-        0deg,
-        rgba(130, 96, 46, 0.03),
-        rgba(130, 96, 46, 0.03) 2px,
-        transparent 2px,
-        transparent 8px
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--project-surface) 86%, #f7ecd6),
-        color-mix(in srgb, var(--project-bg-base) 72%, transparent)
-      );
-  }
+[data-project-style="forest-emerald"] .project-title-text {
+  text-transform: uppercase;
+  font-size: 1.72rem;
+  line-height: 1.1;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
 
-  [data-project-style="forest-emerald"] .project-title-text {
-    text-transform: uppercase;
-    font-size: 1.72rem;
-    line-height: 1.1;
-    font-family: "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  }
+[data-project-style="forest-emerald"] .project-session-trigger,
+[data-project-style="forest-emerald"] .project-header-control {
+  border-width: 1.5px;
+  border-style: solid;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
 
-  [data-project-style="forest-emerald"] .project-session-trigger,
-  [data-project-style="forest-emerald"] .project-header-control {
-    border-width: 1.5px;
-    border-style: solid;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
-  }
+[data-project-style="forest-emerald"] .project-header-menu,
+[data-project-style="forest-emerald"] .project-session-menu {
+  border-style: solid;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(109, 76, 32, 0.02),
+      rgba(109, 76, 32, 0.02) 2px,
+      transparent 2px,
+      transparent 7px
+    ),
+    color-mix(in srgb, var(--project-menu-bg) 95%, #f5ebd3);
+}
 
-  [data-project-style="forest-emerald"] .project-header-menu,
-  [data-project-style="forest-emerald"] .project-session-menu {
-    border-style: solid;
-    background:
-      repeating-linear-gradient(
-        0deg,
-        rgba(109, 76, 32, 0.02),
-        rgba(109, 76, 32, 0.02) 2px,
-        transparent 2px,
-        transparent 7px
-      ),
-      color-mix(in srgb, var(--project-menu-bg) 95%, #f5ebd3);
-  }
+[data-project-style="forest-emerald"] .project-header-logo {
+  border-radius: 0.6rem;
+  border-color: color-mix(in srgb, var(--project-border-strong) 62%, #8e6a3e);
+  box-shadow:
+    0 10px 16px -14px rgba(102, 71, 27, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
 
-  [data-project-style="forest-emerald"] .project-header-logo {
-    border-radius: 0.6rem;
-    border-color: color-mix(in srgb, var(--project-border-strong) 62%, #8e6a3e);
-    box-shadow:
-      0 10px 16px -14px rgba(102, 71, 27, 0.45),
-      inset 0 1px 0 rgba(255, 255, 255, 0.36);
-  }
+[data-project-style="forest-emerald"] .project-header-library-btn,
+[data-project-style="forest-emerald"] .project-header-action-btn,
+[data-project-style="forest-emerald"] .project-header-avatar-btn {
+  border-radius: 0.55rem;
+  border-width: 1.5px;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--project-border-strong) 64%, #8f6a41);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
 
-  [data-project-style="forest-emerald"] .project-header-library-btn,
-  [data-project-style="forest-emerald"] .project-header-action-btn,
-  [data-project-style="forest-emerald"] .project-header-avatar-btn {
-    border-radius: 0.55rem;
-    border-width: 1.5px;
-    border-style: solid;
-    border-color: color-mix(in srgb, var(--project-border-strong) 64%, #8f6a41);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
-  }
+[data-project-style="forest-emerald"] .project-header-divider {
+  width: 2px;
+  opacity: 0.5;
+}
 
-  [data-project-style="forest-emerald"] .project-header-divider {
-    width: 2px;
-    opacity: 0.5;
-  }
+[data-project-style="forest-emerald"] .project-session-menu-content {
+  border-style: dashed;
+}
 
-  [data-project-style="forest-emerald"] .project-session-menu-content {
-    border-style: dashed;
-  }
+[data-project-style="forest-emerald"] .project-session-item-marker {
+  width: 2px;
+  border-radius: 0;
+}
 
-  [data-project-style="forest-emerald"] .project-session-item-marker {
-    width: 2px;
-    border-radius: 0;
-  }
+[data-project-style="forest-emerald"] .project-chat-loading-shell {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--project-border-strong) 62%, #8f6e42);
+}
 
-  [data-project-style="forest-emerald"] .project-chat-loading-shell {
-    border-style: dashed;
-    border-color: color-mix(in srgb, var(--project-border-strong) 62%, #8f6e42);
-  }
+[data-project-style="forest-emerald"] .project-tool-card {
+  border-style: solid;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--project-surface-muted) 92%, #f3e8cc),
+    color-mix(in srgb, var(--project-surface) 94%, #faf4e6)
+  );
+}
 
-  [data-project-style="forest-emerald"] .project-tool-card {
-    border-style: solid;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--project-surface-muted) 92%, #f3e8cc),
-        color-mix(in srgb, var(--project-surface) 94%, #faf4e6)
-      );
-  }
+[data-project-style="forest-emerald"] .project-session-title {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  font-size: 1.22rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
 
-  [data-project-style="forest-emerald"] .project-session-title {
-    font-family: "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
-    font-size: 1.22rem;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-  }
+[data-project-style="forest-emerald"] .project-title-edit-hint,
+[data-project-style="forest-emerald"] .project-chat-suggestion,
+[data-project-style="forest-emerald"] .project-studio-meta-chip {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--project-border-strong) 58%, #8d6a42);
+  border-radius: 0.45rem;
+}
 
-  [data-project-style="forest-emerald"] .project-title-edit-hint,
-  [data-project-style="forest-emerald"] .project-chat-suggestion,
-  [data-project-style="forest-emerald"] .project-studio-meta-chip {
-    border-style: dashed;
-    border-color: color-mix(in srgb, var(--project-border-strong) 58%, #8d6a42);
-    border-radius: 0.45rem;
-  }
+[data-project-style="forest-emerald"] .project-chat-suggestion,
+[data-project-style="forest-emerald"] .project-chat-send-btn {
+  border-radius: 0.5rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
 
-  [data-project-style="forest-emerald"] .project-chat-suggestion,
-  [data-project-style="forest-emerald"] .project-chat-send-btn {
-    border-radius: 0.5rem;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  }
+[data-project-style="forest-emerald"] .project-studio-protocol-btn,
+[data-project-style="forest-emerald"] .project-studio-protocol-select,
+[data-project-style="forest-emerald"] .project-library-tab-trigger {
+  border-width: 1.5px;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--project-border-strong) 60%, #8c6a3f);
+  border-radius: 0.5rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
 
-  [data-project-style="forest-emerald"] .project-studio-protocol-btn,
-  [data-project-style="forest-emerald"] .project-studio-protocol-select,
-  [data-project-style="forest-emerald"] .project-library-tab-trigger {
-    border-width: 1.5px;
-    border-style: solid;
-    border-color: color-mix(in srgb, var(--project-border-strong) 60%, #8c6a3f);
-    border-radius: 0.5rem;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
-  }
+[data-project-style="forest-emerald"]
+  .project-library-tab-trigger[data-state="active"] {
+  background: color-mix(in srgb, var(--project-surface-elevated) 92%, #fff8e8);
+  border-color: color-mix(in srgb, var(--project-border-strong) 72%, #8f6a3e);
+}
 
-  [data-project-style="forest-emerald"] .project-library-tab-trigger[data-state="active"] {
-    background: color-mix(in srgb, var(--project-surface-elevated) 92%, #fff8e8);
-    border-color: color-mix(in srgb, var(--project-border-strong) 72%, #8f6a3e);
-  }
+[data-project-style="forest-emerald"] .project-sources-empty-icon {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--project-border-strong) 64%, #927347);
+}
 
-  [data-project-style="forest-emerald"] .project-sources-empty-icon {
-    border-style: dashed;
-    border-color: color-mix(in srgb, var(--project-border-strong) 64%, #927347);
-  }
-
-  [data-project-style="forest-emerald"] .project-library-close-btn {
-    border-style: dashed;
-    border-color: color-mix(in srgb, var(--project-border-strong) 58%, #896840);
-    border-radius: 0.45rem;
-  }
+[data-project-style="forest-emerald"] .project-library-close-btn {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--project-border-strong) 58%, #896840);
+  border-radius: 0.45rem;
+}

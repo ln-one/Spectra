@@ -53,7 +53,9 @@ function makeWorkflowId(input: WorkflowEntryInput): string {
   return `workflow:${input.toolType}:${sessionToken}:${input.step}:${input.status}:${artifactToken}`;
 }
 
-type RequestedStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
+type RequestedStepByTool = Partial<
+  Record<GenerationToolType, StudioHistoryStep>
+>;
 type CurrentStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
 
 export function useStudioWorkflowHistory(
@@ -159,4 +161,3 @@ export function useStudioWorkflowHistory(
     recordWorkflowEntry,
   };
 }
-

@@ -8,7 +8,8 @@ interface BuildScriptParams {
 
 function tonePrefix(tone: SpeechTone): string {
   if (tone === "energetic") return "同学们我们马上进入今天最关键的部分。";
-  if (tone === "professional") return "接下来我将用结构化方式说明本页核心内容。";
+  if (tone === "professional")
+    return "接下来我将用结构化方式说明本页核心内容。";
   return "我们慢慢来看这页最重要的知识点。";
 }
 
@@ -45,8 +46,7 @@ export function buildSlideScripts({
     {
       page: 4,
       title: "总结收束",
-      script:
-        "最后用一句口诀回收本节主线，再交代课后练习的使用方法和注意点。",
+      script: "最后用一句口诀回收本节主线，再交代课后练习的使用方法和注意点。",
       actionHint: "动作提示：总结时提高音量，给出明确行动指令。",
     },
   ];

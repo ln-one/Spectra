@@ -104,7 +104,8 @@ export function useOutlineEditorController({
   }, [expectedPages, initialNodes, isBootstrapping, sessionId]);
 
   const handleAddSlide = useCallback(() => {
-    if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId) return;
+    if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId)
+      return;
     const newSlide: SlideCard = {
       id: `slide-${Date.now()}`,
       order: slides.length + 1,
@@ -126,7 +127,8 @@ export function useOutlineEditorController({
 
   const handleDeleteSlide = useCallback(
     (id: string) => {
-      if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId) return;
+      if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId)
+        return;
       const newSlides = slides
         .filter((s) => s.id !== id)
         .map((s, index) => ({ ...s, order: index + 1 }));
@@ -146,7 +148,8 @@ export function useOutlineEditorController({
 
   const handleDuplicateSlide = useCallback(
     (slide: SlideCard) => {
-      if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId) return;
+      if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId)
+        return;
       const newSlide: SlideCard = {
         ...slide,
         id: `slide-${Date.now()}`,
@@ -161,7 +164,8 @@ export function useOutlineEditorController({
 
   const handleUpdateSlide = useCallback(
     (id: string, updates: Partial<SlideCard>) => {
-      if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId) return;
+      if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId)
+        return;
       setSlides(slides.map((s) => (s.id === id ? { ...s, ...updates } : s)));
     },
     [isBootstrapping, isGenerating, isOutlineHydrating, sessionId, slides]

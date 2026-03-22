@@ -3,15 +3,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { WorkflowStepper } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
-import { GAME_MODE_OPTIONS, GAME_STEPS, getReadinessLabel } from "./game/constants";
+import {
+  GAME_MODE_OPTIONS,
+  GAME_STEPS,
+  getReadinessLabel,
+} from "./game/constants";
 import { ConfigStep } from "./game/ConfigStep";
 import { GenerateStep } from "./game/GenerateStep";
 import { PreviewStep } from "./game/PreviewStep";
-import { buildPseudoCode, buildSandboxDescription, buildSandboxTitle } from "./game/templates";
+import {
+  buildPseudoCode,
+  buildSandboxDescription,
+  buildSandboxTitle,
+} from "./game/templates";
 import type { GameMode, GameStep } from "./game/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
-function clampNumber(value: string, min: number, max: number, fallback: number): number {
+function clampNumber(
+  value: string,
+  min: number,
+  max: number,
+  fallback: number
+): number {
   const parsed = Number(value);
   if (Number.isNaN(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
@@ -40,7 +53,8 @@ export function GameToolPanel({
   );
   const life = useMemo(() => clampNumber(lifeInput, 1, 10, 3), [lifeInput]);
   const modeLabel =
-    GAME_MODE_OPTIONS.find((item) => item.value === mode)?.label ?? "时间轴排序";
+    GAME_MODE_OPTIONS.find((item) => item.value === mode)?.label ??
+    "时间轴排序";
 
   useEffect(() => {
     onDraftChange?.({
@@ -51,10 +65,25 @@ export function GameToolPanel({
       idea_tags: ideaTags,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
-  }, [countdown, flowContext?.selectedSourceId, ideaTags, life, mode, onDraftChange, topic]);
+  }, [
+    countdown,
+    flowContext?.selectedSourceId,
+    ideaTags,
+    life,
+    mode,
+    onDraftChange,
+    topic,
+  ]);
 
   const sandboxTitle = useMemo(
-    () => buildSandboxTitle({ topic, mode, countdown: previewCountdown, life: previewLife, ideaTags }),
+    () =>
+      buildSandboxTitle({
+        topic,
+        mode,
+        countdown: previewCountdown,
+        life: previewLife,
+        ideaTags,
+      }),
     [ideaTags, mode, previewCountdown, previewLife, topic]
   );
   const sandboxDescription = useMemo(
@@ -117,79 +146,79 @@ export function GameToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台              </h3>
+                {toolName}三步工作台{" "}
+              </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先配置玩法，再生成小游戏，最后在面板里直接试玩和微调。              </p>
+                先配置玩法，再生成小游戏，最后在面板里直接试玩和微调。{" "}
+              </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
             </span>
           </div>
-
-
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
           <div className="flex h-full min-h-0 gap-4">
-          <WorkflowStepper
-            className="w-[228px] shrink-0"
-            layout="rail"
-            currentStep={activeStep}
-            steps={GAME_STEPS}
-            onStepChange={(stepId) => setActiveStep(stepId as GameStep)}
-            title="互动游戏流程"
-            subtitle="Workflow"
-          />
+            <WorkflowStepper
+              className="w-[228px] shrink-0"
+              layout="rail"
+              currentStep={activeStep}
+              steps={GAME_STEPS}
+              onStepChange={(stepId) => setActiveStep(stepId as GameStep)}
+              title="互动游戏流程"
+              subtitle="Workflow"
+            />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {activeStep === "config" ? (
-            <ConfigStep
-              topic={topic}
-              mode={mode}
-              countdown={countdownInput}
-              life={lifeInput}
-              ideaTags={ideaTags}
-              onTopicChange={setTopic}
-              onModeChange={setMode}
-              onCountdownChange={setCountdownInput}
-              onLifeChange={setLifeInput}
-              onToggleIdeaTag={handleToggleIdeaTag}
-              onNext={() => setActiveStep("generate")}
-            />
-          ) : null}
+              {activeStep === "config" ? (
+                <ConfigStep
+                  topic={topic}
+                  mode={mode}
+                  countdown={countdownInput}
+                  life={lifeInput}
+                  ideaTags={ideaTags}
+                  onTopicChange={setTopic}
+                  onModeChange={setMode}
+                  onCountdownChange={setCountdownInput}
+                  onLifeChange={setLifeInput}
+                  onToggleIdeaTag={handleToggleIdeaTag}
+                  onNext={() => setActiveStep("generate")}
+                />
+              ) : null}
 
-          {activeStep === "generate" ? (
-            <GenerateStep
-              topic={topic}
-              modeLabel={modeLabel}
-              countdown={countdown}
-              life={life}
-              ideaTags={ideaTags}
-              flowContext={flowContext}
-              isGenerating={isGenerating}
-              onBack={() => setActiveStep("config")}
-              onGenerate={() => void handleGenerate()}
-            />
-          ) : null}
+              {activeStep === "generate" ? (
+                <GenerateStep
+                  topic={topic}
+                  modeLabel={modeLabel}
+                  countdown={countdown}
+                  life={life}
+                  ideaTags={ideaTags}
+                  flowContext={flowContext}
+                  isGenerating={isGenerating}
+                  onBack={() => setActiveStep("config")}
+                  onGenerate={() => void handleGenerate()}
+                />
+              ) : null}
 
-          {activeStep === "preview" ? (
-            <PreviewStep
-              sandboxTitle={sandboxTitle}
-              sandboxDescription={sandboxDescription}
-              pseudoCode={pseudoCode}
-              countdown={previewCountdown}
-              life={previewLife}
-              lastGeneratedAt={lastGeneratedAt}
-              flowContext={flowContext}
-              onRegenerate={() => setActiveStep("generate")}
-              onActionPenalty={() => {
-                setPreviewCountdown((prev) => Math.max(10, prev - 10));
-                setPreviewLife((prev) => Math.max(1, prev - 1));
-              }}
-              onActionReward={() => {
-                setPreviewCountdown((prev) => Math.min(180, prev + 8));
-              }}
-            />
-          ) : null}
+              {activeStep === "preview" ? (
+                <PreviewStep
+                  sandboxTitle={sandboxTitle}
+                  sandboxDescription={sandboxDescription}
+                  pseudoCode={pseudoCode}
+                  countdown={previewCountdown}
+                  life={previewLife}
+                  lastGeneratedAt={lastGeneratedAt}
+                  flowContext={flowContext}
+                  onRegenerate={() => setActiveStep("generate")}
+                  onActionPenalty={() => {
+                    setPreviewCountdown((prev) => Math.max(10, prev - 10));
+                    setPreviewLife((prev) => Math.max(1, prev - 1));
+                  }}
+                  onActionReward={() => {
+                    setPreviewCountdown((prev) => Math.min(180, prev + 8));
+                  }}
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -197,5 +226,3 @@ export function GameToolPanel({
     </div>
   );
 }
-
-

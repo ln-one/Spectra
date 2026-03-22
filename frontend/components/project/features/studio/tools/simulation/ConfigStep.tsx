@@ -49,7 +49,9 @@ export function ConfigStep({
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">提问强度：{intensity}%</Label>
+          <Label className="text-xs text-zinc-600">
+            提问强度：{intensity}%
+          </Label>
           <Slider
             value={[intensity]}
             min={20}
@@ -64,7 +66,10 @@ export function ConfigStep({
 
         <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-xs text-zinc-600">学生群像风格</Label>
-          <Select value={profile} onValueChange={(value) => onProfileChange(value as StudentProfile)}>
+          <Select
+            value={profile}
+            onValueChange={(value) => onProfileChange(value as StudentProfile)}
+          >
             <SelectTrigger className="h-9 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -77,12 +82,17 @@ export function ConfigStep({
             </SelectContent>
           </Select>
           <p className="text-[11px] text-zinc-500">
-            {STUDENT_PROFILES.find((item) => item.value === profile)?.description}
+            {
+              STUDENT_PROFILES.find((item) => item.value === profile)
+                ?.description
+            }
           </p>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">展示“棱镜锦囊”策略面板</Label>
+          <Label className="text-xs text-zinc-600">
+            展示“棱镜锦囊”策略面板
+          </Label>
           <button
             type="button"
             onClick={() => onIncludeStrategyPanelChange(!includeStrategyPanel)}

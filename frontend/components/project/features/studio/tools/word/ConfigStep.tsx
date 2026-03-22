@@ -74,7 +74,9 @@ export function ConfigStep({
                   : "border-zinc-200 bg-white hover:bg-zinc-50"
               }`}
             >
-              <p className="text-xs font-semibold text-zinc-800">{item.label}</p>
+              <p className="text-xs font-semibold text-zinc-800">
+                {item.label}
+              </p>
               <p className="mt-1 text-[11px] text-zinc-500">{item.helper}</p>
             </button>
           ))}
@@ -185,4 +187,3 @@ export function ConfigStep({
     </div>
   );
 }
-

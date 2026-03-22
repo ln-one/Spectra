@@ -121,7 +121,10 @@ export function DefaultOutlineView({
               animate="visible"
               className="order-2 flex-1 min-h-0 overflow-y-auto p-4 lg:order-1 lg:p-5"
             >
-              <motion.section variants={itemVariants} className="mb-4 lg:hidden">
+              <motion.section
+                variants={itemVariants}
+                className="mb-4 lg:hidden"
+              >
                 <PptWorkflowRail currentStep={2} />
               </motion.section>
 
@@ -131,7 +134,9 @@ export function DefaultOutlineView({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-semibold text-zinc-900">大纲编辑</h2>
+                    <h2 className="text-lg font-semibold text-zinc-900">
+                      大纲编辑
+                    </h2>
                     <p className="mt-1 text-sm text-zinc-500">
                       现在是第 2 步：把每一页内容改到满意，再开始生成。
                     </p>

@@ -111,7 +111,9 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     }
 
     if (pendingSessionIdRef.current !== null || activeSessionId === null) {
-      setLoadedSessionId(pendingSessionIdRef.current ?? activeSessionId ?? null);
+      setLoadedSessionId(
+        pendingSessionIdRef.current ?? activeSessionId ?? null
+      );
       pendingSessionIdRef.current = null;
     }
 
@@ -123,7 +125,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
       }, remaining);
       return () => clearTimeout(timer);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId, isMessagesLoading]);
 
   useEffect(() => {
@@ -153,7 +155,8 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     !!activeSessionId &&
     messages.length === 0 &&
     loadedSessionId !== activeSessionId;
-  const shouldBlockEmptyState = !hasResolvedInitialLoad && messages.length === 0;
+  const shouldBlockEmptyState =
+    !hasResolvedInitialLoad && messages.length === 0;
   const showLoading =
     isSessionTransitioning ||
     shouldBlockEmptyState ||
@@ -357,4 +360,3 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     </div>
   );
 }
-

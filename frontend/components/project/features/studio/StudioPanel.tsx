@@ -72,7 +72,9 @@ function isDraftStateEqual(
   });
 }
 
-function normalizeHistoryStep(stepId: string | null | undefined): StudioHistoryStep {
+function normalizeHistoryStep(
+  stepId: string | null | undefined
+): StudioHistoryStep {
   if (
     stepId === "config" ||
     stepId === "generate" ||
@@ -213,7 +215,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     (!requiresSourceArtifact || hasSourceBinding);
   const currentToolArtifacts =
     expandedTool && expandedTool !== "ppt"
-      ? artifactHistoryByTool[expandedTool as keyof typeof artifactHistoryByTool]
+      ? artifactHistoryByTool[
+          expandedTool as keyof typeof artifactHistoryByTool
+        ]
       : [];
   const handleExpandedToolDraftChange = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") {
@@ -621,7 +625,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     supportsChatRefine,
     canExecute,
     canRefine,
-    sourceOptions: currentCardId ? (sourceOptionsByCard[currentCardId] ?? []) : [],
+    sourceOptions: currentCardId
+      ? (sourceOptionsByCard[currentCardId] ?? [])
+      : [],
     selectedSourceId,
     requestedStep: requestedHistoryStep,
     latestArtifacts: currentToolArtifacts.map((item) => ({
@@ -855,22 +861,26 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               problem: "问题驱动、启发式、强调思考",
                               workshop: "实操导向、案例化、可落地",
                             };
-                            const sessionId = await startGeneration(project.id, tool, {
-                              template: "default",
-                              show_page_number: true,
-                              include_animations: false,
-                              include_games: false,
-                              use_text_to_image: false,
-                              pages: Number(config.pageCount) || 15,
-                              audience: "intermediate",
-                              system_prompt_tone: [
-                                `[outline_style=${config.outlineStyle}]`,
-                                config.prompt,
-                                `【大纲风格】${styleToneMap[config.outlineStyle] || "逻辑清晰"}`,
-                                "【页面比例】16:9",
-                                "请在每页中给出明确教学目标与讲解节奏。",
-                              ].join("\n"),
-                            });
+                            const sessionId = await startGeneration(
+                              project.id,
+                              tool,
+                              {
+                                template: "default",
+                                show_page_number: true,
+                                include_animations: false,
+                                include_games: false,
+                                use_text_to_image: false,
+                                pages: Number(config.pageCount) || 15,
+                                audience: "intermediate",
+                                system_prompt_tone: [
+                                  `[outline_style=${config.outlineStyle}]`,
+                                  config.prompt,
+                                  `【大纲风格】${styleToneMap[config.outlineStyle] || "逻辑清晰"}`,
+                                  "【页面比例】16:9",
+                                  "请在每页中给出明确教学目标与讲解节奏。",
+                                ].join("\n"),
+                              }
+                            );
                             if (sessionId) {
                               setActiveSessionId(sessionId);
                               recordWorkflowEntry({
@@ -963,7 +973,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                   onClick={() => {
                                     void handleStudioExecute();
                                   }}
-                                  disabled={!canExecute || isLoadingCardProtocol}
+                                  disabled={
+                                    !canExecute || isLoadingCardProtocol
+                                  }
                                 >
                                   执行
                                 </Button>
@@ -1002,8 +1014,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                 ) : null}
                                 {isProtocolPending ? (
                                   <p className="mt-1 text-amber-700">
-                                    当前卡片协议处于 protocol_pending，执行/refine
-                                    已禁用。
+                                    当前卡片协议处于
+                                    protocol_pending，执行/refine 已禁用。
                                   </p>
                                 ) : null}
                               </div>

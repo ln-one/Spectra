@@ -1,4 +1,9 @@
-import { BookText, CircleCheck, Download, MessageSquareText } from "lucide-react";
+import {
+  BookText,
+  CircleCheck,
+  Download,
+  MessageSquareText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ToolFlowContext } from "../types";
@@ -41,7 +46,9 @@ export function PreviewStep({
     STRATEGY_POOL[(strategyOffset + 1) % STRATEGY_POOL.length],
     STRATEGY_POOL[(strategyOffset + 2) % STRATEGY_POOL.length],
   ];
-  const activeStudent = students.find((item) => item.id === question?.studentId);
+  const activeStudent = students.find(
+    (item) => item.id === question?.studentId
+  );
 
   return (
     <div className="space-y-4">
@@ -81,7 +88,9 @@ export function PreviewStep({
                     {student.name.slice(-1)}
                   </div>
                   <span className="text-xs text-zinc-700">{student.name}</span>
-                  <span className="text-[10px] text-zinc-500">[{student.tag}]</span>
+                  <span className="text-[10px] text-zinc-500">
+                    [{student.tag}]
+                  </span>
                 </div>
               ))}
             </div>
@@ -91,7 +100,10 @@ export function PreviewStep({
             <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
               <MessageSquareText className="h-3.5 w-3.5" />
               <span>
-                当前提问：{activeStudent ? `${activeStudent.name}（${activeStudent.tag}）` : "未选择"}
+                当前提问：
+                {activeStudent
+                  ? `${activeStudent.name}（${activeStudent.tag}）`
+                  : "未选择"}
               </span>
             </div>
             <p className="mt-2 text-sm text-zinc-800">
@@ -177,7 +189,8 @@ export function PreviewStep({
           </Button>
         </div>
         <div className="mt-2 space-y-2">
-          {flowContext?.latestArtifacts && flowContext.latestArtifacts.length > 0 ? (
+          {flowContext?.latestArtifacts &&
+          flowContext.latestArtifacts.length > 0 ? (
             flowContext.latestArtifacts.slice(0, 4).map((item) => (
               <div
                 key={item.artifactId}
@@ -196,7 +209,9 @@ export function PreviewStep({
                   variant="outline"
                   size="sm"
                   className="h-8 shrink-0 text-xs"
-                  onClick={() => void flowContext.onExportArtifact?.(item.artifactId)}
+                  onClick={() =>
+                    void flowContext.onExportArtifact?.(item.artifactId)
+                  }
                 >
                   <Download className="mr-1.5 h-3.5 w-3.5" />
                   下载

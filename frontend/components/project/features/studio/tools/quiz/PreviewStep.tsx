@@ -71,9 +71,13 @@ export function PreviewStep({
             <p className="text-[11px] text-zinc-500">
               第 {questionIndex + 1}/{Math.max(1, totalQuestions)} 题
             </p>
-            <p className="mt-1 text-sm font-medium text-zinc-800">{question.question}</p>
+            <p className="mt-1 text-sm font-medium text-zinc-800">
+              {question.question}
+            </p>
             <p className="mt-2 text-[11px] text-zinc-500">
-              {isMultiple ? "提示：这是一道多选题，可选择多个选项。" : "提示：请选择一个最合适的答案。"}
+              {isMultiple
+                ? "提示：这是一道多选题，可选择多个选项。"
+                : "提示：请选择一个最合适的答案。"}
             </p>
           </div>
 
@@ -167,7 +171,8 @@ export function PreviewStep({
           </Button>
         </div>
         <div className="mt-2 space-y-2">
-          {flowContext?.latestArtifacts && flowContext.latestArtifacts.length > 0 ? (
+          {flowContext?.latestArtifacts &&
+          flowContext.latestArtifacts.length > 0 ? (
             flowContext.latestArtifacts.slice(0, 4).map((item) => (
               <div
                 key={item.artifactId}
@@ -186,7 +191,9 @@ export function PreviewStep({
                   variant="outline"
                   size="sm"
                   className="h-8 shrink-0 text-xs"
-                  onClick={() => void flowContext.onExportArtifact?.(item.artifactId)}
+                  onClick={() =>
+                    void flowContext.onExportArtifact?.(item.artifactId)
+                  }
                 >
                   <Download className="mr-1.5 h-3.5 w-3.5" />
                   下载

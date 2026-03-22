@@ -130,16 +130,28 @@ export function GenerationConfigPanel({
                   </CardHeader>
                   <CardContent className="grid gap-2 px-4 pb-4 pt-0 sm:grid-cols-3 sm:px-5">
                     <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-                      <p className="text-[11px] font-medium text-zinc-500">讲什么</p>
-                      <p className="mt-1 text-xs font-medium text-zinc-900">课程主题</p>
+                      <p className="text-[11px] font-medium text-zinc-500">
+                        讲什么
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-zinc-900">
+                        课程主题
+                      </p>
                     </div>
                     <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-                      <p className="text-[11px] font-medium text-zinc-500">给谁讲</p>
-                      <p className="mt-1 text-xs font-medium text-zinc-900">年级或对象</p>
+                      <p className="text-[11px] font-medium text-zinc-500">
+                        给谁讲
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-zinc-900">
+                        年级或对象
+                      </p>
                     </div>
                     <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-                      <p className="text-[11px] font-medium text-zinc-500">怎么讲</p>
-                      <p className="mt-1 text-xs font-medium text-zinc-900">课堂形式</p>
+                      <p className="text-[11px] font-medium text-zinc-500">
+                        怎么讲
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-zinc-900">
+                        课堂形式
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

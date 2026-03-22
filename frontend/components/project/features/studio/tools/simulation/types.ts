@@ -1,6 +1,9 @@
 export type SimulationStep = "config" | "generate" | "preview";
 
-export type StudentProfile = "divergent_top" | "detail_oriented" | "confused_beginner";
+export type StudentProfile =
+  | "divergent_top"
+  | "detail_oriented"
+  | "confused_beginner";
 
 export interface VirtualStudent {
   id: string;

@@ -79,7 +79,9 @@ export function GenerateStep({
             size="sm"
             className="h-8 text-xs"
             onClick={() => void flowContext?.onLoadSources?.()}
-            disabled={flowContext?.isLoadingProtocol || flowContext?.isActionRunning}
+            disabled={
+              flowContext?.isLoadingProtocol || flowContext?.isActionRunning
+            }
           >
             {flowContext?.isActionRunning ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -163,4 +165,3 @@ export function GenerateStep({
     </div>
   );
 }
-

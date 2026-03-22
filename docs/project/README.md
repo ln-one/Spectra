@@ -15,6 +15,8 @@ These are the only documents here that should be read by default:
   - Original product and competition requirements.
 - [卡片功能.md](./卡片功能.md)
   - Current product-facing card semantics and interaction intent.
+- [下一阶段分工方案.md](./下一阶段分工方案.md)
+  - Chinese execution plan for the current initial-review stage.
 - [ABCD_ROLE_MODEL.md](./ABCD_ROLE_MODEL.md)
   - Current team collaboration model and default ownership map.
 - [D_TECH_DEEP_DIVE_MAP.md](./D_TECH_DEEP_DIVE_MAP.md)
@@ -48,11 +50,12 @@ If you want to understand the project correctly and quickly:
 1. `SYSTEM_PHILOSOPHY_2026-03-19.md`
 2. `requirements.md`
 3. `卡片功能.md`
-4. `ABCD_ROLE_MODEL.md`
-5. `D_TECH_DEEP_DIVE_MAP.md`
-6. `D_EXECUTION_BACKLOG.md`
-7. `../architecture/README.md`
-8. `../standards/README.md`
+4. `下一阶段分工方案.md`
+5. `ABCD_ROLE_MODEL.md`
+6. `D_TECH_DEEP_DIVE_MAP.md`
+7. `D_EXECUTION_BACKLOG.md`
+8. `../architecture/README.md`
+9. `../standards/README.md`
 
 ## 4. Interpretation Rules
 

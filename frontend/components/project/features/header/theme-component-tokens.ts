@@ -7,7 +7,8 @@ export const STYLE_COMPONENT_TOKENS: Record<
   "mist-zinc": {
     panelRadius: "1rem",
     panelBorderWidth: "1px",
-    panelShadow: "0 10px 15px -3px rgba(2, 6, 23, 0.08), 0 4px 6px -4px rgba(2, 6, 23, 0.05)",
+    panelShadow:
+      "0 10px 15px -3px rgba(2, 6, 23, 0.08), 0 4px 6px -4px rgba(2, 6, 23, 0.05)",
     panelBlur: "20px",
     menuRadius: "1rem",
     controlRadius: "999px",

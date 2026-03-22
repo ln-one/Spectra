@@ -11,4 +11,3 @@ export type WordTeachingModel = "inquiry" | "scaffolded" | "project_based";
 export type WordGradeBand = "primary" | "middle" | "high" | "college";
 
 export type WordDifficultyLayer = "A" | "B" | "C";
-

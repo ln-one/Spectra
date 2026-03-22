@@ -23,4 +23,3 @@ export function useWorkflowStepSync<TStep extends string>(
     setActiveStep(requestedStep as TStep);
   }, [activeStep, requestedStep, setActiveStep]);
 }
-

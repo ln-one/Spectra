@@ -1,6 +1,9 @@
 ﻿import type { ProjectThemeColorTokens, ThemePresetId } from "./theme";
 
-export const THEME_COLOR_TOKENS: Record<ThemePresetId, ProjectThemeColorTokens> = {
+export const THEME_COLOR_TOKENS: Record<
+  ThemePresetId,
+  ProjectThemeColorTokens
+> = {
   "mist-zinc": {
     bgBase: "#f4f4f5",
     bgGradientStart: "rgba(244, 244, 245, 0.98)",
@@ -192,4 +195,3 @@ export const THEME_COLOR_TOKENS: Record<ThemePresetId, ProjectThemeColorTokens> 
     accentText: "#f0f9ff",
   },
 };
-

@@ -7,11 +7,7 @@ export type StudioHistoryStatus =
   | "failed"
   | "pending";
 
-export type StudioHistoryStep =
-  | "config"
-  | "generate"
-  | "preview"
-  | "outline";
+export type StudioHistoryStep = "config" | "generate" | "preview" | "outline";
 
 export interface StudioHistoryItem {
   id: string;
@@ -24,4 +20,3 @@ export interface StudioHistoryItem {
   step: StudioHistoryStep;
   artifactId?: string;
 }
-

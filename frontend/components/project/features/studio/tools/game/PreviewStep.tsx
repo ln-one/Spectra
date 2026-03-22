@@ -60,7 +60,9 @@ export function PreviewStep({
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <Play className="h-4 w-4 text-blue-600" />
-                <p className="text-xs font-semibold text-zinc-800">{sandboxTitle}</p>
+                <p className="text-xs font-semibold text-zinc-800">
+                  {sandboxTitle}
+                </p>
               </div>
               <div className="flex items-center gap-2 text-[11px] text-zinc-500">
                 <span>倒计时 {countdown}s</span>
@@ -120,7 +122,8 @@ export function PreviewStep({
           </Button>
         </div>
         <div className="mt-2 space-y-2">
-          {flowContext?.latestArtifacts && flowContext.latestArtifacts.length > 0 ? (
+          {flowContext?.latestArtifacts &&
+          flowContext.latestArtifacts.length > 0 ? (
             flowContext.latestArtifacts.slice(0, 4).map((item) => (
               <div
                 key={item.artifactId}
@@ -139,7 +142,9 @@ export function PreviewStep({
                   variant="outline"
                   size="sm"
                   className="h-8 shrink-0 text-xs"
-                  onClick={() => void flowContext.onExportArtifact?.(item.artifactId)}
+                  onClick={() =>
+                    void flowContext.onExportArtifact?.(item.artifactId)
+                  }
                 >
                   <Download className="mr-1.5 h-3.5 w-3.5" />
                   下载

@@ -28,7 +28,11 @@ export const DIFFICULTY_OPTIONS: Array<{
   description: string;
 }> = [
   { value: "easy", label: "基础巩固", description: "先检查基本概念是否掌握。" },
-  { value: "medium", label: "课堂标准", description: "兼顾概念理解和应用判断。" },
+  {
+    value: "medium",
+    label: "课堂标准",
+    description: "兼顾概念理解和应用判断。",
+  },
   { value: "hard", label: "易错强化", description: "重点考察辨析和迁移能力。" },
 ];
 
@@ -64,6 +68,7 @@ export function getDifficultyLabel(value: QuizDifficulty): string {
 
 export function getQuestionTypeLabel(value: QuizQuestionType): string {
   return (
-    QUESTION_TYPE_OPTIONS.find((item) => item.value === value)?.label ?? "单选题"
+    QUESTION_TYPE_OPTIONS.find((item) => item.value === value)?.label ??
+    "单选题"
   );
 }

@@ -1,4 +1,8 @@
-import type { SimulationQuestion, StudentProfile, VirtualStudent } from "./types";
+import type {
+  SimulationQuestion,
+  StudentProfile,
+  VirtualStudent,
+} from "./types";
 
 interface BuildQuestionsParams {
   topic: string;
@@ -11,13 +15,20 @@ function scopeText(topic: string): string {
   return topic.trim() || "本节核心知识点";
 }
 
-function pickDepth(intensity: number, index: number): "basic" | "medium" | "hard" {
+function pickDepth(
+  intensity: number,
+  index: number
+): "basic" | "medium" | "hard" {
   if (intensity >= 80) return index % 2 === 0 ? "hard" : "medium";
   if (intensity >= 50) return index % 3 === 0 ? "hard" : "medium";
   return index % 2 === 0 ? "basic" : "medium";
 }
 
-function profileQuestion(profile: StudentProfile, topic: string, depth: string): string {
+function profileQuestion(
+  profile: StudentProfile,
+  topic: string,
+  depth: string
+): string {
   if (profile === "divergent_top") {
     return `如果“${topic}”的前提被打破，结论还成立吗？请给一个${depth}层次的例子。`;
   }

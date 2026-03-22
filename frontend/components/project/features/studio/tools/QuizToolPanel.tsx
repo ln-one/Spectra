@@ -21,7 +21,12 @@ import type {
 } from "./quiz/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
-function clampNumber(value: string, min: number, max: number, fallback: number): number {
+function clampNumber(
+  value: string,
+  min: number,
+  max: number,
+  fallback: number
+): number {
   const parsed = Number(value);
   if (Number.isNaN(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
@@ -151,78 +156,78 @@ export function QuizToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台              </h3>
+                {toolName}三步工作台{" "}
+              </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先配置，再生成，最后在面板里用闯关模式逐题预览和讲解。              </p>
+                先配置，再生成，最后在面板里用闯关模式逐题预览和讲解。{" "}
+              </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
             </span>
           </div>
-
-
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
           <div className="flex h-full min-h-0 gap-4">
-          <WorkflowStepper
-            className="w-[228px] shrink-0"
-            layout="rail"
-            currentStep={activeStep}
-            steps={QUIZ_STEPS}
-            onStepChange={(stepId) => setActiveStep(stepId as QuizStep)}
-            title="随堂小测流程"
-            subtitle="Workflow"
-          />
+            <WorkflowStepper
+              className="w-[228px] shrink-0"
+              layout="rail"
+              currentStep={activeStep}
+              steps={QUIZ_STEPS}
+              onStepChange={(stepId) => setActiveStep(stepId as QuizStep)}
+              title="随堂小测流程"
+              subtitle="Workflow"
+            />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {activeStep === "config" ? (
-            <ConfigStep
-              scope={scope}
-              countInput={countInput}
-              difficulty={difficulty}
-              questionType={questionType}
-              styleTags={styleTags}
-              onScopeChange={setScope}
-              onCountChange={setCountInput}
-              onDifficultyChange={setDifficulty}
-              onQuestionTypeChange={setQuestionType}
-              onToggleTag={handleToggleTag}
-              onNext={() => setActiveStep("generate")}
-            />
-          ) : null}
+              {activeStep === "config" ? (
+                <ConfigStep
+                  scope={scope}
+                  countInput={countInput}
+                  difficulty={difficulty}
+                  questionType={questionType}
+                  styleTags={styleTags}
+                  onScopeChange={setScope}
+                  onCountChange={setCountInput}
+                  onDifficultyChange={setDifficulty}
+                  onQuestionTypeChange={setQuestionType}
+                  onToggleTag={handleToggleTag}
+                  onNext={() => setActiveStep("generate")}
+                />
+              ) : null}
 
-          {activeStep === "generate" ? (
-            <GenerateStep
-              scope={scope}
-              count={count}
-              difficultyLabel={difficultyLabel}
-              questionTypeLabel={questionTypeLabel}
-              styleTags={styleTags}
-              flowContext={flowContext}
-              isGenerating={isGenerating}
-              onBack={() => setActiveStep("config")}
-              onGenerate={() => void handleGenerate()}
-            />
-          ) : null}
+              {activeStep === "generate" ? (
+                <GenerateStep
+                  scope={scope}
+                  count={count}
+                  difficultyLabel={difficultyLabel}
+                  questionTypeLabel={questionTypeLabel}
+                  styleTags={styleTags}
+                  flowContext={flowContext}
+                  isGenerating={isGenerating}
+                  onBack={() => setActiveStep("config")}
+                  onGenerate={() => void handleGenerate()}
+                />
+              ) : null}
 
-          {activeStep === "preview" && currentQuestion ? (
-            <PreviewStep
-              question={currentQuestion}
-              questionIndex={cursor}
-              totalQuestions={cards.length}
-              questionType={questionType}
-              selectedAnswers={selectedAnswers}
-              isSubmitted={isSubmitted}
-              isCorrect={isCorrect}
-              lastGeneratedAt={lastGeneratedAt}
-              flowContext={flowContext}
-              onRegenerate={() => setActiveStep("generate")}
-              onToggleOption={handleToggleOption}
-              onSubmitAnswer={handleSubmitAnswer}
-              onNextQuestion={handleNextQuestion}
-              onResetCurrent={resetQuestionState}
-            />
-          ) : null}
+              {activeStep === "preview" && currentQuestion ? (
+                <PreviewStep
+                  question={currentQuestion}
+                  questionIndex={cursor}
+                  totalQuestions={cards.length}
+                  questionType={questionType}
+                  selectedAnswers={selectedAnswers}
+                  isSubmitted={isSubmitted}
+                  isCorrect={isCorrect}
+                  lastGeneratedAt={lastGeneratedAt}
+                  flowContext={flowContext}
+                  onRegenerate={() => setActiveStep("generate")}
+                  onToggleOption={handleToggleOption}
+                  onSubmitAnswer={handleSubmitAnswer}
+                  onNextQuestion={handleNextQuestion}
+                  onResetCurrent={resetQuestionState}
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -230,5 +235,3 @@ export function QuizToolPanel({
     </div>
   );
 }
-
-

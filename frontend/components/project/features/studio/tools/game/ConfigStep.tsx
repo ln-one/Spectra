@@ -52,7 +52,10 @@ export function ConfigStep({
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-xs text-zinc-600">游戏类型</Label>
-          <Select value={mode} onValueChange={(value) => onModeChange(value as GameMode)}>
+          <Select
+            value={mode}
+            onValueChange={(value) => onModeChange(value as GameMode)}
+          >
             <SelectTrigger className="h-9 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -93,8 +96,12 @@ export function ConfigStep({
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-3">
-        <p className="text-xs font-semibold text-zinc-800">灵感标签（可多选）</p>
-        <p className="mt-1 text-[11px] text-zinc-500">不确定时可以点几个，AI 会自动融合到玩法里。</p>
+        <p className="text-xs font-semibold text-zinc-800">
+          灵感标签（可多选）
+        </p>
+        <p className="mt-1 text-[11px] text-zinc-500">
+          不确定时可以点几个，AI 会自动融合到玩法里。
+        </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {GAME_IDEA_TAGS.map((tag) => {
             const selected = ideaTags.includes(tag);

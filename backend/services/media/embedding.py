@@ -19,17 +19,25 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
-EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
-
 # DashScope 单次批量限制（不同模型上限不同）
 DEFAULT_DASHSCOPE_BATCH_LIMIT = 25
 TEXT_EMBEDDING_V4_BATCH_LIMIT = 10
 MULTIMODAL_EMBEDDING_BATCH_LIMIT = 10
+_FALLBACK_LOG_MESSAGE = (
+    "DashScope embedding failed for model %s; "
+    "falling back to local sentence-transformers"
+)
+_NO_FALLBACK_LOG_MESSAGE = (
+    "DashScope embedding failed for model %s; " "local fallback disabled"
+)
+
+
+def _resolve_embedding_model() -> str:
+    return os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
 
 
 def _resolve_embedding_dimension() -> int:
-    return int(os.getenv("EMBEDDING_DIMENSION", str(EMBEDDING_DIMENSION)))
+    return int(os.getenv("EMBEDDING_DIMENSION", "1536"))
 
 
 def _resolve_dashscope_api_key() -> str:
@@ -51,7 +59,7 @@ class EmbeddingService:
         Args:
             model: Embedding 模型名称，默认从环境变量读取
         """
-        self._model = model or EMBEDDING_MODEL
+        self._model = model if model is not None else _resolve_embedding_model()
         self._local_model = None
         self._dimension: Optional[int] = None
 
@@ -179,14 +187,7 @@ class EmbeddingService:
         except Exception as e:
             fallback_enabled = _allow_local_fallback()
             logger.warning(
-                (
-                    "DashScope embedding failed for model %s; falling back to local "
-                    "sentence-transformers"
-                )
-                if fallback_enabled
-                else (
-                    "DashScope embedding failed for model %s; local fallback disabled"
-                ),
+                _FALLBACK_LOG_MESSAGE if fallback_enabled else _NO_FALLBACK_LOG_MESSAGE,
                 self._model,
                 extra={
                     "embedding_model": self._model,

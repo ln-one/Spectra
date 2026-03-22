@@ -25,12 +25,14 @@ export function WordToolPanel({
   const [activeStep, setActiveStep] = useState<WordStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
 
-  const [documentVariant, setDocumentVariant] =
-    useState<WordDocumentVariant>("layered_lesson_plan");
+  const [documentVariant, setDocumentVariant] = useState<WordDocumentVariant>(
+    "layered_lesson_plan"
+  );
   const [teachingModel, setTeachingModel] =
     useState<WordTeachingModel>("scaffolded");
   const [gradeBand, setGradeBand] = useState<WordGradeBand>("high");
-  const [difficultyLayer, setDifficultyLayer] = useState<WordDifficultyLayer>("B");
+  const [difficultyLayer, setDifficultyLayer] =
+    useState<WordDifficultyLayer>("B");
   const [topic, setTopic] = useState("函数的单调性");
   const [goal, setGoal] = useState("帮助学生理解单调区间并能解决典型例题。");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -176,4 +178,3 @@ export function WordToolPanel({
     </div>
   );
 }
-

@@ -103,7 +103,8 @@ export function PreviewStep({
           </Button>
         </div>
         <div className="mt-2 space-y-2">
-          {flowContext?.latestArtifacts && flowContext.latestArtifacts.length > 0 ? (
+          {flowContext?.latestArtifacts &&
+          flowContext.latestArtifacts.length > 0 ? (
             flowContext.latestArtifacts.slice(0, 4).map((item) => (
               <div
                 key={item.artifactId}
@@ -122,7 +123,9 @@ export function PreviewStep({
                   variant="outline"
                   size="sm"
                   className="h-8 shrink-0 text-xs"
-                  onClick={() => void flowContext.onExportArtifact?.(item.artifactId)}
+                  onClick={() =>
+                    void flowContext.onExportArtifact?.(item.artifactId)
+                  }
                 >
                   <Download className="mr-1.5 h-3.5 w-3.5" />
                   下载

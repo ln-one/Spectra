@@ -120,7 +120,11 @@ export function WorkflowStepper({
                               : "border-zinc-300 text-zinc-500"
                         )}
                       >
-                        {isCompleted ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                        {isCompleted ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          index + 1
+                        )}
                       </span>
                       <span
                         className={cn(
@@ -224,7 +228,11 @@ export function WorkflowStepper({
                       )}
                       aria-hidden="true"
                     >
-                      {isCompleted ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                      {isCompleted ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        index + 1
+                      )}
                     </span>
 
                     <div className="flex items-center gap-1">
@@ -284,4 +292,3 @@ export function WorkflowStepper({
     </aside>
   );
 }
-

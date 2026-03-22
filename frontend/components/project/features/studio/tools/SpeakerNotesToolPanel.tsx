@@ -12,7 +12,11 @@ import {
 import { GenerateStep } from "./speaker-notes/GenerateStep";
 import { PreviewStep } from "./speaker-notes/PreviewStep";
 import { buildSlideScripts } from "./speaker-notes/templates";
-import type { SlideScriptItem, SpeakerNotesStep, SpeechTone } from "./speaker-notes/types";
+import type {
+  SlideScriptItem,
+  SpeakerNotesStep,
+  SpeechTone,
+} from "./speaker-notes/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 export function SpeakerNotesToolPanel({
@@ -84,7 +88,11 @@ export function SpeakerNotesToolPanel({
   ]);
 
   const handleGenerate = async () => {
-    const nextScripts = buildSlideScripts({ topic, tone, emphasizeInteraction });
+    const nextScripts = buildSlideScripts({
+      topic,
+      tone,
+      emphasizeInteraction,
+    });
     setScripts(nextScripts);
     setActivePage(nextScripts[0]?.page ?? 1);
     setHighlightTransition(false);
@@ -112,78 +120,84 @@ export function SpeakerNotesToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台              </h3>
+                {toolName}三步工作台{" "}
+              </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先选课件，再生成逐页讲稿，最后在提词器视图里查看和微调。              </p>
+                先选课件，再生成逐页讲稿，最后在提词器视图里查看和微调。{" "}
+              </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
             </span>
           </div>
-
-
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
           <div className="flex h-full min-h-0 gap-4">
-          <WorkflowStepper
-            className="w-[228px] shrink-0"
-            layout="rail"
-            currentStep={activeStep}
-            steps={SPEAKER_NOTES_STEPS}
-            onStepChange={(stepId) => setActiveStep(stepId as SpeakerNotesStep)}
-            title="说课助手流程"
-            subtitle="Workflow"
-          />
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {activeStep === "config" ? (
-            <ConfigStep
-              topic={topic}
-              tone={tone}
-              emphasizeInteraction={emphasizeInteraction}
-              selectedDeckId={selectedDeckId}
-              sourceOptions={sourceOptions}
-              onTopicChange={setTopic}
-              onToneChange={setTone}
-              onToggleInteraction={() => setEmphasizeInteraction((prev) => !prev)}
-              onSelectedDeckChange={(value) => {
-                setSelectedDeckId(value);
-                onSelectedSourceChange?.(value);
-              }}
-              onRefreshSources={() => void flowContext?.onLoadSources?.()}
-              isRefreshing={
-                Boolean(flowContext?.isLoadingProtocol) ||
-                Boolean(flowContext?.isActionRunning)
+            <WorkflowStepper
+              className="w-[228px] shrink-0"
+              layout="rail"
+              currentStep={activeStep}
+              steps={SPEAKER_NOTES_STEPS}
+              onStepChange={(stepId) =>
+                setActiveStep(stepId as SpeakerNotesStep)
               }
-              onNext={() => setActiveStep("generate")}
+              title="说课助手流程"
+              subtitle="Workflow"
             />
-          ) : null}
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              {activeStep === "config" ? (
+                <ConfigStep
+                  topic={topic}
+                  tone={tone}
+                  emphasizeInteraction={emphasizeInteraction}
+                  selectedDeckId={selectedDeckId}
+                  sourceOptions={sourceOptions}
+                  onTopicChange={setTopic}
+                  onToneChange={setTone}
+                  onToggleInteraction={() =>
+                    setEmphasizeInteraction((prev) => !prev)
+                  }
+                  onSelectedDeckChange={(value) => {
+                    setSelectedDeckId(value);
+                    onSelectedSourceChange?.(value);
+                  }}
+                  onRefreshSources={() => void flowContext?.onLoadSources?.()}
+                  isRefreshing={
+                    Boolean(flowContext?.isLoadingProtocol) ||
+                    Boolean(flowContext?.isActionRunning)
+                  }
+                  onNext={() => setActiveStep("generate")}
+                />
+              ) : null}
 
-          {activeStep === "generate" ? (
-            <GenerateStep
-              selectedDeckTitle={selectedDeckTitle}
-              topic={topic}
-              toneLabel={toneLabel}
-              emphasizeInteraction={emphasizeInteraction}
-              flowContext={flowContext}
-              isGenerating={isGenerating}
-              onBack={() => setActiveStep("config")}
-              onGenerate={() => void handleGenerate()}
-            />
-          ) : null}
+              {activeStep === "generate" ? (
+                <GenerateStep
+                  selectedDeckTitle={selectedDeckTitle}
+                  topic={topic}
+                  toneLabel={toneLabel}
+                  emphasizeInteraction={emphasizeInteraction}
+                  flowContext={flowContext}
+                  isGenerating={isGenerating}
+                  onBack={() => setActiveStep("config")}
+                  onGenerate={() => void handleGenerate()}
+                />
+              ) : null}
 
-          {activeStep === "preview" ? (
-            <PreviewStep
-              scripts={scripts}
-              activePage={activePage}
-              lastGeneratedAt={lastGeneratedAt}
-              highlightTransition={highlightTransition}
-              flowContext={flowContext}
-              onRegenerate={() => setActiveStep("generate")}
-              onSelectPage={setActivePage}
-              onToggleHighlight={() => setHighlightTransition((prev) => !prev)}
-            />
-          ) : null}
+              {activeStep === "preview" ? (
+                <PreviewStep
+                  scripts={scripts}
+                  activePage={activePage}
+                  lastGeneratedAt={lastGeneratedAt}
+                  highlightTransition={highlightTransition}
+                  flowContext={flowContext}
+                  onRegenerate={() => setActiveStep("generate")}
+                  onSelectPage={setActivePage}
+                  onToggleHighlight={() =>
+                    setHighlightTransition((prev) => !prev)
+                  }
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -191,5 +205,3 @@ export function SpeakerNotesToolPanel({
     </div>
   );
 }
-
-

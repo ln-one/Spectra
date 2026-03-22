@@ -115,7 +115,11 @@ export function HeaderActions({
                 }
               >
                 {THEME_PRESETS.map((theme) => (
-                  <DropdownMenuRadioItem key={theme.id} value={theme.id} className="rounded-xl cursor-pointer py-2.5">
+                  <DropdownMenuRadioItem
+                    key={theme.id}
+                    value={theme.id}
+                    className="rounded-xl cursor-pointer py-2.5"
+                  >
                     <div className="flex w-full items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-[13px] font-semibold text-[var(--project-control-text)]">
