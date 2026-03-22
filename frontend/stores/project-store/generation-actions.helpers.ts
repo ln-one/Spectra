@@ -32,6 +32,7 @@ const REUSABLE_GENERATION_SESSION_STATES = new Set([
   "IDLE",
   "CONFIGURING",
   "FAILED",
+  "SUCCESS",
 ]);
 
 export function resolveReusableGenerationSessionId(

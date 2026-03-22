@@ -13,6 +13,7 @@ _REUSABLE_SESSION_STATES = {
     GenerationState.IDLE.value,
     GenerationState.CONFIGURING.value,
     GenerationState.FAILED.value,
+    GenerationState.SUCCESS.value,
 }
 
 
@@ -38,9 +39,12 @@ async def create_session(
     if client_session_id:
         existing_session = await db.generationsession.find_first(
             where={
-                "id": client_session_id,
                 "projectId": project_id,
                 "userId": user_id,
+                "OR": [
+                    {"id": client_session_id},
+                    {"clientSessionId": client_session_id},
+                ],
             }
         )
 
@@ -91,14 +95,11 @@ async def create_session(
             )
             return _to_session_ref(session, contract_version, schema_version)
 
-        if existing_session.state == GenerationState.SUCCESS.value:
-            existing_session = None
-        else:
-            session = await db.generationsession.update(
-                where={"id": existing_session.id},
-                data=update_data,
-            )
-            return _to_session_ref(session, contract_version, schema_version)
+        session = await db.generationsession.update(
+            where={"id": existing_session.id},
+            data=update_data,
+        )
+        return _to_session_ref(session, contract_version, schema_version)
 
     initial_state = (
         GenerationState.IDLE.value
