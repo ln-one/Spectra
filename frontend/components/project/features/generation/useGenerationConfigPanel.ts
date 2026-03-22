@@ -178,7 +178,6 @@ export function useGenerationConfigPanel({
 
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
-    setShowOutlineEditor(false);
     setIsCreatingSession(true);
     onWorkflowStageChange?.("generating_outline", {
       sessionId: sessionId || null,
@@ -198,6 +197,7 @@ export function useGenerationConfigPanel({
       if (!sessionIdFromStore) {
         throw new Error("generation session was not created");
       }
+      setShowOutlineEditor(true);
       onWorkflowStageChange?.("generating_outline", {
         sessionId: sessionIdFromStore,
       });

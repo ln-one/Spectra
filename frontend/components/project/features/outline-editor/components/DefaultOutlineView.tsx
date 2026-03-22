@@ -95,6 +95,8 @@ export function DefaultOutlineView({
   onHelp,
   onGoToPreview,
 }: DefaultOutlineViewProps) {
+  const isOutlineLocked = isBootstrapping || isOutlineHydrating;
+
   return (
     <div className="relative h-full overflow-hidden bg-[radial-gradient(circle_at_15%_10%,rgba(186,230,253,0.35),transparent_45%),linear-gradient(180deg,#f8fafc,#f1f5f9)] font-sans">
       <DefaultOutlineNav
@@ -139,7 +141,7 @@ export function DefaultOutlineView({
                       variant="outline"
                       size="sm"
                       onClick={onRedraftOutline}
-                      disabled={isGenerating || isRedrafting}
+                      disabled={isGenerating || isRedrafting || isOutlineLocked}
                       className="border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                     >
                       <RefreshCw
@@ -154,6 +156,7 @@ export function DefaultOutlineView({
                       variant="ghost"
                       size="sm"
                       onClick={() => setShowSettings(!showSettings)}
+                      disabled={isOutlineLocked}
                       className={cn(
                         "text-zinc-600 hover:bg-zinc-100",
                         showSettings && "bg-zinc-100 text-zinc-900"
@@ -197,6 +200,7 @@ export function DefaultOutlineView({
               <OutlineSlidesEditor
                 slides={slides}
                 activeSlideId={activeSlideId}
+                isBootstrapping={isBootstrapping}
                 isGenerating={isGenerating}
                 isOutlineHydrating={isOutlineHydrating}
                 onSetActiveSlide={onSetActiveSlide}

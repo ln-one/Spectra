@@ -68,7 +68,6 @@ export function GenerationConfigPanel({
     isCreatingSession,
     showOutlineEditor,
     setShowOutlineEditor,
-    sessionId,
     pageLabel,
     generateSuggestionBatch,
     handleGenerate,
@@ -352,7 +351,7 @@ export function GenerationConfigPanel({
             <OutlineEditorPanel
               variant="default"
               topic={prompt}
-              isBootstrapping={isCreatingSession && !sessionId}
+              isBootstrapping={isCreatingSession}
               onBack={() => setShowOutlineEditor(false)}
               onConfirm={() => {}}
               onPreview={handleGoToPreview}

@@ -27,6 +27,7 @@ import type { SlideCard } from "../types";
 interface OutlineSlidesEditorProps {
   slides: SlideCard[];
   activeSlideId: string;
+  isBootstrapping: boolean;
   isGenerating: boolean;
   isOutlineHydrating: boolean;
   onSetActiveSlide: (id: string) => void;
@@ -39,6 +40,7 @@ interface OutlineSlidesEditorProps {
 export function OutlineSlidesEditor({
   slides,
   activeSlideId,
+  isBootstrapping,
   isGenerating,
   isOutlineHydrating,
   onSetActiveSlide,
@@ -47,6 +49,8 @@ export function OutlineSlidesEditor({
   onDuplicateSlide,
   onAddSlide,
 }: OutlineSlidesEditorProps) {
+  const isLocked = isBootstrapping || isGenerating || isOutlineHydrating;
+
   return (
     <div className="space-y-3">
       <AnimatePresence mode="popLayout">
@@ -63,9 +67,9 @@ export function OutlineSlidesEditor({
               "hover:-translate-y-0.5 hover:shadow-[0_16px_30px_-20px_rgba(15,23,42,0.5)]",
               activeSlideId === slide.id &&
                 "border-blue-300 bg-[linear-gradient(155deg,#ffffff,#eff6ff)]",
-              isGenerating && "pointer-events-none opacity-65"
+              isLocked && "pointer-events-none opacity-65"
             )}
-            onClick={() => !isGenerating && onSetActiveSlide(slide.id)}
+            onClick={() => !isLocked && onSetActiveSlide(slide.id)}
           >
             <div className="flex items-start gap-4">
               <div className="shrink-0">
@@ -85,7 +89,7 @@ export function OutlineSlidesEditor({
                   }
                   placeholder="输入幻灯片标题..."
                   className="h-10 rounded-xl border-zinc-200 bg-white/80 text-sm font-medium shadow-none focus-visible:ring-blue-300"
-                  disabled={isGenerating || isOutlineHydrating}
+                  disabled={isLocked}
                 />
 
                 <div className="space-y-2">
@@ -104,7 +108,7 @@ export function OutlineSlidesEditor({
                     }
                     placeholder="每行一个知识点..."
                     className="min-h-[96px] rounded-xl border-zinc-200 bg-white/80 text-sm leading-6 focus-visible:ring-blue-300"
-                    disabled={isGenerating || isOutlineHydrating}
+                    disabled={isLocked}
                   />
                 </div>
 
@@ -144,7 +148,7 @@ export function OutlineSlidesEditor({
                       }}
                       className="text-red-600 focus:text-red-600"
                       disabled={
-                        slides.length <= 1 || isGenerating || isOutlineHydrating
+                        slides.length <= 1 || isLocked
                       }
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
@@ -162,7 +166,7 @@ export function OutlineSlidesEditor({
         whileHover={{ scale: 1.008 }}
         whileTap={{ scale: 0.995 }}
         onClick={onAddSlide}
-        disabled={isGenerating || isOutlineHydrating}
+        disabled={isLocked}
         className="w-full rounded-2xl border border-dashed border-zinc-300 bg-white/80 px-4 py-3 text-sm font-medium text-zinc-500 transition-all hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span className="inline-flex items-center gap-2">
