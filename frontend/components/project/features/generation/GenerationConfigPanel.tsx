@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   Compass,
@@ -78,9 +78,10 @@ export function GenerationConfigPanel({
     resumeSignal,
     onWorkflowStageChange,
   });
+  const workflowStep = showOutlineEditor ? 2 : 1;
 
   return (
-    <div className="relative h-full min-h-0 overflow-hidden p-2 lg:p-3">
+    <div className="project-ppt-workbench relative h-full min-h-0 overflow-hidden p-2 lg:p-3">
       <div className="pointer-events-none absolute inset-0 opacity-60">
         <div className="absolute -left-20 top-8 h-44 w-44 rounded-full bg-blue-200/30 blur-3xl" />
         <div className="absolute right-4 top-24 h-36 w-36 rounded-full bg-cyan-200/25 blur-3xl" />
@@ -95,12 +96,31 @@ export function GenerationConfigPanel({
         )}
       >
         <PptWorkflowRail
-          currentStep={1}
+          currentStep={workflowStep}
           className="hidden h-full min-h-0 overflow-y-auto lg:block"
         />
 
         <Card className="h-full min-h-0 border-zinc-200/80 bg-white/85 text-zinc-900 shadow-[0_20px_60px_-45px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-          <ScrollArea className="h-full min-h-0 pr-2 lg:pr-3">
+          {showOutlineEditor ? (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="h-full min-h-0"
+            >
+              <div className="h-full min-h-0">
+                <OutlineEditorPanel
+                  variant="default"
+                  topic={prompt}
+                  isBootstrapping={isCreatingSession}
+                  onBack={() => setShowOutlineEditor(false)}
+                  onConfirm={() => {}}
+                  onPreview={handleGoToPreview}
+                />
+              </div>
+            </motion.div>
+          ) : (
+            <ScrollArea className="h-full min-h-0 pr-2 lg:pr-3">
             <motion.div
               variants={containerVariants}
               initial="hidden"
@@ -339,31 +359,10 @@ export function GenerationConfigPanel({
                 </Card>
               </motion.section>
             </motion.div>
-          </ScrollArea>
+            </ScrollArea>
+          )}
         </Card>
       </div>
-
-      <AnimatePresence mode="wait">
-        {showOutlineEditor ? (
-          <motion.div
-            key="outline-editor"
-            initial={{ opacity: 0, x: 16 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -16 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-            className="absolute inset-0 z-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
-          >
-            <OutlineEditorPanel
-              variant="default"
-              topic={prompt}
-              isBootstrapping={isCreatingSession}
-              onBack={() => setShowOutlineEditor(false)}
-              onConfirm={() => {}}
-              onPreview={handleGoToPreview}
-            />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
     </div>
   );
 }
