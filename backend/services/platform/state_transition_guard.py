@@ -39,6 +39,7 @@ class GenerationCommandType(str, Enum):
     CONFIRM_OUTLINE = "CONFIRM_OUTLINE"
     REGENERATE_SLIDE = "REGENERATE_SLIDE"
     RESUME_SESSION = "RESUME_SESSION"
+    SET_SESSION_TITLE = "SET_SESSION_TITLE"
 
 
 VALID_STATES = {state.value for state in GenerationState}
@@ -106,27 +107,73 @@ _TRANSITION_TABLE: dict[tuple[str, str], str] = {
         GenerationCommandType.RESUME_SESSION.value,
         GenerationState.RENDERING.value,
     ): GenerationState.RENDERING.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.IDLE.value,
+    ): GenerationState.IDLE.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.CONFIGURING.value,
+    ): GenerationState.CONFIGURING.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.ANALYZING.value,
+    ): GenerationState.ANALYZING.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.DRAFTING_OUTLINE.value,
+    ): GenerationState.DRAFTING_OUTLINE.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+    ): GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.GENERATING_CONTENT.value,
+    ): GenerationState.GENERATING_CONTENT.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.RENDERING.value,
+    ): GenerationState.RENDERING.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.SUCCESS.value,
+    ): GenerationState.SUCCESS.value,
+    (
+        GenerationCommandType.SET_SESSION_TITLE.value,
+        GenerationState.FAILED.value,
+    ): GenerationState.FAILED.value,
 }
 
 # 每个状态允许的下一步动作（用于 allowed_actions 响应字段）
 _ALLOWED_ACTIONS: dict[str, list[str]] = {
-    GenerationState.IDLE.value: ["configure"],
-    GenerationState.CONFIGURING.value: ["analyze", "cancel"],
+    GenerationState.IDLE.value: ["configure", "set_session_title"],
+    GenerationState.CONFIGURING.value: ["analyze", "cancel", "set_session_title"],
     GenerationState.ANALYZING.value: ["resume_session", "cancel"],
     GenerationState.DRAFTING_OUTLINE.value: [
         "update_outline",
         "redraft_outline",
         "resume_session",
+        "set_session_title",
     ],
     GenerationState.AWAITING_OUTLINE_CONFIRM.value: [
         "update_outline",
         "redraft_outline",
         "confirm_outline",
+        "set_session_title",
     ],
-    GenerationState.GENERATING_CONTENT.value: ["resume_session", "cancel"],
-    GenerationState.RENDERING.value: ["regenerate_slide", "resume_session"],
-    GenerationState.SUCCESS.value: ["regenerate_slide", "export"],
-    GenerationState.FAILED.value: ["resume_session"],
+    GenerationState.GENERATING_CONTENT.value: [
+        "resume_session",
+        "cancel",
+        "set_session_title",
+    ],
+    GenerationState.RENDERING.value: [
+        "regenerate_slide",
+        "resume_session",
+        "set_session_title",
+    ],
+    GenerationState.SUCCESS.value: ["regenerate_slide", "export", "set_session_title"],
+    GenerationState.FAILED.value: ["resume_session", "set_session_title"],
 }
 
 

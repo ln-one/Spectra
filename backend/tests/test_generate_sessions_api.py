@@ -57,6 +57,9 @@ def mock_db_service():
         updatedAt=datetime.now(timezone.utc),
         progress=0,
         stateReason=None,
+        displayTitle="会话-001",
+        displayTitleSource="default",
+        displayTitleUpdatedAt=None,
     )
     return SimpleNamespace(
         get_project=AsyncMock(return_value=mock_project),
@@ -113,6 +116,8 @@ async def test_create_session_returns_quickly_and_schedules_outline(
     assert data["success"] is True
     assert data["data"]["session"]["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert data["data"]["session"]["session_id"] == "s-001"
+    assert data["data"]["session"]["display_title"] == "会话-001"
+    assert data["data"]["session"]["display_title_source"] == "default"
 
 
 @pytest.mark.anyio

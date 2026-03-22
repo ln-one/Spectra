@@ -53,12 +53,13 @@ SessionRefTarget:
 
 SessionRun:
   type: object
-  required: [run_id, session_id, project_id, tool_type, run_no, run_title, run_title_source, run_status, run_step, created_at, updated_at]
+  required: [run_id, project_id, tool_type, run_no, run_title, run_title_source, run_status, run_step, created_at, updated_at]
   properties:
     run_id:
       type: string
     session_id:
       type: string
+      nullable: true
     project_id:
       type: string
     tool_type:

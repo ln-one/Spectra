@@ -406,6 +406,8 @@ StudioCardExecutionResult:
     artifact:
       type: object
       additionalProperties: true
+    run:
+      $ref: './generate-session-models.yaml#/SessionRun'
     request_preview:
       $ref: '#/StudioCardResolvedRequest'
 

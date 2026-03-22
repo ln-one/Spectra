@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Awaitable, Callable, Optional
 
@@ -8,6 +9,13 @@ from schemas.generation import TaskStatus
 from services.generation_session_service.constants import (
     DispatchFallbackReason,
     DispatchMode,
+)
+from services.generation_session_service.session_history import (
+    RUN_STATUS_FAILED,
+    RUN_STATUS_PROCESSING,
+    RUN_STEP_GENERATE,
+    build_run_trace_payload,
+    update_session_run,
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
@@ -17,6 +25,25 @@ from services.task_executor.constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _load_task_run_payload(db, task_id: str) -> dict | None:
+    task = await db.generationtask.find_unique(where={"id": task_id})
+    raw = getattr(task, "inputData", None) if task else None
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(parsed, dict) or not parsed.get("run_id"):
+        return None
+    return {
+        "run_id": parsed.get("run_id"),
+        "run_no": parsed.get("run_no"),
+        "run_title": parsed.get("run_title"),
+        "tool_type": parsed.get("tool_type"),
+    }
 
 
 def schedule_enqueued_task_watchdog(
@@ -78,6 +105,7 @@ def schedule_enqueued_task_watchdog(
 
 async def schedule_local_execution(
     *,
+    db,
     session_id: str,
     task_id: str,
     project_id: str,
@@ -91,6 +119,7 @@ async def schedule_local_execution(
     try:
         from services.task_executor import execute_generation_task
 
+        run_payload = await _load_task_run_payload(db, task_id)
         asyncio.create_task(
             execute_generation_task(
                 task_id=task_id,
@@ -107,18 +136,28 @@ async def schedule_local_execution(
             fallback_reason,
         )
         try:
+            if run_payload and run_payload.get("run_id"):
+                await update_session_run(
+                    db=db,
+                    run_id=run_payload["run_id"],
+                    status=RUN_STATUS_PROCESSING,
+                    step=RUN_STEP_GENERATE,
+                )
             await append_event(
                 session_id=session_id,
                 event_type=GenerationEventType.STATE_CHANGED.value,
                 state=GenerationState.GENERATING_CONTENT.value,
                 state_reason=fallback_reason,
-                payload={
-                    "task_id": task_id,
-                    "dispatch": DispatchMode.LOCAL_ASYNC.value,
-                    "reason": fallback_reason,
-                    "enqueue_error": enqueue_error,
+                payload=build_run_trace_payload(
+                    run_payload,
+                    task_id=task_id,
+                    dispatch=DispatchMode.LOCAL_ASYNC.value,
+                    reason=fallback_reason,
+                    enqueue_error=enqueue_error,
+                    run_status=RUN_STATUS_PROCESSING if run_payload else None,
+                    run_step=RUN_STEP_GENERATE if run_payload else None,
                     **(dispatch_context or {}),
-                },
+                ),
             )
         except Exception as event_err:
             logger.warning(
@@ -146,6 +185,7 @@ async def mark_dispatch_failed(
     error_message: str,
     append_event: Callable[..., Awaitable[None]],
 ) -> None:
+    run_payload = await _load_task_run_payload(db, task_id)
     await db.generationtask.update(
         where={"id": task_id},
         data={"status": TaskStatus.FAILED, "errorMessage": error_message},
@@ -161,10 +201,23 @@ async def mark_dispatch_failed(
             "resumable": True,
         },
     )
+    if run_payload and run_payload.get("run_id"):
+        await update_session_run(
+            db=db,
+            run_id=run_payload["run_id"],
+            status=RUN_STATUS_FAILED,
+            step=RUN_STEP_GENERATE,
+        )
     await append_event(
         session_id=session_id,
         event_type=GenerationEventType.STATE_CHANGED.value,
         state=GenerationState.FAILED.value,
         state_reason=TaskFailureStateReason.DISPATCH_FAILED.value,
-        payload={"task_id": task_id, "error": error_message},
+        payload=build_run_trace_payload(
+            run_payload,
+            task_id=task_id,
+            error=error_message,
+            run_status=RUN_STATUS_FAILED if run_payload else None,
+            run_step=RUN_STEP_GENERATE if run_payload else None,
+        ),
     )

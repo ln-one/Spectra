@@ -5,10 +5,7 @@ from copy import deepcopy
 from threading import RLock
 from typing import Any
 
-from schemas.system_settings import (
-    SystemSettingsData,
-    SystemSettingsUpdateRequest,
-)
+from schemas.system_settings import SystemSettingsData, SystemSettingsUpdateRequest
 
 
 def _env_bool(name: str, default: bool) -> bool:

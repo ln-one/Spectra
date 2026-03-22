@@ -2193,6 +2193,16 @@ components:
               type: array
               items:
                 type: string
+            session_title_updated:
+              type: boolean
+            session_title:
+              type: string
+            session_title_source:
+              type: string
+              enum:
+                - default
+                - first_message
+                - manual
         message:
           type: string
     CapabilityStatus:
@@ -2500,6 +2510,12 @@ components:
         - RENDERING
         - SUCCESS
         - FAILED
+    SessionTitleSource:
+      type: string
+      enum:
+        - default
+        - first_message
+        - manual
     GenerationSessionListItem:
       type: object
       required:
@@ -2522,6 +2538,13 @@ components:
           type: string
           format: date-time
         updated_at:
+          type: string
+          format: date-time
+        display_title:
+          type: string
+        display_title_source:
+          $ref: '#/components/schemas/SessionTitleSource'
+        display_title_updated_at:
           type: string
           format: date-time
     GenerationSessionListResponse:
@@ -2699,6 +2722,13 @@ components:
         updated_at:
           type: string
           format: date-time
+        display_title:
+          type: string
+        display_title_source:
+          $ref: '#/components/schemas/SessionTitleSource'
+        display_title_updated_at:
+          type: string
+          format: date-time
     CreateGenerationSessionResponse:
       type: object
       required:
@@ -2836,6 +2866,75 @@ components:
         user_message:
           type: string
           description: 可直接展示给用户的降级提示语
+    RunTitleSource:
+      type: string
+      enum:
+        - pending
+        - auto
+        - manual
+        - fallback
+    RunStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - completed
+        - failed
+    RunStep:
+      type: string
+      enum:
+        - config
+        - outline
+        - generate
+        - preview
+        - modify_slide
+        - completed
+    SessionRun:
+      type: object
+      required:
+        - run_id
+        - project_id
+        - tool_type
+        - run_no
+        - run_title
+        - run_title_source
+        - run_status
+        - run_step
+        - created_at
+        - updated_at
+      properties:
+        run_id:
+          type: string
+        session_id:
+          type: string
+          nullable: true
+        project_id:
+          type: string
+        tool_type:
+          type: string
+        run_no:
+          type: integer
+          minimum: 1
+        run_title:
+          type: string
+        run_title_source:
+          $ref: '#/components/schemas/RunTitleSource'
+        run_title_updated_at:
+          type: string
+          format: date-time
+        run_status:
+          $ref: '#/components/schemas/RunStatus'
+        run_step:
+          $ref: '#/components/schemas/RunStep'
+        artifact_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     SessionStatePayload:
       type: object
       required:
@@ -2865,6 +2964,8 @@ components:
           items:
             type: string
             example: update_outline
+        current_run:
+          $ref: '#/components/schemas/SessionRun'
         result:
           type: object
           properties:
@@ -2914,6 +3015,28 @@ components:
         - task.completed
         - task.failed
         - session.recovered
+    RunTracePayload:
+      type: object
+      properties:
+        run_id:
+          type: string
+        run_no:
+          type: integer
+          minimum: 1
+        tool_type:
+          type: string
+        run_title:
+          type: string
+        run_title_source:
+          $ref: '#/components/schemas/RunTitleSource'
+        run_status:
+          $ref: '#/components/schemas/RunStatus'
+        run_step:
+          $ref: '#/components/schemas/RunStep'
+        task_id:
+          type: string
+        error:
+          type: string
     GenerationEvent:
       type: object
       required:
@@ -2946,8 +3069,7 @@ components:
           type: string
           description: 增量消费游标
         payload:
-          type: object
-          description: 事件附带的业务数据
+          $ref: '#/components/schemas/RunTracePayload'
     GenerationEventListResponse:
       type: object
       required:
@@ -3123,6 +3245,20 @@ components:
           type: string
         last_known_state:
           $ref: '#/components/schemas/GenerationState'
+    SetSessionTitleCommand:
+      type: object
+      required:
+        - command_type
+        - display_title
+      properties:
+        command_type:
+          type: string
+          enum:
+            - SET_SESSION_TITLE
+        display_title:
+          type: string
+          minLength: 1
+          maxLength: 120
     GenerationCommandEnvelope:
       oneOf:
         - $ref: '#/components/schemas/UpdateOutlineCommand'
@@ -3130,6 +3266,7 @@ components:
         - $ref: '#/components/schemas/ConfirmOutlineCommand'
         - $ref: '#/components/schemas/RegenerateSlideCommand'
         - $ref: '#/components/schemas/ResumeSessionCommand'
+        - $ref: '#/components/schemas/SetSessionTitleCommand'
       discriminator:
         propertyName: command_type
     GenerationSessionCommandRequest:
@@ -3147,6 +3284,7 @@ components:
         - CONFIRM_OUTLINE
         - REGENERATE_SLIDE
         - RESUME_SESSION
+        - SET_SESSION_TITLE
     AppliedTransition:
       type: object
       required:
@@ -3188,6 +3326,8 @@ components:
               $ref: '#/components/schemas/AppliedTransition'
             session:
               $ref: '#/components/schemas/SessionRef'
+            run:
+              $ref: '#/components/schemas/SessionRun'
             warnings:
               type: array
               items:
@@ -3919,6 +4059,8 @@ components:
         artifact:
           type: object
           additionalProperties: true
+        run:
+          $ref: '#/components/schemas/SessionRun'
         request_preview:
           $ref: '#/components/schemas/StudioCardResolvedRequest'
     StudioCardExecutionResponse:

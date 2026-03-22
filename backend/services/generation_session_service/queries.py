@@ -10,11 +10,13 @@ from services.generation_session_service.capability_helpers import _default_capa
 from services.generation_session_service.serialization_helpers import (
     _to_generation_event,
     _to_session_ref,
+    _to_session_run,
 )
 from services.generation_session_service.session_artifacts import (
     get_latest_session_candidate_change,
     get_session_artifact_history,
 )
+from services.generation_session_service.session_history import get_latest_session_run
 from services.platform.state_transition_guard import GenerationState
 
 
@@ -110,6 +112,7 @@ async def get_session_snapshot(
         latest_task_id,
         artifact_history,
         latest_candidate_change,
+        current_run,
     ) = await asyncio.gather(
         _load_latest_outline(db, session),
         _load_latest_task_id(db, session),
@@ -123,6 +126,7 @@ async def get_session_snapshot(
             project_id=session.projectId,
             session_id=session.id,
         ),
+        get_latest_session_run(db, session.id),
     )
     fallbacks = _parse_json_array(getattr(session, "fallbacksJson", None))
 
@@ -147,6 +151,7 @@ async def get_session_snapshot(
         "session_artifacts": artifact_history["session_artifacts"],
         "session_artifact_groups": artifact_history["session_artifact_groups"],
         "allowed_actions": guard.get_allowed_actions(session.state),
+        "current_run": _to_session_run(current_run),
         "result": (
             build_generation_result_payload(
                 ppt_url=session.pptUrl,

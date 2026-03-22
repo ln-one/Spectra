@@ -68,6 +68,13 @@ SendMessageResponse:
           type: array
           items:
             type: string
+        session_title_updated:
+          type: boolean
+        session_title:
+          type: string
+        session_title_source:
+          type: string
+          enum: [default, first_message, manual]
     message:
       type: string
 

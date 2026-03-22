@@ -148,6 +148,7 @@ class StudioCardExecutionResult(BaseModel):
     resource_kind: StudioCardExecutionResultKind
     session: Optional[dict] = None
     artifact: Optional[dict] = None
+    run: Optional[dict] = None
     request_preview: StudioCardResolvedRequest
 
 

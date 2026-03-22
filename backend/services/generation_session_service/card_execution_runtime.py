@@ -9,6 +9,17 @@ from schemas.studio_cards import (
     StudioCardTransport,
 )
 from services.application.access import get_owned_project
+from services.generation_session_service.session_history import (
+    RUN_STATUS_COMPLETED,
+    RUN_STATUS_PROCESSING,
+    RUN_STEP_COMPLETED,
+    RUN_STEP_CONFIG,
+    create_session_run,
+    generate_semantic_run_title,
+    serialize_session_run,
+    spawn_background_task,
+    update_session_run,
+)
 from services.project_space_service import project_space_service
 from utils.exceptions import APIException, ErrorCode
 
@@ -104,12 +115,31 @@ async def execute_studio_card_initial_request(
             client_session_id=body.client_session_id,
             task_queue_service=task_queue_service,
         )
+        run = await create_session_run(
+            db=session_service._db,
+            session_id=session_ref["session_id"],
+            project_id=body.project_id,
+            tool_type=f"studio_card:{card_id}",
+            step=RUN_STEP_CONFIG,
+            status=RUN_STATUS_PROCESSING,
+        )
+        if run:
+            spawn_background_task(
+                generate_semantic_run_title(
+                    db=session_service._db,
+                    run_id=run.id,
+                    tool_type=run.toolType,
+                    snapshot=body.config,
+                ),
+                label=f"studio-card-run:{run.id}",
+            )
         return StudioCardExecutionResult(
             card_id=card_id,
             readiness=preview.readiness,
             transport=StudioCardTransport.SESSION_CREATE,
             resource_kind=StudioCardExecutionResultKind.SESSION,
             session=session_ref,
+            run=serialize_session_run(run),
             request_preview=request_preview,
         )
 
@@ -126,6 +156,46 @@ async def execute_studio_card_initial_request(
             based_on_version_id=payload.get("based_on_version_id"),
             content=payload.get("content"),
         )
+        run = await create_session_run(
+            db=project_space_service.db.db,
+            session_id=payload.get("session_id"),
+            project_id=body.project_id,
+            tool_type=f"studio_card:{card_id}",
+            step=RUN_STEP_COMPLETED,
+            status=RUN_STATUS_COMPLETED,
+            artifact_id=artifact.id,
+        )
+        if run:
+            await update_session_run(
+                db=project_space_service.db.db,
+                run_id=run.id,
+                artifact_id=artifact.id,
+            )
+        if run and hasattr(project_space_service.db, "update_artifact_metadata"):
+            await project_space_service.db.update_artifact_metadata(
+                artifact.id,
+                {
+                    **(
+                        getattr(artifact, "metadata", None)
+                        if isinstance(getattr(artifact, "metadata", None), dict)
+                        else {}
+                    ),
+                    "run_id": run.id,
+                    "run_no": run.runNo,
+                    "run_title": run.title,
+                    "tool_type": run.toolType,
+                },
+            )
+        if run:
+            spawn_background_task(
+                generate_semantic_run_title(
+                    db=project_space_service.db.db,
+                    run_id=run.id,
+                    tool_type=run.toolType,
+                    snapshot=body.config,
+                ),
+                label=f"studio-card-run:{run.id}",
+            )
         project = await project_space_service.db.get_project(body.project_id)
         current_version_id = (
             getattr(project, "currentVersionId", None) if project else None
@@ -138,6 +208,7 @@ async def execute_studio_card_initial_request(
             artifact=_artifact_result_payload(
                 artifact, current_version_id=current_version_id
             ),
+            run=serialize_session_run(run),
             request_preview=request_preview,
         )
 

@@ -2,8 +2,13 @@
 
 import json
 from typing import Optional
+from uuid import uuid4
 
 from services.generation_session_service.constants import SessionLifecycleReason
+from services.generation_session_service.session_history import (
+    SESSION_TITLE_SOURCE_DEFAULT,
+    build_default_session_title,
+)
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
@@ -50,6 +55,11 @@ async def create_session(
             "options": json.dumps(options) if options else None,
             "clientSessionId": client_session_id,
         }
+        if not getattr(existing_session, "displayTitle", None):
+            update_data["displayTitle"] = build_default_session_title(
+                existing_session.id
+            )
+            update_data["displayTitleSource"] = SESSION_TITLE_SOURCE_DEFAULT
         if (
             getattr(existing_session, "baseVersionId", None) is None
             and project_base_version_id is not None
@@ -105,8 +115,10 @@ async def create_session(
         if bootstrap_only
         else GenerationState.DRAFTING_OUTLINE.value
     )
+    session_id = str(uuid4())
     session = await db.generationsession.create(
         data={
+            "id": session_id,
             "projectId": project_id,
             "userId": user_id,
             "baseVersionId": project_base_version_id,
@@ -117,6 +129,8 @@ async def create_session(
             "renderVersion": 0,
             "currentOutlineVersion": 0,
             "resumable": True,
+            "displayTitle": build_default_session_title(session_id),
+            "displayTitleSource": SESSION_TITLE_SOURCE_DEFAULT,
         }
     )
 

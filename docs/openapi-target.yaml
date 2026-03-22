@@ -2868,6 +2868,16 @@ components:
               type: array
               items:
                 type: string
+            session_title_updated:
+              type: boolean
+            session_title:
+              type: string
+            session_title_source:
+              type: string
+              enum:
+                - default
+                - first_message
+                - manual
         message:
           type: string
     SendMessageResponseTarget:
@@ -3193,6 +3203,12 @@ components:
         - RENDERING
         - SUCCESS
         - FAILED
+    SessionTitleSource:
+      type: string
+      enum:
+        - default
+        - first_message
+        - manual
     GenerationSessionListItem:
       type: object
       required:
@@ -3217,12 +3233,13 @@ components:
         updated_at:
           type: string
           format: date-time
-    SessionTitleSource:
-      type: string
-      enum:
-        - default
-        - first_message
-        - manual
+        display_title:
+          type: string
+        display_title_source:
+          $ref: '#/components/schemas/SessionTitleSource'
+        display_title_updated_at:
+          type: string
+          format: date-time
     GenerationSessionListItemTarget:
       allOf:
         - $ref: '#/components/schemas/GenerationSessionListItem'
@@ -3410,6 +3427,13 @@ components:
         updated_at:
           type: string
           format: date-time
+        display_title:
+          type: string
+        display_title_source:
+          $ref: '#/components/schemas/SessionTitleSource'
+        display_title_updated_at:
+          type: string
+          format: date-time
     SessionRefTarget:
       allOf:
         - $ref: '#/components/schemas/SessionRef'
@@ -3586,7 +3610,6 @@ components:
       type: object
       required:
         - run_id
-        - session_id
         - project_id
         - tool_type
         - run_no
@@ -3601,6 +3624,7 @@ components:
           type: string
         session_id:
           type: string
+          nullable: true
         project_id:
           type: string
         tool_type:
@@ -4333,6 +4357,7 @@ components:
         - CONFIRM_OUTLINE
         - REGENERATE_SLIDE
         - RESUME_SESSION
+        - SET_SESSION_TITLE
     StudioCardConfigOption:
       type: object
       required:
@@ -4794,6 +4819,8 @@ components:
         artifact:
           type: object
           additionalProperties: true
+        run:
+          $ref: '#/components/schemas/SessionRun'
         request_preview:
           $ref: '#/components/schemas/StudioCardResolvedRequest'
     StudioCardExecutionResponse:
