@@ -43,9 +43,10 @@ function getToolAccentColor(toolKey: string): string {
 }
 
 function statusText(status: StudioHistoryItem["status"]) {
-  if (status === "completed") return "已完成";
+  if (status === "completed") return "可预览";
   if (status === "failed") return "失败";
   if (status === "processing") return "生成中";
+  if (status === "previewing") return "预览中";
   return "草稿中";
 }
 
@@ -58,6 +59,9 @@ function statusIcon(status: StudioHistoryItem["status"]) {
   }
   if (status === "processing") {
     return <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />;
+  }
+  if (status === "previewing") {
+    return <Clock3 className="h-3.5 w-3.5 text-sky-500" />;
   }
   return <Clock3 className="h-3.5 w-3.5 text-amber-500" />;
 }
@@ -141,6 +145,8 @@ export function SessionArtifacts({
                                 "rounded-full px-1.5 py-0.5",
                                 item.status === "processing"
                                   ? "bg-blue-100 text-blue-700"
+                                  : item.status === "previewing"
+                                    ? "bg-sky-100 text-sky-700"
                                   : item.status === "draft"
                                     ? "bg-amber-100 text-amber-700"
                                     : item.status === "failed"
@@ -159,6 +165,14 @@ export function SessionArtifacts({
                         </div>
 
                         <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="h-7 rounded-lg border border-[var(--project-control-border)] px-2 text-[10px] text-[var(--project-text-muted)]"
+                            onClick={() => onOpenHistoryItem(item)}
+                          >
+                            查看
+                          </button>
+
                           {item.artifactId ? (
                             <Button
                               variant="ghost"
@@ -171,15 +185,7 @@ export function SessionArtifacts({
                             >
                               <Download className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
                             </Button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="h-7 rounded-lg border border-[var(--project-control-border)] px-2 text-[10px] text-[var(--project-text-muted)]"
-                              onClick={() => onOpenHistoryItem(item)}
-                            >
-                              继续
-                            </button>
-                          )}
+                          ) : null}
 
                           <Button
                             variant="ghost"
