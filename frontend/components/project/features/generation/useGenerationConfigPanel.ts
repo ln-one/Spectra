@@ -73,6 +73,11 @@ export function useGenerationConfigPanel({
   const [showOutlineEditor, setShowOutlineEditor] = useState(false);
   const sessionId = generationSession?.session?.session_id || "";
   const suggestionRequestIdRef = useRef(0);
+  const workflowStageChangeRef = useRef(onWorkflowStageChange);
+
+  useEffect(() => {
+    workflowStageChangeRef.current = onWorkflowStageChange;
+  }, [onWorkflowStageChange]);
 
   useEffect(() => {
     if (!resumeStage) return;
@@ -80,10 +85,10 @@ export function useGenerationConfigPanel({
   }, [resumeSignal, resumeStage]);
 
   useEffect(() => {
-    onWorkflowStageChange?.(showOutlineEditor ? "outline" : "config", {
+    workflowStageChangeRef.current?.(showOutlineEditor ? "outline" : "config", {
       sessionId: sessionId || null,
     });
-  }, [onWorkflowStageChange, sessionId, showOutlineEditor]);
+  }, [sessionId, showOutlineEditor]);
 
   const pageLabel = useMemo(() => {
     if (pageCount <= 10) return "简洁版";
@@ -179,7 +184,7 @@ export function useGenerationConfigPanel({
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
     setIsCreatingSession(true);
-    onWorkflowStageChange?.("generating_outline", {
+    workflowStageChangeRef.current?.("generating_outline", {
       sessionId: sessionId || null,
     });
     try {
@@ -198,7 +203,7 @@ export function useGenerationConfigPanel({
         throw new Error("generation session was not created");
       }
       setShowOutlineEditor(true);
-      onWorkflowStageChange?.("generating_outline", {
+      workflowStageChangeRef.current?.("generating_outline", {
         sessionId: sessionIdFromStore,
       });
 
@@ -275,7 +280,6 @@ export function useGenerationConfigPanel({
     }
   }, [
     onGenerate,
-    onWorkflowStageChange,
     outlineStyle,
     pageCount,
     projectId,
