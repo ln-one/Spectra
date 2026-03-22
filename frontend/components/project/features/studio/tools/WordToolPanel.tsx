@@ -1,14 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { WorkflowStepper } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 import { ConfigStep } from "./word/ConfigStep";
-import {
-  getReadinessLabel,
-  WORD_STEPS,
-} from "./word/constants";
+import { getReadinessLabel, WORD_STEPS } from "./word/constants";
 import { GenerateStep } from "./word/GenerateStep";
 import { PreviewStep } from "./word/PreviewStep";
 import { buildWordMarkdown } from "./word/templates";
@@ -34,14 +31,14 @@ export function WordToolPanel({
     useState<WordTeachingModel>("scaffolded");
   const [gradeBand, setGradeBand] = useState<WordGradeBand>("high");
   const [difficultyLayer, setDifficultyLayer] = useState<WordDifficultyLayer>("B");
-  const [topic, setTopic] = useState("函数的单调性");
-  const [goal, setGoal] = useState("帮助学生理解单调区间并能解决典型例题。");
+  const [topic, setTopic] = useState("鍑芥暟鐨勫崟璋冩€?");
+  const [goal, setGoal] = useState("甯姪瀛︾敓鐞嗚В鍗曡皟鍖洪棿骞惰兘瑙ｅ喅鍏稿瀷渚嬮銆?");
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [previewMarkdown, setPreviewMarkdown] = useState(() =>
     buildWordMarkdown({
-      topic: "函数的单调性",
-      goal: "帮助学生理解单调区间并能解决典型例题。",
+      topic: "鍑芥暟鐨勫崟璋冩€?",
+      goal: "甯姪瀛︾敓鐞嗚В鍗曡皟鍖洪棿骞惰兘瑙ｅ喅鍏稿瀷渚嬮銆?",
       documentVariant: "layered_lesson_plan",
       teachingModel: "scaffolded",
       gradeBand: "high",
@@ -106,71 +103,74 @@ export function WordToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台
+                {toolName}涓夋宸ヤ綔鍙?
               </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先配置，再生成，最后在当前面板内直接阅读文档并继续微调。
+                鍏堥厤缃紝鍐嶇敓鎴愶紝鏈€鍚庡湪褰撳墠闈㈡澘鍐呯洿鎺ラ槄璇绘枃妗ｅ苟缁х画寰皟銆?
               </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
             </span>
           </div>
-
-          <WorkflowStepper
-            className="mt-3"
-            layout="inline"
-            currentStep={activeStep}
-            steps={WORD_STEPS}
-            onStepChange={(stepId) => setActiveStep(stepId as WordStep)}
-            title="文档生成流程"
-            subtitle="Workflow"
-          />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {activeStep === "config" ? (
-            <ConfigStep
-              documentVariant={documentVariant}
-              teachingModel={teachingModel}
-              gradeBand={gradeBand}
-              difficultyLayer={difficultyLayer}
-              topic={topic}
-              goal={goal}
-              onDocumentVariantChange={setDocumentVariant}
-              onTeachingModelChange={setTeachingModel}
-              onGradeBandChange={setGradeBand}
-              onDifficultyLayerChange={setDifficultyLayer}
-              onTopicChange={setTopic}
-              onGoalChange={setGoal}
-              onNext={() => setActiveStep("generate")}
+        <div className="min-h-0 flex-1 overflow-hidden p-4">
+          <div className="flex h-full min-h-0 gap-4">
+            <WorkflowStepper
+              className="w-[228px] shrink-0"
+              layout="rail"
+              currentStep={activeStep}
+              steps={WORD_STEPS}
+              onStepChange={(stepId) => setActiveStep(stepId as WordStep)}
+              title="鏂囨。鐢熸垚娴佺▼"
+              subtitle="Workflow"
             />
-          ) : null}
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              {activeStep === "config" ? (
+                <ConfigStep
+                  documentVariant={documentVariant}
+                  teachingModel={teachingModel}
+                  gradeBand={gradeBand}
+                  difficultyLayer={difficultyLayer}
+                  topic={topic}
+                  goal={goal}
+                  onDocumentVariantChange={setDocumentVariant}
+                  onTeachingModelChange={setTeachingModel}
+                  onGradeBandChange={setGradeBand}
+                  onDifficultyLayerChange={setDifficultyLayer}
+                  onTopicChange={setTopic}
+                  onGoalChange={setGoal}
+                  onNext={() => setActiveStep("generate")}
+                />
+              ) : null}
 
-          {activeStep === "generate" ? (
-            <GenerateStep
-              topic={topic}
-              goal={goal}
-              documentVariant={documentVariant}
-              teachingModel={teachingModel}
-              gradeBand={gradeBand}
-              difficultyLayer={difficultyLayer}
-              flowContext={flowContext}
-              isGenerating={isGenerating}
-              onBack={() => setActiveStep("config")}
-              onGenerate={() => void handleGenerate()}
-            />
-          ) : null}
+              {activeStep === "generate" ? (
+                <GenerateStep
+                  topic={topic}
+                  goal={goal}
+                  documentVariant={documentVariant}
+                  teachingModel={teachingModel}
+                  gradeBand={gradeBand}
+                  difficultyLayer={difficultyLayer}
+                  flowContext={flowContext}
+                  isGenerating={isGenerating}
+                  onBack={() => setActiveStep("config")}
+                  onGenerate={() => void handleGenerate()}
+                />
+              ) : null}
 
-          {activeStep === "preview" ? (
-            <PreviewStep
-              markdown={previewMarkdown}
-              isGenerating={isGenerating}
-              lastGeneratedAt={lastGeneratedAt}
-              flowContext={flowContext}
-              onRegenerate={() => setActiveStep("generate")}
-            />
-          ) : null}
+              {activeStep === "preview" ? (
+                <PreviewStep
+                  markdown={previewMarkdown}
+                  isGenerating={isGenerating}
+                  lastGeneratedAt={lastGeneratedAt}
+                  flowContext={flowContext}
+                  onRegenerate={() => setActiveStep("generate")}
+                />
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </div>

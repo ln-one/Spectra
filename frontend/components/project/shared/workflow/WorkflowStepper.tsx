@@ -84,22 +84,31 @@ export function WorkflowStepper({
               const state = getStepState(index, currentIndex);
               const isCurrent = state === "current";
               const isCompleted = state === "completed";
+              const isLocked = index > currentIndex;
+              const canClick = interactive && !isLocked;
               const wrapperClass = cn(
                 "relative w-full rounded-xl border p-2.5 text-left transition-all",
-                interactive && "cursor-pointer",
+                canClick && "cursor-pointer",
                 isCompleted
                   ? "border-zinc-900 bg-zinc-900 text-white"
                   : isCurrent
                     ? "border-blue-500 bg-blue-50"
-                    : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50"
+                    : isLocked
+                      ? "border-zinc-200 bg-white opacity-75"
+                      : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50"
               );
-              const commonProps = interactive
+              const commonProps = canClick
                 ? { onClick: () => onStepChange?.(step.id) }
                 : {};
 
               return (
                 <li key={String(step.id)}>
-                  <button type="button" className={wrapperClass} {...commonProps}>
+                  <button
+                    type="button"
+                    className={wrapperClass}
+                    disabled={interactive && isLocked}
+                    {...commonProps}
+                  >
                     <div className="flex items-center gap-1.5">
                       <span
                         className={cn(
@@ -170,16 +179,20 @@ export function WorkflowStepper({
               const isLast = index === steps.length - 1;
               const isCurrent = state === "current";
               const isCompleted = state === "completed";
+              const isLocked = index > currentIndex;
+              const canClick = interactive && !isLocked;
               const wrapperClass = cn(
                 "relative w-full rounded-xl border bg-white p-2.5 pl-9 text-left transition-all",
-                interactive && "cursor-pointer",
+                canClick && "cursor-pointer",
                 isCompleted
                   ? "border-zinc-900 bg-zinc-900"
                   : isCurrent
                     ? "border-blue-500 bg-blue-50"
-                    : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                    : isLocked
+                      ? "border-zinc-200 bg-white opacity-75"
+                      : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
               );
-              const commonProps = interactive
+              const commonProps = canClick
                 ? { onClick: () => onStepChange?.(step.id) }
                 : {};
 
@@ -194,7 +207,12 @@ export function WorkflowStepper({
                     />
                   ) : null}
 
-                  <button type="button" className={wrapperClass} {...commonProps}>
+                  <button
+                    type="button"
+                    className={wrapperClass}
+                    disabled={interactive && isLocked}
+                    {...commonProps}
+                  >
                     <span
                       className={cn(
                         "absolute left-2.5 top-2.5 flex h-[22px] w-[22px] items-center justify-center rounded-full border text-[10px] font-semibold transition-colors",

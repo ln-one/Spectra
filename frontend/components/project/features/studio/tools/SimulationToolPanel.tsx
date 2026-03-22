@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { WorkflowStepper } from "@/components/project/shared";
@@ -26,13 +26,13 @@ export function SimulationToolPanel({
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<SimulationStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
-  const [topic, setTopic] = useState("牛顿第二定律边界条件");
+  const [topic, setTopic] = useState("鐗涢】绗簩瀹氬緥杈圭晫鏉′欢");
   const [intensity, setIntensity] = useState(60);
   const [profile, setProfile] = useState<StudentProfile>("detail_oriented");
   const [includeStrategyPanel, setIncludeStrategyPanel] = useState(true);
   const [questions, setQuestions] = useState<SimulationQuestion[]>(() =>
     buildSimulationQuestions({
-      topic: "牛顿第二定律边界条件",
+      topic: "鐗涢】绗簩瀹氬緥杈圭晫鏉′欢",
       intensity: 60,
       profile: "detail_oriented",
       students: DEFAULT_STUDENTS,
@@ -47,7 +47,7 @@ export function SimulationToolPanel({
 
   const currentQuestion = questions[cursor] ?? null;
   const profileLabel =
-    STUDENT_PROFILES.find((item) => item.value === profile)?.label ?? "细节型理科生";
+    STUDENT_PROFILES.find((item) => item.value === profile)?.label ?? "缁嗚妭鍨嬬悊绉戠敓";
 
   useEffect(() => {
     onDraftChange?.({
@@ -111,29 +111,30 @@ export function SimulationToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台
-              </h3>
+                {toolName}涓夋宸ヤ綔鍙?              </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先配置学生画像，再生成提问场景，最后在群聊面板里完成预演训练。
-              </p>
+                鍏堥厤缃鐢熺敾鍍忥紝鍐嶇敓鎴愭彁闂満鏅紝鏈€鍚庡湪缇よ亰闈㈡澘閲屽畬鎴愰婕旇缁冦€?              </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
             </span>
           </div>
 
+
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden p-4">
+          <div className="flex h-full min-h-0 gap-4">
           <WorkflowStepper
-            className="mt-3"
-            layout="inline"
+            className="w-[228px] shrink-0"
+            layout="rail"
             currentStep={activeStep}
             steps={SIMULATION_STEPS}
             onStepChange={(stepId) => setActiveStep(stepId as SimulationStep)}
-            title="学情预演流程"
+            title="瀛︽儏棰勬紨娴佺▼"
             subtitle="Workflow"
           />
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {activeStep === "config" ? (
             <ConfigStep
               topic={topic}
@@ -182,8 +183,11 @@ export function SimulationToolPanel({
               onOpenStrategies={() => setStrategyOffset((prev) => prev + 1)}
             />
           ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+

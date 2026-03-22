@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { WorkflowStepper } from "@/components/project/shared";
@@ -23,12 +23,12 @@ export function SpeakerNotesToolPanel({
   const [activeStep, setActiveStep] = useState<SpeakerNotesStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
-  const [topic, setTopic] = useState("函数单调性公开课说课");
+  const [topic, setTopic] = useState("鍑芥暟鍗曡皟鎬у叕寮€璇捐璇?");
   const [tone, setTone] = useState<SpeechTone>("professional");
   const [emphasizeInteraction, setEmphasizeInteraction] = useState(true);
   const [scripts, setScripts] = useState<SlideScriptItem[]>(() =>
     buildSlideScripts({
-      topic: "函数单调性公开课说课",
+      topic: "鍑芥暟鍗曡皟鎬у叕寮€璇捐璇?",
       tone: "professional",
       emphasizeInteraction: true,
     })
@@ -112,29 +112,30 @@ export function SpeakerNotesToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台
-              </h3>
+                {toolName}涓夋宸ヤ綔鍙?              </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先选课件，再生成逐页讲稿，最后在提词器视图里查看和微调。
-              </p>
+                鍏堥€夎浠讹紝鍐嶇敓鎴愰€愰〉璁茬锛屾渶鍚庡湪鎻愯瘝鍣ㄨ鍥鹃噷鏌ョ湅鍜屽井璋冦€?              </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
             </span>
           </div>
 
+
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden p-4">
+          <div className="flex h-full min-h-0 gap-4">
           <WorkflowStepper
-            className="mt-3"
-            layout="inline"
+            className="w-[228px] shrink-0"
+            layout="rail"
             currentStep={activeStep}
             steps={SPEAKER_NOTES_STEPS}
             onStepChange={(stepId) => setActiveStep(stepId as SpeakerNotesStep)}
-            title="说课助手流程"
+            title="璇磋鍔╂墜娴佺▼"
             subtitle="Workflow"
           />
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {activeStep === "config" ? (
             <ConfigStep
               topic={topic}
@@ -183,8 +184,11 @@ export function SpeakerNotesToolPanel({
               onToggleHighlight={() => setHighlightTransition((prev) => !prev)}
             />
           ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
