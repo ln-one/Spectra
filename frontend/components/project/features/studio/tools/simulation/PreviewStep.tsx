@@ -37,6 +37,16 @@ interface BackendTurnItem {
   teacherHint?: string;
 }
 
+function normalizeStudentLabel(value: unknown): string {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (!value || typeof value !== "object") return "虚拟学生";
+  const row = value as Record<string, unknown>;
+  if (typeof row.name === "string" && row.name.trim()) return row.name.trim();
+  if (typeof row.label === "string" && row.label.trim()) return row.label.trim();
+  if (typeof row.id === "string" && row.id.trim()) return row.id.trim();
+  return "虚拟学生";
+}
+
 function parseBackendTurns(flowContext?: ToolFlowContext): BackendTurnItem[] {
   if (!flowContext?.resolvedArtifact) return [];
   if (flowContext.resolvedArtifact.contentKind !== "json") return [];
@@ -54,13 +64,13 @@ function parseBackendTurns(flowContext?: ToolFlowContext): BackendTurnItem[] {
     .map((turn) => {
       if (!turn || typeof turn !== "object") return null;
       const row = turn as Record<string, unknown>;
-      const student =
-        typeof row.student === "string" && row.student.trim()
-          ? row.student.trim()
-          : "虚拟学生";
+      const student = normalizeStudentLabel(row.student ?? row.student_profile);
       const prompt =
         typeof row.question === "string" && row.question.trim()
           ? row.question.trim()
+          : typeof row.student_question === "string" &&
+              row.student_question.trim()
+            ? row.student_question.trim()
           : "";
       if (!prompt) return null;
       return {

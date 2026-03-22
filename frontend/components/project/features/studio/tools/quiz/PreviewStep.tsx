@@ -29,6 +29,18 @@ interface BackendQuestionItem {
   answers: number[];
 }
 
+function normalizeOptionLabel(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  const row = value as Record<string, unknown>;
+  if (typeof row.text === "string" && row.text.trim()) return row.text.trim();
+  if (typeof row.label === "string" && row.label.trim()) return row.label.trim();
+  if (typeof row.content === "string" && row.content.trim()) {
+    return row.content.trim();
+  }
+  return "";
+}
+
 function parseBackendQuestions(flowContext?: ToolFlowContext): BackendQuestionItem[] {
   if (!flowContext?.resolvedArtifact) return [];
   if (flowContext.resolvedArtifact.contentKind !== "json") return [];
@@ -45,12 +57,14 @@ function parseBackendQuestions(flowContext?: ToolFlowContext): BackendQuestionIt
       const question = typeof row.question === "string" ? row.question : "";
       const optionsRaw = Array.isArray(row.options) ? row.options : [];
       const options = optionsRaw
-        .map((option) => (typeof option === "string" ? option : String(option ?? "")))
+        .map((option) => normalizeOptionLabel(option))
         .filter((option) => option.length > 0);
       const answersRaw = Array.isArray(row.answers)
         ? row.answers
         : Array.isArray(row.answer_indexes)
           ? row.answer_indexes
+          : Array.isArray(row.correct_indexes)
+            ? row.correct_indexes
           : [];
       const answers = answersRaw
         .map((value) => Number(value))

@@ -43,12 +43,20 @@ function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
           ? row.script.trim()
           : typeof row.summary === "string"
             ? row.summary.trim()
+            : Array.isArray(row.script_lines)
+              ? row.script_lines
+                  .map((line) => (typeof line === "string" ? line.trim() : ""))
+                  .filter(Boolean)
+                  .join("\n")
             : "";
       const actionHint =
         typeof row.action_hint === "string" && row.action_hint.trim()
           ? row.action_hint.trim()
           : typeof row.transition_line === "string" && row.transition_line.trim()
             ? row.transition_line.trim()
+            : typeof row.transition_hint === "string" &&
+                row.transition_hint.trim()
+              ? row.transition_hint.trim()
             : undefined;
 
       if (!Number.isFinite(page) || !script) return null;
