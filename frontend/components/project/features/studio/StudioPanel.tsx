@@ -487,7 +487,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     expandedTool === "mindmap" ||
     expandedTool === "outline" ||
     expandedTool === "quiz" ||
-    expandedTool === "summary";
+    expandedTool === "summary" ||
+    expandedTool === "animation";
   const toolFlowContext: ToolFlowContext = {
     readiness: currentReadiness,
     isLoadingProtocol: isLoadingCardProtocol,
