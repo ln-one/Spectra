@@ -223,7 +223,7 @@ export function SessionSwitcher({
                               setIsSessionMenuOpen(false);
                             }}
                             className="rounded-[var(--project-chip-radius)] p-1.5 text-[var(--project-control-muted)] transition-colors hover:bg-[var(--project-danger-soft,rgba(220,38,38,0.12))] hover:text-[var(--project-danger,#dc2626)]"
-                            aria-label="删除会话"
+                            aria-label="隐藏会话"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -255,13 +255,13 @@ export function SessionSwitcher({
 
       <LightDeleteConfirm
         open={Boolean(pendingDeleteSession)}
-        title="删除会话"
+        title="隐藏会话"
         description={
           pendingDeleteSession
-            ? `将删除「${pendingDeleteSession.title}」，该操作在当前列表中不可恢复。`
+            ? `将隐藏「${pendingDeleteSession.title}」，可在清理本地数据后重新显示。`
             : ""
         }
-        confirmText="删除"
+        confirmText="隐藏"
         onCancel={() => setPendingDeleteSession(null)}
         onConfirm={() => {
           if (!pendingDeleteSession) return;

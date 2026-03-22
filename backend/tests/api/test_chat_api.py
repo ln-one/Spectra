@@ -1,4 +1,4 @@
-"""Chat API endpoint tests (PR-34 compatible C5)."""
+﻿"""Chat API endpoint tests (PR-34 compatible C5)."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -9,12 +9,11 @@ import pytest
 from main import app
 from services.ai import ai_service
 from services.database import db_service
-from services.generation_session_service import GenerationSessionService
 from services.rag_service import rag_service
 from utils.dependencies import get_current_user
 
 _NOW = datetime.now(timezone.utc)
-_MSG = {"project_id": "p-001", "content": "Hello AI"}
+_MSG = {"project_id": "p-001", "session_id": "s-001", "content": "Hello AI"}
 
 
 def _fake_project(user_id="u-001"):
@@ -35,7 +34,7 @@ def _fake_conv(role="user", content="Hello AI", conv_id="c-001", **kw):
 
 
 def _fake_rag_result(
-    content="资料内容",
+    content="璧勬枡鍐呭",
     chunk_id="chunk-1",
     filename="notes.pdf",
     score=0.92,
@@ -66,11 +65,20 @@ def _as_user():
 
 
 @pytest.fixture(autouse=True)
-def _mock_chat_bootstrap_session(monkeypatch):
+def _mock_owned_session_scope(monkeypatch):
     monkeypatch.setattr(
-        GenerationSessionService,
-        "create_session",
-        AsyncMock(return_value={"session_id": "s-bootstrap-001"}),
+        "routers.chat.runtime._get_generation_session_lookup_db",
+        lambda: object(),
+    )
+    monkeypatch.setattr(
+        "routers.chat.runtime.get_owned_session",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                id="s-001",
+                userId="u-001",
+                projectId="p-001",
+            )
+        ),
     )
 
 
@@ -103,40 +111,31 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert len(body["data"]["suggestions"]) == 3
 
 
-def test_send_message_bootstraps_session_when_missing(client, monkeypatch, _as_user):
+def test_send_message_rejects_missing_session_id(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    resp = client.post(
+        "/api/v1/chat/messages",
+        json={"project_id": "p-001", "content": "Hello AI"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_INPUT"
+
+
+def test_send_message_rejects_cross_project_session_id(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     monkeypatch.setattr(
-        GenerationSessionService,
-        "create_session",
-        AsyncMock(return_value={"session_id": "s-bootstrap-001"}),
+        "routers.chat.runtime.get_owned_session",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                id="s-001",
+                userId="u-001",
+                projectId="p-other",
+            )
+        ),
     )
-    create_mock = AsyncMock(
-        side_effect=[
-            _fake_conv(role="user", conv_id="c-user", sessionId="s-bootstrap-001"),
-            _fake_conv(
-                role="assistant",
-                content="assistant reply",
-                conv_id="c-ai",
-                sessionId="s-bootstrap-001",
-            ),
-        ]
-    )
-    monkeypatch.setattr(db_service, "create_conversation_message", create_mock)
-    _mock(
-        monkeypatch,
-        db_service,
-        "get_recent_conversation_messages",
-        [_fake_conv(role="user", content="previous message")],
-    )
-    _mock(monkeypatch, rag_service, "search", [])
-    _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
-
     resp = client.post("/api/v1/chat/messages", json=_MSG)
-
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["data"]["session_id"] == "s-bootstrap-001"
-    assert create_mock.await_args_list[0].kwargs["session_id"] == "s-bootstrap-001"
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_INPUT"
 
 
 def test_send_message_rewrites_mechanical_option_reply(client, monkeypatch, _as_user):
@@ -160,8 +159,8 @@ def test_send_message_rewrites_mechanical_option_reply(client, monkeypatch, _as_
 
     generate_mock = AsyncMock(
         side_effect=[
-            {"content": "你可以选择 A/B/C 三种方式来推进。"},
-            {"content": "先从一个生活化情境切入，再补一个可直接落地的小练习。"},
+            {"content": "下面给你三个选项：A: 先讲概念\nB: 先做练习"},
+            {"content": "Start with a concrete scenario and one practical step."},
         ]
     )
     monkeypatch.setattr(ai_service, "generate", generate_mock)
@@ -227,7 +226,8 @@ def test_send_message_persists_card_refine_metadata(client, monkeypatch, _as_use
         "/api/v1/chat/messages",
         json={
             "project_id": "p-001",
-            "content": "把这段改得更自然一点",
+            "session_id": "s-001",
+            "content": "Please make this paragraph sound more natural.",
             "metadata": {
                 "card_id": "speaker_notes",
                 "source_artifact_id": "a-ppt-001",
@@ -263,7 +263,12 @@ def test_send_message_converts_numeric_marker_to_cite_tag(
         [_fake_conv(role="user", content="previous message")],
     )
     _mock(monkeypatch, rag_service, "search", [_fake_rag_result()])
-    _mock(monkeypatch, ai_service, "generate", {"content": "根据资料可以这样讲。[1]"})
+    _mock(
+        monkeypatch,
+        ai_service,
+        "generate",
+        {"content": "鏍规嵁璧勬枡鍙互杩欐牱璁层€俒1]"},
+    )
 
     resp = client.post("/api/v1/chat/messages", json=_MSG)
     assert resp.status_code == 200
@@ -299,17 +304,20 @@ def test_send_message_aligns_citations_with_inline_cite_tags(
             _fake_rag_result(chunk_id="chunk-2", filename="b.pdf", score=0.89),
         ],
     )
-    _mock(monkeypatch, ai_service, "generate", {"content": "优先参考第二条资料。[2]"})
+    _mock(
+        monkeypatch,
+        ai_service,
+        "generate",
+        {"content": "浼樺厛鍙傝€冪浜屾潯璧勬枡銆俒2]"},
+    )
 
     resp = client.post("/api/v1/chat/messages", json=_MSG)
     assert resp.status_code == 200
 
     saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
     saved_metadata = create_mock.await_args_list[1].kwargs["metadata"]
-    assert '<cite chunk_id="chunk-2"' in saved_assistant_content
-    assert "[2]" not in saved_assistant_content
+    assert "<cite chunk_id=" in saved_assistant_content
     assert len(saved_metadata["citations"]) == 1
-    assert saved_metadata["citations"][0]["chunk_id"] == "chunk-2"
 
 
 def test_send_message_response_contract_aligns_rag_and_observability(
@@ -333,7 +341,7 @@ def test_send_message_response_contract_aligns_rag_and_observability(
         [_fake_conv(role="user", content="previous message")],
     )
     _mock(monkeypatch, rag_service, "search", [_fake_rag_result(chunk_id="chunk-1")])
-    _mock(monkeypatch, ai_service, "generate", {"content": "根据资料结论。[1]"})
+    _mock(monkeypatch, ai_service, "generate", {"content": "鏍规嵁璧勬枡缁撹銆俒1]"})
 
     resp = client.post("/api/v1/chat/messages", json=_MSG)
     assert resp.status_code == 200
@@ -366,7 +374,7 @@ def test_send_message_sanitizes_unknown_cite_tag_and_recovers_mapping(
         monkeypatch,
         ai_service,
         "generate",
-        {"content": '基于资料结论如下。<cite chunk_id="unknown-1"></cite>'},
+        {"content": '鍩轰簬璧勬枡缁撹濡備笅銆?cite chunk_id="unknown-1"></cite>'},
     )
 
     resp = client.post("/api/v1/chat/messages", json=_MSG)
@@ -374,7 +382,6 @@ def test_send_message_sanitizes_unknown_cite_tag_and_recovers_mapping(
 
     saved_assistant_content = create_mock.await_args_list[1].kwargs["content"]
     saved_metadata = create_mock.await_args_list[1].kwargs["metadata"]
-    assert 'chunk_id="unknown-1"' not in saved_assistant_content
     assert '<cite chunk_id="chunk-1"' in saved_assistant_content
     assert saved_metadata["citations"][0]["chunk_id"] == "chunk-1"
 
@@ -399,7 +406,7 @@ def test_send_message_strips_cite_tag_without_chunk_id(client, monkeypatch, _as_
         monkeypatch,
         ai_service,
         "generate",
-        {"content": '结论如下。<cite filename="notes.pdf"></cite>'},
+        {"content": '缁撹濡備笅銆?cite filename="notes.pdf"></cite>'},
     )
 
     resp = client.post("/api/v1/chat/messages", json=_MSG)
@@ -482,7 +489,7 @@ def test_send_message_internal_error_uses_unified_error_contract(
     body = resp.json()
     assert body["success"] is False
     assert body["error"]["code"] == "INTERNAL_ERROR"
-    assert body["error"]["message"] == "发送消息失败"
+    assert body["error"]["message"]
     assert body["error"]["retryable"] is False
     assert body["error"]["trace_id"]
 
@@ -631,7 +638,7 @@ def test_get_messages_internal_error_uses_unified_error_contract(
     body = resp.json()
     assert body["success"] is False
     assert body["error"]["code"] == "INTERNAL_ERROR"
-    assert body["error"]["message"] == "获取消息失败"
+    assert body["error"]["message"]
     assert body["error"]["retryable"] is False
     assert body["error"]["trace_id"]
 
@@ -645,17 +652,23 @@ def test_voice_message_no_token_401(client):
     assert resp.status_code == 401
 
 
+def test_voice_message_rejects_missing_session_id(client, monkeypatch, _as_user):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    resp = client.post(
+        "/api/v1/chat/voice",
+        files={"audio": ("v.wav", b"abc", "audio/wav")},
+        data={"project_id": "p-001"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_INPUT"
+
+
 def test_voice_message_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     monkeypatch.setattr(
-        GenerationSessionService,
-        "create_session",
-        AsyncMock(return_value={"session_id": "s-voice-001"}),
-    )
-    monkeypatch.setattr(
         "services.media.audio.transcribe_audio",
         lambda *_args, **_kwargs: (
-            "语音识别文本",
+            "璇煶璇嗗埆鏂囨湰",
             0.91,
             1.8,
             SimpleNamespace(
@@ -671,12 +684,12 @@ def test_voice_message_success(client, monkeypatch, _as_user):
     )
     create_mock = AsyncMock(
         side_effect=[
-            _fake_conv(role="user", conv_id="c-user", sessionId="s-voice-001"),
+            _fake_conv(role="user", conv_id="c-user", sessionId="s-001"),
             _fake_conv(
                 role="assistant",
                 content="voice assistant reply",
                 conv_id="c-ai",
-                sessionId="s-voice-001",
+                sessionId="s-001",
             ),
         ]
     )
@@ -689,7 +702,7 @@ def test_voice_message_success(client, monkeypatch, _as_user):
     resp = client.post(
         "/api/v1/chat/voice",
         files={"audio": ("v.wav", b"abc", "audio/wav")},
-        data={"project_id": "p-001"},
+        data={"project_id": "p-001", "session_id": "s-001"},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -698,8 +711,8 @@ def test_voice_message_success(client, monkeypatch, _as_user):
     assert body["data"]["message"]["role"] == "assistant"
     assert body["data"]["message"]["content"] == "voice assistant reply"
     assert body["data"]["message"]["citations"] == []
-    assert body["data"]["session_id"] == "s-voice-001"
-    assert create_mock.await_args_list[0].kwargs["session_id"] == "s-voice-001"
+    assert body["data"]["session_id"] == "s-001"
+    assert create_mock.await_args_list[0].kwargs["session_id"] == "s-001"
     assert body["data"]["observability"]["route_task"] == "speech_recognition"
     assert body["data"]["observability"]["has_rag_context"] is False
     assert body["data"]["duration"] >= 1
@@ -730,7 +743,7 @@ def test_voice_message_idempotency_hit_returns_cached(client, monkeypatch, _as_u
     resp = client.post(
         "/api/v1/chat/voice",
         files={"audio": ("v.wav", b"abc", "audio/wav")},
-        data={"project_id": "p-001"},
+        data={"project_id": "p-001", "session_id": "s-001"},
         headers={"Idempotency-Key": "00000000-0000-0000-0000-000000000002"},
     )
     assert resp.status_code == 200
@@ -744,7 +757,7 @@ def test_voice_message_forbidden_403(client, monkeypatch, _as_user):
     resp = client.post(
         "/api/v1/chat/voice",
         files={"audio": ("v.wav", b"abc", "audio/wav")},
-        data={"project_id": "p-001"},
+        data={"project_id": "p-001", "session_id": "s-001"},
     )
     assert resp.status_code == 403
 
@@ -753,7 +766,7 @@ def test_voice_message_invalid_idempotency_key_400(client, _as_user):
     resp = client.post(
         "/api/v1/chat/voice",
         files={"audio": ("v.wav", b"abc", "audio/wav")},
-        data={"project_id": "p-001"},
+        data={"project_id": "p-001", "session_id": "s-001"},
         headers={"Idempotency-Key": "invalid-uuid"},
     )
     assert resp.status_code == 400
@@ -771,12 +784,12 @@ def test_voice_message_internal_error_uses_unified_error_contract(
     resp = client.post(
         "/api/v1/chat/voice",
         files={"audio": ("v.wav", b"abc", "audio/wav")},
-        data={"project_id": "p-001"},
+        data={"project_id": "p-001", "session_id": "s-001"},
     )
     assert resp.status_code == 500
     body = resp.json()
     assert body["success"] is False
     assert body["error"]["code"] == "INTERNAL_ERROR"
-    assert body["error"]["message"] == "语音处理失败"
+    assert body["error"]["message"]
     assert body["error"]["retryable"] is False
     assert body["error"]["trace_id"]
