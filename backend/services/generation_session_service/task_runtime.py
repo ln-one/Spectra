@@ -129,6 +129,7 @@ class SessionTaskRuntimeMixin:
         dispatch_context: Optional[dict] = None,
     ) -> bool:
         return await schedule_local_execution(
+            db=self._db,
             session_id=session_id,
             task_id=task_id,
             project_id=project_id,

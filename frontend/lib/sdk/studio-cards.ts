@@ -60,13 +60,15 @@ export interface StudioCardExecutionPreviewRequest {
   config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
   source_artifact_id?: string;
+  rag_source_ids?: string[];
   client_session_id?: string;
 }
 
 export interface StudioCardRefineRequest {
   project_id: string;
+  artifact_id?: string;
   session_id?: string;
-  message: string;
+  message?: string;
   config?: Record<string, unknown>;
   visibility?: "private" | "project-visible" | "shared";
   source_artifact_id?: string;
@@ -81,6 +83,25 @@ export interface StudioCardSourceArtifact {
   based_on_version_id?: string;
   session_id?: string;
   updated_at?: string;
+}
+
+export interface StudioCardTurnRequest {
+  project_id: string;
+  artifact_id: string;
+  teacher_answer: string;
+  config?: Record<string, unknown>;
+  rag_source_ids?: string[];
+  turn_anchor?: string;
+}
+
+export interface StudioCardTurnResult {
+  turn_anchor: string;
+  student_profile: string;
+  student_question: string;
+  teacher_answer: string;
+  feedback: string;
+  score: number;
+  next_focus?: string;
 }
 
 type ApiEnvelope<T> = {
@@ -191,6 +212,23 @@ export const studioCardsApi = {
     );
   },
 
+  async refineArtifact(
+    cardId: string,
+    body: StudioCardRefineRequest
+  ): Promise<ApiEnvelope<{ execution_result: Record<string, unknown> }>> {
+    const response = await apiFetch(
+      `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/refine`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    return parseResponse<
+      ApiEnvelope<{ execution_result: Record<string, unknown> }>
+    >(response, "执行结构化 Studio 卡片 refine 失败");
+  },
+
   async getSources(
     cardId: string,
     projectId: string
@@ -203,5 +241,27 @@ export const studioCardsApi = {
       response,
       "获取 Studio 卡片源成果失败"
     );
+  },
+
+  async turn(body: StudioCardTurnRequest): Promise<
+    ApiEnvelope<{
+      artifact: Record<string, unknown>;
+      turn_result: StudioCardTurnResult;
+    }>
+  > {
+    const response = await apiFetch(
+      "/api/v1/generate/studio-cards/classroom_qa_simulator/turn",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    return parseResponse<
+      ApiEnvelope<{
+        artifact: Record<string, unknown>;
+        turn_result: StudioCardTurnResult;
+      }>
+    >(response, "推进课堂问答模拟失败");
   },
 };

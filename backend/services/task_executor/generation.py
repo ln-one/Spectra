@@ -101,6 +101,17 @@ async def execute_generation_task(
         )
         task_record = await db_service.get_generation_task(task_id)
         context.session_id = getattr(task_record, "sessionId", None)
+        input_data_raw = getattr(task_record, "inputData", None)
+        if input_data_raw:
+            try:
+                parsed_input = json.loads(input_data_raw)
+            except (TypeError, json.JSONDecodeError):
+                parsed_input = {}
+            if isinstance(parsed_input, dict):
+                context.run_id = parsed_input.get("run_id")
+                context.run_no = parsed_input.get("run_no")
+                context.run_title = parsed_input.get("run_title")
+                context.tool_type = parsed_input.get("tool_type")
 
         ai_started_at = time.perf_counter()
         courseware_content = await build_generation_inputs(db_service, context)

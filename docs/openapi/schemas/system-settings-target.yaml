@@ -1,0 +1,77 @@
+SystemSettingsModels:
+  type: object
+  properties:
+    default_model:
+      type: string
+    large_model:
+      type: string
+    small_model:
+      type: string
+
+SystemSettingsGenerationDefaults:
+  type: object
+  properties:
+    default_output_type:
+      $ref: './generate-core.yaml#/GenerationSessionMode'
+    default_page_count:
+      type: integer
+      minimum: 1
+      maximum: 100
+    default_outline_style:
+      type: string
+
+SystemSettingsFeatureFlags:
+  type: object
+  properties:
+    enable_ai_generation:
+      type: boolean
+    enable_file_upload:
+      type: boolean
+    feature_flags:
+      type: object
+      additionalProperties: true
+
+SystemSettingsExperience:
+  type: object
+  properties:
+    chat_timeout_seconds:
+      type: integer
+      minimum: 1
+    ai_request_timeout_seconds:
+      type: integer
+      minimum: 1
+
+SystemSettings:
+  type: object
+  properties:
+    models:
+      $ref: '#/SystemSettingsModels'
+    generation_defaults:
+      $ref: '#/SystemSettingsGenerationDefaults'
+    feature_flags:
+      $ref: '#/SystemSettingsFeatureFlags'
+    experience:
+      $ref: '#/SystemSettingsExperience'
+
+SystemSettingsResponse:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      $ref: '#/SystemSettings'
+    message:
+      type: string
+
+UpdateSystemSettingsRequest:
+  type: object
+  properties:
+    models:
+      $ref: '#/SystemSettingsModels'
+    generation_defaults:
+      $ref: '#/SystemSettingsGenerationDefaults'
+    feature_flags:
+      $ref: '#/SystemSettingsFeatureFlags'
+    experience:
+      $ref: '#/SystemSettingsExperience'

@@ -7,6 +7,11 @@ from fastapi.encoders import jsonable_encoder
 from schemas.chat import ChatRouteTask, SendMessageRequest
 from services.database import db_service
 from services.generation_session_service.access import get_owned_session
+from services.generation_session_service.session_history import (
+    SESSION_TITLE_SOURCE_DEFAULT,
+    generate_semantic_session_title,
+    spawn_background_task,
+)
 from utils.exceptions import (
     APIException,
     ErrorCode,
@@ -141,6 +146,41 @@ async def process_chat_message(
             (time.perf_counter() - stage_started) * 1000, 2
         )
 
+        session_title_updated = False
+        session_title = None
+        session_title_source = None
+        try:
+            session_record = await db_service.db.generationsession.find_unique(
+                where={"id": session_id}
+            )
+            session_title = getattr(session_record, "displayTitle", None)
+            session_title_source = getattr(session_record, "displayTitleSource", None)
+            user_message_count = await db_service.db.conversation.count(
+                where={
+                    "projectId": body.project_id,
+                    "sessionId": session_id,
+                    "role": "user",
+                }
+            )
+            if (
+                user_message_count == 1
+                and session_title_source == SESSION_TITLE_SOURCE_DEFAULT
+            ):
+                spawn_background_task(
+                    generate_semantic_session_title(
+                        db=db_service.db,
+                        session_id=session_id,
+                        first_message=body.content,
+                    ),
+                    label=f"session-title:{session_id}",
+                )
+        except Exception as exc:
+            logger.warning(
+                "Skip async session title refresh: session=%s error=%s",
+                session_id,
+                exc,
+            )
+
         rag_result, history_payload, context_timings = await load_chat_context(
             body=body,
             session_id=session_id,
@@ -226,10 +266,13 @@ async def process_chat_message(
                 "session_id": session_id,
                 "message": msg_dict,
                 "rag_hit": rag_hit,
-                "suggestions": ["继续细化教学目标", "补充重点难点", "开始生成课件"],
+                "suggestions": ["Refine teaching goals", "Add key points", "Start generating courseware"],
                 "observability": observability_metadata,
+                "session_title_updated": session_title_updated,
+                "session_title": session_title,
+                "session_title_source": session_title_source,
             },
-            message="消息发送成功",
+            message="Message sent successfully",
         )
         if cache_key:
             await db_service.save_idempotency_response(
@@ -254,6 +297,6 @@ async def process_chat_message(
                 }
             )
         raise InternalServerException(
-            message="发送消息失败",
+            message="Failed to send message",
             details=details,
         )

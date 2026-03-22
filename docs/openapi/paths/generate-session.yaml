@@ -33,6 +33,9 @@
 /api/v1/generate/studio-cards/{card_id}/refine:
   $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1refine'
 
+/api/v1/generate/studio-cards/classroom_qa_simulator/turn:
+  $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1studio-cards~1classroom_qa_simulator~1turn'
+
 /api/v1/generate/studio-cards/{card_id}/sources:
   $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1sources'
 

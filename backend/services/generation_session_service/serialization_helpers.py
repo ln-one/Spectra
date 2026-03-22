@@ -4,6 +4,7 @@ import json
 from typing import Optional
 
 from schemas.generation import TaskStatus
+from services.generation_session_service.session_history import serialize_session_run
 from services.platform.state_transition_guard import GenerationState
 
 
@@ -42,6 +43,13 @@ def _to_session_ref(
         "resumable": session.resumable,
         "updated_at": session.updatedAt.isoformat() if session.updatedAt else None,
         "render_version": session.renderVersion,
+        "display_title": getattr(session, "displayTitle", None),
+        "display_title_source": getattr(session, "displayTitleSource", None),
+        "display_title_updated_at": (
+            session.displayTitleUpdatedAt.isoformat()
+            if getattr(session, "displayTitleUpdatedAt", None)
+            else None
+        ),
     }
 
 
@@ -63,3 +71,7 @@ def _to_generation_event(event) -> dict:
         "cursor": event.cursor,
         "payload": payload,
     }
+
+
+def _to_session_run(run) -> dict | None:
+    return serialize_session_run(run)

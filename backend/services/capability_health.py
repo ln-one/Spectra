@@ -8,6 +8,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timedelta
+from importlib.util import find_spec
 from typing import Dict
 
 from schemas.common import (
@@ -177,12 +178,58 @@ def check_speech_recognition_health() -> CapabilityStatus:
     return status
 
 
+def check_animation_rendering_health() -> CapabilityStatus:
+    """检查动画渲染能力健康状态。"""
+    cache_key = "health:animation_rendering"
+
+    if cache_key in _health_cache:
+        cached_status, cached_time = _health_cache[cache_key]
+        if datetime.now() - cached_time < timedelta(seconds=CACHE_TTL):
+            return cached_status
+
+    has_pillow = find_spec("PIL") is not None
+    has_cv2 = find_spec("cv2") is not None
+
+    if has_pillow and has_cv2:
+        status = CapabilityStatus(
+            capability=CapabilityType.ANIMATION_RENDERING,
+            provider="Pillow+OpenCV",
+            status=CapabilityStatusEnum.AVAILABLE,
+            fallback_used=False,
+        )
+    elif has_pillow:
+        status = CapabilityStatus(
+            capability=CapabilityType.ANIMATION_RENDERING,
+            provider="Pillow",
+            status=CapabilityStatusEnum.DEGRADED,
+            fallback_used=True,
+            fallback_target="gif",
+            reason_code=ReasonCode.PROVIDER_UNAVAILABLE,
+            user_message="动画渲染仅支持 GIF，MP4 依赖 opencv-python。",
+            trace_id=f"trc_{uuid.uuid4().hex[:12]}",
+        )
+    else:
+        status = CapabilityStatus(
+            capability=CapabilityType.ANIMATION_RENDERING,
+            provider="Pillow",
+            status=CapabilityStatusEnum.UNAVAILABLE,
+            fallback_used=False,
+            reason_code=ReasonCode.PROVIDER_UNAVAILABLE,
+            user_message="动画渲染功能暂不可用，请检查 Pillow 和 opencv-python 依赖。",
+            trace_id=f"trc_{uuid.uuid4().hex[:12]}",
+        )
+
+    _health_cache[cache_key] = (status, datetime.now())
+    return status
+
+
 def get_all_capabilities_health() -> Dict[str, CapabilityStatus]:
     """获取所有能力的健康状态"""
     return {
         "document_parser": check_document_parser_health(),
         "video_understanding": check_video_understanding_health(),
         "speech_recognition": check_speech_recognition_health(),
+        "animation_rendering": check_animation_rendering_health(),
     }
 
 

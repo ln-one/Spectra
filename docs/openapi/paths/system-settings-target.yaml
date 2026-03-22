@@ -1,0 +1,54 @@
+/api/v1/system-settings:
+  get:
+    summary: 获取系统级业务配置
+    operationId: getSystemSettings
+    description: 返回全局生效的业务运行配置，主要用于开发调试和前后端联调。
+    tags: [SystemSettings]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/system-settings-target.yaml#/SystemSettingsResponse'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+  patch:
+    summary: 更新系统级业务配置
+    operationId: patchSystemSettings
+    description: |
+      仅修改系统级业务配置，不涉及数据库连接、JWT、API Key、Redis、存储路径等部署级敏感配置。
+      当前实现主要面向开发调试和单进程联调场景：配置修改后会影响当前进程中的后续新请求，
+      但不会替代持久化配置中心，也不保证跨进程、跨 worker 或重启后继续生效。
+    tags: [SystemSettings]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/system-settings-target.yaml#/UpdateSystemSettingsRequest'
+    responses:
+      '200':
+        description: 更新成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/system-settings-target.yaml#/SystemSettingsResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'

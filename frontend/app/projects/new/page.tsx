@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { projectsApi } from "@/lib/sdk";
+import { getErrorMessage } from "@/lib/sdk/errors";
+import { toast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeft } from "lucide-react";
 
 export default function NewProjectPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -19,9 +21,28 @@ export default function NewProjectPage() {
     is_referenceable: false,
   });
 
+  useEffect(() => {
+    if (formData.visibility === "private" && formData.is_referenceable) {
+      setFormData((current) => ({ ...current, is_referenceable: false }));
+    }
+  }, [formData.visibility, formData.is_referenceable]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage(null);
+
+    if (formData.visibility === "private" && formData.is_referenceable) {
+      const message =
+        "私有项目不能允许其他项目引用，请改成共享项目或关闭可引用选项。";
+      setSubmitError(message);
+      toast({
+        title: "创建项目失败",
+        description: message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmitError(null);
     setIsLoading(true);
 
     try {
@@ -39,10 +60,16 @@ export default function NewProjectPage() {
         router.push(`/projects/${projectId}`);
         return;
       }
-      setErrorMessage("创建失败：未返回项目 ID，请稍后重试。");
+      throw new Error("项目创建成功，但没有返回项目 ID。");
     } catch (error) {
+      const message = getErrorMessage(error);
       console.error("Failed to create project:", error);
-      setErrorMessage("创建失败，请稍后重试。");
+      setSubmitError(message);
+      toast({
+        title: "创建项目失败",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -181,15 +208,31 @@ export default function NewProjectPage() {
               type="checkbox"
               id="is_referenceable"
               checked={formData.is_referenceable}
+              disabled={formData.visibility === "private"}
               onChange={(e) =>
                 setFormData({ ...formData, is_referenceable: e.target.checked })
               }
-              className="w-4 h-4"
+              className="w-4 h-4 disabled:opacity-50"
             />
             <label htmlFor="is_referenceable" className="text-sm">
               允许被其他项目引用
             </label>
           </div>
+
+          {formData.visibility === "private" ? (
+            <p className="text-xs text-gray-500">
+              私有项目默认不可被其他项目引用。如需作为基底项目使用，请改成共享项目。
+            </p>
+          ) : null}
+
+          {submitError ? (
+            <div
+              className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              role="alert"
+            >
+              {submitError}
+            </div>
+          ) : null}
 
           <div className="flex gap-3 pt-4">
             <button
@@ -211,11 +254,6 @@ export default function NewProjectPage() {
               )}
             </button>
           </div>
-          {errorMessage ? (
-            <p className="text-sm text-red-600" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
         </form>
       </div>
     </div>

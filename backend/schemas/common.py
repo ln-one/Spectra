@@ -16,6 +16,7 @@ class CapabilityType(str, Enum):
     DOCUMENT_PARSER = "document_parser"
     VIDEO_UNDERSTANDING = "video_understanding"
     SPEECH_RECOGNITION = "speech_recognition"
+    ANIMATION_RENDERING = "animation_rendering"
 
 
 class CapabilityStatusEnum(str, Enum):

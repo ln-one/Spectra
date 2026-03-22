@@ -24,3 +24,4 @@ def test_capabilities_health_endpoint(client):
     assert "document_parser" in body["data"]
     assert "video_understanding" in body["data"]
     assert "speech_recognition" in body["data"]
+    assert "animation_rendering" in body["data"]

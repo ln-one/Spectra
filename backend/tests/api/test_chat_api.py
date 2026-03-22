@@ -85,6 +85,24 @@ def _mock_owned_session_scope(monkeypatch):
 def test_send_message_success(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     monkeypatch.setattr(
+        db_service.db,
+        "generationsession",
+        SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="s-bootstrap-001",
+                    displayTitle="会话-ap-001",
+                    displayTitleSource="default",
+                )
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        db_service.db,
+        "conversation",
+        SimpleNamespace(count=AsyncMock(return_value=1)),
+    )
+    monkeypatch.setattr(
         db_service,
         "create_conversation_message",
         AsyncMock(
@@ -108,6 +126,9 @@ def test_send_message_success(client, monkeypatch, _as_user):
     assert body["success"] is True
     assert body["data"]["message"]["role"] == "assistant"
     assert body["data"]["message"]["content"] == "assistant reply"
+    assert body["data"]["session_title"] == "会话-ap-001"
+    assert body["data"]["session_title_source"] == "default"
+    assert body["data"]["session_title_updated"] is False
     assert len(body["data"]["suggestions"]) == 3
 
 

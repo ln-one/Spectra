@@ -198,8 +198,10 @@ async def create_artifact_with_file(
                 normalized_content, project_id, artifact_id
             )
         else:
-            actual_path = await artifact_generator.generate_video_placeholder(
-                project_id, artifact_id
+            actual_path = await artifact_generator.generate_video(
+                normalized_content,
+                project_id,
+                artifact_id,
             )
         storage_path = actual_path
     except Exception as exc:

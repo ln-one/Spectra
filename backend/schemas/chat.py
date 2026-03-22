@@ -77,6 +77,11 @@ class SendMessageResponse(BaseModel):
         description="路由与提示链路观测字段",
     )
     suggestions: Optional[list[str]] = Field(None, description="后续建议")
+    session_title_updated: Optional[bool] = Field(
+        None, description="本次请求后会话标题是否已更新"
+    )
+    session_title: Optional[str] = Field(None, description="当前会话展示标题")
+    session_title_source: Optional[str] = Field(None, description="当前会话标题来源")
 
 
 class GetMessagesResponse(BaseModel):

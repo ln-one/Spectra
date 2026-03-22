@@ -97,6 +97,13 @@ async def list_sessions(
                 "base_version_id": getattr(s, "baseVersionId", None),
                 "output_type": s.outputType,
                 "state": s.state,
+                "display_title": getattr(s, "displayTitle", None),
+                "display_title_source": getattr(s, "displayTitleSource", None),
+                "display_title_updated_at": (
+                    s.displayTitleUpdatedAt.isoformat()
+                    if getattr(s, "displayTitleUpdatedAt", None)
+                    else None
+                ),
                 "created_at": s.createdAt,
                 "updated_at": s.updatedAt,
             }

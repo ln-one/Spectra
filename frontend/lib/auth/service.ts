@@ -45,8 +45,9 @@ export const authService = {
       ) {
         throw error;
       }
-      const authError = new Error("登录失败，请检查邮箱和密码") as Error &
-        AuthError;
+      const message =
+        error instanceof Error ? error.message : "登录失败，请检查邮箱和密码";
+      const authError = new Error(message) as Error & AuthError;
       authError.code = "LOGIN_FAILED";
       throw authError;
     }
@@ -86,8 +87,9 @@ export const authService = {
       ) {
         throw error;
       }
-      const authError = new Error("注册失败，该邮箱可能已被注册") as Error &
-        AuthError;
+      const message =
+        error instanceof Error ? error.message : "注册失败，请稍后重试";
+      const authError = new Error(message) as Error & AuthError;
       authError.code = "REGISTER_FAILED";
       throw authError;
     }

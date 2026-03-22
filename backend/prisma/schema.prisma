@@ -82,6 +82,7 @@ model Project {
   artifacts          Artifact[]
   candidateChanges   CandidateChange[]
   members            ProjectMember[]
+  runs               SessionRun[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -241,6 +242,7 @@ model Artifact {
   basedOnVersionId  String?
   basedOnVersion    ProjectVersion? @relation(fields: [basedOnVersionId], references: [id], onDelete: SetNull)
   ownerUserId       String?
+  sessionRuns       SessionRun[]
 
   type              String   // pptx/docx/mindmap/summary/exercise/html/gif/mp4
   visibility        String   @default("private") // private/project-visible/shared
@@ -357,6 +359,11 @@ model GenerationSession {
   // 客户端会话 ID（断线重连用）
   clientSessionId String?
 
+  // 展示标题
+  displayTitle    String?
+  displayTitleSource String? @default("default")
+  displayTitleUpdatedAt DateTime?
+
   // 能力降级记录（JSON 数组）
   fallbacksJson   String?  // JSON: ExternalFallbackInfo[]
 
@@ -367,6 +374,7 @@ model GenerationSession {
   conversations   Conversation[]
   artifacts       Artifact[]
   candidateChanges CandidateChange[]
+  runs            SessionRun[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -376,6 +384,33 @@ model GenerationSession {
   @@index([projectId, updatedAt])
   @@index([userId, state])
   @@index([clientSessionId])
+}
+
+/// 会话/工具执行历史
+model SessionRun {
+  id              String   @id @default(uuid())
+  runScopeKey     String
+  sessionId       String?
+  session         GenerationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  toolType        String
+  runNo           Int
+  title           String
+  titleSource     String   @default("pending")
+  titleUpdatedAt  DateTime?
+  status          String   @default("pending")
+  step            String   @default("config")
+  artifactId      String?
+  artifact        Artifact? @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([sessionId, updatedAt])
+  @@index([projectId, updatedAt])
+  @@index([artifactId])
+  @@unique([runScopeKey, toolType, runNo])
 }
 
 /// 大纲版本 - 每次用户或 AI 修改大纲时追加一条
