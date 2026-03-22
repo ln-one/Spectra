@@ -9,7 +9,10 @@ import type { StudioManagedTool } from "@/stores/project-store/types";
 import { useShallow } from "zustand/react/shallow";
 import { generateApi, projectSpaceApi, studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
-import type { GenerationToolType } from "@/lib/project-space/artifact-history";
+import type {
+  ArtifactHistoryItem,
+  GenerationToolType,
+} from "@/lib/project-space/artifact-history";
 import type {
   StudioCardCapability,
   StudioCardExecutionPlan,
@@ -181,6 +184,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const [pptResumeSignal, setPptResumeSignal] = useState(0);
   const [isArchiveHistoryPanelOpen, setIsArchiveHistoryPanelOpen] =
     useState(false);
+  const [runtimeArtifactsByTool, setRuntimeArtifactsByTool] = useState<
+    Partial<Record<StudioToolKey, ArtifactHistoryItem[]>>
+  >({});
   const workflowRunIdByToolRef = useRef<
     Partial<Record<GenerationToolType, string>>
   >({});
@@ -344,12 +350,25 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     if (!expandedTool || expandedTool === "ppt") {
       return [];
     }
-    return (
+    const fromStore =
       artifactHistoryByTool[
         expandedTool as keyof typeof artifactHistoryByTool
-      ] ?? []
+      ] ?? [];
+    const fromRuntime = runtimeArtifactsByTool[expandedTool as StudioToolKey] ?? [];
+    if (fromRuntime.length === 0) {
+      return fromStore;
+    }
+    const mergedById = new Map<string, ArtifactHistoryItem>();
+    for (const item of [...fromStore, ...fromRuntime]) {
+      if (!mergedById.has(item.artifactId)) {
+        mergedById.set(item.artifactId, item);
+      }
+    }
+    return [...mergedById.values()].sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
     );
-  }, [artifactHistoryByTool, expandedTool]);
+  }, [artifactHistoryByTool, expandedTool, runtimeArtifactsByTool]);
   const currentCapabilityState = currentCardId
     ? capabilityStateByCardId[currentCardId]
     : undefined;
@@ -971,6 +990,54 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         setActiveRunId(runId);
       }
       const effectiveSessionId = sessionId ?? activeSessionId;
+      if (
+        resourceKind === "artifact" &&
+        expandedTool &&
+        expandedTool !== "ppt" &&
+        typeof executionResult.artifact === "object" &&
+        executionResult.artifact !== null
+      ) {
+        const artifactPayload = executionResult.artifact as Record<string, unknown>;
+        const artifactId =
+          (artifactPayload.id as string | undefined) ||
+          (artifactPayload.artifact_id as string | undefined);
+        const artifactType =
+          (artifactPayload.type as ArtifactHistoryItem["artifactType"] | undefined) ??
+          "summary";
+        if (artifactId) {
+          const runtimeItem: ArtifactHistoryItem = {
+            artifactId,
+            sessionId:
+              (artifactPayload.session_id as string | undefined) ??
+              effectiveSessionId ??
+              null,
+            toolType: expandedTool as GenerationToolType,
+            artifactType,
+            artifactKind: undefined,
+            title:
+              (artifactPayload.title as string | undefined) ||
+              `${TOOL_LABELS[expandedTool]} ${artifactId.slice(0, 8)}`,
+            status: "completed",
+            createdAt:
+              (artifactPayload.updated_at as string | undefined) ||
+              (artifactPayload.created_at as string | undefined) ||
+              new Date().toISOString(),
+            basedOnVersionId: null,
+            runId: null,
+            runNo: null,
+          };
+          setRuntimeArtifactsByTool((prev) => {
+            const existing = prev[expandedTool as StudioToolKey] ?? [];
+            if (existing.some((item) => item.artifactId === artifactId)) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [expandedTool as StudioToolKey]: [runtimeItem, ...existing],
+            };
+          });
+        }
+      }
       await fetchArtifactHistory(project.id, effectiveSessionId);
       scheduleArtifactRefresh(project.id, effectiveSessionId);
       if (expandedTool === "word" && sessionId) {
