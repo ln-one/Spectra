@@ -16,6 +16,47 @@ interface PreviewStepProps {
   onToggleHighlight: () => void;
 }
 
+function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
+  if (!flowContext?.resolvedArtifact) return [];
+  if (flowContext.resolvedArtifact.contentKind !== "json") return [];
+  if (
+    !flowContext.resolvedArtifact.content ||
+    typeof flowContext.resolvedArtifact.content !== "object"
+  ) {
+    return [];
+  }
+
+  const content = flowContext.resolvedArtifact.content as Record<string, unknown>;
+  const rawSlides = Array.isArray(content.slides) ? content.slides : [];
+
+  return rawSlides
+    .map((slide, index) => {
+      if (!slide || typeof slide !== "object") return null;
+      const row = slide as Record<string, unknown>;
+      const page = Number(row.page ?? index + 1);
+      const title =
+        typeof row.title === "string" && row.title.trim()
+          ? row.title.trim()
+          : `第 ${index + 1} 页`;
+      const script =
+        typeof row.script === "string" && row.script.trim()
+          ? row.script.trim()
+          : typeof row.summary === "string"
+            ? row.summary.trim()
+            : "";
+      const actionHint =
+        typeof row.action_hint === "string" && row.action_hint.trim()
+          ? row.action_hint.trim()
+          : typeof row.transition_line === "string" && row.transition_line.trim()
+            ? row.transition_line.trim()
+            : undefined;
+
+      if (!Number.isFinite(page) || !script) return null;
+      return { page, title, script, actionHint };
+    })
+    .filter((item): item is SlideScriptItem => Boolean(item));
+}
+
 export function PreviewStep({
   scripts,
   activePage,
@@ -27,17 +68,29 @@ export function PreviewStep({
   onToggleHighlight,
 }: PreviewStepProps) {
   const capabilityStatus =
-    flowContext?.capabilityStatus ?? "backend_not_implemented";
+    flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
-    flowContext?.capabilityReason ??
-    "后端暂未提供结构化讲稿产物，当前使用前端示意提词稿。";
-  const activeScript = scripts.find((item) => item.page === activePage) ?? scripts[0];
+    flowContext?.capabilityReason ?? "正在等待说课稿生成，暂时先显示当前草稿。";
+
+  const backendScripts = parseBackendScripts(flowContext);
+  const activeScripts =
+    capabilityStatus === "backend_ready" && backendScripts.length > 0
+      ? backendScripts
+      : scripts;
+  const activeScript =
+    activeScripts.find((item) => item.page === activePage) ?? activeScripts[0];
+  const showFallbackHint =
+    capabilityStatus !== "backend_ready" || backendScripts.length === 0;
+
+  if (!activeScript) {
+    return null;
+  }
 
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-zinc-200 bg-white p-3">
         <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-        {capabilityStatus !== "backend_ready" ? (
+        {showFallbackHint ? (
           <div className="mt-3">
             <FallbackPreviewHint />
           </div>
@@ -51,7 +104,7 @@ export function PreviewStep({
               <p className="mt-1 text-[11px] text-zinc-500">
                 {lastGeneratedAt
                   ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
-                  : "当前展示的是生成后的逐页讲稿。"}
+                  : "当前展示的是生成后的逐页说课稿。"}
               </p>
             </div>
           </div>
@@ -68,7 +121,7 @@ export function PreviewStep({
 
         <div className="mt-3 grid grid-cols-[80px_1fr] gap-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
           <div className="space-y-2">
-            {scripts.map((item) => (
+            {activeScripts.map((item) => (
               <button
                 key={item.page}
                 type="button"
@@ -163,7 +216,7 @@ export function PreviewStep({
             ))
           ) : (
             <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-3 text-[11px] text-zinc-500">
-              还没有历史成果。生成完成后会自动出现在这里，方便你随时下载。
+              还没有历史成果。生成完成后会自动出现在这里，方便你随时查看和下载。
             </div>
           )}
         </div>
