@@ -1,168 +1,187 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ToolPanelShell } from "./ToolPanelShell";
+import { useEffect, useState } from "react";
+import { WorkflowStepper } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
-
-const STUDENTS = [
-  { id: "stu-1", name: "小林", tag: "喜欢钻牛角尖的差生" },
-  { id: "stu-2", name: "小周", tag: "思维发散的优等生" },
-  { id: "stu-3", name: "小许", tag: "关注细节的理科生" },
-];
-
-const QUESTION_POOL = [
-  "老师，既然惯性是物体属性，为什么质量越大越难刹住？",
-  "上一页公式推导里为什么要先做这个近似？",
-  "如果边界条件变化，结论还成立吗？",
-];
-
-const STRATEGY_POOL = [
-  "先共情再纠偏：先肯定问题敏锐度，再拆分概念边界。",
-  "从反例切入：给出一个极端情形让学生自行检验逻辑。",
-  "双层回答：先给直觉解释，再给规范术语版本。",
-];
+import { ConfigStep } from "./simulation/ConfigStep";
+import {
+  DEFAULT_STUDENTS,
+  getReadinessLabel,
+  SIMULATION_STEPS,
+  STUDENT_PROFILES,
+} from "./simulation/constants";
+import { GenerateStep } from "./simulation/GenerateStep";
+import {
+  buildJudgeComment,
+  buildSimulationQuestions,
+} from "./simulation/question-bank";
+import { PreviewStep } from "./simulation/PreviewStep";
+import type { SimulationQuestion, SimulationStep, StudentProfile } from "./simulation/types";
 
 export function SimulationToolPanel({
   toolName,
   onDraftChange,
+  flowContext,
 }: ToolPanelProps) {
-  const [questionIndex, setQuestionIndex] = useState(0);
+  const [activeStep, setActiveStep] = useState<SimulationStep>("config");
+  const [topic, setTopic] = useState("牛顿第二定律边界条件");
+  const [intensity, setIntensity] = useState(60);
+  const [profile, setProfile] = useState<StudentProfile>("detail_oriented");
+  const [includeStrategyPanel, setIncludeStrategyPanel] = useState(true);
+  const [questions, setQuestions] = useState<SimulationQuestion[]>(() =>
+    buildSimulationQuestions({
+      topic: "牛顿第二定律边界条件",
+      intensity: 60,
+      profile: "detail_oriented",
+      students: DEFAULT_STUDENTS,
+    })
+  );
+  const [cursor, setCursor] = useState(0);
   const [answer, setAnswer] = useState("");
   const [judgeText, setJudgeText] = useState("");
-  const [showStrategies, setShowStrategies] = useState(false);
   const [strategyOffset, setStrategyOffset] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
-  const currentQuestion = useMemo(
-    () => QUESTION_POOL[questionIndex % QUESTION_POOL.length],
-    [questionIndex]
-  );
+  const currentQuestion = questions[cursor] ?? null;
+  const profileLabel =
+    STUDENT_PROFILES.find((item) => item.value === profile)?.label ?? "细节型理科生";
 
   useEffect(() => {
     onDraftChange?.({
-      question_index: questionIndex,
+      topic,
+      intensity,
+      profile,
+      include_strategy_panel: includeStrategyPanel,
+      question_id: currentQuestion?.id ?? null,
+      question: currentQuestion?.text ?? null,
       answer,
       judge_text: judgeText,
-      show_strategies: showStrategies,
       strategy_offset: strategyOffset,
-      question: currentQuestion,
+      source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [
     answer,
     currentQuestion,
+    flowContext?.selectedSourceId,
+    includeStrategyPanel,
+    intensity,
     judgeText,
     onDraftChange,
-    questionIndex,
-    showStrategies,
+    profile,
     strategyOffset,
+    topic,
   ]);
 
-  const visibleStrategies = useMemo(
-    () => [
-      STRATEGY_POOL[(strategyOffset + 0) % STRATEGY_POOL.length],
-      STRATEGY_POOL[(strategyOffset + 1) % STRATEGY_POOL.length],
-      STRATEGY_POOL[(strategyOffset + 2) % STRATEGY_POOL.length],
-    ],
-    [strategyOffset]
-  );
+  const handleGenerate = async () => {
+    const nextQuestions = buildSimulationQuestions({
+      topic,
+      intensity,
+      profile,
+      students: DEFAULT_STUDENTS,
+    });
+    setQuestions(nextQuestions);
+    setCursor(0);
+    setAnswer("");
+    setJudgeText("");
+    setStrategyOffset(0);
+
+    if (!flowContext?.onExecute) {
+      setLastGeneratedAt(new Date().toISOString());
+      setActiveStep("preview");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      await flowContext.onExecute();
+      setLastGeneratedAt(new Date().toISOString());
+      setActiveStep("preview");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
-    <ToolPanelShell
-      stepTitle={`${toolName}配置`}
-      stepDescription="模拟课前沙盘推演：虚拟学生提问、教师作答、裁判点评。"
-      previewTitle="虚拟课堂群聊占位"
-      previewDescription="支持下一轮提问与“棱镜锦囊”策略展示。"
-      footer={
-        <div className="flex items-center justify-between gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 rounded-lg text-xs"
-            onClick={() => setQuestionIndex((prev) => prev + 1)}
-          >
-            下一轮提问
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 rounded-lg text-xs"
-            onClick={() => {
-              setShowStrategies(true);
-              setStrategyOffset((prev) => prev + 1);
-            }}
-          >
-            棱镜锦囊
-          </Button>
-        </div>
-      }
-      preview={
-        <div className="space-y-3">
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 space-y-2">
-            {STUDENTS.map((student) => (
-              <div key={student.id} className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-zinc-200 text-[10px] flex items-center justify-center">
-                  {student.name.slice(-1)}
-                </div>
-                <span className="text-xs text-zinc-700">{student.name}</span>
-                <span className="text-[10px] text-zinc-500">
-                  [{student.tag}]
-                </span>
-              </div>
-            ))}
-            <div className="rounded-md bg-white border border-zinc-200 p-2 text-xs text-zinc-700">
-              学生提问：{currentQuestion}
+    <div className="h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900">
+                {toolName}三步工作台
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                先配置学生画像，再生成提问场景，最后在群聊面板里完成预演训练。
+              </p>
             </div>
+            <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
+              {getReadinessLabel(flowContext?.readiness)}
+            </span>
           </div>
 
-          <div className="flex gap-2">
-            <Input
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              placeholder="在这里输入教师回答..."
-              className="h-9 text-xs"
+          <WorkflowStepper
+            className="mt-3"
+            layout="inline"
+            currentStep={activeStep}
+            steps={SIMULATION_STEPS}
+            onStepChange={(stepId) => setActiveStep(stepId as SimulationStep)}
+            title="学情预演流程"
+            subtitle="Workflow"
+          />
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          {activeStep === "config" ? (
+            <ConfigStep
+              topic={topic}
+              intensity={intensity}
+              profile={profile}
+              includeStrategyPanel={includeStrategyPanel}
+              onTopicChange={setTopic}
+              onIntensityChange={setIntensity}
+              onProfileChange={setProfile}
+              onIncludeStrategyPanelChange={setIncludeStrategyPanel}
+              onNext={() => setActiveStep("generate")}
             />
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 text-xs"
-              onClick={() =>
-                setJudgeText(
-                  answer.trim()
-                    ? "裁判评价：回答结构清晰，可再补充一个反例增强说服力。"
-                    : ""
-                )
-              }
-            >
-              提交作答
-            </Button>
-          </div>
-
-          {judgeText ? (
-            <div className="rounded-md border border-emerald-300 bg-emerald-50 p-2 text-xs text-emerald-700">
-              {judgeText}
-            </div>
           ) : null}
 
-          {showStrategies ? (
-            <div className="space-y-2">
-              {visibleStrategies.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-md border border-violet-300 bg-violet-50 p-2 text-xs text-violet-700"
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
+          {activeStep === "generate" ? (
+            <GenerateStep
+              topic={topic}
+              intensity={intensity}
+              profileLabel={profileLabel}
+              includeStrategyPanel={includeStrategyPanel}
+              flowContext={flowContext}
+              isGenerating={isGenerating}
+              onBack={() => setActiveStep("config")}
+              onGenerate={() => void handleGenerate()}
+            />
+          ) : null}
+
+          {activeStep === "preview" ? (
+            <PreviewStep
+              students={DEFAULT_STUDENTS}
+              question={currentQuestion}
+              answer={answer}
+              judgeText={judgeText}
+              includeStrategyPanel={includeStrategyPanel}
+              strategyOffset={strategyOffset}
+              lastGeneratedAt={lastGeneratedAt}
+              flowContext={flowContext}
+              onRegenerate={() => setActiveStep("generate")}
+              onAnswerChange={setAnswer}
+              onSubmitAnswer={() => setJudgeText(buildJudgeComment(answer, intensity))}
+              onNextRound={() => {
+                setCursor((prev) => (prev + 1) % Math.max(1, questions.length));
+                setAnswer("");
+                setJudgeText("");
+              }}
+              onOpenStrategies={() => setStrategyOffset((prev) => prev + 1)}
+            />
           ) : null}
         </div>
-      }
-    >
-      <section className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
-        可通过中栏 Chat 指令调整提问方向（本轮不接联动，仅展示入口意图）。
-      </section>
-    </ToolPanelShell>
+      </div>
+    </div>
   );
 }

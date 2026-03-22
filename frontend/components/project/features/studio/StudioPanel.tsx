@@ -488,7 +488,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     expandedTool === "outline" ||
     expandedTool === "quiz" ||
     expandedTool === "summary" ||
-    expandedTool === "animation";
+    expandedTool === "animation" ||
+    expandedTool === "handout";
   const toolFlowContext: ToolFlowContext = {
     readiness: currentReadiness,
     isLoadingProtocol: isLoadingCardProtocol,
