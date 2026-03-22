@@ -70,20 +70,20 @@ function resolveDefaultCapabilityByTool(
 ): CapabilityResolution | null {
   if (toolId === "word") {
     return buildResolution(
-      "backend_not_implemented",
-      "后端输出为 docx 文件，当前面板为前端草稿预览。"
+      "backend_placeholder",
+      "正在等待 Word 文档生成，生成完成后可直接下载正式文档。"
     );
   }
   if (toolId === "summary") {
     return buildResolution(
-      "backend_not_implemented",
-      "后端暂未提供结构化讲稿产物，当前使用前端示意提词稿。"
+      "backend_placeholder",
+      "正在等待说课稿生成，完成后会在当前面板里显示真实内容。"
     );
   }
   if (toolId === "handout") {
     return buildResolution(
-      "backend_not_implemented",
-      "后端暂未提供多轮问答仿真结构，当前使用前端示意预演。"
+      "backend_placeholder",
+      "正在等待学情预演生成，完成后会在当前面板里显示真实内容。"
     );
   }
   return null;
@@ -98,7 +98,50 @@ export function buildCapabilityWithoutArtifact(
   }
   return buildResolution(
     "backend_placeholder",
-    "暂无后端成果内容，已回退前端示意内容。"
+    "暂时还没有后端产物，先显示当前草稿内容。"
+  );
+}
+
+function resolveSummaryPayload(
+  toolId: StudioToolKey,
+  artifact: ArtifactHistoryItem,
+  parsed: Record<string, unknown>
+): CapabilityResolution {
+  if (toolId === "summary") {
+    const slides = parsed.slides;
+    if (isNonEmptyArray(slides) || typeof parsed.summary === "string") {
+      return buildResolution("backend_ready", "已读取后端说课稿内容。", {
+        artifactId: artifact.artifactId,
+        artifactType: artifact.artifactType,
+        contentKind: "json",
+        content: parsed,
+      });
+    }
+    return buildResolution(
+      "backend_placeholder",
+      "说课稿产物内容为空，暂时继续显示前端草稿。"
+    );
+  }
+
+  if (toolId === "handout") {
+    const turns = parsed.turns;
+    if (isNonEmptyArray(turns) || typeof parsed.summary === "string") {
+      return buildResolution("backend_ready", "已读取后端学情预演内容。", {
+        artifactId: artifact.artifactId,
+        artifactType: artifact.artifactType,
+        contentKind: "json",
+        content: parsed,
+      });
+    }
+    return buildResolution(
+      "backend_placeholder",
+      "学情预演产物内容为空，暂时继续显示前端草稿。"
+    );
+  }
+
+  return buildResolution(
+    "backend_error",
+    `当前工具不支持解析 ${artifact.artifactType} 产物。`
   );
 }
 
@@ -108,20 +151,30 @@ export async function resolveCapabilityFromArtifact(params: {
   blob: Blob;
 }): Promise<CapabilityResolution> {
   const defaultResolution = resolveDefaultCapabilityByTool(params.toolId);
-  if (defaultResolution) {
-    return defaultResolution;
-  }
-
   const { toolId, artifact, blob } = params;
   const artifactType = artifact.artifactType;
 
   try {
+    if (artifactType === "docx") {
+      return buildResolution(
+        "backend_ready",
+        "已读取到后端生成的 Word 文档。",
+        {
+          artifactId: artifact.artifactId,
+          artifactType,
+          contentKind: "binary",
+          content: null,
+          blob,
+        }
+      );
+    }
+
     if (artifactType === "mindmap") {
       const raw = await readBlobText(blob);
       const parsed = parseJsonSafely(raw) as Record<string, unknown>;
       const nodes = parsed?.nodes;
       if (isNonEmptyArray(nodes)) {
-        return buildResolution("backend_ready", "后端返回了思维导图结构。", {
+        return buildResolution("backend_ready", "已读取后端思维导图结构。", {
           artifactId: artifact.artifactId,
           artifactType,
           contentKind: "json",
@@ -130,7 +183,7 @@ export async function resolveCapabilityFromArtifact(params: {
       }
       return buildResolution(
         "backend_placeholder",
-        "当前思维导图仅返回空 nodes，已回退前端示意内容。"
+        "思维导图产物暂时为空，继续显示前端草稿。"
       );
     }
 
@@ -139,7 +192,7 @@ export async function resolveCapabilityFromArtifact(params: {
       const parsed = parseJsonSafely(raw) as Record<string, unknown>;
       const questions = parsed?.questions;
       if (isNonEmptyArray(questions)) {
-        return buildResolution("backend_ready", "后端返回了题目内容。", {
+        return buildResolution("backend_ready", "已读取后端题目内容。", {
           artifactId: artifact.artifactId,
           artifactType,
           contentKind: "json",
@@ -148,43 +201,51 @@ export async function resolveCapabilityFromArtifact(params: {
       }
       return buildResolution(
         "backend_placeholder",
-        "当前随堂小测仅返回空 questions，已回退前端示意内容。"
+        "题目产物暂时为空，继续显示前端草稿。"
       );
+    }
+
+    if (artifactType === "summary") {
+      const raw = await readBlobText(blob);
+      const parsed = parseJsonSafely(raw) as Record<string, unknown>;
+      return resolveSummaryPayload(toolId, artifact, parsed);
     }
 
     if (artifactType === "html") {
       const html = await readBlobText(blob);
       const normalized = normalizeHtml(html);
       if (!normalized || normalized === normalizeHtml(HTML_EMPTY_TEMPLATE)) {
-        const reason =
-          toolId === "outline"
-            ? "当前互动游戏仅返回空 HTML 模板，已回退前端示意内容。"
-            : "当前动画仅返回空 HTML 模板，已回退前端示意内容。";
-        return buildResolution("backend_placeholder", reason);
-      }
-      const readyReason =
-        toolId === "outline"
-          ? "后端返回了可渲染的游戏 HTML 内容。"
-          : "后端返回了可渲染的动画 HTML 内容。";
-      return buildResolution("backend_ready", readyReason, {
-        artifactId: artifact.artifactId,
-        artifactType,
-        contentKind: "text",
-        content: html,
-      });
-    }
-
-    if (artifactType === "gif" || artifactType === "mp4") {
-      // 占位素材通常是极小文件，这里使用保守阈值识别。
-      if (blob.size <= PLACEHOLDER_MEDIA_SIZE_THRESHOLD) {
         return buildResolution(
           "backend_placeholder",
-          `当前 ${artifactType.toUpperCase()} 为占位媒体，已回退前端示意内容。`
+          toolId === "outline"
+            ? "互动游戏产物还是空模板，继续显示前端草稿。"
+            : "演示动画产物还是空模板，继续显示前端草稿。"
         );
       }
       return buildResolution(
         "backend_ready",
-        `后端返回了可播放的 ${artifactType.toUpperCase()} 内容。`,
+        toolId === "outline"
+          ? "已读取后端互动游戏 HTML。"
+          : "已读取后端演示动画 HTML。",
+        {
+          artifactId: artifact.artifactId,
+          artifactType,
+          contentKind: "text",
+          content: html,
+        }
+      );
+    }
+
+    if (artifactType === "gif" || artifactType === "mp4") {
+      if (blob.size <= PLACEHOLDER_MEDIA_SIZE_THRESHOLD) {
+        return buildResolution(
+          "backend_placeholder",
+          `${artifactType.toUpperCase()} 还是占位素材，继续显示前端草稿。`
+        );
+      }
+      return buildResolution(
+        "backend_ready",
+        `已读取后端 ${artifactType.toUpperCase()} 媒体内容。`,
         {
           artifactId: artifact.artifactId,
           artifactType,
@@ -195,16 +256,21 @@ export async function resolveCapabilityFromArtifact(params: {
       );
     }
 
+    if (defaultResolution) {
+      return defaultResolution;
+    }
+
     return buildResolution(
       "backend_error",
-      `不支持的成果类型：${artifactType}。已回退前端示意内容。`
+      `暂不支持解析 ${artifactType} 类型的产物。`
     );
   } catch (error) {
     return buildResolution(
       "backend_error",
-      `解析后端成果失败：${
+      `解析后端产物失败：${
         error instanceof Error ? error.message : "unknown error"
-      }。已回退前端示意内容。`
+      }。`,
+      null
     );
   }
 }

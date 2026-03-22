@@ -1,4 +1,4 @@
-import type { components } from "@/lib/sdk/types";
+﻿import type { components } from "@/lib/sdk/types";
 
 type Artifact = components["schemas"]["Artifact"];
 
@@ -17,6 +17,7 @@ export interface ArtifactHistoryItem {
   sessionId: string | null;
   toolType: GenerationToolType;
   artifactType: Artifact["type"];
+  artifactKind?: string;
   title: string;
   status: "completed" | "failed" | "processing" | "pending";
   createdAt: string;
@@ -43,14 +44,14 @@ function emptyHistory(): ArtifactHistoryByTool {
 }
 
 const TOOL_TITLE_MAP: Record<GenerationToolType, string> = {
-  ppt: "PPT 课件",
-  word: "文档生成",
-  mindmap: "思维导图",
-  outline: "课程大纲",
-  quiz: "测验题库",
-  summary: "内容摘要",
-  animation: "动画素材",
-  handout: "讲义资料",
+  ppt: "PPT",
+  word: "Word",
+  mindmap: "Mindmap",
+  outline: "Game",
+  quiz: "Quiz",
+  summary: "Speaker Notes",
+  animation: "Animation",
+  handout: "Simulation",
 };
 
 function normalizeStatus(statusRaw: unknown): ArtifactHistoryItem["status"] {
@@ -68,6 +69,13 @@ function readMetadataField(
 ): unknown {
   if (!metadata) return undefined;
   return (metadata as Record<string, unknown>)[key];
+}
+
+function readArtifactKind(artifact: Artifact): string | null {
+  const rawKind = readMetadataField(artifact.metadata, "kind");
+  if (typeof rawKind !== "string") return null;
+  const normalized = rawKind.trim();
+  return normalized || null;
 }
 
 export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
@@ -90,6 +98,14 @@ export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
   ) {
     return metadataOutputType as GenerationToolType;
   }
+
+  const artifactKind = readArtifactKind(artifact);
+  if (artifactKind === "interactive_game") return "outline";
+  if (artifactKind === "animation_storyboard") return "animation";
+  if (artifactKind === "speaker_notes") return "summary";
+  if (artifactKind === "classroom_qa_simulator") return "handout";
+  if (artifactKind === "quiz") return "quiz";
+  if (artifactKind === "mindmap") return "mindmap";
 
   switch (artifact.type) {
     case "pptx":
@@ -118,12 +134,20 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   const status = normalizeStatus(
     readMetadataField(artifact.metadata, "status")
   );
+  const artifactKind = readArtifactKind(artifact) ?? undefined;
+  const metadataTitle = readMetadataField(artifact.metadata, "title");
+  const title =
+    typeof metadataTitle === "string" && metadataTitle.trim()
+      ? metadataTitle.trim()
+      : `${titlePrefix} ${artifact.id.slice(0, 8)}`;
+
   return {
     artifactId: artifact.id,
     sessionId: artifact.session_id ?? null,
     toolType,
     artifactType: artifact.type,
-    title: `${titlePrefix} · ${artifact.id.slice(0, 8)}`,
+    artifactKind,
+    title,
     status,
     createdAt: artifact.created_at,
     basedOnVersionId: artifact.based_on_version_id ?? null,

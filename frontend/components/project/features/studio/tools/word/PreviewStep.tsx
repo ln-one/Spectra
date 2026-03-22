@@ -1,6 +1,6 @@
 ﻿import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { BookText, CircleCheck, Download, Loader2 } from "lucide-react";
+import { BookText, CircleCheck, Download, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CapabilityNotice, FallbackPreviewHint } from "../CapabilityNotice";
 import type { ToolFlowContext } from "../types";
@@ -10,6 +10,8 @@ interface PreviewStepProps {
   isGenerating: boolean;
   lastGeneratedAt: string | null;
   flowContext?: ToolFlowContext;
+  isBackendPreviewLoading?: boolean;
+  backendPreviewError?: string | null;
   onRegenerate: () => void;
 }
 
@@ -18,23 +20,26 @@ export function PreviewStep({
   isGenerating,
   lastGeneratedAt,
   flowContext,
+  isBackendPreviewLoading = false,
+  backendPreviewError = null,
   onRegenerate,
 }: PreviewStepProps) {
   const capabilityStatus =
-    flowContext?.capabilityStatus ?? "backend_not_implemented";
+    flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
     flowContext?.capabilityReason ??
-    "后端输出为 docx 文件，当前面板为前端草稿预览。";
+    "正在等待后端文档生成，暂时先显示当前草稿。";
 
   const hasProcessingArtifact = (flowContext?.latestArtifacts ?? []).some(
     (item) => item.status === "processing" || item.status === "pending"
   );
+  const showFallbackHint = capabilityStatus !== "backend_ready";
 
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-zinc-200 bg-white p-3">
         <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-        {capabilityStatus !== "backend_ready" ? (
+        {showFallbackHint ? (
           <div className="mt-3">
             <FallbackPreviewHint />
           </div>
@@ -48,7 +53,7 @@ export function PreviewStep({
               <p className="mt-1 text-[11px] text-zinc-500">
                 {lastGeneratedAt
                   ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
-                  : "当前展示的是根据配置生成的文档草稿。"}
+                  : "当前展示的是根据配置整理出的文档内容。"}
               </p>
             </div>
           </div>
@@ -66,7 +71,20 @@ export function PreviewStep({
         {isGenerating || hasProcessingArtifact ? (
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            文档正在生成中，完成后可下载最终文件。
+            文档正在生成中，完成后会自动切换到真实后端内容。
+          </div>
+        ) : null}
+
+        {capabilityStatus === "backend_ready" && isBackendPreviewLoading ? (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            正在加载后端文档预览内容…
+          </div>
+        ) : null}
+
+        {backendPreviewError ? (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+            后端预览读取失败：{backendPreviewError}
           </div>
         ) : null}
 
@@ -122,10 +140,17 @@ export function PreviewStep({
             ))
           ) : (
             <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-3 text-[11px] text-zinc-500">
-              还没有历史成果。文档生成后会自动出现在这里，方便你随时下载。
+              还没有历史成果。开始生成后，真实的 Word 文档会出现在这里。
             </div>
           )}
         </div>
+
+        {capabilityStatus === "backend_ready" ? (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+            <FileText className="h-3.5 w-3.5" />
+            当前已经接入后端真实 Word 产物，面板内展示的是该产物对应的预览文本。
+          </div>
+        ) : null}
       </section>
     </div>
   );
