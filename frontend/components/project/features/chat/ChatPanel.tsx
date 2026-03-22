@@ -57,8 +57,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
   const [isSessionTransitioning, setIsSessionTransitioning] = useState(true);
   const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(false);
+  const [composerClearance, setComposerClearance] = useState(120);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const composerShellRef = useRef<HTMLDivElement>(null);
   const hasHydratedHistoryRef = useRef(false);
   const pendingSessionIdRef = useRef<string | null>(null);
   const previousSessionIdRef = useRef<string | null>(null);
@@ -151,6 +153,28 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     textarea.style.overflowY = textarea.scrollHeight > 176 ? "auto" : "hidden";
   }, [input]);
 
+  useEffect(() => {
+    const shell = composerShellRef.current;
+    if (!shell) return;
+
+    const BOTTOM_OFFSET = 12; // aligns with `bottom-3`
+    const EXTRA_GAP = 8;
+    const updateClearance = () => {
+      setComposerClearance(
+        Math.ceil(shell.getBoundingClientRect().height + BOTTOM_OFFSET + EXTRA_GAP)
+      );
+    };
+
+    updateClearance();
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(updateClearance);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, []);
+
   const awaitingSessionFirstLoad =
     !!activeSessionId &&
     messages.length === 0 &&
@@ -217,13 +241,6 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
 
         <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
           <div
-            className="project-chat-fade-top pointer-events-none absolute inset-x-0 top-0 z-10 h-7"
-            style={{
-              background:
-                "linear-gradient(180deg, var(--project-surface) 0%, color-mix(in srgb, var(--project-surface) 96%, transparent) 28%, color-mix(in srgb, var(--project-surface) 84%, transparent) 52%, color-mix(in srgb, var(--project-surface) 62%, transparent) 72%, color-mix(in srgb, var(--project-surface) 36%, transparent) 88%, rgba(255,255,255,0) 100%)",
-            }}
-          />
-          <div
             className="project-chat-fade-bottom pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[42px]"
             style={{
               background:
@@ -275,7 +292,8 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-4 py-4 pb-28"
+                  className="space-y-4 py-4"
+                  style={{ paddingBottom: `${composerClearance}px` }}
                 >
                   <AnimatePresence mode="popLayout">
                     {messages.map((message, index) => (
@@ -287,7 +305,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                       />
                     ))}
                   </AnimatePresence>
-                  <div ref={messagesEndRef} />
+                  <div
+                    ref={messagesEndRef}
+                    style={{ scrollMarginBottom: `${composerClearance}px` }}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -324,7 +345,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           </AnimatePresence>
 
           <div className="pointer-events-none absolute inset-x-4 bottom-3 z-20">
-            <div className="project-chat-input-shell pointer-events-auto rounded-[var(--project-input-radius)] border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+            <div
+              ref={composerShellRef}
+              className="project-chat-input-shell pointer-events-auto rounded-[var(--project-input-radius)] border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.35)] backdrop-blur-xl"
+            >
               <div className="flex w-full items-end gap-2">
                 <Textarea
                   ref={textareaRef}
