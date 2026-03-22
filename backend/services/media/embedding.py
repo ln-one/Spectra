@@ -49,6 +49,13 @@ def _allow_local_fallback() -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
+def _is_multimodal_embedding_model(model_name: str) -> bool:
+    normalized = (model_name or "").strip().lower()
+    return normalized.startswith("qwen3-vl-embedding") or normalized.startswith(
+        "tongyi-embedding-vision-"
+    )
+
+
 class EmbeddingService:
     """文本向量化服务"""
 
@@ -74,11 +81,11 @@ class EmbeddingService:
 
     def _uses_multimodal_dashscope(self) -> bool:
         """qwen3-vl-embedding 需要走 MultiModalEmbedding 接口。"""
-        return (self._model or "").strip().lower() == "qwen3-vl-embedding"
+        return _is_multimodal_embedding_model(self._model or "")
 
     def _dashscope_batch_limit(self) -> int:
         model_name = (self._model or "").strip().lower()
-        if model_name == "qwen3-vl-embedding":
+        if _is_multimodal_embedding_model(model_name):
             return MULTIMODAL_EMBEDDING_BATCH_LIMIT
         if model_name == "text-embedding-v4":
             return TEXT_EMBEDDING_V4_BATCH_LIMIT
@@ -164,6 +171,7 @@ class EmbeddingService:
                         model=self._model,
                         input=[{"text": item} for item in batch],
                         api_key=api_key,
+                        dimension=_resolve_embedding_dimension(),
                     )
                 else:
                     from dashscope import TextEmbedding
