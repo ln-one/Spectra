@@ -70,6 +70,7 @@ export function mapSessionsToHistory(
           ? "word"
           : "ppt";
     const tool = GENERATION_TOOLS.find((t) => t.id === toolId);
+    const fallbackTitle = `会话 ${s.session_id.slice(-6)}`;
 
     return {
       id: s.session_id,
@@ -78,7 +79,7 @@ export function mapSessionsToHistory(
       status,
       sessionState: s.state,
       createdAt: s.created_at,
-      title: tool?.name || "生成任务",
+      title: fallbackTitle,
     };
   });
 }

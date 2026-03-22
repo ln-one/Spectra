@@ -144,7 +144,16 @@ export function createGenerationActions({
           limit: 20,
         });
         const sessions = response?.data?.sessions ?? [];
-        const history: GenerationHistory[] = mapSessionsToHistory(sessions);
+        const previousHistory = get().generationHistory;
+        const previousTitleById = new Map(
+          previousHistory.map((item) => [item.id, item.title])
+        );
+        const history: GenerationHistory[] = mapSessionsToHistory(sessions).map(
+          (item) => ({
+            ...item,
+            title: previousTitleById.get(item.id) || item.title,
+          })
+        );
         const activeSessionId =
           get().activeSessionId ??
           get().generationSession?.session?.session_id ??
