@@ -30,6 +30,33 @@ function parseJsonSafely(raw: string): unknown {
   return JSON.parse(raw);
 }
 
+function extractHtmlFromJsonPayload(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
+  try {
+    const parsed = parseJsonSafely(trimmed);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    const row = parsed as Record<string, unknown>;
+    const candidates = [
+      row.html,
+      row.content_html,
+      row.preview_html,
+      row.template_html,
+    ];
+    for (const item of candidates) {
+      if (typeof item === "string" && item.trim()) {
+        return item.trim();
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function readBlobText(blob: Blob): Promise<string> {
   if (typeof blob.text === "function") {
     return blob.text();
@@ -212,7 +239,9 @@ export async function resolveCapabilityFromArtifact(params: {
     }
 
     if (artifactType === "html") {
-      const html = await readBlobText(blob);
+      const rawHtml = await readBlobText(blob);
+      const extractedHtml = extractHtmlFromJsonPayload(rawHtml);
+      const html = extractedHtml ?? rawHtml;
       const normalized = normalizeHtml(html);
       if (!normalized || normalized === normalizeHtml(HTML_EMPTY_TEMPLATE)) {
         return buildResolution(
