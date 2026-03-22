@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LightDeleteConfirm } from "@/components/project/features/shared/LightDeleteConfirm";
 import type { StudioHistoryItem } from "../history/types";
+import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 
 interface SessionArtifactsProps {
   groupedHistory: Array<[string, StudioHistoryItem[]]>;
@@ -22,6 +23,23 @@ interface SessionArtifactsProps {
   onOpenHistoryItem: (item: StudioHistoryItem) => void;
   onExportArtifact: (artifactId: string) => void;
   onArchiveHistoryItem: (item: StudioHistoryItem) => void;
+}
+
+const TOOL_ACCENT_COLORS: Record<GenerationToolType, string> = {
+  ppt: "#f97316",
+  word: "#3b82f6",
+  mindmap: "#14b8a6",
+  outline: "#f43f5e",
+  quiz: "#8b5cf6",
+  summary: "#0ea5e9",
+  animation: "#22c55e",
+  handout: "#eab308",
+};
+
+function getToolAccentColor(toolKey: string): string {
+  return (
+    TOOL_ACCENT_COLORS[toolKey as GenerationToolType] ?? "var(--project-accent)"
+  );
 }
 
 function statusText(status: StudioHistoryItem["status"]) {
@@ -78,93 +96,107 @@ export function SessionArtifacts({
       <div className="space-y-2">
         <AnimatePresence>
           {groupedHistory.map(([toolKey, items]) => (
-            <motion.div
-              key={toolKey}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              className="space-y-1.5"
-            >
-              <p className="text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
-                {toolLabels[toolKey] ?? toolKey}
-              </p>
-              {items.slice(0, 4).map((item, index) => {
-                const runNo = items.length - index;
-                return (
+            (() => {
+              const toolAccent = getToolAccentColor(toolKey);
+
+              return (
                 <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  transition={{ delay: index * 0.04 }}
-                  className="group flex items-center gap-2 rounded-xl bg-[var(--project-surface-muted)] p-2 transition-colors hover:brightness-95"
+                  key={toolKey}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className="space-y-1.5"
                 >
-                  <button
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-elevated)] shadow-sm"
-                    onClick={() => onOpenHistoryItem(item)}
-                  >
-                    {statusIcon(item.status)}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)]">
-                      第 {runNo} 次 · {item.title}
-                    </p>
-                    <p className="flex items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
-                      <span
-                        className={cn(
-                          "rounded-full px-1.5 py-0.5",
-                          item.status === "processing"
-                            ? "bg-blue-100 text-blue-700"
-                            : item.status === "draft"
-                              ? "bg-amber-100 text-amber-700"
-                              : item.status === "failed"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-emerald-100 text-emerald-700"
-                        )}
+                  <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-[var(--project-text-muted)]">
+                    <span
+                      className="inline-block h-1.5 w-1.5 rounded-full"
+                      style={{ backgroundColor: toolAccent }}
+                    />
+                    <span>{toolLabels[toolKey] ?? toolKey}</span>
+                  </p>
+                  {items.slice(0, 4).map((item, index) => {
+                    const runNo = items.length - index;
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 10 }}
+                        transition={{ delay: index * 0.04 }}
+                        className="group flex items-center gap-2 rounded-xl bg-[var(--project-surface-muted)] p-2 transition-colors hover:brightness-95"
                       >
-                        {statusText(item.status)}
-                      </span>
-                      <span>{new Date(item.createdAt).toLocaleString("zh-CN")}</span>
-                    </p>
-                  </div>
+                        <button
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--project-surface-elevated)] shadow-sm"
+                          onClick={() => onOpenHistoryItem(item)}
+                        >
+                          {statusIcon(item.status)}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)]">
+                            第 {runNo} 次 · {item.title}
+                          </p>
+                          <p className="flex items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
+                            <span
+                              className={cn(
+                                "rounded-full px-1.5 py-0.5",
+                                item.status === "processing"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : item.status === "draft"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : item.status === "failed"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-emerald-100 text-emerald-700"
+                              )}
+                            >
+                              {statusText(item.status)}
+                            </span>
+                            <span
+                              className="inline-block h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: toolAccent }}
+                            />
+                            <span>{new Date(item.createdAt).toLocaleString("zh-CN")}</span>
+                          </p>
+                        </div>
 
-                  <div className="flex items-center gap-1">
-                    {item.artifactId ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 rounded-lg"
-                        onClick={() => {
-                          if (!item.artifactId) return;
-                          onExportArtifact(item.artifactId);
-                        }}
-                      >
-                        <Download className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
-                      </Button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="h-7 rounded-lg border border-[var(--project-control-border)] px-2 text-[10px] text-[var(--project-text-muted)]"
-                        onClick={() => onOpenHistoryItem(item)}
-                      >
-                        继续
-                      </button>
-                    )}
+                        <div className="flex items-center gap-1">
+                          {item.artifactId ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-lg"
+                              onClick={() => {
+                                if (!item.artifactId) return;
+                                onExportArtifact(item.artifactId);
+                              }}
+                            >
+                              <Download className="h-3.5 w-3.5 text-[var(--project-text-muted)]" />
+                            </Button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="h-7 rounded-lg border border-[var(--project-control-border)] px-2 text-[10px] text-[var(--project-text-muted)]"
+                              onClick={() => onOpenHistoryItem(item)}
+                            >
+                              继续
+                            </button>
+                          )}
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
-                      onClick={() => setPendingArchiveItem(item)}
-                      aria-label="归档历史记录"
-                    >
-                      <Archive className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
+                            onClick={() => setPendingArchiveItem(item)}
+                            aria-label="归档历史记录"
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </motion.div>
-                );
-              })}
-            </motion.div>
+              );
+            })()
           ))}
         </AnimatePresence>
       </div>
