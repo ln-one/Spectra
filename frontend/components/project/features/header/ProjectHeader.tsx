@@ -15,7 +15,7 @@ interface ProjectHeaderProps {
   sessions: SessionSwitcherItem[];
   activeSessionId: string | null;
   onChangeSession: (sessionId: string) => void;
-  onRenameSession: (sessionId: string) => void;
+  onRenameSession: (sessionId: string, title: string) => void;
   onDeleteSession: (sessionId: string) => void;
   onCreateSession: () => void;
   isCreatingSession: boolean;
