@@ -143,7 +143,8 @@ export function useProjectPanelLayout({
   const isExpandedSourcesCollapsedByHeight =
     isExpanded &&
     expandedSourcesHeightPx > 0 &&
-    expandedSourcesHeightPx <= COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + 2;
+    expandedSourcesHeightPx <=
+      COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP;
 
   const toggleSourcesCollapsed = useCallback(
     (action: "collapse" | "expand" | "toggle" = "toggle") => {
@@ -204,8 +205,11 @@ export function useProjectPanelLayout({
       ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
         containerHeight) *
         100;
+    const isNearCollapsedTarget =
+      expandedChatHeight >= maxChatByCollapsedSources - 0.1;
+    const shouldExpand = isExpandedSourcesCollapsedByHeight || isNearCollapsedTarget;
 
-    if (!isExpandedSourcesCollapsedByHeight) {
+    if (!shouldExpand) {
       previousExpandedChatHeightRef.current = expandedChatHeight;
       setExpandedChatHeight(
         Math.max(30, Math.min(92, maxChatByCollapsedSources))
