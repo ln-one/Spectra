@@ -28,13 +28,6 @@ export function resolveOutputType(tool: GenerationTool): "ppt" | "word" {
     : "word";
 }
 
-const REUSABLE_GENERATION_SESSION_STATES = new Set([
-  "IDLE",
-  "CONFIGURING",
-  "FAILED",
-  "SUCCESS",
-]);
-
 export function resolveReusableGenerationSessionId(
   activeSessionId: string | null,
   generationSession: SessionStatePayload | null
@@ -44,9 +37,9 @@ export function resolveReusableGenerationSessionId(
   if (!session || session.session_id !== activeSessionId) {
     return activeSessionId;
   }
-  return REUSABLE_GENERATION_SESSION_STATES.has(session.state)
-    ? activeSessionId
-    : undefined;
+  // Keep generation bound to current conversation session.
+  // Session creation should only be explicit from session switcher.
+  return activeSessionId;
 }
 
 export function mapSessionsToHistory(

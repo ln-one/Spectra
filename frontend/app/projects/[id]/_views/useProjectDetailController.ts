@@ -171,6 +171,13 @@ export function useProjectDetailController() {
       if (history.length > 0) {
         return;
       }
+      const bootstrapFlagKey = `project-session-bootstrap-done:${projectId}`;
+      const hasBootstrappedBefore =
+        typeof window !== "undefined" &&
+        window.localStorage.getItem(bootstrapFlagKey) === "1";
+      if (hasBootstrappedBefore) {
+        return;
+      }
 
       const response = await generateApi.createSession({
         project_id: projectId,
@@ -180,6 +187,9 @@ export function useProjectDetailController() {
       const bootstrapSessionId = response.data?.session?.session_id;
       if (!bootstrapSessionId || cancelled) return;
 
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(bootstrapFlagKey, "1");
+      }
       setActiveSessionId(bootstrapSessionId);
       const currentSessionInUrl =
         typeof window !== "undefined"

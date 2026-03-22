@@ -58,6 +58,14 @@ export function createGenerationActions({
     ) => {
       try {
         const { selectedFileIds, activeSessionId, generationSession } = get();
+        if (!activeSessionId) {
+          toast({
+            title: "请先创建会话",
+            description: "会话只能通过会话选择器中的“新建会话”创建。",
+            variant: "destructive",
+          });
+          return null;
+        }
         const currentSessionId = resolveReusableGenerationSessionId(
           activeSessionId,
           generationSession

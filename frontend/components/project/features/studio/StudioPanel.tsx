@@ -154,7 +154,11 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     recordWorkflowEntry,
     archiveHistoryItem,
     unarchiveHistoryItem,
-  } = useStudioWorkflowHistory(artifactHistoryByTool, activeSessionId);
+  } = useStudioWorkflowHistory(
+    artifactHistoryByTool,
+    activeSessionId,
+    project?.id ?? null
+  );
   const hasHistory = groupedHistory.length > 0;
   const requestedHistoryStep = expandedTool
     ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)

@@ -30,6 +30,8 @@ const EMPTY_TITLE = "\u5f00\u59cb\u5bf9\u8bdd";
 const EMPTY_DESCRIPTION =
   "\u5411 AI \u52a9\u624b\u63d0\u95ee\u5173\u4e8e\u9879\u76ee\u7684\u5185\u5bb9";
 const INPUT_PLACEHOLDER = "\u8f93\u5165\u6d88\u606f...";
+const NO_SESSION_PLACEHOLDER =
+  "\u8bf7\u5148\u5728\u4f1a\u8bdd\u9009\u62e9\u5668\u4e2d\u70b9\u51fb\u201c\u65b0\u5efa\u4f1a\u8bdd\u201d";
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
   const {
@@ -188,7 +190,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     awaitingSessionFirstLoad;
 
   const handleSend = async () => {
-    if (!input.trim() || isSending) return;
+    if (!input.trim() || isSending || !activeSessionId) return;
     const content = input.trim();
     setInput("");
     await sendMessage(projectId, content);
@@ -355,14 +357,17 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={INPUT_PLACEHOLDER}
+                  placeholder={
+                    activeSessionId ? INPUT_PLACEHOLDER : NO_SESSION_PLACEHOLDER
+                  }
+                  disabled={!activeSessionId}
                   className="min-h-[44px] max-h-[176px] resize-none rounded-[var(--project-input-radius)] border-none bg-transparent px-2 py-1.5 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   rows={1}
                 />
                 <Button
                   size="icon"
                   onClick={() => void handleSend()}
-                  disabled={!input.trim() || isSending}
+                  disabled={!input.trim() || isSending || !activeSessionId}
                   className={cn(
                     "project-chat-send-btn h-10 w-10 shrink-0 rounded-[var(--project-input-radius)] transition-all duration-200",
                     input.trim() && !isSending

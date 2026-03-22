@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ArtifactHistoryByTool,
   ArtifactHistoryItem,
@@ -79,23 +79,69 @@ type RequestedStepByTool = Partial<
 >;
 type CurrentStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
 
+type PersistedWorkflowHistory = {
+  workflowItems?: StudioHistoryItem[];
+  hiddenHistoryIds?: Record<string, true>;
+  archivedHistoryById?: Record<string, StudioHistoryItem>;
+};
+
+function readPersistedWorkflowHistory(
+  projectId?: string | null
+): PersistedWorkflowHistory {
+  if (typeof window === "undefined") return {};
+  if (!projectId) return {};
+  const storageKey = `studio-workflow-history:${projectId}`;
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return {};
+    return (JSON.parse(raw) as PersistedWorkflowHistory) || {};
+  } catch {
+    return {};
+  }
+}
+
 export function useStudioWorkflowHistory(
   artifactHistoryByTool: ArtifactHistoryByTool,
-  activeSessionId?: string | null
+  activeSessionId?: string | null,
+  projectId?: string | null
 ) {
-  const [workflowItems, setWorkflowItems] = useState<StudioHistoryItem[]>([]);
+  const persisted = readPersistedWorkflowHistory(projectId);
+  const [workflowItems, setWorkflowItems] = useState<StudioHistoryItem[]>(
+    Array.isArray(persisted.workflowItems)
+      ? persisted.workflowItems.slice(0, 80)
+      : []
+  );
   const polishedTitleRequestedRef = useRef<Record<string, true>>({});
   const [hiddenHistoryIds, setHiddenHistoryIds] = useState<Record<string, true>>(
-    {}
+    persisted.hiddenHistoryIds && typeof persisted.hiddenHistoryIds === "object"
+      ? persisted.hiddenHistoryIds
+      : {}
   );
   const [archivedHistoryById, setArchivedHistoryById] = useState<
     Record<string, StudioHistoryItem>
-  >({});
+  >(
+    persisted.archivedHistoryById &&
+      typeof persisted.archivedHistoryById === "object"
+      ? persisted.archivedHistoryById
+      : {}
+  );
   const [requestedStepByTool, setRequestedStepByTool] =
     useState<RequestedStepByTool>({});
   const [currentStepByTool, setCurrentStepByTool] = useState<CurrentStepByTool>(
     {}
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!projectId) return;
+    const storageKey = `studio-workflow-history:${projectId}`;
+    const payload = {
+      workflowItems,
+      hiddenHistoryIds,
+      archivedHistoryById,
+    };
+    window.localStorage.setItem(storageKey, JSON.stringify(payload));
+  }, [archivedHistoryById, hiddenHistoryIds, projectId, workflowItems]);
 
   const recordWorkflowEntry = useCallback((input: WorkflowEntryInput) => {
     const nextItem: StudioHistoryItem = {
