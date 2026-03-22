@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { ArchiveRestore, Sparkles, X } from "lucide-react";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { studioCardsApi } from "@/lib/sdk";
@@ -137,6 +137,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     "config"
   );
   const [pptResumeSignal, setPptResumeSignal] = useState(0);
+  const [isArchiveHistoryPanelOpen, setIsArchiveHistoryPanelOpen] =
+    useState(false);
   const workflowRunIdByToolRef = useRef<
     Partial<Record<GenerationToolType, string>>
   >({});
@@ -183,6 +185,22 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   useEffect(() => {
     trackStep("ppt", "config");
   }, [trackStep]);
+
+  useEffect(() => {
+    const handleOpenArchiveHistory = () => {
+      setIsArchiveHistoryPanelOpen(true);
+    };
+    window.addEventListener(
+      "spectra:open-archive-history",
+      handleOpenArchiveHistory
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:open-archive-history",
+        handleOpenArchiveHistory
+      );
+    };
+  }, []);
   const currentTool = GENERATION_TOOLS.find(
     (tool) => tool.type === expandedTool
   );
@@ -824,7 +842,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                   {hasHistory && !isExpanded ? (
                     <SessionArtifacts
                       groupedHistory={groupedHistory}
-                      archivedHistory={archivedHistory}
                       toolLabels={TOOL_LABELS}
                       onRefresh={() => {
                         if (!project) return;
@@ -835,7 +852,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         void exportArtifact(artifactId);
                       }}
                       onArchiveHistoryItem={archiveHistoryItem}
-                      onUnarchiveHistoryItem={unarchiveHistoryItem}
                     />
                   ) : null}
                 </div>
@@ -1087,6 +1103,78 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           </LayoutGroup>
         </CardContent>
       </Card>
+
+      {isArchiveHistoryPanelOpen ? (
+        <>
+          <div
+            className="fixed inset-0 z-[210] bg-[var(--project-overlay)] backdrop-blur-[2px]"
+            onClick={() => setIsArchiveHistoryPanelOpen(false)}
+          />
+          <div className="fixed inset-0 z-[220] flex items-start justify-center px-4 pt-20 pb-8">
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+              className="flex w-full max-w-2xl max-h-[min(72vh,820px)] flex-col overflow-hidden rounded-[var(--project-menu-radius)] border border-[var(--project-menu-border)] bg-[var(--project-menu-bg)] shadow-[var(--project-menu-shadow)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-[var(--project-control-border)] px-4 py-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--project-text-primary)]">
+                    归档历史记录
+                  </h3>
+                  <p className="text-xs text-[var(--project-text-muted)]">
+                    共 {archivedHistory.length} 条
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-[var(--project-chip-radius)] text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
+                  onClick={() => setIsArchiveHistoryPanelOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {archivedHistory.length === 0 ? (
+                  <p className="rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-3 py-3 text-xs text-[var(--project-text-muted)]">
+                    暂无归档记录
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {archivedHistory.map((item) => (
+                      <div
+                        key={`archive-panel-${item.id}`}
+                        className="flex items-center gap-3 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-[var(--project-text-primary)]">
+                            {item.title}
+                          </p>
+                          <p className="truncate text-xs text-[var(--project-text-muted)]">
+                            {TOOL_LABELS[item.toolType] ?? item.toolType} ·{" "}
+                            {new Date(item.createdAt).toLocaleString("zh-CN")}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1 rounded-[var(--project-chip-radius)] border-[var(--project-control-border)] bg-[var(--project-surface)] text-xs text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
+                          onClick={() => unarchiveHistoryItem(item.id)}
+                        >
+                          <ArchiveRestore className="h-3.5 w-3.5" />
+                          取消归档
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

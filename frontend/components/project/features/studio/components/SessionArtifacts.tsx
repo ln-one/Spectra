@@ -4,12 +4,10 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Archive,
-  ArchiveRestore,
   CheckCircle2,
   Clock3,
   Download,
   Loader2,
-  Settings2,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,13 +17,11 @@ import type { StudioHistoryItem } from "../history/types";
 
 interface SessionArtifactsProps {
   groupedHistory: Array<[string, StudioHistoryItem[]]>;
-  archivedHistory: StudioHistoryItem[];
   toolLabels: Record<string, string>;
   onRefresh: () => void;
   onOpenHistoryItem: (item: StudioHistoryItem) => void;
   onExportArtifact: (artifactId: string) => void;
   onArchiveHistoryItem: (item: StudioHistoryItem) => void;
-  onUnarchiveHistoryItem: (itemId: string) => void;
 }
 
 function statusText(status: StudioHistoryItem["status"]) {
@@ -50,17 +46,14 @@ function statusIcon(status: StudioHistoryItem["status"]) {
 
 export function SessionArtifacts({
   groupedHistory,
-  archivedHistory,
   toolLabels,
   onRefresh,
   onOpenHistoryItem,
   onExportArtifact,
   onArchiveHistoryItem,
-  onUnarchiveHistoryItem,
 }: SessionArtifactsProps) {
   const [pendingArchiveItem, setPendingArchiveItem] =
     useState<StudioHistoryItem | null>(null);
-  const [showArchivePanel, setShowArchivePanel] = useState(false);
 
   return (
     <motion.div
@@ -73,81 +66,15 @@ export function SessionArtifacts({
         <h3 className="text-xs font-medium text-[var(--project-text-muted)]">
           历史记录
         </h3>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 gap-1 px-2 text-[10px] text-[var(--project-text-muted)]"
-            onClick={() => setShowArchivePanel((prev) => !prev)}
-            title="查看归档历史"
-            aria-label="查看归档历史"
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-            设置
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-[10px] text-[var(--project-text-muted)]"
-            onClick={onRefresh}
-          >
-            刷新
-          </Button>
-        </div>
-      </div>
-
-      {showArchivePanel ? (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          className="mb-2 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] p-2"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-[10px] text-[var(--project-text-muted)]"
+          onClick={onRefresh}
         >
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[11px] font-medium text-[var(--project-text-primary)]">
-              全部归档记录
-            </p>
-            <span className="text-[10px] text-[var(--project-text-muted)]">
-              {archivedHistory.length} 条
-            </span>
-          </div>
-          {archivedHistory.length === 0 ? (
-            <p className="px-1 py-1 text-[10px] text-[var(--project-text-muted)]">
-              暂无归档记录
-            </p>
-          ) : (
-            <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
-              {archivedHistory.map((item) => (
-                <div
-                  key={`archived-${item.id}`}
-                  className="flex items-center gap-2 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface)] px-2 py-1.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[10px] font-medium text-[var(--project-text-primary)]">
-                      {item.title}
-                    </p>
-                    <p className="truncate text-[9px] text-[var(--project-text-muted)]">
-                      {toolLabels[item.toolType] ?? item.toolType} ·{" "}
-                      {new Date(item.createdAt).toLocaleString("zh-CN")}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 gap-1 rounded-[var(--project-chip-radius)] border-[var(--project-control-border)] px-2 text-[9px] text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
-                    onClick={() => onUnarchiveHistoryItem(item.id)}
-                    title="取消归档"
-                    aria-label="取消归档"
-                  >
-                    <ArchiveRestore className="h-3.5 w-3.5" />
-                    取消归档
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </motion.div>
-      ) : null}
+          刷新
+        </Button>
+      </div>
       <div className="space-y-2">
         <AnimatePresence>
           {groupedHistory.map(([toolKey, items]) => (
