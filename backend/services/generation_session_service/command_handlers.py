@@ -319,7 +319,7 @@ async def handle_set_session_title(
     await db.generationsession.update(
         where={"id": session.id},
         data={
-            "displayTitle": display_title[:120],
+            "displayTitle": display_title,
             "displayTitleSource": SESSION_TITLE_SOURCE_MANUAL,
             "displayTitleUpdatedAt": datetime.now(timezone.utc),
         },

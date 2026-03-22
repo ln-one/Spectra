@@ -28,17 +28,7 @@ GenerationSessionResponseTarget:
       type: string
 
 GenerationSessionListItemTarget:
-  allOf:
-    - $ref: './generate-session-requests.yaml#/GenerationSessionListItem'
-    - type: object
-      properties:
-        display_title:
-          type: string
-        display_title_source:
-          $ref: './generate-session-models-target.yaml#/SessionTitleSource'
-        display_title_updated_at:
-          type: string
-          format: date-time
+  $ref: './generate-session-requests.yaml#/GenerationSessionListItem'
 
 GenerationSessionListResponseTarget:
   type: object

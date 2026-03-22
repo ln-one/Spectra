@@ -144,7 +144,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SendMessageResponseTarget'
+                $ref: '#/components/schemas/SendMessageResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2915,24 +2915,6 @@ components:
                 - manual
         message:
           type: string
-    SendMessageResponseTarget:
-      allOf:
-        - $ref: '#/components/schemas/SendMessageResponse'
-        - type: object
-          properties:
-            data:
-              type: object
-              properties:
-                session_title_updated:
-                  type: boolean
-                session_title:
-                  type: string
-                session_title_source:
-                  type: string
-                  enum:
-                    - default
-                    - first_message
-                    - manual
     CapabilityStatus:
       type: object
       description: 能力执行状态与降级信息（统一字段，适用于解析/视频/语音）
@@ -3275,18 +3257,6 @@ components:
         display_title_updated_at:
           type: string
           format: date-time
-    GenerationSessionListItemTarget:
-      allOf:
-        - $ref: '#/components/schemas/GenerationSessionListItem'
-        - type: object
-          properties:
-            display_title:
-              type: string
-            display_title_source:
-              $ref: '#/components/schemas/SessionTitleSource'
-            display_title_updated_at:
-              type: string
-              format: date-time
     GenerationSessionListResponseTarget:
       type: object
       required:
@@ -3307,7 +3277,7 @@ components:
             sessions:
               type: array
               items:
-                $ref: '#/components/schemas/GenerationSessionListItemTarget'
+                $ref: '#/components/schemas/GenerationSessionListItem'
             total:
               type: integer
               minimum: 0

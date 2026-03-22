@@ -78,6 +78,27 @@ async def test_generate_video_uses_cv2_writer(
 
 
 @pytest.mark.asyncio
+async def test_generate_video_raises_clear_error_without_cv2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    generator = _MediaGenerator(tmp_path)
+    monkeypatch.delitem(__import__("sys").modules, "cv2", raising=False)
+
+    with pytest.raises(
+        RuntimeError,
+        match="MP4 rendering requires opencv-python",
+    ):
+        await generator.generate_video(
+            {
+                "title": "冒泡排序",
+                "scenes": [{"title": "Scene 1", "description": "交换"}],
+            },
+            "project-1",
+            "artifact-mp4",
+        )
+
+
+@pytest.mark.asyncio
 async def test_generate_video_placeholder_fails_explicitly_when_placeholder_disabled(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
