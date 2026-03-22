@@ -29,6 +29,30 @@ export type ExpandedTool =
   | "animation"
   | "handout"
   | null;
+export type StudioManagedTool = Exclude<ExpandedTool, "ppt" | null>;
+export type StudioChatWorkflowStep = "config" | "generate" | "preview";
+
+export interface StudioChatContext {
+  projectId: string;
+  sessionId: string;
+  toolType: StudioManagedTool;
+  toolLabel: string;
+  cardId: string;
+  step: StudioChatWorkflowStep;
+  canRefine: boolean;
+  isRefineMode: boolean;
+  sourceArtifactId?: string | null;
+  configSnapshot?: Record<string, unknown>;
+}
+
+export interface StudioHintMessagePayload {
+  projectId: string;
+  sessionId: string;
+  toolType: StudioManagedTool;
+  stage: "generate" | "preview";
+  dedupeKey: string;
+  toolLabel?: string;
+}
 
 export interface GenerationTool {
   id: string;
@@ -65,6 +89,10 @@ export interface ProjectState {
   generationHistory: GenerationHistory[];
   artifactHistoryByTool: ArtifactHistoryByTool;
   currentSessionArtifacts: ArtifactHistoryItem[];
+  localToolMessages: Record<string, Record<string, Message[]>>;
+  studioHintDedupeByProject: Record<string, Record<string, true>>;
+  studioChatContext: StudioChatContext | null;
+  chatComposerFocusSignal: number;
   activeSessionId: string | null;
   lastFailedInput: string | null;
   activeSourceDetail: SourceDetail | null;
@@ -75,6 +103,7 @@ export interface ProjectState {
   isLoading: boolean;
   isMessagesLoading: boolean;
   isSending: boolean;
+  isStudioRefining: boolean;
   isUploading: boolean;
   uploadingCount: number;
   error: ApiErrorShape | null;
@@ -97,6 +126,11 @@ export interface ProjectState {
     content: string,
     sessionId?: string | null
   ) => Promise<void>;
+  sendStudioRefineMessage: (projectId: string, content: string) => Promise<void>;
+  hydrateStudioLocalState: (projectId: string) => void;
+  setStudioChatContext: (context: StudioChatContext | null) => void;
+  pushStudioHintMessage: (payload: StudioHintMessagePayload) => void;
+  focusChatComposer: () => void;
   focusSourceByChunk: (
     chunkId: string,
     projectId?: string | null
@@ -192,6 +226,10 @@ export const initialState = {
   generationHistory: [],
   artifactHistoryByTool: groupArtifactsByTool([]),
   currentSessionArtifacts: [],
+  localToolMessages: {},
+  studioHintDedupeByProject: {},
+  studioChatContext: null as StudioChatContext | null,
+  chatComposerFocusSignal: 0,
   activeSessionId: null as string | null,
   lastFailedInput: null as string | null,
   activeSourceDetail: null as SourceDetail | null,
@@ -200,6 +238,7 @@ export const initialState = {
   isLoading: false,
   isMessagesLoading: false,
   isSending: false,
+  isStudioRefining: false,
   isUploading: false,
   uploadingCount: 0,
   error: null,

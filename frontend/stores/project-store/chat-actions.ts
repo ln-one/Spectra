@@ -1,32 +1,202 @@
-﻿import { chatApi } from "@/lib/sdk";
+﻿import { chatApi, studioCardsApi } from "@/lib/sdk";
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
-import type { Message, ProjectStoreContext, ProjectState } from "./types";
+import {
+  buildRefineFailureMessage,
+  buildRefineProcessingMessage,
+  buildRefineSuccessMessage,
+  buildStageHintMessage,
+  createLocalMessage,
+  readStudioLocalPayload,
+  writeStudioLocalPayload,
+} from "./studio-chat.helpers";
+import type {
+  Message,
+  ProjectStoreContext,
+  ProjectState,
+  StudioHintMessagePayload,
+} from "./types";
+
+type ChatActionKeys =
+  | "fetchMessages"
+  | "sendMessage"
+  | "sendStudioRefineMessage"
+  | "hydrateStudioLocalState"
+  | "setStudioChatContext"
+  | "pushStudioHintMessage"
+  | "focusChatComposer";
+
+function hasProjectLocalState(
+  map: Record<string, unknown>,
+  projectId: string
+): boolean {
+  return Object.prototype.hasOwnProperty.call(map, projectId);
+}
 
 export function createChatActions({
   set,
   get,
-}: ProjectStoreContext): Pick<ProjectState, "fetchMessages" | "sendMessage"> {
+}: ProjectStoreContext): Pick<ProjectState, ChatActionKeys> {
   let latestFetchRequestId = 0;
+  let refineQueue = Promise.resolve();
+  let refinePendingCount = 0;
+
+  const ensureProjectLocalState = (projectId: string) => {
+    const state = get();
+    if (
+      hasProjectLocalState(state.localToolMessages, projectId) &&
+      hasProjectLocalState(state.studioHintDedupeByProject, projectId)
+    ) {
+      return;
+    }
+
+    const payload = readStudioLocalPayload(projectId);
+    set((prev) => ({
+      localToolMessages: {
+        ...prev.localToolMessages,
+        [projectId]: payload.messagesBySession,
+      },
+      studioHintDedupeByProject: {
+        ...prev.studioHintDedupeByProject,
+        [projectId]: payload.hintDedupe,
+      },
+    }));
+  };
+
+  const persistProjectLocalState = (
+    projectId: string,
+    messagesBySession: Record<string, Message[]>,
+    hintDedupe: Record<string, true>
+  ) => {
+    writeStudioLocalPayload(projectId, {
+      version: 1,
+      messagesBySession,
+      hintDedupe,
+    });
+  };
+
+  const appendLocalMessage = (
+    projectId: string,
+    sessionId: string,
+    message: Message
+  ) => {
+    ensureProjectLocalState(projectId);
+    const state = get();
+    const projectMessages = state.localToolMessages[projectId] ?? {};
+    const projectHints = state.studioHintDedupeByProject[projectId] ?? {};
+    const sessionMessages = projectMessages[sessionId] ?? [];
+    const nextProjectMessages = {
+      ...projectMessages,
+      [sessionId]: [...sessionMessages, message].slice(-120),
+    };
+
+    set((prev) => ({
+      localToolMessages: {
+        ...prev.localToolMessages,
+        [projectId]: nextProjectMessages,
+      },
+    }));
+
+    persistProjectLocalState(projectId, nextProjectMessages, projectHints);
+  };
+
+  const pushHintMessage = (payload: StudioHintMessagePayload) => {
+    const { projectId, sessionId, dedupeKey, stage, toolLabel, toolType } = payload;
+    ensureProjectLocalState(projectId);
+
+    const state = get();
+    const projectHints = state.studioHintDedupeByProject[projectId] ?? {};
+    if (projectHints[dedupeKey]) {
+      return;
+    }
+
+    const projectMessages = state.localToolMessages[projectId] ?? {};
+    const sessionMessages = projectMessages[sessionId] ?? [];
+    const nextProjectMessages = {
+      ...projectMessages,
+      [sessionId]: [
+        ...sessionMessages,
+        createLocalMessage("assistant", buildStageHintMessage(toolType, stage, toolLabel)),
+      ].slice(-120),
+    };
+    const nextProjectHints = {
+      ...projectHints,
+      [dedupeKey]: true as const,
+    };
+
+    set((prev) => ({
+      localToolMessages: {
+        ...prev.localToolMessages,
+        [projectId]: nextProjectMessages,
+      },
+      studioHintDedupeByProject: {
+        ...prev.studioHintDedupeByProject,
+        [projectId]: nextProjectHints,
+      },
+    }));
+
+    persistProjectLocalState(projectId, nextProjectMessages, nextProjectHints);
+  };
+
+  const enqueueRefineTask = async (task: () => Promise<void>) => {
+    refinePendingCount += 1;
+    if (!get().isStudioRefining) {
+      set({ isStudioRefining: true });
+    }
+
+    refineQueue = refineQueue
+      .then(task)
+      .catch(() => {
+        // Errors are handled in the task itself.
+      })
+      .finally(() => {
+        refinePendingCount = Math.max(0, refinePendingCount - 1);
+        if (refinePendingCount === 0) {
+          set({ isStudioRefining: false });
+        }
+      });
+
+    await refineQueue;
+  };
 
   return {
+    hydrateStudioLocalState: (projectId: string) => {
+      if (!projectId) return;
+      ensureProjectLocalState(projectId);
+    },
+
+    setStudioChatContext: (context) => {
+      set({ studioChatContext: context });
+    },
+
+    focusChatComposer: () => {
+      set((state) => ({
+        chatComposerFocusSignal: state.chatComposerFocusSignal + 1,
+      }));
+    },
+
+    pushStudioHintMessage: (payload: StudioHintMessagePayload) => {
+      pushHintMessage(payload);
+    },
+
     fetchMessages: async (projectId: string, sessionId?: string | null) => {
       const requestId = ++latestFetchRequestId;
       set({ isMessagesLoading: true });
       try {
-        const effectiveSessionId =
-          sessionId ?? get().activeSessionId ?? undefined;
+        const effectiveSessionId = sessionId ?? get().activeSessionId ?? undefined;
         if (!effectiveSessionId) {
           if (requestId === latestFetchRequestId) {
             set({ messages: [] });
           }
           return;
         }
+
         const response = await chatApi.getMessages({
           project_id: projectId,
           session_id: effectiveSessionId,
           limit: 50,
         });
+
         if (requestId === latestFetchRequestId) {
           set({ messages: response?.data?.messages ?? [] });
         }
@@ -77,8 +247,7 @@ export function createChatActions({
           project_id: projectId,
           session_id: effectiveSessionId,
           content,
-          rag_source_ids:
-            selectedFileIds.length > 0 ? selectedFileIds : undefined,
+          rag_source_ids: selectedFileIds.length > 0 ? selectedFileIds : undefined,
         });
 
         if (
@@ -92,11 +261,7 @@ export function createChatActions({
 
         if (response?.data?.message) {
           set((state) => ({
-            messages: [
-              ...state.messages.slice(0, -1),
-              userMessage,
-              response.data!.message!,
-            ],
+            messages: [...state.messages.slice(0, -1), userMessage, response.data!.message!],
           }));
         }
       } catch (error) {
@@ -114,6 +279,97 @@ export function createChatActions({
       } finally {
         set({ isSending: false });
       }
+    },
+
+    sendStudioRefineMessage: async (projectId: string, content: string) => {
+      const normalizedContent = content.trim();
+      if (!normalizedContent) return;
+
+      const context = get().studioChatContext;
+      const activeSessionId = get().activeSessionId;
+      if (!context || context.projectId !== projectId) {
+        toast({
+          title: "当前不可微调",
+          description: "请先进入工具卡片第 3 步预览态再发送微调指令。",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!context.isRefineMode || context.step !== "preview" || !context.canRefine) {
+        toast({
+          title: "当前不可微调",
+          description: "请先进入工具卡片第 3 步预览态再发送微调指令。",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const effectiveSessionId = context.sessionId || activeSessionId;
+      if (!effectiveSessionId) {
+        toast({
+          title: "缺少会话上下文",
+          description: "请先创建会话后再发送微调指令。",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      appendLocalMessage(projectId, effectiveSessionId, createLocalMessage("user", normalizedContent));
+      appendLocalMessage(
+        projectId,
+        effectiveSessionId,
+        createLocalMessage(
+          "assistant",
+          buildRefineProcessingMessage(context.toolType, context.toolLabel)
+        )
+      );
+
+      const selectedFileIds = get().selectedFileIds;
+
+      await enqueueRefineTask(async () => {
+        try {
+          const response = await studioCardsApi.refine(context.cardId, {
+            project_id: projectId,
+            session_id: effectiveSessionId,
+            message: normalizedContent,
+            source_artifact_id: context.sourceArtifactId || undefined,
+            config: context.configSnapshot,
+            rag_source_ids: selectedFileIds.length > 0 ? selectedFileIds : undefined,
+          });
+
+          const refinedSessionId = response?.data?.session_id || effectiveSessionId;
+          if (refinedSessionId !== get().activeSessionId) {
+            set({ activeSessionId: refinedSessionId });
+          }
+
+          await get().fetchArtifactHistory(projectId, refinedSessionId);
+
+          appendLocalMessage(
+            projectId,
+            refinedSessionId,
+            createLocalMessage(
+              "assistant",
+              buildRefineSuccessMessage(context.toolType, context.toolLabel)
+            )
+          );
+        } catch (error) {
+          const message = getErrorMessage(error);
+          appendLocalMessage(
+            projectId,
+            effectiveSessionId,
+            createLocalMessage(
+              "assistant",
+              buildRefineFailureMessage(context.toolType, context.toolLabel)
+            )
+          );
+          toast({
+            title: "微调失败",
+            description: message,
+            variant: "destructive",
+          });
+        }
+      });
     },
   };
 }
