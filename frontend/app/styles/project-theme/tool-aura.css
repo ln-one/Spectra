@@ -1,0 +1,17 @@
+.project-theme-root {
+  --project-tool-aura-bg: none;
+  --project-tool-aura-opacity: 0;
+}
+
+.project-theme-root .project-tool-aura-layer {
+  background: var(--project-tool-aura-bg);
+  opacity: var(--project-tool-aura-opacity);
+  filter: saturate(1.08) blur(2px);
+  transition: opacity 260ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-theme-root .project-tool-aura-layer {
+    transition: none;
+  }
+}
