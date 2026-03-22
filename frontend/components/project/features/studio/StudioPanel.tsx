@@ -175,6 +175,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     !isProtocolPending &&
     supportsChatRefine &&
     (!requiresSourceArtifact || hasSourceBinding);
+  const currentToolArtifacts =
+    expandedTool && expandedTool !== "ppt"
+      ? artifactHistoryByTool[expandedTool as keyof typeof artifactHistoryByTool]
+      : [];
   const handleExpandedToolDraftChange = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") {
       return undefined;
@@ -478,7 +482,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }
   };
 
-  const isWordToolExpanded = expandedTool === "word";
+  const isCardManagedFlowExpanded =
+    expandedTool === "word" || expandedTool === "mindmap";
   const toolFlowContext: ToolFlowContext = {
     readiness: currentReadiness,
     isLoadingProtocol: isLoadingCardProtocol,
@@ -490,7 +495,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     canRefine,
     sourceOptions: currentCardId ? (sourceOptionsByCard[currentCardId] ?? []) : [],
     selectedSourceId,
-    latestArtifacts: artifactHistoryByTool.word.map((item) => ({
+    latestArtifacts: currentToolArtifacts.map((item) => ({
       artifactId: item.artifactId,
       title: item.title,
       status: item.status,
@@ -703,7 +708,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                       </div>
                     ) : ExpandedToolComponent ? (
                       <div className="h-full flex flex-col gap-2">
-                        {!isWordToolExpanded ? (
+                        {!isCardManagedFlowExpanded ? (
                           <>
                             <div className="project-studio-protocol-bar rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-control-bg)] px-2 py-2 flex items-center gap-2">
                               <Button

@@ -1,122 +1,162 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { ToolPanelShell } from "./ToolPanelShell";
+import { useEffect, useMemo, useState } from "react";
+import { WorkflowStepper } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
+import { FOCUS_OPTIONS, getReadinessLabel, MINDMAP_STEPS } from "./mindmap/constants";
+import { ConfigStep } from "./mindmap/ConfigStep";
+import { GenerateStep } from "./mindmap/GenerateStep";
+import { PreviewStep } from "./mindmap/PreviewStep";
+import {
+  countNodes,
+  createBaseTree,
+  findNodeById,
+  injectChildren,
+} from "./mindmap/tree-utils";
+import type { MindNode, MindmapFocus, MindmapStep } from "./mindmap/types";
 
-interface MindNode {
-  id: string;
-  label: string;
-  children?: MindNode[];
-}
-
-const INITIAL_TREE: MindNode = {
-  id: "root",
-  label: "化学反应速率",
-  children: [
-    {
-      id: "n1",
-      label: "影响因素",
-      children: [
-        { id: "n1-1", label: "温度" },
-        { id: "n1-2", label: "浓度" },
-      ],
-    },
-    {
-      id: "n2",
-      label: "实验观察",
-      children: [{ id: "n2-1", label: "颜色变化" }],
-    },
-  ],
-};
-
-function injectChildren(node: MindNode, targetId: string): MindNode {
-  if (node.id === targetId) {
-    const existing = node.children ?? [];
-    const base = `${targetId}-${existing.length + 1}`;
-    return {
-      ...node,
-      children: [
-        ...existing,
-        { id: `${base}a`, label: `${node.label}·子节点A` },
-        { id: `${base}b`, label: `${node.label}·子节点B` },
-      ],
-    };
-  }
-  return {
-    ...node,
-    children: node.children?.map((child) => injectChildren(child, targetId)),
-  };
-}
-
-export function MindmapToolPanel({ toolName, onDraftChange }: ToolPanelProps) {
-  const [tree, setTree] = useState<MindNode>(INITIAL_TREE);
+export function MindmapToolPanel({
+  toolName,
+  onDraftChange,
+  flowContext,
+}: ToolPanelProps) {
+  const [activeStep, setActiveStep] = useState<MindmapStep>("config");
+  const [topic, setTopic] = useState("化学反应速率");
+  const [depth, setDepth] = useState("3");
+  const [focus, setFocus] = useState<MindmapFocus>("concept");
+  const [targetAudience, setTargetAudience] = useState("高一");
   const [selectedId, setSelectedId] = useState("root");
+  const [tree, setTree] = useState<MindNode>(() => createBaseTree(topic, focus, 3));
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
   useEffect(() => {
     onDraftChange?.({
+      topic,
+      depth: Number(depth),
+      focus,
+      target_audience: targetAudience,
       selected_id: selectedId,
-      root_label: tree.label,
+      source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
-  }, [onDraftChange, selectedId, tree.label]);
+  }, [
+    depth,
+    flowContext?.selectedSourceId,
+    focus,
+    onDraftChange,
+    selectedId,
+    targetAudience,
+    topic,
+  ]);
 
-  const renderNode = (node: MindNode, depth = 0) => {
-    const isSelected = selectedId === node.id;
-    return (
-      <div key={node.id} className="space-y-1">
-        <button
-          type="button"
-          onClick={() => setSelectedId(node.id)}
-          className={`w-full text-left rounded-md px-2 py-1.5 text-xs border transition-colors ${
-            isSelected
-              ? "border-zinc-900 bg-zinc-900 text-white"
-              : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
-          }`}
-          style={{ marginLeft: `${depth * 12}px` }}
-        >
-          {node.label}
-        </button>
-        {node.children?.map((child) => renderNode(child, depth + 1))}
-      </div>
+  const totalNodeCount = useMemo(() => countNodes(tree), [tree]);
+  const selectedNodeLabel = useMemo(
+    () => findNodeById(tree, selectedId)?.label ?? "未选择",
+    [selectedId, tree]
+  );
+  const focusLabel =
+    FOCUS_OPTIONS.find((item) => item.value === focus)?.label ?? "概念关系";
+
+  const handleGenerate = async () => {
+    const generatedTree = createBaseTree(
+      topic.trim() || "未命名主题",
+      focus,
+      Number(depth)
     );
+    setTree(generatedTree);
+    setSelectedId("root");
+
+    if (!flowContext?.onExecute) {
+      setLastGeneratedAt(new Date().toISOString());
+      setActiveStep("preview");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      await flowContext.onExecute();
+      setLastGeneratedAt(new Date().toISOString());
+      setActiveStep("preview");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
-    <ToolPanelShell
-      stepTitle={`${toolName}配置`}
-      stepDescription="选择节点后可继续向下拆分，模拟对话微调带来的导图生长。"
-      previewTitle="导图渲染占位"
-      previewDescription="后续可替换为 Markmap / React Flow 画布。"
-      footer={
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-zinc-500">
-            当前高亮节点：{selectedId}
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 rounded-lg text-xs"
-            onClick={() => setTree((prev) => injectChildren(prev, selectedId))}
-          >
-            向下拆分两级
-          </Button>
+    <div className="h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900">
+                {toolName}三步工作台
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                用三步完成导图制作：先设置，再生成，最后在面板里看结果并细化。
+              </p>
+            </div>
+            <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
+              {getReadinessLabel(flowContext?.readiness)}
+            </span>
+          </div>
+
+          <WorkflowStepper
+            className="mt-3"
+            layout="inline"
+            currentStep={activeStep}
+            steps={MINDMAP_STEPS}
+            onStepChange={(stepId) => setActiveStep(stepId as MindmapStep)}
+            title="思维导图流程"
+            subtitle="Workflow"
+          />
         </div>
-      }
-      preview={
-        <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3">
-          <p className="text-[11px] text-zinc-500 mb-2">
-            节点列表（可点击高亮）
-          </p>
-          <div className="space-y-1">{renderNode(tree)}</div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          {activeStep === "config" ? (
+            <ConfigStep
+              topic={topic}
+              depth={depth}
+              focus={focus}
+              targetAudience={targetAudience}
+              focusLabel={focusLabel}
+              onTopicChange={setTopic}
+              onDepthChange={setDepth}
+              onFocusChange={setFocus}
+              onTargetAudienceChange={setTargetAudience}
+              onNext={() => setActiveStep("generate")}
+            />
+          ) : null}
+
+          {activeStep === "generate" ? (
+            <GenerateStep
+              topic={topic}
+              depth={depth}
+              targetAudience={targetAudience}
+              focusLabel={focusLabel}
+              flowContext={flowContext}
+              isGenerating={isGenerating}
+              onBack={() => setActiveStep("config")}
+              onGenerate={() => void handleGenerate()}
+            />
+          ) : null}
+
+          {activeStep === "preview" ? (
+            <PreviewStep
+              tree={tree}
+              selectedId={selectedId}
+              selectedNodeLabel={selectedNodeLabel}
+              totalNodeCount={totalNodeCount}
+              lastGeneratedAt={lastGeneratedAt}
+              flowContext={flowContext}
+              onSelectNode={setSelectedId}
+              onRegenerate={() => setActiveStep("generate")}
+              onInjectChildren={() =>
+                setTree((prev) => injectChildren(prev, selectedId))
+              }
+            />
+          ) : null}
         </div>
-      }
-    >
-      <section className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-        <p className="text-xs text-zinc-600">
-          提示：在后续版本中，选中节点后可通过 Chat 指令继续细化分支内容。
-        </p>
-      </section>
-    </ToolPanelShell>
+      </div>
+    </div>
   );
 }
