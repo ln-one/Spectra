@@ -49,7 +49,6 @@ export function useOutlineEditorController({
     useState<(typeof ASPECT_RATIO_OPTIONS)[number]["value"]>("16:9");
   const [keywordInput, setKeywordInput] = useState("");
   const [keywords, setKeywords] = useState<string[]>(["互动", "动画演示"]);
-  const [showSettings, setShowSettings] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const wait = useCallback(
@@ -345,8 +344,6 @@ export function useOutlineEditorController({
     keywordInput,
     setKeywordInput,
     keywords,
-    showSettings,
-    setShowSettings,
     scrollAreaRef,
     handleAddSlide,
     handleDeleteSlide,
