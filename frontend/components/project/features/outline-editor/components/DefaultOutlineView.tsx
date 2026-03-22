@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import { RefreshCw, Settings2 } from "lucide-react";
@@ -138,7 +138,7 @@ export function DefaultOutlineView({
                       大纲编辑
                     </h2>
                     <p className="mt-1 text-sm text-zinc-500">
-                      现在是第 2 步：把每一页内容改到满意，再开始生成。
+                      现在是第 2 步：先检查每一页内容，再开始最终生成。
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export function DefaultOutlineView({
                           isRedrafting && "animate-spin"
                         )}
                       />
-                      {isRedrafting ? "重做中" : "重新生成"}
+                      {isRedrafting ? "重新生成中" : "重新生成"}
                     </Button>
                     <Button
                       variant="ghost"
@@ -198,7 +198,17 @@ export function DefaultOutlineView({
                   className="mb-4 flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600"
                 >
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  正在准备大纲，马上就可以编辑了...
+                  正在准备大纲，马上就可以开始编辑...
+                </motion.div>
+              ) : null}
+              {isOutlineHydrating ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"
+                >
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  大纲正在生成中，当前为只读状态，生成完成后可编辑。
                 </motion.div>
               ) : null}
 

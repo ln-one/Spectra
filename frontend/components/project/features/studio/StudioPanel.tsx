@@ -326,11 +326,13 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           openPptPreviewPage(item.sessionId, item.artifactId);
           return;
         }
+        const shouldOpenOutlineStage =
+          item.step === "outline" || item.status === "processing";
         setLayoutMode("expanded");
         setExpandedTool("ppt");
-        setPptResumeStage(item.step === "outline" ? "outline" : "config");
+        setPptResumeStage(shouldOpenOutlineStage ? "outline" : "config");
         setPptResumeSignal((prev) => prev + 1);
-        requestStep("ppt", item.step === "outline" ? "outline" : "config");
+        requestStep("ppt", shouldOpenOutlineStage ? "outline" : "config");
         return;
       }
 
@@ -830,14 +832,18 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               return;
                             }
                             if (stage === "generating_outline") {
+                              const resolvedSessionId =
+                                payload?.sessionId ?? activeSessionId ?? null;
+                              if (!resolvedSessionId) {
+                                return;
+                              }
                               trackStep("ppt", "generate");
                               recordWorkflowEntry({
                                 toolType: "ppt",
                                 title: "PPT 大纲生成中",
                                 status: "processing",
                                 step: "generate",
-                                sessionId:
-                                  payload?.sessionId ?? activeSessionId ?? null,
+                                sessionId: resolvedSessionId,
                               });
                               return;
                             }

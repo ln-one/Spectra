@@ -48,9 +48,14 @@ function toArtifactHistoryItem(item: ArtifactHistoryItem): StudioHistoryItem {
 }
 
 function makeWorkflowId(input: WorkflowEntryInput): string {
-  const sessionToken = input.sessionId ?? "local";
-  const artifactToken = input.artifactId ?? "none";
-  return `workflow:${input.toolType}:${sessionToken}:${input.step}:${input.status}:${artifactToken}`;
+  if (input.sessionId) {
+    return `workflow:${input.toolType}:${input.sessionId}`;
+  }
+  const localToken = (input.artifactId || input.title || "local")
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .slice(0, 48);
+  return `workflow:${input.toolType}:local:${localToken}`;
 }
 
 type RequestedStepByTool = Partial<
