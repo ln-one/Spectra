@@ -24,11 +24,11 @@ export function GameToolPanel({
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<GameStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
-  const [topic, setTopic] = useState("宸ヤ笟闈╁懡鍏抽敭浜嬩欢");
+  const [topic, setTopic] = useState("工业革命关键事件");
   const [mode, setMode] = useState<GameMode>("timeline_sort");
   const [countdownInput, setCountdownInput] = useState("60");
   const [lifeInput, setLifeInput] = useState("3");
-  const [ideaTags, setIdeaTags] = useState<string[]>(["30绉掑€掕鏃?"]);
+  const [ideaTags, setIdeaTags] = useState<string[]>(["30秒倒计时"]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [previewCountdown, setPreviewCountdown] = useState(60);
@@ -40,7 +40,7 @@ export function GameToolPanel({
   );
   const life = useMemo(() => clampNumber(lifeInput, 1, 10, 3), [lifeInput]);
   const modeLabel =
-    GAME_MODE_OPTIONS.find((item) => item.value === mode)?.label ?? "鏃堕棿杞存帓搴?";
+    GAME_MODE_OPTIONS.find((item) => item.value === mode)?.label ?? "时间轴排序";
 
   useEffect(() => {
     onDraftChange?.({
@@ -117,9 +117,9 @@ export function GameToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}涓夋宸ヤ綔鍙?              </h3>
+                {toolName}三步工作台              </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                鍏堥厤缃帺娉曪紝鍐嶇敓鎴愬皬娓告垙锛屾渶鍚庡湪闈㈡澘閲岀洿鎺ヨ瘯鐜╁拰寰皟銆?              </p>
+                先配置玩法，再生成小游戏，最后在面板里直接试玩和微调。              </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
@@ -137,7 +137,7 @@ export function GameToolPanel({
             currentStep={activeStep}
             steps={GAME_STEPS}
             onStepChange={(stepId) => setActiveStep(stepId as GameStep)}
-            title="浜掑姩娓告垙娴佺▼"
+            title="互动游戏流程"
             subtitle="Workflow"
           />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -197,4 +197,5 @@ export function GameToolPanel({
     </div>
   );
 }
+
 

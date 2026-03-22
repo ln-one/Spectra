@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Check, CircleHelp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,7 +57,7 @@ export function WorkflowStepper({
         layout === "rail" ? "p-3" : "p-3.5",
         className
       )}
-      aria-label="工作流"
+      aria-label="工作流程"
     >
       <div className="mb-3">
         <div className="flex items-center justify-between">
@@ -284,3 +284,4 @@ export function WorkflowStepper({
     </aside>
   );
 }
+

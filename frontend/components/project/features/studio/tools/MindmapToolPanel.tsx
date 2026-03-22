@@ -23,10 +23,10 @@ export function MindmapToolPanel({
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<MindmapStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
-  const [topic, setTopic] = useState("鍖栧鍙嶅簲閫熺巼");
+  const [topic, setTopic] = useState("化学反应速率");
   const [depth, setDepth] = useState("3");
   const [focus, setFocus] = useState<MindmapFocus>("concept");
-  const [targetAudience, setTargetAudience] = useState("楂樹竴");
+  const [targetAudience, setTargetAudience] = useState("高一");
   const [selectedId, setSelectedId] = useState("root");
   const [tree, setTree] = useState<MindNode>(() => createBaseTree(topic, focus, 3));
   const [isGenerating, setIsGenerating] = useState(false);
@@ -53,15 +53,15 @@ export function MindmapToolPanel({
 
   const totalNodeCount = useMemo(() => countNodes(tree), [tree]);
   const selectedNodeLabel = useMemo(
-    () => findNodeById(tree, selectedId)?.label ?? "鏈€夋嫨",
+    () => findNodeById(tree, selectedId)?.label ?? "未选择",
     [selectedId, tree]
   );
   const focusLabel =
-    FOCUS_OPTIONS.find((item) => item.value === focus)?.label ?? "姒傚康鍏崇郴";
+    FOCUS_OPTIONS.find((item) => item.value === focus)?.label ?? "概念关系";
 
   const handleGenerate = async () => {
     const generatedTree = createBaseTree(
-      topic.trim() || "鏈懡鍚嶄富棰?",
+      topic.trim() || "未命名主题",
       focus,
       Number(depth)
     );
@@ -91,9 +91,9 @@ export function MindmapToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}涓夋宸ヤ綔鍙?              </h3>
+                {toolName}三步工作台              </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                鐢ㄤ笁姝ュ畬鎴愬鍥惧埗浣滐細鍏堣缃紝鍐嶇敓鎴愶紝鏈€鍚庡湪闈㈡澘閲岀湅缁撴灉骞剁粏鍖栥€?              </p>
+                用三步完成导图制作：先设置，再生成，最后在面板里看结果并细化。              </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
@@ -111,7 +111,7 @@ export function MindmapToolPanel({
             currentStep={activeStep}
             steps={MINDMAP_STEPS}
             onStepChange={(stepId) => setActiveStep(stepId as MindmapStep)}
-            title="鎬濈淮瀵煎浘娴佺▼"
+            title="思维导图流程"
             subtitle="Workflow"
           />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -165,4 +165,5 @@ export function MindmapToolPanel({
     </div>
   );
 }
+
 

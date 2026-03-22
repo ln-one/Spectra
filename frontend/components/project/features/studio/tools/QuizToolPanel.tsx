@@ -34,14 +34,14 @@ export function QuizToolPanel({
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<QuizStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
-  const [scope, setScope] = useState("鍑芥暟鍗曡皟鎬т笌鏋佸€?");
+  const [scope, setScope] = useState("函数单调性与极值");
   const [countInput, setCountInput] = useState("5");
   const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
   const [questionType, setQuestionType] = useState<QuizQuestionType>("single");
-  const [styleTags, setStyleTags] = useState<string[]>(["浼樺厛鑰冩槗閿欑偣"]);
+  const [styleTags, setStyleTags] = useState<string[]>(["优先考易错点"]);
   const [cards, setCards] = useState<QuizCardItem[]>(() =>
     buildQuizCards(5, {
-      scope: "鍑芥暟鍗曡皟鎬т笌鏋佸€?",
+      scope: "函数单调性与极值",
       difficulty: "medium",
       questionType: "single",
       includeHumor: false,
@@ -98,7 +98,7 @@ export function QuizToolPanel({
       scope,
       difficulty,
       questionType,
-      includeHumor: styleTags.includes("鍔犲叆骞介粯骞叉壈椤?"),
+      includeHumor: styleTags.includes("加入幽默干扰项"),
     });
     setCards(nextCards);
     setCursor(0);
@@ -151,9 +151,9 @@ export function QuizToolPanel({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}涓夋宸ヤ綔鍙?              </h3>
+                {toolName}三步工作台              </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                鍏堥厤缃紝鍐嶇敓鎴愶紝鏈€鍚庡湪闈㈡澘閲岀敤闂崱妯″紡閫愰棰勮鍜岃瑙ｃ€?              </p>
+                先配置，再生成，最后在面板里用闯关模式逐题预览和讲解。              </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
               {getReadinessLabel(flowContext?.readiness)}
@@ -171,7 +171,7 @@ export function QuizToolPanel({
             currentStep={activeStep}
             steps={QUIZ_STEPS}
             onStepChange={(stepId) => setActiveStep(stepId as QuizStep)}
-            title="闅忓爞灏忔祴娴佺▼"
+            title="随堂小测流程"
             subtitle="Workflow"
           />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -230,4 +230,5 @@ export function QuizToolPanel({
     </div>
   );
 }
+
 
