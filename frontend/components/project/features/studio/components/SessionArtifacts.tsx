@@ -176,7 +176,7 @@ export function SessionArtifacts({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
+                            className="h-7 w-7 rounded-lg text-[var(--project-text-muted)] transition-colors hover:bg-red-50 hover:text-red-600"
                             onClick={() => setPendingArchiveItem(item)}
                             aria-label="归档历史记录"
                           >
@@ -213,3 +213,4 @@ export function SessionArtifacts({
     </motion.div>
   );
 }
+

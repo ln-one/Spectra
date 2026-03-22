@@ -38,7 +38,10 @@ export default function GeneratePreviewPage() {
 
   const sessionIdFromQuery = searchParams?.get("session") || null;
   const artifactIdFromQuery = searchParams?.get("artifact_id") || null;
-
+  const projectBackHref = (sessionId: string | null) =>
+    sessionId
+      ? `/projects/${projectId}?session=${encodeURIComponent(sessionId)}`
+      : `/projects/${projectId}`;
   const {
     slides,
     isLoading,
@@ -129,7 +132,7 @@ export default function GeneratePreviewPage() {
           canResume={Boolean(activeSessionId) && !isSessionGenerating}
           onSetEditingTitle={setIsEditingTitle}
           onSetProjectTitle={setProjectTitle}
-          onGoBack={() => router.push(`/projects/${projectId}`)}
+          onGoBack={() => router.push(projectBackHref(activeSessionId))}
           onExport={handleExport}
           onRefresh={() => {
             void loadSlides();
@@ -158,7 +161,7 @@ export default function GeneratePreviewPage() {
                   {previewBlockedReason}
                 </p>
                 <Button
-                  onClick={() => router.push(`/projects/${projectId}`)}
+                  onClick={() => router.push(projectBackHref(activeSessionId))}
                   className="rounded-full"
                 >
                   返回项目并继续生成

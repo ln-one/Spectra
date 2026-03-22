@@ -171,6 +171,14 @@ async def refine_studio_card(
             message="message 为必填字段",
         )
 
+    session_id = body.get("session_id")
+    if not session_id:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="session_id is required. Create/select a session first.",
+        )
+
     preview = build_studio_card_execution_preview(
         card_id=card_id,
         project_id=project_id,
@@ -193,7 +201,7 @@ async def refine_studio_card(
     payload = preview.refine_request.payload
     chat_body = SendMessageRequest(
         project_id=project_id,
-        session_id=body.get("session_id"),
+        session_id=session_id,
         content=message,
         metadata=payload.get("metadata"),
         rag_source_ids=body.get("rag_source_ids"),

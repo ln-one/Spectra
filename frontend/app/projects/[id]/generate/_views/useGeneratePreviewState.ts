@@ -33,19 +33,29 @@ export function useGeneratePreviewState({
     string | null
   >(null);
 
-  const { generationSession, generationHistory, fetchGenerationHistory } =
-    useProjectStore(
-      useShallow((state) => ({
-        generationSession: state.generationSession,
-        generationHistory: state.generationHistory,
-        fetchGenerationHistory: state.fetchGenerationHistory,
-      }))
-    );
+  const {
+    generationSession,
+    generationHistory,
+    fetchGenerationHistory,
+    setActiveSessionId,
+  } = useProjectStore(
+    useShallow((state) => ({
+      generationSession: state.generationSession,
+      generationHistory: state.generationHistory,
+      fetchGenerationHistory: state.fetchGenerationHistory,
+      setActiveSessionId: state.setActiveSessionId,
+    }))
+  );
 
   const activeSessionId =
     sessionIdFromQuery ||
     generationSession?.session.session_id ||
     (generationHistory.length > 0 ? generationHistory[0].id : null);
+
+  useEffect(() => {
+    if (!sessionIdFromQuery) return;
+    setActiveSessionId(sessionIdFromQuery);
+  }, [sessionIdFromQuery, setActiveSessionId]);
 
   useEffect(() => {
     if (artifactIdFromQuery) {

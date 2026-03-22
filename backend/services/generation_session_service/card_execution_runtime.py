@@ -74,6 +74,15 @@ async def execute_studio_card_initial_request(
 
     if request_preview.endpoint == "/api/v1/generate/sessions":
         await get_owned_project(body.project_id, user_id)
+        if not body.client_session_id:
+            raise APIException(
+                status_code=400,
+                error_code=ErrorCode.INVALID_INPUT,
+                message=(
+                    "client_session_id is required. "
+                    "Create/select a session first."
+                ),
+            )
         source_artifact_id = (payload.get("options") or {}).get("source_artifact_id")
         if source_artifact_id:
             artifact = await project_space_service.get_artifact(source_artifact_id)
