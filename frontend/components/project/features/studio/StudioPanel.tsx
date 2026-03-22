@@ -64,6 +64,8 @@ const STUDIO_CARD_BY_TOOL: Partial<Record<StudioToolKey, string>> = {
 
 const DEFAULT_CAPABILITY_PENDING_REASON =
   "正在检测后端能力状态，当前先展示前端示意内容。";
+const STUDIO_RUNTIME_ARTIFACTS_STORAGE_PREFIX =
+  "spectra:studio:runtime-artifacts";
 
 function isDraftStateEqual(
   left: ToolDraftState | undefined,
@@ -209,6 +211,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     project?.id ?? null
   );
   const hasHistory = groupedHistory.length > 0;
+  const runtimeArtifactStorageKey =
+    project?.id && activeSessionId
+      ? `${STUDIO_RUNTIME_ARTIFACTS_STORAGE_PREFIX}:${project.id}:${activeSessionId}`
+      : null;
   const requestedHistoryStep = expandedTool
     ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)
     : null;
@@ -260,6 +266,38 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     },
     [activeRunId, generationSession]
   );
+
+  useEffect(() => {
+    if (!runtimeArtifactStorageKey) {
+      setRuntimeArtifactsByTool({});
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(runtimeArtifactStorageKey);
+      if (!raw) {
+        setRuntimeArtifactsByTool({});
+        return;
+      }
+      const parsed = JSON.parse(raw) as Partial<
+        Record<StudioToolKey, ArtifactHistoryItem[]>
+      >;
+      setRuntimeArtifactsByTool(parsed ?? {});
+    } catch {
+      setRuntimeArtifactsByTool({});
+    }
+  }, [runtimeArtifactStorageKey]);
+
+  useEffect(() => {
+    if (!runtimeArtifactStorageKey) return;
+    try {
+      window.localStorage.setItem(
+        runtimeArtifactStorageKey,
+        JSON.stringify(runtimeArtifactsByTool)
+      );
+    } catch {
+      // Ignore local storage persistence failures.
+    }
+  }, [runtimeArtifactStorageKey, runtimeArtifactsByTool]);
 
   useEffect(() => {
     if (!expandedTool) return;
@@ -937,16 +975,40 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }
   };
 
-  const handleStudioExecute = async (): Promise<string | null> => {
-    if (!project || !currentCardId || isStudioActionRunning) return null;
-    if (!ensureActiveSession()) return null;
+  const handleStudioExecute = async (): Promise<{
+    ok: boolean;
+    sessionId: string | null;
+    effectiveSessionId: string | null;
+    resourceKind: string | null;
+  }> => {
+    if (!project || !currentCardId || isStudioActionRunning) {
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
+    }
+    if (!ensureActiveSession()) {
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
+    }
     if (isProtocolPending) {
       toast({
         title: "卡片协议未就绪",
         description: "当前卡片仍在协议补齐中，暂不可执行。",
         variant: "destructive",
       });
-      return null;
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
     }
     if (requiresSourceArtifact && !hasSourceBinding) {
       toast({
@@ -954,10 +1016,22 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         description: "当前卡片需要先绑定 source artifact。",
         variant: "destructive",
       });
-      return null;
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
     }
     const requestBody = buildStudioExecutionRequest();
-    if (!requestBody) return null;
+    if (!requestBody) {
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
+    }
     try {
       setIsStudioActionRunning(true);
       const response = await studioCardsApi.execute(currentCardId, requestBody);
@@ -1081,14 +1155,24 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
               ? `已生成会话 ${sessionId.slice(0, 8)}`
               : "已提交生成并刷新成果列表",
       });
-      return sessionId;
+      return {
+        ok: true,
+        sessionId,
+        effectiveSessionId,
+        resourceKind,
+      };
     } catch (error) {
       toast({
         title: "Studio 执行失败",
         description: getErrorMessage(error),
         variant: "destructive",
       });
-      return null;
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
     } finally {
       setIsStudioActionRunning(false);
     }
@@ -1188,16 +1272,34 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         titleSource: JSON.stringify(currentToolDraft),
         toolLabel: TOOL_LABELS[toolType],
       });
-      const nextSessionId = await handleStudioExecute();
-      if (nextSessionId) {
-        syncStudioChatContextByStep(toolType, "generate", nextSessionId);
-        pushStudioStageHint(toolType, "generate", nextSessionId);
+      const execution = await handleStudioExecute();
+      if (execution.ok) {
+        const contextSessionId = execution.effectiveSessionId ?? activeSessionId;
+        if (contextSessionId) {
+          syncStudioChatContextByStep(toolType, "generate", contextSessionId);
+          pushStudioStageHint(toolType, "generate", contextSessionId);
+        }
+        if (execution.resourceKind === "artifact") {
+          trackStep(toolType, "preview");
+          acknowledgeStep(toolType, "preview");
+          recordWorkflowEntry({
+            toolType,
+            title: `${TOOL_LABELS[toolType]}草稿中`,
+            status: "draft",
+            step: "preview",
+            sessionId: contextSessionId,
+            runId,
+            titleSource: JSON.stringify(currentToolDraft),
+            toolLabel: TOOL_LABELS[toolType],
+          });
+        }
+      } else if (activeSessionId) {
         recordWorkflowEntry({
           toolType,
-          title: `${TOOL_LABELS[toolType]}生成中`,
-          status: "processing",
+          title: `${TOOL_LABELS[toolType]}生成失败`,
+          status: "failed",
           step: flowStep,
-          sessionId: nextSessionId,
+          sessionId: activeSessionId,
           runId,
           titleSource: JSON.stringify(currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
