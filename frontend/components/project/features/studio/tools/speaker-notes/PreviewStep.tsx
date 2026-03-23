@@ -22,7 +22,10 @@ function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
     return [];
   }
 
-  const content = flowContext.resolvedArtifact.content as Record<string, unknown>;
+  const content = flowContext.resolvedArtifact.content as Record<
+    string,
+    unknown
+  >;
   const rawSlides = Array.isArray(content.slides) ? content.slides : [];
   const scripts: SlideScriptItem[] = [];
 
