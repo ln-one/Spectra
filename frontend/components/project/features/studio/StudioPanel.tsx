@@ -1101,14 +1101,17 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
             title:
               (artifactPayload.title as string | undefined) ||
               `${TOOL_LABELS[expandedTool]} ${artifactId.slice(0, 8)}`,
-            status: "completed",
+            status: "processing",
             createdAt:
               (artifactPayload.updated_at as string | undefined) ||
               (artifactPayload.created_at as string | undefined) ||
               new Date().toISOString(),
             basedOnVersionId: null,
-            runId: null,
-            runNo: null,
+            runId,
+            runNo:
+              typeof run?.run_no === "number"
+                ? Math.trunc(run.run_no)
+                : null,
           };
           setRuntimeArtifactsByTool((prev) => {
             const existing = prev[expandedTool as StudioToolKey] ?? [];

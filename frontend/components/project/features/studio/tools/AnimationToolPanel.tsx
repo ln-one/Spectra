@@ -79,11 +79,14 @@ export function AnimationToolPanel({
     }
 
     setIsGenerating(true);
+    setActiveStep("preview");
     try {
       const executed = await flowContext.onExecute();
-      if (!executed) return;
+      if (!executed) {
+        setActiveStep("generate");
+        return;
+      }
       setLastGeneratedAt(new Date().toISOString());
-      setActiveStep("preview");
     } finally {
       setIsGenerating(false);
     }
