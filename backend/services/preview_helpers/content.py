@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from typing import Optional
 
 from services.database import db_service
@@ -26,8 +26,11 @@ async def load_preview_material(
     project_id: str,
     artifact_id: Optional[str] = None,
     task_id: Optional[str] = None,
+    run_id: Optional[str] = None,
 ):
-    task = await resolve_preview_task(db_service, session_id, artifact_id, task_id)
+    task = await resolve_preview_task(
+        db_service, session_id, artifact_id, task_id, run_id
+    )
 
     slides: list[dict] = []
     lesson_plan: Optional[dict] = None

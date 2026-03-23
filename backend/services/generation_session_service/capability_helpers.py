@@ -54,6 +54,7 @@ def _default_capabilities() -> list[dict]:
     doc_parser_health = health_status.get("document_parser")
     video_health = health_status.get("video_understanding")
     speech_health = health_status.get("speech_recognition")
+    animation_health = health_status.get("animation_rendering")
 
     default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-flash")
     llm_provider = (
@@ -126,6 +127,29 @@ def _default_capabilities() -> list[dict]:
             ),
             "operations": ["transcribe"],
             "status_message": speech_health.user_message if speech_health else None,
+        },
+        {
+            "name": "animation_rendering",
+            "status": (
+                animation_health.status.value if animation_health else "unavailable"
+            ),
+            "providers": [animation_health.provider] if animation_health else [],
+            "default_provider": (
+                animation_health.provider if animation_health else None
+            ),
+            "fallback_chain": (
+                [animation_health.fallback_target]
+                if (
+                    animation_health
+                    and animation_health.fallback_used
+                    and animation_health.fallback_target
+                )
+                else []
+            ),
+            "operations": ["render_html", "render_gif", "render_mp4"],
+            "status_message": (
+                animation_health.user_message if animation_health else None
+            ),
         },
         {
             "name": "slide_regeneration",

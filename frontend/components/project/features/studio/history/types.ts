@@ -1,0 +1,25 @@
+﻿import type { GenerationToolType } from "@/lib/project-space/artifact-history";
+
+export type StudioHistoryStatus =
+  | "draft"
+  | "processing"
+  | "previewing"
+  | "completed"
+  | "failed"
+  | "pending";
+
+export type StudioHistoryStep = "config" | "generate" | "preview" | "outline";
+
+export interface StudioHistoryItem {
+  id: string;
+  origin: "workflow" | "artifact";
+  toolType: GenerationToolType;
+  title: string;
+  status: StudioHistoryStatus;
+  createdAt: string;
+  sessionId: string | null;
+  step: StudioHistoryStep;
+  artifactId?: string;
+  runId?: string | null;
+  runNo?: number | null;
+}

@@ -1,4 +1,4 @@
-import { sdkClient, unwrap, withIdempotency } from "./client";
+﻿import { sdkClient, unwrap, withIdempotency } from "./client";
 import type { components } from "./types";
 
 export type PreviewResponse = components["schemas"]["PreviewResponse"];
@@ -8,19 +8,25 @@ export type ExportResponse = components["schemas"]["ExportResponse"];
 
 export type ModifySessionRequest =
   components["schemas"]["ModifySessionRequest"];
-export type ExportRequest = components["schemas"]["ExportRequest"];
+export type ExportRequest = components["schemas"]["ExportRequest"] & {
+  run_id?: string;
+};
 
 export const previewApi = {
   async getSessionPreview(
     sessionId: string,
-    options?: { artifact_id?: string }
+    options?: { artifact_id?: string; run_id?: string }
   ): Promise<PreviewResponse> {
-    const query = options?.artifact_id
-      ? { artifact_id: options.artifact_id }
-      : undefined;
+    const query =
+      options?.artifact_id || options?.run_id
+        ? {
+            artifact_id: options?.artifact_id,
+            run_id: options?.run_id,
+          }
+        : undefined;
     const result = await sdkClient.GET(
       "/api/v1/generate/sessions/{session_id}/preview",
-      { params: { path: { session_id: sessionId }, query } }
+      { params: { path: { session_id: sessionId }, query: query as never } }
     );
     return unwrap<PreviewResponse>(result);
   },
@@ -44,17 +50,21 @@ export const previewApi = {
   async getSessionSlideDetail(
     sessionId: string,
     slideId: string,
-    options?: { artifact_id?: string }
+    options?: { artifact_id?: string; run_id?: string }
   ): Promise<SlideDetailResponse> {
-    const query = options?.artifact_id
-      ? { artifact_id: options.artifact_id }
-      : undefined;
+    const query =
+      options?.artifact_id || options?.run_id
+        ? {
+            artifact_id: options?.artifact_id,
+            run_id: options?.run_id,
+          }
+        : undefined;
     const result = await sdkClient.GET(
       "/api/v1/generate/sessions/{session_id}/preview/slides/{slide_id}",
       {
         params: {
           path: { session_id: sessionId, slide_id: slideId },
-          query,
+          query: query as never,
         },
       }
     );
@@ -65,15 +75,16 @@ export const previewApi = {
     sessionId: string,
     data: ExportRequest
   ): Promise<ExportResponse> {
-    const body: components["schemas"]["ExportRequest"] = {
+    const body: components["schemas"]["ExportRequest"] & { run_id?: string } = {
       ...data,
       include_sources: data.include_sources ?? true,
+      run_id: data.run_id,
     };
     const result = await sdkClient.POST(
       "/api/v1/generate/sessions/{session_id}/preview/export",
       {
         params: { path: { session_id: sessionId } },
-        body,
+        body: body as never,
       }
     );
     return unwrap<ExportResponse>(result);

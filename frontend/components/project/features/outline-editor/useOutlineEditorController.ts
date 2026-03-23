@@ -49,7 +49,6 @@ export function useOutlineEditorController({
     useState<(typeof ASPECT_RATIO_OPTIONS)[number]["value"]>("16:9");
   const [keywordInput, setKeywordInput] = useState("");
   const [keywords, setKeywords] = useState<string[]>(["互动", "动画演示"]);
-  const [showSettings, setShowSettings] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const wait = useCallback(
@@ -66,7 +65,7 @@ export function useOutlineEditorController({
     if (!sessionId) {
       frame = requestAnimationFrame(() => {
         setSlides([]);
-        setIsOutlineHydrating(false);
+        setIsOutlineHydrating(isBootstrapping);
         setActiveSlideId("");
       });
       return () => cancelAnimationFrame(frame);
@@ -101,10 +100,11 @@ export function useOutlineEditorController({
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [expectedPages, initialNodes, sessionId]);
+  }, [expectedPages, initialNodes, isBootstrapping, sessionId]);
 
   const handleAddSlide = useCallback(() => {
-    if (isGenerating || isOutlineHydrating) return;
+    if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId)
+      return;
     const newSlide: SlideCard = {
       id: `slide-${Date.now()}`,
       order: slides.length + 1,
@@ -122,11 +122,12 @@ export function useOutlineEditorController({
         behavior: "smooth",
       });
     }, 100);
-  }, [isGenerating, isOutlineHydrating, slides]);
+  }, [isBootstrapping, isGenerating, isOutlineHydrating, sessionId, slides]);
 
   const handleDeleteSlide = useCallback(
     (id: string) => {
-      if (isGenerating || isOutlineHydrating) return;
+      if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId)
+        return;
       const newSlides = slides
         .filter((s) => s.id !== id)
         .map((s, index) => ({ ...s, order: index + 1 }));
@@ -141,12 +142,13 @@ export function useOutlineEditorController({
         return prev;
       });
     },
-    [isGenerating, isOutlineHydrating, slides]
+    [isBootstrapping, isGenerating, isOutlineHydrating, sessionId, slides]
   );
 
   const handleDuplicateSlide = useCallback(
     (slide: SlideCard) => {
-      if (isGenerating || isOutlineHydrating) return;
+      if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId)
+        return;
       const newSlide: SlideCard = {
         ...slide,
         id: `slide-${Date.now()}`,
@@ -156,15 +158,16 @@ export function useOutlineEditorController({
       setSlides([...slides, newSlide]);
       setActiveSlideId(newSlide.id);
     },
-    [isGenerating, isOutlineHydrating, slides]
+    [isBootstrapping, isGenerating, isOutlineHydrating, sessionId, slides]
   );
 
   const handleUpdateSlide = useCallback(
     (id: string, updates: Partial<SlideCard>) => {
-      if (isGenerating || isOutlineHydrating) return;
+      if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId)
+        return;
       setSlides(slides.map((s) => (s.id === id ? { ...s, ...updates } : s)));
     },
-    [isGenerating, isOutlineHydrating, slides]
+    [isBootstrapping, isGenerating, isOutlineHydrating, sessionId, slides]
   );
 
   const handleAddKeyword = useCallback(() => {
@@ -188,7 +191,7 @@ export function useOutlineEditorController({
       return;
     }
 
-    if (isOutlineHydrating || slides.length === 0) {
+    if (isBootstrapping || isOutlineHydrating || slides.length === 0) {
       setGenerationFailed("大纲仍在加载，请稍后再试");
       return;
     }
@@ -242,7 +245,7 @@ export function useOutlineEditorController({
   };
 
   const handleRedraftOutline = useCallback(async () => {
-    if (!sessionId || isGenerating || isRedrafting) return;
+    if (!sessionId || isGenerating || isRedrafting || isBootstrapping) return;
 
     const previousVersion = Number(generationSession?.outline?.version || 0);
     const instruction = `请按当前主题“${topic}”重新生成大纲，保持结构完整，强调知识地图、关键例题、易错点澄清、课堂互动提问和板书逻辑。目标页数：${expectedPages || slides.length || 12} 页。`;
@@ -295,6 +298,7 @@ export function useOutlineEditorController({
     generationSession?.outline?.version,
     isGenerating,
     isRedrafting,
+    isBootstrapping,
     redraftOutline,
     sessionId,
     slides.length,
@@ -340,8 +344,6 @@ export function useOutlineEditorController({
     keywordInput,
     setKeywordInput,
     keywords,
-    showSettings,
-    setShowSettings,
     scrollAreaRef,
     handleAddSlide,
     handleDeleteSlide,

@@ -1106,6 +1106,40 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/generate/studio-cards/classroom_qa_simulator/turn:
+    post:
+      summary: 推进课堂问答模拟轮次
+      operationId: postGenerateStudioCardSimulatorTurn
+      description: 基于已有 classroom_qa_simulator artifact 追加或替换一轮问答模拟。
+      tags:
+        - Generate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioCardTurnRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioCardTurnResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/generate/studio-cards/{card_id}/sources:
     get:
       summary: 获取 Studio 卡片可绑定源成果
@@ -2193,6 +2227,16 @@ components:
               type: array
               items:
                 type: string
+            session_title_updated:
+              type: boolean
+            session_title:
+              type: string
+            session_title_source:
+              type: string
+              enum:
+                - default
+                - first_message
+                - manual
         message:
           type: string
     CapabilityStatus:
@@ -2500,6 +2544,12 @@ components:
         - RENDERING
         - SUCCESS
         - FAILED
+    SessionTitleSource:
+      type: string
+      enum:
+        - default
+        - first_message
+        - manual
     GenerationSessionListItem:
       type: object
       required:
@@ -2522,6 +2572,13 @@ components:
           type: string
           format: date-time
         updated_at:
+          type: string
+          format: date-time
+        display_title:
+          type: string
+        display_title_source:
+          $ref: '#/components/schemas/SessionTitleSource'
+        display_title_updated_at:
           type: string
           format: date-time
     GenerationSessionListResponse:
@@ -2699,6 +2756,13 @@ components:
         updated_at:
           type: string
           format: date-time
+        display_title:
+          type: string
+        display_title_source:
+          $ref: '#/components/schemas/SessionTitleSource'
+        display_title_updated_at:
+          type: string
+          format: date-time
     CreateGenerationSessionResponse:
       type: object
       required:
@@ -2836,6 +2900,75 @@ components:
         user_message:
           type: string
           description: 可直接展示给用户的降级提示语
+    RunTitleSource:
+      type: string
+      enum:
+        - pending
+        - auto
+        - manual
+        - fallback
+    RunStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - completed
+        - failed
+    RunStep:
+      type: string
+      enum:
+        - config
+        - outline
+        - generate
+        - preview
+        - modify_slide
+        - completed
+    SessionRun:
+      type: object
+      required:
+        - run_id
+        - project_id
+        - tool_type
+        - run_no
+        - run_title
+        - run_title_source
+        - run_status
+        - run_step
+        - created_at
+        - updated_at
+      properties:
+        run_id:
+          type: string
+        session_id:
+          type: string
+          nullable: true
+        project_id:
+          type: string
+        tool_type:
+          type: string
+        run_no:
+          type: integer
+          minimum: 1
+        run_title:
+          type: string
+        run_title_source:
+          $ref: '#/components/schemas/RunTitleSource'
+        run_title_updated_at:
+          type: string
+          format: date-time
+        run_status:
+          $ref: '#/components/schemas/RunStatus'
+        run_step:
+          $ref: '#/components/schemas/RunStep'
+        artifact_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     SessionStatePayload:
       type: object
       required:
@@ -2865,6 +2998,8 @@ components:
           items:
             type: string
             example: update_outline
+        current_run:
+          $ref: '#/components/schemas/SessionRun'
         result:
           type: object
           properties:
@@ -2914,6 +3049,28 @@ components:
         - task.completed
         - task.failed
         - session.recovered
+    RunTracePayload:
+      type: object
+      properties:
+        run_id:
+          type: string
+        run_no:
+          type: integer
+          minimum: 1
+        tool_type:
+          type: string
+        run_title:
+          type: string
+        run_title_source:
+          $ref: '#/components/schemas/RunTitleSource'
+        run_status:
+          $ref: '#/components/schemas/RunStatus'
+        run_step:
+          $ref: '#/components/schemas/RunStep'
+        task_id:
+          type: string
+        error:
+          type: string
     GenerationEvent:
       type: object
       required:
@@ -2946,8 +3103,7 @@ components:
           type: string
           description: 增量消费游标
         payload:
-          type: object
-          description: 事件附带的业务数据
+          $ref: '#/components/schemas/RunTracePayload'
     GenerationEventListResponse:
       type: object
       required:
@@ -3123,6 +3279,20 @@ components:
           type: string
         last_known_state:
           $ref: '#/components/schemas/GenerationState'
+    SetSessionTitleCommand:
+      type: object
+      required:
+        - command_type
+        - display_title
+      properties:
+        command_type:
+          type: string
+          enum:
+            - SET_SESSION_TITLE
+        display_title:
+          type: string
+          minLength: 1
+          maxLength: 120
     GenerationCommandEnvelope:
       oneOf:
         - $ref: '#/components/schemas/UpdateOutlineCommand'
@@ -3130,6 +3300,7 @@ components:
         - $ref: '#/components/schemas/ConfirmOutlineCommand'
         - $ref: '#/components/schemas/RegenerateSlideCommand'
         - $ref: '#/components/schemas/ResumeSessionCommand'
+        - $ref: '#/components/schemas/SetSessionTitleCommand'
       discriminator:
         propertyName: command_type
     GenerationSessionCommandRequest:
@@ -3147,6 +3318,7 @@ components:
         - CONFIRM_OUTLINE
         - REGENERATE_SLIDE
         - RESUME_SESSION
+        - SET_SESSION_TITLE
     AppliedTransition:
       type: object
       required:
@@ -3188,6 +3360,8 @@ components:
               $ref: '#/components/schemas/AppliedTransition'
             session:
               $ref: '#/components/schemas/SessionRef'
+            run:
+              $ref: '#/components/schemas/SessionRun'
             warnings:
               type: array
               items:
@@ -3827,6 +4001,10 @@ components:
             - shared
         source_artifact_id:
           type: string
+        rag_source_ids:
+          type: array
+          items:
+            type: string
         client_session_id:
           type: string
     StudioCardResolvedRequest:
@@ -3919,6 +4097,8 @@ components:
         artifact:
           type: object
           additionalProperties: true
+        run:
+          $ref: '#/components/schemas/SessionRun'
         request_preview:
           $ref: '#/components/schemas/StudioCardResolvedRequest'
     StudioCardExecutionResponse:
@@ -3946,6 +4126,8 @@ components:
         - message
       properties:
         project_id:
+          type: string
+        artifact_id:
           type: string
         session_id:
           type: string
@@ -3998,6 +4180,74 @@ components:
               $ref: '#/components/schemas/ChatObservability'
             refine_request:
               $ref: '#/components/schemas/StudioCardResolvedRequest'
+        message:
+          type: string
+    StudioCardTurnRequest:
+      type: object
+      required:
+        - project_id
+        - artifact_id
+        - teacher_answer
+      properties:
+        project_id:
+          type: string
+        artifact_id:
+          type: string
+        teacher_answer:
+          type: string
+        turn_anchor:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        rag_source_ids:
+          type: array
+          items:
+            type: string
+    StudioCardTurnResult:
+      type: object
+      required:
+        - turn_anchor
+        - student_profile
+        - student_question
+        - teacher_answer
+        - feedback
+        - score
+      properties:
+        turn_anchor:
+          type: string
+        student_profile:
+          type: string
+        student_question:
+          type: string
+        teacher_answer:
+          type: string
+        feedback:
+          type: string
+        score:
+          type: integer
+        next_focus:
+          type: string
+    StudioCardTurnResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required:
+            - artifact
+            - turn_result
+          properties:
+            artifact:
+              type: object
+              additionalProperties: true
+            turn_result:
+              $ref: '#/components/schemas/StudioCardTurnResult'
         message:
           type: string
     StudioCardSourceArtifact:

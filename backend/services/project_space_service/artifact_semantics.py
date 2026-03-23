@@ -23,6 +23,8 @@ class ArtifactMetadataKind(str, Enum):
     OUTLINE = "outline"
     HANDOUT = "handout"
     ANIMATION_STORYBOARD = "animation_storyboard"
+    SPEAKER_NOTES = "speaker_notes"
+    CLASSROOM_QA_SIMULATOR = "classroom_qa_simulator"
 
 
 class EntryRoute(str, Enum):
@@ -77,6 +79,8 @@ DEFAULT_ARTIFACT_CONTENT: dict[str, dict] = {
         "title": "Course summary",
         "summary": "",
         "key_points": [],
+        "slides": [],
+        "turns": [],
     },
     ArtifactType.EXERCISE.value: {"title": "Exercise", "questions": []},
     ArtifactType.HTML.value: {"html": "<html><body>Empty</body></html>"},

@@ -58,6 +58,13 @@ GenerationSessionListItem:
     updated_at:
       type: string
       format: date-time
+    display_title:
+      type: string
+    display_title_source:
+      $ref: './generate-session-models.yaml#/SessionTitleSource'
+    display_title_updated_at:
+      type: string
+      format: date-time
 
 GenerationSessionListResponse:
   type: object

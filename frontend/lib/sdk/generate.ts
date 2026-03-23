@@ -1,4 +1,11 @@
-import { API_BASE_URL, sdkClient, unwrap, withIdempotency } from "./client";
+﻿import {
+  API_BASE_URL,
+  apiFetch,
+  sdkClient,
+  toApiError,
+  unwrap,
+  withIdempotency,
+} from "./client";
 import { TokenStorage } from "../auth";
 import type { components } from "./types";
 
@@ -44,6 +51,39 @@ export type GenerationCapabilitiesResponse =
 export type GenerationSessionListResponse =
   components["schemas"]["GenerationSessionListResponse"];
 
+export interface SessionRun {
+  run_id: string;
+  session_id?: string | null;
+  project_id?: string;
+  tool_type?: string;
+  run_no?: number;
+  run_title?: string;
+  run_status?: string;
+  run_step?: string;
+  artifact_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface GenerationSessionRunsResponse {
+  success: boolean;
+  data: {
+    runs?: SessionRun[];
+    total?: number;
+    page?: number;
+    limit?: number;
+  };
+  message: string;
+}
+
+export interface GenerationSessionRunDetailResponse {
+  success: boolean;
+  data: {
+    run?: SessionRun;
+  };
+  message: string;
+}
+
 export const generateApi = {
   async createSession(
     data: CreateGenerationSessionRequest
@@ -73,6 +113,42 @@ export const generateApi = {
       params: { query: params },
     });
     return unwrap<GenerationSessionListResponse>(result);
+  },
+
+  async listRuns(
+    sessionId: string,
+    params?: { page?: number; limit?: number }
+  ): Promise<GenerationSessionRunsResponse> {
+    const url = new URL(
+      `${API_BASE_URL}/api/v1/generate/sessions/${encodeURIComponent(sessionId)}/runs`
+    );
+    if (params?.page) {
+      url.searchParams.set("page", String(params.page));
+    }
+    if (params?.limit) {
+      url.searchParams.set("limit", String(params.limit));
+    }
+    const response = await apiFetch(url.toString(), { method: "GET" });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw toApiError(payload, response.status);
+    }
+    return payload as GenerationSessionRunsResponse;
+  },
+
+  async getRun(
+    sessionId: string,
+    runId: string
+  ): Promise<GenerationSessionRunDetailResponse> {
+    const response = await apiFetch(
+      `${API_BASE_URL}/api/v1/generate/sessions/${encodeURIComponent(sessionId)}/runs/${encodeURIComponent(runId)}`,
+      { method: "GET" }
+    );
+    const payload = await response.json();
+    if (!response.ok) {
+      throw toApiError(payload, response.status);
+    }
+    return payload as GenerationSessionRunDetailResponse;
   },
 
   async resumeSession(

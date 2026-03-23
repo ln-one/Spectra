@@ -1,4 +1,5 @@
-﻿import { authApi } from "../sdk/auth";
+import { authApi } from "../sdk/auth";
+import { ApiError, getErrorMessage } from "../sdk/errors";
 import { TokenStorage } from "./token-storage";
 import { toUser } from "./user-mapper";
 import { validateLoginInput, validateRegisterInput } from "./validators";
@@ -45,8 +46,12 @@ export const authService = {
       ) {
         throw error;
       }
-      const authError = new Error("登录失败，请检查邮箱和密码") as Error &
-        AuthError;
+      const message = resolveAuthErrorMessage(
+        error,
+        "登录失败，请检查邮箱和密码",
+        "网络异常，请稍后再试"
+      );
+      const authError = new Error(message) as Error & AuthError;
       authError.code = "LOGIN_FAILED";
       throw authError;
     }
@@ -86,8 +91,12 @@ export const authService = {
       ) {
         throw error;
       }
-      const authError = new Error("注册失败，该邮箱可能已被注册") as Error &
-        AuthError;
+      const message = resolveAuthErrorMessage(
+        error,
+        "注册失败，请稍后重试",
+        "网络异常，请稍后再试"
+      );
+      const authError = new Error(message) as Error & AuthError;
       authError.code = "REGISTER_FAILED";
       throw authError;
     }
@@ -151,3 +160,18 @@ export const authService = {
     return TokenStorage.isAuthenticated();
   },
 };
+
+function resolveAuthErrorMessage(
+  error: unknown,
+  fallbackMessage: string,
+  networkMessage: string
+): string {
+  if (error instanceof ApiError) {
+    if (error.code === "NETWORK_ERROR") {
+      return networkMessage;
+    }
+    const message = getErrorMessage(error).trim();
+    return message || fallbackMessage;
+  }
+  return fallbackMessage;
+}

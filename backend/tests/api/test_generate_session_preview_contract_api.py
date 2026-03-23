@@ -1,4 +1,4 @@
-from types import SimpleNamespace
+﻿from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -91,6 +91,33 @@ def test_get_preview_prefers_lightweight_snapshot_when_available(
     assert resp.status_code == 200
     preview_snapshot.assert_awaited_once_with("s-preview-001", _USER_ID)
     full_snapshot.assert_not_awaited()
+
+
+def test_get_preview_with_run_id_returns_run_not_ready_when_no_task(
+    client, monkeypatch, _as_user
+):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(return_value=(None, [], None, {})),
+    )
+
+    resp = client.get("/api/v1/generate/sessions/s-preview-001/preview?run_id=run-001")
+    assert resp.status_code == 409
+    body = resp.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "RESOURCE_CONFLICT"
+    assert body["error"]["details"]["reason"] == "run_not_ready"
+    assert body["error"]["details"]["run_id"] == "run-001"
 
 
 def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):

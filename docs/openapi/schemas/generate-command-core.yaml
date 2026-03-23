@@ -6,6 +6,7 @@ GenerationCommandType:
     - CONFIRM_OUTLINE
     - REGENERATE_SLIDE
     - RESUME_SESSION
+    - SET_SESSION_TITLE
 
 StructuredPatchOperationType:
   type: string
@@ -114,6 +115,18 @@ ResumeSessionCommand:
     last_known_state:
       $ref: './generate-core.yaml#/GenerationState'
 
+SetSessionTitleCommand:
+  type: object
+  required: [command_type, display_title]
+  properties:
+    command_type:
+      type: string
+      enum: [SET_SESSION_TITLE]
+    display_title:
+      type: string
+      minLength: 1
+      maxLength: 120
+
 GenerationCommandEnvelope:
   oneOf:
     - $ref: '#/UpdateOutlineCommand'
@@ -121,6 +134,7 @@ GenerationCommandEnvelope:
     - $ref: '#/ConfirmOutlineCommand'
     - $ref: '#/RegenerateSlideCommand'
     - $ref: '#/ResumeSessionCommand'
+    - $ref: '#/SetSessionTitleCommand'
   discriminator:
     propertyName: command_type
 
@@ -164,6 +178,8 @@ GenerationSessionCommandResponse:
           $ref: '#/AppliedTransition'
         session:
           $ref: './generate-session-models.yaml#/SessionRef'
+        run:
+          $ref: './generate-session-models.yaml#/SessionRun'
         warnings:
           type: array
           items:

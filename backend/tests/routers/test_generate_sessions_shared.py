@@ -6,6 +6,7 @@ import pytest
 from routers.generate_sessions.shared import (
     execute_session_command_or_raise,
     raise_conflict,
+    validate_command_payload,
 )
 from services.generation_session_service import ConflictError
 from utils.exceptions import APIException, ErrorCode
@@ -50,3 +51,18 @@ def test_raise_conflict_falls_back_to_resource_conflict_for_unknown_error_code()
     exc = exc_info.value
     assert exc.status_code == 409
     assert exc.detail["code"] == ErrorCode.RESOURCE_CONFLICT.value
+
+
+def test_validate_command_payload_rejects_overlong_session_title():
+    with pytest.raises(APIException) as exc_info:
+        validate_command_payload(
+            {
+                "command_type": "SET_SESSION_TITLE",
+                "display_title": "超长标题" * 40,
+            }
+        )
+
+    exc = exc_info.value
+    assert exc.status_code == 400
+    assert exc.detail["code"] == ErrorCode.INVALID_INPUT.value
+    assert "at most 120 characters" in exc.detail["message"]

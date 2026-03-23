@@ -32,13 +32,20 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
+function normalizeRedirectPath(input: string | null | undefined): string {
+  if (!input) return "/projects";
+  if (!input.startsWith("/")) return "/projects";
+  if (input.startsWith("//")) return "/projects";
+  return input;
+}
+
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { register: registerUser, isLoading } = useAuthStore();
   const { toast } = useToast();
 
-  const redirect = searchParams?.get("redirect") || "/projects";
+  const redirect = normalizeRedirectPath(searchParams?.get("redirect"));
 
   const {
     register,

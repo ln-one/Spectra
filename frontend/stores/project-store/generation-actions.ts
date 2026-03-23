@@ -36,6 +36,22 @@ function inferArtifactDownloadExt(artifactType: Artifact["type"]): string {
   }
 }
 
+function extractRunId(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const runId = (payload as { run_id?: unknown }).run_id;
+  return typeof runId === "string" && runId.trim() ? runId : null;
+}
+
+function extractCurrentRunId(
+  sessionPayload: SessionStatePayload | null
+): string | null {
+  if (!sessionPayload || typeof sessionPayload !== "object") return null;
+  return extractRunId(
+    (sessionPayload as SessionStatePayload & { current_run?: unknown })
+      .current_run
+  );
+}
+
 export function createGenerationActions({
   set,
   get,
@@ -46,6 +62,7 @@ export function createGenerationActions({
   | "fetchArtifactHistory"
   | "exportArtifact"
   | "setActiveSessionId"
+  | "setActiveRunId"
   | "updateOutline"
   | "redraftOutline"
   | "confirmOutline"
@@ -58,6 +75,14 @@ export function createGenerationActions({
     ) => {
       try {
         const { selectedFileIds, activeSessionId, generationSession } = get();
+        if (!activeSessionId) {
+          toast({
+            title: "请先创建会话",
+            description: "会话只能通过会话选择器中的“新建会话”创建。",
+            variant: "destructive",
+          });
+          return null;
+        }
         const currentSessionId = resolveReusableGenerationSessionId(
           activeSessionId,
           generationSession
@@ -76,8 +101,13 @@ export function createGenerationActions({
 
         if (response?.data?.session) {
           const sessionId = response.data.session.session_id;
+          const runId = extractRunId(
+            (response as { data?: { run?: unknown } }).data?.run
+          );
+
           set({
             activeSessionId: sessionId,
+            activeRunId: runId,
             generationSession: {
               session: response.data.session,
               options: normalizedOptions,
@@ -104,7 +134,11 @@ export function createGenerationActions({
 
           try {
             const sessionResponse = await generateApi.getSession(sessionId);
-            set({ generationSession: sessionResponse?.data ?? null });
+            const latestSessionPayload = sessionResponse?.data ?? null;
+            set({
+              generationSession: latestSessionPayload,
+              activeRunId: extractCurrentRunId(latestSessionPayload) || runId,
+            });
             await get().fetchArtifactHistory(projectId, sessionId);
           } catch (sessionError) {
             const message = getErrorMessage(sessionError);
@@ -144,12 +178,26 @@ export function createGenerationActions({
           limit: 20,
         });
         const sessions = response?.data?.sessions ?? [];
-        const history: GenerationHistory[] = mapSessionsToHistory(sessions);
+        const previousHistory = get().generationHistory;
+        const previousTitleById = new Map(
+          previousHistory.map((item) => [item.id, item.title])
+        );
+        const history: GenerationHistory[] = mapSessionsToHistory(sessions).map(
+          (item) => ({
+            ...item,
+            title: previousTitleById.get(item.id) || item.title,
+          })
+        );
         const activeSessionId =
           get().activeSessionId ??
           get().generationSession?.session?.session_id ??
           (history.length > 0 ? history[0].id : null);
-        set({ generationHistory: history, activeSessionId });
+        const activeRunId =
+          activeSessionId &&
+          activeSessionId === get().generationSession?.session?.session_id
+            ? extractCurrentRunId(get().generationSession)
+            : null;
+        set({ generationHistory: history, activeSessionId, activeRunId });
         await get().fetchArtifactHistory(projectId, activeSessionId);
       } catch (error) {
         const message = getErrorMessage(error);
@@ -308,7 +356,15 @@ export function createGenerationActions({
     },
 
     setActiveSessionId: (sessionId: string | null) =>
-      set({ activeSessionId: sessionId }),
+      set((state) => ({
+        activeSessionId: sessionId,
+        activeRunId:
+          sessionId && sessionId === state.activeSessionId
+            ? state.activeRunId
+            : null,
+      })),
+
+    setActiveRunId: (runId: string | null) => set({ activeRunId: runId }),
 
     updateOutline: async (sessionId: string, outline: OutlineDocument) => {
       const session = get().generationSession;
@@ -319,7 +375,11 @@ export function createGenerationActions({
           outline,
         });
         const sessionResponse = await generateApi.getSession(sessionId);
-        set({ generationSession: sessionResponse?.data ?? null });
+        const latestSessionPayload = sessionResponse?.data ?? null;
+        set({
+          generationSession: latestSessionPayload,
+          activeRunId: extractCurrentRunId(latestSessionPayload),
+        });
       } catch (error) {
         const message = getErrorMessage(error);
         set({
@@ -343,7 +403,11 @@ export function createGenerationActions({
           base_version: baseVersion,
         });
         const sessionResponse = await generateApi.getSession(sessionId);
-        set({ generationSession: sessionResponse?.data ?? null });
+        const latestSessionPayload = sessionResponse?.data ?? null;
+        set({
+          generationSession: latestSessionPayload,
+          activeRunId: extractCurrentRunId(latestSessionPayload),
+        });
       } catch (error) {
         const message = getErrorMessage(error);
         set({
@@ -360,11 +424,19 @@ export function createGenerationActions({
 
     confirmOutline: async (sessionId: string) => {
       try {
-        await generateApi.confirmOutline(sessionId, {
+        const confirmResponse = await generateApi.confirmOutline(sessionId, {
           continue_from_retrieval: true,
         });
+        const confirmedRunId = extractRunId(
+          (confirmResponse as { data?: { run?: unknown } }).data?.run
+        );
         const sessionResponse = await generateApi.getSession(sessionId);
-        set({ generationSession: sessionResponse?.data ?? null });
+        const latestSessionPayload = sessionResponse?.data ?? null;
+        set({
+          generationSession: latestSessionPayload,
+          activeRunId:
+            extractCurrentRunId(latestSessionPayload) || confirmedRunId,
+        });
       } catch (error) {
         const message = getErrorMessage(error);
         set({

@@ -1,0 +1,100 @@
+GenerationCommandTypeTarget:
+  type: string
+  enum:
+    - UPDATE_OUTLINE
+    - REDRAFT_OUTLINE
+    - CONFIRM_OUTLINE
+    - REGENERATE_SLIDE
+    - RESUME_SESSION
+    - SET_SESSION_TITLE
+
+AppliedTransitionTarget:
+  type: object
+  required: [command_type, from_state, to_state, validated_by]
+  properties:
+    command_type:
+      $ref: '#/GenerationCommandTypeTarget'
+    from_state:
+      $ref: './generate-core.yaml#/GenerationState'
+    to_state:
+      $ref: './generate-core.yaml#/GenerationState'
+    validated_by:
+      type: string
+      example: StateTransitionGuard
+
+UpdateOutlineCommandTarget:
+  $ref: './generate-command-core.yaml#/UpdateOutlineCommand'
+
+RedraftOutlineCommandTarget:
+  $ref: './generate-command-core.yaml#/RedraftOutlineCommand'
+
+ConfirmOutlineCommandTarget:
+  $ref: './generate-command-core.yaml#/ConfirmOutlineCommand'
+
+ResumeSessionCommandTarget:
+  $ref: './generate-command-core.yaml#/ResumeSessionCommand'
+
+SlideModifyScope:
+  type: string
+  enum: [current_slide_only]
+
+RegenerateSlideCommandTarget:
+  type: object
+  required: [command_type, slide_id, instruction]
+  properties:
+    command_type:
+      type: string
+      enum: [REGENERATE_SLIDE]
+    slide_id:
+      type: string
+    instruction:
+      type: string
+      minLength: 1
+      maxLength: 2000
+      description: 用户对当前页的明确修改需求
+    expected_render_version:
+      type: integer
+      minimum: 1
+    preserve_style:
+      type: boolean
+      default: true
+    preserve_layout:
+      type: boolean
+      default: true
+    preserve_deck_consistency:
+      type: boolean
+      default: true
+    scope:
+      $ref: '#/SlideModifyScope'
+    patch:
+      $ref: './generate-command-core.yaml#/StructuredSlidePatch'
+
+SetSessionTitleCommandTarget:
+  type: object
+  required: [command_type, display_title]
+  properties:
+    command_type:
+      type: string
+      enum: [SET_SESSION_TITLE]
+    display_title:
+      type: string
+      minLength: 1
+      maxLength: 120
+
+GenerationCommandEnvelopeTarget:
+  oneOf:
+    - $ref: '#/UpdateOutlineCommandTarget'
+    - $ref: '#/RedraftOutlineCommandTarget'
+    - $ref: '#/ConfirmOutlineCommandTarget'
+    - $ref: '#/RegenerateSlideCommandTarget'
+    - $ref: '#/ResumeSessionCommandTarget'
+    - $ref: '#/SetSessionTitleCommandTarget'
+  discriminator:
+    propertyName: command_type
+
+GenerationSessionCommandRequestTarget:
+  type: object
+  required: [command]
+  properties:
+    command:
+      $ref: '#/GenerationCommandEnvelopeTarget'

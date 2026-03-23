@@ -84,6 +84,34 @@ def build_artifact_accretion_text(
         if scene_description:
             lines.append(scene_description)
 
+    for slide in normalized.get("slides") or []:
+        if not isinstance(slide, dict):
+            continue
+        page = slide.get("page")
+        slide_title = str(slide.get("title") or "").strip()
+        if slide_title or page is not None:
+            lines.append(f"讲稿页 {page or '?'}：{slide_title}".strip("："))
+        for key in ("script", "action_hint", "transition_line"):
+            value = str(slide.get(key) or "").strip()
+            if value:
+                lines.append(value)
+
+    for turn in normalized.get("turns") or []:
+        if not isinstance(turn, dict):
+            continue
+        question = str(turn.get("question") or "").strip()
+        if question:
+            lines.append(f"追问：{question}")
+        teacher_answer = str(turn.get("teacher_answer") or "").strip()
+        if teacher_answer:
+            lines.append(f"教师作答：{teacher_answer}")
+        feedback = str(turn.get("feedback") or "").strip()
+        if feedback:
+            lines.append(f"反馈：{feedback}")
+        score = turn.get("score")
+        if score not in (None, ""):
+            lines.append(f"评分：{score}")
+
     deduped_lines = [line for line in lines if line and line.strip()]
     return "\n".join(deduped_lines).strip()
 

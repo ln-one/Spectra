@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -27,6 +27,7 @@ import type { SlideCard } from "../types";
 interface OutlineSlidesEditorProps {
   slides: SlideCard[];
   activeSlideId: string;
+  isBootstrapping: boolean;
   isGenerating: boolean;
   isOutlineHydrating: boolean;
   onSetActiveSlide: (id: string) => void;
@@ -39,6 +40,7 @@ interface OutlineSlidesEditorProps {
 export function OutlineSlidesEditor({
   slides,
   activeSlideId,
+  isBootstrapping,
   isGenerating,
   isOutlineHydrating,
   onSetActiveSlide,
@@ -47,6 +49,8 @@ export function OutlineSlidesEditor({
   onDuplicateSlide,
   onAddSlide,
 }: OutlineSlidesEditorProps) {
+  const isLocked = isBootstrapping || isGenerating || isOutlineHydrating;
+
   return (
     <div className="space-y-3">
       <AnimatePresence mode="popLayout">
@@ -59,36 +63,33 @@ export function OutlineSlidesEditor({
             exit="exit"
             layout
             className={cn(
-              "bg-white border rounded-2xl p-5 shadow-sm transition-all duration-200 group",
-              "hover:shadow-lg hover:-translate-y-0.5",
+              "group rounded-2xl border border-zinc-200 bg-[linear-gradient(155deg,#ffffff,#f8fafc)] p-5 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.45)] transition-all duration-200",
+              "hover:-translate-y-0.5 hover:shadow-[0_16px_30px_-20px_rgba(15,23,42,0.5)]",
               activeSlideId === slide.id &&
-                "border-l-4 border-l-zinc-700 shadow-md",
-              isGenerating && "opacity-60 pointer-events-none"
+                "border-blue-300 bg-[linear-gradient(155deg,#ffffff,#eff6ff)]",
+              isLocked && "pointer-events-none opacity-65"
             )}
-            onClick={() => !isGenerating && onSetActiveSlide(slide.id)}
+            onClick={() => !isLocked && onSetActiveSlide(slide.id)}
           >
             <div className="flex items-start gap-4">
-              <div className="flex flex-col items-center gap-2 shrink-0">
-                <motion.span
-                  className="text-xs font-bold text-zinc-400 bg-zinc-100 px-2.5 py-1 rounded-lg"
-                  whileHover={{ scale: 1.05 }}
-                >
+              <div className="shrink-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-xs font-semibold text-zinc-700 shadow-sm">
                   {String(index + 1).padStart(2, "0")}
-                </motion.span>
-                <button className="cursor-grab text-zinc-300 hover:text-zinc-500 transition-colors">
-                  <GripVertical className="w-4 h-4" />
+                </div>
+                <button className="mx-auto mt-2 flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700">
+                  <GripVertical className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="flex-1 space-y-3 min-w-0">
+              <div className="min-w-0 flex-1 space-y-3">
                 <Input
                   value={slide.title}
                   onChange={(event) =>
                     onUpdateSlide(slide.id, { title: event.target.value })
                   }
                   placeholder="输入幻灯片标题..."
-                  className="text-base font-medium border-0 bg-transparent p-0 focus-visible:ring-0 shadow-none"
-                  disabled={isGenerating || isOutlineHydrating}
+                  className="h-10 rounded-xl border-zinc-200 bg-white/80 text-sm font-medium shadow-none focus-visible:ring-blue-300"
+                  disabled={isLocked}
                 />
 
                 <div className="space-y-2">
@@ -106,37 +107,37 @@ export function OutlineSlidesEditor({
                       })
                     }
                     placeholder="每行一个知识点..."
-                    className="min-h-[80px] text-sm bg-zinc-50/50 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-200"
-                    disabled={isGenerating || isOutlineHydrating}
+                    className="min-h-[96px] rounded-xl border-zinc-200 bg-white/80 text-sm leading-6 focus-visible:ring-blue-300"
+                    disabled={isLocked}
                   />
                 </div>
 
-                <div className="flex items-center gap-4 text-xs text-zinc-400">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    预计时长：{slide.estimatedMinutes} 分钟
+                <div className="flex items-center gap-4 text-xs text-zinc-500">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    预计 {slide.estimatedMinutes} 分钟
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Layers className="w-3 h-3" />
+                  <span className="inline-flex items-center gap-1">
+                    <Layers className="h-3 w-3" />
                     {slide.keyPoints.length} 个知识点
                   </span>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1 shrink-0">
+              <div className="shrink-0">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="h-8 w-8 text-zinc-400 transition-opacity hover:bg-zinc-100 hover:text-zinc-700 lg:opacity-0 lg:group-hover:opacity-100"
                     >
-                      <MoreHorizontal className="w-4 h-4" />
+                      <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
                     <DropdownMenuItem onClick={() => onDuplicateSlide(slide)}>
-                      <Copy className="w-4 h-4 mr-2" />
+                      <Copy className="mr-2 h-4 w-4" />
                       复制幻灯片
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -146,11 +147,9 @@ export function OutlineSlidesEditor({
                         onDeleteSlide(slide.id);
                       }}
                       className="text-red-600 focus:text-red-600"
-                      disabled={
-                        slides.length <= 1 || isGenerating || isOutlineHydrating
-                      }
+                      disabled={slides.length <= 1 || isLocked}
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
+                      <Trash2 className="mr-2 h-4 w-4" />
                       删除
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -162,14 +161,16 @@ export function OutlineSlidesEditor({
       </AnimatePresence>
 
       <motion.button
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
+        whileHover={{ scale: 1.008 }}
+        whileTap={{ scale: 0.995 }}
         onClick={onAddSlide}
-        disabled={isGenerating || isOutlineHydrating}
-        className="w-full p-4 rounded-2xl border-2 border-dashed border-zinc-200 text-sm text-zinc-400 hover:text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={isLocked}
+        className="w-full rounded-2xl border border-dashed border-zinc-300 bg-white/80 px-4 py-3 text-sm font-medium text-zinc-500 transition-all hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Plus className="w-4 h-4" />
-        添加新幻灯片
+        <span className="inline-flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          添加新幻灯片
+        </span>
       </motion.button>
     </div>
   );

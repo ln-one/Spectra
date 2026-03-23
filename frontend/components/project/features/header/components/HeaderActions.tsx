@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Layers, Palette, Settings, Share2, User } from "lucide-react";
+import { Archive, Layers, Palette, Settings, Share2, User } from "lucide-react";
 import type { components } from "@/lib/sdk/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,11 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { THEME_PRESETS, type ThemePresetId } from "../theme";
+import {
+  getThemePresetDefinition,
+  THEME_PRESETS,
+  type ThemePresetId,
+} from "../theme";
 
 type UserInfo = components["schemas"]["UserInfo"];
 
@@ -31,6 +35,19 @@ interface HeaderActionsProps {
   onThemePresetChange: (themeId: ThemePresetId) => void;
 }
 
+const STYLE_LABELS = {
+  "mist-zinc": "Classic",
+  "ocean-cyan": "Ocean",
+  "teal-mint": "Mint",
+  "ink-sky": "Ink",
+  "forest-emerald": "Editorial",
+  "sand-ochre": "Sand",
+  "sunset-amber": "Sunset",
+  "graphite-blue": "Bold",
+  "lavender-slate": "Lavender",
+  "rose-wine": "Rose",
+} as const;
+
 export function HeaderActions({
   user,
   onLogout,
@@ -38,8 +55,13 @@ export function HeaderActions({
   selectedThemePreset,
   onThemePresetChange,
 }: HeaderActionsProps) {
+  const activeThemeDefinition = getThemePresetDefinition(selectedThemePreset);
+  const handleOpenArchiveHistory = () => {
+    window.dispatchEvent(new CustomEvent("spectra:open-archive-history"));
+  };
+
   return (
-    <div className="justify-self-end flex items-center gap-2">
+    <div className="project-header-actions justify-self-end flex items-center gap-2">
       <motion.div
         whileHover={{ y: -1 }}
         whileTap={{ scale: 0.97 }}
@@ -47,20 +69,20 @@ export function HeaderActions({
       >
         <Button
           size="sm"
-          className="rounded-full bg-white border border-zinc-200/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08)] hover:bg-zinc-50 hover:border-zinc-300 transition-all duration-300 text-zinc-700 font-semibold px-4 h-9 backdrop-blur-sm group"
+          className="project-header-control project-header-library-btn rounded-full border transition-all duration-300 font-semibold px-4 h-[var(--project-control-height)] backdrop-blur-sm group"
           onClick={onOpenLibrary}
         >
-          <Layers className="w-4 h-4 mr-2 text-zinc-400 group-hover:text-amber-500 transition-colors duration-300" />
+          <Layers className="w-4 h-4 mr-2 text-[var(--project-control-muted)] group-hover:text-[var(--project-accent)] transition-colors duration-300" />
           Lib
         </Button>
       </motion.div>
 
-      <div className="w-px h-4 bg-zinc-200/80 mx-1.5" />
+      <div className="project-header-divider w-px h-4 bg-[var(--project-control-border)] mx-1.5" />
 
       <Button
         variant="ghost"
         size="icon"
-        className="w-9 h-9 text-zinc-500 hover:text-zinc-900 hover:bg-white rounded-full transition-colors border border-transparent hover:border-zinc-200 hover:shadow-sm"
+        className="project-header-control project-header-action-btn w-9 h-[var(--project-control-height)] rounded-full transition-colors border border-transparent hover:shadow-sm"
       >
         <Share2 className="w-4 h-4" />
       </Button>
@@ -70,25 +92,33 @@ export function HeaderActions({
           <Button
             variant="ghost"
             size="icon"
-            className="w-9 h-9 text-zinc-500 hover:text-zinc-900 hover:bg-white rounded-full transition-colors border border-transparent hover:border-zinc-200 hover:shadow-sm"
+            className="project-header-control project-header-action-btn w-9 h-[var(--project-control-height)] rounded-full transition-colors border border-transparent hover:shadow-sm"
           >
             <Settings className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-64 overflow-visible rounded-2xl border-zinc-200/80 bg-white/95 backdrop-blur-xl shadow-xl p-2 mt-1"
+          className="project-header-menu w-64 overflow-visible backdrop-blur-xl p-2 mt-1"
         >
-          <DropdownMenuLabel className="text-[13px] text-zinc-500 font-medium">
+          <DropdownMenuLabel className="text-[13px] text-[var(--project-control-muted)] font-medium">
             页面设置
           </DropdownMenuLabel>
-          <DropdownMenuSeparator className="bg-zinc-100 my-1" />
+          <DropdownMenuSeparator className="bg-[var(--project-control-border)] my-1" />
+          <DropdownMenuItem
+            onSelect={handleOpenArchiveHistory}
+            className="rounded-xl cursor-pointer text-[13px] font-medium py-2.5 gap-2"
+          >
+            <Archive className="w-4 h-4 text-[var(--project-control-muted)]" />
+            归档历史
+          </DropdownMenuItem>
+          <DropdownMenuSeparator className="bg-[var(--project-control-border)] my-1" />
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="rounded-xl cursor-pointer text-[13px] font-medium py-2.5 gap-2">
-              <Palette className="w-4 h-4 text-zinc-500" />
+              <Palette className="w-4 h-4 text-[var(--project-control-muted)]" />
               主题配色
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-80 max-h-[360px] overflow-y-auto rounded-2xl border-zinc-200/80 bg-white/95 backdrop-blur-xl shadow-xl p-2">
+            <DropdownMenuSubContent className="project-header-menu w-80 max-h-[360px] overflow-y-auto backdrop-blur-xl p-2">
               <DropdownMenuRadioGroup
                 value={selectedThemePreset}
                 onValueChange={(value) =>
@@ -103,18 +133,25 @@ export function HeaderActions({
                   >
                     <div className="flex w-full items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-[13px] font-semibold text-zinc-800">
+                        <div className="text-[13px] font-semibold text-[var(--project-control-text)]">
                           {theme.name}
                         </div>
-                        <div className="text-[11px] text-zinc-500 mt-0.5 truncate">
+                        <div className="text-[11px] text-[var(--project-control-muted)] mt-0.5 truncate">
                           {theme.description}
+                        </div>
+                        <div className="mt-1 inline-flex items-center rounded-full border border-[var(--project-control-border)] bg-[var(--project-surface-muted)] px-2 py-0.5 text-[10px] text-[var(--project-control-muted)]">
+                          {
+                            STYLE_LABELS[
+                              getThemePresetDefinition(theme.id).styleVariant
+                            ]
+                          }
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {theme.swatches.map((color) => (
                           <span
                             key={color}
-                            className="h-3 w-3 rounded-full border border-zinc-200"
+                            className="h-3 w-3 rounded-full border border-[var(--project-control-border)]"
                             style={{ backgroundColor: color }}
                           />
                         ))}
@@ -127,9 +164,9 @@ export function HeaderActions({
           </DropdownMenuSub>
           <DropdownMenuItem
             disabled
-            className="rounded-xl text-[12px] text-zinc-400 py-2.5"
+            className="rounded-xl text-[12px] text-[var(--project-control-muted)] py-2.5"
           >
-            全部主题已可用，可直接切换预览
+            当前风格：{STYLE_LABELS[activeThemeDefinition.styleVariant]}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -139,12 +176,12 @@ export function HeaderActions({
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex items-center justify-center w-9 h-9 ml-1 rounded-full bg-white border border-zinc-200 shadow-sm hover:shadow transition-all"
+            className="project-header-control project-header-avatar-btn flex items-center justify-center w-9 h-[var(--project-control-height)] ml-1 rounded-full border shadow-sm hover:shadow transition-all"
           >
             <Avatar className="w-8 h-8">
-              <AvatarFallback className="bg-gradient-to-br from-zinc-100 to-zinc-200 text-zinc-700 text-xs font-semibold">
+              <AvatarFallback className="bg-[var(--project-surface-muted)] text-[var(--project-control-text)] text-xs font-semibold">
                 {user?.username?.[0]?.toUpperCase() ?? (
-                  <User className="w-4 h-4 text-zinc-500" />
+                  <User className="w-4 h-4 text-[var(--project-control-muted)]" />
                 )}
               </AvatarFallback>
             </Avatar>
@@ -152,13 +189,13 @@ export function HeaderActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-56 rounded-2xl border-zinc-200/80 bg-white/95 backdrop-blur-xl shadow-xl p-2 mt-1 -mr-2"
+          className="project-header-menu w-56 backdrop-blur-xl p-2 mt-1 -mr-2"
         >
-          <div className="px-3 py-2.5 bg-zinc-50/80 rounded-xl mb-1.5">
-            <div className="text-sm font-semibold text-zinc-900 break-words">
+          <div className="px-3 py-2.5 bg-[var(--project-surface-muted)] rounded-xl mb-1.5">
+            <div className="text-sm font-semibold text-[var(--project-control-text)] break-words">
               {user?.username ?? "用户"}
             </div>
-            <div className="text-xs text-zinc-500 mt-0.5 break-words font-medium">
+            <div className="text-xs text-[var(--project-control-muted)] mt-0.5 break-words font-medium">
               {user?.email ?? ""}
             </div>
           </div>
@@ -168,10 +205,10 @@ export function HeaderActions({
           >
             <Link href="/projects">项目列表</Link>
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-zinc-100 my-1" />
+          <DropdownMenuSeparator className="bg-[var(--project-control-border)] my-1" />
           <DropdownMenuItem
             onClick={onLogout}
-            className="rounded-xl cursor-pointer text-[13px] font-medium text-red-600 focus:bg-red-50 focus:text-red-700 py-2.5 gap-2"
+            className="rounded-xl cursor-pointer text-[13px] font-medium text-[var(--project-danger)] focus:bg-[var(--project-danger-soft)] focus:text-[var(--project-danger)] py-2.5 gap-2"
           >
             退出登录
           </DropdownMenuItem>

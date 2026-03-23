@@ -15,7 +15,17 @@ export { QuizToolPanel } from "./QuizToolPanel";
 export { SpeakerNotesToolPanel } from "./SpeakerNotesToolPanel";
 export { AnimationToolPanel } from "./AnimationToolPanel";
 export { SimulationToolPanel } from "./SimulationToolPanel";
-export type { ToolDraftState, ToolPanelProps, StudioToolKey } from "./types";
+export type {
+  CapabilityStatus,
+  ResolvedArtifactContentKind,
+  ResolvedArtifactPayload,
+  ToolArtifactPreviewItem,
+  ToolDraftState,
+  ToolFlowContext,
+  ToolPanelProps,
+  ToolSourceOption,
+  StudioToolKey,
+} from "./types";
 
 export const STUDIO_TOOL_COMPONENTS: Record<
   StudioToolKey,

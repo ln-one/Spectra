@@ -21,7 +21,7 @@ describe("resolveReusableGenerationSessionId", () => {
     ).toBe("sess-1");
   });
 
-  it("does not reuse a completed session for a new generation", () => {
+  it("keeps generation bound to the active interaction session", () => {
     expect(
       resolveReusableGenerationSessionId("sess-1", {
         session: {
@@ -35,7 +35,7 @@ describe("resolveReusableGenerationSessionId", () => {
           contract_version: "2026-03",
         },
       } as never)
-    ).toBeUndefined();
+    ).toBe("sess-1");
   });
 });
 

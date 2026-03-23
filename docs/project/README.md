@@ -1,83 +1,61 @@
-# Project Design Workspace
+# 项目文档入口
 
-> Updated: 2026-03-21
-> Status: active
+> 更新时间：2026-03-22
+> 状态：当前生效
 
-This directory is now a controlled design surface, not a dumping ground for every historical project-space draft.
+本目录只保留当前仍直接指导实现、竞赛收口和团队协作判断的项目文档。
 
-## 1. Canonical Documents
+## 当前默认阅读文档
 
-These are the only documents here that should be read by default:
+1. [SYSTEM_PHILOSOPHY_2026-03-19.md](./SYSTEM_PHILOSOPHY_2026-03-19.md)
+   项目的核心语义和系统本体。
+2. [requirements.md](./requirements.md)
+   竞赛原题要求，也是对题校验基准。
+3. [卡片功能.md](./卡片功能.md)
+   当前卡片能力的产品语义与交互定位。
+4. [团队分工与D方向参考.md](./团队分工与D方向参考.md)
+   当前阶段唯一主分工文档，包含 ABCDE 分工、协作规则与 D 的技术方向参考。
+5. [下一阶段分工方案.md](./下一阶段分工方案.md)
+   分工兼容入口，内容已并入“团队分工与D方向参考”。
+6. [系统级业务配置页契约设计.md](./系统级业务配置页契约设计.md)
+   当前阶段的系统级业务配置页设计。
+7. [会话标题与Run历史契约设计.md](./会话标题与Run历史契约设计.md)
+   会话标题语义化与 run 历史追踪设计。
+8. [结构化生成流与PPT单页局部修改契约设计.md](./结构化生成流与PPT单页局部修改契约设计.md)
+   结构化生成流和单页局部修改设计。
+9. [下一阶段OpenAPI对齐说明.md](./下一阶段OpenAPI对齐说明.md)
+   当前阶段前后端按 target 契约并行开发的对齐说明。
+10. [tech-stack.md](./tech-stack.md)
+   技术栈兼容入口，实际内容在架构文档中维护。
 
-- [SYSTEM_PHILOSOPHY_2026-03-19.md](./SYSTEM_PHILOSOPHY_2026-03-19.md)
-  - The highest-level ontology and worldview.
-- [requirements.md](./requirements.md)
-  - Original product and competition requirements.
-- [卡片功能.md](./卡片功能.md)
-  - Current product-facing card semantics and interaction intent.
-- [ABCD_ROLE_MODEL.md](./ABCD_ROLE_MODEL.md)
-  - Current team collaboration model and default ownership map.
-- [D_TECH_DEEP_DIVE_MAP.md](./D_TECH_DEEP_DIVE_MAP.md)
-  - Current technical deep-dive map for the specialized backend role.
-- [D_EXECUTION_BACKLOG.md](./D_EXECUTION_BACKLOG.md)
-  - Concrete, code-anchored task backlog for the specialized backend role.
-- [tech-stack.md](./tech-stack.md)
-  - Compatibility redirect to the live tech-stack document.
+## 当前目录的定位
 
-## 2. What Moved Out
+本目录负责三类内容：
 
-The following project-space and route-strategy drafts are no longer part of the active surface:
+- 项目的核心哲学和正式术语
+- 竞赛原题与产品目标之间的对齐基准
+- 仍会直接影响实现和协作判断的项目说明
 
-- project-space model drafts
-- project-space API drafts
-- project-space evolution notes
-- model-router strategy draft
-- old D-contract draft
+本目录不再负责：
 
-They now live in:
+- 阶段性执行清单
+- 过时的 project-space 演进稿
+- 旧的英文协作草稿
+- 只在某一阶段短期有效的推进文档
 
-- [../archived/project-space/](../archived/project-space/)
-- [../archived/specs/](../archived/specs/)
+## 已归档内容
 
-Read them only when historical context is necessary.
+以下内容已移出活动路径，仅保留历史参考价值：
 
-## 3. Reading Order
+- 团队协作与分工草稿：
+  [../archived/project/team-collaboration/](../archived/project/team-collaboration/)
+- 旧的 project-space 设计稿：
+  [../archived/project-space/](../archived/project-space/)
+- 旧的规格与演进草案：
+  [../archived/specs/](../archived/specs/)
 
-If you want to understand the project correctly and quickly:
+## 使用规则
 
-1. `SYSTEM_PHILOSOPHY_2026-03-19.md`
-2. `requirements.md`
-3. `卡片功能.md`
-4. `ABCD_ROLE_MODEL.md`
-5. `D_TECH_DEEP_DIVE_MAP.md`
-6. `D_EXECUTION_BACKLOG.md`
-7. `../architecture/README.md`
-8. `../standards/README.md`
-
-## 4. Interpretation Rules
-
-- Philosophy beats local draft.
-- Current tested code beats historical plan.
-- Active docs beat archived docs.
-- If product behavior and implementation differ, compare:
-  - `卡片功能.md`
-  - live backend/OpenAPI contract
-  - current tests
-
-## 5. Scope of This Directory
-
-This directory is for:
-
-- canonical project philosophy
-- product intent that still guides implementation
-- team collaboration defaults that affect execution quality
-- stable technical deep-dive maps tied to current code
-- concrete execution backlogs for specialized roles
-- a small set of stable design anchors
-
-It is not for:
-
-- old execution plans
-- implementation checklists
-- superseded project-space rollout drafts
-- historical team handoff notes
+- 产品语义与当前实现冲突时，先核对代码和 OpenAPI。
+- 历史设计稿只能用来理解演进背景，不能直接指导当前改动。
+- 新的项目级说明应优先落在这里，而不是散落到其他目录。

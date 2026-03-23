@@ -13,6 +13,10 @@ from services.generation_session_service.capability_helpers import (
 )
 from services.generation_session_service.constants import DispatchFallbackReason
 from services.generation_session_service.serialization_helpers import _to_session_ref
+from services.generation_session_service.session_history import (
+    get_latest_session_run,
+    serialize_session_run,
+)
 from services.platform.task_recovery import TaskRecoveryService
 
 logger = logging.getLogger(__name__)
@@ -225,6 +229,7 @@ def build_command_response(
     session_id: str,
     command_type: str,
     created_task_id: Optional[str],
+    run_data: Optional[dict],
     result,
     warnings: list[str],
     contract_version: str,
@@ -234,6 +239,10 @@ def build_command_response(
         updated_session = await db.generationsession.find_unique(
             where={"id": session_id}
         )
+        current_run = run_data
+        if current_run is None and command_type != "SET_SESSION_TITLE":
+            latest_run = await get_latest_session_run(db, session_id)
+            current_run = serialize_session_run(latest_run)
         return {
             "command_id": str(uuid.uuid4()),
             "accepted": True,
@@ -250,6 +259,7 @@ def build_command_response(
                 schema_version,
                 task_id=created_task_id,
             ),
+            "run": current_run,
             "warnings": warnings,
         }
 

@@ -38,11 +38,11 @@
 ];
 
 export const IMAGE_STYLES = [
-  { value: "flat", label: "扁平插画", icon: "🎨" },
-  { value: "3d", label: "3D 渲染", icon: "🧊" },
-  { value: "realistic", label: "写实照片", icon: "📷" },
-  { value: "minimal", label: "极简线条", icon: "✏️" },
-  { value: "watercolor", label: "水彩风格", icon: "🖌️" },
+  { value: "flat", label: "扁平插画", icon: "FL" },
+  { value: "3d", label: "3D 渲染", icon: "3D" },
+  { value: "realistic", label: "写实照片", icon: "PH" },
+  { value: "minimal", label: "极简线条", icon: "LN" },
+  { value: "watercolor", label: "水彩风格", icon: "WC" },
 ];
 
 export const DETAIL_LEVELS = [

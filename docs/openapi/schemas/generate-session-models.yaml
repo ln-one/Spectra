@@ -23,6 +23,22 @@ ExternalFallbackInfo:
       type: string
       description: 可直接展示给用户的降级提示语
 
+SessionTitleSource:
+  type: string
+  enum: [default, first_message, manual]
+
+RunTitleSource:
+  type: string
+  enum: [pending, auto, manual, fallback]
+
+RunStatus:
+  type: string
+  enum: [pending, processing, completed, failed]
+
+RunStep:
+  type: string
+  enum: [config, outline, generate, preview, modify_slide, completed]
+
 SessionRef:
   type: object
   required: [session_id, project_id, state, contract_version]
@@ -57,6 +73,73 @@ SessionRef:
     updated_at:
       type: string
       format: date-time
+    display_title:
+      type: string
+    display_title_source:
+      $ref: '#/SessionTitleSource'
+    display_title_updated_at:
+      type: string
+      format: date-time
+
+SessionRun:
+  type: object
+  required: [run_id, project_id, tool_type, run_no, run_title, run_title_source, run_status, run_step, created_at, updated_at]
+  properties:
+    run_id:
+      type: string
+    session_id:
+      type: string
+      nullable: true
+    project_id:
+      type: string
+    tool_type:
+      type: string
+    run_no:
+      type: integer
+      minimum: 1
+    run_title:
+      type: string
+    run_title_source:
+      $ref: '#/RunTitleSource'
+    run_title_updated_at:
+      type: string
+      format: date-time
+    run_status:
+      $ref: '#/RunStatus'
+    run_step:
+      $ref: '#/RunStep'
+    artifact_id:
+      type: string
+      nullable: true
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+RunTracePayload:
+  type: object
+  properties:
+    run_id:
+      type: string
+    run_no:
+      type: integer
+      minimum: 1
+    tool_type:
+      type: string
+    run_title:
+      type: string
+    run_title_source:
+      $ref: '#/RunTitleSource'
+    run_status:
+      $ref: '#/RunStatus'
+    run_step:
+      $ref: '#/RunStep'
+    task_id:
+      type: string
+    error:
+      type: string
 
 SessionStatePayload:
   type: object
@@ -86,6 +169,8 @@ SessionStatePayload:
       items:
         type: string
         example: update_outline
+    current_run:
+      $ref: '#/SessionRun'
     result:
       type: object
       properties:
@@ -139,5 +224,4 @@ GenerationEvent:
       type: string
       description: 增量消费游标
     payload:
-      type: object
-      description: 事件附带的业务数据
+      $ref: '#/RunTracePayload'

@@ -1,0 +1,208 @@
+CreateGenerationSessionRequestTarget:
+  $ref: './generate-session-requests.yaml#/CreateGenerationSessionRequest'
+
+CreateGenerationSessionResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: './generate-session-models-target.yaml#/SessionRefTarget'
+    message:
+      type: string
+
+GenerationSessionResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      $ref: './generate-session-models-target.yaml#/SessionStatePayloadTarget'
+    message:
+      type: string
+
+GenerationSessionListItemTarget:
+  $ref: './generate-session-requests.yaml#/GenerationSessionListItem'
+
+GenerationSessionListResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [sessions, total, page, limit]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/GenerationSessionListItemTarget'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+    message:
+      type: string
+
+ResumeSessionResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        session:
+          $ref: './generate-session-models-target.yaml#/SessionRefTarget'
+        latest_event:
+          $ref: './generate-session-models-target.yaml#/GenerationEventTarget'
+    message:
+      type: string
+
+LocalModifySlideRequestTarget:
+  type: object
+  required: [instruction]
+  properties:
+    instruction:
+      type: string
+      minLength: 1
+      maxLength: 2000
+      description: 用户对当前页的明确修改需求
+    slide_index:
+      type: integer
+      minimum: 1
+    expected_render_version:
+      type: integer
+      minimum: 1
+    preserve_style:
+      type: boolean
+      default: true
+    preserve_layout:
+      type: boolean
+      default: true
+    preserve_deck_consistency:
+      type: boolean
+      default: true
+    scope:
+      $ref: './generate-command-core-target.yaml#/SlideModifyScope'
+    patch:
+      $ref: './generate-command-core.yaml#/StructuredSlidePatch'
+
+LocalModifySlideResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        accepted:
+          type: boolean
+          default: true
+        command_id:
+          type: string
+        session:
+          $ref: './generate-session-models-target.yaml#/SessionRefTarget'
+        run:
+          $ref: './generate-session-models-target.yaml#/SessionRun'
+        slide_id:
+          type: string
+    message:
+      type: string
+
+GenerationEventListResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: './generate-session-models-target.yaml#/GenerationEventTarget'
+    message:
+      type: string
+
+GenerationSessionRunsResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: './generate-session-models-target.yaml#/SessionRun'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+    message:
+      type: string
+
+GenerationSessionRunDetailResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      properties:
+        run:
+          $ref: './generate-session-models-target.yaml#/SessionRun'
+    message:
+      type: string
+
+GenerationSessionCommandRequestTarget:
+  $ref: './generate-command-core-target.yaml#/GenerationSessionCommandRequestTarget'
+
+GenerationSessionCommandResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [command_id, session]
+      properties:
+        command_id:
+          type: string
+        accepted:
+          type: boolean
+          default: true
+        transition:
+          $ref: './generate-command-core-target.yaml#/AppliedTransitionTarget'
+        session:
+          $ref: './generate-session-models-target.yaml#/SessionRefTarget'
+        run:
+          $ref: './generate-session-models-target.yaml#/SessionRun'
+        warnings:
+          type: array
+          items:
+            type: string
+    message:
+      type: string

@@ -143,7 +143,10 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
             StudioCardAction(type="generate", label="生成游戏原型"),
             StudioCardAction(type="chat_refine", label="在游戏上下文中热更新规则"),
         ],
-        notes="HTML artifact 与初始执行已具备，游戏热更新与 sandbox patch 协议仍待补齐。",
+        notes=(
+            "HTML artifact 与 sandbox patch 热更新已具备，"
+            "refine 结果通过 replacement artifact 收口。"
+        ),
     ),
     StudioCardCapability(
         id="knowledge_mindmap",
@@ -172,7 +175,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
             StudioCardAction(type="generate", label="生成导图"),
             StudioCardAction(type="chat_refine", label="按选中节点扩展分支"),
         ],
-        notes="导图 artifact 已具备，节点级上下文微调协议仍待补齐。",
+        notes="导图 artifact 与节点级 refine 已具备，节点扩展通过 replacement artifact 收口。",
     ),
     StudioCardCapability(
         id="demonstration_animations",
@@ -182,7 +185,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         execution_mode=StudioCardExecutionMode.ARTIFACT_CREATE,
         primary_capabilities=["animation"],
         related_capabilities=["summary", "outline"],
-        artifact_types=["gif", "mp4", "html"],
+        artifact_types=["html", "gif", "mp4"],
         supports_chat_refine=True,
         config_fields=[
             StudioCardConfigField(
@@ -194,7 +197,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
                     StudioCardConfigOption(value="mp4", label="MP4"),
                     StudioCardConfigOption(value="html5", label="HTML5"),
                 ],
-                default_value="gif",
+                default_value="html5",
             ),
             StudioCardConfigField(
                 key="motion_brief",
@@ -207,18 +210,17 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
             StudioCardAction(type="generate", label="生成动画"),
             StudioCardAction(type="chat_refine", label="热更新动画参数"),
         ],
-        notes="动画 storyboard 与媒体占位输出已具备，参数化热更新协议仍待补齐。",
+        notes="动画统一以 storyboard 为源内容，现已正式支持 HTML5、GIF 与 MP4 输出。",
     ),
     StudioCardCapability(
         id="speaker_notes",
         title="说课助手",
         readiness=StudioCardReadiness.FOUNDATION_READY,
         context_mode=StudioCardContextMode.HYBRID,
-        execution_mode=StudioCardExecutionMode.COMPOSITE,
-        primary_capabilities=["ppt", "speaker_notes"],
+        execution_mode=StudioCardExecutionMode.ARTIFACT_CREATE,
+        primary_capabilities=["speaker_notes", "summary"],
         related_capabilities=["word", "summary"],
-        artifact_types=["pptx", "docx", "summary"],
-        session_output_type=SessionOutputType.PPT.value,
+        artifact_types=["summary"],
         requires_source_artifact=True,
         supports_chat_refine=True,
         supports_selection_context=True,
@@ -235,7 +237,7 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
             StudioCardAction(type="generate", label="生成说课稿"),
             StudioCardAction(type="chat_refine", label="按选中段落改写过渡语"),
         ],
-        notes="source-artifact 绑定与初始执行已具备，段落级提词器改写协议仍待补齐。",
+        notes="source-artifact 绑定、逐页讲稿生成与段落级 refine 已具备，产物正式收口为 summary artifact。",
     ),
     StudioCardCapability(
         id="classroom_qa_simulator",

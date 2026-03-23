@@ -1,0 +1,221 @@
+GenerationEventTypeTarget:
+  type: string
+  enum:
+    - state.changed
+    - progress.updated
+    - outline.ready
+    - outline.updated
+    - slide.updated
+    - task.completed
+    - task.failed
+    - session.recovered
+    - outline.started
+    - outline.section.generated
+    - outline.completed
+    - slides.started
+    - slide.generating
+    - slide.generated
+    - slides.completed
+    - generation.completed
+    - generation.failed
+    - slide.modify.started
+    - slide.modify.processing
+    - slide.modify.failed
+
+SessionTitleSource:
+  type: string
+  enum: [default, first_message, manual]
+
+RunTitleSource:
+  type: string
+  enum: [pending, auto, manual, fallback]
+
+RunStatus:
+  type: string
+  enum: [pending, processing, completed, failed]
+
+RunStep:
+  type: string
+  enum: [config, outline, generate, preview, modify_slide, completed]
+
+SessionRefTarget:
+  allOf:
+    - $ref: './generate-session-models.yaml#/SessionRef'
+    - type: object
+      properties:
+        display_title:
+          type: string
+        display_title_source:
+          $ref: '#/SessionTitleSource'
+        display_title_updated_at:
+          type: string
+          format: date-time
+
+SessionRun:
+  type: object
+  required: [run_id, project_id, tool_type, run_no, run_title, run_title_source, run_status, run_step, created_at, updated_at]
+  properties:
+    run_id:
+      type: string
+    session_id:
+      type: string
+      nullable: true
+    project_id:
+      type: string
+    tool_type:
+      type: string
+    run_no:
+      type: integer
+      minimum: 1
+    run_title:
+      type: string
+    run_title_source:
+      $ref: '#/RunTitleSource'
+    run_title_updated_at:
+      type: string
+      format: date-time
+    run_status:
+      $ref: '#/RunStatus'
+    run_step:
+      $ref: '#/RunStep'
+    artifact_id:
+      type: string
+      nullable: true
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+RunTracePayload:
+  type: object
+  properties:
+    run_id:
+      type: string
+    run_no:
+      type: integer
+      minimum: 1
+    tool_type:
+      type: string
+    run_title:
+      type: string
+    run_title_source:
+      $ref: '#/RunTitleSource'
+    run_title_updated_at:
+      type: string
+      format: date-time
+    run_status:
+      $ref: '#/RunStatus'
+    run_step:
+      $ref: '#/RunStep'
+    progress_message:
+      type: string
+    partial:
+      type: boolean
+    final:
+      type: boolean
+    section_index:
+      type: integer
+      minimum: 1
+    section_title:
+      type: string
+    section_payload:
+      type: object
+      additionalProperties: true
+    slide_id:
+      type: string
+    slide_index:
+      type: integer
+      minimum: 1
+    slide_payload:
+      type: object
+      additionalProperties: true
+    command_id:
+      type: string
+    accepted:
+      type: boolean
+    error:
+      oneOf:
+        - type: string
+        - type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+GenerationEventTarget:
+  type: object
+  required: [event_id, event_type, state, timestamp, cursor]
+  properties:
+    event_id:
+      type: string
+    event_schema_version:
+      type: integer
+      minimum: 1
+      default: 1
+    event_type:
+      $ref: '#/GenerationEventTypeTarget'
+    state:
+      $ref: './generate-core.yaml#/GenerationState'
+    state_reason:
+      type: string
+    progress:
+      type: integer
+      minimum: 0
+      maximum: 100
+    timestamp:
+      type: string
+      format: date-time
+    cursor:
+      type: string
+      description: 增量消费游标
+    payload:
+      $ref: '#/RunTracePayload'
+
+SessionStatePayloadTarget:
+  type: object
+  required: [session]
+  properties:
+    session:
+      $ref: '#/SessionRefTarget'
+    options:
+      $ref: './generate-core.yaml#/GenerationOptions'
+    outline:
+      $ref: './generate-core.yaml#/OutlineDocument'
+    context_snapshot:
+      $ref: './generate-core.yaml#/SessionContextSnapshot'
+    capabilities:
+      type: array
+      items:
+        $ref: './generate-commands.yaml#/CapabilityDeclaration'
+    fallbacks:
+      type: array
+      items:
+        $ref: './generate-session-models.yaml#/ExternalFallbackInfo'
+    allowed_actions:
+      type: array
+      items:
+        type: string
+    current_run:
+      $ref: '#/SessionRun'
+    result:
+      type: object
+      properties:
+        ppt_url:
+          type: string
+        word_url:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+    error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        retryable:
+          type: boolean

@@ -1,0 +1,34 @@
+/api/v1/chat/messages:
+  post:
+    summary: 发送消息
+    operationId: postChatMessages
+    tags: [Chat]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/chat.yaml#/SendMessageRequest'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/chat-target.yaml#/SendMessageResponseTarget'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+
+  get:
+    $ref: './chat.yaml#/~1api~1v1~1chat~1messages/get'
+
+/api/v1/chat/voice:
+  $ref: './chat.yaml#/~1api~1v1~1chat~1voice'

@@ -58,7 +58,10 @@ def build_chat_prompt(
     if selected_files_hint:
         message_hints.append(selected_files_hint)
     if not rag_hit and session_id:
-        message_hints.append("未命中项目资料，请优先提示用户补充可检索素材。")
+        message_hints.append(
+            "RAG miss in this round. Do NOT claim the user has no uploaded files. "
+            "Provide best-effort guidance and ask for target file name or chapter."
+        )
     card_context_hint = build_card_context_hint(body.metadata)
     if card_context_hint:
         message_hints.append(card_context_hint)

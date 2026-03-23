@@ -7,12 +7,29 @@ import logging
 import time
 
 from schemas.generation import TaskStatus
+from services.generation_session_service.session_history import (
+    RUN_STATUS_FAILED,
+    RUN_STEP_GENERATE,
+    update_session_run,
+)
 from services.platform.state_transition_guard import GenerationState
 
 from .common import sync_session_terminal_state
 from .constants import TaskExecutionErrorCode, TaskFailureStateReason
 
 logger = logging.getLogger(__name__)
+
+
+def _run_payload(context) -> dict:
+    run_id = getattr(context, "run_id", None)
+    if not run_id:
+        return {}
+    return {
+        "run_id": run_id,
+        "run_no": getattr(context, "run_no", None),
+        "run_title": getattr(context, "run_title", None),
+        "tool_type": getattr(context, "tool_type", None),
+    }
 
 
 def _classify_generation_error(exc) -> tuple[str, str]:
@@ -59,6 +76,14 @@ async def handle_retryable_error(db_service, context, exc) -> None:
         return
 
     error_code, error_msg = _classify_generation_error(exc)
+    run_payload = _run_payload(context)
+    if run_payload.get("run_id"):
+        await update_session_run(
+            db=db_service.db,
+            run_id=run_payload["run_id"],
+            status=RUN_STATUS_FAILED,
+            step=RUN_STEP_GENERATE,
+        )
     await db_service.update_generation_task_status(
         task_id=context.task_id,
         status=TaskStatus.FAILED,
@@ -78,6 +103,15 @@ async def handle_retryable_error(db_service, context, exc) -> None:
             error_message=error_msg,
             error_code=error_code,
             retryable=True,
+            payload_extra=(
+                {
+                    **run_payload,
+                    "run_status": RUN_STATUS_FAILED,
+                    "run_step": RUN_STEP_GENERATE,
+                }
+                if run_payload.get("run_id")
+                else None
+            ),
         )
     except Exception as sync_err:
         logger.error(
@@ -91,6 +125,14 @@ async def handle_retryable_error(db_service, context, exc) -> None:
 
 async def handle_permanent_error(db_service, context, exc) -> None:
     error_code, error_msg = _classify_generation_error(exc)
+    run_payload = _run_payload(context)
+    if run_payload.get("run_id"):
+        await update_session_run(
+            db=db_service.db,
+            run_id=run_payload["run_id"],
+            status=RUN_STATUS_FAILED,
+            step=RUN_STEP_GENERATE,
+        )
     logger.error(
         "Permanent error in task %s: %s: %s",
         context.task_id,
@@ -125,6 +167,15 @@ async def handle_permanent_error(db_service, context, exc) -> None:
             error_message=error_msg,
             error_code=error_code,
             retryable=False,
+            payload_extra=(
+                {
+                    **run_payload,
+                    "run_status": RUN_STATUS_FAILED,
+                    "run_step": RUN_STEP_GENERATE,
+                }
+                if run_payload.get("run_id")
+                else None
+            ),
         )
     except Exception as sync_err:
         logger.error(
@@ -161,6 +212,14 @@ async def handle_unknown_error(db_service, context, exc) -> None:
         raise exc
 
     error_code, error_msg = _classify_generation_error(exc)
+    run_payload = _run_payload(context)
+    if run_payload.get("run_id"):
+        await update_session_run(
+            db=db_service.db,
+            run_id=run_payload["run_id"],
+            status=RUN_STATUS_FAILED,
+            step=RUN_STEP_GENERATE,
+        )
     await db_service.update_generation_task_status(
         task_id=context.task_id,
         status=TaskStatus.FAILED,
@@ -180,6 +239,15 @@ async def handle_unknown_error(db_service, context, exc) -> None:
             error_message=error_msg,
             error_code=error_code,
             retryable=True,
+            payload_extra=(
+                {
+                    **run_payload,
+                    "run_status": RUN_STATUS_FAILED,
+                    "run_step": RUN_STEP_GENERATE,
+                }
+                if run_payload.get("run_id")
+                else None
+            ),
         )
     except Exception as sync_err:
         logger.error(

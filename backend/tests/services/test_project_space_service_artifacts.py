@@ -6,6 +6,9 @@ import pytest
 
 from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
 from services.project_space_service import ProjectSpaceService
+from services.project_space_service.artifact_content import (
+    build_artifact_accretion_text,
+)
 from services.project_space_service.artifact_semantics import (
     ArtifactMetadataKind,
     ProjectCapability,
@@ -157,6 +160,157 @@ async def test_create_artifact_animation_storyboard_uses_html(monkeypatch):
         create_artifact.await_args.kwargs["metadata"]["capability"]
         == ProjectCapability.ANIMATION.value
     )
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_gif_uses_real_animation_generator(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="artifact-gif-001",
+            projectId="project-001",
+            type="gif",
+            storagePath="generated/storyboard.gif",
+        )
+    )
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="project-001", currentVersionId=None)
+        ),
+    )
+
+    generate_animation = AsyncMock(return_value="generated/storyboard.gif")
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_animation",
+        generate_animation,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="gif",
+        visibility="private",
+        user_id="user-001",
+        content={"kind": "animation_storyboard", "title": "Storyboard", "scenes": []},
+    )
+
+    generate_animation.assert_awaited_once()
+    assert (
+        create_artifact.await_args.kwargs["storage_path"] == "generated/storyboard.gif"
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_artifact_mp4_uses_real_video_generator(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="artifact-mp4-001",
+            projectId="project-001",
+            type="mp4",
+            storagePath="generated/storyboard.mp4",
+        )
+    )
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="project-001", currentVersionId=None)
+        ),
+    )
+
+    generate_video = AsyncMock(return_value="generated/storyboard.mp4")
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_video",
+        generate_video,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="mp4",
+        visibility="private",
+        user_id="user-001",
+        content={"kind": "animation_storyboard", "title": "Storyboard", "scenes": []},
+    )
+
+    generate_video.assert_awaited_once()
+    assert (
+        create_artifact.await_args.kwargs["storage_path"] == "generated/storyboard.mp4"
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_summary_artifact_preserves_slides_and_turns(monkeypatch):
+    service = ProjectSpaceService()
+    create_artifact = AsyncMock(
+        return_value=SimpleNamespace(
+            id="artifact-010",
+            projectId="project-001",
+            type="summary",
+            storagePath="generated/summary.json",
+        )
+    )
+    service.db = SimpleNamespace(
+        create_artifact=create_artifact,
+        get_project_version=AsyncMock(return_value=None),
+        get_project=AsyncMock(
+            return_value=SimpleNamespace(id="project-001", currentVersionId=None)
+        ),
+    )
+
+    generate_summary = AsyncMock(return_value="generated/summary.json")
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.artifact_generator.generate_summary",
+        generate_summary,
+    )
+
+    await service.create_artifact_with_file(
+        project_id="project-001",
+        artifact_type="summary",
+        visibility="private",
+        user_id="user-001",
+        content={
+            "kind": "speaker_notes",
+            "slides": [{"page": 1, "title": "教学目标", "script": "讲稿正文"}],
+            "turns": [{"question": "为什么", "teacher_answer": "因为", "score": 80}],
+        },
+    )
+
+    payload = generate_summary.await_args.args[0]
+    assert payload["slides"][0]["script"] == "讲稿正文"
+    assert payload["turns"][0]["teacher_answer"] == "因为"
+
+
+def test_build_artifact_accretion_text_includes_slides_and_turns():
+    text = build_artifact_accretion_text(
+        "summary",
+        {
+            "kind": "classroom_qa_simulator",
+            "title": "课堂问答模拟",
+            "slides": [
+                {
+                    "page": 1,
+                    "title": "第一页",
+                    "script": "这一页这样讲。",
+                    "transition_line": "接下来进入第二页。",
+                }
+            ],
+            "turns": [
+                {
+                    "question": "如果条件变化怎么办？",
+                    "teacher_answer": "先看边界条件。",
+                    "feedback": "回答到位。",
+                    "score": 88,
+                }
+            ],
+        },
+    )
+
+    assert "讲稿页 1：第一页" in text
+    assert "这一页这样讲。" in text
+    assert "追问：如果条件变化怎么办？" in text
+    assert "评分：88" in text
 
 
 def test_normalize_artifact_visibility_defaults_private():

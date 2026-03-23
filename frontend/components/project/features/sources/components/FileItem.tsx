@@ -101,7 +101,7 @@ export function FileItem({
       className={cn(
         "group relative grid w-full max-w-full cursor-pointer grid-cols-[32px_1fr_auto] items-center gap-2.5 overflow-visible rounded-xl p-2.5 transition-all duration-200",
         isSelected
-          ? "border-2 border-[var(--project-border-strong)] bg-[var(--project-surface-elevated)] shadow-sm"
+          ? "border border-[var(--project-border-strong)] bg-[var(--project-surface-elevated)] shadow-md ring-1 ring-[var(--project-border-strong)]/25"
           : "border border-[var(--project-border)] bg-[var(--project-surface-elevated)] shadow-sm hover:bg-[var(--project-surface)] hover:shadow-md"
       )}
       style={{ minHeight: "52px" }}

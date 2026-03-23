@@ -59,10 +59,10 @@ export function SourcesPanel({
   return (
     <div
       ref={containerRef}
-      className="h-full w-full bg-transparent"
+      className="project-panel-root h-full w-full bg-transparent"
       style={{ transform: "translateZ(0)" }}
     >
-      <Card className="h-full rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
+      <Card className="project-panel-card project-sources-panel h-full rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <SourcesHeader
           isCollapsed={isCollapsed}
           isHeaderCompact={isHeaderCompact}
@@ -86,8 +86,8 @@ export function SourcesPanel({
                   <div className="pb-2 pt-1">
                     <WebSourceCard isCompact={true} />
                   </div>
-                  <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
-                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-inner">
+                  <div className="project-sources-empty-state flex flex-1 flex-col items-center justify-center py-12 text-center">
+                    <div className="project-sources-empty-icon mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-inner">
                       <File className="h-7 w-7 text-[var(--project-text-muted)] opacity-50" />
                     </div>
                     <p className="text-sm font-medium text-[var(--project-text-primary)]">
@@ -100,7 +100,7 @@ export function SourcesPanel({
                   <ScrollAreaPrimitive.Root className="relative h-full w-full overflow-hidden">
                     <ScrollAreaPrimitive.Viewport
                       ref={horizontalViewportRef}
-                      className="h-[calc(100%-10px)] w-full rounded-[inherit]"
+                      className="project-sources-horizontal-viewport h-[calc(100%-10px)] w-full rounded-[inherit]"
                       onWheel={(event) => {
                         if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
                           event.preventDefault();
@@ -111,7 +111,7 @@ export function SourcesPanel({
                         }
                       }}
                     >
-                      <div className="-translate-y-1 flex min-w-max items-center gap-3 px-0.5 pb-1 pt-0">
+                      <div className="project-sources-horizontal-track -translate-y-1 flex min-w-max items-center gap-3 px-0.5 pb-1 pt-0">
                         <div
                           key={WEB_SOURCE_CARD_ID}
                           ref={(element) =>
@@ -163,8 +163,8 @@ export function SourcesPanel({
                     <div className="mb-2">
                       <WebSourceCard isCompact={isEffectiveCompact} />
                     </div>
-                    <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
-                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-inner">
+                    <div className="project-sources-empty-state flex flex-1 flex-col items-center justify-center py-12 text-center">
+                      <div className="project-sources-empty-icon mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--project-surface-muted)] shadow-inner">
                         <File className="h-7 w-7 text-[var(--project-text-muted)] opacity-50" />
                       </div>
                       <p className="text-sm font-medium text-[var(--project-text-primary)]">

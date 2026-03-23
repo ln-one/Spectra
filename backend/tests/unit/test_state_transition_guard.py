@@ -36,7 +36,7 @@ def test_validate_rejects_invalid_transition():
 
 def test_get_allowed_actions_for_success():
     actions = StateTransitionGuard.get_allowed_actions(GenerationState.SUCCESS.value)
-    assert actions == ["regenerate_slide", "export"]
+    assert actions == ["regenerate_slide", "export", "set_session_title"]
 
 
 def test_get_transitions_exposes_public_transition_table():

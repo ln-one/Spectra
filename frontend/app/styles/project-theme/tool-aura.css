@@ -1,0 +1,71 @@
+.project-theme-root {
+  --project-tool-aura-bg: none;
+  --project-tool-aura-opacity: 0;
+}
+
+.project-theme-root .project-tool-aura-layer {
+  background: var(--project-tool-aura-bg);
+  opacity: var(--project-tool-aura-opacity);
+  filter: saturate(1.08) blur(2px);
+  transition: opacity 260ms ease;
+}
+
+.project-theme-root
+  .project-tool-workbench
+  > .flex
+  > div[class*="border-b border-zinc-200"] {
+  display: none;
+}
+
+.project-theme-root[data-project-tool-active="true"]
+  .project-tool-workbench
+  button[class*="bg-blue-"]:not([class*="bg-blue-50"]),
+.project-theme-root[data-project-tool-active="true"][data-project-tool="ppt"]
+  .project-ppt-workbench
+  button[class*="bg-blue-"]:not([class*="bg-blue-50"]) {
+  background: var(--project-tool-accent, var(--project-accent)) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--project-tool-accent, var(--project-accent)) 76%,
+    black
+  ) !important;
+  color: var(--project-accent-text, #ffffff) !important;
+}
+
+.project-theme-root[data-project-tool-active="true"]
+  .project-tool-workbench
+  button[class*="border-blue-"],
+.project-theme-root[data-project-tool-active="true"][data-project-tool="ppt"]
+  .project-ppt-workbench
+  button[class*="border-blue-"] {
+  border-color: var(--project-tool-accent, var(--project-accent)) !important;
+}
+
+.project-theme-root[data-project-tool-active="true"]
+  .project-tool-workbench
+  button[class*="bg-blue-50"],
+.project-theme-root[data-project-tool-active="true"][data-project-tool="ppt"]
+  .project-ppt-workbench
+  button[class*="bg-blue-50"] {
+  background: color-mix(
+    in srgb,
+    var(--project-tool-accent, var(--project-accent)) 12%,
+    var(--project-surface-elevated)
+  ) !important;
+  color: var(--project-tool-accent, var(--project-accent)) !important;
+}
+
+.project-theme-root[data-project-tool-active="true"]
+  .project-tool-workbench
+  [class*="text-blue-"],
+.project-theme-root[data-project-tool-active="true"][data-project-tool="ppt"]
+  .project-ppt-workbench
+  [class*="text-blue-"] {
+  color: var(--project-tool-accent, var(--project-accent)) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-theme-root .project-tool-aura-layer {
+    transition: none;
+  }
+}

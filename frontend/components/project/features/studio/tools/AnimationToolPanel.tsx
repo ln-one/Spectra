@@ -1,114 +1,195 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToolPanelShell } from "./ToolPanelShell";
+import { WorkflowStepper } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
+import {
+  ANIMATION_SCENE_OPTIONS,
+  ANIMATION_STEPS,
+  getReadinessLabel,
+} from "./animation/constants";
+import { ConfigStep } from "./animation/ConfigStep";
+import { GenerateStep } from "./animation/GenerateStep";
+import { PreviewStep } from "./animation/PreviewStep";
+import {
+  buildAnimationCode,
+  buildAnimationDescription,
+} from "./animation/templates";
+import type { AnimationScene, AnimationStep } from "./animation/types";
+import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 export function AnimationToolPanel({
   toolName,
   onDraftChange,
+  flowContext,
 }: ToolPanelProps) {
+  const [activeStep, setActiveStep] = useState<AnimationStep>("config");
+  useWorkflowStepSync(activeStep, setActiveStep, flowContext);
+  const [topic, setTopic] = useState("冒泡排序每轮交换过程");
+  const [scene, setScene] = useState<AnimationScene>("bubble_sort");
   const [speed, setSpeed] = useState(50);
   const [showTrail, setShowTrail] = useState(true);
   const [splitView, setSplitView] = useState(true);
+  const [lineColor, setLineColor] = useState("#16a34a");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
   useEffect(() => {
     onDraftChange?.({
+      topic,
+      scene,
       speed,
       show_trail: showTrail,
       split_view: splitView,
+      line_color: lineColor,
+      source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
-  }, [onDraftChange, showTrail, speed, splitView]);
+  }, [
+    flowContext?.selectedSourceId,
+    lineColor,
+    onDraftChange,
+    scene,
+    showTrail,
+    speed,
+    splitView,
+    topic,
+  ]);
 
+  const sceneLabel =
+    ANIMATION_SCENE_OPTIONS.find((item) => item.value === scene)?.label ??
+    "粒子运动演示";
   const codeText = useMemo(
     () =>
-      `const orbitSpeed = ${speed / 100};\nconst showTrail = ${showTrail};\n\nrenderOrbit({\n  speed: orbitSpeed,\n  trail: showTrail,\n});`,
-    [showTrail, speed]
+      buildAnimationCode({
+        topic,
+        scene,
+        speed,
+        showTrail,
+        lineColor,
+      }),
+    [lineColor, scene, showTrail, speed, topic]
   );
+  const description = useMemo(() => buildAnimationDescription(scene), [scene]);
+
+  const handleGenerate = async () => {
+    if (!flowContext?.onExecute) {
+      setLastGeneratedAt(new Date().toISOString());
+      setActiveStep("preview");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const executed = await flowContext.onExecute();
+      if (!executed) return;
+      setLastGeneratedAt(new Date().toISOString());
+      setActiveStep("preview");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
-    <ToolPanelShell
-      stepTitle={`${toolName}配置`}
-      stepDescription="支持参数调节与代码/预览切换，后续接入真实动画引擎。"
-      previewTitle="动画双屏占位"
-      previewDescription="可选分栏显示代码与效果，参数变化即时反映到预览。"
-      footer={
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-zinc-500">
-            速度：{speed}% · 轨迹：{showTrail ? "开启" : "关闭"}
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 rounded-lg text-xs"
-            disabled
-          >
-            应用到真实动画（后续）
-          </Button>
-        </div>
-      }
-      preview={
-        <div className={splitView ? "grid grid-cols-2 gap-2" : "space-y-2"}>
-          <div className="rounded-lg bg-zinc-900 p-3 text-[11px] text-zinc-100 whitespace-pre-wrap">
-            {codeText}
+    <div className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900">
+                {toolName}三步工作台{" "}
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                先配置动画参数，再生成，最后在代码区和演示区联动预览。{" "}
+              </p>
+            </div>
+            <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
+              {getReadinessLabel(flowContext?.readiness)}
+            </span>
           </div>
-          <div className="rounded-lg border border-zinc-200 bg-white p-3">
-            <p className="text-xs text-zinc-500">预览画布</p>
-            <div className="mt-3 h-24 rounded-md bg-gradient-to-r from-zinc-100 to-zinc-200 relative overflow-hidden">
-              <div
-                className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-emerald-500 transition-all duration-300"
-                style={{ left: `${Math.max(5, Math.min(90, speed))}%` }}
-              />
-              {showTrail ? (
-                <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-zinc-400/60" />
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden p-4">
+          <div className="grid h-full min-h-0 gap-3 grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]">
+            <WorkflowStepper
+              className="hidden h-full min-h-0 overflow-y-auto lg:block"
+              layout="rail"
+              currentStep={activeStep}
+              steps={ANIMATION_STEPS}
+              onStepChange={(stepId) => setActiveStep(stepId as AnimationStep)}
+              title="演示动画流程"
+              subtitle="Workflow"
+            />
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="mb-4 lg:hidden">
+                <WorkflowStepper
+                  layout="inline"
+                  currentStep={activeStep}
+                  steps={ANIMATION_STEPS}
+                  onStepChange={(stepId) =>
+                    setActiveStep(stepId as AnimationStep)
+                  }
+                  title="演示动画流程"
+                  subtitle="Workflow"
+                />
+              </div>
+              {activeStep === "config" ? (
+                <ConfigStep
+                  topic={topic}
+                  scene={scene}
+                  speed={speed}
+                  showTrail={showTrail}
+                  splitView={splitView}
+                  onTopicChange={setTopic}
+                  onSceneChange={setScene}
+                  onSpeedChange={setSpeed}
+                  onShowTrailChange={setShowTrail}
+                  onSplitViewChange={setSplitView}
+                  onNext={() => setActiveStep("generate")}
+                />
+              ) : null}
+
+              {activeStep === "generate" ? (
+                <GenerateStep
+                  topic={topic}
+                  sceneLabel={sceneLabel}
+                  speed={speed}
+                  showTrail={showTrail}
+                  splitView={splitView}
+                  flowContext={flowContext}
+                  isGenerating={isGenerating}
+                  onBack={() => setActiveStep("config")}
+                  onGenerate={() => void handleGenerate()}
+                />
+              ) : null}
+
+              {activeStep === "preview" ? (
+                <PreviewStep
+                  codeText={codeText}
+                  description={description}
+                  speed={speed}
+                  showTrail={showTrail}
+                  splitView={splitView}
+                  lineColor={lineColor}
+                  lastGeneratedAt={lastGeneratedAt}
+                  flowContext={flowContext}
+                  onRegenerate={() => setActiveStep("generate")}
+                  onSpeedChange={setSpeed}
+                  onShowTrailChange={setShowTrail}
+                  onSplitViewChange={setSplitView}
+                  onLineColorChange={setLineColor}
+                  onQuickHalfSpeed={() =>
+                    setSpeed((prev) => Math.max(10, Math.floor(prev / 2)))
+                  }
+                  onQuickRedTrail={() => {
+                    setShowTrail(true);
+                    setLineColor("#dc2626");
+                  }}
+                />
               ) : null}
             </div>
           </div>
         </div>
-      }
-    >
-      <section className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs text-zinc-600">分栏模式</Label>
-          <Switch checked={splitView} onCheckedChange={setSplitView} />
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs text-zinc-600">公转速度</Label>
-          <Slider
-            value={[speed]}
-            min={10}
-            max={100}
-            step={5}
-            onValueChange={(value) => setSpeed(value[0] ?? 50)}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <Label className="text-xs text-zinc-600">显示轨迹虚线</Label>
-          <Switch checked={showTrail} onCheckedChange={setShowTrail} />
-        </div>
-      </section>
-
-      <Tabs defaultValue="code">
-        <TabsList className="w-full">
-          <TabsTrigger value="code" className="flex-1 text-xs">
-            代码视图
-          </TabsTrigger>
-          <TabsTrigger value="preview" className="flex-1 text-xs">
-            预览视图
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="code" className="text-xs text-zinc-500">
-          当前已进入“代码”标签页。
-        </TabsContent>
-        <TabsContent value="preview" className="text-xs text-zinc-500">
-          当前已进入“预览”标签页。
-        </TabsContent>
-      </Tabs>
-    </ToolPanelShell>
+      </div>
+    </div>
   );
 }

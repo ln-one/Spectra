@@ -1,0 +1,2 @@
+SendMessageResponseTarget:
+  $ref: './chat.yaml#/SendMessageResponse'

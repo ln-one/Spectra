@@ -33,6 +33,12 @@ async def voice_message(
 ):
     try:
         await verify_project_ownership(project_id, user_id)
+        session_id = await _ensure_chat_session(
+            project_id=project_id,
+            user_id=user_id,
+            session_id=session_id,
+        )
+
         key_str = str(idempotency_key) if idempotency_key else None
         cache_key = (
             f"chat:voice:{user_id}:{project_id}:{session_id}:{key_str}"
@@ -43,12 +49,6 @@ async def voice_message(
             cached_response = await db_service.get_idempotency_response(cache_key)
             if cached_response:
                 return cached_response
-
-        session_id = await _ensure_chat_session(
-            project_id=project_id,
-            user_id=user_id,
-            session_id=session_id,
-        )
 
         import tempfile
 

@@ -62,25 +62,32 @@ async def _resolve_preview_anchor(
     session_id: str,
     snapshot: dict,
     artifact_id: Optional[str],
+    run_id: Optional[str],
 ) -> dict:
     bound_artifact = await _resolve_session_artifact_binding(
         project_id=snapshot["session"]["project_id"],
         session_id=session_id,
         artifact_id=artifact_id,
+        run_id=run_id,
     )
-    return _build_artifact_anchor(session_id, bound_artifact)
+    anchor = _build_artifact_anchor(session_id, bound_artifact)
+    if run_id:
+        anchor["run_id"] = run_id
+    return anchor
 
 
 @router.get("/sessions/{session_id}/preview")
 async def get_session_preview(
     session_id: str,
-    artifact_id: Optional[str] = Query(None, description="指定成果ID（可选）"),
+    artifact_id: Optional[str] = Query(None, description="指定成果 ID（可选）"),
+    run_id: Optional[str] = Query(None, description="指定运行 ID（可选）"),
     user_id: str = Depends(get_current_user),
 ):
     """获取会话预览（session 作用域）。"""
     return await get_session_preview_response(
         session_id=session_id,
         artifact_id=artifact_id,
+        run_id=run_id,
         user_id=user_id,
         get_preview_snapshot_or_raise=_get_preview_snapshot_or_raise,
         resolve_preview_anchor=_resolve_preview_anchor,
@@ -117,7 +124,8 @@ async def modify_session_preview(
 async def get_session_slide_preview(
     session_id: str,
     slide_id: str,
-    artifact_id: Optional[str] = Query(None, description="指定来源成果ID（可选）"),
+    artifact_id: Optional[str] = Query(None, description="指定来源成果 ID（可选）"),
+    run_id: Optional[str] = Query(None, description="指定运行 ID（可选）"),
     user_id: str = Depends(get_current_user),
 ):
     """获取单页幻灯片预览（session 作用域）。"""
@@ -125,6 +133,7 @@ async def get_session_slide_preview(
         session_id=session_id,
         slide_id=slide_id,
         artifact_id=artifact_id,
+        run_id=run_id,
         user_id=user_id,
         get_preview_snapshot_or_raise=_get_preview_snapshot_or_raise,
         resolve_preview_anchor=_resolve_preview_anchor,
@@ -136,6 +145,7 @@ async def get_session_slide_preview(
 async def export_session(
     session_id: str,
     body: Optional[dict] = None,
+    run_id: Optional[str] = Query(None, description="指定运行 ID（可选）"),
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
@@ -143,6 +153,7 @@ async def export_session(
     return await export_session_response(
         session_id=session_id,
         body=body,
+        run_id=run_id,
         user_id=user_id,
         idempotency_key=idempotency_key,
         parse_candidate_change_payload=parse_candidate_change_payload,

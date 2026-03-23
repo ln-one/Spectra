@@ -41,6 +41,10 @@ class GenerationExecutionContext:
     template_config: Optional[dict]
     start_time: float = field(default_factory=time.time)
     session_id: Optional[str] = None
+    run_id: Optional[str] = None
+    run_no: Optional[int] = None
+    run_title: Optional[str] = None
+    tool_type: Optional[str] = None
 
 
 async def build_generation_inputs(db_service, context: GenerationExecutionContext):

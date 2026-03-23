@@ -11,6 +11,10 @@ from services.generation_session_service.command_execution import (
     save_cached_command_response,
 )
 from services.generation_session_service.command_handlers import dispatch_command
+from services.generation_session_service.session_history import (
+    generate_semantic_run_title,
+    spawn_background_task,
+)
 from services.platform.state_transition_guard import (
     GenerationCommandType,
     TransitionResult,
@@ -49,7 +53,15 @@ class SessionCommandMixin:
             command=command,
         )
 
-        created_task_id = await self._dispatch_command(session, command, result)
+        dispatch_result = await self._dispatch_command(session, command, result)
+        created_task_id = (
+            dispatch_result.get("task_id")
+            if isinstance(dispatch_result, dict)
+            else (dispatch_result if isinstance(dispatch_result, str) else None)
+        )
+        run_data = (
+            dispatch_result.get("run") if isinstance(dispatch_result, dict) else None
+        )
         if command_type == GenerationCommandType.REDRAFT_OUTLINE.value:
             await self._schedule_outline_draft_task(
                 session_id=session.id,
@@ -74,11 +86,23 @@ class SessionCommandMixin:
             session_id=session_id,
             command_type=command_type,
             created_task_id=created_task_id,
+            run_data=run_data,
             result=result,
             warnings=warnings,
             contract_version=self.CONTRACT_VERSION,
             schema_version=self.SCHEMA_VERSION,
         )
+
+        if run_data and command_type != GenerationCommandType.SET_SESSION_TITLE.value:
+            spawn_background_task(
+                generate_semantic_run_title(
+                    db=self._db,
+                    run_id=run_data["run_id"],
+                    tool_type=run_data["tool_type"],
+                    snapshot=command,
+                ),
+                label=f"run-title:{run_data['run_id']}",
+            )
 
         await save_cached_command_response(
             db=self._db,
@@ -95,7 +119,7 @@ class SessionCommandMixin:
         session,
         command: dict,
         result: TransitionResult,
-    ) -> Optional[str]:
+    ) -> Optional[dict]:
         return await dispatch_command(
             db=self._db,
             session=session,

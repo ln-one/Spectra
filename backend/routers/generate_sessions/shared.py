@@ -72,6 +72,20 @@ def validate_command_payload(command: dict):
             command.get("expected_render_version"),
             "expected_render_version",
         )
+    if command_type == GenerationCommandType.SET_SESSION_TITLE.value:
+        display_title = str(command.get("display_title") or "").strip()
+        if not display_title:
+            raise APIException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="command.display_title is required",
+            )
+        if len(display_title) > 120:
+            raise APIException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="command.display_title must be at most 120 characters",
+            )
 
 
 async def load_session_snapshot_or_raise(

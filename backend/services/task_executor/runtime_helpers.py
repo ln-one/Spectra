@@ -15,11 +15,28 @@ from schemas.generation import (
     requires_docx_output,
     requires_pptx_output,
 )
+from services.generation_session_service.session_history import (
+    RUN_STATUS_COMPLETED,
+    RUN_STEP_COMPLETED,
+    update_session_run,
+)
 from services.platform.state_transition_guard import GenerationState
 
 from .constants import TaskFailureStateReason
 
 logger = logging.getLogger(__name__)
+
+
+def _run_context_payload(context) -> dict:
+    run_id = getattr(context, "run_id", None)
+    if not run_id:
+        return {}
+    return {
+        "run_id": run_id,
+        "run_no": getattr(context, "run_no", None),
+        "run_title": getattr(context, "run_title", None),
+        "tool_type": getattr(context, "tool_type", None),
+    }
 
 
 def build_project_space_download_url(
@@ -166,6 +183,7 @@ async def persist_generation_artifacts(
     base_version_id = getattr(session, "baseVersionId", None)
     project_id = getattr(session, "projectId", None) or context.project_id
     output_urls: dict[str, str] = {}
+    run_payload = _run_context_payload(context)
 
     async def _persist_one(
         artifact_type: str,
@@ -187,8 +205,15 @@ async def persist_generation_artifacts(
                     "title": f"{artifact_type.upper()} · {context.task_id[:8]}",
                     "task_id": context.task_id,
                     "is_current": True,
+                    **run_payload,
                 },
             )
+            if run_payload.get("run_id"):
+                await update_session_run(
+                    db=db_service.db,
+                    run_id=run_payload["run_id"],
+                    artifact_id=artifact.id,
+                )
             return artifact_type, build_project_space_download_url(
                 project_id=project_id,
                 artifact_id=artifact.id,
@@ -234,6 +259,14 @@ async def finalize_generation_success(
     )
 
     try:
+        run_payload = _run_context_payload(context)
+        if run_payload.get("run_id"):
+            await update_session_run(
+                db=db_service.db,
+                run_id=run_payload["run_id"],
+                status=RUN_STATUS_COMPLETED,
+                step=RUN_STEP_COMPLETED,
+            )
         await sync_session_terminal_state(
             db_service=db_service,
             task_id=context.task_id,
@@ -241,7 +274,18 @@ async def finalize_generation_success(
             state=GenerationState.SUCCESS.value,
             state_reason=TaskFailureStateReason.COMPLETED.value,
             output_urls=output_urls,
-            payload_extra=payload_extra,
+            payload_extra={
+                **(payload_extra or {}),
+                **(
+                    {
+                        **run_payload,
+                        "run_status": RUN_STATUS_COMPLETED,
+                        "run_step": RUN_STEP_COMPLETED,
+                    }
+                    if run_payload.get("run_id")
+                    else {}
+                ),
+            },
         )
         if context.session_id:
             logger.info(
