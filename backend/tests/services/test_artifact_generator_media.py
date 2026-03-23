@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from services.artifact_generator import media as media_module
 from services.artifact_generator.media import ArtifactMediaMixin
 
 
@@ -82,7 +83,13 @@ async def test_generate_video_raises_clear_error_without_cv2(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     generator = _MediaGenerator(tmp_path)
-    monkeypatch.delitem(__import__("sys").modules, "cv2", raising=False)
+    monkeypatch.setattr(
+        media_module,
+        "render_mp4",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ModuleNotFoundError("No module named 'cv2'")
+        ),
+    )
 
     with pytest.raises(
         RuntimeError,
