@@ -267,16 +267,16 @@ async def process_chat_message(
                 "message": msg_dict,
                 "rag_hit": rag_hit,
                 "suggestions": [
-                    "Refine teaching goals",
-                    "Add key points",
-                    "Start generating courseware",
+                    "细化教学目标",
+                    "补充重点要点",
+                    "开始生成课件",
                 ],
                 "observability": observability_metadata,
                 "session_title_updated": session_title_updated,
                 "session_title": session_title,
                 "session_title_source": session_title_source,
             },
-            message="Message sent successfully",
+            message="消息发送成功",
         )
         if cache_key:
             await db_service.save_idempotency_response(
@@ -301,6 +301,6 @@ async def process_chat_message(
                 }
             )
         raise InternalServerException(
-            message="Failed to send message",
+            message="发送消息失败",
             details=details,
         )

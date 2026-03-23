@@ -188,13 +188,13 @@ async def list_sessions(
                 "page": page,
                 "limit": limit,
             },
-            message="鑾峰彇鐢熸垚浼氳瘽鍒楄〃鎴愬姛",
+            message="获取生成会话列表成功",
         )
     except APIException:
         raise
     except Exception as exc:
         raise APIException(
-            message="鑾峰彇鐢熸垚浼氳瘽鍒楄〃澶辫触",
+            message="获取生成会话列表失败",
             error_code=ErrorCode.INTERNAL_ERROR,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         ) from exc
@@ -207,7 +207,7 @@ async def create_generation_session(
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
-    """鍒涘缓鍙腑鏂€佸彲鎭㈠鐨勮浠剁敓鎴愪細璇濄€?"""
+    """创建可中断、可恢复的课件生成会话。"""
     project_id = body.get("project_id")
     output_type = body.get("output_type")
     bootstrap_only = bool(body.get("bootstrap_only"))
@@ -216,7 +216,7 @@ async def create_generation_session(
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=ErrorCode.INVALID_INPUT,
-            message="project_id 鍜?output_type 涓哄繀濉瓧娈?",
+            message="project_id 和 output_type 为必填字段",
         )
 
     allowed_output_types = {
@@ -228,7 +228,7 @@ async def create_generation_session(
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=ErrorCode.INVALID_INPUT,
-            message=f"output_type 蹇呴』鏄?{sorted(allowed_output_types)} 涔嬩竴",
+            message=f"output_type 必须是 {sorted(allowed_output_types)} 之一",
         )
 
     try:
@@ -287,7 +287,7 @@ async def create_generation_session(
 
     resp = success_response(
         data={"session": session_ref, "run": run_payload},
-        message="浼氳瘽鍒涘缓鎴愬姛",
+        message="会话创建成功",
     )
     if key_str:
         await db_service.save_idempotency_response(cache_key, resp)
@@ -299,18 +299,18 @@ async def get_generation_session(
     session_id: str,
     user_id: str = Depends(get_current_user),
 ):
-    """鏌ヨ鐢熸垚浼氳瘽瀹屾暣蹇収銆?"""
+    """查询生成会话完整快照。"""
     svc = get_session_service()
     payload = await load_session_snapshot_or_raise(svc, session_id, user_id)
 
-    return success_response(data=payload, message="鏌ヨ鎴愬姛")
+    return success_response(data=payload, message="查询成功")
 
 
 @router.get("/sessions/{session_id}/events")
 async def get_session_events(
     request: Request,
     session_id: str,
-    cursor: Optional[str] = Query(None, description="鏂嚎缁紶娓告爣"),
+    cursor: Optional[str] = Query(None, description="断线续传游标"),
     accept: Optional[str] = Query(None),
     accept_header: Optional[str] = Header(None, alias="Accept"),
     token: Optional[str] = Query(
@@ -318,14 +318,14 @@ async def get_session_events(
     ),
     user_id: Optional[str] = Depends(get_current_user_optional),
 ):
-    """鑾峰彇鐢熸垚浜嬩欢娴侊紝鏀寔 SSE 鎴栫煭杞銆?"""
+    """获取生成事件流，支持 SSE 或短轮询。"""
     if not user_id:
         if token:
             from services.auth_service import auth_service
 
             user_id = auth_service.verify_token(token)
         if not user_id:
-            raise UnauthorizedException(message="缂哄皯璁よ瘉淇℃伅")
+            raise UnauthorizedException(message="缺少认证信息")
     svc = get_session_service()
 
     await load_session_runtime_or_raise(svc, session_id, user_id)
@@ -337,7 +337,7 @@ async def get_session_events(
 
     if mode == _EVENTS_ACCEPT_JSON:
         events = await svc.get_events(session_id, user_id, cursor=cursor)
-        return success_response(data={"events": events}, message="鑾峰彇浜嬩欢鎴愬姛")
+        return success_response(data={"events": events}, message="获取事件成功")
 
     async def sse_generator():
         last_cursor = cursor
