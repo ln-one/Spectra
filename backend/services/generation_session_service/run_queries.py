@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 from typing import Any
@@ -20,7 +20,9 @@ _OUTPUT_TOOL_TYPE_MAP = {
 
 
 def resolve_output_tool_type(output_type: str) -> str:
-    return _OUTPUT_TOOL_TYPE_MAP.get(str(output_type or "").strip().lower(), "both_generate")
+    return _OUTPUT_TOOL_TYPE_MAP.get(
+        str(output_type or "").strip().lower(), "both_generate"
+    )
 
 
 def _supports_session_run(db: Any) -> bool:
@@ -36,6 +38,21 @@ async def get_session_run(db, session_id: str, run_id: str) -> Any | None:
     if getattr(run, "sessionId", None) != session_id:
         return None
     return run
+
+
+async def get_latest_active_session_run(
+    db,
+    session_id: str,
+) -> Any | None:
+    if not _supports_session_run(db):
+        return None
+    return await db.sessionrun.find_first(
+        where={
+            "sessionId": session_id,
+            "status": {"in": [RUN_STATUS_PENDING, RUN_STATUS_PROCESSING]},
+        },
+        order={"updatedAt": "desc"},
+    )
 
 
 async def get_latest_active_session_run_by_tool(

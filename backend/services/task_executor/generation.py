@@ -8,6 +8,13 @@ from typing import Optional
 
 from schemas.generation import TaskStatus, normalize_generation_type
 
+from services.generation_session_service.session_history import (
+    RUN_STATUS_PROCESSING,
+    RUN_STEP_GENERATE,
+    update_session_run,
+)
+
+
 from .common import RETRYABLE_ERRORS, run_async_entrypoint
 from .generation_error_handling import (
     handle_permanent_error,
@@ -112,6 +119,14 @@ async def execute_generation_task(
                 context.run_no = parsed_input.get("run_no")
                 context.run_title = parsed_input.get("run_title")
                 context.tool_type = parsed_input.get("tool_type")
+
+        if context.run_id:
+            await update_session_run(
+                db=db_service.db,
+                run_id=context.run_id,
+                status=RUN_STATUS_PROCESSING,
+                step=RUN_STEP_GENERATE,
+            )
 
         ai_started_at = time.perf_counter()
         courseware_content = await build_generation_inputs(db_service, context)

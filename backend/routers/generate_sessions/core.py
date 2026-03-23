@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import json
@@ -131,7 +131,9 @@ async def _ensure_no_active_run_conflict(
             "run_status": (
                 run_data.get("run_status") if isinstance(run_data, dict) else None
             ),
-            "run_step": run_data.get("run_step") if isinstance(run_data, dict) else None,
+            "run_step": (
+                run_data.get("run_step") if isinstance(run_data, dict) else None
+            ),
             "tool_type": tool_type,
         },
     )
@@ -295,11 +297,14 @@ async def create_generation_session(
 @router.get("/sessions/{session_id}")
 async def get_generation_session(
     session_id: str,
+    run_id: Optional[str] = Query(None, description="Run ID for run-scoped snapshot"),
     user_id: str = Depends(get_current_user),
 ):
     """鏌ヨ鐢熸垚浼氳瘽瀹屾暣蹇収銆?"""
     svc = get_session_service()
-    payload = await load_session_snapshot_or_raise(svc, session_id, user_id)
+    payload = await load_session_snapshot_or_raise(
+        svc, session_id, user_id, run_id=run_id
+    )
 
     return success_response(data=payload, message="鏌ヨ鎴愬姛")
 
@@ -374,5 +379,3 @@ async def get_session_events(
             "X-Accel-Buffering": "no",
         },
     )
-
-

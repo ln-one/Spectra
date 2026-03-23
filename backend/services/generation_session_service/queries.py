@@ -50,7 +50,68 @@ def _parse_json_array(raw: object) -> list[dict]:
     return [item for item in parsed if isinstance(item, dict)]
 
 
-async def _load_latest_outline(db, session) -> Optional[dict]:
+async def _load_outline_by_version(db, session_id: str, version: int) -> Optional[dict]:
+    outline_model = getattr(db, "outlineversion", None)
+    if outline_model is None or not hasattr(outline_model, "find_first"):
+        return None
+
+    record = await outline_model.find_first(
+        where={"sessionId": session_id, "version": version},
+    )
+    if not record:
+        return None
+
+    parsed = _parse_json_object(getattr(record, "outlineData", None))
+    if parsed is not None:
+        parsed["version"] = getattr(record, "version", parsed.get("version", version))
+    return parsed
+
+
+async def _resolve_outline_version_by_run(
+    db, session_id: str, run_id: str
+) -> Optional[int]:
+    task_model = getattr(db, "generationtask", None)
+    if task_model is None or not hasattr(task_model, "find_many"):
+        return None
+
+    tasks = await task_model.find_many(
+        where={"sessionId": session_id},
+        order={"createdAt": "desc"},
+        take=100,
+    )
+
+    for task in tasks:
+        parsed = _parse_json_object(getattr(task, "inputData", None))
+        if not parsed:
+            continue
+        if str(parsed.get("run_id") or "") != run_id:
+            continue
+        version = parsed.get("outline_version")
+        if isinstance(version, bool):
+            continue
+        try:
+            parsed_version = int(version)
+        except (TypeError, ValueError):
+            continue
+        if parsed_version >= 1:
+            return parsed_version
+    return None
+
+
+async def _load_latest_outline(
+    db, session, run_id: Optional[str] = None
+) -> Optional[dict]:
+    if run_id:
+        run_outline_version = await _resolve_outline_version_by_run(
+            db, session.id, run_id
+        )
+        if run_outline_version is not None:
+            run_outline = await _load_outline_by_version(
+                db, session.id, run_outline_version
+            )
+            if run_outline is not None:
+                return run_outline
+
     relation_versions = getattr(session, "outlineVersions", None)
     if relation_versions:
         latest = max(relation_versions, key=lambda v: v.version)
@@ -100,6 +161,7 @@ async def get_session_snapshot(
     user_id: str,
     contract_version: str,
     schema_version: int,
+    run_id: Optional[str] = None,
 ) -> dict:
     session = await get_owned_session(
         db=db,
@@ -114,7 +176,7 @@ async def get_session_snapshot(
         latest_candidate_change,
         current_run,
     ) = await asyncio.gather(
-        _load_latest_outline(db, session),
+        _load_latest_outline(db, session, run_id),
         _load_latest_task_id(db, session),
         get_session_artifact_history(
             db=db,
