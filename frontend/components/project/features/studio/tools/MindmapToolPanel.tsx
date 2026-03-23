@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ragApi } from "@/lib/sdk";
 import { useProjectStore } from "@/stores/projectStore";
@@ -14,14 +14,8 @@ import {
 import { ConfigStep } from "./mindmap/ConfigStep";
 import { GenerateStep } from "./mindmap/GenerateStep";
 import { PreviewStep } from "./mindmap/PreviewStep";
-import {
-  countNodes,
-  createBaseTree,
-  findNodeById,
-  findNodePath,
-  injectChildren,
-} from "./mindmap/tree-utils";
-import type { MindNode, MindmapFocus, MindmapStep } from "./mindmap/types";
+import { createBaseTree } from "./mindmap/tree-utils";
+import type { MindmapFocus, MindmapStep } from "./mindmap/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 function extractKeywords(input: string): string[] {
@@ -60,13 +54,8 @@ export function MindmapToolPanel({
   const [targetAudience, setTargetAudience] = useState("高一");
   const [selectedId, setSelectedId] = useState("root");
   const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
-  const [isTopicSuggestionsLoading, setIsTopicSuggestionsLoading] =
-    useState(false);
-  const [isTopicDirty, setIsTopicDirty] = useState(false);
-  const [tree, setTree] = useState<MindNode>(() =>
-    createBaseTree("课程主题", focus, 3)
-  );
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isTopicSuggestionsLoading, setIsTopicSuggestionsLoading] = useState(false);
+  const [isTopicDirty, setIsTopicDirty] = useState(false);  const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
   const topicRef = useRef(topic);
@@ -159,21 +148,13 @@ export function MindmapToolPanel({
     };
   }, [files, project?.id, project?.name, selectedFileIds]);
 
-  const selectedNodePath = useMemo(
-    () => findNodePath(tree, selectedId).join(" > "),
-    [selectedId, tree]
-  );
-
   useEffect(() => {
     onDraftChange?.({
       topic,
       depth: Number(depth),
       focus,
-      focus_scope: flowContext?.selectedSourceId
-        ? "current_session"
-        : "full_project",
+      focus_scope: flowContext?.selectedSourceId ? "current_session" : "full_project",
       target_audience: targetAudience,
-      selected_node_path: selectedNodePath,
       selected_id: selectedId,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
@@ -183,16 +164,10 @@ export function MindmapToolPanel({
     focus,
     onDraftChange,
     selectedId,
-    selectedNodePath,
     targetAudience,
     topic,
   ]);
 
-  const totalNodeCount = useMemo(() => countNodes(tree), [tree]);
-  const selectedNodeLabel = useMemo(
-    () => findNodeById(tree, selectedId)?.label ?? "未选择",
-    [selectedId, tree]
-  );
   const focusLabel =
     FOCUS_OPTIONS.find((item) => item.value === focus)?.label ?? "概念关系";
 
@@ -236,11 +211,9 @@ export function MindmapToolPanel({
         <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台{" "}
-              </h3>
+              <h3 className="text-sm font-semibold text-zinc-900">{toolName}三步工作台</h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                用三步完成导图制作：先设置，再生成，最后在面板里看结果并细化。{" "}
+                配置页优先读取知识库推荐，预览页只显示后端返回的真实导图结构。
               </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
@@ -266,9 +239,7 @@ export function MindmapToolPanel({
                   layout="inline"
                   currentStep={activeStep}
                   steps={MINDMAP_STEPS}
-                  onStepChange={(stepId) =>
-                    setActiveStep(stepId as MindmapStep)
-                  }
+                  onStepChange={(stepId) => setActiveStep(stepId as MindmapStep)}
                   title="思维导图流程"
                   subtitle="Workflow"
                 />
@@ -308,17 +279,10 @@ export function MindmapToolPanel({
 
               {activeStep === "preview" ? (
                 <PreviewStep
-                  tree={tree}
                   selectedId={selectedId}
-                  selectedNodeLabel={selectedNodeLabel}
-                  totalNodeCount={totalNodeCount}
                   lastGeneratedAt={lastGeneratedAt}
                   flowContext={flowContext}
                   onSelectNode={setSelectedId}
-                  onRegenerate={() => setActiveStep("generate")}
-                  onInjectChildren={() =>
-                    setTree((prev) => injectChildren(prev, selectedId))
-                  }
                 />
               ) : null}
             </div>

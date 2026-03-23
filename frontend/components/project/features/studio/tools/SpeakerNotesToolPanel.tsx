@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { WorkflowStepper } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
+import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { ConfigStep } from "./speaker-notes/ConfigStep";
 import {
   getReadinessLabel,
@@ -11,12 +12,7 @@ import {
 } from "./speaker-notes/constants";
 import { GenerateStep } from "./speaker-notes/GenerateStep";
 import { PreviewStep } from "./speaker-notes/PreviewStep";
-import { buildSlideScripts } from "./speaker-notes/templates";
-import type {
-  SlideScriptItem,
-  SpeakerNotesStep,
-  SpeechTone,
-} from "./speaker-notes/types";
+import type { SpeakerNotesStep, SpeechTone } from "./speaker-notes/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 export function SpeakerNotesToolPanel({
@@ -26,19 +22,13 @@ export function SpeakerNotesToolPanel({
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<SpeakerNotesStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
+
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
-  const [topic, setTopic] = useState("函数单调性公开课说课");
+  const [topic, setTopic] = useState("");
   const [tone, setTone] = useState<SpeechTone>("professional");
   const [emphasizeInteraction, setEmphasizeInteraction] = useState(true);
-  const [scripts, setScripts] = useState<SlideScriptItem[]>(() =>
-    buildSlideScripts({
-      topic: "函数单调性公开课说课",
-      tone: "professional",
-      emphasizeInteraction: true,
-    })
-  );
+  const [speakerGoal, setSpeakerGoal] = useState("");
   const [activePage, setActivePage] = useState(1);
-  const [highlightTransition, setHighlightTransition] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
@@ -48,6 +38,12 @@ export function SpeakerNotesToolPanel({
   );
   const selectedSourceId = flowContext?.selectedSourceId;
   const onSelectedSourceChange = flowContext?.onSelectedSourceChange;
+
+  const { suggestions, summary, isLoading } = useStudioRagRecommendations({
+    query:
+      "为当前项目推荐适合生成说课讲稿的课件主题、说课目标、教学亮点和师生互动重点",
+    fallbackSuggestions: ["核心概念梳理", "重难点突破", "课堂互动设计"],
+  });
 
   useEffect(() => {
     if (selectedDeckId) return;
@@ -62,6 +58,18 @@ export function SpeakerNotesToolPanel({
     }
   }, [onSelectedSourceChange, selectedDeckId, selectedSourceId, sourceOptions]);
 
+  useEffect(() => {
+    if (!topic.trim() && suggestions[0]) {
+      setTopic(suggestions[0]);
+    }
+  }, [suggestions, topic]);
+
+  useEffect(() => {
+    if (!speakerGoal.trim() && summary) {
+      setSpeakerGoal(summary);
+    }
+  }, [speakerGoal, summary]);
+
   const selectedDeckTitle = useMemo(
     () => sourceOptions.find((item) => item.id === selectedDeckId)?.title ?? "",
     [selectedDeckId, sourceOptions]
@@ -74,37 +82,29 @@ export function SpeakerNotesToolPanel({
       topic,
       tone,
       emphasize_interaction: emphasizeInteraction,
+      speaker_goal: speakerGoal,
       active_page: activePage,
-      highlight_transition: highlightTransition,
     });
   }, [
     activePage,
     emphasizeInteraction,
-    highlightTransition,
     onDraftChange,
     selectedDeckId,
+    speakerGoal,
     tone,
     topic,
   ]);
 
   const handleGenerate = async () => {
-    const nextScripts = buildSlideScripts({
-      topic,
-      tone,
-      emphasizeInteraction,
-    });
-    setScripts(nextScripts);
-    setActivePage(nextScripts[0]?.page ?? 1);
-    setHighlightTransition(false);
+    setActivePage(1);
+    setActiveStep("preview");
 
     if (!flowContext?.onExecute) {
       setLastGeneratedAt(new Date().toISOString());
-      setActiveStep("preview");
       return;
     }
 
     setIsGenerating(true);
-    setActiveStep("preview");
     try {
       const executed = await flowContext.onExecute();
       if (!executed) {
@@ -123,11 +123,9 @@ export function SpeakerNotesToolPanel({
         <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台{" "}
-              </h3>
+              <h3 className="text-sm font-semibold text-zinc-900">{toolName}三步工作台</h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先选课件，再生成逐页讲稿，最后在提词器视图里查看和微调。{" "}
+                配置页优先读取知识库推荐，预览页只显示后端返回的真实逐页讲稿。
               </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
@@ -137,16 +135,14 @@ export function SpeakerNotesToolPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="grid h-full min-h-0 gap-3 grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]">
+          <div className="grid h-full min-h-0 grid-cols-1 gap-3 lg:grid-cols-[176px_minmax(0,1fr)]">
             <WorkflowStepper
               className="hidden h-full min-h-0 overflow-y-auto lg:block"
               layout="rail"
               currentStep={activeStep}
               steps={SPEAKER_NOTES_STEPS}
-              onStepChange={(stepId) =>
-                setActiveStep(stepId as SpeakerNotesStep)
-              }
-              title="说课助手流程"
+              onStepChange={(stepId) => setActiveStep(stepId as SpeakerNotesStep)}
+              title="说课讲稿流程"
               subtitle="Workflow"
             />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -155,10 +151,8 @@ export function SpeakerNotesToolPanel({
                   layout="inline"
                   currentStep={activeStep}
                   steps={SPEAKER_NOTES_STEPS}
-                  onStepChange={(stepId) =>
-                    setActiveStep(stepId as SpeakerNotesStep)
-                  }
-                  title="说课助手流程"
+                  onStepChange={(stepId) => setActiveStep(stepId as SpeakerNotesStep)}
+                  title="说课讲稿流程"
                   subtitle="Workflow"
                 />
               </div>
@@ -167,10 +161,15 @@ export function SpeakerNotesToolPanel({
                   topic={topic}
                   tone={tone}
                   emphasizeInteraction={emphasizeInteraction}
+                  speakerGoal={speakerGoal}
+                  topicSuggestions={suggestions}
+                  goalSuggestion={summary}
+                  isRecommendationsLoading={isLoading}
                   selectedDeckId={selectedDeckId}
                   sourceOptions={sourceOptions}
                   onTopicChange={setTopic}
                   onToneChange={setTone}
+                  onSpeakerGoalChange={setSpeakerGoal}
                   onToggleInteraction={() =>
                     setEmphasizeInteraction((prev) => !prev)
                   }
@@ -193,6 +192,7 @@ export function SpeakerNotesToolPanel({
                   topic={topic}
                   toneLabel={toneLabel}
                   emphasizeInteraction={emphasizeInteraction}
+                  speakerGoal={speakerGoal}
                   flowContext={flowContext}
                   isGenerating={isGenerating}
                   onBack={() => setActiveStep("config")}
@@ -202,16 +202,11 @@ export function SpeakerNotesToolPanel({
 
               {activeStep === "preview" ? (
                 <PreviewStep
-                  scripts={scripts}
                   activePage={activePage}
                   lastGeneratedAt={lastGeneratedAt}
-                  highlightTransition={highlightTransition}
+                  highlightTransition={false}
                   flowContext={flowContext}
-                  onRegenerate={() => setActiveStep("generate")}
                   onSelectPage={setActivePage}
-                  onToggleHighlight={() =>
-                    setHighlightTransition((prev) => !prev)
-                  }
                 />
               ) : null}
             </div>
@@ -221,5 +216,3 @@ export function SpeakerNotesToolPanel({
     </div>
   );
 }
-
-

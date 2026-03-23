@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+﻿import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -23,6 +23,9 @@ import type {
 interface GenerateStepProps {
   topic: string;
   goal: string;
+  teachingContext: string;
+  studentNeeds: string;
+  outputRequirements: string;
   documentVariant: WordDocumentVariant;
   teachingModel: WordTeachingModel;
   gradeBand: WordGradeBand;
@@ -36,6 +39,9 @@ interface GenerateStepProps {
 export function GenerateStep({
   topic,
   goal,
+  teachingContext,
+  studentNeeds,
+  outputRequirements,
   documentVariant,
   teachingModel,
   gradeBand,
@@ -49,28 +55,37 @@ export function GenerateStep({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-3">
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <p className="text-xs font-semibold text-zinc-800">生成前确认</p>
-        <div className="mt-2 grid grid-cols-1 gap-2 text-[11px] text-zinc-600 sm:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-zinc-600 sm:grid-cols-2">
           <p>文档类型：{getVariantLabel(documentVariant)}</p>
           <p>适用学段：{getGradeBandLabel(gradeBand)}</p>
           {documentVariant === "layered_lesson_plan" ? (
-            <p>教学模式：{getTeachingModelLabel(teachingModel)}</p>
+            <p>教学模型：{getTeachingModelLabel(teachingModel)}</p>
           ) : null}
           {documentVariant === "layered_lesson_plan" ? (
             <p>分层档位：{difficultyLayer} 层</p>
           ) : null}
-          <p className="sm:col-span-2">课题：{topic}</p>
-          <p className="sm:col-span-2">目标：{goal}</p>
+          <p className="sm:col-span-2">课题主题：{topic}</p>
+          <p className="sm:col-span-2">学习目标：{goal}</p>
+          {teachingContext ? (
+            <p className="sm:col-span-2">教学场景：{teachingContext}</p>
+          ) : null}
+          {studentNeeds ? (
+            <p className="sm:col-span-2">学生画像：{studentNeeds}</p>
+          ) : null}
+          {outputRequirements ? (
+            <p className="sm:col-span-2">输出要求：{outputRequirements}</p>
+          ) : null}
         </div>
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-3">
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-xs font-semibold text-zinc-800">参考已有成果</p>
+            <p className="text-xs font-semibold text-zinc-800">绑定参考成果</p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              可选：绑定一个已有成果，让文档更贴近你当前项目。
+              可选：绑定已有成果后，生成内容会更贴近当前项目上下文。
             </p>
           </div>
           <Button
@@ -79,9 +94,7 @@ export function GenerateStep({
             size="sm"
             className="h-8 text-xs"
             onClick={() => void flowContext?.onLoadSources?.()}
-            disabled={
-              flowContext?.isLoadingProtocol || flowContext?.isActionRunning
-            }
+            disabled={flowContext?.isLoadingProtocol || flowContext?.isActionRunning}
           >
             {flowContext?.isActionRunning ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -114,16 +127,10 @@ export function GenerateStep({
           </div>
         ) : (
           <p className="mt-3 text-[11px] text-zinc-500">
-            当前还没有可绑定成果，点击上方按钮可以刷新。
+            当前还没有可绑定成果，点击上方按钮即可刷新。
           </p>
         )}
       </section>
-
-      {flowContext?.isProtocolPending ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          当前能力还在准备中，请稍后再试。
-        </div>
-      ) : null}
 
       <div className="flex items-center justify-between gap-2">
         <Button
@@ -157,7 +164,7 @@ export function GenerateStep({
           ) : (
             <>
               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              一键生成文档
+              交给后端生成
             </>
           )}
         </Button>

@@ -7,12 +7,12 @@ import { previewApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { useProjectStore } from "@/stores/projectStore";
 import type { ToolPanelProps } from "./types";
+import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 import { ConfigStep } from "./word/ConfigStep";
 import { getReadinessLabel, WORD_STEPS } from "./word/constants";
 import { GenerateStep } from "./word/GenerateStep";
 import { PreviewStep } from "./word/PreviewStep";
-import { buildWordMarkdown } from "./word/templates";
 import type {
   WordDifficultyLayer,
   WordDocumentVariant,
@@ -42,27 +42,33 @@ export function WordToolPanel({
   const [gradeBand, setGradeBand] = useState<WordGradeBand>("high");
   const [difficultyLayer, setDifficultyLayer] =
     useState<WordDifficultyLayer>("B");
-  const [topic, setTopic] = useState("函数的单调性");
-  const [goal, setGoal] = useState(
-    "帮助学生理解单调区间，并能完成常见例题分析。"
-  );
+  const [topic, setTopic] = useState("");
+  const [goal, setGoal] = useState("");
+  const [teachingContext, setTeachingContext] = useState("");
+  const [studentNeeds, setStudentNeeds] = useState("");
+  const [outputRequirements, setOutputRequirements] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
-  const [backendMarkdown, setBackendMarkdown] = useState<string | null>(null);
+  const [backendMarkdown, setBackendMarkdown] = useState("");
   const [isBackendPreviewLoading, setIsBackendPreviewLoading] = useState(false);
-  const [backendPreviewError, setBackendPreviewError] = useState<string | null>(
-    null
-  );
-  const [previewMarkdown, setPreviewMarkdown] = useState(() =>
-    buildWordMarkdown({
-      topic: "函数的单调性",
-      goal: "帮助学生理解单调区间，并能完成常见例题分析。",
-      documentVariant: "layered_lesson_plan",
-      teachingModel: "scaffolded",
-      gradeBand: "high",
-      difficultyLayer: "B",
-    })
-  );
+  const [backendPreviewError, setBackendPreviewError] = useState<string | null>(null);
+
+  const { suggestions, summary, isLoading } = useStudioRagRecommendations({
+    query: "为当前项目推荐适合生成教学文档的课题主题、学习目标、教学场景和学生难点",
+    fallbackSuggestions: ["当前项目核心主题", "知识重点梳理", "课堂巩固任务"],
+  });
+
+  useEffect(() => {
+    if (!topic.trim() && suggestions[0]) {
+      setTopic(suggestions[0]);
+    }
+  }, [suggestions, topic]);
+
+  useEffect(() => {
+    if (!goal.trim() && summary) {
+      setGoal(summary);
+    }
+  }, [goal, summary]);
 
   useEffect(() => {
     onDraftChange?.({
@@ -72,6 +78,9 @@ export function WordToolPanel({
       grade_band: gradeBand,
       topic,
       learning_goal: goal,
+      teaching_context: teachingContext,
+      student_needs: studentNeeds,
+      output_requirements: outputRequirements,
       difficulty_layer:
         documentVariant === "layered_lesson_plan" ? difficultyLayer : null,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
@@ -83,6 +92,9 @@ export function WordToolPanel({
     goal,
     gradeBand,
     onDraftChange,
+    outputRequirements,
+    studentNeeds,
+    teachingContext,
     teachingModel,
     topic,
   ]);
@@ -105,10 +117,11 @@ export function WordToolPanel({
           include_sources: true,
         });
         if (cancelled) return;
-        setBackendMarkdown(response.data.content || null);
+        setBackendMarkdown(response.data.content || "");
       } catch (error) {
         if (cancelled) return;
         setBackendPreviewError(getErrorMessage(error));
+        setBackendMarkdown("");
       } finally {
         if (!cancelled) {
           setIsBackendPreviewLoading(false);
@@ -128,26 +141,16 @@ export function WordToolPanel({
   ]);
 
   const handleGenerate = async () => {
-    const markdown = buildWordMarkdown({
-      topic: topic.trim(),
-      goal: goal.trim(),
-      documentVariant,
-      teachingModel,
-      gradeBand,
-      difficultyLayer,
-    });
-    setPreviewMarkdown(markdown);
-    setBackendMarkdown(null);
+    setBackendMarkdown("");
     setBackendPreviewError(null);
+    setActiveStep("preview");
 
     if (!flowContext?.onExecute) {
       setLastGeneratedAt(new Date().toISOString());
-      setActiveStep("preview");
       return;
     }
 
     setIsGenerating(true);
-    setActiveStep("preview");
     try {
       const executed = await flowContext.onExecute();
       if (!executed) {
@@ -170,7 +173,7 @@ export function WordToolPanel({
                 {toolName}三步工作台
               </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先配置，再生成，最后在当前面板里查看真实文档内容并继续微调。
+                配置页会优先读取当前知识库推荐，预览页只展示后端真实文档结果。
               </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
@@ -180,7 +183,7 @@ export function WordToolPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="grid h-full min-h-0 gap-3 grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]">
+          <div className="grid h-full min-h-0 grid-cols-1 gap-3 lg:grid-cols-[176px_minmax(0,1fr)]">
             <WorkflowStepper
               className="hidden h-full min-h-0 overflow-y-auto lg:block"
               layout="rail"
@@ -209,12 +212,21 @@ export function WordToolPanel({
                   difficultyLayer={difficultyLayer}
                   topic={topic}
                   goal={goal}
+                  teachingContext={teachingContext}
+                  studentNeeds={studentNeeds}
+                  outputRequirements={outputRequirements}
+                  topicSuggestions={suggestions}
+                  goalSuggestion={summary}
+                  isRecommendationsLoading={isLoading}
                   onDocumentVariantChange={setDocumentVariant}
                   onTeachingModelChange={setTeachingModel}
                   onGradeBandChange={setGradeBand}
                   onDifficultyLayerChange={setDifficultyLayer}
                   onTopicChange={setTopic}
                   onGoalChange={setGoal}
+                  onTeachingContextChange={setTeachingContext}
+                  onStudentNeedsChange={setStudentNeeds}
+                  onOutputRequirementsChange={setOutputRequirements}
                   onNext={() => setActiveStep("generate")}
                 />
               ) : null}
@@ -223,6 +235,9 @@ export function WordToolPanel({
                 <GenerateStep
                   topic={topic}
                   goal={goal}
+                  teachingContext={teachingContext}
+                  studentNeeds={studentNeeds}
+                  outputRequirements={outputRequirements}
                   documentVariant={documentVariant}
                   teachingModel={teachingModel}
                   gradeBand={gradeBand}
@@ -236,13 +251,12 @@ export function WordToolPanel({
 
               {activeStep === "preview" ? (
                 <PreviewStep
-                  markdown={backendMarkdown || previewMarkdown}
+                  markdown={backendMarkdown}
                   isGenerating={isGenerating}
                   lastGeneratedAt={lastGeneratedAt}
                   flowContext={flowContext}
                   isBackendPreviewLoading={isBackendPreviewLoading}
                   backendPreviewError={backendPreviewError}
-                  onRegenerate={() => setActiveStep("generate")}
                 />
               ) : null}
             </div>

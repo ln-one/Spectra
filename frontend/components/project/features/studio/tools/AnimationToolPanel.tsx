@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { WorkflowStepper } from "@/components/project/shared";
 import type { ToolPanelProps } from "./types";
 import {
@@ -11,11 +11,8 @@ import {
 import { ConfigStep } from "./animation/ConfigStep";
 import { GenerateStep } from "./animation/GenerateStep";
 import { PreviewStep } from "./animation/PreviewStep";
-import {
-  buildAnimationCode,
-  buildAnimationDescription,
-} from "./animation/templates";
 import type { AnimationScene, AnimationStep } from "./animation/types";
+import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 export function AnimationToolPanel({
@@ -25,14 +22,24 @@ export function AnimationToolPanel({
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<AnimationStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
-  const [topic, setTopic] = useState("冒泡排序每轮交换过程");
+  const [topic, setTopic] = useState("");
   const [scene, setScene] = useState<AnimationScene>("bubble_sort");
   const [speed, setSpeed] = useState(50);
   const [showTrail, setShowTrail] = useState(true);
-  const [splitView, setSplitView] = useState(true);
-  const [lineColor, setLineColor] = useState("#16a34a");
+  const [splitView, setSplitView] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+
+  const { suggestions, isLoading } = useStudioRagRecommendations({
+    query: "为当前项目推荐适合演示动画的动态过程、抽象关系和可视化重点",
+    fallbackSuggestions: ["关键过程演示", "动态变化规律", "抽象机制可视化"],
+  });
+
+  useEffect(() => {
+    if (!topic.trim() && suggestions[0]) {
+      setTopic(suggestions[0]);
+    }
+  }, [suggestions, topic]);
 
   useEffect(() => {
     onDraftChange?.({
@@ -41,12 +48,10 @@ export function AnimationToolPanel({
       speed,
       show_trail: showTrail,
       split_view: splitView,
-      line_color: lineColor,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [
     flowContext?.selectedSourceId,
-    lineColor,
     onDraftChange,
     scene,
     showTrail,
@@ -56,30 +61,17 @@ export function AnimationToolPanel({
   ]);
 
   const sceneLabel =
-    ANIMATION_SCENE_OPTIONS.find((item) => item.value === scene)?.label ??
-    "粒子运动演示";
-  const codeText = useMemo(
-    () =>
-      buildAnimationCode({
-        topic,
-        scene,
-        speed,
-        showTrail,
-        lineColor,
-      }),
-    [lineColor, scene, showTrail, speed, topic]
-  );
-  const description = useMemo(() => buildAnimationDescription(scene), [scene]);
+    ANIMATION_SCENE_OPTIONS.find((item) => item.value === scene)?.label ?? "演示动画";
 
   const handleGenerate = async () => {
+    setActiveStep("preview");
+
     if (!flowContext?.onExecute) {
       setLastGeneratedAt(new Date().toISOString());
-      setActiveStep("preview");
       return;
     }
 
     setIsGenerating(true);
-    setActiveStep("preview");
     try {
       const executed = await flowContext.onExecute();
       if (!executed) {
@@ -98,11 +90,9 @@ export function AnimationToolPanel({
         <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台{" "}
-              </h3>
+              <h3 className="text-sm font-semibold text-zinc-900">{toolName}三步工作台</h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先配置动画参数，再生成，最后在代码区和演示区联动预览。{" "}
+                配置页优先使用 RAG 推荐，预览页只显示后端真实动画结果。
               </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
@@ -112,7 +102,7 @@ export function AnimationToolPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="grid h-full min-h-0 gap-3 grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]">
+          <div className="grid h-full min-h-0 grid-cols-1 gap-3 lg:grid-cols-[176px_minmax(0,1fr)]">
             <WorkflowStepper
               className="hidden h-full min-h-0 overflow-y-auto lg:block"
               layout="rail"
@@ -140,6 +130,8 @@ export function AnimationToolPanel({
                   speed={speed}
                   showTrail={showTrail}
                   splitView={splitView}
+                  topicSuggestions={suggestions}
+                  isRecommendationsLoading={isLoading}
                   onTopicChange={setTopic}
                   onSceneChange={setScene}
                   onSpeedChange={setSpeed}
@@ -164,28 +156,7 @@ export function AnimationToolPanel({
               ) : null}
 
               {activeStep === "preview" ? (
-                <PreviewStep
-                  codeText={codeText}
-                  description={description}
-                  speed={speed}
-                  showTrail={showTrail}
-                  splitView={splitView}
-                  lineColor={lineColor}
-                  lastGeneratedAt={lastGeneratedAt}
-                  flowContext={flowContext}
-                  onRegenerate={() => setActiveStep("generate")}
-                  onSpeedChange={setSpeed}
-                  onShowTrailChange={setShowTrail}
-                  onSplitViewChange={setSplitView}
-                  onLineColorChange={setLineColor}
-                  onQuickHalfSpeed={() =>
-                    setSpeed((prev) => Math.max(10, Math.floor(prev / 2)))
-                  }
-                  onQuickRedTrail={() => {
-                    setShowTrail(true);
-                    setLineColor("#dc2626");
-                  }}
-                />
+                <PreviewStep lastGeneratedAt={lastGeneratedAt} flowContext={flowContext} />
               ) : null}
             </div>
           </div>
@@ -194,5 +165,3 @@ export function AnimationToolPanel({
     </div>
   );
 }
-
-

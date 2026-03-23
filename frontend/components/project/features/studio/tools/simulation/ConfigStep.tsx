@@ -1,3 +1,4 @@
+import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { STUDENT_PROFILES } from "./constants";
 import type { StudentProfile } from "./types";
 
@@ -16,11 +18,14 @@ interface ConfigStepProps {
   topic: string;
   intensity: number;
   profile: StudentProfile;
-  includeStrategyPanel: boolean;
+  teacherStrategy: string;
+  topicSuggestions: string[];
+  strategySuggestion: string;
+  isRecommendationsLoading: boolean;
   onTopicChange: (value: string) => void;
   onIntensityChange: (value: number) => void;
   onProfileChange: (value: StudentProfile) => void;
-  onIncludeStrategyPanelChange: (value: boolean) => void;
+  onTeacherStrategyChange: (value: string) => void;
   onNext: () => void;
 }
 
@@ -28,30 +33,58 @@ export function ConfigStep({
   topic,
   intensity,
   profile,
-  includeStrategyPanel,
+  teacherStrategy,
+  topicSuggestions,
+  strategySuggestion,
+  isRecommendationsLoading,
   onTopicChange,
   onIntensityChange,
   onProfileChange,
-  onIncludeStrategyPanelChange,
+  onTeacherStrategyChange,
   onNext,
 }: ConfigStepProps) {
   return (
     <div className="space-y-4">
-      <section className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-white p-3 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">本轮预演主题</Label>
-          <Input
-            value={topic}
-            onChange={(event) => onTopicChange(event.target.value)}
-            placeholder="例如：牛顿第二定律边界条件"
-            className="h-9 text-xs"
-          />
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Label className="text-xs text-zinc-600">预演主题</Label>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              优先使用知识库推荐的真实疑问点与重难点作为问答预演主题。
+            </p>
+          </div>
+          {isRecommendationsLoading ? (
+            <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              正在读取 RAG 推荐
+            </span>
+          ) : null}
         </div>
+        <Input
+          value={topic}
+          onChange={(event) => onTopicChange(event.target.value)}
+          placeholder="例如：实验误差追问、概念辨析、课堂即时纠错"
+          className="mt-3 h-9 text-xs"
+        />
+        {topicSuggestions.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {topicSuggestions.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => onTopicChange(item)}
+                className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
+      <section className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">
-            提问强度：{intensity}%
-          </Label>
+          <Label className="text-xs text-zinc-600">追问强度：{intensity}%</Label>
           <Slider
             value={[intensity]}
             min={20}
@@ -60,12 +93,12 @@ export function ConfigStep({
             onValueChange={(value) => onIntensityChange(value[0] ?? 60)}
           />
           <p className="text-[11px] text-zinc-500">
-            强度越高，虚拟学生越会追问底层逻辑和边界情况。
+            数值越高，后端预演中的追问会越连续、越偏向课堂压力测试。
           </p>
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">学生群像风格</Label>
+          <Label className="text-xs text-zinc-600">学生画像</Label>
           <Select
             value={profile}
             onValueChange={(value) => onProfileChange(value as StudentProfile)}
@@ -82,28 +115,30 @@ export function ConfigStep({
             </SelectContent>
           </Select>
           <p className="text-[11px] text-zinc-500">
-            {
-              STUDENT_PROFILES.find((item) => item.value === profile)
-                ?.description
-            }
+            {STUDENT_PROFILES.find((item) => item.value === profile)?.description}
           </p>
         </div>
+      </section>
 
-        <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">
-            展示“棱镜锦囊”策略面板
-          </Label>
-          <button
-            type="button"
-            onClick={() => onIncludeStrategyPanelChange(!includeStrategyPanel)}
-            className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
-              includeStrategyPanel
-                ? "border-blue-500 bg-blue-50 text-blue-700"
-                : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
-            }`}
-          >
-            {includeStrategyPanel ? "开启" : "关闭"}
-          </button>
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-zinc-600">教师应对策略</Label>
+          <Textarea
+            value={teacherStrategy}
+            onChange={(event) => onTeacherStrategyChange(event.target.value)}
+            placeholder="告诉大模型你希望练习的应对方式，例如先追问再点拨、先肯定再纠偏、用实验现象回扣概念"
+            className="min-h-[96px] text-xs"
+          />
+          {strategySuggestion ? (
+            <button
+              type="button"
+              onClick={() => onTeacherStrategyChange(strategySuggestion)}
+              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              使用 RAG 推荐策略
+            </button>
+          ) : null}
         </div>
       </section>
 
@@ -112,6 +147,7 @@ export function ConfigStep({
           size="sm"
           className="h-9 rounded-lg bg-blue-600 text-xs hover:bg-blue-500"
           onClick={onNext}
+          disabled={!topic.trim()}
         >
           下一步：确认生成
         </Button>

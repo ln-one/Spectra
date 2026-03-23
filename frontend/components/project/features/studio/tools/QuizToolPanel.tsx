@@ -11,14 +11,13 @@ import {
   QUIZ_STEPS,
 } from "./quiz/constants";
 import { GenerateStep } from "./quiz/GenerateStep";
-import { buildQuizCards, isAnswerCorrect } from "./quiz/question-bank";
 import { PreviewStep } from "./quiz/PreviewStep";
 import type {
-  QuizCardItem,
   QuizDifficulty,
   QuizQuestionType,
   QuizStep,
 } from "./quiz/types";
+import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
 function clampNumber(
@@ -39,45 +38,40 @@ export function QuizToolPanel({
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<QuizStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
-  const [scope, setScope] = useState("函数单调性与极值");
+  const [scope, setScope] = useState("");
   const [countInput, setCountInput] = useState("5");
   const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
   const [questionType, setQuestionType] = useState<QuizQuestionType>("single");
   const [styleTags, setStyleTags] = useState<string[]>(["优先考易错点"]);
-  const [cards, setCards] = useState<QuizCardItem[]>(() =>
-    buildQuizCards(5, {
-      scope: "函数单调性与极值",
-      difficulty: "medium",
-      questionType: "single",
-      includeHumor: false,
-    })
-  );
-  const [cursor, setCursor] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+
+  const { suggestions, isLoading } = useStudioRagRecommendations({
+    query: "为当前项目推荐适合随堂小测的重点考查范围、易错点和典型题型",
+    fallbackSuggestions: ["当前项目核心概念", "高频易错点", "关键例题变式"],
+  });
+
+  useEffect(() => {
+    if (!scope.trim() && suggestions[0]) {
+      setScope(suggestions[0]);
+    }
+  }, [scope, suggestions]);
 
   const count = useMemo(() => clampNumber(countInput, 1, 20, 5), [countInput]);
   const difficultyLabel = getDifficultyLabel(difficulty);
   const questionTypeLabel = getQuestionTypeLabel(questionType);
-  const currentQuestion = cards[cursor] ?? cards[0];
 
   useEffect(() => {
-    if (!currentQuestion) return;
     onDraftChange?.({
       scope,
       count,
       difficulty,
       question_type: questionType,
       style_tags: styleTags,
-      question_id: currentQuestion.id,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [
     count,
-    currentQuestion,
     difficulty,
     flowContext?.selectedSourceId,
     onDraftChange,
@@ -92,31 +86,15 @@ export function QuizToolPanel({
     );
   };
 
-  const resetQuestionState = () => {
-    setSelectedAnswers([]);
-    setIsSubmitted(false);
-    setIsCorrect(false);
-  };
-
   const handleGenerate = async () => {
-    const nextCards = buildQuizCards(count, {
-      scope,
-      difficulty,
-      questionType,
-      includeHumor: styleTags.includes("加入幽默干扰项"),
-    });
-    setCards(nextCards);
-    setCursor(0);
-    resetQuestionState();
+    setActiveStep("preview");
 
     if (!flowContext?.onExecute) {
       setLastGeneratedAt(new Date().toISOString());
-      setActiveStep("preview");
       return;
     }
 
     setIsGenerating(true);
-    setActiveStep("preview");
     try {
       const executed = await flowContext.onExecute();
       if (!executed) {
@@ -129,41 +107,15 @@ export function QuizToolPanel({
     }
   };
 
-  const handleToggleOption = (index: number) => {
-    if (isSubmitted) return;
-    if (questionType === "multiple") {
-      setSelectedAnswers((prev) =>
-        prev.includes(index)
-          ? prev.filter((item) => item !== index)
-          : [...prev, index]
-      );
-      return;
-    }
-    setSelectedAnswers([index]);
-  };
-
-  const handleSubmitAnswer = () => {
-    if (!currentQuestion || selectedAnswers.length === 0) return;
-    setIsCorrect(isAnswerCorrect(currentQuestion.answers, selectedAnswers));
-    setIsSubmitted(true);
-  };
-
-  const handleNextQuestion = () => {
-    setCursor((prev) => (prev + 1) % Math.max(1, cards.length));
-    resetQuestionState();
-  };
-
   return (
     <div className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
       <div className="flex h-full min-h-0 flex-col">
         <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台{" "}
-              </h3>
+              <h3 className="text-sm font-semibold text-zinc-900">{toolName}三步工作台</h3>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先配置，再生成，最后在面板里用闯关模式逐题预览和讲解。{" "}
+                配置页优先使用 RAG 推荐，预览页只显示后端真实题目。
               </p>
             </div>
             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
@@ -173,7 +125,7 @@ export function QuizToolPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="grid h-full min-h-0 gap-3 grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]">
+          <div className="grid h-full min-h-0 grid-cols-1 gap-3 lg:grid-cols-[176px_minmax(0,1fr)]">
             <WorkflowStepper
               className="hidden h-full min-h-0 overflow-y-auto lg:block"
               layout="rail"
@@ -201,6 +153,8 @@ export function QuizToolPanel({
                   difficulty={difficulty}
                   questionType={questionType}
                   styleTags={styleTags}
+                  scopeSuggestions={suggestions}
+                  isRecommendationsLoading={isLoading}
                   onScopeChange={setScope}
                   onCountChange={setCountInput}
                   onDifficultyChange={setDifficulty}
@@ -224,23 +178,8 @@ export function QuizToolPanel({
                 />
               ) : null}
 
-              {activeStep === "preview" && currentQuestion ? (
-                <PreviewStep
-                  question={currentQuestion}
-                  questionIndex={cursor}
-                  totalQuestions={cards.length}
-                  questionType={questionType}
-                  selectedAnswers={selectedAnswers}
-                  isSubmitted={isSubmitted}
-                  isCorrect={isCorrect}
-                  lastGeneratedAt={lastGeneratedAt}
-                  flowContext={flowContext}
-                  onRegenerate={() => setActiveStep("generate")}
-                  onToggleOption={handleToggleOption}
-                  onSubmitAnswer={handleSubmitAnswer}
-                  onNextQuestion={handleNextQuestion}
-                  onResetCurrent={resetQuestionState}
-                />
+              {activeStep === "preview" ? (
+                <PreviewStep lastGeneratedAt={lastGeneratedAt} flowContext={flowContext} />
               ) : null}
             </div>
           </div>
@@ -249,5 +188,3 @@ export function QuizToolPanel({
     </div>
   );
 }
-
-

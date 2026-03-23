@@ -1,4 +1,4 @@
-export type WordStep = "config" | "generate" | "preview";
+﻿export type WordStep = "config" | "generate" | "preview";
 
 export type WordDocumentVariant =
   | "layered_lesson_plan"
