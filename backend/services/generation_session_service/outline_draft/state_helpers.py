@@ -48,6 +48,7 @@ async def emit_outline_success(
     trace_id: str,
     outline_version: int,
     stage_timings_ms: Optional[dict] = None,
+    run_id: Optional[str] = None,
 ) -> None:
     await append_event(
         session_id=session_id,
@@ -58,6 +59,7 @@ async def emit_outline_success(
             "version": outline_version,
             "change_reason": OutlineChangeReason.DRAFTED_ASYNC.value,
             "trace_id": trace_id,
+            "run_id": run_id,
             "stage_timings_ms": stage_timings_ms or {},
         },
     )
@@ -66,7 +68,11 @@ async def emit_outline_success(
         event_type=GenerationEventType.STATE_CHANGED.value,
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         state_reason=OutlineGenerationStateReason.DRAFTED_ASYNC.value,
-        payload={"trace_id": trace_id, "stage_timings_ms": stage_timings_ms or {}},
+        payload={
+            "trace_id": trace_id,
+            "run_id": run_id,
+            "stage_timings_ms": stage_timings_ms or {},
+        },
     )
 
 
@@ -111,6 +117,7 @@ async def emit_outline_failure(
     error_code: str,
     error_message: str,
     trace_id: str,
+    run_id: Optional[str] = None,
 ) -> None:
     await append_event(
         session_id=session_id,
@@ -122,6 +129,7 @@ async def emit_outline_failure(
             "error_message": error_message,
             "retryable": True,
             "trace_id": trace_id,
+            "run_id": run_id,
         },
     )
 
@@ -180,6 +188,7 @@ async def emit_outline_failure_state(
     trace_id: str,
     failure_state_reason: str,
     outline_version: int,
+    run_id: Optional[str] = None,
 ) -> None:
     await append_event(
         session_id=session_id,
@@ -189,6 +198,7 @@ async def emit_outline_failure_state(
             "version": outline_version,
             "change_reason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
             "trace_id": trace_id,
+            "run_id": run_id,
         },
     )
     await append_event(
@@ -196,5 +206,5 @@ async def emit_outline_failure_state(
         event_type=GenerationEventType.STATE_CHANGED.value,
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         state_reason=failure_state_reason,
-        payload={"trace_id": trace_id},
+        payload={"trace_id": trace_id, "run_id": run_id},
     )

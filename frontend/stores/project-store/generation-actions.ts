@@ -131,7 +131,11 @@ export function createGenerationActions({
           }));
 
           try {
-            const sessionResponse = await generateApi.getSession(sessionId);
+            const sessionResponse = runId
+              ? await generateApi.getSessionByRun(sessionId, {
+                  run_id: runId,
+                })
+              : await generateApi.getSession(sessionId);
             const latestSessionPayload = sessionResponse?.data ?? null;
             set({
               generationSession: latestSessionPayload,

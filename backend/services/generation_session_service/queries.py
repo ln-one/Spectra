@@ -16,7 +16,9 @@ from services.generation_session_service.session_artifacts import (
     get_latest_session_candidate_change,
     get_session_artifact_history,
 )
+from services.generation_session_service.run_queries import get_session_run
 from services.generation_session_service.session_history import get_latest_session_run
+from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
 
@@ -95,6 +97,32 @@ async def _resolve_outline_version_by_run(
             continue
         if parsed_version >= 1:
             return parsed_version
+    event_model = getattr(db, "sessionevent", None)
+    if event_model is not None and hasattr(event_model, "find_many"):
+        events = await event_model.find_many(
+            where={
+                "sessionId": session_id,
+                "eventType": GenerationEventType.OUTLINE_UPDATED.value,
+            },
+            order={"createdAt": "desc"},
+            take=100,
+        )
+        for event in events:
+            payload = _parse_json_object(getattr(event, "payload", None))
+            if not payload:
+                continue
+            if str(payload.get("run_id") or "") != run_id:
+                continue
+            version = payload.get("version")
+            if isinstance(version, bool):
+                continue
+            try:
+                parsed_version = int(version)
+            except (TypeError, ValueError):
+                continue
+            if parsed_version >= 1:
+                return parsed_version
+
     return None
 
 
@@ -111,6 +139,10 @@ async def _load_latest_outline(
             )
             if run_outline is not None:
                 return run_outline
+        # During drafting, avoid falling back to a previous run's latest outline.
+        session_state = getattr(session, "state", None)
+        if session_state == GenerationState.DRAFTING_OUTLINE.value:
+            return None
 
     relation_versions = getattr(session, "outlineVersions", None)
     if relation_versions:
@@ -188,7 +220,11 @@ async def get_session_snapshot(
             project_id=session.projectId,
             session_id=session.id,
         ),
-        get_latest_session_run(db, session.id),
+        (
+            get_session_run(db, session.id, run_id)
+            if run_id
+            else get_latest_session_run(db, session.id)
+        ),
     )
     fallbacks = _parse_json_array(getattr(session, "fallbacksJson", None))
 
