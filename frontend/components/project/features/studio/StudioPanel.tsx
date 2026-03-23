@@ -806,6 +806,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     ]
   );
 
+
   const handleManagedToolStepChange = useCallback(
     (stepId: string) => {
       if (!expandedTool || expandedTool === "ppt") return;
@@ -825,18 +826,15 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       if (normalizedStep === "preview") {
         pushStudioStageHint(toolType, "preview", activeSessionId);
       }
-      if (step !== "generate" && step !== "preview") return;
-      const runId =
-        getCurrentWorkflowRun(toolType) ||
-        (step === "generate" ? startWorkflowRun(toolType) : null);
+
+      // Step 2 is config confirmation: entering step 2 creates "draft".
+      if (step !== "generate") return;
+      const runId = getCurrentWorkflowRun(toolType) || startWorkflowRun(toolType);
       recordWorkflowEntry({
         toolType,
-        title:
-          step === "generate"
-            ? `${TOOL_LABELS[toolType]}草稿中`
-            : `${TOOL_LABELS[toolType]}预览草稿`,
+        title: TOOL_LABELS[toolType] + " - Draft",
         status: "draft",
-        step,
+        step: "generate",
         sessionId: activeSessionId,
         runId: runId || undefined,
         titleSource: JSON.stringify(currentToolDraft),
@@ -1100,7 +1098,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
             artifactKind: undefined,
             title:
               (artifactPayload.title as string | undefined) ||
-              `${TOOL_LABELS[expandedTool]} ${artifactId.slice(0, 8)}`,
+              TOOL_LABELS[expandedTool as GenerationToolType] + " - Generating",
             status: "processing",
             createdAt:
               (artifactPayload.updated_at as string | undefined) ||
@@ -1266,10 +1264,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     onExecute: async () => {
       if (!expandedTool || expandedTool === "ppt") return false;
       const toolType = expandedTool as GenerationToolType;
-      const flowStep =
-        normalizeHistoryStep(currentStepByTool[toolType]) === "preview"
-          ? "preview"
-          : "generate";
+      const flowStep = "preview";
       const runId = getCurrentWorkflowRun(toolType) ?? startWorkflowRun(toolType);
 
       pushStudioStageHint(toolType, "generate", activeSessionId);
@@ -1277,7 +1272,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 
       recordWorkflowEntry({
         toolType,
-        title: `${TOOL_LABELS[toolType]}生成中`,
+        title: TOOL_LABELS[toolType] + " - Generating",
         status: "processing",
         step: flowStep,
         sessionId: activeSessionId,
@@ -1296,7 +1291,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       } else if (activeSessionId) {
         recordWorkflowEntry({
           toolType,
-          title: `${TOOL_LABELS[toolType]}生成失败`,
+          title: TOOL_LABELS[toolType] + " - Failed",
           status: "failed",
           step: flowStep,
           sessionId: activeSessionId,
@@ -1471,7 +1466,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               trackStep("ppt", "generate");
                               recordWorkflowEntry({
                                 toolType: "ppt",
-                                title: "PPT 大纲生成中",
+                                title: "PPT Outline Generating",
                                 status: "processing",
                                 step: "generate",
                                 sessionId: resolvedSessionId,
@@ -1505,7 +1500,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                             const runId = resolvePptRunId() || undefined;
                             recordWorkflowEntry({
                               toolType: "ppt",
-                              title: "PPT 大纲配置中",
+                              title: "PPT Outline Draft",
                               status: "draft",
                               step: "outline",
                               sessionId:
@@ -1774,16 +1769,3 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 }
 
 export { StudioPanel as StudioExpandedPanel };
-
-
-
-
-
-
-
-
-
-
-
-
-
