@@ -25,7 +25,6 @@ from services.generation_session_service.run_queries import (
     resolve_output_tool_type,
 )
 from services.generation_session_service.session_history import (
-    RUN_STEP_GENERATE,
     serialize_session_run,
 )
 from services.platform.state_transition_guard import GenerationState
@@ -123,12 +122,6 @@ async def _ensure_no_active_run_conflict(
         tool_type,
     )
     if not active_run:
-        return
-
-    active_run_step = str(getattr(active_run, "step", "") or "").strip()
-    if active_run_step and active_run_step != RUN_STEP_GENERATE:
-        # Outline/config runs are draft-stage records and should not block
-        # starting a new PPT workflow run.
         return
 
     run_data = serialize_session_run(active_run)
