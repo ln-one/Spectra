@@ -251,7 +251,7 @@ export function useGenerationConfigPanel({
             if (outlinePollRequestIdRef.current !== requestId) return;
 
             const targetRunId =
-              useProjectStore.getState().activeRunId || initialRunId || null;
+              initialRunId || useProjectStore.getState().activeRunId || null;
             const sessionResponse = await generateApi.getSessionByRun(
               sessionIdFromStore,
               {
@@ -272,9 +272,11 @@ export function useGenerationConfigPanel({
             lastSessionState = state;
 
             if (state === "AWAITING_OUTLINE_CONFIRM") {
-              outlineReady = true;
+              outlineReady = currentPages > 0;
               outlineIncomplete = targetPages > 0 && currentPages < targetPages;
-              break;
+              if (outlineReady) {
+                break;
+              }
             }
 
             if (

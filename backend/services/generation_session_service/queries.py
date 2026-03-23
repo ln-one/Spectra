@@ -19,7 +19,6 @@ from services.generation_session_service.session_artifacts import (
 from services.generation_session_service.run_queries import get_session_run
 from services.generation_session_service.session_history import get_latest_session_run
 from services.platform.generation_event_constants import GenerationEventType
-from services.platform.state_transition_guard import GenerationState
 
 
 def _parse_json_object(raw: object) -> Optional[dict]:
@@ -139,10 +138,9 @@ async def _load_latest_outline(
             )
             if run_outline is not None:
                 return run_outline
-        # During drafting, avoid falling back to a previous run's latest outline.
-        session_state = getattr(session, "state", None)
-        if session_state == GenerationState.DRAFTING_OUTLINE.value:
-            return None
+        # With explicit run scope, never fall back to another run's latest outline.
+        # Returning None here keeps run isolation strict and prevents stale carry-over.
+        return None
 
     relation_versions = getattr(session, "outlineVersions", None)
     if relation_versions:

@@ -12,6 +12,7 @@ from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
 )
+from services.generation_session_service.outline_versions import load_latest_outline_record
 from services.generation_session_service.run_queries import resolve_output_tool_type
 from services.generation_session_service.outline_draft.runtime_helpers import (
     generate_outline_doc,
@@ -124,6 +125,7 @@ async def execute_outline_draft_local(
     next_outline_version = 1
     stage_timings_ms: dict[str, float] = {}
     run_id: Optional[str] = None
+    output_type: Optional[str] = None
     try:
         session = await db.generationsession.find_unique(where={"id": session_id})
         if not session:
@@ -139,6 +141,11 @@ async def execute_outline_draft_local(
             if isinstance(session, dict)
             else session.currentOutlineVersion
         )
+        output_type = (
+            session.get("outputType")
+            if isinstance(session, dict)
+            else getattr(session, "outputType", None)
+        )
         if state != GenerationState.DRAFTING_OUTLINE.value:
             logger.info(
                 "Outline draft skipped due to non-drafting session state: "
@@ -148,15 +155,29 @@ async def execute_outline_draft_local(
                 current_outline_version,
             )
             return
-        next_outline_version = max(int(current_outline_version or 0), 0) + 1
+        latest_outline_record = await load_latest_outline_record(db, session_id)
+        latest_outline_version = (
+            max(
+                int(
+                    (
+                        latest_outline_record.get("version")
+                        if isinstance(latest_outline_record, dict)
+                        else getattr(latest_outline_record, "version", 0)
+                    )
+                    or 0
+                ),
+                0,
+            )
+            if latest_outline_record is not None
+            else 0
+        )
+        next_outline_version = (
+            max(int(current_outline_version or 0), latest_outline_version, 0) + 1
+        )
         run_id = await _resolve_outline_run_id(
             db=db,
             session_id=session_id,
-            output_type=(
-                session.get("outputType")
-                if isinstance(session, dict)
-                else getattr(session, "outputType", None)
-            ),
+            output_type=output_type,
         )
 
         await _emit_outline_progress(append_event, session_id, trace_id, run_id=run_id)
@@ -198,6 +219,12 @@ async def execute_outline_draft_local(
             (time.perf_counter() - persist_started_at) * 1000,
             2,
         )
+        if run_id is None:
+            run_id = await _resolve_outline_run_id(
+                db=db,
+                session_id=session_id,
+                output_type=output_type,
+            )
         await emit_outline_success(
             append_event,
             session_id=session_id,
@@ -230,6 +257,12 @@ async def execute_outline_draft_local(
             draft_err,
             exc_info=True,
         )
+        if run_id is None:
+            run_id = await _resolve_outline_run_id(
+                db=db,
+                session_id=session_id,
+                output_type=output_type,
+            )
         await emit_outline_failure(
             append_event,
             session_id=session_id,
