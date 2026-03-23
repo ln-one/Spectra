@@ -39,6 +39,7 @@ export function useProjectDetailController() {
   const searchParams = useSearchParams();
   const projectId = params.id as string;
   const querySessionId = searchParams.get("session");
+  const queryRunId = searchParams.get("run");
 
   const {
     project,
@@ -51,8 +52,10 @@ export function useProjectDetailController() {
     fetchGenerationHistory,
     fetchArtifactHistory,
     setActiveSessionId,
+    setActiveRunId,
     generationHistory,
     activeSessionId,
+    activeRunId,
     reset,
   } = useProjectStore(
     useShallow((state) => ({
@@ -66,8 +69,10 @@ export function useProjectDetailController() {
       fetchGenerationHistory: state.fetchGenerationHistory,
       fetchArtifactHistory: state.fetchArtifactHistory,
       setActiveSessionId: state.setActiveSessionId,
+      setActiveRunId: state.setActiveRunId,
       generationHistory: state.generationHistory,
       activeSessionId: state.activeSessionId,
+      activeRunId: state.activeRunId,
       reset: state.reset,
     }))
   );
@@ -240,6 +245,9 @@ export function useProjectDetailController() {
     }
 
     const nextSessionId = preferredSessionId;
+    if (queryRunId && queryRunId !== activeRunId) {
+      setActiveRunId(queryRunId);
+    }
 
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
@@ -247,8 +255,13 @@ export function useProjectDetailController() {
       void generateApi
         .getSession(nextSessionId)
         .then((response) => {
+          const nextRunId =
+            queryRunId ||
+            ((response?.data as { current_run?: { run_id?: string } } | null)
+              ?.current_run?.run_id ?? null);
           useProjectStore.setState({
             generationSession: response?.data ?? null,
+            activeRunId: nextRunId,
           });
         })
         .catch(() => {
@@ -266,10 +279,13 @@ export function useProjectDetailController() {
   }, [
     visibleGenerationHistory,
     querySessionId,
+    queryRunId,
     activeSessionId,
+    activeRunId,
     fetchArtifactHistory,
     fetchMessages,
     projectId,
+    setActiveRunId,
     setActiveSessionId,
     updateSessionInUrl,
   ]);

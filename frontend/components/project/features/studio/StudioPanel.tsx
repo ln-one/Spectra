@@ -727,9 +727,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
             latestRunId = (
               latestSession as { current_run?: { run_id?: string } }
             ).current_run?.run_id ?? null;
+            const pinnedRunId = item.runId || latestRunId;
             useProjectStore.setState({
               generationSession: latestSession,
-              activeRunId: latestRunId,
+              activeRunId: pinnedRunId,
             });
           }
           const latestState = latestSession?.session?.state;
