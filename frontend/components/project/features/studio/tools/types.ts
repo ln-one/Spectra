@@ -72,7 +72,7 @@ export interface ToolFlowContext {
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
   onPreviewExecution?: () => Promise<void> | void;
-  onExecute?: () => Promise<void> | void;
+  onExecute?: () => Promise<boolean> | boolean;
   onRefine?: () => Promise<void> | void;
   onExportArtifact?: (artifactId: string) => Promise<void> | void;
 }

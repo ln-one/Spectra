@@ -113,7 +113,8 @@ export function SimulationToolPanel({
 
     setIsGenerating(true);
     try {
-      await flowContext.onExecute();
+      const executed = await flowContext.onExecute();
+      if (!executed) return;
       setLastGeneratedAt(new Date().toISOString());
       setActiveStep("preview");
     } finally {

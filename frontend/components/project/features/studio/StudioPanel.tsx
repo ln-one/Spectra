@@ -1261,7 +1261,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     onLoadSources: () => handleStudioLoadSources(),
     onPreviewExecution: () => handleStudioPreviewExecution(),
     onExecute: async () => {
-      if (!expandedTool || expandedTool === "ppt") return;
+      if (!expandedTool || expandedTool === "ppt") return false;
       const toolType = expandedTool as GenerationToolType;
       const flowStep =
         normalizeHistoryStep(currentStepByTool[toolType]) === "preview"
@@ -1289,6 +1289,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           syncStudioChatContextByStep(toolType, "generate", contextSessionId);
           pushStudioStageHint(toolType, "generate", contextSessionId);
         }
+        return true;
       } else if (activeSessionId) {
         recordWorkflowEntry({
           toolType,
@@ -1301,6 +1302,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           toolLabel: TOOL_LABELS[toolType],
         });
       }
+      return false;
     },
     onRefine: () => handleOpenChatRefine(),
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
