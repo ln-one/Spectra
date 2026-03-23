@@ -17,6 +17,7 @@ from .helpers import _to_session_ref
 _REUSABLE_SESSION_STATES = {
     GenerationState.IDLE.value,
     GenerationState.CONFIGURING.value,
+    GenerationState.AWAITING_OUTLINE_CONFIRM.value,
     GenerationState.FAILED.value,
     GenerationState.SUCCESS.value,
 }

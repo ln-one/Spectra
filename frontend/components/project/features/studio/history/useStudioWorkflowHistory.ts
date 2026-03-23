@@ -79,6 +79,56 @@ function makeWorkflowId(input: WorkflowEntryInput): string {
   return `workflow:${input.toolType}:local:${localToken}`;
 }
 
+function statusRank(status: StudioHistoryStatus): number {
+  switch (status) {
+    case "pending":
+      return 0;
+    case "draft":
+      return 1;
+    case "processing":
+      return 2;
+    case "previewing":
+      return 3;
+    case "completed":
+      return 4;
+    case "failed":
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+function stepRank(step: StudioHistoryStep): number {
+  switch (step) {
+    case "config":
+      return 0;
+    case "generate":
+      return 1;
+    case "outline":
+      return 2;
+    case "preview":
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+function pickPreferredWorkflowItem(
+  current: StudioHistoryItem,
+  incoming: StudioHistoryItem
+): StudioHistoryItem {
+  const currentScore = stepRank(current.step) * 10 + statusRank(current.status);
+  const incomingScore = stepRank(incoming.step) * 10 + statusRank(incoming.status);
+  if (incomingScore !== currentScore) {
+    return incomingScore > currentScore ? incoming : current;
+  }
+  const currentTime = new Date(current.createdAt).getTime();
+  const incomingTime = new Date(incoming.createdAt).getTime();
+  if (!Number.isFinite(currentTime)) return incoming;
+  if (!Number.isFinite(incomingTime)) return current;
+  return incomingTime >= currentTime ? incoming : current;
+}
+
 type RequestedStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
 type CurrentStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
 
@@ -180,19 +230,35 @@ export function useStudioWorkflowHistory(
 
     setWorkflowItems((prev) => {
       let resolvedItemId = nextItem.id;
-      if (!input.runId && input.sessionId) {
-        const sameSessionItem = prev.find(
+      const sameSessionItems = input.sessionId
+        ? prev.filter(
+            (item) =>
+              item.origin === "workflow" &&
+              item.toolType === input.toolType &&
+              item.sessionId === input.sessionId
+          )
+        : [];
+      if (input.runId && input.sessionId) {
+        const sameRunItem = sameSessionItems.find(
+          (item) => item.runId === input.runId
+        );
+        const unresolvedRunItem = sameSessionItems.find((item) => !item.runId);
+        resolvedItemId =
+          sameRunItem?.id ?? unresolvedRunItem?.id ?? resolvedItemId;
+      } else if (!input.runId && input.sessionId) {
+        const sameSessionItem = sameSessionItems.find(
           (item) =>
-            item.origin === "workflow" &&
-            item.toolType === input.toolType &&
-            item.sessionId === input.sessionId
+            !item.runId ||
+            item.step === input.step ||
+            item.status === "draft" ||
+            item.status === "processing"
         );
         if (sameSessionItem) {
           resolvedItemId = sameSessionItem.id;
         }
       }
       const index = prev.findIndex((item) => item.id === resolvedItemId);
-      const itemWithResolvedId =
+      const itemWithResolvedId: StudioHistoryItem =
         resolvedItemId === nextItem.id
           ? nextItem
           : {
@@ -202,8 +268,21 @@ export function useStudioWorkflowHistory(
       if (index < 0) {
         return [itemWithResolvedId, ...prev].slice(0, 80);
       }
+      const existing = prev[index];
+      const mergedItem: StudioHistoryItem = {
+        ...existing,
+        ...itemWithResolvedId,
+        createdAt: existing.createdAt || itemWithResolvedId.createdAt,
+        runId:
+          itemWithResolvedId.runId ??
+          (existing.runId === undefined ? null : existing.runId),
+        runNo:
+          itemWithResolvedId.runNo ??
+          (existing.runNo === undefined ? null : existing.runNo),
+        artifactId: itemWithResolvedId.artifactId ?? existing.artifactId,
+      };
       const rest = prev.filter((_, idx) => idx !== index);
-      return [itemWithResolvedId, ...rest];
+      return [mergedItem, ...rest];
     });
 
     if (!input.titleSource?.trim()) return;
@@ -388,13 +467,31 @@ export function useStudioWorkflowHistory(
       return workflowStartedAt > latestCompletedAt;
     });
 
+    const dedupedWorkflowMap = new Map<string, StudioHistoryItem>();
+    for (const item of filteredWorkflow) {
+      const logicalKey =
+        item.sessionId && item.runId
+          ? `${item.toolType}:${item.sessionId}:${item.runId}`
+          : item.id;
+      const existing = dedupedWorkflowMap.get(logicalKey);
+      if (!existing) {
+        dedupedWorkflowMap.set(logicalKey, item);
+        continue;
+      }
+      dedupedWorkflowMap.set(
+        logicalKey,
+        pickPreferredWorkflowItem(existing, item)
+      );
+    }
+    const dedupedWorkflow = [...dedupedWorkflowMap.values()];
+
     const workflowArtifactIds = new Set(
-      filteredWorkflow
+      dedupedWorkflow
         .map((item) => item.artifactId)
         .filter((id): id is string => Boolean(id))
     );
     const workflowRunKeys = new Set(
-      filteredWorkflow
+      dedupedWorkflow
         .filter((item) => item.sessionId && item.runId)
         .map((item) => `${item.toolType}:${item.sessionId}:${item.runId}`)
     );
@@ -410,7 +507,7 @@ export function useStudioWorkflowHistory(
     });
 
     return TOOL_ORDER.map((toolType) => {
-      const items = [...filteredWorkflow, ...dedupedArtifacts]
+      const items = [...dedupedWorkflow, ...dedupedArtifacts]
         .filter((item) => !hiddenHistoryIds[item.id])
         .filter((item) => item.toolType === toolType)
         .sort(
