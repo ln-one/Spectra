@@ -1,4 +1,4 @@
-﻿"""Session-First 鐢熸垚璺敱鑱氬悎鍏ュ彛銆?"""
+"""Session-First 生成路由聚合入口。"""
 
 from fastapi import APIRouter
 

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import json
@@ -141,12 +141,12 @@ async def _ensure_no_active_run_conflict(
 
 @router.get("/sessions")
 async def list_sessions(
-    project_id: str = Query(..., description="椤圭洰 ID"),
+    project_id: str = Query(..., description="项目 ID"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     user_id: str = Depends(get_current_user),
 ):
-    """杩斿洖椤圭洰鍐呯敓鎴愪細璇濆垪琛紙鎸夋洿鏂版椂闂村€掑簭锛夈€?"""
+    """返回项目内生成会话列表（按更新时间倒序）。"""
     try:
         await get_owned_project(project_id, user_id)
 
