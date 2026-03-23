@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { OutlineEditorPanel } from "@/components/project";
 import { PptWorkflowRail } from "./components/PptWorkflowRail";
+import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import {
   containerVariants,
   itemVariants,
@@ -79,20 +80,25 @@ export function GenerationConfigPanel({
     onWorkflowStageChange,
   });
   const workflowStep = showOutlineEditor ? 2 : 1;
+  const colors = TOOL_COLORS?.ppt || { primary: '#f97316', secondary: '#fb923c', gradient: 'from-[#ff7e2e] via-[#f97316] to-[#ea580c]', glow: 'rgba(249, 115, 22, 0.15)', soft: 'rgba(249, 115, 22, 0.05)' };
 
   return (
-    <div className="project-ppt-workbench relative h-full min-h-0 overflow-hidden p-2 lg:p-3">
-      <div className="pointer-events-none absolute inset-0 opacity-60">
-        <div className="absolute -left-20 top-8 h-44 w-44 rounded-full bg-blue-200/30 blur-3xl" />
-        <div className="absolute right-4 top-24 h-36 w-36 rounded-full bg-cyan-200/25 blur-3xl" />
-      </div>
+    <div
+      className="project-tool-workbench relative h-full flex flex-col overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-zinc-200/30 group/workbench"
+      style={{
+        ["--project-tool-accent" as any]: colors.primary,
+        ["--project-tool-accent-soft" as any]: colors.glow,
+        ["--project-tool-surface" as any]: colors.soft,
+      }}
+    >
+      <div className={cn("h-1 shrink-0 w-full bg-gradient-to-r", colors.gradient)} />
 
       <div
         className={cn(
-          "relative z-10 grid h-full min-h-0 gap-3",
+          "relative z-10 grid flex-1 min-h-0 gap-3",
           compact
-            ? "grid-cols-1 lg:grid-cols-[130px_minmax(0,1fr)]"
-            : "grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]"
+            ? "grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)] p-2 lg:p-3"
+            : "grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)] p-2 lg:p-3"
         )}
       >
         <PptWorkflowRail
@@ -135,16 +141,21 @@ export function GenerationConfigPanel({
               </motion.section>
 
               <motion.section variants={itemVariants}>
-                <Card className="overflow-hidden rounded-2xl border-zinc-200 bg-[linear-gradient(155deg,#ffffff,#f8fafc)] text-zinc-900 shadow-sm">
-                  <CardHeader className="px-4 pb-4 pt-4 sm:px-5">
-                    <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
-                      <Wand2 className="h-4 w-4 text-blue-600" />
+                <Card className="overflow-hidden rounded-2xl border-zinc-100 bg-white text-zinc-900 shadow-sm relative pt-4">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                    <Wand2 className="h-24 w-24 text-[var(--project-tool-accent)]" />
+                  </div>
+                  <CardHeader className="px-4 pb-4 pt-0 sm:px-5">
+                    <CardTitle className="flex items-center gap-2 text-sm font-black text-zinc-900 tracking-tight">
+                      <div className="p-1.5 rounded-lg bg-[var(--project-tool-surface)] text-[var(--project-tool-accent)] shadow-sm">
+                        <Wand2 className="h-3.5 w-3.5" />
+                      </div>
                       先把课件方向说清楚
-                      <Badge className="ml-auto border-blue-200 bg-blue-50 text-blue-700">
+                      <Badge variant="outline" className="ml-auto border-[var(--project-tool-accent-soft)] bg-[var(--project-tool-surface)] text-[var(--project-tool-accent)] shadow-sm">
                         第 1 步
                       </Badge>
                     </CardTitle>
-                    <p className="text-xs leading-5 text-zinc-600">
+                    <p className="text-xs leading-5 text-zinc-500 font-medium ml-[34px]">
                       不用专业术语，像和同事沟通一样写出你的需求就行。
                     </p>
                   </CardHeader>
@@ -181,10 +192,12 @@ export function GenerationConfigPanel({
                 variants={itemVariants}
                 className="grid gap-4 lg:grid-cols-5"
               >
-                <Card className="rounded-2xl border-zinc-200 bg-white/95 text-zinc-900 shadow-sm lg:col-span-3">
+                <Card className="rounded-2xl border-zinc-100 bg-white text-zinc-900 shadow-sm lg:col-span-3">
                   <CardHeader className="px-4 pb-3 pt-4 sm:px-5">
-                    <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
-                      <Compass className="h-4 w-4 text-blue-600" />
+                    <CardTitle className="flex items-center gap-2 text-sm font-black text-zinc-900 tracking-tight">
+                      <div className="p-1.5 rounded-lg bg-[var(--project-tool-surface)] text-[var(--project-tool-accent)] shadow-sm">
+                        <Compass className="h-3.5 w-3.5" />
+                      </div>
                       课件需求说明
                     </CardTitle>
                   </CardHeader>
@@ -254,10 +267,12 @@ export function GenerationConfigPanel({
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-2xl border-zinc-200 bg-white/95 text-zinc-900 shadow-sm lg:col-span-2">
+                <Card className="rounded-2xl border-zinc-100 bg-white text-zinc-900 shadow-sm lg:col-span-2">
                   <CardHeader className="px-4 pb-3 pt-4 sm:px-5">
-                    <CardTitle className="flex items-center gap-2 text-sm text-zinc-900">
-                      <FileStack className="h-4 w-4 text-blue-600" />
+                    <CardTitle className="flex items-center gap-2 text-sm font-black text-zinc-900 tracking-tight">
+                      <div className="p-1.5 rounded-lg bg-[var(--project-tool-surface)] text-[var(--project-tool-accent)] shadow-sm">
+                        <FileStack className="h-3.5 w-3.5" />
+                      </div>
                       页面设置
                     </CardTitle>
                   </CardHeader>
@@ -281,8 +296,8 @@ export function GenerationConfigPanel({
                             className={cn(
                               "rounded-xl border px-2 py-1.5 text-xs font-medium transition-all",
                               pageCount === value
-                                ? "border-blue-600 bg-blue-600 text-white shadow-sm"
-                                : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-white"
+                                ? "border-[var(--project-tool-accent)] bg-[var(--project-tool-accent)] text-white shadow-sm"
+                                : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-[var(--project-tool-accent-soft)] hover:bg-white"
                             )}
                           >
                             {value}
@@ -305,8 +320,8 @@ export function GenerationConfigPanel({
                             className={cn(
                               "rounded-xl border px-3 py-2.5 text-left transition-all",
                               outlineStyle === style.id
-                                ? "border-blue-600 bg-blue-50/70 shadow-sm"
-                                : "border-zinc-200 bg-zinc-50/70 hover:border-zinc-300 hover:bg-white"
+                                ? "border-[var(--project-tool-accent)] bg-[var(--project-tool-surface)] shadow-sm"
+                                : "border-zinc-200 bg-zinc-50/70 hover:border-[var(--project-tool-accent-soft)] hover:bg-white"
                             )}
                           >
                             <p className="text-xs font-medium text-zinc-900">
@@ -324,7 +339,7 @@ export function GenerationConfigPanel({
               </motion.section>
 
               <motion.section variants={itemVariants} className="pb-1">
-                <Card className="rounded-2xl border-zinc-200 bg-white/95 text-zinc-900 shadow-sm">
+                <Card className="rounded-2xl border-zinc-100 bg-white text-zinc-900 shadow-sm">
                   <CardContent className="flex flex-col gap-3 px-4 pb-4 pt-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-zinc-900">
@@ -338,7 +353,7 @@ export function GenerationConfigPanel({
                       onClick={() => void handleGenerate()}
                       disabled={!prompt.trim() || isCreatingSession}
                       className={cn(
-                        "h-11 min-w-[180px] rounded-xl border border-blue-700 bg-blue-700 px-4 text-white shadow-sm transition-all hover:bg-blue-600",
+                        "h-11 min-w-[180px] rounded-xl border border-[var(--project-tool-accent)] bg-[var(--project-tool-accent)] px-4 text-white shadow-sm transition-all hover:brightness-110",
                         (!prompt.trim() || isCreatingSession) && "opacity-70"
                       )}
                     >

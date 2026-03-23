@@ -1,5 +1,6 @@
-﻿"use client";
+"use client";
 
+import { motion } from "framer-motion";
 import { Check, CircleHelp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -53,27 +54,31 @@ export function WorkflowStepper({
   return (
     <aside
       className={cn(
-        "project-tool-workflow rounded-2xl border border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-surface,var(--project-surface,#ffffff))]",
-        layout === "rail" ? "p-3" : "p-3.5",
+        "project-tool-workflow rounded-2xl border border-zinc-200/60 bg-white/50 backdrop-blur-md shadow-sm",
+        layout === "rail" ? "p-4" : "p-3.5",
         className
       )}
+      style={{
+        ["--accent-glow" as any]: "var(--project-tool-accent-soft, rgba(37, 99, 235, 0.1))",
+        ["--accent-main" as any]: "var(--project-tool-accent, #2563eb)",
+      }}
       aria-label="工作流程"
     >
-      <div className="mb-3">
+      <div className="mb-5">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
             {subtitle}
           </p>
-          <span className="rounded-full border border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] px-2 py-0.5 text-[10px] text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]">
-            {currentIndex + 1}/{steps.length}
+          <span className="rounded-full border border-zinc-100 bg-white px-2 py-0.5 text-[10px] font-bold text-zinc-500 shadow-sm">
+            {currentIndex + 1} / {steps.length}
           </span>
         </div>
-        <h3 className="mt-1 text-sm font-semibold text-[var(--project-tool-text,var(--project-text-primary,#18181b))]">
+        <h3 className="mt-1.5 text-sm font-black text-zinc-900 tracking-tight">
           {title}
         </h3>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--project-tool-elevated,var(--project-surface-muted,#f4f4f5))]">
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-100/80 p-[1.5px]">
           <div
-            className="h-full rounded-full bg-[linear-gradient(90deg,var(--project-tool-accent,var(--project-accent,#2563eb)),color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_76%,white))] transition-all duration-300"
+            className="h-full rounded-full bg-gradient-to-r from-[var(--accent-main)] to-[var(--accent-glow)] transition-all duration-500 ease-out shadow-[0_0_8px_var(--accent-glow)]"
             style={{ width: `${completion}%` }}
           />
         </div>
@@ -81,105 +86,63 @@ export function WorkflowStepper({
 
       <TooltipProvider delayDuration={100}>
         {layout === "inline" ? (
-          <ol className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {steps.map((step, index) => {
               const state = getStepState(index, currentIndex);
               const isCurrent = state === "current";
               const isCompleted = state === "completed";
               const isLocked = index > currentIndex;
               const canClick = interactive && !isLocked;
-              const wrapperClass = cn(
-                "relative w-full rounded-xl border p-2.5 text-left transition-all",
-                canClick && "cursor-pointer",
-                isCompleted
-                  ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[var(--project-tool-accent-soft,color-mix(in_srgb,var(--project-accent,#2563eb)_16%,var(--project-surface,#ffffff)))] text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
-                  : isCurrent
-                    ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_12%,var(--project-tool-surface,var(--project-surface,#ffffff)))]"
-                    : isLocked
-                      ? "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] opacity-75"
-                      : "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] hover:border-[var(--project-tool-border-strong,var(--project-border-strong,#a1a1aa))] hover:bg-[var(--project-tool-surface,var(--project-surface,#ffffff))]"
-              );
-              const commonProps = canClick
-                ? { onClick: () => onStepChange?.(step.id) }
-                : {};
-
+              
               return (
                 <li key={String(step.id)}>
                   <button
                     type="button"
-                    className={wrapperClass}
+                    className={cn(
+                      "relative w-full rounded-xl border p-3 text-left transition-all duration-300",
+                      canClick && "cursor-pointer hover:border-[var(--accent-main)] hover:shadow-md hover:shadow-[var(--accent-glow)]",
+                      isCompleted ? "border-[var(--accent-main)] bg-white shadow-sm" : 
+                      isCurrent ? "border-[var(--accent-main)] bg-white ring-2 ring-[var(--accent-glow)] shadow-lg" :
+                      "border-zinc-100 bg-zinc-50/50 opacity-60"
+                    )}
                     disabled={interactive && isLocked}
-                    {...commonProps}
+                    onClick={canClick ? () => onStepChange?.(step.id) : undefined}
                   >
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          "inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold",
-                          isCompleted
-                            ? "border-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_72%,white)] bg-[var(--project-tool-accent,var(--project-accent,#2563eb))] text-[var(--project-accent-text,#ffffff)]"
-                            : isCurrent
-                              ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
-                              : "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
-                        )}
-                      >
-                        {isCompleted ? (
-                          <Check className="h-3.5 w-3.5" />
-                        ) : (
-                          index + 1
-                        )}
-                      </span>
-                      <span
-                        className={cn(
-                          "text-[13px] font-semibold",
-                          isCompleted
-                            ? "text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
-                            : isCurrent
-                              ? "text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
-                              : "text-[var(--project-tool-text,var(--project-text-primary,#3f3f46))]"
-                        )}
-                      >
-                        {step.title}
-                      </span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              "ml-auto inline-flex h-4.5 w-4.5 items-center justify-center rounded-full",
-                              isCompleted
-                                ? "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
-                                : "text-[var(--project-tool-muted,var(--project-text-muted,#a1a1aa))] hover:bg-[var(--project-tool-elevated,var(--project-surface-muted,#f4f4f5))] hover:text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
-                            )}
-                          >
-                            <CircleHelp className="h-3.5 w-3.5" />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="top"
-                          className="max-w-[220px] rounded-xl border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-surface,var(--project-surface,#ffffff))] text-xs leading-5 text-[var(--project-tool-muted,var(--project-text-muted,#52525b))] shadow-xl"
-                        >
-                          {step.description}
-                        </TooltipContent>
-                      </Tooltip>
+                    <div className="flex items-center gap-2">
+                       <div className={cn(
+                         "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-black transition-all",
+                         isCompleted ? "bg-[var(--accent-main)] border-[var(--accent-main)] text-white" :
+                         isCurrent ? "border-[var(--accent-main)] text-[var(--accent-main)] bg-white scale-110" :
+                         "border-zinc-200 text-zinc-400 bg-zinc-50"
+                       )}>
+                         {isCompleted ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : index + 1}
+                       </div>
+                       <div className="min-w-0 flex-1">
+                         <div className="flex items-center gap-1">
+                           <span className={cn(
+                             "text-[12px] font-bold truncate",
+                             isCurrent ? "text-zinc-900" : "text-zinc-500"
+                           )}>
+                             {step.title}
+                           </span>
+                           <Tooltip>
+                            <TooltipTrigger asChild>
+                              <CircleHelp className="h-3 w-3 text-zinc-300 hover:text-zinc-500" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 text-white border-none rounded-lg p-2 text-[10px]">
+                              {step.description}
+                            </TooltipContent>
+                          </Tooltip>
+                         </div>
+                       </div>
                     </div>
-                    <p
-                      className={cn(
-                        "mt-1 text-[11px]",
-                        isCompleted
-                          ? "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
-                          : isCurrent
-                            ? "text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
-                            : "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
-                      )}
-                    >
-                      {step.caption ?? step.description}
-                    </p>
                   </button>
                 </li>
               );
             })}
           </ol>
         ) : (
-          <ol className="space-y-2.5">
+          <ol className="space-y-4">
             {steps.map((step, index) => {
               const state = getStepState(index, currentIndex);
               const isLast = index === steps.length - 1;
@@ -187,105 +150,57 @@ export function WorkflowStepper({
               const isCompleted = state === "completed";
               const isLocked = index > currentIndex;
               const canClick = interactive && !isLocked;
-              const wrapperClass = cn(
-                "relative w-full rounded-xl border bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] p-2.5 pl-9 text-left transition-all",
-                canClick && "cursor-pointer",
-                isCompleted
-                  ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[var(--project-tool-accent-soft,color-mix(in_srgb,var(--project-accent,#2563eb)_16%,var(--project-surface,#ffffff)))]"
-                  : isCurrent
-                    ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_12%,var(--project-tool-surface,var(--project-surface,#ffffff)))]"
-                    : isLocked
-                      ? "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] opacity-75"
-                      : "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] hover:border-[var(--project-tool-border-strong,var(--project-border-strong,#a1a1aa))] hover:bg-[var(--project-tool-surface,var(--project-surface,#ffffff))]"
-              );
-              const commonProps = canClick
-                ? { onClick: () => onStepChange?.(step.id) }
-                : {};
 
               return (
                 <li key={String(step.id)} className="relative">
-                  {!isLast ? (
-                    <span
-                      className={cn(
-                        "absolute left-[11px] top-7 h-[calc(100%+10px)] w-px",
-                        isCompleted
-                          ? "bg-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_46%,var(--project-tool-border,var(--project-border,#e4e4e7)))]"
-                          : "bg-[var(--project-tool-border,var(--project-border,#e4e4e7))]"
-                      )}
-                    />
-                  ) : null}
+                  {!isLast && (
+                    <div className={cn(
+                      "absolute left-[13px] top-8 bottom-[-16px] w-[2px] rounded-full transition-colors duration-500",
+                      isCompleted ? "bg-[var(--accent-main)]" : "bg-zinc-100"
+                    )} />
+                  )}
 
                   <button
                     type="button"
-                    className={wrapperClass}
                     disabled={interactive && isLocked}
-                    {...commonProps}
+                    onClick={canClick ? () => onStepChange?.(step.id) : undefined}
+                    className={cn(
+                      "group relative flex w-full gap-3 rounded-xl p-2 transition-all duration-300",
+                      isCurrent && "bg-white shadow-xl shadow-zinc-200/50 ring-1 ring-zinc-100",
+                      canClick && "cursor-pointer hover:bg-white hover:shadow-lg"
+                    )}
                   >
-                    <span
-                      className={cn(
-                        "absolute left-2.5 top-2.5 flex h-[22px] w-[22px] items-center justify-center rounded-full border text-[10px] font-semibold transition-colors",
-                        isCompleted
-                          ? "border-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_72%,white)] bg-[var(--project-tool-accent,var(--project-accent,#2563eb))] text-[var(--project-accent-text,#ffffff)]"
-                          : isCurrent
-                            ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
-                            : "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
-                      )}
-                      aria-hidden="true"
-                    >
-                      {isCompleted ? (
-                        <Check className="h-3.5 w-3.5" />
-                      ) : (
-                        index + 1
-                      )}
-                    </span>
-
-                    <div className="flex items-center gap-1">
-                      <p
-                        className={cn(
-                          "text-[13px] font-semibold leading-5",
-                          isCompleted
-                            ? "text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
-                            : isCurrent
-                              ? "text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
-                              : "text-[var(--project-tool-text,var(--project-text-primary,#3f3f46))]"
-                        )}
-                      >
-                        {step.title}
-                      </p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              "inline-flex h-4.5 w-4.5 items-center justify-center rounded-full",
-                              isCompleted
-                                ? "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
-                                : "text-[var(--project-tool-muted,var(--project-text-muted,#a1a1aa))] hover:bg-[var(--project-tool-elevated,var(--project-surface-muted,#f4f4f5))] hover:text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
-                            )}
-                            aria-label={`${step.title}说明`}
-                          >
-                            <CircleHelp className="h-3.5 w-3.5" />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="right"
-                          className="max-w-[220px] rounded-xl border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-surface,var(--project-surface,#ffffff))] text-xs leading-5 text-[var(--project-tool-muted,var(--project-text-muted,#52525b))] shadow-xl"
-                        >
-                          {step.description}
-                        </TooltipContent>
-                      </Tooltip>
+                    <div className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-black transition-all duration-500 z-10",
+                      isCompleted ? "bg-[var(--accent-main)] border-[var(--accent-main)] text-white shadow-lg shadow-[var(--accent-glow)]" :
+                      isCurrent ? "bg-white border-[var(--accent-main)] text-[var(--accent-main)] scale-110 shadow-xl" :
+                      "bg-zinc-50 border-zinc-100 text-zinc-300"
+                    )}>
+                      {isCompleted ? <Check className="h-4 w-4 stroke-[3]" /> : index + 1}
                     </div>
-                    <p
-                      className={cn(
-                        "mt-1 text-[11px] leading-4",
-                        isCompleted
-                          ? "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
-                          : isCurrent
-                            ? "text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
-                            : "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
-                      )}
-                    >
-                      {step.caption ?? step.description}
-                    </p>
+
+                    <div className="flex flex-col text-left pt-0.5 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn(
+                          "text-[13px] font-bold leading-none tracking-tight transition-colors",
+                          isCurrent ? "text-zinc-900" : isCompleted ? "text-zinc-600" : "text-zinc-400"
+                        )}>
+                          {step.title}
+                        </span>
+                        {isCurrent && (
+                          <motion.div 
+                            layoutId="active-dot"
+                            className="w-1.5 h-1.5 rounded-full bg-[var(--accent-main)] animate-pulse"
+                          />
+                        )}
+                      </div>
+                      <p className={cn(
+                        "mt-1.5 text-[11px] font-medium leading-relaxed line-clamp-2 transition-colors",
+                        isCurrent ? "text-zinc-500" : "text-zinc-400 opacity-60"
+                      )}>
+                        {step.caption ?? step.description}
+                      </p>
+                    </div>
                   </button>
                 </li>
               );

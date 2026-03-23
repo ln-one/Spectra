@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { Network } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ragApi } from "@/lib/sdk";
 import { useProjectStore } from "@/stores/projectStore";
 import { WorkflowStepper } from "@/components/project/shared";
+import { TOOL_COLORS } from "../constants";
 import type { ToolPanelProps } from "./types";
 import {
   FOCUS_OPTIONS,
@@ -55,7 +58,9 @@ export function MindmapToolPanel({
   const [selectedId, setSelectedId] = useState("root");
   const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
   const [isTopicSuggestionsLoading, setIsTopicSuggestionsLoading] = useState(false);
-  const [isTopicDirty, setIsTopicDirty] = useState(false);  const [isGenerating, setIsGenerating] = useState(false);
+  const [isTopicDirty, setIsTopicDirty] = useState(false);
+  const [tree, setTree] = useState<any>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
   const topicRef = useRef(topic);
@@ -205,20 +210,41 @@ export function MindmapToolPanel({
     }
   };
 
+  const colors = TOOL_COLORS.mindmap;
+
   return (
-    <div className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
+    <div 
+      className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-zinc-200/30 group/workbench"
+      style={{
+        ["--project-tool-accent" as any]: colors.primary,
+        ["--project-tool-accent-soft" as any]: colors.glow,
+        ["--project-tool-surface" as any]: colors.soft,
+      }}
+    >
+      {/* Tool Accent Tip */}
+      <div className={cn("h-1 w-full bg-gradient-to-r", colors.gradient)} />
+      
       <div className="flex h-full min-h-0 flex-col">
-        <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
+        <div className="border-b border-zinc-100/80 px-5 py-4 bg-zinc-50/30">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-zinc-900">{toolName}三步工作台</h3>
-              <p className="mt-1 text-xs leading-5 text-zinc-500">
-                配置页优先读取知识库推荐，预览页只显示后端返回的真实导图结构。
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-white shadow-sm border border-zinc-100 group-hover/workbench:scale-110 transition-transform duration-500">
+                <Network className="w-5 h-5" style={{ color: colors.primary }} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-zinc-900 tracking-tight">
+                  {toolName}智能工作台
+                </h3>
+                <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
+                  三步生成知识脉络图 · 交互式探索教学结构
+                </p>
+              </div>
             </div>
-            <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
-              {getReadinessLabel(flowContext?.readiness)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-600 shadow-sm uppercase tracking-wider">
+                {getReadinessLabel(flowContext?.readiness)}
+              </span>
+            </div>
           </div>
         </div>
 

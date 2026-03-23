@@ -1,7 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CheckSquare } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { WorkflowStepper } from "@/components/project/shared";
+import { TOOL_COLORS } from "../constants";
 import type { ToolPanelProps } from "./types";
 import { ConfigStep } from "./quiz/ConfigStep";
 import {
@@ -107,20 +110,41 @@ export function QuizToolPanel({
     }
   };
 
+  const colors = TOOL_COLORS.quiz;
+
   return (
-    <div className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
+    <div 
+      className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-zinc-200/30 group/workbench"
+      style={{
+        ["--project-tool-accent" as any]: colors.primary,
+        ["--project-tool-accent-soft" as any]: colors.glow,
+        ["--project-tool-surface" as any]: colors.soft,
+      }}
+    >
+      {/* Tool Accent Tip */}
+      <div className={cn("h-1 w-full bg-gradient-to-r", colors.gradient)} />
+      
       <div className="flex h-full min-h-0 flex-col">
-        <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
+        <div className="border-b border-zinc-100/80 px-5 py-4 bg-zinc-50/30">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-zinc-900">{toolName}三步工作台</h3>
-              <p className="mt-1 text-xs leading-5 text-zinc-500">
-                配置页优先使用 RAG 推荐，预览页只显示后端真实题目。
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-white shadow-sm border border-zinc-100 group-hover/workbench:scale-110 transition-transform duration-500">
+                <CheckSquare className="w-5 h-5" style={{ color: colors.primary }} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-zinc-900 tracking-tight">
+                  {toolName}智能工作台
+                </h3>
+                <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
+                  三步生成优质随堂测评 · 实时预览题目解析
+                </p>
+              </div>
             </div>
-            <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
-              {getReadinessLabel(flowContext?.readiness)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-600 shadow-sm uppercase tracking-wider">
+                {getReadinessLabel(flowContext?.readiness)}
+              </span>
+            </div>
           </div>
         </div>
 

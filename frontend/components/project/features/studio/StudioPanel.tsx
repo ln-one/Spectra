@@ -1402,11 +1402,11 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         </CardHeader>
 
         <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
-          <LayoutGroup>
+          <LayoutGroup id="studio-content-layout">
             <motion.div
               className={cn(
                 "absolute inset-0",
-                isExpanded ? "pointer-events-none" : "pointer-events-auto"
+                isExpanded ? "z-0 pointer-events-none" : "z-20 pointer-events-auto"
               )}
               animate={{
                 opacity: isExpanded ? 0 : 1,
@@ -1439,14 +1439,17 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
             </motion.div>
 
             <AnimatePresence>
-              {isExpanded && expandedTool ? (
+              {expandedTool && isExpanded ? (
                 <motion.div
-                  key={`${expandedTool}-expanded-content`}
+                  key="studio-expanded-content"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute inset-0 p-3"
+                  className={cn(
+                    "absolute inset-0 z-10 p-3",
+                    isExpanded ? "pointer-events-auto" : "pointer-events-none"
+                  )}
                 >
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
