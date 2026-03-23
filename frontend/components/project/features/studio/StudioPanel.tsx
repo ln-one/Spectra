@@ -776,9 +776,19 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 
       setLayoutMode("expanded");
       setExpandedTool(item.toolType as StudioToolKey);
+      const targetStep: StudioHistoryStep =
+        item.status === "failed"
+          ? "generate"
+          : item.status === "processing" ||
+              item.status === "previewing" ||
+              item.status === "draft" ||
+              item.origin === "artifact" ||
+              item.step === "preview"
+            ? "preview"
+            : normalizeHistoryStep(item.step);
       requestStep(
         item.toolType,
-        item.step === "outline" ? "preview" : normalizeHistoryStep(item.step)
+        item.step === "outline" ? "preview" : targetStep
       );
     },
     [
