@@ -55,6 +55,10 @@ async def create_session(
         )
 
     if existing_session:
+        if existing_session.state == GenerationState.SUCCESS.value:
+            existing_session = None
+
+    if existing_session:
         update_data = {
             "outputType": output_type,
             "options": json.dumps(options) if options else None,
