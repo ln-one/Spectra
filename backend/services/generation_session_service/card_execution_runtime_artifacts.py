@@ -181,6 +181,8 @@ async def _create_artifact_run(
 ):
     from services.generation_session_service.session_history import (
         RUN_STATUS_COMPLETED,
+        RUN_STATUS_PROCESSING,
+        RUN_STEP_GENERATE,
         RUN_STEP_COMPLETED,
         create_session_run,
         generate_semantic_run_title,
@@ -194,14 +196,16 @@ async def _create_artifact_run(
         session_id=getattr(artifact, "sessionId", None),
         project_id=body.project_id,
         tool_type=f"studio_card:{card_id}",
-        step=RUN_STEP_COMPLETED,
-        status=RUN_STATUS_COMPLETED,
+        step=RUN_STEP_GENERATE,
+        status=RUN_STATUS_PROCESSING,
         artifact_id=artifact.id,
     )
     if run:
         await update_session_run(
             db=project_space_service.db.db,
             run_id=run.id,
+            status=RUN_STATUS_COMPLETED,
+            step=RUN_STEP_COMPLETED,
             artifact_id=artifact.id,
         )
         if hasattr(project_space_service.db, "update_artifact_metadata"):

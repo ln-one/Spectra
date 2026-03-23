@@ -32,7 +32,10 @@ const INPUT_PLACEHOLDER = "输入消息...";
 const NO_SESSION_PLACEHOLDER = "请先在会话选择器中点击“新建会话”";
 const REFINE_PLACEHOLDER = "例如：再详细一点 / 增加案例 / 更简洁";
 
-export function ChatPanel({ projectId }: ChatPanelProps) {
+export function ChatPanel({
+  projectId,
+  ...props
+}: ChatPanelProps & React.HTMLAttributes<HTMLDivElement>) {
   const {
     messages,
     localToolMessages,
@@ -285,6 +288,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     <div
       className="project-panel-root h-full bg-transparent"
       style={{ transform: "translateZ(0)" }}
+      {...props}
     >
       <Card className="project-panel-card project-chat-panel h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <CardHeader

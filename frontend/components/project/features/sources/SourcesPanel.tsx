@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { AnimatePresence } from "framer-motion";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
@@ -28,7 +28,8 @@ export function SourcesPanel({
   isStudioExpanded = false,
   isExpandedContentCollapsed = false,
   onToggleExpandedContentCollapsed,
-}: SourcesPanelProps) {
+  ...props
+}: SourcesPanelProps & React.HTMLAttributes<HTMLDivElement>) {
   const {
     files,
     selectedFileIds,
@@ -61,6 +62,7 @@ export function SourcesPanel({
       ref={containerRef}
       className="project-panel-root h-full w-full bg-transparent"
       style={{ transform: "translateZ(0)" }}
+      {...props}
     >
       <Card className="project-panel-card project-sources-panel h-full rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <SourcesHeader
@@ -148,7 +150,7 @@ export function SourcesPanel({
                       orientation="horizontal"
                       className="flex h-2.5 touch-none select-none flex-col border-t border-t-transparent p-[1px] transition-colors"
                     >
-                      <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
+                      <ScrollAreaPrimitive.ScrollAreaScrollbar className="relative flex-1 rounded-full bg-border" />
                     </ScrollAreaPrimitive.ScrollAreaScrollbar>
                     <ScrollAreaPrimitive.Corner />
                   </ScrollAreaPrimitive.Root>

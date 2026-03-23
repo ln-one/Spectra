@@ -27,6 +27,7 @@ from services.generation_session_service.outline_draft.state_helpers import (
 from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
     RUN_STATUS_PROCESSING,
+    RUN_STEP_CONFIG,
     RUN_STEP_OUTLINE,
 )
 from services.platform.generation_event_constants import GenerationEventType
@@ -94,7 +95,19 @@ async def _resolve_outline_run_id(
         },
         order={"updatedAt": "desc"},
     )
-    return getattr(fallback_run, "id", None) if fallback_run else None
+    if fallback_run:
+        return getattr(fallback_run, "id", None)
+
+    studio_card_run = await run_model.find_first(
+        where={
+            "sessionId": session_id,
+            "toolType": {"startsWith": "studio_card:"},
+            "step": {"in": [RUN_STEP_CONFIG, RUN_STEP_OUTLINE]},
+            "status": {"in": [RUN_STATUS_PENDING, RUN_STATUS_PROCESSING]},
+        },
+        order={"updatedAt": "desc"},
+    )
+    return getattr(studio_card_run, "id", None) if studio_card_run else None
 
 
 async def execute_outline_draft_local(

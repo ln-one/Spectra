@@ -66,8 +66,9 @@ function toArtifactHistoryItem(item: ArtifactHistoryItem): StudioHistoryItem {
 }
 
 function makeWorkflowId(input: WorkflowEntryInput): string {
-  if (input.runId) {
-    return `workflow:${input.toolType}:${input.runId}`;
+  const normalizedRunId = normalizeRunId(input.runId);
+  if (normalizedRunId) {
+    return `workflow:${input.toolType}:${normalizedRunId}`;
   }
   if (input.sessionId) {
     return `workflow:${input.toolType}:${input.sessionId}`;
@@ -77,6 +78,16 @@ function makeWorkflowId(input: WorkflowEntryInput): string {
     .replace(/\s+/g, "-")
     .slice(0, 48);
   return `workflow:${input.toolType}:local:${localToken}`;
+}
+
+function isTransientRunId(runId: string | null | undefined): boolean {
+  if (!runId) return false;
+  return /^\d{13}-[a-z0-9]{6}$/i.test(runId);
+}
+
+function normalizeRunId(runId: string | null | undefined): string | null {
+  if (!runId) return null;
+  return isTransientRunId(runId) ? null : runId;
 }
 
 function statusRank(status: StudioHistoryStatus): number {
@@ -161,7 +172,12 @@ function shouldPromoteWorkflowStatus(
   if (!workflowItem.sessionId || !matchedArtifact.sessionId) return false;
   if (workflowItem.sessionId !== matchedArtifact.sessionId) return false;
   if (workflowItem.toolType !== matchedArtifact.toolType) return false;
-  if (workflowItem.status !== "processing" && workflowItem.status !== "previewing") {
+  if (
+    workflowItem.status !== "processing" &&
+    workflowItem.status !== "previewing" &&
+    workflowItem.status !== "draft" &&
+    workflowItem.status !== "pending"
+  ) {
     return false;
   }
   const workflowTime = new Date(workflowItem.createdAt).getTime();
@@ -214,6 +230,7 @@ export function useStudioWorkflowHistory(
   }, [archivedHistoryById, hiddenHistoryIds, projectId, workflowItems]);
 
   const recordWorkflowEntry = useCallback((input: WorkflowEntryInput) => {
+    const normalizedInputRunId = normalizeRunId(input.runId);
     const nextItem: StudioHistoryItem = {
       id: makeWorkflowId(input),
       origin: "workflow",
@@ -224,7 +241,7 @@ export function useStudioWorkflowHistory(
       sessionId: input.sessionId ?? null,
       step: input.step,
       artifactId: input.artifactId,
-      runId: input.runId ?? null,
+      runId: normalizedInputRunId,
       runNo: input.runNo ?? null,
     };
 
@@ -238,17 +255,19 @@ export function useStudioWorkflowHistory(
               item.sessionId === input.sessionId
           )
         : [];
-      if (input.runId && input.sessionId) {
+      if (normalizedInputRunId && input.sessionId) {
         const sameRunItem = sameSessionItems.find(
-          (item) => item.runId === input.runId
+          (item) => normalizeRunId(item.runId) === normalizedInputRunId
         );
-        const unresolvedRunItem = sameSessionItems.find((item) => !item.runId);
+        const unresolvedRunItem = sameSessionItems.find(
+          (item) => !normalizeRunId(item.runId)
+        );
         resolvedItemId =
           sameRunItem?.id ?? unresolvedRunItem?.id ?? resolvedItemId;
       } else if (!input.runId && input.sessionId) {
         const sameSessionItem = sameSessionItems.find(
           (item) =>
-            !item.runId ||
+            !normalizeRunId(item.runId) ||
             item.step === input.step ||
             item.status === "draft" ||
             item.status === "processing"
@@ -273,16 +292,19 @@ export function useStudioWorkflowHistory(
         ...existing,
         ...itemWithResolvedId,
         createdAt: existing.createdAt || itemWithResolvedId.createdAt,
-        runId:
-          itemWithResolvedId.runId ??
-          (existing.runId === undefined ? null : existing.runId),
+        runId: normalizeRunId(itemWithResolvedId.runId)
+          ? itemWithResolvedId.runId
+          : normalizeRunId(existing.runId)
+            ? existing.runId
+            : null,
         runNo:
           itemWithResolvedId.runNo ??
           (existing.runNo === undefined ? null : existing.runNo),
         artifactId: itemWithResolvedId.artifactId ?? existing.artifactId,
       };
+      const stabilizedItem = pickPreferredWorkflowItem(existing, mergedItem);
       const rest = prev.filter((_, idx) => idx !== index);
-      return [mergedItem, ...rest];
+      return [stabilizedItem, ...rest];
     });
 
     if (!input.titleSource?.trim()) return;
@@ -426,16 +448,16 @@ export function useStudioWorkflowHistory(
       if (!activeSessionId) {
         return !item.sessionId;
       }
-      if (!item.sessionId) {
-        return true;
-      }
       return item.sessionId === activeSessionId;
     });
 
     const normalizedWorkflow = sessionScopedWorkflow.map((item) => {
       if (item.origin !== "workflow" || !item.sessionId) return item;
-      const matchedArtifact = item.runId
-        ? artifactByRun.get(`${item.toolType}:${item.sessionId}:${item.runId}`)
+      const normalizedRunId = normalizeRunId(item.runId);
+      const matchedArtifact = normalizedRunId
+        ? artifactByRun.get(
+            `${item.toolType}:${item.sessionId}:${normalizedRunId}`
+          )
         : latestArtifactByToolSession.get(`${item.toolType}:${item.sessionId}`);
       if (!shouldPromoteWorkflowStatus(item, matchedArtifact)) {
         return item;
@@ -446,7 +468,7 @@ export function useStudioWorkflowHistory(
         step: "preview",
         title: matchedArtifact?.title || item.title,
         artifactId: matchedArtifact?.artifactId ?? item.artifactId,
-        runId: item.runId ?? matchedArtifact?.runId ?? null,
+        runId: normalizedRunId ?? matchedArtifact?.runId ?? null,
         runNo: item.runNo ?? matchedArtifact?.runNo ?? null,
       };
     });
@@ -469,9 +491,10 @@ export function useStudioWorkflowHistory(
 
     const dedupedWorkflowMap = new Map<string, StudioHistoryItem>();
     for (const item of filteredWorkflow) {
+      const normalizedRunId = normalizeRunId(item.runId);
       const logicalKey =
-        item.sessionId && item.runId
-          ? `${item.toolType}:${item.sessionId}:${item.runId}`
+        item.sessionId && normalizedRunId
+          ? `${item.toolType}:${item.sessionId}:${normalizedRunId}`
           : item.id;
       const existing = dedupedWorkflowMap.get(logicalKey);
       if (!existing) {
@@ -492,8 +515,11 @@ export function useStudioWorkflowHistory(
     );
     const workflowRunKeys = new Set(
       dedupedWorkflow
-        .filter((item) => item.sessionId && item.runId)
-        .map((item) => `${item.toolType}:${item.sessionId}:${item.runId}`)
+        .filter((item) => item.sessionId && normalizeRunId(item.runId))
+        .map(
+          (item) =>
+            `${item.toolType}:${item.sessionId}:${normalizeRunId(item.runId)}`
+        )
     );
 
     const dedupedArtifacts = sessionScopedArtifacts.filter((item) => {

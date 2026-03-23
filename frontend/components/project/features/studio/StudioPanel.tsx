@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -189,9 +189,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const [runtimeArtifactsByTool, setRuntimeArtifactsByTool] = useState<
     Partial<Record<StudioToolKey, ArtifactHistoryItem[]>>
   >({});
-  const workflowRunIdByToolRef = useRef<
-    Partial<Record<GenerationToolType, string>>
-  >({});
   const artifactRefreshTimersRef = useRef<number[]>([]);
   const isExpanded = layoutMode === "expanded";
   const {
@@ -218,23 +215,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const requestedHistoryStep = expandedTool
     ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)
     : null;
-
-  const createWorkflowRunId = useCallback(() => {
-    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  }, []);
-
-  const startWorkflowRun = useCallback(
-    (toolType: GenerationToolType) => {
-      const runId = createWorkflowRunId();
-      workflowRunIdByToolRef.current[toolType] = runId;
-      return runId;
-    },
-    [createWorkflowRunId]
-  );
-
-  const getCurrentWorkflowRun = useCallback((toolType: GenerationToolType) => {
-    return workflowRunIdByToolRef.current[toolType] ?? null;
-  }, []);
 
   const scheduleArtifactRefresh = useCallback(
     (projectId: string, sessionId: string | null) => {
@@ -834,15 +814,13 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       }
 
       // Step 2 is config confirmation: entering step 2 creates "draft".
-      if (step !== "generate") return;
-      const runId = getCurrentWorkflowRun(toolType) || startWorkflowRun(toolType);
+      if (step !== "generate" || !activeSessionId) return;
       recordWorkflowEntry({
         toolType,
         title: TOOL_LABELS[toolType] + " - Draft",
         status: "draft",
         step: "generate",
         sessionId: activeSessionId,
-        runId: runId || undefined,
         titleSource: JSON.stringify(currentToolDraft),
         toolLabel: TOOL_LABELS[toolType],
       });
@@ -852,10 +830,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       activeSessionId,
       currentToolDraft,
       expandedTool,
-      getCurrentWorkflowRun,
       pushStudioStageHint,
       recordWorkflowEntry,
-      startWorkflowRun,
       syncStudioChatContextByStep,
       trackStep,
     ]
@@ -994,6 +970,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     sessionId: string | null;
     effectiveSessionId: string | null;
     resourceKind: string | null;
+    runId: string | null;
+    runNo: number | null;
   }> => {
     if (!project || !currentCardId || isStudioActionRunning) {
       return {
@@ -1001,6 +979,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         sessionId: null,
         effectiveSessionId: activeSessionId ?? null,
         resourceKind: null,
+        runId: null,
+        runNo: null,
       };
     }
     if (!ensureActiveSession()) {
@@ -1009,6 +989,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         sessionId: null,
         effectiveSessionId: activeSessionId ?? null,
         resourceKind: null,
+        runId: null,
+        runNo: null,
       };
     }
     if (isProtocolPending) {
@@ -1022,6 +1004,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         sessionId: null,
         effectiveSessionId: activeSessionId ?? null,
         resourceKind: null,
+        runId: null,
+        runNo: null,
       };
     }
     if (requiresSourceArtifact && !hasSourceBinding) {
@@ -1035,6 +1019,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         sessionId: null,
         effectiveSessionId: activeSessionId ?? null,
         resourceKind: null,
+        runId: null,
+        runNo: null,
       };
     }
     const requestBody = buildStudioExecutionRequest();
@@ -1044,6 +1030,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         sessionId: null,
         effectiveSessionId: activeSessionId ?? null,
         resourceKind: null,
+        runId: null,
+        runNo: null,
       };
     }
     try {
@@ -1071,6 +1059,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         (run?.run_id as string | undefined) ||
         (run?.id as string | undefined) ||
         null;
+      const runNo =
+        typeof run?.run_no === "number" && Number.isFinite(run.run_no)
+          ? Math.trunc(run.run_no)
+          : null;
       if (sessionId) {
         setActiveSessionId(sessionId);
       }
@@ -1112,10 +1104,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
               new Date().toISOString(),
             basedOnVersionId: null,
             runId,
-            runNo:
-              typeof run?.run_no === "number"
-                ? Math.trunc(run.run_no)
-                : null,
+            runNo,
           };
           setRuntimeArtifactsByTool((prev) => {
             const existing = prev[expandedTool as StudioToolKey] ?? [];
@@ -1177,6 +1166,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         sessionId,
         effectiveSessionId,
         resourceKind,
+        runId,
+        runNo,
       };
     } catch (error) {
       toast({
@@ -1189,6 +1180,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         sessionId: null,
         effectiveSessionId: activeSessionId ?? null,
         resourceKind: null,
+        runId: null,
+        runNo: null,
       };
     } finally {
       setIsStudioActionRunning(false);
@@ -1271,37 +1264,49 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       if (!expandedTool || expandedTool === "ppt") return false;
       const toolType = expandedTool as GenerationToolType;
       const flowStep = "preview";
-      const runId = getCurrentWorkflowRun(toolType) ?? startWorkflowRun(toolType);
+      const contextSessionId = activeSessionId ?? null;
 
-      pushStudioStageHint(toolType, "generate", activeSessionId);
-      syncStudioChatContextByStep(toolType, "generate", activeSessionId);
+      pushStudioStageHint(toolType, "generate", contextSessionId);
+      syncStudioChatContextByStep(toolType, "generate", contextSessionId);
 
       recordWorkflowEntry({
         toolType,
         title: TOOL_LABELS[toolType] + " - Generating",
         status: "processing",
         step: flowStep,
-        sessionId: activeSessionId,
-        runId,
+        sessionId: contextSessionId,
         titleSource: JSON.stringify(currentToolDraft),
         toolLabel: TOOL_LABELS[toolType],
       });
       const execution = await handleStudioExecute();
       if (execution.ok) {
-        const contextSessionId = execution.effectiveSessionId ?? activeSessionId;
-        if (contextSessionId) {
-          syncStudioChatContextByStep(toolType, "generate", contextSessionId);
-          pushStudioStageHint(toolType, "generate", contextSessionId);
+        const resolvedSessionId =
+          execution.effectiveSessionId ?? contextSessionId;
+        if (resolvedSessionId) {
+          recordWorkflowEntry({
+            toolType,
+            title: TOOL_LABELS[toolType] + " - Generating",
+            status: "processing",
+            step: flowStep,
+            sessionId: resolvedSessionId,
+            runId: execution.runId ?? undefined,
+            runNo: execution.runNo ?? undefined,
+            titleSource: JSON.stringify(currentToolDraft),
+            toolLabel: TOOL_LABELS[toolType],
+          });
+          syncStudioChatContextByStep(toolType, "generate", resolvedSessionId);
+          pushStudioStageHint(toolType, "generate", resolvedSessionId);
         }
         return true;
-      } else if (activeSessionId) {
+      } else if (contextSessionId) {
         recordWorkflowEntry({
           toolType,
           title: TOOL_LABELS[toolType] + " - Failed",
           status: "failed",
           step: flowStep,
-          sessionId: activeSessionId,
-          runId,
+          sessionId: contextSessionId,
+          runId: execution.runId ?? undefined,
+          runNo: execution.runNo ?? undefined,
           titleSource: JSON.stringify(currentToolDraft),
           toolLabel: TOOL_LABELS[toolType],
         });
