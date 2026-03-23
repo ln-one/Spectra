@@ -93,7 +93,6 @@ def test_get_preview_prefers_lightweight_snapshot_when_available(
     full_snapshot.assert_not_awaited()
 
 
-
 def test_get_preview_with_run_id_returns_run_not_ready_when_no_task(
     client, monkeypatch, _as_user
 ):
@@ -119,6 +118,8 @@ def test_get_preview_with_run_id_returns_run_not_ready_when_no_task(
     assert body["error"]["code"] == "RESOURCE_CONFLICT"
     assert body["error"]["details"]["reason"] == "run_not_ready"
     assert body["error"]["details"]["run_id"] == "run-001"
+
+
 def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
@@ -325,4 +326,3 @@ def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_use
     assert data["format"] == "markdown"
     assert data["render_version"] == 7
     assert data["content"] == "# Demo"
-

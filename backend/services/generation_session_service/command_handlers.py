@@ -18,6 +18,10 @@ from services.generation_session_service.outline_versions import (
     parse_outline_json,
     persist_outline_version,
 )
+from services.generation_session_service.run_queries import (
+    get_latest_active_session_run,
+    get_latest_active_session_run_by_tool,
+)
 from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
     RUN_STATUS_PROCESSING,
@@ -29,10 +33,6 @@ from services.generation_session_service.session_history import (
     create_session_run,
     serialize_session_run,
     update_session_run,
-)
-from services.generation_session_service.run_queries import (
-    get_latest_active_session_run,
-    get_latest_active_session_run_by_tool,
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationCommandType

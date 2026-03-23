@@ -2,7 +2,10 @@
 
 from fastapi import APIRouter, Depends, Query
 
-from routers.generate_sessions.shared import get_session_service, load_session_snapshot_or_raise
+from routers.generate_sessions.shared import (
+    get_session_service,
+    load_session_snapshot_or_raise,
+)
 from services.database import db_service
 from services.generation_session_service.run_queries import (
     get_session_run,
@@ -47,7 +50,9 @@ async def get_session_run_detail(
             message=f"运行不存在: {run_id}",
             error_code=ErrorCode.NOT_FOUND,
         )
-    from services.generation_session_service.session_history import serialize_session_run
+    from services.generation_session_service.session_history import (
+        serialize_session_run,
+    )
 
     return success_response(
         data={"run": serialize_session_run(run)},

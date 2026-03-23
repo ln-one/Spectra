@@ -124,7 +124,9 @@ async def modify_session_preview(
 async def get_session_slide_preview(
     session_id: str,
     slide_id: str,
-    artifact_id: Optional[str] = Query(None, description="鎸囧畾鏉ユ簮鎴愭灉ID锛堝彲閫夛級"),
+    artifact_id: Optional[str] = Query(
+        None, description="鎸囧畾鏉ユ簮鎴愭灉ID锛堝彲閫夛級"
+    ),
     run_id: Optional[str] = Query(None, description="鎸囧畾运行ID（可选）"),
     user_id: str = Depends(get_current_user),
 ):

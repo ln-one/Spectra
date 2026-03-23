@@ -7,13 +7,11 @@ import time
 from typing import Optional
 
 from schemas.generation import TaskStatus, normalize_generation_type
-
 from services.generation_session_service.session_history import (
     RUN_STATUS_PROCESSING,
     RUN_STEP_GENERATE,
     update_session_run,
 )
-
 
 from .common import RETRYABLE_ERRORS, run_async_entrypoint
 from .generation_error_handling import (

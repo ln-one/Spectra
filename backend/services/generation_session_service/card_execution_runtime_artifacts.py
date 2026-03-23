@@ -193,8 +193,8 @@ async def _create_artifact_run(
     from services.generation_session_service.session_history import (
         RUN_STATUS_COMPLETED,
         RUN_STATUS_PROCESSING,
-        RUN_STEP_GENERATE,
         RUN_STEP_COMPLETED,
+        RUN_STEP_GENERATE,
         create_session_run,
         generate_semantic_run_title,
         serialize_session_run,

@@ -3,7 +3,9 @@
 from typing import Awaitable, Callable, Optional
 from uuid import UUID
 
-PreviewAnchorResolver = Callable[[str, dict, Optional[str], Optional[str]], Awaitable[dict]]
+PreviewAnchorResolver = Callable[
+    [str, dict, Optional[str], Optional[str]], Awaitable[dict]
+]
 PreviewMaterialLoader = Callable[
     [str, str, Optional[str], Optional[str], Optional[str]], Awaitable[tuple]
 ]

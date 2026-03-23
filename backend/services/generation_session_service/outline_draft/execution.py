@@ -12,8 +12,6 @@ from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
 )
-from services.generation_session_service.outline_versions import load_latest_outline_record
-from services.generation_session_service.run_queries import resolve_output_tool_type
 from services.generation_session_service.outline_draft.runtime_helpers import (
     generate_outline_doc,
 )
@@ -25,6 +23,10 @@ from services.generation_session_service.outline_draft.state_helpers import (
     persist_outline_failure_fallback,
     persist_outline_success,
 )
+from services.generation_session_service.outline_versions import (
+    load_latest_outline_record,
+)
+from services.generation_session_service.run_queries import resolve_output_tool_type
 from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
     RUN_STATUS_PROCESSING,

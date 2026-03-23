@@ -7,6 +7,7 @@ from typing import Optional
 from schemas.generation import build_generation_result_payload
 from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.capability_helpers import _default_capabilities
+from services.generation_session_service.run_queries import get_session_run
 from services.generation_session_service.serialization_helpers import (
     _to_generation_event,
     _to_session_ref,
@@ -16,7 +17,6 @@ from services.generation_session_service.session_artifacts import (
     get_latest_session_candidate_change,
     get_session_artifact_history,
 )
-from services.generation_session_service.run_queries import get_session_run
 from services.generation_session_service.session_history import get_latest_session_run
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState

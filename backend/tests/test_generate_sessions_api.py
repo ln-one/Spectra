@@ -252,7 +252,6 @@ async def test_create_session_reuses_current_session_when_client_session_id_matc
     )
 
 
-
 @pytest.mark.anyio
 async def test_create_session_returns_409_when_active_run_exists(
     app, mock_db_service, _as_user
@@ -313,6 +312,8 @@ async def test_create_session_returns_409_when_active_run_exists(
     details = error.get("details") if isinstance(error, dict) else {}
     assert error.get("code") == "RESOURCE_CONFLICT"
     assert details.get("run_id") == "run-001"
+
+
 def test_redraft_outline_passes_task_queue_service_to_executor(app, _as_user):
     client = TestClient(app)
     app.state.task_queue_service = SimpleNamespace(name="queue-service")
@@ -2213,10 +2214,3 @@ async def test_refine_studio_card_rejects_cards_without_refine_protocol(app, _as
 
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "RESOURCE_CONFLICT"
-
-
-
-
-
-
-

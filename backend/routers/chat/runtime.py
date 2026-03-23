@@ -266,7 +266,11 @@ async def process_chat_message(
                 "session_id": session_id,
                 "message": msg_dict,
                 "rag_hit": rag_hit,
-                "suggestions": ["Refine teaching goals", "Add key points", "Start generating courseware"],
+                "suggestions": [
+                    "Refine teaching goals",
+                    "Add key points",
+                    "Start generating courseware",
+                ],
                 "observability": observability_metadata,
                 "session_title_updated": session_title_updated,
                 "session_title": session_title,

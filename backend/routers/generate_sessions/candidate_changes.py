@@ -44,7 +44,10 @@ async def resolve_session_artifact_binding(
                 message=f"运行不存在: {run_id}",
                 error_code=ErrorCode.NOT_FOUND,
             )
-        if getattr(run, "projectId", None) != project_id or getattr(run, "sessionId", None) != session_id:
+        if (
+            getattr(run, "projectId", None) != project_id
+            or getattr(run, "sessionId", None) != session_id
+        ):
             raise NotFoundException(
                 message=f"运行 {run_id} 不属于会话 {session_id}",
                 error_code=ErrorCode.NOT_FOUND,
@@ -77,6 +80,7 @@ async def resolve_session_artifact_binding(
         where={"projectId": project_id, "sessionId": session_id},
         order={"updatedAt": "desc"},
     )
+
 
 def parse_candidate_change_payload(value, field_name: str) -> Optional[dict]:
     if value is None:
@@ -268,6 +272,3 @@ async def load_session_preview_material(
         task_id,
         run_id,
     )
-
-
-
