@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight,
   ChevronLeft,
   X,
   Sparkles,
-  HelpCircle,
   Lightbulb,
 } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -123,11 +122,12 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
   }, [currentStep]);
 
   useEffect(() => {
-    updateTargetRect();
+    const initialMeasureFrame = window.requestAnimationFrame(updateTargetRect);
     const interval = setInterval(updateTargetRect, 500); // Polling for layout shifts
     window.addEventListener("resize", updateTargetRect);
     window.addEventListener("scroll", updateTargetRect, true);
     return () => {
+      window.cancelAnimationFrame(initialMeasureFrame);
       clearInterval(interval);
       window.removeEventListener("resize", updateTargetRect);
       window.removeEventListener("scroll", updateTargetRect, true);
