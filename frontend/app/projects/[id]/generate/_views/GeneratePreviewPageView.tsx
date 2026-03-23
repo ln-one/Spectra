@@ -86,7 +86,13 @@ export default function GeneratePreviewPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, router, runIdFromQuery, searchQueryString, sessionIdFromQuery]);
+  }, [
+    projectId,
+    router,
+    runIdFromQuery,
+    searchQueryString,
+    sessionIdFromQuery,
+  ]);
 
   useEffect(() => {
     activeSlideIndexRef.current = activeSlideIndex;
@@ -98,7 +104,8 @@ export default function GeneratePreviewPage() {
 
     const updateActiveSlideByViewport = () => {
       if (!containerRef.current) return;
-      const slideElements = containerRef.current.querySelectorAll(".slide-card");
+      const slideElements =
+        containerRef.current.querySelectorAll(".slide-card");
       let currentActiveIndex = activeSlideIndexRef.current;
       const containerTop = containerRef.current.scrollTop;
       const containerCenter =
@@ -279,5 +286,3 @@ export default function GeneratePreviewPage() {
     </TooltipProvider>
   );
 }
-
-

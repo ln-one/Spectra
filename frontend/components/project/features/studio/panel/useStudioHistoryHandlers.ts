@@ -35,7 +35,13 @@ interface UseStudioHistoryHandlersArgs {
   recordWorkflowEntry: (payload: {
     toolType: GenerationToolType;
     title: string;
-    status: "pending" | "draft" | "processing" | "previewing" | "completed" | "failed";
+    status:
+      | "pending"
+      | "draft"
+      | "processing"
+      | "previewing"
+      | "completed"
+      | "failed";
     step: StudioHistoryStep;
     sessionId?: string | null;
     runId?: string;
@@ -92,14 +98,16 @@ export function useStudioHistoryHandlers({
       if (item.toolType === "ppt" && item.step === "outline" && sessionId) {
         try {
           const sessionResponse = item.runId
-            ? await generateApi.getSessionByRun(sessionId, { run_id: item.runId })
+            ? await generateApi.getSessionByRun(sessionId, {
+                run_id: item.runId,
+              })
             : await generateApi.getSession(sessionId);
           const latestSession = sessionResponse?.data ?? null;
           let latestRunId: string | null = null;
           if (latestSession) {
-            latestRunId = (
-              latestSession as { current_run?: { run_id?: string } }
-            ).current_run?.run_id ?? null;
+            latestRunId =
+              (latestSession as { current_run?: { run_id?: string } })
+                .current_run?.run_id ?? null;
             const pinnedRunId = item.runId || latestRunId;
             useProjectStore.setState({
               generationSession: latestSession,
@@ -114,7 +122,8 @@ export function useStudioHistoryHandlers({
           if (isPreviewState) {
             trackStep("ppt", "preview");
             acknowledgeStep("ppt", "preview");
-            const runId = item.runId || resolvePptRunId(latestRunId) || undefined;
+            const runId =
+              item.runId || resolvePptRunId(latestRunId) || undefined;
             const isFinished = latestState === "SUCCESS";
             recordWorkflowEntry({
               toolType: "ppt",
@@ -125,7 +134,11 @@ export function useStudioHistoryHandlers({
               runId,
               toolLabel: TOOL_LABELS.ppt,
             });
-            const previewHref = openPptPreviewPage(sessionId, item.artifactId, runId);
+            const previewHref = openPptPreviewPage(
+              sessionId,
+              item.artifactId,
+              runId
+            );
             if (previewHref) router.push(previewHref);
             return;
           }
@@ -137,7 +150,11 @@ export function useStudioHistoryHandlers({
       if (item.toolType === "ppt") {
         if (item.origin === "artifact" || item.step === "preview") {
           const runId = item.runId || resolvePptRunId() || undefined;
-          const previewHref = openPptPreviewPage(sessionId, item.artifactId, runId);
+          const previewHref = openPptPreviewPage(
+            sessionId,
+            item.artifactId,
+            runId
+          );
           if (previewHref) router.push(previewHref);
           return;
         }
@@ -163,7 +180,10 @@ export function useStudioHistoryHandlers({
               item.step === "preview"
             ? "preview"
             : normalizeHistoryStep(item.step);
-      requestStep(item.toolType, item.step === "outline" ? "preview" : targetStep);
+      requestStep(
+        item.toolType,
+        item.step === "outline" ? "preview" : targetStep
+      );
     },
     [
       acknowledgeStep,
@@ -189,7 +209,11 @@ export function useStudioHistoryHandlers({
       const toolType = expandedTool;
       const step = normalizeHistoryStep(stepId);
       const normalizedStep =
-        step === "preview" ? "preview" : step === "generate" ? "generate" : "config";
+        step === "preview"
+          ? "preview"
+          : step === "generate"
+            ? "generate"
+            : "config";
 
       trackStep(toolType, step);
       acknowledgeStep(toolType, step);

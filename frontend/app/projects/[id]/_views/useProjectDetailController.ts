@@ -85,9 +85,9 @@ export function useProjectDetailController() {
   const [sessionTitleOverrides, setSessionTitleOverrides] = useState<
     Record<string, string>
   >({});
-  const [hiddenSessionIds, setHiddenSessionIds] = useState<Record<string, true>>(
-    {}
-  );
+  const [hiddenSessionIds, setHiddenSessionIds] = useState<
+    Record<string, true>
+  >({});
   const [selectedThemePreset, setSelectedThemePreset] = useState<ThemePresetId>(
     DEFAULT_PROJECT_THEME_PRESET
   );
@@ -132,7 +132,10 @@ export function useProjectDetailController() {
     if (sessionMetaHydratedProjectId !== projectId) return;
     const titleKey = `project-session-title-overrides:${projectId}`;
     const hiddenKey = `project-hidden-sessions:${projectId}`;
-    window.localStorage.setItem(titleKey, JSON.stringify(sessionTitleOverrides));
+    window.localStorage.setItem(
+      titleKey,
+      JSON.stringify(sessionTitleOverrides)
+    );
     window.localStorage.setItem(hiddenKey, JSON.stringify(hiddenSessionIds));
   }, [
     hiddenSessionIds,
@@ -258,7 +261,8 @@ export function useProjectDetailController() {
           const nextRunId =
             queryRunId ||
             ((response?.data as { current_run?: { run_id?: string } } | null)
-              ?.current_run?.run_id ?? null);
+              ?.current_run?.run_id ??
+              null);
           useProjectStore.setState({
             generationSession: response?.data ?? null,
             activeRunId: nextRunId,
@@ -431,7 +435,12 @@ export function useProjectDetailController() {
         title: "会话已隐藏",
       });
     },
-    [activeSessionId, generationHistory, handleChangeSession, visibleGenerationHistory]
+    [
+      activeSessionId,
+      generationHistory,
+      handleChangeSession,
+      visibleGenerationHistory,
+    ]
   );
 
   return {

@@ -21,7 +21,9 @@ const STATUS_LABEL: Record<CapabilityStatus, string> = {
 
 export function CapabilityNotice({ status, reason }: CapabilityNoticeProps) {
   return (
-    <div className={`rounded-lg border px-3 py-2 text-xs ${STATUS_STYLE[status]}`}>
+    <div
+      className={`rounded-lg border px-3 py-2 text-xs ${STATUS_STYLE[status]}`}
+    >
       <p className="font-semibold">{STATUS_LABEL[status]}</p>
       <p className="mt-1 leading-5">{reason}</p>
     </div>

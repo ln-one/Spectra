@@ -6,20 +6,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { projectsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
-import { 
-  Loader2, 
-  ArrowLeft, 
-  Sparkles, 
-  Paperclip, 
-  X, 
-  ChevronDown, 
+import {
+  Loader2,
+  ArrowLeft,
+  Sparkles,
+  Paperclip,
+  X,
+  ChevronDown,
   ArrowRight,
   FileText,
   Shield,
   Users,
   Layers,
   Settings,
-  Library
+  Library,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,7 @@ import { useProjectStore } from "@/stores/projectStore";
 
 export default function NewProjectPage() {
   const router = useRouter();
-  const uploadFile = useProjectStore(state => state.uploadFile);
+  const uploadFile = useProjectStore((state) => state.uploadFile);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -49,12 +49,12 @@ export default function NewProjectPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      setPendingFiles(prev => [...prev, ...Array.from(files)]);
+      setPendingFiles((prev) => [...prev, ...Array.from(files)]);
     }
   };
 
   const removeFile = (index: number) => {
-    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -67,8 +67,11 @@ export default function NewProjectPage() {
     setIsLoading(true);
     try {
       // Use prompt as name if name is empty
-      const projectName = formData.name.trim() || prompt.trim().split('\n')[0].substring(0, 20) || "新项目";
-      
+      const projectName =
+        formData.name.trim() ||
+        prompt.trim().split("\n")[0].substring(0, 20) ||
+        "新项目";
+
       const response = await projectsApi.createProject({
         name: projectName,
         description: prompt,
@@ -134,7 +137,9 @@ export default function NewProjectPage() {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-zinc-900 text-white shadow-xl shadow-zinc-200"
           >
             <Sparkles className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Spectra Agent</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+              Spectra Agent
+            </span>
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -145,15 +150,14 @@ export default function NewProjectPage() {
             开启您的智慧教学
           </motion.h1>
           <motion.p
-             initial={{ opacity: 0, y: 20 }}
-             animate={{ opacity: 1, y: 0 }}
-             transition={{ delay: 0.2 }}
-             className="text-zinc-400 text-lg font-medium"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-zinc-400 text-lg font-medium"
           >
             只需一句话，Spectra 将为您构建完整的教学空间。
           </motion.p>
         </div>
-
 
         {/* Central Input Box */}
         <motion.div
@@ -165,22 +169,23 @@ export default function NewProjectPage() {
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-[2.5rem] blur opacity-15 group-focus-within:opacity-40 transition duration-500" />
           <div className="relative bg-white rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 border border-zinc-100 p-8 space-y-8">
             <div className="space-y-4">
-               <div className="flex items-center gap-3">
-                 <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                   <Sparkles className="w-4 h-4 text-blue-600" />
-                 </div>
-                 <h2 className="text-xl font-black text-zinc-900 tracking-tight">
-                   教学构想 <span className="text-blue-600">(AI Agent 核心输入)</span>
-                 </h2>
-               </div>
-               <Textarea
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-blue-600" />
+                </div>
+                <h2 className="text-xl font-black text-zinc-900 tracking-tight">
+                  教学构想{" "}
+                  <span className="text-blue-600">(AI Agent 核心输入)</span>
+                </h2>
+              </div>
+              <Textarea
                 placeholder="在此描述您的教学构想，Spectra AI 将为您准备好一切..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="w-full min-h-[200px] text-2xl font-bold border-none focus-visible:ring-0 resize-none p-4 bg-zinc-50/30 rounded-2xl placeholder:text-zinc-200 leading-relaxed"
               />
             </div>
-            
+
             <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-zinc-50">
               <div className="flex items-center gap-2">
                 <Button
@@ -202,7 +207,12 @@ export default function NewProjectPage() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => toast({ title: "库选择功能开发中", description: "此功能将在后续版本中上线。" })}
+                  onClick={() =>
+                    toast({
+                      title: "库选择功能开发中",
+                      description: "此功能将在后续版本中上线。",
+                    })
+                  }
                   className="rounded-2xl h-12 px-6 gap-2 text-zinc-500 hover:text-purple-600 hover:bg-purple-50 transition-all font-bold"
                 >
                   <Library className="w-5 h-5" />
@@ -212,13 +222,17 @@ export default function NewProjectPage() {
 
               <Button
                 onClick={handleSubmit}
-                disabled={isLoading || (!prompt.trim() && !formData.name.trim())}
+                disabled={
+                  isLoading || (!prompt.trim() && !formData.name.trim())
+                }
                 className="h-14 px-10 rounded-[1.5rem] bg-zinc-900 hover:bg-zinc-800 text-lg font-black shadow-2xl hover:scale-[1.03] transition-all active:scale-95 disabled:scale-100"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-3">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>{isUploadingFiles ? "正在上传素材..." : "构思中..."}</span>
+                    <span>
+                      {isUploadingFiles ? "正在上传素材..." : "构思中..."}
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
@@ -246,10 +260,12 @@ export default function NewProjectPage() {
                       className="flex items-center gap-2 px-3 py-2 bg-zinc-50 rounded-xl border border-zinc-100 group/file"
                     >
                       <FileText className="w-4 h-4 text-blue-500" />
-                      <span className="text-xs font-bold text-zinc-600 truncate max-w-[120px]">{file.name}</span>
-                      <button 
-                         onClick={() => removeFile(i)}
-                         className="p-1 rounded-full hover:bg-zinc-200 text-zinc-400 hover:text-red-500 transition-colors"
+                      <span className="text-xs font-bold text-zinc-600 truncate max-w-[120px]">
+                        {file.name}
+                      </span>
+                      <button
+                        onClick={() => removeFile(i)}
+                        className="p-1 rounded-full hover:bg-zinc-200 text-zinc-400 hover:text-red-500 transition-colors"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -272,7 +288,12 @@ export default function NewProjectPage() {
           >
             <Settings className="w-4 h-4 text-zinc-400" />
             <span>更多自定义选项</span>
-            <ChevronDown className={cn("w-4 h-4 transition-transform text-zinc-400", showAdvanced && "rotate-180")} />
+            <ChevronDown
+              className={cn(
+                "w-4 h-4 transition-transform text-zinc-400",
+                showAdvanced && "rotate-180"
+              )}
+            />
           </motion.button>
 
           <AnimatePresence>
@@ -286,26 +307,36 @@ export default function NewProjectPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {/* Name Input */}
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">项目名称 (可选)</label>
-                    <Input 
+                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                      项目名称 (可选)
+                    </label>
+                    <Input
                       placeholder="未填写将基于构想生成"
                       value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
                       className="h-12 rounded-xl border-zinc-100 bg-zinc-50 focus:bg-white transition-all font-bold"
                     />
                   </div>
 
                   {/* Grade Level */}
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">学段选择</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                      学段选择
+                    </label>
                     <div className="flex gap-2 p-1 bg-zinc-50 rounded-xl">
                       {["小学", "初中", "高中", "大学"].map((g) => (
                         <button
                           key={g}
-                          onClick={() => setFormData({...formData, grade_level: g})}
+                          onClick={() =>
+                            setFormData({ ...formData, grade_level: g })
+                          }
                           className={cn(
                             "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
-                            formData.grade_level === g ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-400 hover:text-zinc-600"
+                            formData.grade_level === g
+                              ? "bg-white text-zinc-900 shadow-sm"
+                              : "text-zinc-400 hover:text-zinc-600"
                           )}
                         >
                           {g}
@@ -315,23 +346,37 @@ export default function NewProjectPage() {
                   </div>
                   {/* Visibility */}
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">可见性设置</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                      可见性设置
+                    </label>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setFormData({...formData, visibility: "private", is_referenceable: false})}
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            visibility: "private",
+                            is_referenceable: false,
+                          })
+                        }
                         className={cn(
                           "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
-                          formData.visibility === "private" ? "bg-zinc-900 border-zinc-900 text-white shadow-lg" : "bg-white border-zinc-100 text-zinc-400"
+                          formData.visibility === "private"
+                            ? "bg-zinc-900 border-zinc-900 text-white shadow-lg"
+                            : "bg-white border-zinc-100 text-zinc-400"
                         )}
                       >
                         <Shield className="w-4 h-4" />
                         私有
                       </button>
                       <button
-                        onClick={() => setFormData({...formData, visibility: "shared"})}
+                        onClick={() =>
+                          setFormData({ ...formData, visibility: "shared" })
+                        }
                         className={cn(
                           "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
-                          formData.visibility === "shared" ? "bg-zinc-900 border-zinc-900 text-white shadow-lg" : "bg-white border-zinc-100 text-zinc-400"
+                          formData.visibility === "shared"
+                            ? "bg-zinc-900 border-zinc-900 text-white shadow-lg"
+                            : "bg-white border-zinc-100 text-zinc-400"
                         )}
                       >
                         <Users className="w-4 h-4" />
@@ -342,22 +387,32 @@ export default function NewProjectPage() {
 
                   {/* Reference Mode */}
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">引用模式</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                      引用模式
+                    </label>
                     <div className="flex gap-2">
-                       <button
-                        onClick={() => setFormData({...formData, reference_mode: "follow"})}
+                      <button
+                        onClick={() =>
+                          setFormData({ ...formData, reference_mode: "follow" })
+                        }
                         className={cn(
                           "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
-                          formData.reference_mode === "follow" ? "bg-zinc-50 border-zinc-200 text-zinc-900" : "bg-white border-zinc-100 text-zinc-400"
+                          formData.reference_mode === "follow"
+                            ? "bg-zinc-50 border-zinc-200 text-zinc-900"
+                            : "bg-white border-zinc-100 text-zinc-400"
                         )}
                       >
                         跟随 (Follow)
                       </button>
                       <button
-                        onClick={() => setFormData({...formData, reference_mode: "pinned"})}
+                        onClick={() =>
+                          setFormData({ ...formData, reference_mode: "pinned" })
+                        }
                         className={cn(
                           "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
-                          formData.reference_mode === "pinned" ? "bg-zinc-50 border-zinc-200 text-zinc-900" : "bg-white border-zinc-100 text-zinc-400"
+                          formData.reference_mode === "pinned"
+                            ? "bg-zinc-50 border-zinc-200 text-zinc-900"
+                            : "bg-white border-zinc-100 text-zinc-400"
                         )}
                       >
                         固定 (Pinned)
@@ -367,13 +422,20 @@ export default function NewProjectPage() {
 
                   {/* Father ID */}
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">父项目 ID</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                      父项目 ID
+                    </label>
                     <div className="relative">
                       <Layers className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                      <Input 
+                      <Input
                         placeholder="例如: proj_123"
                         value={formData.base_project_id}
-                        onChange={(e) => setFormData({...formData, base_project_id: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            base_project_id: e.target.value,
+                          })
+                        }
                         className="h-12 pl-11 rounded-xl border-zinc-100 bg-zinc-50 focus:bg-white transition-all font-bold"
                       />
                     </div>
@@ -390,10 +452,18 @@ export default function NewProjectPage() {
                         type="checkbox"
                         id="is_referenceable_new"
                         checked={formData.is_referenceable}
-                        onChange={(e) => setFormData({ ...formData, is_referenceable: e.target.checked })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            is_referenceable: e.target.checked,
+                          })
+                        }
                         className="w-5 h-5 rounded-lg border-zinc-200 text-zinc-900 focus:ring-zinc-900"
                       />
-                      <label htmlFor="is_referenceable_new" className="text-xs font-bold text-zinc-600">
+                      <label
+                        htmlFor="is_referenceable_new"
+                        className="text-xs font-bold text-zinc-600"
+                      >
                         允许被其他项目引用
                       </label>
                     </motion.div>

@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { GenerationConfigPanel } from "@/components/project";
 import { cn } from "@/lib/utils";
 import { TOOL_LABELS } from "../../constants";
-import type { StudioToolKey, ToolDraftState, ToolFlowContext } from "../../tools";
+import type {
+  StudioToolKey,
+  ToolDraftState,
+  ToolFlowContext,
+} from "../../tools";
 
 interface StudioExpandedViewProps {
   isExpanded: boolean;
@@ -192,16 +196,19 @@ export function StudioExpandedView({
                             readiness: {currentReadiness ?? "loading"}
                           </span>
                           <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                            context: {currentCapability?.context_mode ?? "unknown"}
+                            context:{" "}
+                            {currentCapability?.context_mode ?? "unknown"}
                           </span>
                           <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                            mode: {currentCapability?.execution_mode ?? "unknown"}
+                            mode:{" "}
+                            {currentCapability?.execution_mode ?? "unknown"}
                           </span>
                           <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
                             refine: {supportsChatRefine ? "on" : "off"}
                           </span>
                           <span className="project-studio-meta-chip rounded-[var(--project-chip-radius)] bg-[var(--project-surface-elevated)] px-2 py-0.5 border border-[var(--project-control-border)]">
-                            source: {requiresSourceArtifact ? "required" : "optional"}
+                            source:{" "}
+                            {requiresSourceArtifact ? "required" : "optional"}
                           </span>
                         </div>
                         {requiresSourceArtifact && !hasSourceBinding ? (
@@ -211,7 +218,8 @@ export function StudioExpandedView({
                         ) : null}
                         {toolFlowContext.isProtocolPending ? (
                           <p className="mt-1 text-amber-700">
-                            当前卡片协议处于protocol_pending，执行/refine 已禁用。
+                            当前卡片协议处于protocol_pending，执行/refine
+                            已禁用。
                           </p>
                         ) : null}
                       </div>

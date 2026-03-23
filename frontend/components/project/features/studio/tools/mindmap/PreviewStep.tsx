@@ -30,14 +30,19 @@ function toMindNode(raw: unknown): MindNode | null {
   return { id, label, children };
 }
 
-function buildTreeFromFlatNodes(nodes: Array<Record<string, unknown>>): MindNode | null {
+function buildTreeFromFlatNodes(
+  nodes: Array<Record<string, unknown>>
+): MindNode | null {
   if (nodes.length === 0) return null;
 
   const nodeMap = new Map<string, MindNode>();
   const parentMap = new Map<string, string | null>();
 
   for (const node of nodes) {
-    const id = normalizeLabel(node.id, `node-${Math.random().toString(36).slice(2, 9)}`);
+    const id = normalizeLabel(
+      node.id,
+      `node-${Math.random().toString(36).slice(2, 9)}`
+    );
     nodeMap.set(id, {
       id,
       label: normalizeLabel(node.title ?? node.label, id),
@@ -45,7 +50,9 @@ function buildTreeFromFlatNodes(nodes: Array<Record<string, unknown>>): MindNode
     });
     parentMap.set(
       id,
-      typeof node.parent_id === "string" && node.parent_id.trim() ? node.parent_id : null
+      typeof node.parent_id === "string" && node.parent_id.trim()
+        ? node.parent_id
+        : null
     );
   }
 
@@ -78,7 +85,9 @@ function extractBackendTree(flowContext?: ToolFlowContext): MindNode | null {
 }
 
 function countTreeNodes(node: MindNode): number {
-  return 1 + node.children.reduce((sum, child) => sum + countTreeNodes(child), 0);
+  return (
+    1 + node.children.reduce((sum, child) => sum + countTreeNodes(child), 0)
+  );
 }
 
 export function PreviewStep({
@@ -87,11 +96,14 @@ export function PreviewStep({
   flowContext,
   onSelectNode,
 }: PreviewStepProps) {
-  const capabilityStatus = flowContext?.capabilityStatus ?? "backend_placeholder";
+  const capabilityStatus =
+    flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
     flowContext?.capabilityReason ?? "正在等待后端返回真实导图结构。";
   const backendTree =
-    capabilityStatus === "backend_ready" ? extractBackendTree(flowContext) : null;
+    capabilityStatus === "backend_ready"
+      ? extractBackendTree(flowContext)
+      : null;
   const activeTree = backendTree;
 
   return (
@@ -114,12 +126,18 @@ export function PreviewStep({
               <span>节点总数：{countTreeNodes(activeTree)}</span>
               <span>当前根节点：{activeTree.label}</span>
             </div>
-            <MindmapCanvas tree={activeTree} selectedId={selectedId || activeTree.id} onSelectNode={onSelectNode} />
+            <MindmapCanvas
+              tree={activeTree}
+              selectedId={selectedId || activeTree.id}
+              onSelectNode={onSelectNode}
+            />
           </div>
         ) : (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
             <Network className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">暂未收到后端真实导图</p>
+            <p className="mt-3 text-sm font-medium text-zinc-700">
+              暂未收到后端真实导图
+            </p>
             <p className="mt-1 text-[11px] text-zinc-500">
               当前不再渲染前端示意导图，等待后端 nodes 返回后会直接展示。
             </p>

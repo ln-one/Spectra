@@ -15,7 +15,8 @@ function pickRandom<T>(arr: T[], count: number): T[] {
 
 function extractRunIdFromSessionPayload(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
-  const currentRun = (payload as { current_run?: { run_id?: unknown } }).current_run;
+  const currentRun = (payload as { current_run?: { run_id?: unknown } })
+    .current_run;
   const runId = currentRun?.run_id;
   return typeof runId === "string" && runId.trim() ? runId : null;
 }
@@ -231,7 +232,9 @@ export function useGenerationConfigPanel({
       const sessionIdFromStore = sessionIdFromCallback;
       const initialRunId =
         useProjectStore.getState().activeRunId ||
-        extractRunIdFromSessionPayload(useProjectStore.getState().generationSession);
+        extractRunIdFromSessionPayload(
+          useProjectStore.getState().generationSession
+        );
 
       setShowOutlineEditor(true);
       workflowStageChangeRef.current?.("outline", {
@@ -259,7 +262,9 @@ export function useGenerationConfigPanel({
             const latestSession = sessionResponse?.data ?? null;
             const state = latestSession?.session?.state;
             const currentPages = latestSession?.outline?.nodes?.length || 0;
-            const targetPages = Number(latestSession?.options?.pages || pageCount);
+            const targetPages = Number(
+              latestSession?.options?.pages || pageCount
+            );
             const latestRunId =
               targetRunId || extractRunIdFromSessionPayload(latestSession);
 
@@ -292,7 +297,9 @@ export function useGenerationConfigPanel({
             if (state === "FAILED") {
               toast({
                 title: "Outline Generation Failed",
-                description: latestSession?.session?.state_reason || "Please try again later.",
+                description:
+                  latestSession?.session?.state_reason ||
+                  "Please try again later.",
                 variant: "destructive",
               });
               break;
@@ -301,7 +308,11 @@ export function useGenerationConfigPanel({
             await wait(intervalMs);
           }
 
-          if (!outlineReady && lastSessionState && lastSessionState !== "FAILED") {
+          if (
+            !outlineReady &&
+            lastSessionState &&
+            lastSessionState !== "FAILED"
+          ) {
             toast({
               title: "Outline Is Still Generating",
               description: `Current state is ${lastSessionState}. You can continue waiting in the outline editor.`,
@@ -311,13 +322,16 @@ export function useGenerationConfigPanel({
           if (outlineIncomplete) {
             toast({
               title: "Outline Is Being Completed",
-              description: "You can stay on the outline page while remaining pages are generated.",
+              description:
+                "You can stay on the outline page while remaining pages are generated.",
             });
           }
         } catch (error) {
           if (outlinePollRequestIdRef.current !== requestId) return;
           const message =
-            error instanceof Error ? error.message : "Failed to sync outline state.";
+            error instanceof Error
+              ? error.message
+              : "Failed to sync outline state.";
           toast({
             title: "Outline Sync Failed",
             description: message,
@@ -331,7 +345,9 @@ export function useGenerationConfigPanel({
       })();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to create generation session.";
+        error instanceof Error
+          ? error.message
+          : "Failed to create generation session.";
       toast({
         title: "Start Generation Failed",
         description: message,

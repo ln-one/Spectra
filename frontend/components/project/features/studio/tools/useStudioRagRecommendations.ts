@@ -62,7 +62,8 @@ export function useStudioRagRecommendations({
     [fallbackSuggestions]
   );
   const readyFileIds = useMemo(
-    () => files.filter((file) => file.status === "ready").map((file) => file.id),
+    () =>
+      files.filter((file) => file.status === "ready").map((file) => file.id),
     [files]
   );
   const readyFileIdsKey = useMemo(() => readyFileIds.join("|"), [readyFileIds]);
@@ -86,7 +87,8 @@ export function useStudioRagRecommendations({
     const loadRecommendations = async () => {
       setIsLoading(true);
       try {
-        const fileIds = selectedFileIds.length > 0 ? selectedFileIds : readyFileIds;
+        const fileIds =
+          selectedFileIds.length > 0 ? selectedFileIds : readyFileIds;
         const response = await ragApi.search({
           project_id: project.id,
           query,

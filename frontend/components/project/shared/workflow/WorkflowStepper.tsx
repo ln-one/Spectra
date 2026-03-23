@@ -59,7 +59,8 @@ export function WorkflowStepper({
         className
       )}
       style={{
-        ["--accent-glow" as any]: "var(--project-tool-accent-soft, rgba(37, 99, 235, 0.1))",
+        ["--accent-glow" as any]:
+          "var(--project-tool-accent-soft, rgba(37, 99, 235, 0.1))",
         ["--accent-main" as any]: "var(--project-tool-accent, #2563eb)",
       }}
       aria-label="工作流程"
@@ -93,39 +94,54 @@ export function WorkflowStepper({
               const isCompleted = state === "completed";
               const isLocked = index > currentIndex;
               const canClick = interactive && !isLocked;
-              
+
               return (
                 <li key={String(step.id)}>
                   <button
                     type="button"
                     className={cn(
                       "relative w-full rounded-xl border p-3 text-left transition-all duration-300",
-                      canClick && "cursor-pointer hover:border-[var(--accent-main)] hover:shadow-md hover:shadow-[var(--accent-glow)]",
-                      isCompleted ? "border-[var(--accent-main)] bg-white shadow-sm" : 
-                      isCurrent ? "border-[var(--accent-main)] bg-white ring-2 ring-[var(--accent-glow)] shadow-lg" :
-                      "border-zinc-100 bg-zinc-50/50 opacity-60"
+                      canClick &&
+                        "cursor-pointer hover:border-[var(--accent-main)] hover:shadow-md hover:shadow-[var(--accent-glow)]",
+                      isCompleted
+                        ? "border-[var(--accent-main)] bg-white shadow-sm"
+                        : isCurrent
+                          ? "border-[var(--accent-main)] bg-white ring-2 ring-[var(--accent-glow)] shadow-lg"
+                          : "border-zinc-100 bg-zinc-50/50 opacity-60"
                     )}
                     disabled={interactive && isLocked}
-                    onClick={canClick ? () => onStepChange?.(step.id) : undefined}
+                    onClick={
+                      canClick ? () => onStepChange?.(step.id) : undefined
+                    }
                   >
                     <div className="flex items-center gap-2">
-                       <div className={cn(
-                         "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-black transition-all",
-                         isCompleted ? "bg-[var(--accent-main)] border-[var(--accent-main)] text-white" :
-                         isCurrent ? "border-[var(--accent-main)] text-[var(--accent-main)] bg-white scale-110" :
-                         "border-zinc-200 text-zinc-400 bg-zinc-50"
-                       )}>
-                         {isCompleted ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : index + 1}
-                       </div>
-                       <div className="min-w-0 flex-1">
-                         <div className="flex items-center gap-1">
-                           <span className={cn(
-                             "text-[12px] font-bold truncate",
-                             isCurrent ? "text-zinc-900" : "text-zinc-500"
-                           )}>
-                             {step.title}
-                           </span>
-                           <Tooltip>
+                      <div
+                        className={cn(
+                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-black transition-all",
+                          isCompleted
+                            ? "bg-[var(--accent-main)] border-[var(--accent-main)] text-white"
+                            : isCurrent
+                              ? "border-[var(--accent-main)] text-[var(--accent-main)] bg-white scale-110"
+                              : "border-zinc-200 text-zinc-400 bg-zinc-50"
+                        )}
+                      >
+                        {isCompleted ? (
+                          <Check className="h-3.5 w-3.5 stroke-[3]" />
+                        ) : (
+                          index + 1
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={cn(
+                              "text-[12px] font-bold truncate",
+                              isCurrent ? "text-zinc-900" : "text-zinc-500"
+                            )}
+                          >
+                            {step.title}
+                          </span>
+                          <Tooltip>
                             <TooltipTrigger asChild>
                               <CircleHelp className="h-3 w-3 text-zinc-300 hover:text-zinc-500" />
                             </TooltipTrigger>
@@ -133,8 +149,8 @@ export function WorkflowStepper({
                               {step.description}
                             </TooltipContent>
                           </Tooltip>
-                         </div>
-                       </div>
+                        </div>
+                      </div>
                     </div>
                   </button>
                 </li>
@@ -154,50 +170,74 @@ export function WorkflowStepper({
               return (
                 <li key={String(step.id)} className="relative">
                   {!isLast && (
-                    <div className={cn(
-                      "absolute left-[13px] top-8 bottom-[-16px] w-[2px] rounded-full transition-colors duration-500",
-                      isCompleted ? "bg-[var(--accent-main)]" : "bg-zinc-100"
-                    )} />
+                    <div
+                      className={cn(
+                        "absolute left-[13px] top-8 bottom-[-16px] w-[2px] rounded-full transition-colors duration-500",
+                        isCompleted ? "bg-[var(--accent-main)]" : "bg-zinc-100"
+                      )}
+                    />
                   )}
 
                   <button
                     type="button"
                     disabled={interactive && isLocked}
-                    onClick={canClick ? () => onStepChange?.(step.id) : undefined}
+                    onClick={
+                      canClick ? () => onStepChange?.(step.id) : undefined
+                    }
                     className={cn(
                       "group relative flex w-full gap-3 rounded-xl p-2 transition-all duration-300",
-                      isCurrent && "bg-white shadow-xl shadow-zinc-200/50 ring-1 ring-zinc-100",
-                      canClick && "cursor-pointer hover:bg-white hover:shadow-lg"
+                      isCurrent &&
+                        "bg-white shadow-xl shadow-zinc-200/50 ring-1 ring-zinc-100",
+                      canClick &&
+                        "cursor-pointer hover:bg-white hover:shadow-lg"
                     )}
                   >
-                    <div className={cn(
-                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-black transition-all duration-500 z-10",
-                      isCompleted ? "bg-[var(--accent-main)] border-[var(--accent-main)] text-white shadow-lg shadow-[var(--accent-glow)]" :
-                      isCurrent ? "bg-white border-[var(--accent-main)] text-[var(--accent-main)] scale-110 shadow-xl" :
-                      "bg-zinc-50 border-zinc-100 text-zinc-300"
-                    )}>
-                      {isCompleted ? <Check className="h-4 w-4 stroke-[3]" /> : index + 1}
+                    <div
+                      className={cn(
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-black transition-all duration-500 z-10",
+                        isCompleted
+                          ? "bg-[var(--accent-main)] border-[var(--accent-main)] text-white shadow-lg shadow-[var(--accent-glow)]"
+                          : isCurrent
+                            ? "bg-white border-[var(--accent-main)] text-[var(--accent-main)] scale-110 shadow-xl"
+                            : "bg-zinc-50 border-zinc-100 text-zinc-300"
+                      )}
+                    >
+                      {isCompleted ? (
+                        <Check className="h-4 w-4 stroke-[3]" />
+                      ) : (
+                        index + 1
+                      )}
                     </div>
 
                     <div className="flex flex-col text-left pt-0.5 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className={cn(
-                          "text-[13px] font-bold leading-none tracking-tight transition-colors",
-                          isCurrent ? "text-zinc-900" : isCompleted ? "text-zinc-600" : "text-zinc-400"
-                        )}>
+                        <span
+                          className={cn(
+                            "text-[13px] font-bold leading-none tracking-tight transition-colors",
+                            isCurrent
+                              ? "text-zinc-900"
+                              : isCompleted
+                                ? "text-zinc-600"
+                                : "text-zinc-400"
+                          )}
+                        >
                           {step.title}
                         </span>
                         {isCurrent && (
-                          <motion.div 
+                          <motion.div
                             layoutId="active-dot"
                             className="w-1.5 h-1.5 rounded-full bg-[var(--accent-main)] animate-pulse"
                           />
                         )}
                       </div>
-                      <p className={cn(
-                        "mt-1.5 text-[11px] font-medium leading-relaxed line-clamp-2 transition-colors",
-                        isCurrent ? "text-zinc-500" : "text-zinc-400 opacity-60"
-                      )}>
+                      <p
+                        className={cn(
+                          "mt-1.5 text-[11px] font-medium leading-relaxed line-clamp-2 transition-colors",
+                          isCurrent
+                            ? "text-zinc-500"
+                            : "text-zinc-400 opacity-60"
+                        )}
+                      >
                         {step.caption ?? step.description}
                       </p>
                     </div>

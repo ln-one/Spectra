@@ -126,7 +126,9 @@ export function createGenerationActions({
           set((state) => ({
             generationHistory: [
               historyItem,
-              ...state.generationHistory.filter((item) => item.id !== sessionId),
+              ...state.generationHistory.filter(
+                (item) => item.id !== sessionId
+              ),
             ],
           }));
 
@@ -233,7 +235,8 @@ export function createGenerationActions({
         const response = await projectSpaceApi.getArtifacts(projectId, {
           session_id: effectiveSessionId,
         });
-        const artifacts = ((response?.data?.artifacts ?? []) as Artifact[]) || [];
+        const artifacts =
+          ((response?.data?.artifacts ?? []) as Artifact[]) || [];
         const sessionHistoryByTool = groupArtifactsByTool(artifacts);
         const sessionArtifacts = Object.values(sessionHistoryByTool)
           .flat()
@@ -276,7 +279,10 @@ export function createGenerationActions({
       const projectId = get().project?.id;
       if (projectId) {
         try {
-          const blob = await projectSpaceApi.downloadArtifact(projectId, artifactId);
+          const blob = await projectSpaceApi.downloadArtifact(
+            projectId,
+            artifactId
+          );
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
@@ -373,13 +379,17 @@ export function createGenerationActions({
           outline,
         });
         const preferredRunId = get().activeRunId;
-        const sessionResponse = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: preferredRunId,
-        });
+        const sessionResponse = await generateApi.getSessionSnapshot(
+          sessionId,
+          {
+            run_id: preferredRunId,
+          }
+        );
         const latestSessionPayload = sessionResponse?.data ?? null;
         set({
           generationSession: latestSessionPayload,
-          activeRunId: extractCurrentRunId(latestSessionPayload) || preferredRunId,
+          activeRunId:
+            extractCurrentRunId(latestSessionPayload) || preferredRunId,
         });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -404,13 +414,17 @@ export function createGenerationActions({
           base_version: baseVersion,
         });
         const preferredRunId = get().activeRunId;
-        const sessionResponse = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: preferredRunId,
-        });
+        const sessionResponse = await generateApi.getSessionSnapshot(
+          sessionId,
+          {
+            run_id: preferredRunId,
+          }
+        );
         const latestSessionPayload = sessionResponse?.data ?? null;
         set({
           generationSession: latestSessionPayload,
-          activeRunId: extractCurrentRunId(latestSessionPayload) || preferredRunId,
+          activeRunId:
+            extractCurrentRunId(latestSessionPayload) || preferredRunId,
         });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -435,9 +449,12 @@ export function createGenerationActions({
           (confirmResponse as { data?: { run?: unknown } }).data?.run
         );
         const preferredRunId = confirmedRunId || get().activeRunId;
-        const sessionResponse = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: preferredRunId,
-        });
+        const sessionResponse = await generateApi.getSessionSnapshot(
+          sessionId,
+          {
+            run_id: preferredRunId,
+          }
+        );
         const latestSessionPayload = sessionResponse?.data ?? null;
         set({
           generationSession: latestSessionPayload,

@@ -2,7 +2,14 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, X, Sparkles, HelpCircle, Lightbulb } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronLeft,
+  X,
+  Sparkles,
+  HelpCircle,
+  Lightbulb,
+} from "lucide-react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,33 +30,38 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "body",
     title: "欢迎使用 Spectra",
-    content: "这是一个为您深度定制的 AI 教学协作中心。我们将通过 1 分钟带您熟悉这里的核心布局。",
+    content:
+      "这是一个为您深度定制的 AI 教学协作中心。我们将通过 1 分钟带您熟悉这里的核心布局。",
   },
   {
     target: '[data-tour="session-switcher"]',
     title: "灵感分箱",
-    content: "在这里管理不同的教学会话。每个会话拥有独立的上下文，方便您同时准备多个课程主题。",
+    content:
+      "在这里管理不同的教学会话。每个会话拥有独立的上下文，方便您同时准备多个课程主题。",
     placement: "bottom",
     pulseTarget: true,
   },
   {
     target: '[data-tour="sources-panel"]',
     title: "知识底座",
-    content: "上传您的教案、PDF 或参考资料。AI 将以此为基准进行深度理解，生成精准且符合您教学风格的内容。",
+    content:
+      "上传您的教案、PDF 或参考资料。AI 将以此为基准进行深度理解，生成精准且符合您教学风格的内容。",
     placement: "right",
     pulseTarget: true,
   },
   {
     target: '[data-tour="chat-panel"]',
     title: "共创大脑",
-    content: "在这里与 AI 实时交谈。您可以让它提炼大纲、设计教学互动，或针对特定知识点进行多维度拆解。",
+    content:
+      "在这里与 AI 实时交谈。您可以让它提炼大纲、设计教学互动，或针对特定知识点进行多维度拆解。",
     placement: "right",
     pulseTarget: true,
   },
   {
     target: '[data-tour="studio-panel"]',
     title: "成品工坊",
-    content: "AI 生成的 PPT、教案、习题等成品会在这里实时预览。点击工具卡片，即可开启专属的生成流。",
+    content:
+      "AI 生成的 PPT、教案、习题等成品会在这里实时预览。点击工具卡片，即可开启专属的生成流。",
     placement: "left",
     pulseTarget: true,
   },
@@ -75,7 +87,8 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
       setCurrentStep(0);
     };
     window.addEventListener("spectra:open-tour", handleOpenTour);
-    return () => window.removeEventListener("spectra:open-tour", handleOpenTour);
+    return () =>
+      window.removeEventListener("spectra:open-tour", handleOpenTour);
   }, []);
 
   useEffect(() => {
@@ -194,12 +207,12 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
             key="tour-pulse-indicator"
             layoutId="tour-pulse"
             initial={{ opacity: 0 }}
-            animate={{ 
+            animate={{
               opacity: 1,
               left: (targetRect?.left ?? 0) - 4,
               top: (targetRect?.top ?? 0) - 4,
               width: (targetRect?.width ?? 0) + 8,
-              height: (targetRect?.height ?? 0) + 8
+              height: (targetRect?.height ?? 0) + 8,
             }}
             className="absolute rounded-2xl border-2 border-primary/50 shadow-[0_0_15px_rgba(var(--primary),0.3)] pointer-events-none"
             style={{ zIndex: 1001 }}
@@ -216,12 +229,13 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
         <motion.div
           key={currentStep}
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ 
-            opacity: 1, 
+          animate={{
+            opacity: 1,
             scale: 1,
             ...(() => {
-              if (!targetRect) return { left: "50%", top: "50%", x: "-50%", y: "-50%" };
-              
+              if (!targetRect)
+                return { left: "50%", top: "50%", x: "-50%", y: "-50%" };
+
               let left = 0;
               let top = 0;
               const margin = 20;
@@ -230,24 +244,35 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
 
               if (currentStepData.placement === "right") {
                 left = targetRect.right + margin;
-                top = targetRect.top + (targetRect.height / 2) - (tooltipHeight / 2);
+                top =
+                  targetRect.top + targetRect.height / 2 - tooltipHeight / 2;
               } else if (currentStepData.placement === "left") {
                 left = targetRect.left - tooltipWidth - margin;
-                top = targetRect.top + (targetRect.height / 2) - (tooltipHeight / 2);
+                top =
+                  targetRect.top + targetRect.height / 2 - tooltipHeight / 2;
               } else if (currentStepData.placement === "top") {
-                left = targetRect.left + (targetRect.width / 2) - (tooltipWidth / 2);
+                left =
+                  targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
                 top = targetRect.top - tooltipHeight - margin;
-              } else { // bottom
-                left = targetRect.left + (targetRect.width / 2) - (tooltipWidth / 2);
+              } else {
+                // bottom
+                left =
+                  targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
                 top = targetRect.bottom + margin;
               }
 
               // Boundary detection
-              left = Math.max(margin, Math.min(window.innerWidth - tooltipWidth - margin, left));
-              top = Math.max(margin, Math.min(window.innerHeight - tooltipHeight - margin, top));
+              left = Math.max(
+                margin,
+                Math.min(window.innerWidth - tooltipWidth - margin, left)
+              );
+              top = Math.max(
+                margin,
+                Math.min(window.innerHeight - tooltipHeight - margin, top)
+              );
 
               return { left, top, x: 0, y: 0 };
-            })()
+            })(),
           }}
           exit={{ opacity: 0, y: 10, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 400, damping: 35 }}
@@ -269,14 +294,14 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
                 {currentStepData.title}
               </h3>
             </div>
-            <button 
+            <button
               onClick={handleFinish}
               className="p-2 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 rounded-full transition-colors self-start -mr-2 -mt-2"
             >
               <X className="w-4 h-4 text-zinc-400" />
             </button>
           </div>
-          
+
           <div className="relative">
             <div className="absolute -left-3 top-0 bottom-0 w-1 bg-primary/20 rounded-full" />
             <p className="text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed font-medium">
@@ -287,11 +312,12 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
           <div className="flex items-center justify-between mt-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
             <div className="flex gap-1.5">
               {TOUR_STEPS.map((_, i) => (
-                <motion.div 
-                  key={i} 
-                  animate={{ 
+                <motion.div
+                  key={i}
+                  animate={{
                     width: i === currentStep ? 16 : 6,
-                    backgroundColor: i === currentStep ? '#18181b' : 'rgba(24, 24, 27, 0.2)'
+                    backgroundColor:
+                      i === currentStep ? "#18181b" : "rgba(24, 24, 27, 0.2)",
                   }}
                   className="h-1.5 rounded-full"
                 />
@@ -299,18 +325,34 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
             </div>
             <div className="flex gap-2">
               {currentStep > 0 ? (
-                <Button variant="ghost" size="sm" onClick={handlePrev} className="rounded-xl h-9 px-4 text-zinc-500 hover:text-zinc-900">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handlePrev}
+                  className="rounded-xl h-9 px-4 text-zinc-500 hover:text-zinc-900"
+                >
                   <ChevronLeft className="w-4 h-4 mr-1.5" />
                   上一步
                 </Button>
               ) : (
-                <Button variant="ghost" size="sm" onClick={handleFinish} className="rounded-xl h-9 px-4 text-zinc-400">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleFinish}
+                  className="rounded-xl h-9 px-4 text-zinc-400"
+                >
                   跳过
                 </Button>
               )}
-              <Button size="sm" onClick={handleNext} className="rounded-xl h-9 px-5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:scale-105 transition-transform">
+              <Button
+                size="sm"
+                onClick={handleNext}
+                className="rounded-xl h-9 px-5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:scale-105 transition-transform"
+              >
                 {currentStep === TOUR_STEPS.length - 1 ? "开启探索" : "下一步"}
-                {currentStep < TOUR_STEPS.length - 1 && <ChevronRight className="w-4 h-4 ml-1.5" />}
+                {currentStep < TOUR_STEPS.length - 1 && (
+                  <ChevronRight className="w-4 h-4 ml-1.5" />
+                )}
               </Button>
             </div>
           </div>
@@ -321,11 +363,11 @@ export function OnboardingTour({ projectId }: OnboardingTourProps) {
           <motion.div
             key="tour-tip-badge"
             initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ 
-              opacity: 1, 
+            animate={{
+              opacity: 1,
               scale: 1,
-              left: (targetRect?.left ?? 0) + ((targetRect?.width ?? 0) / 2) - 50,
-              top: (targetRect?.top ?? 0) - 40
+              left: (targetRect?.left ?? 0) + (targetRect?.width ?? 0) / 2 - 50,
+              top: (targetRect?.top ?? 0) - 40,
             }}
             exit={{ opacity: 0, scale: 0.8 }}
             className="absolute px-3 py-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full shadow-lg flex items-center gap-1.5"

@@ -12,7 +12,10 @@ import {
   buildCapabilityWithoutArtifact,
   resolveCapabilityFromArtifact,
 } from "../tools/capability-resolver";
-import { DEFAULT_CAPABILITY_PENDING_REASON, STUDIO_CARD_BY_TOOL } from "./constants";
+import {
+  DEFAULT_CAPABILITY_PENDING_REASON,
+  STUDIO_CARD_BY_TOOL,
+} from "./constants";
 import type {
   CapabilityStateByCardId,
   CardCapabilityMap,
@@ -84,7 +87,11 @@ export function useStudioCapabilityState({
   const currentToolArtifacts = useMemo(() => {
     if (!expandedToolKey) return [];
     const fromStore = artifactHistoryByTool[expandedToolKey] ?? [];
-    return mergeToolArtifacts(expandedToolKey, fromStore, runtimeArtifactsByTool);
+    return mergeToolArtifacts(
+      expandedToolKey,
+      fromStore,
+      runtimeArtifactsByTool
+    );
   }, [artifactHistoryByTool, expandedToolKey, runtimeArtifactsByTool]);
 
   const currentCapabilityState = currentCardId
@@ -105,7 +112,8 @@ export function useStudioCapabilityState({
       isLoading: defaultResolution.status !== "backend_not_implemented",
     };
   }, [expandedToolKey]);
-  const activeCapabilityState = currentCapabilityState ?? fallbackCapabilityState;
+  const activeCapabilityState =
+    currentCapabilityState ?? fallbackCapabilityState;
 
   useEffect(() => {
     if (!runtimeArtifactStorageKey) {
@@ -263,7 +271,9 @@ export function useStudioCapabilityState({
     };
   }, [currentCardId, currentToolArtifacts, expandedToolKey, projectId]);
 
-  const sourceOptions = currentCardId ? (sourceOptionsByCard[currentCardId] ?? []) : [];
+  const sourceOptions = currentCardId
+    ? (sourceOptionsByCard[currentCardId] ?? [])
+    : [];
 
   const upsertCurrentCardSources = (sources: StudioSourceOption[]) => {
     if (!currentCardId) return;
@@ -324,6 +334,3 @@ export function useStudioCapabilityState({
     draftSourceArtifactId,
   };
 }
-
-
-

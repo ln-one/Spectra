@@ -80,7 +80,6 @@ function readArtifactKind(artifact: Artifact): string | null {
   return normalized || null;
 }
 
-
 function readRunNo(metadata: Artifact["metadata"]): number | null {
   const raw = readMetadataField(metadata, "run_no");
   if (typeof raw === "number" && Number.isFinite(raw)) {
@@ -167,7 +166,9 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
     createdAt: artifact.created_at,
     basedOnVersionId: artifact.based_on_version_id ?? null,
     storagePath: artifact.storage_path,
-    runId: (readMetadataField(artifact.metadata, "run_id") as string | undefined) || null,
+    runId:
+      (readMetadataField(artifact.metadata, "run_id") as string | undefined) ||
+      null,
     runNo: readRunNo(artifact.metadata),
   };
 }
@@ -192,6 +193,3 @@ export function groupArtifactsByTool(
 
   return grouped;
 }
-
-
-

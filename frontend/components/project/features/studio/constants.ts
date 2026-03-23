@@ -27,7 +27,13 @@ export const TOOL_LABELS: Record<string, string> = Object.fromEntries(
 
 export const TOOL_COLORS: Record<
   string,
-  { primary: string; secondary: string; gradient: string; glow: string; soft: string }
+  {
+    primary: string;
+    secondary: string;
+    gradient: string;
+    glow: string;
+    soft: string;
+  }
 > = {
   ppt: {
     primary: "#f97316",

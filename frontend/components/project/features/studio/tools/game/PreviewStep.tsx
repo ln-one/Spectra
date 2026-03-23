@@ -19,7 +19,10 @@ function resolveBackendHtml(flowContext?: ToolFlowContext): string | null {
       if (typeof parsed.html === "string" && parsed.html.trim()) {
         return parsed.html.trim();
       }
-      if (typeof parsed.content_html === "string" && parsed.content_html.trim()) {
+      if (
+        typeof parsed.content_html === "string" &&
+        parsed.content_html.trim()
+      ) {
         return parsed.content_html.trim();
       }
     } catch {
@@ -29,12 +32,18 @@ function resolveBackendHtml(flowContext?: ToolFlowContext): string | null {
   return raw;
 }
 
-export function PreviewStep({ lastGeneratedAt, flowContext }: PreviewStepProps) {
-  const capabilityStatus = flowContext?.capabilityStatus ?? "backend_placeholder";
+export function PreviewStep({
+  lastGeneratedAt,
+  flowContext,
+}: PreviewStepProps) {
+  const capabilityStatus =
+    flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
     flowContext?.capabilityReason ?? "正在等待后端返回真实游戏内容。";
   const backendHtml =
-    capabilityStatus === "backend_ready" ? resolveBackendHtml(flowContext) : null;
+    capabilityStatus === "backend_ready"
+      ? resolveBackendHtml(flowContext)
+      : null;
 
   return (
     <div className="space-y-4">
@@ -64,7 +73,9 @@ export function PreviewStep({ lastGeneratedAt, flowContext }: PreviewStepProps) 
         ) : (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
             <Gamepad2 className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">暂未收到后端真实游戏</p>
+            <p className="mt-3 text-sm font-medium text-zinc-700">
+              暂未收到后端真实游戏
+            </p>
             <p className="mt-1 text-[11px] text-zinc-500">
               当前不再渲染前端示意沙箱，等待后端 HTML 返回后会直接可玩。
             </p>

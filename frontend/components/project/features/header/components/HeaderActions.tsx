@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Archive, HelpCircle, Layers, Palette, Settings, Share2, User } from "lucide-react";
+import {
+  Archive,
+  HelpCircle,
+  Layers,
+  Palette,
+  Settings,
+  Share2,
+  User,
+} from "lucide-react";
 import type { components } from "@/lib/sdk/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";

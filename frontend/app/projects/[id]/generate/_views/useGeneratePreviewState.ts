@@ -69,7 +69,8 @@ export function useGeneratePreviewState({
     runIdFromQuery ||
     activeRunIdInStore ||
     ((generationSession as SessionStatePayloadWithRun | null)?.current_run
-      ?.run_id ?? null);
+      ?.run_id ??
+      null);
 
   useEffect(() => {
     if (!sessionIdFromQuery) return;
@@ -122,7 +123,9 @@ export function useGeneratePreviewState({
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         const reason =
-          typeof error.details?.reason === "string" ? error.details.reason : null;
+          typeof error.details?.reason === "string"
+            ? error.details.reason
+            : null;
         if (reason === "run_not_ready") {
           setPreviewBlockedReason("当前运行尚未产生可预览内容，请稍候。");
           return;
@@ -143,7 +146,9 @@ export function useGeneratePreviewState({
           );
           const state = sessionResp?.data?.session?.state;
           if (state === "AWAITING_OUTLINE_CONFIRM") {
-            setPreviewBlockedReason("当前会话仍在大纲确认阶段，请先确认后再预览。");
+            setPreviewBlockedReason(
+              "当前会话仍在大纲确认阶段，请先确认后再预览。"
+            );
           } else {
             setPreviewBlockedReason(error.message);
           }
@@ -273,7 +278,9 @@ export function useGeneratePreviewState({
         });
       } catch (error) {
         const message =
-          error instanceof ApiError ? error.message : "局部重绘失败，请稍后重试";
+          error instanceof ApiError
+            ? error.message
+            : "局部重绘失败，请稍后重试";
         toast({
           title: "局部重绘失败",
           description: message,

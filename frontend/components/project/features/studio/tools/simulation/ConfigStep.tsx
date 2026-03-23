@@ -84,7 +84,9 @@ export function ConfigStep({
 
       <section className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">追问强度：{intensity}%</Label>
+          <Label className="text-xs text-zinc-600">
+            追问强度：{intensity}%
+          </Label>
           <Slider
             value={[intensity]}
             min={20}
@@ -115,7 +117,10 @@ export function ConfigStep({
             </SelectContent>
           </Select>
           <p className="text-[11px] text-zinc-500">
-            {STUDENT_PROFILES.find((item) => item.value === profile)?.description}
+            {
+              STUDENT_PROFILES.find((item) => item.value === profile)
+                ?.description
+            }
           </p>
         </div>
       </section>

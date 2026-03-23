@@ -54,10 +54,13 @@ export function WordToolPanel({
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
   const [backendMarkdown, setBackendMarkdown] = useState("");
   const [isBackendPreviewLoading, setIsBackendPreviewLoading] = useState(false);
-  const [backendPreviewError, setBackendPreviewError] = useState<string | null>(null);
+  const [backendPreviewError, setBackendPreviewError] = useState<string | null>(
+    null
+  );
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
-    query: "为当前项目推荐适合生成教学文档的课题主题、学习目标、教学场景和学生难点",
+    query:
+      "为当前项目推荐适合生成教学文档的课题主题、学习目标、教学场景和学生难点",
     fallbackSuggestions: ["当前项目核心主题", "知识重点梳理", "课堂巩固任务"],
   });
 
@@ -114,11 +117,14 @@ export function WordToolPanel({
       try {
         setIsBackendPreviewLoading(true);
         setBackendPreviewError(null);
-        const response = await previewApi.exportSessionPreview(activeSessionId, {
-          artifact_id: latestArtifactId,
-          format: "markdown",
-          include_sources: true,
-        });
+        const response = await previewApi.exportSessionPreview(
+          activeSessionId,
+          {
+            artifact_id: latestArtifactId,
+            format: "markdown",
+            include_sources: true,
+          }
+        );
         if (cancelled) return;
         setBackendMarkdown(response.data.content || "");
       } catch (error) {
@@ -169,7 +175,7 @@ export function WordToolPanel({
   const colors = TOOL_COLORS.word;
 
   return (
-    <div 
+    <div
       className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-zinc-200/30 group/workbench"
       style={{
         ["--project-tool-accent" as any]: colors.primary,
@@ -179,13 +185,16 @@ export function WordToolPanel({
     >
       {/* Tool Accent Tip */}
       <div className={cn("h-1 w-full bg-gradient-to-r", colors.gradient)} />
-      
+
       <div className="flex h-full min-h-0 flex-col">
         <div className="border-b border-zinc-100/80 px-5 py-4 bg-zinc-50/30">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-white shadow-sm border border-zinc-100 group-hover/workbench:scale-110 transition-transform duration-500">
-                <FileText className="w-5 h-5" style={{ color: colors.primary }} />
+                <FileText
+                  className="w-5 h-5"
+                  style={{ color: colors.primary }}
+                />
               </div>
               <div>
                 <h3 className="text-sm font-black text-zinc-900 tracking-tight">

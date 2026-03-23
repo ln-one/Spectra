@@ -22,7 +22,10 @@ function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
     return [];
   }
 
-  const content = flowContext.resolvedArtifact.content as Record<string, unknown>;
+  const content = flowContext.resolvedArtifact.content as Record<
+    string,
+    unknown
+  >;
   const rawSlides = Array.isArray(content.slides) ? content.slides : [];
 
   return rawSlides
@@ -58,12 +61,14 @@ export function PreviewStep({
   flowContext,
   onSelectPage,
 }: PreviewStepProps) {
-  const capabilityStatus = flowContext?.capabilityStatus ?? "backend_placeholder";
+  const capabilityStatus =
+    flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
     flowContext?.capabilityReason ?? "正在等待后端返回真实说课讲稿。";
   const backendScripts = parseBackendScripts(flowContext);
   const activeScript =
-    backendScripts.find((item) => item.page === activePage) ?? backendScripts[0];
+    backendScripts.find((item) => item.page === activePage) ??
+    backendScripts[0];
 
   return (
     <div className="space-y-4">
@@ -121,7 +126,9 @@ export function PreviewStep({
         ) : (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
             <Mic2 className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">暂未收到后端真实说课讲稿</p>
+            <p className="mt-3 text-sm font-medium text-zinc-700">
+              暂未收到后端真实说课讲稿
+            </p>
             <p className="mt-1 text-[11px] text-zinc-500">
               当前不再展示前端示意提词稿，等待后端结构化讲稿返回后会直接显示。
             </p>

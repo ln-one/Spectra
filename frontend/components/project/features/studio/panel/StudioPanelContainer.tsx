@@ -9,11 +9,7 @@ import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { STUDIO_TOOL_COMPONENTS } from "../tools";
 import type { StudioToolKey, ToolDraftState, ToolFlowContext } from "../tools";
-import {
-  TOOL_COLORS,
-  TOOL_ICONS,
-  TOOL_LABELS,
-} from "../constants";
+import { TOOL_COLORS, TOOL_ICONS, TOOL_LABELS } from "../constants";
 import { useStudioWorkflowHistory } from "../history/useStudioWorkflowHistory";
 import { useStudioCapabilityState } from "./useStudioCapabilityState";
 import { useStudioExecutionHandlers } from "./useStudioExecutionHandlers";
@@ -125,9 +121,13 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
     };
   }, []);
 
-  const currentTool = GENERATION_TOOLS.find((tool) => tool.type === expandedTool);
+  const currentTool = GENERATION_TOOLS.find(
+    (tool) => tool.type === expandedTool
+  );
   const CurrentIcon = currentTool ? TOOL_ICONS[currentTool.id] : Sparkles;
-  const currentColor = currentTool ? TOOL_COLORS[currentTool.id] : TOOL_COLORS.ppt;
+  const currentColor = currentTool
+    ? TOOL_COLORS[currentTool.id]
+    : TOOL_COLORS.ppt;
   const expandedToolComponent =
     expandedTool && expandedTool !== "ppt"
       ? STUDIO_TOOL_COMPONENTS[expandedTool as StudioToolKey]
@@ -188,7 +188,9 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
         canRefine: canRefineBase,
         isRefineMode: step === "preview" && canRefineBase,
         sourceArtifactId:
-          capability.selectedSourceId ?? capability.draftSourceArtifactId ?? null,
+          capability.selectedSourceId ??
+          capability.draftSourceArtifactId ??
+          null,
         configSnapshot: currentToolDraft,
       });
     },
@@ -308,7 +310,12 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
       expandedTool && expandedTool !== "ppt"
         ? toStudioManagedTool(expandedTool as GenerationToolType)
         : null;
-    if (!project || !isExpanded || !currentManagedToolType || !capability.currentCardId) {
+    if (
+      !project ||
+      !isExpanded ||
+      !currentManagedToolType ||
+      !capability.currentCardId
+    ) {
       setStudioChatContext(null);
       return;
     }
@@ -422,7 +429,10 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
   };
 
   return (
-    <div className="project-panel-root h-full bg-transparent" style={{ transform: "translateZ(0)" }}>
+    <div
+      className="project-panel-root h-full bg-transparent"
+      style={{ transform: "translateZ(0)" }}
+    >
       <Card className="project-panel-card project-studio-panel h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <StudioPanelHeader
           isExpanded={isExpanded}
@@ -513,7 +523,9 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
                 });
               }}
               onPptGenerate={async (config) => {
-                const tool = GENERATION_TOOLS.find((item) => item.type === expandedTool);
+                const tool = GENERATION_TOOLS.find(
+                  (item) => item.type === expandedTool
+                );
                 if (!project || !tool) return null;
                 const sessionId = await startGeneration(project.id, tool, {
                   template: "default",
@@ -540,7 +552,9 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
               isLoadingCardProtocol={capability.isLoadingCardProtocol}
               sourceOptions={capability.sourceOptions}
               selectedSourceId={capability.selectedSourceId}
-              onSelectedSourceChange={capability.setSelectedSourceForCurrentCard}
+              onSelectedSourceChange={
+                capability.setSelectedSourceForCurrentCard
+              }
               canRefine={canRefine}
               canExecute={canExecute}
               onOpenChatRefine={execution.handleOpenChatRefine}
@@ -570,6 +584,3 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
     </div>
   );
 }
-
-
-

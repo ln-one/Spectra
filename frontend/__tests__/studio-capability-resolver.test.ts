@@ -36,7 +36,9 @@ describe("studio capability resolver", () => {
   it("marks mindmap as ready when backend returns non-empty nodes", async () => {
     const artifact = makeArtifact({ artifactType: "mindmap" });
     const blob = new Blob([
-      JSON.stringify({ nodes: [{ id: "root", title: "中心主题", children: [] }] }),
+      JSON.stringify({
+        nodes: [{ id: "root", title: "中心主题", children: [] }],
+      }),
     ]);
     const result = await resolveCapabilityFromArtifact({
       toolId: "mindmap",
@@ -67,7 +69,9 @@ describe("studio capability resolver", () => {
     const ready = await resolveCapabilityFromArtifact({
       toolId: "quiz",
       artifact,
-      blob: new Blob([JSON.stringify({ questions: [{ id: "q1", question: "Q" }] })]),
+      blob: new Blob([
+        JSON.stringify({ questions: [{ id: "q1", question: "Q" }] }),
+      ]),
     });
     expect(ready.status).toBe("backend_ready");
 
@@ -109,4 +113,3 @@ describe("studio capability resolver", () => {
     expect(ready.resolvedArtifact?.contentKind).toBe("media");
   });
 });
-

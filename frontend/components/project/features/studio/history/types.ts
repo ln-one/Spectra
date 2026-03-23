@@ -23,5 +23,3 @@ export interface StudioHistoryItem {
   runId?: string | null;
   runNo?: number | null;
 }
-
-

@@ -78,7 +78,9 @@ export function FeaturedProjectCard({
           <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Featured</span>
+          <span className="text-[10px] font-bold text-white/70 uppercase tracking-widest">
+            Featured
+          </span>
         </div>
         <h3 className="text-lg font-bold text-white leading-tight mb-1 line-clamp-2">
           {project.name}
@@ -105,10 +107,19 @@ export function ProjectCard({
   isDeleting = false,
 }: ProjectCardProps) {
   const pastelColors = [
-    { bg: "bg-emerald-50 text-emerald-600", icon: <Globe className="w-6 h-6" /> },
+    {
+      bg: "bg-emerald-50 text-emerald-600",
+      icon: <Globe className="w-6 h-6" />,
+    },
     { bg: "bg-blue-50 text-blue-600", icon: <Laptop className="w-6 h-6" /> },
-    { bg: "bg-purple-50 text-purple-600", icon: <FolderOpen className="w-6 h-6" /> },
-    { bg: "bg-orange-50 text-orange-600", icon: <FileText className="w-6 h-6" /> },
+    {
+      bg: "bg-purple-50 text-purple-600",
+      icon: <FolderOpen className="w-6 h-6" />,
+    },
+    {
+      bg: "bg-orange-50 text-orange-600",
+      icon: <FileText className="w-6 h-6" />,
+    },
     { bg: "bg-rose-50 text-rose-600", icon: <Beaker className="w-6 h-6" /> },
   ];
   const color = pastelColors[project.id.length % pastelColors.length];
@@ -123,7 +134,12 @@ export function ProjectCard({
       className="group relative bg-white rounded-[2rem] border border-zinc-50 p-6 cursor-pointer hover:border-zinc-100 transition-all min-h-[220px] flex flex-col"
     >
       <div className="flex items-start justify-between mb-auto">
-        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm", color.bg)}>
+        <div
+          className={cn(
+            "w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm",
+            color.bg
+          )}
+        >
           {color.icon}
         </div>
         <DropdownMenu>
@@ -137,7 +153,10 @@ export function ProjectCard({
               <MoreVertical className="w-5 h-5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44 rounded-2xl p-2 shadow-2xl border-zinc-100">
+          <DropdownMenuContent
+            align="end"
+            className="w-44 rounded-2xl p-2 shadow-2xl border-zinc-100"
+          >
             <DropdownMenuItem className="gap-2 rounded-xl py-2.5">
               <Settings className="w-4 h-4" />
               项目设置
@@ -177,7 +196,10 @@ export function ProjectSkeleton() {
         <div className="h-8 w-40 bg-zinc-100 rounded-full animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="aspect-[16/10] rounded-[2rem] bg-zinc-100 animate-pulse" />
+            <div
+              key={i}
+              className="aspect-[16/10] rounded-[2rem] bg-zinc-100 animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -185,7 +207,10 @@ export function ProjectSkeleton() {
         <div className="h-8 w-48 bg-zinc-100 rounded-full animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:grid-cols-5 gap-6">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-            <div key={i} className="h-[220px] rounded-[2rem] bg-zinc-100 animate-pulse" />
+            <div
+              key={i}
+              className="h-[220px] rounded-[2rem] bg-zinc-100 animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -201,10 +226,19 @@ export function ProjectListItem({
   onClick: () => void;
 }) {
   const pastelColors = [
-    { bg: "bg-emerald-50 text-emerald-600", icon: <Globe className="w-5 h-5" /> },
+    {
+      bg: "bg-emerald-50 text-emerald-600",
+      icon: <Globe className="w-5 h-5" />,
+    },
     { bg: "bg-blue-50 text-blue-600", icon: <Laptop className="w-5 h-5" /> },
-    { bg: "bg-purple-50 text-purple-600", icon: <FolderOpen className="w-5 h-5" /> },
-    { bg: "bg-orange-50 text-orange-600", icon: <FileText className="w-5 h-5" /> },
+    {
+      bg: "bg-purple-50 text-purple-600",
+      icon: <FolderOpen className="w-5 h-5" />,
+    },
+    {
+      bg: "bg-orange-50 text-orange-600",
+      icon: <FileText className="w-5 h-5" />,
+    },
     { bg: "bg-rose-50 text-rose-600", icon: <Beaker className="w-5 h-5" /> },
   ];
   const color = pastelColors[project.id.length % pastelColors.length];
@@ -218,12 +252,19 @@ export function ProjectListItem({
       onClick={onClick}
       className="group flex items-center gap-5 p-5 bg-white rounded-[1.5rem] border border-zinc-50 cursor-pointer hover:border-zinc-100 hover:shadow-md transition-all duration-200"
     >
-      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm", color.bg)}>
+      <div
+        className={cn(
+          "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+          color.bg
+        )}
+      >
         {color.icon}
       </div>
 
       <div className="flex-1 min-w-0">
-        <h3 className="font-bold text-zinc-900 truncate leading-tight">{project.name}</h3>
+        <h3 className="font-bold text-zinc-900 truncate leading-tight">
+          {project.name}
+        </h3>
         <p className="text-xs text-zinc-400 font-medium mt-1">
           {formatDate(project.created_at)} · 12 个来源
         </p>
@@ -231,8 +272,12 @@ export function ProjectListItem({
 
       <div className="flex items-center gap-3">
         <div className="text-right hidden sm:block">
-          <div className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">Last Modified</div>
-          <div className="text-xs font-semibold text-zinc-500">{formatDate(project.created_at)}</div>
+          <div className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">
+            Last Modified
+          </div>
+          <div className="text-xs font-semibold text-zinc-500">
+            {formatDate(project.created_at)}
+          </div>
         </div>
         <ChevronRight className="w-5 h-5 text-zinc-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all shrink-0" />
       </div>

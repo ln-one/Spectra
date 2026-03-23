@@ -21,10 +21,12 @@ export function PreviewStep({
   isBackendPreviewLoading = false,
   backendPreviewError = null,
 }: PreviewStepProps) {
-  const capabilityStatus = flowContext?.capabilityStatus ?? "backend_placeholder";
+  const capabilityStatus =
+    flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
     flowContext?.capabilityReason ?? "正在等待后端文档产物返回。";
-  const hasContent = capabilityStatus === "backend_ready" && markdown.trim().length > 0;
+  const hasContent =
+    capabilityStatus === "backend_ready" && markdown.trim().length > 0;
 
   return (
     <div className="space-y-4">
@@ -45,7 +47,9 @@ export function PreviewStep({
               type="button"
               className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 hover:bg-zinc-50"
               onClick={() =>
-                void flowContext.onExportArtifact?.(flowContext.latestArtifacts?.[0]?.artifactId || "")
+                void flowContext.onExportArtifact?.(
+                  flowContext.latestArtifacts?.[0]?.artifactId || ""
+                )
               }
             >
               下载正式文档
@@ -69,13 +73,17 @@ export function PreviewStep({
         {hasContent ? (
           <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
             <article className="prose prose-zinc max-w-none text-sm leading-6 prose-headings:mb-2 prose-headings:mt-4 prose-p:my-1">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {markdown}
+              </ReactMarkdown>
             </article>
           </div>
         ) : (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center">
             <FileText className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-3 text-sm font-medium text-zinc-700">暂未收到后端真实文档内容</p>
+            <p className="mt-3 text-sm font-medium text-zinc-700">
+              暂未收到后端真实文档内容
+            </p>
             <p className="mt-1 text-[11px] text-zinc-500">
               生成完成后，这里会直接显示由后端导出的预览文本。
             </p>

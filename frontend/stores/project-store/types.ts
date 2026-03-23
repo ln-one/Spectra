@@ -141,7 +141,10 @@ export interface ProjectState {
     content: string,
     sessionId?: string | null
   ) => Promise<void>;
-  sendStudioRefineMessage: (projectId: string, content: string) => Promise<void>;
+  sendStudioRefineMessage: (
+    projectId: string,
+    content: string
+  ) => Promise<void>;
   hydrateStudioLocalState: (projectId: string) => void;
   setStudioChatContext: (context: StudioChatContext | null) => void;
   pushStudioHintMessage: (payload: StudioHintMessagePayload) => void;
@@ -269,6 +272,3 @@ export type ProjectStoreContext = {
   ) => void;
   get: () => ProjectState;
 };
-
-
-

@@ -183,13 +183,17 @@ export async function resolveCapabilityFromArtifact(params: {
 
   try {
     if (artifactType === "docx") {
-      return buildResolution("backend_ready", "已读取到后端生成的 Word 文档。", {
-        artifactId: artifact.artifactId,
-        artifactType,
-        contentKind: "binary",
-        content: null,
-        blob,
-      });
+      return buildResolution(
+        "backend_ready",
+        "已读取到后端生成的 Word 文档。",
+        {
+          artifactId: artifact.artifactId,
+          artifactType,
+          contentKind: "binary",
+          content: null,
+          blob,
+        }
+      );
     }
 
     if (artifactType === "mindmap") {

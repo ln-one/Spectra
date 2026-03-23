@@ -21,7 +21,6 @@ import { MessageBubble } from "./components/MessageBubble";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "./types";
 
-
 interface ChatPanelProps {
   projectId: string;
 }
@@ -116,7 +115,10 @@ export function ChatPanel({
     studioChatContext?.canRefine === true &&
     (!activeSessionId || studioChatContext?.sessionId === activeSessionId);
 
-  const toolColors = isStudioRefineMode && studioChatContext ? TOOL_COLORS[studioChatContext.toolType] : undefined;
+  const toolColors =
+    isStudioRefineMode && studioChatContext
+      ? TOOL_COLORS[studioChatContext.toolType]
+      : undefined;
   const refineToolLabel = studioChatContext?.toolLabel ?? "工具卡片";
   const showThinkingIndicator = isSending && !isStudioRefineMode;
 
@@ -220,7 +222,9 @@ export function ChatPanel({
     const EXTRA_GAP = 8;
     const updateClearance = () => {
       setComposerClearance(
-        Math.ceil(shell.getBoundingClientRect().height + BOTTOM_OFFSET + EXTRA_GAP)
+        Math.ceil(
+          shell.getBoundingClientRect().height + BOTTOM_OFFSET + EXTRA_GAP
+        )
       );
     };
 
@@ -250,7 +254,8 @@ export function ChatPanel({
     !!activeSessionId &&
     mergedMessages.length === 0 &&
     loadedSessionId !== activeSessionId;
-  const shouldBlockEmptyState = !hasResolvedInitialLoad && mergedMessages.length === 0;
+  const shouldBlockEmptyState =
+    !hasResolvedInitialLoad && mergedMessages.length === 0;
   const showLoading =
     isSessionTransitioning ||
     shouldBlockEmptyState ||
@@ -293,21 +298,26 @@ export function ChatPanel({
       style={{ transform: "translateZ(0)" }}
       {...props}
     >
-      <Card 
+      <Card
         className={cn(
           "project-panel-card project-chat-panel relative h-full overflow-hidden rounded-2xl border bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform] transition-all duration-700",
-          isStudioRefineMode ? "border-transparent" : "border-[var(--project-border)]"
+          isStudioRefineMode
+            ? "border-transparent"
+            : "border-[var(--project-border)]"
         )}
         style={{
-          boxShadow: isStudioRefineMode && toolColors ? `0 0 0 1px ${toolColors.primary}, 0 12px 40px -12px ${toolColors.glow}` : undefined,
+          boxShadow:
+            isStudioRefineMode && toolColors
+              ? `0 0 0 1px ${toolColors.primary}, 0 12px 40px -12px ${toolColors.glow}`
+              : undefined,
         }}
       >
         {isStudioRefineMode && toolColors && (
-          <div 
-            className="absolute inset-x-0 top-0 h-1 z-50 animate-pulse transition-colors" 
-            style={{ 
-              background: `linear-gradient(to right, ${toolColors.primary}, ${toolColors.secondary})`
-            }} 
+          <div
+            className="absolute inset-x-0 top-0 h-1 z-50 animate-pulse transition-colors"
+            style={{
+              background: `linear-gradient(to right, ${toolColors.primary}, ${toolColors.secondary})`,
+            }}
           />
         )}
         <CardHeader
@@ -444,8 +454,7 @@ export function ChatPanel({
               ref={composerShellRef}
               className={cn(
                 "project-chat-input-shell pointer-events-auto rounded-[var(--project-input-radius)] border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.35)] backdrop-blur-xl transition-all duration-500",
-                isStudioRefineMode &&
-                  "border-transparent"
+                isStudioRefineMode && "border-transparent"
               )}
               style={
                 isStudioRefineMode && toolColors
@@ -462,7 +471,7 @@ export function ChatPanel({
                   style={{
                     backgroundColor: toolColors.soft,
                     color: toolColors.primary,
-                    border: `1px solid ${toolColors.glow}`
+                    border: `1px solid ${toolColors.glow}`,
                   }}
                 >
                   <span className="truncate flex items-center gap-1.5">
@@ -472,7 +481,9 @@ export function ChatPanel({
                   {isStudioRefining ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <span className="shrink-0 opacity-80">发送后会按顺序处理</span>
+                    <span className="shrink-0 opacity-80">
+                      发送后会按顺序处理
+                    </span>
                   )}
                 </div>
               ) : null}
@@ -513,7 +524,7 @@ export function ChatPanel({
                     input.trim() && isStudioRefineMode && toolColors
                       ? {
                           background: `linear-gradient(135deg, ${toolColors.primary}, ${toolColors.secondary})`,
-                          borderColor: toolColors.primary
+                          borderColor: toolColors.primary,
                         }
                       : undefined
                   }

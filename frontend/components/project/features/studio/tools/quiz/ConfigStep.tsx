@@ -102,7 +102,9 @@ export function ConfigStep({
           <Label className="text-xs text-zinc-600">难度</Label>
           <Select
             value={difficulty}
-            onValueChange={(value) => onDifficultyChange(value as QuizDifficulty)}
+            onValueChange={(value) =>
+              onDifficultyChange(value as QuizDifficulty)
+            }
           >
             <SelectTrigger className="h-9 text-xs">
               <SelectValue />
@@ -120,7 +122,9 @@ export function ConfigStep({
           <Label className="text-xs text-zinc-600">题型</Label>
           <Select
             value={questionType}
-            onValueChange={(value) => onQuestionTypeChange(value as QuizQuestionType)}
+            onValueChange={(value) =>
+              onQuestionTypeChange(value as QuizQuestionType)
+            }
           >
             <SelectTrigger className="h-9 text-xs">
               <SelectValue />

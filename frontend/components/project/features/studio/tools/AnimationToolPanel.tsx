@@ -76,7 +76,8 @@ export function AnimationToolPanel({
   ]);
 
   const sceneLabel =
-    ANIMATION_SCENE_OPTIONS.find((item) => item.value === scene)?.label ?? "演示动画";
+    ANIMATION_SCENE_OPTIONS.find((item) => item.value === scene)?.label ??
+    "演示动画";
 
   const handleGenerate = async () => {
     setActiveStep("preview");
@@ -102,7 +103,7 @@ export function AnimationToolPanel({
   const colors = TOOL_COLORS.animation;
 
   return (
-    <div 
+    <div
       className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-zinc-200/30 group/workbench"
       style={{
         ["--project-tool-accent" as any]: colors.primary,
@@ -112,7 +113,7 @@ export function AnimationToolPanel({
     >
       {/* Tool Accent Tip */}
       <div className={cn("h-1 w-full bg-gradient-to-r", colors.gradient)} />
-      
+
       <div className="flex h-full min-h-0 flex-col">
         <div className="border-b border-zinc-100/80 px-5 py-4 bg-zinc-50/30">
           <div className="flex items-start justify-between gap-3">
@@ -154,7 +155,9 @@ export function AnimationToolPanel({
                   layout="inline"
                   currentStep={activeStep}
                   steps={ANIMATION_STEPS}
-                  onStepChange={(stepId) => setActiveStep(stepId as AnimationStep)}
+                  onStepChange={(stepId) =>
+                    setActiveStep(stepId as AnimationStep)
+                  }
                   title="演示动画流程"
                   subtitle="Workflow"
                 />
@@ -192,7 +195,10 @@ export function AnimationToolPanel({
               ) : null}
 
               {activeStep === "preview" ? (
-                <PreviewStep lastGeneratedAt={lastGeneratedAt} flowContext={flowContext} />
+                <PreviewStep
+                  lastGeneratedAt={lastGeneratedAt}
+                  flowContext={flowContext}
+                />
               ) : null}
             </div>
           </div>

@@ -12,7 +12,9 @@ function getStudioChatStorageKey(projectId: string): string {
   return `studio-chat-local:${projectId}`;
 }
 
-export function readStudioLocalPayload(projectId: string): StudioLocalStoragePayload {
+export function readStudioLocalPayload(
+  projectId: string
+): StudioLocalStoragePayload {
   if (typeof window === "undefined") {
     return {
       version: STUDIO_CHAT_STORAGE_VERSION,
@@ -94,7 +96,10 @@ const TOOL_ALIAS: Record<StudioManagedTool, string> = {
   handout: "学情预演",
 };
 
-function resolveToolAlias(toolType: StudioManagedTool, toolLabel?: string): string {
+function resolveToolAlias(
+  toolType: StudioManagedTool,
+  toolLabel?: string
+): string {
   return toolLabel?.trim() || TOOL_ALIAS[toolType] || "工具卡片";
 }
 

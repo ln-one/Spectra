@@ -70,7 +70,8 @@ export function StudioArchiveHistoryDialog({
                         {item.title}
                       </p>
                       <p className="truncate text-xs text-[var(--project-text-muted)]">
-                        {TOOL_LABELS[item.toolType] ?? item.toolType} · {new Date(item.createdAt).toLocaleString("zh-CN")}
+                        {TOOL_LABELS[item.toolType] ?? item.toolType} ·{" "}
+                        {new Date(item.createdAt).toLocaleString("zh-CN")}
                       </p>
                     </div>
                     <Button
@@ -92,4 +93,3 @@ export function StudioArchiveHistoryDialog({
     </>
   );
 }
-

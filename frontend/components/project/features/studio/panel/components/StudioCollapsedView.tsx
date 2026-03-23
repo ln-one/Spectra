@@ -18,7 +18,10 @@ interface StudioCollapsedViewProps {
   groupedHistory: ComponentProps<typeof SessionArtifacts>["groupedHistory"];
   projectId: string | null;
   activeSessionId: string | null;
-  fetchArtifactHistory: (projectId: string, sessionId: string | null) => Promise<void>;
+  fetchArtifactHistory: (
+    projectId: string,
+    sessionId: string | null
+  ) => Promise<void>;
   onOpenHistoryItem: (item: StudioHistoryItem) => void | Promise<void>;
   onArchiveHistoryItem: (id: string) => void;
 }

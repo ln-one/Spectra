@@ -11,7 +11,8 @@ import type { OutlineEditorPanelProps, SlideCard } from "./types";
 
 function extractRunIdFromSessionPayload(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
-  const currentRun = (payload as { current_run?: { run_id?: unknown } }).current_run;
+  const currentRun = (payload as { current_run?: { run_id?: unknown } })
+    .current_run;
   const runId = currentRun?.run_id;
   return typeof runId === "string" && runId.trim() ? runId : null;
 }
@@ -266,9 +267,12 @@ export function useOutlineEditorController({
       const intervalMs = 1500;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const targetRunId = useProjectStore.getState().activeRunId || null;
-        const sessionResponse = await generateApi.getSessionSnapshot(sessionId, {
-          run_id: targetRunId,
-        });
+        const sessionResponse = await generateApi.getSessionSnapshot(
+          sessionId,
+          {
+            run_id: targetRunId,
+          }
+        );
         const latest = sessionResponse?.data ?? null;
         useProjectStore.setState({
           generationSession: latest,

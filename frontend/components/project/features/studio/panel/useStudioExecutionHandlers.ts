@@ -43,7 +43,9 @@ interface UseStudioExecutionHandlersArgs {
   ) => void;
 }
 
-function resolveExecutionRunNo(run: Record<string, unknown> | null): number | null {
+function resolveExecutionRunNo(
+  run: Record<string, unknown> | null
+): number | null {
   if (typeof run?.run_no === "number" && Number.isFinite(run.run_no)) {
     return Math.trunc(run.run_no);
   }
@@ -135,7 +137,10 @@ export function useStudioExecutionHandlers({
     if (!project || !currentCardId || isStudioActionRunning) return;
     try {
       setIsStudioActionRunning(true);
-      const response = await studioCardsApi.getSources(currentCardId, project.id);
+      const response = await studioCardsApi.getSources(
+        currentCardId,
+        project.id
+      );
       const sources = (response?.data?.sources ?? []).map((item) => ({
         id: item.id,
         title: item.title,
@@ -155,12 +160,7 @@ export function useStudioExecutionHandlers({
     } finally {
       setIsStudioActionRunning(false);
     }
-  }, [
-    currentCardId,
-    isStudioActionRunning,
-    project,
-    upsertCurrentCardSources,
-  ]);
+  }, [currentCardId, isStudioActionRunning, project, upsertCurrentCardSources]);
 
   const handleStudioPreviewExecution = useCallback(async () => {
     if (!currentCardId || isStudioActionRunning) return;
@@ -211,230 +211,239 @@ export function useStudioExecutionHandlers({
     [activeRunId, generationSession]
   );
 
-  const handleStudioExecute = useCallback(async (): Promise<StudioExecutionResult> => {
-    if (!project || !currentCardId || isStudioActionRunning) {
-      return {
-        ok: false,
-        sessionId: null,
-        effectiveSessionId: activeSessionId ?? null,
-        resourceKind: null,
-        runId: null,
-        runNo: null,
-      };
-    }
-    if (!ensureActiveSession()) {
-      return {
-        ok: false,
-        sessionId: null,
-        effectiveSessionId: activeSessionId ?? null,
-        resourceKind: null,
-        runId: null,
-        runNo: null,
-      };
-    }
-    if (isProtocolPending) {
-      toast({
-        title: "Card protocol pending",
-        description: "Current card protocol is still pending and cannot execute yet.",
-        variant: "destructive",
-      });
-      return {
-        ok: false,
-        sessionId: null,
-        effectiveSessionId: activeSessionId ?? null,
-        resourceKind: null,
-        runId: null,
-        runNo: null,
-      };
-    }
-    if (requiresSourceArtifact && !hasSourceBinding) {
-      toast({
-        title: "Missing source artifact",
-        description: "Bind a source artifact before executing this card.",
-        variant: "destructive",
-      });
-      return {
-        ok: false,
-        sessionId: null,
-        effectiveSessionId: activeSessionId ?? null,
-        resourceKind: null,
-        runId: null,
-        runNo: null,
-      };
-    }
-    const requestBody = buildStudioExecutionRequest();
-    if (!requestBody) {
-      return {
-        ok: false,
-        sessionId: null,
-        effectiveSessionId: activeSessionId ?? null,
-        resourceKind: null,
-        runId: null,
-        runNo: null,
-      };
-    }
-
-    try {
-      setIsStudioActionRunning(true);
-      const response = await studioCardsApi.execute(currentCardId, requestBody);
-      const executionResult = response?.data?.execution_result ?? {};
-      const resourceKind =
-        typeof executionResult.resource_kind === "string"
-          ? executionResult.resource_kind
-          : null;
-      const session =
-        typeof executionResult.session === "object"
-          ? (executionResult.session as Record<string, unknown>)
-          : null;
-      const sessionId =
-        (session?.session_id as string | undefined) ||
-        (session?.id as string | undefined) ||
-        null;
-      const run =
-        typeof executionResult.run === "object" && executionResult.run !== null
-          ? (executionResult.run as Record<string, unknown>)
-          : null;
-      const runId =
-        (run?.run_id as string | undefined) ||
-        (run?.id as string | undefined) ||
-        null;
-      const runNo = resolveExecutionRunNo(run);
-
-      if (sessionId) setActiveSessionId(sessionId);
-      if (runId) setActiveRunId(runId);
-
-      const effectiveSessionId = sessionId ?? activeSessionId;
-
-      if (
-        resourceKind === "artifact" &&
-        expandedTool &&
-        expandedTool !== "ppt" &&
-        typeof executionResult.artifact === "object" &&
-        executionResult.artifact !== null
-      ) {
-        const artifactPayload = executionResult.artifact as Record<string, unknown>;
-        const artifactId =
-          (artifactPayload.id as string | undefined) ||
-          (artifactPayload.artifact_id as string | undefined);
-        const artifactType =
-          (artifactPayload.type as ArtifactHistoryItem["artifactType"] | undefined) ??
-          "summary";
-
-        if (artifactId) {
-          appendRuntimeArtifact(expandedTool as StudioToolKey, {
-            artifactId,
-            sessionId:
-              (artifactPayload.session_id as string | undefined) ??
-              effectiveSessionId ??
-              null,
-            toolType: expandedTool,
-            artifactType,
-            artifactKind: undefined,
-            title:
-              (artifactPayload.title as string | undefined) ||
-              TOOL_LABELS[expandedTool] + " - Generating",
-            status: "completed",
-            createdAt:
-              (artifactPayload.updated_at as string | undefined) ||
-              (artifactPayload.created_at as string | undefined) ||
-              new Date().toISOString(),
-            basedOnVersionId: null,
-            runId,
-            runNo,
-          });
-        }
+  const handleStudioExecute =
+    useCallback(async (): Promise<StudioExecutionResult> => {
+      if (!project || !currentCardId || isStudioActionRunning) {
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      if (!ensureActiveSession()) {
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      if (isProtocolPending) {
+        toast({
+          title: "Card protocol pending",
+          description:
+            "Current card protocol is still pending and cannot execute yet.",
+          variant: "destructive",
+        });
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      if (requiresSourceArtifact && !hasSourceBinding) {
+        toast({
+          title: "Missing source artifact",
+          description: "Bind a source artifact before executing this card.",
+          variant: "destructive",
+        });
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      const requestBody = buildStudioExecutionRequest();
+      if (!requestBody) {
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
       }
 
-      await fetchArtifactHistory(project.id, effectiveSessionId);
-      scheduleArtifactRefresh(project.id, effectiveSessionId);
+      try {
+        setIsStudioActionRunning(true);
+        const response = await studioCardsApi.execute(
+          currentCardId,
+          requestBody
+        );
+        const executionResult = response?.data?.execution_result ?? {};
+        const resourceKind =
+          typeof executionResult.resource_kind === "string"
+            ? executionResult.resource_kind
+            : null;
+        const session =
+          typeof executionResult.session === "object"
+            ? (executionResult.session as Record<string, unknown>)
+            : null;
+        const sessionId =
+          (session?.session_id as string | undefined) ||
+          (session?.id as string | undefined) ||
+          null;
+        const run =
+          typeof executionResult.run === "object" &&
+          executionResult.run !== null
+            ? (executionResult.run as Record<string, unknown>)
+            : null;
+        const runId =
+          (run?.run_id as string | undefined) ||
+          (run?.id as string | undefined) ||
+          null;
+        const runNo = resolveExecutionRunNo(run);
 
-      if (expandedTool === "word" && sessionId) {
-        void (async () => {
-          let hasConfirmedOutline = false;
-          for (let index = 0; index < 28; index += 1) {
-            try {
-              const sessionPayload = await generateApi.getSession(sessionId);
-              const sessionState =
-                (
+        if (sessionId) setActiveSessionId(sessionId);
+        if (runId) setActiveRunId(runId);
+
+        const effectiveSessionId = sessionId ?? activeSessionId;
+
+        if (
+          resourceKind === "artifact" &&
+          expandedTool &&
+          expandedTool !== "ppt" &&
+          typeof executionResult.artifact === "object" &&
+          executionResult.artifact !== null
+        ) {
+          const artifactPayload = executionResult.artifact as Record<
+            string,
+            unknown
+          >;
+          const artifactId =
+            (artifactPayload.id as string | undefined) ||
+            (artifactPayload.artifact_id as string | undefined);
+          const artifactType =
+            (artifactPayload.type as
+              | ArtifactHistoryItem["artifactType"]
+              | undefined) ?? "summary";
+
+          if (artifactId) {
+            appendRuntimeArtifact(expandedTool as StudioToolKey, {
+              artifactId,
+              sessionId:
+                (artifactPayload.session_id as string | undefined) ??
+                effectiveSessionId ??
+                null,
+              toolType: expandedTool,
+              artifactType,
+              artifactKind: undefined,
+              title:
+                (artifactPayload.title as string | undefined) ||
+                TOOL_LABELS[expandedTool] + " - Generating",
+              status: "completed",
+              createdAt:
+                (artifactPayload.updated_at as string | undefined) ||
+                (artifactPayload.created_at as string | undefined) ||
+                new Date().toISOString(),
+              basedOnVersionId: null,
+              runId,
+              runNo,
+            });
+          }
+        }
+
+        await fetchArtifactHistory(project.id, effectiveSessionId);
+        scheduleArtifactRefresh(project.id, effectiveSessionId);
+
+        if (expandedTool === "word" && sessionId) {
+          void (async () => {
+            let hasConfirmedOutline = false;
+            for (let index = 0; index < 28; index += 1) {
+              try {
+                const sessionPayload = await generateApi.getSession(sessionId);
+                const sessionState = (
                   (sessionPayload?.data as { session?: { state?: string } })
                     ?.session?.state ??
                   (sessionPayload?.data as { state?: string })?.state ??
                   ""
                 ).toUpperCase();
-              if (
-                !hasConfirmedOutline &&
-                sessionState === "AWAITING_OUTLINE_CONFIRM"
-              ) {
-                await generateApi.confirmOutline(sessionId, {});
-                hasConfirmedOutline = true;
-                continue;
+                if (
+                  !hasConfirmedOutline &&
+                  sessionState === "AWAITING_OUTLINE_CONFIRM"
+                ) {
+                  await generateApi.confirmOutline(sessionId, {});
+                  hasConfirmedOutline = true;
+                  continue;
+                }
+                if (sessionState === "SUCCESS" || sessionState === "FAILED") {
+                  break;
+                }
+              } catch {
+                // Ignore transient polling failures and keep retrying.
               }
-              if (sessionState === "SUCCESS" || sessionState === "FAILED") {
-                break;
-              }
-            } catch {
-              // Ignore transient polling failures and keep retrying.
+              await new Promise<void>((resolve) => {
+                window.setTimeout(resolve, 1800);
+              });
             }
-            await new Promise<void>((resolve) => {
-              window.setTimeout(resolve, 1800);
-            });
-          }
-          await fetchArtifactHistory(project.id, sessionId);
-        })();
+            await fetchArtifactHistory(project.id, sessionId);
+          })();
+        }
+
+        toast({
+          title: "Studio execution succeeded",
+          description:
+            resourceKind === "session" && sessionId
+              ? `Started session flow ${sessionId.slice(0, 8)}`
+              : sessionId
+                ? `Generated session ${sessionId.slice(0, 8)}`
+                : "Generation submitted and artifacts refreshed.",
+        });
+
+        return {
+          ok: true,
+          sessionId,
+          effectiveSessionId,
+          resourceKind,
+          runId,
+          runNo,
+        };
+      } catch (error) {
+        toast({
+          title: "Studio execution failed",
+          description: getErrorMessage(error),
+          variant: "destructive",
+        });
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      } finally {
+        setIsStudioActionRunning(false);
       }
-
-      toast({
-        title: "Studio execution succeeded",
-        description:
-          resourceKind === "session" && sessionId
-            ? `Started session flow ${sessionId.slice(0, 8)}`
-            : sessionId
-              ? `Generated session ${sessionId.slice(0, 8)}`
-              : "Generation submitted and artifacts refreshed.",
-      });
-
-      return {
-        ok: true,
-        sessionId,
-        effectiveSessionId,
-        resourceKind,
-        runId,
-        runNo,
-      };
-    } catch (error) {
-      toast({
-        title: "Studio execution failed",
-        description: getErrorMessage(error),
-        variant: "destructive",
-      });
-      return {
-        ok: false,
-        sessionId: null,
-        effectiveSessionId: activeSessionId ?? null,
-        resourceKind: null,
-        runId: null,
-        runNo: null,
-      };
-    } finally {
-      setIsStudioActionRunning(false);
-    }
-  }, [
-    activeSessionId,
-    appendRuntimeArtifact,
-    buildStudioExecutionRequest,
-    currentCardId,
-    ensureActiveSession,
-    expandedTool,
-    fetchArtifactHistory,
-    hasSourceBinding,
-    isProtocolPending,
-    isStudioActionRunning,
-    project,
-    requiresSourceArtifact,
-    scheduleArtifactRefresh,
-    setActiveRunId,
-    setActiveSessionId,
-  ]);
+    }, [
+      activeSessionId,
+      appendRuntimeArtifact,
+      buildStudioExecutionRequest,
+      currentCardId,
+      ensureActiveSession,
+      expandedTool,
+      fetchArtifactHistory,
+      hasSourceBinding,
+      isProtocolPending,
+      isStudioActionRunning,
+      project,
+      requiresSourceArtifact,
+      scheduleArtifactRefresh,
+      setActiveRunId,
+      setActiveSessionId,
+    ]);
 
   const handleOpenChatRefine = useCallback(() => {
     if (!project || !currentCardId || !activeSessionId) return;

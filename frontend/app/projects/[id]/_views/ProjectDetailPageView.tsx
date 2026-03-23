@@ -187,7 +187,10 @@ export default function ProjectDetailPage() {
             }}
             transition={springConfig}
           >
-            <StudioPanel onToolClick={handleToolClick} data-tour="studio-panel" />
+            <StudioPanel
+              onToolClick={handleToolClick}
+              data-tour="studio-panel"
+            />
           </motion.div>
 
           <motion.div

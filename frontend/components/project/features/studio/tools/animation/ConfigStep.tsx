@@ -102,7 +102,10 @@ export function ConfigStep({
             </SelectContent>
           </Select>
           <p className="text-[11px] text-zinc-500">
-            {ANIMATION_SCENE_OPTIONS.find((item) => item.value === scene)?.description}
+            {
+              ANIMATION_SCENE_OPTIONS.find((item) => item.value === scene)
+                ?.description
+            }
           </p>
         </div>
         <div className="space-y-2 sm:col-span-2">

@@ -162,7 +162,10 @@ export function ConfigStep({
               </SelectContent>
             </Select>
             <p className="text-[11px] text-zinc-500">
-              {SPEECH_TONE_OPTIONS.find((item) => item.value === tone)?.description}
+              {
+                SPEECH_TONE_OPTIONS.find((item) => item.value === tone)
+                  ?.description
+              }
             </p>
           </div>
 

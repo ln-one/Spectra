@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
@@ -53,7 +61,9 @@ export function SessionSwitcher({
       setPortalContainer(null);
       return;
     }
-    const themeRoot = node.closest("[data-project-theme]") as HTMLElement | null;
+    const themeRoot = node.closest(
+      "[data-project-theme]"
+    ) as HTMLElement | null;
     setPortalContainer((prev) => (prev === themeRoot ? prev : themeRoot));
   };
   const handleStartInlineEdit = (session: SessionSwitcherItem) => {

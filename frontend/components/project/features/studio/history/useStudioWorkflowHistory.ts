@@ -129,7 +129,8 @@ function pickPreferredWorkflowItem(
   incoming: StudioHistoryItem
 ): StudioHistoryItem {
   const currentScore = stepRank(current.step) * 10 + statusRank(current.status);
-  const incomingScore = stepRank(incoming.step) * 10 + statusRank(incoming.status);
+  const incomingScore =
+    stepRank(incoming.step) * 10 + statusRank(incoming.status);
   if (incomingScore !== currentScore) {
     return incomingScore > currentScore ? incoming : current;
   }
@@ -140,7 +141,9 @@ function pickPreferredWorkflowItem(
   return incomingTime >= currentTime ? incoming : current;
 }
 
-type RequestedStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
+type RequestedStepByTool = Partial<
+  Record<GenerationToolType, StudioHistoryStep>
+>;
 type CurrentStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
 
 type PersistedWorkflowHistory = {
@@ -182,7 +185,8 @@ function shouldPromoteWorkflowStatus(
   }
   const workflowTime = new Date(workflowItem.createdAt).getTime();
   const artifactTime = new Date(matchedArtifact.createdAt).getTime();
-  if (!Number.isFinite(workflowTime) || !Number.isFinite(artifactTime)) return true;
+  if (!Number.isFinite(workflowTime) || !Number.isFinite(artifactTime))
+    return true;
   return artifactTime >= workflowTime;
 }
 
@@ -198,7 +202,9 @@ export function useStudioWorkflowHistory(
       : []
   );
   const polishedTitleRequestedRef = useRef<Record<string, true>>({});
-  const [hiddenHistoryIds, setHiddenHistoryIds] = useState<Record<string, true>>(
+  const [hiddenHistoryIds, setHiddenHistoryIds] = useState<
+    Record<string, true>
+  >(
     persisted.hiddenHistoryIds && typeof persisted.hiddenHistoryIds === "object"
       ? persisted.hiddenHistoryIds
       : {}
@@ -412,7 +418,10 @@ export function useStudioWorkflowHistory(
     for (const item of sessionScopedArtifacts) {
       if (!item.sessionId) continue;
       if (item.runId) {
-        artifactByRun.set(`${item.toolType}:${item.sessionId}:${item.runId}`, item);
+        artifactByRun.set(
+          `${item.toolType}:${item.sessionId}:${item.runId}`,
+          item
+        );
       }
       const key = `${item.toolType}:${item.sessionId}`;
       const existing = latestArtifactByToolSession.get(key);
@@ -525,7 +534,11 @@ export function useStudioWorkflowHistory(
     const dedupedArtifacts = sessionScopedArtifacts.filter((item) => {
       if (workflowArtifactIds.has(item.artifactId)) return false;
       if (item.sessionId && item.runId) {
-        if (workflowRunKeys.has(`${item.toolType}:${item.sessionId}:${item.runId}`)) {
+        if (
+          workflowRunKeys.has(
+            `${item.toolType}:${item.sessionId}:${item.runId}`
+          )
+        ) {
           return false;
         }
       }

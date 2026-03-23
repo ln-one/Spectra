@@ -104,7 +104,9 @@ export function ConfigStep({
                   : "border-zinc-200 bg-white hover:bg-zinc-50"
               }`}
             >
-              <p className="text-xs font-semibold text-zinc-800">{item.label}</p>
+              <p className="text-xs font-semibold text-zinc-800">
+                {item.label}
+              </p>
               <p className="mt-1 text-[11px] text-zinc-500">{item.helper}</p>
             </button>
           ))}
@@ -141,7 +143,9 @@ export function ConfigStep({
             <Label className="text-xs text-zinc-600">适用学段</Label>
             <Select
               value={gradeBand}
-              onValueChange={(value) => onGradeBandChange(value as WordGradeBand)}
+              onValueChange={(value) =>
+                onGradeBandChange(value as WordGradeBand)
+              }
             >
               <SelectTrigger className="h-9 text-xs">
                 <SelectValue />

@@ -101,7 +101,8 @@ export function createChatActions({
   };
 
   const pushHintMessage = (payload: StudioHintMessagePayload) => {
-    const { projectId, sessionId, dedupeKey, stage, toolLabel, toolType } = payload;
+    const { projectId, sessionId, dedupeKey, stage, toolLabel, toolType } =
+      payload;
     ensureProjectLocalState(projectId);
 
     const state = get();
@@ -116,7 +117,10 @@ export function createChatActions({
       ...projectMessages,
       [sessionId]: [
         ...sessionMessages,
-        createLocalMessage("assistant", buildStageHintMessage(toolType, stage, toolLabel)),
+        createLocalMessage(
+          "assistant",
+          buildStageHintMessage(toolType, stage, toolLabel)
+        ),
       ].slice(-120),
     };
     const nextProjectHints = {
@@ -183,7 +187,8 @@ export function createChatActions({
       const requestId = ++latestFetchRequestId;
       set({ isMessagesLoading: true });
       try {
-        const effectiveSessionId = sessionId ?? get().activeSessionId ?? undefined;
+        const effectiveSessionId =
+          sessionId ?? get().activeSessionId ?? undefined;
         if (!effectiveSessionId) {
           if (requestId === latestFetchRequestId) {
             set({ messages: [] });
@@ -247,7 +252,8 @@ export function createChatActions({
           project_id: projectId,
           session_id: effectiveSessionId,
           content,
-          rag_source_ids: selectedFileIds.length > 0 ? selectedFileIds : undefined,
+          rag_source_ids:
+            selectedFileIds.length > 0 ? selectedFileIds : undefined,
         });
 
         if (
@@ -261,7 +267,11 @@ export function createChatActions({
 
         if (response?.data?.message) {
           set((state) => ({
-            messages: [...state.messages.slice(0, -1), userMessage, response.data!.message!],
+            messages: [
+              ...state.messages.slice(0, -1),
+              userMessage,
+              response.data!.message!,
+            ],
           }));
         }
       } catch (error) {
@@ -296,7 +306,11 @@ export function createChatActions({
         return;
       }
 
-      if (!context.isRefineMode || context.step !== "preview" || !context.canRefine) {
+      if (
+        !context.isRefineMode ||
+        context.step !== "preview" ||
+        !context.canRefine
+      ) {
         toast({
           title: "当前不可微调",
           description: "请先进入工具卡片第 3 步预览态再发送微调指令。",
@@ -315,7 +329,11 @@ export function createChatActions({
         return;
       }
 
-      appendLocalMessage(projectId, effectiveSessionId, createLocalMessage("user", normalizedContent));
+      appendLocalMessage(
+        projectId,
+        effectiveSessionId,
+        createLocalMessage("user", normalizedContent)
+      );
       appendLocalMessage(
         projectId,
         effectiveSessionId,
@@ -335,10 +353,12 @@ export function createChatActions({
             message: normalizedContent,
             source_artifact_id: context.sourceArtifactId || undefined,
             config: context.configSnapshot,
-            rag_source_ids: selectedFileIds.length > 0 ? selectedFileIds : undefined,
+            rag_source_ids:
+              selectedFileIds.length > 0 ? selectedFileIds : undefined,
           });
 
-          const refinedSessionId = response?.data?.session_id || effectiveSessionId;
+          const refinedSessionId =
+            response?.data?.session_id || effectiveSessionId;
           if (refinedSessionId !== get().activeSessionId) {
             set({ activeSessionId: refinedSessionId });
           }

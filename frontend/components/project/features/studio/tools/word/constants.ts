@@ -90,13 +90,21 @@ export function getReadinessLabel(status?: string | null): string {
 }
 
 export function getVariantLabel(variant: WordDocumentVariant): string {
-  return DOCUMENT_VARIANTS.find((item) => item.value === variant)?.label ?? "分层教案";
+  return (
+    DOCUMENT_VARIANTS.find((item) => item.value === variant)?.label ??
+    "分层教案"
+  );
 }
 
 export function getTeachingModelLabel(value: WordTeachingModel): string {
-  return TEACHING_MODE_OPTIONS.find((item) => item.value === value)?.label ?? "探究式";
+  return (
+    TEACHING_MODE_OPTIONS.find((item) => item.value === value)?.label ??
+    "探究式"
+  );
 }
 
 export function getGradeBandLabel(value: WordGradeBand): string {
-  return GRADE_BAND_OPTIONS.find((item) => item.value === value)?.label ?? "高中";
+  return (
+    GRADE_BAND_OPTIONS.find((item) => item.value === value)?.label ?? "高中"
+  );
 }
