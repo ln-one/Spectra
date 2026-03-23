@@ -73,10 +73,16 @@ export function SimulationToolPanel({
   );
 
   useEffect(() => {
+    const questionFocus = (teacherStrategy || topic).trim();
     onDraftChange?.({
       topic,
       intensity,
       profile,
+      student_profiles: [profile],
+      question_focus: questionFocus,
+      turns: 3,
+      include_strategy_panel: true,
+      active_student_profile: profile,
       teacher_strategy: teacherStrategy,
       answer,
       judge_text: judgeText,

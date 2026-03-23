@@ -14,6 +14,29 @@ import type { GameStep } from "./game/types";
 import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
+function inferGamePattern(
+  creativeDirection: string,
+  mechanicsNotes: string
+): "timeline_sort" | "concept_match" | "freeform" {
+  const text = `${creativeDirection} ${mechanicsNotes}`.toLowerCase();
+  if (/(时间轴|排序|顺序|timeline|sort)/i.test(text)) {
+    return "timeline_sort";
+  }
+  if (/(连线|匹配|配对|match|connect)/i.test(text)) {
+    return "concept_match";
+  }
+  return "freeform";
+}
+
+function buildIdeaTags(playerGoal: string, mechanicsNotes: string): string[] {
+  const raw = `${playerGoal}\n${mechanicsNotes}`;
+  const tokens = raw
+    .split(/[\n,，。；;、]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 2 && item.length <= 24);
+  return [...new Set(tokens)].slice(0, 4);
+}
+
 export function GameToolPanel({
   toolName,
   onDraftChange,
@@ -46,11 +69,23 @@ export function GameToolPanel({
   }, [creativeDirection, summary]);
 
   useEffect(() => {
+    const gamePattern = inferGamePattern(creativeDirection, mechanicsNotes);
+    const creativeBrief = [creativeDirection, playerGoal, mechanicsNotes]
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .join("\n");
+    const ideaTags = buildIdeaTags(playerGoal, mechanicsNotes);
     onDraftChange?.({
       topic,
       creative_direction: creativeDirection,
       player_goal: playerGoal,
       mechanics_notes: mechanicsNotes,
+      game_pattern: gamePattern,
+      mode: gamePattern,
+      creative_brief: creativeBrief || creativeDirection,
+      countdown: 60,
+      life: 3,
+      idea_tags: ideaTags,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [

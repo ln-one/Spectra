@@ -98,19 +98,19 @@ function resolveDefaultCapabilityByTool(
   if (toolId === "word") {
     return buildResolution(
       "backend_placeholder",
-      "正在等待 Word 文档生成，生成完成后会展示后端导出的真实预览与下载入口。"
+      "正在等待后端生成 Word 文档，完成后会显示真实预览与下载入口。"
     );
   }
   if (toolId === "summary") {
     return buildResolution(
       "backend_placeholder",
-      "正在等待说课讲稿生成，生成完成后会在当前面板显示后端真实内容。"
+      "正在等待后端生成说课讲稿，完成后会在当前面板展示真实内容。"
     );
   }
   if (toolId === "handout") {
     return buildResolution(
       "backend_placeholder",
-      "正在等待问答预演生成，生成完成后会在当前面板显示后端真实内容。"
+      "正在等待后端生成问答预演，完成后会在当前面板展示真实内容。"
     );
   }
   return null;
@@ -125,7 +125,7 @@ export function buildCapabilityWithoutArtifact(
   }
   return buildResolution(
     "backend_placeholder",
-    "暂时还没有后端产物，预览区会在后端返回真实内容后直接显示。"
+    "当前还没有后端产物，预览区会在后端返回真实内容后直接显示。"
   );
 }
 

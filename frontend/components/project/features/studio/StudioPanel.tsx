@@ -63,7 +63,7 @@ const STUDIO_CARD_BY_TOOL: Partial<Record<StudioToolKey, string>> = {
 };
 
 const DEFAULT_CAPABILITY_PENDING_REASON =
-  "正在检测后端能力状态，当前先展示前端示意内容。";
+  "正在检测后端能力状态，准备展示后端真实结果。";
 const STUDIO_RUNTIME_ARTIFACTS_STORAGE_PREFIX =
   "spectra:studio:runtime-artifacts";
 
@@ -1097,7 +1097,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
             title:
               (artifactPayload.title as string | undefined) ||
               TOOL_LABELS[expandedTool as GenerationToolType] + " - Generating",
-            status: "processing",
+            status: "completed",
             createdAt:
               (artifactPayload.updated_at as string | undefined) ||
               (artifactPayload.created_at as string | undefined) ||
@@ -1263,21 +1263,21 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     onExecute: async () => {
       if (!expandedTool || expandedTool === "ppt") return false;
       const toolType = expandedTool as GenerationToolType;
-      const flowStep = "preview";
       const contextSessionId = activeSessionId ?? null;
-
-      pushStudioStageHint(toolType, "generate", contextSessionId);
-      syncStudioChatContextByStep(toolType, "generate", contextSessionId);
 
       recordWorkflowEntry({
         toolType,
         title: TOOL_LABELS[toolType] + " - Generating",
         status: "processing",
-        step: flowStep,
+        step: "generate",
         sessionId: contextSessionId,
         titleSource: JSON.stringify(currentToolDraft),
         toolLabel: TOOL_LABELS[toolType],
       });
+
+      pushStudioStageHint(toolType, "generate", contextSessionId);
+      syncStudioChatContextByStep(toolType, "generate", contextSessionId);
+
       const execution = await handleStudioExecute();
       if (execution.ok) {
         const resolvedSessionId =
@@ -1285,17 +1285,17 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         if (resolvedSessionId) {
           recordWorkflowEntry({
             toolType,
-            title: TOOL_LABELS[toolType] + " - Generating",
-            status: "processing",
-            step: flowStep,
+            title: TOOL_LABELS[toolType] + " - Preview",
+            status: "previewing",
+            step: "preview",
             sessionId: resolvedSessionId,
             runId: execution.runId ?? undefined,
             runNo: execution.runNo ?? undefined,
             titleSource: JSON.stringify(currentToolDraft),
             toolLabel: TOOL_LABELS[toolType],
           });
-          syncStudioChatContextByStep(toolType, "generate", resolvedSessionId);
-          pushStudioStageHint(toolType, "generate", resolvedSessionId);
+          syncStudioChatContextByStep(toolType, "preview", resolvedSessionId);
+          pushStudioStageHint(toolType, "preview", resolvedSessionId);
         }
         return true;
       } else if (contextSessionId) {
@@ -1303,7 +1303,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           toolType,
           title: TOOL_LABELS[toolType] + " - Failed",
           status: "failed",
-          step: flowStep,
+          step: "generate",
           sessionId: contextSessionId,
           runId: execution.runId ?? undefined,
           runNo: execution.runNo ?? undefined,

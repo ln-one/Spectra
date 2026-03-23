@@ -18,6 +18,12 @@ import type { AnimationScene, AnimationStep } from "./animation/types";
 import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
+function defaultLineColor(scene: AnimationScene): string {
+  if (scene === "magnetic_field") return "#38bdf8";
+  if (scene === "particle_orbit") return "#22c55e";
+  return "#f97316";
+}
+
 export function AnimationToolPanel({
   toolName,
   onDraftChange,
@@ -45,12 +51,18 @@ export function AnimationToolPanel({
   }, [suggestions, topic]);
 
   useEffect(() => {
+    const motionBrief = [topic.trim(), `scene:${scene}`, `speed:${speed}`]
+      .filter(Boolean)
+      .join(" | ");
     onDraftChange?.({
       topic,
+      motion_brief: motionBrief,
+      animation_format: "html5",
       scene,
       speed,
       show_trail: showTrail,
       split_view: splitView,
+      line_color: defaultLineColor(scene),
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [
