@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -273,14 +273,11 @@ export function useGenerationConfigPanel({
           state === "RENDERING" ||
           state === "SUCCESS"
         ) {
-          workflowStageChangeRef.current?.("preview", {
-            sessionId: sessionIdFromStore,
-          });
-          const previewQuery = latestRunId
-            ? `session=${sessionIdFromStore}&run=${latestRunId}`
-            : `session=${sessionIdFromStore}`;
-          router.push(`/projects/${projectId}/generate?${previewQuery}`);
-          return;
+          outlineReady = currentPages > 0;
+          outlineIncomplete = targetPages > 0 && currentPages < targetPages;
+          if (outlineReady) {
+            break;
+          }
         }
 
         if (state === "FAILED") {
