@@ -372,11 +372,16 @@ export function createGenerationActions({
           base_version: baseVersion,
           outline,
         });
-        const sessionResponse = await generateApi.getSession(sessionId);
+        const preferredRunId = get().activeRunId;
+        const sessionResponse = preferredRunId
+          ? await generateApi.getSessionByRun(sessionId, {
+              run_id: preferredRunId,
+            })
+          : await generateApi.getSession(sessionId);
         const latestSessionPayload = sessionResponse?.data ?? null;
         set({
           generationSession: latestSessionPayload,
-          activeRunId: extractCurrentRunId(latestSessionPayload),
+          activeRunId: extractCurrentRunId(latestSessionPayload) || preferredRunId,
         });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -400,11 +405,16 @@ export function createGenerationActions({
           instruction,
           base_version: baseVersion,
         });
-        const sessionResponse = await generateApi.getSession(sessionId);
+        const preferredRunId = get().activeRunId;
+        const sessionResponse = preferredRunId
+          ? await generateApi.getSessionByRun(sessionId, {
+              run_id: preferredRunId,
+            })
+          : await generateApi.getSession(sessionId);
         const latestSessionPayload = sessionResponse?.data ?? null;
         set({
           generationSession: latestSessionPayload,
-          activeRunId: extractCurrentRunId(latestSessionPayload),
+          activeRunId: extractCurrentRunId(latestSessionPayload) || preferredRunId,
         });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -428,12 +438,19 @@ export function createGenerationActions({
         const confirmedRunId = extractRunId(
           (confirmResponse as { data?: { run?: unknown } }).data?.run
         );
-        const sessionResponse = await generateApi.getSession(sessionId);
+        const preferredRunId = confirmedRunId || get().activeRunId;
+        const sessionResponse = preferredRunId
+          ? await generateApi.getSessionByRun(sessionId, {
+              run_id: preferredRunId,
+            })
+          : await generateApi.getSession(sessionId);
         const latestSessionPayload = sessionResponse?.data ?? null;
         set({
           generationSession: latestSessionPayload,
           activeRunId:
-            extractCurrentRunId(latestSessionPayload) || confirmedRunId,
+            extractCurrentRunId(latestSessionPayload) ||
+            preferredRunId ||
+            confirmedRunId,
         });
       } catch (error) {
         const message = getErrorMessage(error);

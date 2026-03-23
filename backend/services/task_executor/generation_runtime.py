@@ -45,6 +45,7 @@ class GenerationExecutionContext:
     run_no: Optional[int] = None
     run_title: Optional[str] = None
     tool_type: Optional[str] = None
+    outline_version: Optional[int] = None
 
 
 async def build_generation_inputs(db_service, context: GenerationExecutionContext):
@@ -64,6 +65,7 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
         load_session_outline(
             db_service,
             session_id=context.session_id,
+            outline_version=context.outline_version,
         ),
     )
     outline_document, outline_version = outline_payload

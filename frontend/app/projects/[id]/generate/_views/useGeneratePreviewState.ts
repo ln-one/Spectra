@@ -137,7 +137,9 @@ export function useGeneratePreviewState({
 
       if (error instanceof ApiError && error.message.includes("不支持预览")) {
         try {
-          const sessionResp = await generateApi.getSession(activeSessionId);
+          const sessionResp = await generateApi.getSessionByRun(activeSessionId, {
+            run_id: activeRunId ?? undefined,
+          });
           const state = sessionResp?.data?.session?.state;
           if (state === "AWAITING_OUTLINE_CONFIRM") {
             setPreviewBlockedReason("当前会话仍在大纲确认阶段，请先确认后再预览。");

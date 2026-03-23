@@ -114,6 +114,20 @@ def parse_preview_content_from_input_data(raw_input_data: object) -> Optional[di
     }
 
 
+def parse_task_input_data(raw_input_data: object) -> dict:
+    if not raw_input_data:
+        return {}
+    if isinstance(raw_input_data, dict):
+        return raw_input_data
+    if not isinstance(raw_input_data, str):
+        return {}
+    try:
+        payload = json.loads(raw_input_data)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 async def get_or_generate_content(
     task,
     project,
@@ -138,6 +152,19 @@ async def get_or_generate_content(
             )
         return persisted
 
+    task_input = parse_task_input_data(getattr(task, "inputData", None))
+    outline_version_hint = task_input.get("outline_version")
+    if isinstance(outline_version_hint, bool):
+        outline_version_hint = None
+    try:
+        parsed_outline_version_hint = (
+            int(outline_version_hint) if outline_version_hint is not None else None
+        )
+    except (TypeError, ValueError):
+        parsed_outline_version_hint = None
+    if parsed_outline_version_hint is not None and parsed_outline_version_hint < 1:
+        parsed_outline_version_hint = None
+
     session_id = getattr(task, "sessionId", None)
     outline_document = None
     outline_version = None
@@ -151,14 +178,23 @@ async def get_or_generate_content(
             template_config = None
 
     if session_id:
-        latest_outline = await db_service.db.outlineversion.find_first(
-            where={"sessionId": session_id},
-            order={"version": "desc"},
+        outline_record = (
+            await db_service.db.outlineversion.find_first(
+                where={
+                    "sessionId": session_id,
+                    "version": parsed_outline_version_hint,
+                },
+            )
+            if parsed_outline_version_hint is not None
+            else await db_service.db.outlineversion.find_first(
+                where={"sessionId": session_id},
+                order={"version": "desc"},
+            )
         )
-        if latest_outline and latest_outline.outlineData:
+        if outline_record and outline_record.outlineData:
             try:
-                outline_document = json.loads(latest_outline.outlineData)
-                outline_version = latest_outline.version
+                outline_document = json.loads(outline_record.outlineData)
+                outline_version = outline_record.version
             except json.JSONDecodeError:
                 logger.warning(
                     "Failed to decode outlineData for session %s", session_id

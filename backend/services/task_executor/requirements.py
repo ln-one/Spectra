@@ -63,26 +63,41 @@ async def build_user_requirements(
 async def load_session_outline(
     db_service,
     session_id: Optional[str],
+    outline_version: Optional[int] = None,
 ) -> tuple[Optional[dict], Optional[int]]:
     """Load latest outline document for a generation session."""
     if not session_id:
         return None, None
 
-    latest_outline = await db_service.db.outlineversion.find_first(
-        where={"sessionId": session_id},
-        order={"version": "desc"},
+    target_version: Optional[int] = None
+    try:
+        parsed = int(outline_version) if outline_version is not None else None
+        if parsed is not None and parsed >= 1:
+            target_version = parsed
+    except (TypeError, ValueError):
+        target_version = None
+
+    outline_record = (
+        await db_service.db.outlineversion.find_first(
+            where={"sessionId": session_id, "version": target_version},
+        )
+        if target_version is not None
+        else await db_service.db.outlineversion.find_first(
+            where={"sessionId": session_id},
+            order={"version": "desc"},
+        )
     )
-    if not latest_outline:
+    if not outline_record:
         return None, None
 
     try:
-        outline_doc = json.loads(latest_outline.outlineData)
+        outline_doc = json.loads(outline_record.outlineData)
     except (TypeError, json.JSONDecodeError):
         logger.warning(
             "Failed to decode outline data for session %s version %s",
             session_id,
-            latest_outline.version,
+            getattr(outline_record, "version", None),
         )
         return None, None
 
-    return outline_doc, latest_outline.version
+    return outline_doc, getattr(outline_record, "version", None)
