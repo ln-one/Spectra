@@ -15,7 +15,18 @@ class ArtifactMediaMixin:
         self, content, project_id: str, artifact_id: str
     ) -> str:
         storage_path = self.get_storage_path(project_id, "gif", artifact_id)
-        actual_path = render_gif(content or {}, storage_path)
+        try:
+            actual_path = render_gif(content or {}, storage_path)
+        except (ImportError, ModuleNotFoundError) as exc:
+            logger.warning(
+                "GIF rendering is unavailable for %s/%s: %s",
+                project_id,
+                artifact_id,
+                exc,
+            )
+            raise RuntimeError(
+                "GIF rendering requires Pillow and a compatible image backend."
+            ) from exc
         logger.info("Generated animation GIF at %s", actual_path)
         return actual_path
 

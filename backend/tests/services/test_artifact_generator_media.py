@@ -31,6 +31,33 @@ async def test_generate_animation_writes_real_gif(tmp_path: Path):
 
 
 @pytest.mark.asyncio
+async def test_generate_animation_raises_clear_error_without_pillow_backend(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    generator = _MediaGenerator(tmp_path)
+    monkeypatch.setattr(
+        media_module,
+        "render_gif",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ModuleNotFoundError("No module named 'PIL'")
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="GIF rendering requires Pillow and a compatible image backend",
+    ):
+        await generator.generate_animation(
+            {
+                "title": "冒泡排序",
+                "scenes": [{"title": "Scene 1", "description": "交换"}],
+            },
+            "project-1",
+            "artifact-gif",
+        )
+
+
+@pytest.mark.asyncio
 async def test_generate_video_uses_cv2_writer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):

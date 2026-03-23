@@ -27,13 +27,16 @@ export function buildAnimationCode({
   showTrail,
   lineColor,
 }: BuildCodeParams): string {
+  const safeTopic = JSON.stringify(topic.trim() || "本节知识点");
+  const safeScene = JSON.stringify(sceneRuntimeName(scene));
+  const safeLineColor = JSON.stringify(lineColor);
   return [
     "const config = {",
-    `  topic: "${topic.trim() || "本节知识点"}",`,
-    `  scene: "${sceneRuntimeName(scene)}",`,
+    `  topic: ${safeTopic},`,
+    `  scene: ${safeScene},`,
     `  speed: ${Number((speed / 100).toFixed(2))},`,
     `  showTrail: ${showTrail},`,
-    `  lineColor: "${lineColor}",`,
+    `  lineColor: ${safeLineColor},`,
     "};",
     "",
     "renderAnimation(config);",

@@ -39,13 +39,20 @@ def _resolve_embedding_model() -> str:
 def _resolve_embedding_dimension() -> int:
     raw_value = os.getenv("EMBEDDING_DIMENSION", "1536")
     try:
-        return int(str(raw_value).strip())
+        value = int(str(raw_value).strip())
     except (TypeError, ValueError):
         logger.warning(
             "Invalid EMBEDDING_DIMENSION value %r; falling back to default 1536",
             raw_value,
         )
         return 1536
+    if value <= 0:
+        logger.warning(
+            "Non-positive EMBEDDING_DIMENSION value %r; falling back to default 1536",
+            raw_value,
+        )
+        return 1536
+    return value
 
 
 def _resolve_dashscope_api_key() -> str:
