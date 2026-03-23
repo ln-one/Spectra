@@ -25,6 +25,10 @@ import {
   getProjectThemeAttributes,
   getProjectThemeStyle,
 } from "./theme";
+import {
+  getProjectToolAuraAttributes,
+  getProjectToolAuraStyle,
+} from "./toolAura";
 import { useProjectDetailController } from "./useProjectDetailController";
 
 export default function ProjectDetailPage() {
@@ -35,6 +39,7 @@ export default function ProjectDetailPage() {
     isBootstrapping,
     projectId,
     isExpanded,
+    expandedTool,
     sessionOptions,
     activeSessionId,
     isCreatingSession,
@@ -49,6 +54,8 @@ export default function ProjectDetailPage() {
     expandedChatHeight,
     handleToolClick,
     handleChangeSession,
+    handleRenameSession,
+    handleDeleteSession,
     handleCreateSession,
     handleMouseDown,
     sourcesWidthPercent,
@@ -70,6 +77,11 @@ export default function ProjectDetailPage() {
   const activeTheme = getProjectTheme(selectedThemePreset);
   const pageThemeStyle = getProjectThemeStyle(selectedThemePreset);
   const pageThemeAttributes = getProjectThemeAttributes(selectedThemePreset);
+  const pageToolAuraStyle = getProjectToolAuraStyle(expandedTool, isExpanded);
+  const pageToolAuraAttributes = getProjectToolAuraAttributes(
+    expandedTool,
+    isExpanded
+  );
   const lightRayPreset =
     activeTheme.styleVariant === "ocean-cyan"
       ? { count: 9, blur: 48, speed: 16, opacityClass: "opacity-85" }
@@ -114,8 +126,9 @@ export default function ProjectDetailPage() {
   return (
     <div
       {...pageThemeAttributes}
+      {...pageToolAuraAttributes}
       className="project-theme-root h-screen flex flex-col bg-[var(--project-bg-base)] overflow-hidden relative"
-      style={pageThemeStyle}
+      style={{ ...pageThemeStyle, ...pageToolAuraStyle }}
     >
       <div
         className="absolute inset-0 pointer-events-none"
@@ -124,6 +137,7 @@ export default function ProjectDetailPage() {
             "radial-gradient(circle at 20% 15%, var(--project-bg-glow), transparent 42%), linear-gradient(135deg, var(--project-bg-start), var(--project-bg-end))",
         }}
       />
+      <div className="project-tool-aura-layer absolute inset-0 pointer-events-none" />
       <LightRays
         count={lightRayPreset.count}
         color={activeTheme.colorTokens.rayColor}
@@ -137,6 +151,8 @@ export default function ProjectDetailPage() {
         sessions={sessionOptions}
         activeSessionId={activeSessionId}
         onChangeSession={handleChangeSession}
+        onRenameSession={handleRenameSession}
+        onDeleteSession={handleDeleteSession}
         onCreateSession={handleCreateSession}
         isCreatingSession={isCreatingSession}
         onOpenLibrary={() => setIsLibraryOpen(true)}

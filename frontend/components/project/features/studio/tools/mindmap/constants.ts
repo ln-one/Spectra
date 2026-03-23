@@ -34,13 +34,6 @@ export const FOCUS_OPTIONS: MindmapOption<MindmapFocus>[] = [
   { value: "comparison", label: "对比辨析" },
 ];
 
-export const TOPIC_SUGGESTIONS = [
-  "化学反应速率",
-  "牛顿第二定律",
-  "函数的单调性",
-  "细胞分裂过程",
-];
-
 export function getReadinessLabel(status?: string | null): string {
   if (status === "ready") return "可直接生成";
   if (status === "foundation_ready") return "基础能力可用";

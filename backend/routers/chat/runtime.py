@@ -6,14 +6,18 @@ from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import ChatRouteTask, SendMessageRequest
 from services.database import db_service
-from services.generation_session_service import GenerationSessionService
-from services.generation_session_service.constants import SessionOutputType
+from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.session_history import (
     SESSION_TITLE_SOURCE_DEFAULT,
     generate_semantic_session_title,
     spawn_background_task,
 )
-from utils.exceptions import APIException, InternalServerException
+from utils.exceptions import (
+    APIException,
+    ErrorCode,
+    ForbiddenException,
+    InternalServerException,
+)
 from utils.responses import success_response
 
 from .citation_utils import (
@@ -37,24 +41,51 @@ from .runtime_helpers import (
 from .shared import logger, to_message, verify_project_ownership
 
 
+def _get_generation_session_lookup_db():
+    return db_service.db
+
+
 async def _ensure_chat_session(
     *,
     project_id: str,
     user_id: str,
     session_id: str | None,
 ) -> str:
-    if session_id:
-        return session_id
+    if not session_id:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="session_id is required. Please create/select a session first.",
+        )
 
-    service = GenerationSessionService(db_service.db)
-    session_ref = await service.create_session(
-        project_id=project_id,
-        user_id=user_id,
-        output_type=SessionOutputType.BOTH.value,
-        bootstrap_only=True,
-        task_queue_service=None,
+    try:
+        session = await get_owned_session(
+            db=_get_generation_session_lookup_db(),
+            session_id=session_id,
+            user_id=user_id,
+        )
+    except ValueError as exc:
+        raise APIException(
+            status_code=404,
+            error_code=ErrorCode.NOT_FOUND,
+            message="Session not found.",
+        ) from exc
+    except PermissionError as exc:
+        raise ForbiddenException(
+            message="No permission to access this session."
+        ) from exc
+
+    session_project_id = (
+        session.get("projectId") if isinstance(session, dict) else session.projectId
     )
-    return str(session_ref["session_id"])
+    if session_project_id != project_id:
+        raise APIException(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="session_id does not belong to this project.",
+        )
+
+    return session_id
 
 
 async def process_chat_message(
@@ -72,9 +103,20 @@ async def process_chat_message(
         stage_timings_ms["verify_project"] = round(
             (time.perf_counter() - stage_started) * 1000, 2
         )
+
+        stage_started = time.perf_counter()
+        session_id = await _ensure_chat_session(
+            project_id=body.project_id,
+            user_id=user_id,
+            session_id=body.session_id,
+        )
+        stage_timings_ms["ensure_session"] = round(
+            (time.perf_counter() - stage_started) * 1000, 2
+        )
+
         key_str = str(idempotency_key) if idempotency_key else None
         cache_key = (
-            f"chat:messages:{user_id}:{body.project_id}:{body.session_id}:{key_str}"
+            f"chat:messages:{user_id}:{body.project_id}:{session_id}:{key_str}"
             if key_str
             else None
         )
@@ -87,15 +129,6 @@ async def process_chat_message(
             if cached_response:
                 return cached_response
 
-        stage_started = time.perf_counter()
-        session_id = await _ensure_chat_session(
-            project_id=body.project_id,
-            user_id=user_id,
-            session_id=body.session_id,
-        )
-        stage_timings_ms["ensure_session"] = round(
-            (time.perf_counter() - stage_started) * 1000, 2
-        )
         user_message_metadata = {
             **(body.metadata or {}),
             **({"idempotency_key": key_str} if key_str else {}),
@@ -233,13 +266,17 @@ async def process_chat_message(
                 "session_id": session_id,
                 "message": msg_dict,
                 "rag_hit": rag_hit,
-                "suggestions": ["继续细化教学目标", "补充重点难点", "开始生成课件"],
+                "suggestions": [
+                    "Refine teaching goals",
+                    "Add key points",
+                    "Start generating courseware",
+                ],
                 "observability": observability_metadata,
                 "session_title_updated": session_title_updated,
                 "session_title": session_title,
                 "session_title_source": session_title_source,
             },
-            message="消息发送成功",
+            message="Message sent successfully",
         )
         if cache_key:
             await db_service.save_idempotency_response(
@@ -264,6 +301,6 @@ async def process_chat_message(
                 }
             )
         raise InternalServerException(
-            message="发送消息失败",
+            message="Failed to send message",
             details=details,
         )

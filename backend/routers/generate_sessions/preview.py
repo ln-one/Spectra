@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Optional
 from uuid import UUID
@@ -62,25 +62,32 @@ async def _resolve_preview_anchor(
     session_id: str,
     snapshot: dict,
     artifact_id: Optional[str],
+    run_id: Optional[str],
 ) -> dict:
     bound_artifact = await _resolve_session_artifact_binding(
         project_id=snapshot["session"]["project_id"],
         session_id=session_id,
         artifact_id=artifact_id,
+        run_id=run_id,
     )
-    return _build_artifact_anchor(session_id, bound_artifact)
+    anchor = _build_artifact_anchor(session_id, bound_artifact)
+    if run_id:
+        anchor["run_id"] = run_id
+    return anchor
 
 
 @router.get("/sessions/{session_id}/preview")
 async def get_session_preview(
     session_id: str,
-    artifact_id: Optional[str] = Query(None, description="指定成果ID（可选）"),
+    artifact_id: Optional[str] = Query(None, description="鎸囧畾鎴愭灉ID锛堝彲閫夛級"),
+    run_id: Optional[str] = Query(None, description="鎸囧畾运行ID（可选）"),
     user_id: str = Depends(get_current_user),
 ):
-    """获取会话预览（session 作用域）。"""
+    """鑾峰彇浼氳瘽棰勮锛坰ession 浣滅敤鍩燂級銆?"""
     return await get_session_preview_response(
         session_id=session_id,
         artifact_id=artifact_id,
+        run_id=run_id,
         user_id=user_id,
         get_preview_snapshot_or_raise=_get_preview_snapshot_or_raise,
         resolve_preview_anchor=_resolve_preview_anchor,
@@ -95,7 +102,7 @@ async def modify_session_preview(
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
-    """修改预览内容（转发给 REGENERATE_SLIDE command）。"""
+    """淇敼棰勮鍐呭锛堣浆鍙戠粰 REGENERATE_SLIDE command锛夈€?"""
     return await modify_session_preview_response(
         session_id=session_id,
         body=body,
@@ -117,14 +124,18 @@ async def modify_session_preview(
 async def get_session_slide_preview(
     session_id: str,
     slide_id: str,
-    artifact_id: Optional[str] = Query(None, description="指定来源成果ID（可选）"),
+    artifact_id: Optional[str] = Query(
+        None, description="鎸囧畾鏉ユ簮鎴愭灉ID锛堝彲閫夛級"
+    ),
+    run_id: Optional[str] = Query(None, description="鎸囧畾运行ID（可选）"),
     user_id: str = Depends(get_current_user),
 ):
-    """获取单页幻灯片预览（session 作用域）。"""
+    """鑾峰彇鍗曢〉骞荤伅鐗囬瑙堬紙session 浣滅敤鍩燂級銆?"""
     return await get_session_slide_preview_response(
         session_id=session_id,
         slide_id=slide_id,
         artifact_id=artifact_id,
+        run_id=run_id,
         user_id=user_id,
         get_preview_snapshot_or_raise=_get_preview_snapshot_or_raise,
         resolve_preview_anchor=_resolve_preview_anchor,
@@ -136,13 +147,15 @@ async def get_session_slide_preview(
 async def export_session(
     session_id: str,
     body: Optional[dict] = None,
+    run_id: Optional[str] = Query(None, description="鎸囧畾运行ID（可选）"),
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
-    """导出课件文件（session 作用域）。"""
+    """瀵煎嚭璇句欢鏂囦欢锛坰ession 浣滅敤鍩燂級銆?"""
     return await export_session_response(
         session_id=session_id,
         body=body,
+        run_id=run_id,
         user_id=user_id,
         idempotency_key=idempotency_key,
         parse_candidate_change_payload=parse_candidate_change_payload,

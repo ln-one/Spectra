@@ -15,6 +15,8 @@ interface ProjectHeaderProps {
   sessions: SessionSwitcherItem[];
   activeSessionId: string | null;
   onChangeSession: (sessionId: string) => void;
+  onRenameSession: (sessionId: string, title: string) => void;
+  onDeleteSession: (sessionId: string) => void;
   onCreateSession: () => void;
   isCreatingSession: boolean;
   onOpenLibrary: () => void;
@@ -29,6 +31,8 @@ export function ProjectHeader({
   sessions,
   activeSessionId,
   onChangeSession,
+  onRenameSession,
+  onDeleteSession,
   onCreateSession,
   isCreatingSession,
   onOpenLibrary,
@@ -74,6 +78,8 @@ export function ProjectHeader({
         sessions={sessions}
         activeSessionId={activeSessionId}
         onChangeSession={onChangeSession}
+        onRenameSession={onRenameSession}
+        onDeleteSession={onDeleteSession}
         onCreateSession={onCreateSession}
         isCreatingSession={isCreatingSession}
       />

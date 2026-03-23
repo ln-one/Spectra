@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Layers, Palette, Settings, Share2, User } from "lucide-react";
+import { Archive, Layers, Palette, Settings, Share2, User } from "lucide-react";
 import type { components } from "@/lib/sdk/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,9 @@ export function HeaderActions({
   onThemePresetChange,
 }: HeaderActionsProps) {
   const activeThemeDefinition = getThemePresetDefinition(selectedThemePreset);
+  const handleOpenArchiveHistory = () => {
+    window.dispatchEvent(new CustomEvent("spectra:open-archive-history"));
+  };
 
   return (
     <div className="project-header-actions justify-self-end flex items-center gap-2">
@@ -101,6 +104,14 @@ export function HeaderActions({
           <DropdownMenuLabel className="text-[13px] text-[var(--project-control-muted)] font-medium">
             页面设置
           </DropdownMenuLabel>
+          <DropdownMenuSeparator className="bg-[var(--project-control-border)] my-1" />
+          <DropdownMenuItem
+            onSelect={handleOpenArchiveHistory}
+            className="rounded-xl cursor-pointer text-[13px] font-medium py-2.5 gap-2"
+          >
+            <Archive className="w-4 h-4 text-[var(--project-control-muted)]" />
+            归档历史
+          </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-[var(--project-control-border)] my-1" />
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="rounded-xl cursor-pointer text-[13px] font-medium py-2.5 gap-2">

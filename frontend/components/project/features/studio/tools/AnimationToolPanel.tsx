@@ -80,7 +80,8 @@ export function AnimationToolPanel({
 
     setIsGenerating(true);
     try {
-      await flowContext.onExecute();
+      const executed = await flowContext.onExecute();
+      if (!executed) return;
       setLastGeneratedAt(new Date().toISOString());
       setActiveStep("preview");
     } finally {
@@ -89,7 +90,7 @@ export function AnimationToolPanel({
   };
 
   return (
-    <div className="h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
+    <div className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
       <div className="flex h-full min-h-0 flex-col">
         <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
           <div className="flex items-start justify-between gap-3">
@@ -108,9 +109,9 @@ export function AnimationToolPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="flex h-full min-h-0 gap-4">
+          <div className="grid h-full min-h-0 gap-3 grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]">
             <WorkflowStepper
-              className="w-[228px] shrink-0"
+              className="hidden h-full min-h-0 overflow-y-auto lg:block"
               layout="rail"
               currentStep={activeStep}
               steps={ANIMATION_STEPS}
@@ -119,6 +120,18 @@ export function AnimationToolPanel({
               subtitle="Workflow"
             />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="mb-4 lg:hidden">
+                <WorkflowStepper
+                  layout="inline"
+                  currentStep={activeStep}
+                  steps={ANIMATION_STEPS}
+                  onStepChange={(stepId) =>
+                    setActiveStep(stepId as AnimationStep)
+                  }
+                  title="演示动画流程"
+                  subtitle="Workflow"
+                />
+              </div>
               {activeStep === "config" ? (
                 <ConfigStep
                   topic={topic}

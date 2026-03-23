@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Loader2, Sparkles } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
@@ -24,29 +24,42 @@ interface ChatPanelProps {
   projectId: string;
 }
 
-const CHAT_DESCRIPTION = "AI \u52a9\u624b\u5bf9\u8bdd";
-const THINKING_LABEL = "\u601d\u8003\u4e2d";
-const EMPTY_TITLE = "\u5f00\u59cb\u5bf9\u8bdd";
-const EMPTY_DESCRIPTION =
-  "\u5411 AI \u52a9\u624b\u63d0\u95ee\u5173\u4e8e\u9879\u76ee\u7684\u5185\u5bb9";
-const INPUT_PLACEHOLDER = "\u8f93\u5165\u6d88\u606f...";
+const CHAT_DESCRIPTION = "AI 助手对话";
+const THINKING_LABEL = "思考中";
+const EMPTY_TITLE = "开始对话";
+const EMPTY_DESCRIPTION = "向 AI 助手提问关于项目的内容";
+const INPUT_PLACEHOLDER = "输入消息...";
+const NO_SESSION_PLACEHOLDER = "请先在会话选择器中点击“新建会话”";
+const REFINE_PLACEHOLDER = "例如：再详细一点 / 增加案例 / 更简洁";
 
 export function ChatPanel({ projectId }: ChatPanelProps) {
   const {
     messages,
+    localToolMessages,
+    studioChatContext,
+    chatComposerFocusSignal,
     activeSessionId,
     isMessagesLoading,
     isSending,
+    isStudioRefining,
     sendMessage,
+    sendStudioRefineMessage,
+    hydrateStudioLocalState,
     lastFailedInput,
     clearLastFailedInput,
   } = useProjectStore(
     useShallow((state) => ({
       messages: state.messages,
+      localToolMessages: state.localToolMessages,
+      studioChatContext: state.studioChatContext,
+      chatComposerFocusSignal: state.chatComposerFocusSignal,
       activeSessionId: state.activeSessionId,
       isMessagesLoading: state.isMessagesLoading,
       isSending: state.isSending,
+      isStudioRefining: state.isStudioRefining,
       sendMessage: state.sendMessage,
+      sendStudioRefineMessage: state.sendStudioRefineMessage,
+      hydrateStudioLocalState: state.hydrateStudioLocalState,
       lastFailedInput: state.lastFailedInput,
       clearLastFailedInput: state.clearLastFailedInput,
     }))
@@ -57,21 +70,63 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
   const [isSessionTransitioning, setIsSessionTransitioning] = useState(true);
   const [hasResolvedInitialLoad, setHasResolvedInitialLoad] = useState(false);
+  const [composerClearance, setComposerClearance] = useState(120);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const composerShellRef = useRef<HTMLDivElement>(null);
   const hasHydratedHistoryRef = useRef(false);
   const pendingSessionIdRef = useRef<string | null>(null);
   const previousSessionIdRef = useRef<string | null>(null);
   const transitionStartedAtRef = useRef(0);
   const wasMessagesLoadingRef = useRef(false);
 
+  const localSessionMessages = useMemo(() => {
+    if (!activeSessionId) return [];
+    return localToolMessages[projectId]?.[activeSessionId] ?? [];
+  }, [activeSessionId, localToolMessages, projectId]);
+
+  const mergedMessages = useMemo<ChatMessage[]>(() => {
+    const merged = [...messages, ...localSessionMessages] as ChatMessage[];
+    const uniqueById = new Map<string, ChatMessage>();
+    merged.forEach((message) => {
+      uniqueById.set(message.id, message);
+    });
+    return Array.from(uniqueById.values()).sort((left, right) => {
+      const leftTs = Date.parse(left.timestamp);
+      const rightTs = Date.parse(right.timestamp);
+      const leftTime = Number.isNaN(leftTs) ? 0 : leftTs;
+      const rightTime = Number.isNaN(rightTs) ? 0 : rightTs;
+      if (leftTime !== rightTime) {
+        return leftTime - rightTime;
+      }
+      return left.id.localeCompare(right.id);
+    });
+  }, [localSessionMessages, messages]);
+
+  const isStudioRefineMode =
+    Boolean(studioChatContext) &&
+    studioChatContext?.projectId === projectId &&
+    studioChatContext?.isRefineMode === true &&
+    studioChatContext?.step === "preview" &&
+    studioChatContext?.canRefine === true &&
+    (!activeSessionId || studioChatContext?.sessionId === activeSessionId);
+
+  const refineToolLabel = studioChatContext?.toolLabel ?? "工具卡片";
+  const showThinkingIndicator = isSending && !isStudioRefineMode;
+
+  useEffect(() => {
+    hydrateStudioLocalState(projectId);
+  }, [hydrateStudioLocalState, projectId]);
+
   useEffect(() => {
     if (!messagesEndRef.current) return;
     const behavior =
-      hasHydratedHistoryRef.current && messages.length > 0 ? "smooth" : "auto";
+      hasHydratedHistoryRef.current && mergedMessages.length > 0
+        ? "smooth"
+        : "auto";
     messagesEndRef.current.scrollIntoView({ behavior, block: "end" });
-    hasHydratedHistoryRef.current = messages.length > 0;
-  }, [messages]);
+    hasHydratedHistoryRef.current = mergedMessages.length > 0;
+  }, [mergedMessages]);
 
   useEffect(() => {
     hasHydratedHistoryRef.current = false;
@@ -137,10 +192,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
   useEffect(() => {
     if (isMessagesLoading) {
       wasMessagesLoadingRef.current = true;
-    } else if (wasMessagesLoadingRef.current || messages.length > 0) {
+    } else if (wasMessagesLoadingRef.current || mergedMessages.length > 0) {
       setHasResolvedInitialLoad(true);
     }
-  }, [isMessagesLoading, messages.length]);
+  }, [isMessagesLoading, mergedMessages.length]);
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -151,12 +206,48 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     textarea.style.overflowY = textarea.scrollHeight > 176 ? "auto" : "hidden";
   }, [input]);
 
+  useEffect(() => {
+    const shell = composerShellRef.current;
+    if (!shell) return;
+
+    const BOTTOM_OFFSET = 12;
+    const EXTRA_GAP = 8;
+    const updateClearance = () => {
+      setComposerClearance(
+        Math.ceil(
+          shell.getBoundingClientRect().height + BOTTOM_OFFSET + EXTRA_GAP
+        )
+      );
+    };
+
+    updateClearance();
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(updateClearance);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (chatComposerFocusSignal <= 0) return;
+    const frame = requestAnimationFrame(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      textarea.focus({ preventScroll: true });
+      const length = textarea.value.length;
+      textarea.setSelectionRange(length, length);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [chatComposerFocusSignal]);
+
   const awaitingSessionFirstLoad =
     !!activeSessionId &&
-    messages.length === 0 &&
+    mergedMessages.length === 0 &&
     loadedSessionId !== activeSessionId;
   const shouldBlockEmptyState =
-    !hasResolvedInitialLoad && messages.length === 0;
+    !hasResolvedInitialLoad && mergedMessages.length === 0;
   const showLoading =
     isSessionTransitioning ||
     shouldBlockEmptyState ||
@@ -164,9 +255,17 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
     awaitingSessionFirstLoad;
 
   const handleSend = async () => {
-    if (!input.trim() || isSending) return;
+    if (!input.trim() || !activeSessionId) return;
+    if (!isStudioRefineMode && isSending) return;
+
     const content = input.trim();
     setInput("");
+
+    if (isStudioRefineMode) {
+      await sendStudioRefineMessage(projectId, content);
+      return;
+    }
+
     await sendMessage(projectId, content);
   };
 
@@ -203,7 +302,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
               {CHAT_DESCRIPTION}
             </CardDescription>
           </div>
-          {isSending ? (
+          {showThinkingIndicator ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -217,13 +316,6 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
 
         <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
           <div
-            className="project-chat-fade-top pointer-events-none absolute inset-x-0 top-0 z-10 h-7"
-            style={{
-              background:
-                "linear-gradient(180deg, var(--project-surface) 0%, color-mix(in srgb, var(--project-surface) 96%, transparent) 28%, color-mix(in srgb, var(--project-surface) 84%, transparent) 52%, color-mix(in srgb, var(--project-surface) 62%, transparent) 72%, color-mix(in srgb, var(--project-surface) 36%, transparent) 88%, rgba(255,255,255,0) 100%)",
-            }}
-          />
-          <div
             className="project-chat-fade-bottom pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[42px]"
             style={{
               background:
@@ -233,7 +325,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
 
           <ScrollArea className="h-full px-4">
             <AnimatePresence mode="wait">
-              {messages.length === 0 && !showLoading ? (
+              {mergedMessages.length === 0 && !showLoading ? (
                 <motion.div
                   key="chat-empty"
                   initial={{ opacity: 0, y: 8 }}
@@ -275,10 +367,11 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-4 py-4 pb-28"
+                  className="space-y-4 py-4"
+                  style={{ paddingBottom: `${composerClearance}px` }}
                 >
                   <AnimatePresence mode="popLayout">
-                    {messages.map((message, index) => (
+                    {mergedMessages.map((message, index) => (
                       <MessageBubble
                         key={message.id}
                         message={message as ChatMessage}
@@ -287,7 +380,10 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
                       />
                     ))}
                   </AnimatePresence>
-                  <div ref={messagesEndRef} />
+                  <div
+                    ref={messagesEndRef}
+                    style={{ scrollMarginBottom: `${composerClearance}px` }}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -324,29 +420,81 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           </AnimatePresence>
 
           <div className="pointer-events-none absolute inset-x-4 bottom-3 z-20">
-            <div className="project-chat-input-shell pointer-events-auto rounded-[var(--project-input-radius)] border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+            <div
+              ref={composerShellRef}
+              className={cn(
+                "project-chat-input-shell pointer-events-auto rounded-[var(--project-input-radius)] border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.35)] backdrop-blur-xl transition-colors",
+                isStudioRefineMode &&
+                  "border-[var(--project-tool-accent,var(--project-accent))]"
+              )}
+              style={
+                isStudioRefineMode
+                  ? {
+                      background:
+                        "color-mix(in srgb, var(--project-tool-accent,var(--project-accent)) 8%, var(--project-surface-elevated))",
+                      boxShadow:
+                        "0 8px 24px -18px color-mix(in srgb, var(--project-tool-accent,var(--project-accent)) 40%, rgba(15,23,42,0.38))",
+                    }
+                  : undefined
+              }
+            >
+              {isStudioRefineMode ? (
+                <div
+                  className="mb-1.5 flex items-center justify-between gap-2 rounded-[calc(var(--project-input-radius)-4px)] border px-2 py-1 text-[11px]"
+                  style={{
+                    borderColor:
+                      "color-mix(in srgb, var(--project-tool-accent,var(--project-accent)) 38%, var(--project-border))",
+                    color:
+                      "color-mix(in srgb, var(--project-tool-accent,var(--project-accent)) 74%, var(--project-text-primary))",
+                    background:
+                      "color-mix(in srgb, var(--project-tool-accent,var(--project-accent)) 8%, transparent)",
+                  }}
+                >
+                  <span className="truncate">正在微调：{refineToolLabel}</span>
+                  {isStudioRefining ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <span className="shrink-0 opacity-80">
+                      发送后会按顺序处理
+                    </span>
+                  )}
+                </div>
+              ) : null}
               <div className="flex w-full items-end gap-2">
                 <Textarea
                   ref={textareaRef}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={INPUT_PLACEHOLDER}
+                  placeholder={
+                    activeSessionId
+                      ? isStudioRefineMode
+                        ? REFINE_PLACEHOLDER
+                        : INPUT_PLACEHOLDER
+                      : NO_SESSION_PLACEHOLDER
+                  }
+                  disabled={!activeSessionId}
                   className="min-h-[44px] max-h-[176px] resize-none rounded-[var(--project-input-radius)] border-none bg-transparent px-2 py-1.5 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   rows={1}
                 />
                 <Button
                   size="icon"
                   onClick={() => void handleSend()}
-                  disabled={!input.trim() || isSending}
+                  disabled={
+                    !input.trim() ||
+                    !activeSessionId ||
+                    (!isStudioRefineMode && isSending)
+                  }
                   className={cn(
                     "project-chat-send-btn h-10 w-10 shrink-0 rounded-[var(--project-input-radius)] transition-all duration-200",
-                    input.trim() && !isSending
-                      ? "bg-[var(--project-accent)] text-[var(--project-accent-text)] hover:bg-[var(--project-accent-hover)]"
+                    input.trim() && (isStudioRefineMode || !isSending)
+                      ? isStudioRefineMode
+                        ? "border-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent))_64%,black)] bg-[var(--project-tool-accent,var(--project-accent))] text-[var(--project-accent-text)] hover:brightness-110"
+                        : "bg-[var(--project-accent)] text-[var(--project-accent-text)] hover:bg-[var(--project-accent-hover)]"
                       : "bg-[var(--project-surface-muted)] text-[var(--project-text-muted)]"
                   )}
                 >
-                  {isSending ? (
+                  {showThinkingIndicator ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <ArrowUp className="h-4 w-4" />

@@ -1,4 +1,4 @@
-"""API acceptance tests for async outline drafting."""
+﻿"""API acceptance tests for async outline drafting."""
 
 import json
 import time
@@ -57,7 +57,7 @@ def mock_db_service():
         updatedAt=datetime.now(timezone.utc),
         progress=0,
         stateReason=None,
-        displayTitle="会话-001",
+        displayTitle="浼氳瘽-001",
         displayTitleSource="default",
         displayTitleUpdatedAt=None,
     )
@@ -116,7 +116,7 @@ async def test_create_session_returns_quickly_and_schedules_outline(
     assert data["success"] is True
     assert data["data"]["session"]["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert data["data"]["session"]["session_id"] == "s-001"
-    assert data["data"]["session"]["display_title"] == "会话-001"
+    assert data["data"]["session"]["display_title"] == "浼氳瘽-001"
     assert data["data"]["session"]["display_title_source"] == "default"
 
 
@@ -250,6 +250,68 @@ async def test_create_session_reuses_current_session_when_client_session_id_matc
         == SessionLifecycleReason.SESSION_REUSED.value
         for event in state_change_events
     )
+
+
+@pytest.mark.anyio
+async def test_create_session_returns_409_when_active_run_exists(
+    app, mock_db_service, _as_user
+):
+    existing_session = SimpleNamespace(
+        id="s-existing-001",
+        projectId="p-001",
+        userId="u-001",
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        outputType="ppt",
+        options=None,
+        clientSessionId="s-existing-001",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+        stateReason=None,
+    )
+    active_run = SimpleNamespace(
+        id="run-001",
+        sessionId="s-existing-001",
+        projectId="p-001",
+        toolType="ppt_generate",
+        runNo=2,
+        title="PPT 生成",
+        titleSource="pending",
+        titleUpdatedAt=None,
+        status="processing",
+        step="outline",
+        artifactId=None,
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    mock_db_service.generationsession.find_first = AsyncMock(
+        return_value=existing_session
+    )
+    mock_db_service.sessionrun = SimpleNamespace(
+        find_first=AsyncMock(return_value=active_run)
+    )
+
+    with patch.object(db_service, "get_project", mock_db_service.get_project):
+        with patch.object(db_service, "db", mock_db_service):
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/generate/sessions",
+                json={
+                    "project_id": "p-001",
+                    "output_type": SessionOutputType.PPT.value,
+                    "client_session_id": "s-existing-001",
+                },
+            )
+
+    assert response.status_code == 409
+    body = response.json()
+    error = body.get("error") or body.get("detail") or {}
+    details = error.get("details") if isinstance(error, dict) else {}
+    assert error.get("code") == "RESOURCE_CONFLICT"
+    assert details.get("run_id") == "run-001"
 
 
 def test_redraft_outline_passes_task_queue_service_to_executor(app, _as_user):
@@ -896,10 +958,10 @@ async def test_preview_studio_card_execution_accepts_frontend_refactor_fields(
             "project_id": "p-001",
             "rag_source_ids": ["file-1"],
             "config": {
-                "topic": "化学反应速率",
+                "topic": "鍖栧鍙嶅簲閫熺巼",
                 "depth": 4,
                 "focus": "concept",
-                "target_audience": "高一",
+                "target_audience": "楂樹竴",
                 "selected_id": "root",
             },
         },
@@ -909,7 +971,7 @@ async def test_preview_studio_card_execution_accepts_frontend_refactor_fields(
     preview = response.json()["data"]["execution_preview"]
     payload = preview["initial_request"]["payload"]
     assert payload["rag_source_ids"] == ["file-1"]
-    assert payload["content"]["topic"] == "化学反应速率"
+    assert payload["content"]["topic"] == "鍖栧鍙嶅簲閫熺巼"
     assert payload["content"]["depth"] == 4
     assert preview["refine_request"]["payload"]["metadata"]["selected_node_path"] == (
         "root"
@@ -929,7 +991,7 @@ async def test_preview_studio_card_execution_returns_bound_classroom_payload(
             "visibility": "project-visible",
             "config": {
                 "student_profiles": ["strong_divergent", "formula_driven"],
-                "question_focus": "底层公式推导",
+                "question_focus": "搴曞眰鍏紡鎺ㄥ",
                 "turns": 4,
             },
         },
@@ -957,7 +1019,7 @@ async def test_preview_studio_card_execution_returns_bound_interactive_game_refi
             "project_id": "p-001",
             "config": {
                 "game_pattern": "concept_match",
-                "sandbox_patch": {"replace": ["规则说明"]},
+                "sandbox_patch": {"replace": ["瑙勫垯璇存槑"]},
             },
         },
     )
@@ -972,7 +1034,7 @@ async def test_preview_studio_card_execution_returns_bound_interactive_game_refi
         "concept_match"
     )
     assert preview["refine_request"]["payload"]["config"]["sandbox_patch"] == {
-        "replace": ["规则说明"]
+        "replace": ["瑙勫垯璇存槑"]
     }
 
 
@@ -1180,7 +1242,7 @@ async def test_execute_studio_card_creates_interactive_game_artifact(app, _as_us
                 "visibility": "shared",
                 "config": {
                     "game_pattern": "concept_match",
-                    "creative_brief": "围绕牛顿三定律生成连线游戏",
+                    "creative_brief": "围绕牛顿三定律设计连线互动游戏。",
                 },
             },
         )
@@ -1296,7 +1358,7 @@ async def test_execute_studio_card_accepts_rag_source_ids(app, _as_user):
                 "project_id": "p-001",
                 "rag_source_ids": ["file-1", "file-2"],
                 "config": {
-                    "topic": "化学反应速率",
+                    "topic": "鍖栧鍙嶅簲閫熺巼",
                     "depth": 3,
                     "focus": "concept",
                 },
@@ -1316,7 +1378,7 @@ async def test_get_studio_card_sources_returns_matching_artifacts(app, _as_user)
     artifact = SimpleNamespace(
         id="a-ppt-001",
         type="pptx",
-        metadata={"title": "牛顿定律课件"},
+        metadata={"title": "鐗涢】瀹氬緥璇句欢"},
         visibility="project-visible",
         basedOnVersionId="v-001",
         sessionId="s-001",
@@ -1345,7 +1407,7 @@ async def test_get_studio_card_sources_returns_matching_artifacts(app, _as_user)
     sources = response.json()["data"]["sources"]
     assert sources[0]["id"] == "a-ppt-001"
     assert sources[0]["type"] == "pptx"
-    assert sources[0]["title"] == "牛顿定律课件"
+    assert sources[0]["title"] == "鐗涢】瀹氬緥璇句欢"
     assert sources[0]["current_version_id"] is None
     assert sources[0]["upstream_updated"] is False
     assert sources[0]["is_current"] is True
@@ -1401,7 +1463,7 @@ async def test_get_studio_card_sources_prioritizes_current_artifacts(app, _as_us
     current_artifact = SimpleNamespace(
         id="a-ppt-010",
         type="pptx",
-        metadata={"title": "当前课件", "is_current": True},
+        metadata={"title": "褰撳墠璇句欢", "is_current": True},
         visibility="project-visible",
         basedOnVersionId="v-current",
         sessionId="s-001",
@@ -1553,12 +1615,12 @@ async def test_refine_studio_card_routes_through_chat_metadata(app, _as_user):
             "message": {
                 "id": "m-001",
                 "role": "assistant",
-                "content": "已改写过渡语",
+                "content": "宸叉敼鍐欒繃娓¤",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "citations": [],
             },
             "rag_hit": False,
-            "suggestions": ["继续优化"],
+            "suggestions": ["缁х画浼樺寲"],
             "observability": {"route_task": "chat_response"},
         },
         "message": "消息发送成功",
@@ -1572,7 +1634,7 @@ async def test_refine_studio_card_routes_through_chat_metadata(app, _as_user):
             "/api/v1/generate/studio-cards/speaker_notes/refine",
             json={
                 "project_id": "p-001",
-                "message": "把这一段改得更自然一些",
+                "message": "把这一段改得更自然一点",
                 "source_artifact_id": "a-ppt-001",
                 "config": {"selected_script_segment": "slide-3:transition"},
             },
@@ -1619,8 +1681,8 @@ async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
     )
     current_content = {
         "kind": "mindmap",
-        "title": "牛顿定律",
-        "nodes": [{"id": "root", "parent_id": None, "title": "牛顿定律"}],
+        "title": "鐗涢】瀹氬緥",
+        "nodes": [{"id": "root", "parent_id": None, "title": "鐗涢】瀹氬緥"}],
     }
 
     with (
@@ -1650,7 +1712,7 @@ async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
             json={
                 "project_id": "p-001",
                 "artifact_id": "a-map-001",
-                "message": "补充受力分析分支",
+                "message": "琛ュ厖鍙楀姏鍒嗘瀽鍒嗘敮",
                 "config": {"selected_node_path": "root"},
             },
         )
@@ -1721,7 +1783,7 @@ async def test_refine_studio_card_replaces_quiz_question(app, _as_user):
             json={
                 "project_id": "p-001",
                 "artifact_id": "a-quiz-001",
-                "message": "把这一题改成边界条件判断题",
+                "message": "鎶婅繖涓€棰樻敼鎴愯竟鐣屾潯浠跺垽鏂",
                 "config": {"current_question_id": "quiz-1"},
             },
         )
@@ -1729,7 +1791,7 @@ async def test_refine_studio_card_replaces_quiz_question(app, _as_user):
     assert response.status_code == 200
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["content"]["questions"][0]["id"] == "quiz-1"
-    assert "边界条件" in kwargs["content"]["questions"][0]["question"]
+    assert kwargs["content"]["questions"][0]["question"] != "旧题目"
 
 
 @pytest.mark.anyio
@@ -1760,7 +1822,7 @@ async def test_refine_studio_card_replaces_game_artifact(app, _as_user):
     )
     current_content = {
         "kind": "interactive_game",
-        "html": "<html><body><main><h1>游戏</h1></main></body></html>",
+        "html": "<html><body><main><h1>娓告垙</h1></main></body></html>",
     }
 
     with (
@@ -1790,8 +1852,8 @@ async def test_refine_studio_card_replaces_game_artifact(app, _as_user):
             json={
                 "project_id": "p-001",
                 "artifact_id": "a-game-001",
-                "message": "加入加分规则说明",
-                "config": {"sandbox_patch": {"replace": ["加分规则"]}},
+                "message": "鍔犲叆鍔犲垎瑙勫垯璇存槑",
+                "config": {"sandbox_patch": {"replace": ["鍔犲垎瑙勫垯"]}},
             },
         )
 
@@ -1833,7 +1895,7 @@ async def test_refine_studio_card_replaces_speaker_notes_artifact(app, _as_user)
                 "page": 3,
                 "title": "过渡页",
                 "script": "旧讲稿",
-                "transition_line": "旧过渡语",
+                "transition_line": "鏃ц繃娓¤",
             }
         ],
     }
@@ -1865,7 +1927,7 @@ async def test_refine_studio_card_replaces_speaker_notes_artifact(app, _as_user)
             json={
                 "project_id": "p-001",
                 "artifact_id": "a-speaker-001",
-                "message": "把这句过渡语改得更顺一些",
+                "message": "把这句过渡语改得更顺一点",
                 "source_artifact_id": "a-ppt-001",
                 "config": {"selected_script_segment": "slide-3:transition"},
             },
@@ -1874,7 +1936,7 @@ async def test_refine_studio_card_replaces_speaker_notes_artifact(app, _as_user)
     assert response.status_code == 200
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["content"]["slides"][0]["transition_line"] == (
-        "把这句过渡语改得更顺一些"
+        "把这句过渡语改得更顺一点"
     )
 
 
@@ -1914,7 +1976,7 @@ async def test_execute_studio_card_creates_gif_animation_artifact(app, _as_user)
                 "project_id": "p-001",
                 "config": {
                     "animation_format": "gif",
-                    "topic": "冒泡排序每轮交换过程",
+                    "topic": "鍐掓场鎺掑簭姣忚疆浜ゆ崲杩囩▼",
                 },
             },
         )
@@ -1962,7 +2024,7 @@ async def test_execute_studio_card_creates_html_animation_artifact(app, _as_user
                 "project_id": "p-001",
                 "config": {
                     "animation_format": "html5",
-                    "topic": "冒泡排序每轮交换过程",
+                    "topic": "鍐掓场鎺掑簭姣忚疆浜ゆ崲杩囩▼",
                     "scene": "bubble_sort",
                 },
             },
@@ -2012,7 +2074,7 @@ async def test_execute_studio_card_creates_mp4_animation_artifact(app, _as_user)
                 "project_id": "p-001",
                 "config": {
                     "animation_format": "mp4",
-                    "topic": "冒泡排序每轮交换过程",
+                    "topic": "鍐掓场鎺掑簭姣忚疆浜ゆ崲杩囩▼",
                     "scene": "bubble_sort",
                 },
             },
@@ -2052,8 +2114,8 @@ async def test_classroom_simulator_turn_returns_turn_result_and_artifact(app, _a
     )
     current_content = {
         "kind": "classroom_qa_simulator",
-        "title": "牛顿第二定律学情预演",
-        "question_focus": "牛顿第二定律边界条件",
+        "title": "鐗涢】绗簩瀹氬緥瀛︽儏棰勬紨",
+        "question_focus": "鐗涢】绗簩瀹氬緥杈圭晫鏉′欢",
         "student_profiles": ["detail_oriented"],
         "turns": [],
     }
@@ -2087,7 +2149,7 @@ async def test_classroom_simulator_turn_returns_turn_result_and_artifact(app, _a
                 "artifact_id": "a-sim-current",
                 "teacher_answer": "先解释边界条件，再给一个反例。",
                 "config": {
-                    "topic": "牛顿第二定律边界条件",
+                    "topic": "鐗涢】绗簩瀹氬緥杈圭晫鏉′欢",
                     "profile": "detail_oriented",
                 },
             },

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import logging
 from typing import Optional
@@ -26,19 +26,52 @@ logger = logging.getLogger(__name__)
 
 
 async def resolve_session_artifact_binding(
-    project_id: str, session_id: str, artifact_id: Optional[str] = None
+    project_id: str,
+    session_id: str,
+    artifact_id: Optional[str] = None,
+    run_id: Optional[str] = None,
 ):
     """Resolve artifact binding for preview/export in session scope."""
+    if run_id:
+        run_model = getattr(getattr(db_service, "db", None), "sessionrun", None)
+        run = (
+            await run_model.find_unique(where={"id": run_id})
+            if run_model is not None and hasattr(run_model, "find_unique")
+            else None
+        )
+        if not run:
+            raise NotFoundException(
+                message=f"运行不存在: {run_id}",
+                error_code=ErrorCode.NOT_FOUND,
+            )
+        if (
+            getattr(run, "projectId", None) != project_id
+            or getattr(run, "sessionId", None) != session_id
+        ):
+            raise NotFoundException(
+                message=f"运行 {run_id} 不属于会话 {session_id}",
+                error_code=ErrorCode.NOT_FOUND,
+            )
+        run_artifact_id = getattr(run, "artifactId", None)
+        if not run_artifact_id:
+            return None
+        artifact = await db_service.get_artifact(run_artifact_id)
+        if not artifact or artifact.projectId != project_id:
+            return None
+        if artifact.sessionId and artifact.sessionId != session_id:
+            return None
+        return artifact
+
     if artifact_id:
         artifact = await db_service.get_artifact(artifact_id)
         if not artifact or artifact.projectId != project_id:
             raise NotFoundException(
-                message=f"成果不存在: {artifact_id}",
+                message=f"鎴愭灉涓嶅瓨鍦? {artifact_id}",
                 error_code=ErrorCode.NOT_FOUND,
             )
         if artifact.sessionId and artifact.sessionId != session_id:
             raise NotFoundException(
-                message=f"成果 {artifact_id} 不属于会话 {session_id}",
+                message=f"鎴愭灉 {artifact_id} 涓嶅睘浜庝細璇?{session_id}",
                 error_code=ErrorCode.NOT_FOUND,
             )
         return artifact
@@ -200,7 +233,7 @@ async def attach_auto_candidate_change(
             exc_info=True,
         )
         raise InternalServerException(
-            message="自动提交 candidate change 失败，请稍后重试或改用显式提交入口",
+            message="Auto candidate change submission failed, please retry.",
             details={
                 "session_id": session_id,
                 "trigger": trigger,
@@ -229,6 +262,7 @@ async def load_session_preview_material(
     project_id: str,
     artifact_id: Optional[str] = None,
     task_id: Optional[str] = None,
+    run_id: Optional[str] = None,
 ):
     """Backward-compatible wrapper for tests and patches."""
     return await load_preview_material(
@@ -236,4 +270,5 @@ async def load_session_preview_material(
         project_id,
         artifact_id,
         task_id,
+        run_id,
     )

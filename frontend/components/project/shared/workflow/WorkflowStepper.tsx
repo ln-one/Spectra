@@ -53,7 +53,7 @@ export function WorkflowStepper({
   return (
     <aside
       className={cn(
-        "rounded-2xl border border-zinc-200 bg-[linear-gradient(155deg,#ffffff,#f8fafc)]",
+        "project-tool-workflow rounded-2xl border border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-surface,var(--project-surface,#ffffff))]",
         layout === "rail" ? "p-3" : "p-3.5",
         className
       )}
@@ -61,17 +61,19 @@ export function WorkflowStepper({
     >
       <div className="mb-3">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]">
             {subtitle}
           </p>
-          <span className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[10px] text-zinc-500">
+          <span className="rounded-full border border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] px-2 py-0.5 text-[10px] text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]">
             {currentIndex + 1}/{steps.length}
           </span>
         </div>
-        <h3 className="mt-1 text-sm font-semibold text-zinc-900">{title}</h3>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200/80">
+        <h3 className="mt-1 text-sm font-semibold text-[var(--project-tool-text,var(--project-text-primary,#18181b))]">
+          {title}
+        </h3>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--project-tool-elevated,var(--project-surface-muted,#f4f4f5))]">
           <div
-            className="h-full rounded-full bg-[linear-gradient(90deg,#2563eb,#38bdf8)] transition-all duration-300"
+            className="h-full rounded-full bg-[linear-gradient(90deg,var(--project-tool-accent,var(--project-accent,#2563eb)),color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_76%,white))] transition-all duration-300"
             style={{ width: `${completion}%` }}
           />
         </div>
@@ -90,12 +92,12 @@ export function WorkflowStepper({
                 "relative w-full rounded-xl border p-2.5 text-left transition-all",
                 canClick && "cursor-pointer",
                 isCompleted
-                  ? "border-zinc-900 bg-zinc-900 text-white"
+                  ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[var(--project-tool-accent-soft,color-mix(in_srgb,var(--project-accent,#2563eb)_16%,var(--project-surface,#ffffff)))] text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
                   : isCurrent
-                    ? "border-blue-500 bg-blue-50"
+                    ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_12%,var(--project-tool-surface,var(--project-surface,#ffffff)))]"
                     : isLocked
-                      ? "border-zinc-200 bg-white opacity-75"
-                      : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50"
+                      ? "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] opacity-75"
+                      : "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] hover:border-[var(--project-tool-border-strong,var(--project-border-strong,#a1a1aa))] hover:bg-[var(--project-tool-surface,var(--project-surface,#ffffff))]"
               );
               const commonProps = canClick
                 ? { onClick: () => onStepChange?.(step.id) }
@@ -114,10 +116,10 @@ export function WorkflowStepper({
                         className={cn(
                           "inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold",
                           isCompleted
-                            ? "border-white/40 text-white"
+                            ? "border-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_72%,white)] bg-[var(--project-tool-accent,var(--project-accent,#2563eb))] text-[var(--project-accent-text,#ffffff)]"
                             : isCurrent
-                              ? "border-blue-500 text-blue-700"
-                              : "border-zinc-300 text-zinc-500"
+                              ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
+                              : "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
                         )}
                       >
                         {isCompleted ? (
@@ -130,10 +132,10 @@ export function WorkflowStepper({
                         className={cn(
                           "text-[13px] font-semibold",
                           isCompleted
-                            ? "text-white"
+                            ? "text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
                             : isCurrent
-                              ? "text-blue-700"
-                              : "text-zinc-700"
+                              ? "text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
+                              : "text-[var(--project-tool-text,var(--project-text-primary,#3f3f46))]"
                         )}
                       >
                         {step.title}
@@ -144,8 +146,8 @@ export function WorkflowStepper({
                             className={cn(
                               "ml-auto inline-flex h-4.5 w-4.5 items-center justify-center rounded-full",
                               isCompleted
-                                ? "text-white/70"
-                                : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                                ? "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
+                                : "text-[var(--project-tool-muted,var(--project-text-muted,#a1a1aa))] hover:bg-[var(--project-tool-elevated,var(--project-surface-muted,#f4f4f5))] hover:text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
                             )}
                           >
                             <CircleHelp className="h-3.5 w-3.5" />
@@ -153,7 +155,7 @@ export function WorkflowStepper({
                         </TooltipTrigger>
                         <TooltipContent
                           side="top"
-                          className="max-w-[220px] rounded-xl border-zinc-200 bg-white text-xs leading-5 text-zinc-600 shadow-xl"
+                          className="max-w-[220px] rounded-xl border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-surface,var(--project-surface,#ffffff))] text-xs leading-5 text-[var(--project-tool-muted,var(--project-text-muted,#52525b))] shadow-xl"
                         >
                           {step.description}
                         </TooltipContent>
@@ -163,10 +165,10 @@ export function WorkflowStepper({
                       className={cn(
                         "mt-1 text-[11px]",
                         isCompleted
-                          ? "text-white/80"
+                          ? "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
                           : isCurrent
-                            ? "text-blue-700/80"
-                            : "text-zinc-500"
+                            ? "text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
+                            : "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
                       )}
                     >
                       {step.caption ?? step.description}
@@ -186,15 +188,15 @@ export function WorkflowStepper({
               const isLocked = index > currentIndex;
               const canClick = interactive && !isLocked;
               const wrapperClass = cn(
-                "relative w-full rounded-xl border bg-white p-2.5 pl-9 text-left transition-all",
+                "relative w-full rounded-xl border bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] p-2.5 pl-9 text-left transition-all",
                 canClick && "cursor-pointer",
                 isCompleted
-                  ? "border-zinc-900 bg-zinc-900"
+                  ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[var(--project-tool-accent-soft,color-mix(in_srgb,var(--project-accent,#2563eb)_16%,var(--project-surface,#ffffff)))]"
                   : isCurrent
-                    ? "border-blue-500 bg-blue-50"
+                    ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_12%,var(--project-tool-surface,var(--project-surface,#ffffff)))]"
                     : isLocked
-                      ? "border-zinc-200 bg-white opacity-75"
-                      : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                      ? "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] opacity-75"
+                      : "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] hover:border-[var(--project-tool-border-strong,var(--project-border-strong,#a1a1aa))] hover:bg-[var(--project-tool-surface,var(--project-surface,#ffffff))]"
               );
               const commonProps = canClick
                 ? { onClick: () => onStepChange?.(step.id) }
@@ -206,7 +208,9 @@ export function WorkflowStepper({
                     <span
                       className={cn(
                         "absolute left-[11px] top-7 h-[calc(100%+10px)] w-px",
-                        isCompleted ? "bg-zinc-400" : "bg-zinc-200"
+                        isCompleted
+                          ? "bg-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_46%,var(--project-tool-border,var(--project-border,#e4e4e7)))]"
+                          : "bg-[var(--project-tool-border,var(--project-border,#e4e4e7))]"
                       )}
                     />
                   ) : null}
@@ -221,10 +225,10 @@ export function WorkflowStepper({
                       className={cn(
                         "absolute left-2.5 top-2.5 flex h-[22px] w-[22px] items-center justify-center rounded-full border text-[10px] font-semibold transition-colors",
                         isCompleted
-                          ? "border-white/40 bg-zinc-900 text-white"
+                          ? "border-[color-mix(in_srgb,var(--project-tool-accent,var(--project-accent,#2563eb))_72%,white)] bg-[var(--project-tool-accent,var(--project-accent,#2563eb))] text-[var(--project-accent-text,#ffffff)]"
                           : isCurrent
-                            ? "border-blue-500 bg-white text-blue-700"
-                            : "border-zinc-300 bg-white text-zinc-500"
+                            ? "border-[var(--project-tool-accent,var(--project-accent,#2563eb))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
+                            : "border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-elevated,var(--project-surface-elevated,#ffffff))] text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
                       )}
                       aria-hidden="true"
                     >
@@ -240,10 +244,10 @@ export function WorkflowStepper({
                         className={cn(
                           "text-[13px] font-semibold leading-5",
                           isCompleted
-                            ? "text-white"
+                            ? "text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
                             : isCurrent
-                              ? "text-blue-700"
-                              : "text-zinc-700"
+                              ? "text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
+                              : "text-[var(--project-tool-text,var(--project-text-primary,#3f3f46))]"
                         )}
                       >
                         {step.title}
@@ -254,8 +258,8 @@ export function WorkflowStepper({
                             className={cn(
                               "inline-flex h-4.5 w-4.5 items-center justify-center rounded-full",
                               isCompleted
-                                ? "text-white/70"
-                                : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                                ? "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
+                                : "text-[var(--project-tool-muted,var(--project-text-muted,#a1a1aa))] hover:bg-[var(--project-tool-elevated,var(--project-surface-muted,#f4f4f5))] hover:text-[var(--project-tool-text,var(--project-text-primary,#18181b))]"
                             )}
                             aria-label={`${step.title}说明`}
                           >
@@ -264,7 +268,7 @@ export function WorkflowStepper({
                         </TooltipTrigger>
                         <TooltipContent
                           side="right"
-                          className="max-w-[220px] rounded-xl border-zinc-200 bg-white text-xs leading-5 text-zinc-600 shadow-xl"
+                          className="max-w-[220px] rounded-xl border-[var(--project-tool-border,var(--project-border,#e4e4e7))] bg-[var(--project-tool-surface,var(--project-surface,#ffffff))] text-xs leading-5 text-[var(--project-tool-muted,var(--project-text-muted,#52525b))] shadow-xl"
                         >
                           {step.description}
                         </TooltipContent>
@@ -274,10 +278,10 @@ export function WorkflowStepper({
                       className={cn(
                         "mt-1 text-[11px] leading-4",
                         isCompleted
-                          ? "text-white/80"
+                          ? "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
                           : isCurrent
-                            ? "text-blue-700/80"
-                            : "text-zinc-500"
+                            ? "text-[var(--project-tool-accent,var(--project-accent,#2563eb))]"
+                            : "text-[var(--project-tool-muted,var(--project-text-muted,#71717a))]"
                       )}
                     >
                       {step.caption ?? step.description}

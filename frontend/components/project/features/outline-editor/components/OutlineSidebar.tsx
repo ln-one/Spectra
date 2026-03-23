@@ -69,163 +69,19 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
       animate="visible"
       className="order-1 w-full shrink-0 border-b border-zinc-200 bg-[linear-gradient(155deg,#ffffff,#f8fafc)] p-4 lg:order-2 lg:h-full lg:min-h-0 lg:w-[320px] lg:max-h-none lg:overflow-y-auto lg:border-b-0 lg:border-l"
     >
-      <motion.div variants={itemVariants} className="space-y-3">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-3">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
-            <Settings2 className="h-4 w-4 text-blue-600" />
-            生成设置
-          </h3>
-          <p className="mt-1 text-[11px] leading-5 text-zinc-500">
-            这里决定最终课件风格，改好后就可以开始生成。
-          </p>
-        </div>
-
-        <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
-          <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-600">
-            <Monitor className="h-3.5 w-3.5" />
-            页面比例
-          </label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {ASPECT_RATIO_OPTIONS.map((ratio) => (
-              <button
-                key={ratio.value}
-                onClick={() => props.setAspectRatio(ratio.value)}
-                className={cn(
-                  "rounded-lg border px-2 py-1.5 text-xs transition-all",
-                  props.aspectRatio === ratio.value
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-white"
-                )}
-              >
-                {ratio.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
-          <label className="text-xs font-medium text-zinc-600">内容详略</label>
-          <ToggleGroup
-            type="single"
-            value={props.detailLevel}
-            onValueChange={(value) =>
-              value &&
-              props.setDetailLevel(value as "brief" | "standard" | "detailed")
-            }
-            className="flex gap-1"
-          >
-            {DETAIL_LEVELS.map((level) => (
-              <ToggleGroupItem
-                key={level.value}
-                value={level.value}
-                className="flex-1 h-8 border border-zinc-200 text-xs text-zinc-600 data-[state=on]:border-blue-500 data-[state=on]:bg-blue-50 data-[state=on]:text-blue-700"
-              >
-                {level.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
-
-        <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
-          <label className="text-xs font-medium text-zinc-600">视觉主题</label>
-          <div className="grid grid-cols-2 gap-1.5">
-            {VISUAL_THEMES.map((theme) => (
-              <button
-                key={theme.id}
-                onClick={() => props.setVisualTheme(theme.id)}
-                className={cn(
-                  "rounded-lg border px-2 py-1.5 text-xs transition-all",
-                  props.visualTheme === theme.id
-                    ? `bg-gradient-to-r ${theme.gradient} border-transparent text-white`
-                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-white"
-                )}
-              >
-                {theme.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
-          <label className="text-xs font-medium text-zinc-600">配图感觉</label>
-          <Select value={props.imageStyle} onValueChange={props.setImageStyle}>
-            <SelectTrigger className="h-9 border-zinc-200 bg-white text-zinc-900">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="border-zinc-200 bg-white">
-              {IMAGE_STYLES.map((style) => (
-                <SelectItem key={style.value} value={style.value}>
-                  <span className="mr-1.5 text-[11px] text-zinc-400">
-                    {style.icon}
-                  </span>
-                  {style.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </motion.div>
-
       <motion.div
         variants={itemVariants}
-        className="mt-3 space-y-2 rounded-2xl border border-zinc-200 bg-white p-3"
-      >
-        <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-600">
-          <Tag className="h-3 w-3" />
-          关键词
-        </label>
-        <div className="flex flex-wrap gap-1.5">
-          {props.keywords.map((keyword) => (
-            <motion.span
-              key={keyword}
-              layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs text-zinc-700"
-            >
-              {keyword}
-              <button
-                onClick={() => props.onRemoveKeyword(keyword)}
-                className="rounded-full p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </motion.span>
-          ))}
-        </div>
-        <div className="flex gap-1.5">
-          <Input
-            value={props.keywordInput}
-            onChange={(e) => props.setKeywordInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && props.onAddKeyword()}
-            placeholder="加一个关键词..."
-            className="h-8 border-zinc-200 bg-white text-xs"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={props.onAddKeyword}
-            className="h-8 border-zinc-200 bg-white px-3 text-xs text-zinc-700 hover:bg-zinc-100"
-          >
-            添加
-          </Button>
-        </div>
-      </motion.div>
-
-      <motion.div
-        variants={itemVariants}
-        className="mt-3 space-y-3 rounded-2xl border border-zinc-200 bg-white p-3"
+        className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-3"
       >
         {props.isOutlineHydrating ? (
-          <p className="text-xs text-zinc-500">大纲还在加载，请稍等...</p>
+          <p className="text-xs text-zinc-500">大纲仍在加载，请稍后再试。</p>
         ) : null}
         {props.generationFailed ? (
           <p className="text-xs text-rose-500">{props.generationFailed}</p>
         ) : null}
         {props.outlineIncomplete ? (
           <p className="text-xs text-zinc-500">
-            大纲还没完成：{props.slidesCount}/{props.expectedPages} 页
+            大纲尚未完整：{props.slidesCount}/{props.expectedPages} 页。
           </p>
         ) : null}
 
@@ -322,6 +178,150 @@ export function OutlineSidebar(props: OutlineSidebarProps) {
             </motion.div>
           )}
         </AnimatePresence>
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="mt-3 space-y-3">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">
+            <Settings2 className="h-4 w-4 text-blue-600" />
+            生成设置
+          </h3>
+          <p className="mt-1 text-[11px] leading-5 text-zinc-500">
+            在开始生成前，微调比例、详略与视觉风格。
+          </p>
+        </div>
+
+        <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-600">
+            <Monitor className="h-3.5 w-3.5" />
+            页面比例
+          </label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {ASPECT_RATIO_OPTIONS.map((ratio) => (
+              <button
+                key={ratio.value}
+                onClick={() => props.setAspectRatio(ratio.value)}
+                className={cn(
+                  "rounded-lg border px-2 py-1.5 text-xs transition-all",
+                  props.aspectRatio === ratio.value
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-white"
+                )}
+              >
+                {ratio.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
+          <label className="text-xs font-medium text-zinc-600">内容详略</label>
+          <ToggleGroup
+            type="single"
+            value={props.detailLevel}
+            onValueChange={(value) =>
+              value &&
+              props.setDetailLevel(value as "brief" | "standard" | "detailed")
+            }
+            className="flex gap-1"
+          >
+            {DETAIL_LEVELS.map((level) => (
+              <ToggleGroupItem
+                key={level.value}
+                value={level.value}
+                className="flex-1 h-8 border border-zinc-200 text-xs text-zinc-600 data-[state=on]:border-blue-500 data-[state=on]:bg-blue-50 data-[state=on]:text-blue-700"
+              >
+                {level.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+
+        <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
+          <label className="text-xs font-medium text-zinc-600">视觉主题</label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {VISUAL_THEMES.map((theme) => (
+              <button
+                key={theme.id}
+                onClick={() => props.setVisualTheme(theme.id)}
+                className={cn(
+                  "rounded-lg border px-2 py-1.5 text-xs transition-all",
+                  props.visualTheme === theme.id
+                    ? `bg-gradient-to-r ${theme.gradient} border-transparent text-white`
+                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:bg-white"
+                )}
+              >
+                {theme.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
+          <label className="text-xs font-medium text-zinc-600">配图风格</label>
+          <Select value={props.imageStyle} onValueChange={props.setImageStyle}>
+            <SelectTrigger className="h-9 border-zinc-200 bg-white text-zinc-900">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="border-zinc-200 bg-white">
+              {IMAGE_STYLES.map((style) => (
+                <SelectItem key={style.value} value={style.value}>
+                  <span className="mr-1.5 text-[11px] text-zinc-400">
+                    {style.icon}
+                  </span>
+                  {style.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </motion.div>
+
+      <motion.div
+        variants={itemVariants}
+        className="mt-3 space-y-2 rounded-2xl border border-zinc-200 bg-white p-3"
+      >
+        <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-600">
+          <Tag className="h-3 w-3" />
+          关键词
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {props.keywords.map((keyword) => (
+            <motion.span
+              key={keyword}
+              layout
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs text-zinc-700"
+            >
+              {keyword}
+              <button
+                onClick={() => props.onRemoveKeyword(keyword)}
+                className="rounded-full p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </motion.span>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          <Input
+            value={props.keywordInput}
+            onChange={(e) => props.setKeywordInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && props.onAddKeyword()}
+            placeholder="加一个关键词..."
+            className="h-8 border-zinc-200 bg-white text-xs"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={props.onAddKeyword}
+            className="h-8 border-zinc-200 bg-white px-3 text-xs text-zinc-700 hover:bg-zinc-100"
+          >
+            添加
+          </Button>
+        </div>
       </motion.div>
     </motion.aside>
   );

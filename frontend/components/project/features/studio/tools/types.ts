@@ -7,6 +7,27 @@ export type StudioToolKey =
   | "animation"
   | "handout";
 
+export type CapabilityStatus =
+  | "backend_ready"
+  | "backend_placeholder"
+  | "backend_not_implemented"
+  | "backend_error";
+
+export type ResolvedArtifactContentKind =
+  | "none"
+  | "json"
+  | "text"
+  | "media"
+  | "binary";
+
+export interface ResolvedArtifactPayload {
+  artifactId: string;
+  artifactType?: string;
+  contentKind: ResolvedArtifactContentKind;
+  content: unknown;
+  blob?: Blob;
+}
+
 export type ToolDraftValue =
   | string
   | number
@@ -39,6 +60,10 @@ export interface ToolFlowContext {
   supportsChatRefine?: boolean;
   canExecute?: boolean;
   canRefine?: boolean;
+  capabilityStatus?: CapabilityStatus;
+  capabilityReason?: string;
+  isCapabilityLoading?: boolean;
+  resolvedArtifact?: ResolvedArtifactPayload | null;
   sourceOptions?: ToolSourceOption[];
   selectedSourceId?: string | null;
   requestedStep?: string | null;
@@ -47,7 +72,7 @@ export interface ToolFlowContext {
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
   onPreviewExecution?: () => Promise<void> | void;
-  onExecute?: () => Promise<void> | void;
+  onExecute?: () => Promise<boolean> | boolean;
   onRefine?: () => Promise<void> | void;
   onExportArtifact?: (artifactId: string) => Promise<void> | void;
 }

@@ -97,3 +97,16 @@ export function findNodeById(
   }
   return null;
 }
+
+export function findNodePath(node: MindNode, targetId: string): string[] {
+  if (node.id === targetId) {
+    return [node.label];
+  }
+  for (const child of node.children ?? []) {
+    const childPath = findNodePath(child, targetId);
+    if (childPath.length > 0) {
+      return [node.label, ...childPath];
+    }
+  }
+  return [];
+}

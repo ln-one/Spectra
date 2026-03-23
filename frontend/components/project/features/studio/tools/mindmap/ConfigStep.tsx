@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DEPTH_OPTIONS, FOCUS_OPTIONS, TOPIC_SUGGESTIONS } from "./constants";
+import { DEPTH_OPTIONS, FOCUS_OPTIONS } from "./constants";
 import type { MindmapFocus } from "./types";
 
 interface ConfigStepProps {
@@ -17,6 +17,8 @@ interface ConfigStepProps {
   focus: MindmapFocus;
   targetAudience: string;
   focusLabel: string;
+  topicSuggestions: string[];
+  isTopicSuggestionsLoading: boolean;
   onTopicChange: (value: string) => void;
   onDepthChange: (value: string) => void;
   onFocusChange: (value: MindmapFocus) => void;
@@ -30,6 +32,8 @@ export function ConfigStep({
   focus,
   targetAudience,
   focusLabel,
+  topicSuggestions,
+  isTopicSuggestionsLoading,
   onTopicChange,
   onDepthChange,
   onFocusChange,
@@ -47,8 +51,13 @@ export function ConfigStep({
             placeholder="例如：细胞分裂过程"
             className="h-9 text-xs"
           />
+          <p className="text-[11px] text-zinc-500">
+            {isTopicSuggestionsLoading
+              ? "正在根据当前 RAG 资料生成推荐主题..."
+              : "推荐主题来自当前项目资料（RAG 检索结果）。"}
+          </p>
           <div className="flex flex-wrap gap-1.5 pt-1">
-            {TOPIC_SUGGESTIONS.map((item) => (
+            {topicSuggestions.map((item) => (
               <button
                 key={item}
                 type="button"

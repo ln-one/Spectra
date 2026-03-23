@@ -1,14 +1,18 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { ArchiveRestore, Sparkles, X } from "lucide-react";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
+import type { StudioManagedTool } from "@/stores/project-store/types";
 import { useShallow } from "zustand/react/shallow";
-import { studioCardsApi } from "@/lib/sdk";
+import { generateApi, projectSpaceApi, studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
-import type { GenerationToolType } from "@/lib/project-space/artifact-history";
+import type {
+  ArtifactHistoryItem,
+  GenerationToolType,
+} from "@/lib/project-space/artifact-history";
 import type {
   StudioCardCapability,
   StudioCardExecutionPlan,
@@ -38,6 +42,11 @@ import { useStudioWorkflowHistory } from "./history/useStudioWorkflowHistory";
 import type { StudioHistoryItem, StudioHistoryStep } from "./history/types";
 import { SessionArtifacts } from "./components/SessionArtifacts";
 import { ToolGrid } from "./components/ToolGrid";
+import {
+  buildCapabilityWithoutArtifact,
+  resolveCapabilityFromArtifact,
+  type CapabilityResolution,
+} from "./tools/capability-resolver";
 
 interface StudioPanelProps {
   onToolClick?: (tool: StudioTool) => void;
@@ -52,6 +61,11 @@ const STUDIO_CARD_BY_TOOL: Partial<Record<StudioToolKey, string>> = {
   animation: "demonstration_animations",
   handout: "classroom_qa_simulator",
 };
+
+const DEFAULT_CAPABILITY_PENDING_REASON =
+  "正在检测后端能力状态，当前先展示前端示意内容。";
+const STUDIO_RUNTIME_ARTIFACTS_STORAGE_PREFIX =
+  "spectra:studio:runtime-artifacts";
 
 function isDraftStateEqual(
   left: ToolDraftState | undefined,
@@ -86,6 +100,19 @@ function normalizeHistoryStep(
   return "config";
 }
 
+function toStudioManagedTool(
+  toolType: GenerationToolType
+): StudioManagedTool | null {
+  if (toolType === "ppt") return null;
+  return toolType as StudioManagedTool;
+}
+
+function waitFor(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 export function StudioPanel({ onToolClick }: StudioPanelProps) {
   const router = useRouter();
   const {
@@ -94,12 +121,18 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     expandedTool,
     artifactHistoryByTool,
     activeSessionId,
+    activeRunId,
+    generationSession,
     setActiveSessionId,
+    setActiveRunId,
     fetchArtifactHistory,
     exportArtifact,
     setLayoutMode,
     setExpandedTool,
     startGeneration,
+    setStudioChatContext,
+    pushStudioHintMessage,
+    focusChatComposer,
   } = useProjectStore(
     useShallow((state) => ({
       project: state.project,
@@ -107,12 +140,18 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       expandedTool: state.expandedTool,
       artifactHistoryByTool: state.artifactHistoryByTool,
       activeSessionId: state.activeSessionId,
+      activeRunId: state.activeRunId,
+      generationSession: state.generationSession,
       setActiveSessionId: state.setActiveSessionId,
+      setActiveRunId: state.setActiveRunId,
       fetchArtifactHistory: state.fetchArtifactHistory,
       exportArtifact: state.exportArtifact,
       setLayoutMode: state.setLayoutMode,
       setExpandedTool: state.setExpandedTool,
       startGeneration: state.startGeneration,
+      setStudioChatContext: state.setStudioChatContext,
+      pushStudioHintMessage: state.pushStudioHintMessage,
+      focusChatComposer: state.focusChatComposer,
     }))
   );
   const [hoveredToolId, setHoveredToolId] = useState<string | null>(null);
@@ -133,24 +172,132 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     Record<string, StudioCardExecutionPlan>
   >({});
   const [isLoadingCardProtocol, setIsLoadingCardProtocol] = useState(false);
+  const [capabilityStateByCardId, setCapabilityStateByCardId] = useState<
+    Record<
+      string,
+      CapabilityResolution & {
+        isLoading: boolean;
+      }
+    >
+  >({});
   const [pptResumeStage, setPptResumeStage] = useState<"config" | "outline">(
     "config"
   );
   const [pptResumeSignal, setPptResumeSignal] = useState(0);
+  const [isArchiveHistoryPanelOpen, setIsArchiveHistoryPanelOpen] =
+    useState(false);
+  const [runtimeArtifactsByTool, setRuntimeArtifactsByTool] = useState<
+    Partial<Record<StudioToolKey, ArtifactHistoryItem[]>>
+  >({});
+  const workflowRunIdByToolRef = useRef<
+    Partial<Record<GenerationToolType, string>>
+  >({});
+  const artifactRefreshTimersRef = useRef<number[]>([]);
   const isExpanded = layoutMode === "expanded";
   const {
     groupedHistory,
+    archivedHistory,
     currentStepByTool,
     requestedStepByTool,
     trackStep,
     requestStep,
     acknowledgeStep,
     recordWorkflowEntry,
-  } = useStudioWorkflowHistory(artifactHistoryByTool);
+    archiveHistoryItem,
+    unarchiveHistoryItem,
+  } = useStudioWorkflowHistory(
+    artifactHistoryByTool,
+    activeSessionId,
+    project?.id ?? null
+  );
   const hasHistory = groupedHistory.length > 0;
+  const runtimeArtifactStorageKey =
+    project?.id && activeSessionId
+      ? `${STUDIO_RUNTIME_ARTIFACTS_STORAGE_PREFIX}:${project.id}:${activeSessionId}`
+      : null;
   const requestedHistoryStep = expandedTool
     ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)
     : null;
+
+  const createWorkflowRunId = useCallback(() => {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }, []);
+
+  const startWorkflowRun = useCallback(
+    (toolType: GenerationToolType) => {
+      const runId = createWorkflowRunId();
+      workflowRunIdByToolRef.current[toolType] = runId;
+      return runId;
+    },
+    [createWorkflowRunId]
+  );
+
+  const getCurrentWorkflowRun = useCallback((toolType: GenerationToolType) => {
+    return workflowRunIdByToolRef.current[toolType] ?? null;
+  }, []);
+
+  const scheduleArtifactRefresh = useCallback(
+    (projectId: string, sessionId: string | null) => {
+      if (!sessionId) return;
+      for (const timer of artifactRefreshTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      artifactRefreshTimersRef.current = [];
+      const delays = [2000, 5000, 10000, 16000, 24000];
+      for (const delay of delays) {
+        const timerId = window.setTimeout(() => {
+          void fetchArtifactHistory(projectId, sessionId);
+        }, delay);
+        artifactRefreshTimersRef.current.push(timerId);
+      }
+    },
+    [fetchArtifactHistory]
+  );
+
+  const resolvePptRunId = useCallback(
+    (fallback?: string | null) => {
+      const stateRunId = activeRunId;
+      if (stateRunId) return stateRunId;
+      const sessionRunId = (
+        generationSession as { current_run?: { run_id?: string } } | null
+      )?.current_run?.run_id;
+      if (sessionRunId) return sessionRunId;
+      return fallback ?? null;
+    },
+    [activeRunId, generationSession]
+  );
+
+  useEffect(() => {
+    if (!runtimeArtifactStorageKey) {
+      setRuntimeArtifactsByTool({});
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(runtimeArtifactStorageKey);
+      if (!raw) {
+        setRuntimeArtifactsByTool({});
+        return;
+      }
+      const parsed = JSON.parse(raw) as Partial<
+        Record<StudioToolKey, ArtifactHistoryItem[]>
+      >;
+      setRuntimeArtifactsByTool(parsed ?? {});
+    } catch {
+      setRuntimeArtifactsByTool({});
+    }
+  }, [runtimeArtifactStorageKey]);
+
+  useEffect(() => {
+    if (!runtimeArtifactStorageKey) return;
+    try {
+      window.localStorage.setItem(
+        runtimeArtifactStorageKey,
+        JSON.stringify(runtimeArtifactsByTool)
+      );
+    } catch {
+      // Ignore local storage persistence failures.
+    }
+  }, [runtimeArtifactStorageKey, runtimeArtifactsByTool]);
 
   useEffect(() => {
     if (!expandedTool) return;
@@ -160,6 +307,30 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
   useEffect(() => {
     trackStep("ppt", "config");
   }, [trackStep]);
+
+  useEffect(() => {
+    const handleOpenArchiveHistory = () => {
+      setIsArchiveHistoryPanelOpen(true);
+    };
+    window.addEventListener(
+      "spectra:open-archive-history",
+      handleOpenArchiveHistory
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:open-archive-history",
+        handleOpenArchiveHistory
+      );
+    };
+  }, []);
+  useEffect(() => {
+    return () => {
+      for (const timer of artifactRefreshTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      artifactRefreshTimersRef.current = [];
+    };
+  }, []);
   const currentTool = GENERATION_TOOLS.find(
     (tool) => tool.type === expandedTool
   );
@@ -213,12 +384,162 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     !isProtocolPending &&
     supportsChatRefine &&
     (!requiresSourceArtifact || hasSourceBinding);
-  const currentToolArtifacts =
+  const currentToolArtifacts = useMemo(() => {
+    if (!expandedTool || expandedTool === "ppt") {
+      return [];
+    }
+    const fromStore =
+      artifactHistoryByTool[
+        expandedTool as keyof typeof artifactHistoryByTool
+      ] ?? [];
+    const fromRuntime =
+      runtimeArtifactsByTool[expandedTool as StudioToolKey] ?? [];
+    if (fromRuntime.length === 0) {
+      return fromStore;
+    }
+    const mergedById = new Map<string, ArtifactHistoryItem>();
+    for (const item of [...fromStore, ...fromRuntime]) {
+      if (!mergedById.has(item.artifactId)) {
+        mergedById.set(item.artifactId, item);
+      }
+    }
+    return [...mergedById.values()].sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    );
+  }, [artifactHistoryByTool, expandedTool, runtimeArtifactsByTool]);
+  const currentCapabilityState = currentCardId
+    ? capabilityStateByCardId[currentCardId]
+    : undefined;
+  const fallbackCapabilityState = useMemo(() => {
+    if (!expandedTool || expandedTool === "ppt") {
+      return {
+        status: "backend_placeholder" as const,
+        reason: DEFAULT_CAPABILITY_PENDING_REASON,
+        resolvedArtifact: null,
+        isLoading: false,
+      };
+    }
+    const defaultResolution = buildCapabilityWithoutArtifact(
+      expandedTool as StudioToolKey
+    );
+    return {
+      ...defaultResolution,
+      isLoading: defaultResolution.status !== "backend_not_implemented",
+    };
+  }, [expandedTool]);
+  const activeCapabilityState =
+    currentCapabilityState ?? fallbackCapabilityState;
+  const currentManagedToolType =
     expandedTool && expandedTool !== "ppt"
-      ? artifactHistoryByTool[
-          expandedTool as keyof typeof artifactHistoryByTool
-        ]
-      : [];
+      ? toStudioManagedTool(expandedTool as GenerationToolType)
+      : null;
+
+  const pushStudioStageHint = useCallback(
+    (
+      toolType: GenerationToolType,
+      stage: "generate" | "preview",
+      sessionId: string | null
+    ) => {
+      if (!project || !sessionId) return;
+      const managedTool = toStudioManagedTool(toolType);
+      if (!managedTool) return;
+      const dedupeKey = `${sessionId}:${managedTool}:${stage}`;
+      pushStudioHintMessage({
+        projectId: project.id,
+        sessionId,
+        toolType: managedTool,
+        stage,
+        dedupeKey,
+        toolLabel: TOOL_LABELS[managedTool],
+      });
+    },
+    [project, pushStudioHintMessage]
+  );
+
+  const syncStudioChatContextByStep = useCallback(
+    (
+      toolType: GenerationToolType,
+      step: "config" | "generate" | "preview",
+      sessionId?: string | null
+    ) => {
+      if (!project) {
+        setStudioChatContext(null);
+        return;
+      }
+      const managedTool = toStudioManagedTool(toolType);
+      if (!managedTool || !currentCardId) {
+        setStudioChatContext(null);
+        return;
+      }
+
+      const targetSessionId = sessionId ?? activeSessionId ?? null;
+      if (!targetSessionId) {
+        setStudioChatContext(null);
+        return;
+      }
+
+      const refineMode = step === "preview" && Boolean(canRefine);
+      setStudioChatContext({
+        projectId: project.id,
+        sessionId: targetSessionId,
+        toolType: managedTool,
+        toolLabel: TOOL_LABELS[managedTool],
+        cardId: currentCardId,
+        step,
+        canRefine: Boolean(canRefine),
+        isRefineMode: refineMode,
+        sourceArtifactId: selectedSourceId ?? draftSourceArtifactId ?? null,
+        configSnapshot: currentToolDraft,
+      });
+    },
+    [
+      project,
+      currentCardId,
+      activeSessionId,
+      canRefine,
+      selectedSourceId,
+      draftSourceArtifactId,
+      currentToolDraft,
+      setStudioChatContext,
+    ]
+  );
+  useEffect(() => {
+    if (!project || !isExpanded || !currentManagedToolType || !currentCardId) {
+      setStudioChatContext(null);
+      return;
+    }
+
+    const trackedStep = normalizeHistoryStep(
+      currentStepByTool[currentManagedToolType] ?? "config"
+    );
+    const normalizedStep =
+      trackedStep === "preview"
+        ? "preview"
+        : trackedStep === "generate"
+          ? "generate"
+          : "config";
+
+    syncStudioChatContextByStep(
+      currentManagedToolType,
+      normalizedStep,
+      activeSessionId
+    );
+
+    if (normalizedStep === "preview") {
+      pushStudioStageHint(currentManagedToolType, "preview", activeSessionId);
+    }
+  }, [
+    project,
+    isExpanded,
+    currentManagedToolType,
+    currentCardId,
+    currentStepByTool,
+    activeSessionId,
+    syncStudioChatContextByStep,
+    pushStudioStageHint,
+    setStudioChatContext,
+  ]);
   const handleExpandedToolDraftChange = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") {
       return undefined;
@@ -295,8 +616,84 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }));
   }, [currentCardId, draftSourceArtifactId, selectedSourceId]);
 
+  useEffect(() => {
+    if (!currentCardId || !expandedTool || expandedTool === "ppt") return;
+
+    const toolId = expandedTool as StudioToolKey;
+    const latestArtifact = currentToolArtifacts[0];
+    let cancelled = false;
+
+    const applyResolution = (
+      resolution: CapabilityResolution,
+      isLoading = false
+    ) => {
+      if (cancelled) return;
+      setCapabilityStateByCardId((prev) => ({
+        ...prev,
+        [currentCardId]: {
+          ...resolution,
+          isLoading,
+        },
+      }));
+    };
+
+    const defaultResolution = buildCapabilityWithoutArtifact(toolId);
+    if (defaultResolution.status === "backend_not_implemented") {
+      applyResolution(defaultResolution);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!project?.id || !latestArtifact) {
+      applyResolution(defaultResolution);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    applyResolution(
+      {
+        status: defaultResolution.status,
+        reason: defaultResolution.reason,
+        resolvedArtifact: null,
+      },
+      true
+    );
+
+    const loadCapability = async () => {
+      try {
+        const blob = await projectSpaceApi.downloadArtifact(
+          project.id,
+          latestArtifact.artifactId
+        );
+        const resolved = await resolveCapabilityFromArtifact({
+          toolId,
+          artifact: latestArtifact,
+          blob,
+        });
+        applyResolution(resolved);
+      } catch (error) {
+        applyResolution({
+          status: "backend_error",
+          reason: `读取后端成果失败：${getErrorMessage(error)}。已回退前端示意内容。`,
+          resolvedArtifact: null,
+        });
+      }
+    };
+
+    void loadCapability();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentCardId, currentToolArtifacts, expandedTool, project?.id]);
+
   const openPptPreviewPage = useCallback(
-    (sessionId?: string | null, artifactId?: string | null) => {
+    (
+      sessionId?: string | null,
+      artifactId?: string | null,
+      runId?: string | null
+    ) => {
       if (!project) return;
       const query = new URLSearchParams();
       if (sessionId) {
@@ -305,48 +702,113 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       if (artifactId) {
         query.set("artifact_id", artifactId);
       }
+      if (runId) {
+        query.set("run", runId);
+      }
       router.push(
         `/projects/${project.id}/generate${query.toString() ? `?${query.toString()}` : ""}`
       );
     },
     [project, router]
   );
-
   const handleOpenHistoryItem = useCallback(
-    (item: StudioHistoryItem) => {
+    async (item: StudioHistoryItem) => {
       if (!project) return;
 
       if (item.sessionId) {
         setActiveSessionId(item.sessionId);
       }
+      if (item.runId) {
+        setActiveRunId(item.runId);
+      }
+      const sessionId = item.sessionId ?? null;
+
+      if (item.toolType === "ppt" && item.step === "outline" && sessionId) {
+        try {
+          const sessionResponse = await generateApi.getSession(sessionId);
+          const latestSession = sessionResponse?.data ?? null;
+          let latestRunId: string | null = null;
+          if (latestSession) {
+            latestRunId =
+              (latestSession as { current_run?: { run_id?: string } })
+                .current_run?.run_id ?? null;
+            useProjectStore.setState({
+              generationSession: latestSession,
+              activeRunId: latestRunId,
+            });
+          }
+          const latestState = latestSession?.session?.state;
+          const isPreviewState =
+            latestState === "GENERATING_CONTENT" ||
+            latestState === "RENDERING" ||
+            latestState === "SUCCESS";
+          if (isPreviewState) {
+            trackStep("ppt", "preview");
+            acknowledgeStep("ppt", "preview");
+            const runId =
+              item.runId || resolvePptRunId(latestRunId) || undefined;
+            recordWorkflowEntry({
+              toolType: "ppt",
+              title: "PPT 预览中",
+              status: "previewing",
+              step: "preview",
+              sessionId,
+              runId,
+              toolLabel: TOOL_LABELS.ppt,
+            });
+            openPptPreviewPage(sessionId, item.artifactId, runId);
+            return;
+          }
+        } catch {
+          // If session state sync fails, keep existing routing behavior below.
+        }
+      }
 
       if (item.toolType === "ppt") {
         if (item.origin === "artifact" || item.step === "preview") {
-          openPptPreviewPage(item.sessionId, item.artifactId);
+          const runId = item.runId || resolvePptRunId() || undefined;
+          openPptPreviewPage(sessionId, item.artifactId, runId);
           return;
         }
+        const shouldOpenOutlineStage =
+          item.step === "outline" || item.status === "processing";
         setLayoutMode("expanded");
         setExpandedTool("ppt");
-        setPptResumeStage(item.step === "outline" ? "outline" : "config");
+        setPptResumeStage(shouldOpenOutlineStage ? "outline" : "config");
         setPptResumeSignal((prev) => prev + 1);
-        requestStep("ppt", item.step === "outline" ? "outline" : "config");
+        requestStep("ppt", shouldOpenOutlineStage ? "outline" : "config");
         return;
       }
 
       setLayoutMode("expanded");
       setExpandedTool(item.toolType as StudioToolKey);
+      const targetStep: StudioHistoryStep =
+        item.status === "failed"
+          ? "generate"
+          : item.status === "processing" ||
+              item.status === "previewing" ||
+              item.status === "draft" ||
+              item.origin === "artifact" ||
+              item.step === "preview"
+            ? "preview"
+            : normalizeHistoryStep(item.step);
       requestStep(
         item.toolType,
-        item.step === "outline" ? "preview" : normalizeHistoryStep(item.step)
+        item.step === "outline" ? "preview" : targetStep
       );
     },
     [
       openPptPreviewPage,
       project,
+      acknowledgeStep,
+      recordWorkflowEntry,
       requestStep,
+      resolvePptRunId,
+      setActiveRunId,
       setActiveSessionId,
       setExpandedTool,
       setLayoutMode,
+      trackStep,
     ]
   );
 
@@ -355,9 +817,24 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       if (!expandedTool || expandedTool === "ppt") return;
       const toolType = expandedTool as GenerationToolType;
       const step = normalizeHistoryStep(stepId);
+      const normalizedStep =
+        step === "preview"
+          ? "preview"
+          : step === "generate"
+            ? "generate"
+            : "config";
+
       trackStep(toolType, step);
       acknowledgeStep(toolType, step);
+      syncStudioChatContextByStep(toolType, normalizedStep, activeSessionId);
+
+      if (normalizedStep === "preview") {
+        pushStudioStageHint(toolType, "preview", activeSessionId);
+      }
       if (step !== "generate" && step !== "preview") return;
+      const runId =
+        getCurrentWorkflowRun(toolType) ||
+        (step === "generate" ? startWorkflowRun(toolType) : null);
       recordWorkflowEntry({
         toolType,
         title:
@@ -367,13 +844,21 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         status: "draft",
         step,
         sessionId: activeSessionId,
+        runId: runId || undefined,
+        titleSource: JSON.stringify(currentToolDraft),
+        toolLabel: TOOL_LABELS[toolType],
       });
     },
     [
       acknowledgeStep,
       activeSessionId,
+      currentToolDraft,
       expandedTool,
+      getCurrentWorkflowRun,
+      pushStudioStageHint,
       recordWorkflowEntry,
+      startWorkflowRun,
+      syncStudioChatContextByStep,
       trackStep,
     ]
   );
@@ -389,7 +874,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     setLayoutMode("normal");
     setExpandedTool(null);
     setHoveredToolId(null);
-  }, [setExpandedTool, setLayoutMode]);
+    setStudioChatContext(null);
+  }, [setExpandedTool, setLayoutMode, setStudioChatContext]);
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -420,6 +906,17 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
       config: currentToolDraft,
     };
   };
+
+  const ensureActiveSession = useCallback(() => {
+    if (activeSessionId) return true;
+    toast({
+      title: "Create session first",
+      description:
+        "Create a session from Session Switcher > New Session before running tools.",
+      variant: "destructive",
+    });
+    return false;
+  }, [activeSessionId]);
 
   const handleStudioLoadSources = async () => {
     if (!project || !currentCardId || isStudioActionRunning) return;
@@ -495,15 +992,40 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     }
   };
 
-  const handleStudioExecute = async (): Promise<string | null> => {
-    if (!project || !currentCardId || isStudioActionRunning) return null;
+  const handleStudioExecute = async (): Promise<{
+    ok: boolean;
+    sessionId: string | null;
+    effectiveSessionId: string | null;
+    resourceKind: string | null;
+  }> => {
+    if (!project || !currentCardId || isStudioActionRunning) {
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
+    }
+    if (!ensureActiveSession()) {
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
+    }
     if (isProtocolPending) {
       toast({
         title: "卡片协议未就绪",
         description: "当前卡片仍在协议补齐中，暂不可执行。",
         variant: "destructive",
       });
-      return null;
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
     }
     if (requiresSourceArtifact && !hasSourceBinding) {
       toast({
@@ -511,14 +1033,30 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         description: "当前卡片需要先绑定 source artifact。",
         variant: "destructive",
       });
-      return null;
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
     }
     const requestBody = buildStudioExecutionRequest();
-    if (!requestBody) return null;
+    if (!requestBody) {
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
+    }
     try {
       setIsStudioActionRunning(true);
       const response = await studioCardsApi.execute(currentCardId, requestBody);
       const executionResult = response?.data?.execution_result ?? {};
+      const resourceKind =
+        typeof executionResult.resource_kind === "string"
+          ? executionResult.resource_kind
+          : null;
       const session =
         typeof executionResult.session === "object"
           ? (executionResult.session as Record<string, unknown>)
@@ -527,86 +1065,169 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         (session?.session_id as string | undefined) ||
         (session?.id as string | undefined) ||
         null;
+      const run =
+        typeof executionResult.run === "object" && executionResult.run !== null
+          ? (executionResult.run as Record<string, unknown>)
+          : null;
+      const runId =
+        (run?.run_id as string | undefined) ||
+        (run?.id as string | undefined) ||
+        null;
       if (sessionId) {
         setActiveSessionId(sessionId);
       }
-      await fetchArtifactHistory(project.id, sessionId ?? activeSessionId);
+      if (runId) {
+        setActiveRunId(runId);
+      }
+      const effectiveSessionId = sessionId ?? activeSessionId;
+      if (
+        resourceKind === "artifact" &&
+        expandedTool &&
+        expandedTool !== "ppt" &&
+        typeof executionResult.artifact === "object" &&
+        executionResult.artifact !== null
+      ) {
+        const artifactPayload = executionResult.artifact as Record<
+          string,
+          unknown
+        >;
+        const artifactId =
+          (artifactPayload.id as string | undefined) ||
+          (artifactPayload.artifact_id as string | undefined);
+        const artifactType =
+          (artifactPayload.type as
+            | ArtifactHistoryItem["artifactType"]
+            | undefined) ?? "summary";
+        if (artifactId) {
+          const runtimeItem: ArtifactHistoryItem = {
+            artifactId,
+            sessionId:
+              (artifactPayload.session_id as string | undefined) ??
+              effectiveSessionId ??
+              null,
+            toolType: expandedTool as GenerationToolType,
+            artifactType,
+            artifactKind: undefined,
+            title:
+              (artifactPayload.title as string | undefined) ||
+              `${TOOL_LABELS[expandedTool]} ${artifactId.slice(0, 8)}`,
+            status: "completed",
+            createdAt:
+              (artifactPayload.updated_at as string | undefined) ||
+              (artifactPayload.created_at as string | undefined) ||
+              new Date().toISOString(),
+            basedOnVersionId: null,
+            runId: null,
+            runNo: null,
+          };
+          setRuntimeArtifactsByTool((prev) => {
+            const existing = prev[expandedTool as StudioToolKey] ?? [];
+            if (existing.some((item) => item.artifactId === artifactId)) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [expandedTool as StudioToolKey]: [runtimeItem, ...existing],
+            };
+          });
+        }
+      }
+      await fetchArtifactHistory(project.id, effectiveSessionId);
+      scheduleArtifactRefresh(project.id, effectiveSessionId);
+      if (expandedTool === "word" && sessionId) {
+        void (async () => {
+          let hasConfirmedOutline = false;
+          for (let index = 0; index < 28; index += 1) {
+            try {
+              const sessionPayload = await generateApi.getSession(sessionId);
+              const sessionState = (
+                (sessionPayload?.data as { session?: { state?: string } })
+                  ?.session?.state ??
+                (sessionPayload?.data as { state?: string })?.state ??
+                ""
+              ).toUpperCase();
+              if (
+                !hasConfirmedOutline &&
+                sessionState === "AWAITING_OUTLINE_CONFIRM"
+              ) {
+                await generateApi.confirmOutline(sessionId, {
+                  continue_from_retrieval: true,
+                });
+                hasConfirmedOutline = true;
+                continue;
+              }
+              if (sessionState === "SUCCESS" || sessionState === "FAILED") {
+                break;
+              }
+            } catch {
+              // Ignore transient polling failures and keep retrying.
+            }
+            await waitFor(1800);
+          }
+          await fetchArtifactHistory(project.id, sessionId);
+        })();
+      }
       toast({
         title: "Studio 执行成功",
-        description: sessionId
-          ? `已生成会话 ${sessionId.slice(0, 8)}`
-          : "已提交生成并刷新成果列表",
+        description:
+          resourceKind === "session" && sessionId
+            ? `已启动文档生成流程 ${sessionId.slice(0, 8)}`
+            : sessionId
+              ? `已生成会话 ${sessionId.slice(0, 8)}`
+              : "已提交生成并刷新成果列表",
       });
-      return sessionId;
+      return {
+        ok: true,
+        sessionId,
+        effectiveSessionId,
+        resourceKind,
+      };
     } catch (error) {
       toast({
         title: "Studio 执行失败",
         description: getErrorMessage(error),
         variant: "destructive",
       });
-      return null;
+      return {
+        ok: false,
+        sessionId: null,
+        effectiveSessionId: activeSessionId ?? null,
+        resourceKind: null,
+      };
     } finally {
       setIsStudioActionRunning(false);
     }
   };
 
-  const handleStudioRefine = async () => {
-    if (!project || !currentCardId || isStudioActionRunning) return;
-    if (isProtocolPending) {
+  const handleOpenChatRefine = useCallback(() => {
+    if (!project || !currentCardId || !activeSessionId) return;
+    if (!expandedTool || expandedTool === "ppt") return;
+
+    const toolType = expandedTool as GenerationToolType;
+    const managedTool = toStudioManagedTool(toolType);
+    if (!managedTool) return;
+
+    syncStudioChatContextByStep(toolType, "preview", activeSessionId);
+
+    if (!canRefine) {
       toast({
-        title: "卡片协议未就绪",
-        description: "当前卡片仍在协议补齐中，暂不可 refine。",
+        title: "Refine is unavailable",
+        description: "Enter preview mode first, then refine via Chat.",
         variant: "destructive",
       });
       return;
     }
-    if (!supportsChatRefine) {
-      toast({
-        title: "当前卡片不支持 refine",
-        description: "后端协议未声明 refine 能力。",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (requiresSourceArtifact && !hasSourceBinding) {
-      toast({
-        title: "缺少源成果",
-        description: "当前卡片需要先绑定 source artifact。",
-        variant: "destructive",
-      });
-      return;
-    }
-    const message = window.prompt("输入 refine 指令");
-    if (!message || !message.trim()) return;
-    const requestBody = buildStudioExecutionRequest();
-    if (!requestBody) return;
-    try {
-      setIsStudioActionRunning(true);
-      const response = await studioCardsApi.refine(currentCardId, {
-        project_id: project.id,
-        session_id: activeSessionId ?? undefined,
-        message: message.trim(),
-        source_artifact_id: requestBody.source_artifact_id,
-        config: requestBody.config,
-      });
-      const refinedSessionId = response?.data?.session_id ?? activeSessionId;
-      await fetchArtifactHistory(project.id, refinedSessionId);
-      toast({
-        title: "Studio refine 成功",
-        description: refinedSessionId
-          ? `会话 ${refinedSessionId.slice(0, 8)} 已更新`
-          : "已提交 refine 请求",
-      });
-    } catch (error) {
-      toast({
-        title: "Studio refine 失败",
-        description: getErrorMessage(error),
-        variant: "destructive",
-      });
-    } finally {
-      setIsStudioActionRunning(false);
-    }
-  };
+
+    focusChatComposer();
+  }, [
+    project,
+    currentCardId,
+    activeSessionId,
+    expandedTool,
+    syncStudioChatContextByStep,
+    canRefine,
+    focusChatComposer,
+  ]);
 
   const isCardManagedFlowExpanded =
     expandedTool === "word" ||
@@ -625,6 +1246,10 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     supportsChatRefine,
     canExecute,
     canRefine,
+    capabilityStatus: activeCapabilityState.status,
+    capabilityReason: activeCapabilityState.reason,
+    isCapabilityLoading: activeCapabilityState.isLoading,
+    resolvedArtifact: activeCapabilityState.resolvedArtifact,
     sourceOptions: currentCardId
       ? (sourceOptionsByCard[currentCardId] ?? [])
       : [],
@@ -647,31 +1272,52 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
     onLoadSources: () => handleStudioLoadSources(),
     onPreviewExecution: () => handleStudioPreviewExecution(),
     onExecute: async () => {
-      if (!expandedTool || expandedTool === "ppt") return;
+      if (!expandedTool || expandedTool === "ppt") return false;
       const toolType = expandedTool as GenerationToolType;
       const flowStep =
         normalizeHistoryStep(currentStepByTool[toolType]) === "preview"
           ? "preview"
           : "generate";
+      const runId =
+        getCurrentWorkflowRun(toolType) ?? startWorkflowRun(toolType);
+
+      pushStudioStageHint(toolType, "generate", activeSessionId);
+      syncStudioChatContextByStep(toolType, "generate", activeSessionId);
+
       recordWorkflowEntry({
         toolType,
         title: `${TOOL_LABELS[toolType]}生成中`,
         status: "processing",
         step: flowStep,
         sessionId: activeSessionId,
+        runId,
+        titleSource: JSON.stringify(currentToolDraft),
+        toolLabel: TOOL_LABELS[toolType],
       });
-      const nextSessionId = await handleStudioExecute();
-      if (nextSessionId) {
+      const execution = await handleStudioExecute();
+      if (execution.ok) {
+        const contextSessionId =
+          execution.effectiveSessionId ?? activeSessionId;
+        if (contextSessionId) {
+          syncStudioChatContextByStep(toolType, "generate", contextSessionId);
+          pushStudioStageHint(toolType, "generate", contextSessionId);
+        }
+        return true;
+      } else if (activeSessionId) {
         recordWorkflowEntry({
           toolType,
-          title: `${TOOL_LABELS[toolType]}生成中`,
-          status: "processing",
+          title: `${TOOL_LABELS[toolType]}生成失败`,
+          status: "failed",
           step: flowStep,
-          sessionId: nextSessionId,
+          sessionId: activeSessionId,
+          runId,
+          titleSource: JSON.stringify(currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
         });
       }
+      return false;
     },
-    onRefine: () => handleStudioRefine(),
+    onRefine: () => handleOpenChatRefine(),
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
   };
 
@@ -789,9 +1435,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                         void fetchArtifactHistory(project.id, activeSessionId);
                       }}
                       onOpenHistoryItem={handleOpenHistoryItem}
-                      onExportArtifact={(artifactId) => {
-                        void exportArtifact(artifactId);
-                      }}
+                      onArchiveHistoryItem={archiveHistoryItem}
                     />
                   ) : null}
                 </div>
@@ -828,19 +1472,47 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               return;
                             }
                             if (stage === "generating_outline") {
+                              const resolvedSessionId =
+                                payload?.sessionId ?? activeSessionId ?? null;
+                              if (!resolvedSessionId) {
+                                return;
+                              }
+                              const runId = resolvePptRunId() || undefined;
                               trackStep("ppt", "generate");
                               recordWorkflowEntry({
                                 toolType: "ppt",
                                 title: "PPT 大纲生成中",
                                 status: "processing",
                                 step: "generate",
-                                sessionId:
-                                  payload?.sessionId ?? activeSessionId ?? null,
+                                sessionId: resolvedSessionId,
+                                runId,
+                                toolLabel: TOOL_LABELS.ppt,
+                              });
+                              return;
+                            }
+                            if (stage === "preview") {
+                              const resolvedSessionId =
+                                payload?.sessionId ?? activeSessionId ?? null;
+                              if (!resolvedSessionId) {
+                                return;
+                              }
+                              trackStep("ppt", "preview");
+                              acknowledgeStep("ppt", "preview");
+                              const runId = resolvePptRunId() || undefined;
+                              recordWorkflowEntry({
+                                toolType: "ppt",
+                                title: "PPT 预览中",
+                                status: "previewing",
+                                step: "preview",
+                                sessionId: resolvedSessionId,
+                                runId,
+                                toolLabel: TOOL_LABELS.ppt,
                               });
                               return;
                             }
                             trackStep("ppt", "outline");
                             acknowledgeStep("ppt", "outline");
+                            const runId = resolvePptRunId() || undefined;
                             recordWorkflowEntry({
                               toolType: "ppt",
                               title: "PPT 大纲配置中",
@@ -848,6 +1520,9 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               step: "outline",
                               sessionId:
                                 payload?.sessionId ?? activeSessionId ?? null,
+                              runId,
+                              titleSource: "PPT 大纲编辑",
+                              toolLabel: TOOL_LABELS.ppt,
                             });
                           }}
                           onGenerate={async (config) => {
@@ -883,13 +1558,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                             );
                             if (sessionId) {
                               setActiveSessionId(sessionId);
-                              recordWorkflowEntry({
-                                toolType: "ppt",
-                                title: "PPT 大纲生成中",
-                                status: "processing",
-                                step: "generate",
-                                sessionId,
-                              });
                             }
                             return sessionId;
                           }}
@@ -961,7 +1629,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                                   variant="outline"
                                   className="project-studio-protocol-btn h-8 text-xs"
                                   onClick={() => {
-                                    void handleStudioRefine();
+                                    handleOpenChatRefine();
                                   }}
                                   disabled={!canRefine || isLoadingCardProtocol}
                                 >
@@ -1039,6 +1707,78 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
           </LayoutGroup>
         </CardContent>
       </Card>
+
+      {isArchiveHistoryPanelOpen ? (
+        <>
+          <div
+            className="fixed inset-0 z-[210] bg-[var(--project-overlay)] backdrop-blur-[2px]"
+            onClick={() => setIsArchiveHistoryPanelOpen(false)}
+          />
+          <div className="fixed inset-0 z-[220] flex items-start justify-center px-4 pt-20 pb-8">
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+              className="flex w-full max-w-2xl max-h-[min(72vh,820px)] flex-col overflow-hidden rounded-[var(--project-menu-radius)] border border-[var(--project-menu-border)] bg-[var(--project-menu-bg)] shadow-[var(--project-menu-shadow)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-[var(--project-control-border)] px-4 py-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--project-text-primary)]">
+                    归档历史记录
+                  </h3>
+                  <p className="text-xs text-[var(--project-text-muted)]">
+                    共 {archivedHistory.length} 条
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-[var(--project-chip-radius)] text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
+                  onClick={() => setIsArchiveHistoryPanelOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {archivedHistory.length === 0 ? (
+                  <p className="rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-3 py-3 text-xs text-[var(--project-text-muted)]">
+                    暂无归档记录
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {archivedHistory.map((item) => (
+                      <div
+                        key={`archive-panel-${item.id}`}
+                        className="flex items-center gap-3 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-[var(--project-text-primary)]">
+                            {item.title}
+                          </p>
+                          <p className="truncate text-xs text-[var(--project-text-muted)]">
+                            {TOOL_LABELS[item.toolType] ?? item.toolType} ·{" "}
+                            {new Date(item.createdAt).toLocaleString("zh-CN")}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1 rounded-[var(--project-chip-radius)] border-[var(--project-control-border)] bg-[var(--project-surface)] text-xs text-[var(--project-text-muted)] hover:bg-[var(--project-surface-muted)] hover:text-[var(--project-text-primary)]"
+                          onClick={() => unarchiveHistoryItem(item.id)}
+                        >
+                          <ArchiveRestore className="h-3.5 w-3.5" />
+                          取消归档
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -18,6 +18,21 @@ import {
   useProjectPanelLayout,
 } from "./useProjectPanelLayout";
 
+function readRecordFromStorage<T extends Record<string, unknown>>(
+  raw: string | null
+): T {
+  if (!raw) return {} as T;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as T;
+    }
+  } catch {
+    // ignore invalid storage payload and fallback to empty map
+  }
+  return {} as T;
+}
+
 export function useProjectDetailController() {
   const params = useParams();
   const router = useRouter();
@@ -29,6 +44,7 @@ export function useProjectDetailController() {
     project,
     isLoading,
     layoutMode,
+    expandedTool,
     fetchProject,
     fetchFiles,
     fetchMessages,
@@ -43,6 +59,7 @@ export function useProjectDetailController() {
       project: state.project,
       isLoading: state.isLoading,
       layoutMode: state.layoutMode,
+      expandedTool: state.expandedTool,
       fetchProject: state.fetchProject,
       fetchFiles: state.fetchFiles,
       fetchMessages: state.fetchMessages,
@@ -58,21 +75,69 @@ export function useProjectDetailController() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [sessionMetaHydratedProjectId, setSessionMetaHydratedProjectId] =
+    useState<string | null>(null);
+  const [sessionTitleOverrides, setSessionTitleOverrides] = useState<
+    Record<string, string>
+  >({});
+  const [hiddenSessionIds, setHiddenSessionIds] = useState<
+    Record<string, true>
+  >({});
   const [selectedThemePreset, setSelectedThemePreset] = useState<ThemePresetId>(
     DEFAULT_PROJECT_THEME_PRESET
   );
 
   const panelLayout = useProjectPanelLayout({ layoutMode, isLoading });
 
+  const visibleGenerationHistory = useMemo(
+    () => generationHistory.filter((item) => !hiddenSessionIds[item.id]),
+    [generationHistory, hiddenSessionIds]
+  );
+
   const sessionOptions: SessionSwitcherItem[] = useMemo(
     () =>
-      generationHistory.map((item) => ({
+      visibleGenerationHistory.map((item) => ({
         sessionId: item.id,
-        title: `会话 ${item.id.slice(-6)}`,
+        title:
+          (sessionTitleOverrides[item.id] || item.title || "").trim() ||
+          `会话 ${item.id.slice(-6)}`,
         updatedAt: formatSessionTime(item.createdAt),
       })),
-    [generationHistory]
+    [sessionTitleOverrides, visibleGenerationHistory]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setSessionMetaHydratedProjectId(null);
+    const titleKey = `project-session-title-overrides:${projectId}`;
+    const hiddenKey = `project-hidden-sessions:${projectId}`;
+    const rawTitleMap = window.localStorage.getItem(titleKey);
+    const rawHiddenMap = window.localStorage.getItem(hiddenKey);
+    setSessionTitleOverrides(
+      readRecordFromStorage<Record<string, string>>(rawTitleMap)
+    );
+    setHiddenSessionIds(
+      readRecordFromStorage<Record<string, true>>(rawHiddenMap)
+    );
+    setSessionMetaHydratedProjectId(projectId);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionMetaHydratedProjectId !== projectId) return;
+    const titleKey = `project-session-title-overrides:${projectId}`;
+    const hiddenKey = `project-hidden-sessions:${projectId}`;
+    window.localStorage.setItem(
+      titleKey,
+      JSON.stringify(sessionTitleOverrides)
+    );
+    window.localStorage.setItem(hiddenKey, JSON.stringify(hiddenSessionIds));
+  }, [
+    hiddenSessionIds,
+    projectId,
+    sessionMetaHydratedProjectId,
+    sessionTitleOverrides,
+  ]);
 
   const updateSessionInUrl = useCallback(
     (sessionId: string) => {
@@ -130,31 +195,11 @@ export function useProjectDetailController() {
         return;
       }
 
-      const response = await generateApi.createSession({
-        project_id: projectId,
-        output_type: "both",
-        bootstrap_only: true,
-      });
-      const bootstrapSessionId = response.data?.session?.session_id;
-      if (!bootstrapSessionId || cancelled) return;
-
-      setActiveSessionId(bootstrapSessionId);
-      const currentSessionInUrl =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("session")
-          : null;
-      if (currentSessionInUrl !== bootstrapSessionId) {
-        updateSessionInUrl(bootstrapSessionId);
-      }
-      await fetchGenerationHistory(projectId);
-      const [, , sessionResponse] = await Promise.all([
-        fetchMessages(projectId, bootstrapSessionId),
-        fetchArtifactHistory(projectId, bootstrapSessionId),
-        generateApi.getSession(bootstrapSessionId),
-      ]);
-      useProjectStore.setState({
-        generationSession: sessionResponse?.data ?? null,
-      });
+      // Do not auto-create bootstrap sessions. Session creation should be explicit.
+      setActiveSessionId(null);
+      useProjectStore.setState({ generationSession: null });
+      void fetchMessages(projectId, null);
+      void fetchArtifactHistory(projectId, null);
     };
 
     void bootstrap().finally(() => {
@@ -183,7 +228,7 @@ export function useProjectDetailController() {
   useEffect(() => {
     const preferredSessionId = resolvePreferredSessionId(
       querySessionId,
-      generationHistory,
+      visibleGenerationHistory,
       activeSessionId
     );
 
@@ -222,7 +267,7 @@ export function useProjectDetailController() {
       updateSessionInUrl(nextSessionId);
     }
   }, [
-    generationHistory,
+    visibleGenerationHistory,
     querySessionId,
     activeSessionId,
     fetchArtifactHistory,
@@ -233,7 +278,7 @@ export function useProjectDetailController() {
   ]);
 
   const handleToolClick = async (_tool: GenerationTool) => {
-    // Session is created when user starts generation from config panel.
+    // Session lifecycle is controlled from the session switcher.
   };
 
   const handleChangeSession = useCallback(
@@ -276,11 +321,17 @@ export function useProjectDetailController() {
       });
       const newSessionId = response.data?.session?.session_id;
       if (!newSessionId) return;
+      setHiddenSessionIds((prev) => {
+        if (!prev[newSessionId]) return prev;
+        const next = { ...prev };
+        delete next[newSessionId];
+        return next;
+      });
 
       await fetchGenerationHistory(projectId);
       await handleChangeSession(newSessionId);
       toast({
-        title: "已创建新会话",
+        title: "已创建交互会话",
         description: `会话 ID: ${newSessionId.slice(0, 8)}...`,
       });
     } catch (error) {
@@ -294,6 +345,68 @@ export function useProjectDetailController() {
     }
   }, [fetchGenerationHistory, handleChangeSession, projectId]);
 
+  const handleRenameSession = useCallback(
+    (sessionId: string, nextTitle: string) => {
+      const target = generationHistory.find((item) => item.id === sessionId);
+      if (!target) return;
+
+      const normalizedTitle = nextTitle.trim();
+      if (!normalizedTitle) {
+        toast({
+          title: "会话名称不能为空",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSessionTitleOverrides((prev) => ({
+        ...prev,
+        [sessionId]: normalizedTitle,
+      }));
+      toast({
+        title: "会话名称已更新",
+      });
+    },
+    [generationHistory]
+  );
+
+  const handleDeleteSession = useCallback(
+    async (sessionId: string) => {
+      const target = generationHistory.find((item) => item.id === sessionId);
+      if (!target) return;
+      if (visibleGenerationHistory.length <= 1) {
+        toast({
+          title: "至少保留一个会话",
+          description: "当前项目需要保留可用会话上下文",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const remaining = visibleGenerationHistory.filter(
+        (item) => item.id !== sessionId
+      );
+      setHiddenSessionIds((prev) => ({
+        ...prev,
+        [sessionId]: true,
+      }));
+
+      if (activeSessionId === sessionId && remaining.length > 0) {
+        await handleChangeSession(remaining[0].id);
+      }
+
+      toast({
+        title: "会话已隐藏",
+      });
+    },
+    [
+      activeSessionId,
+      generationHistory,
+      handleChangeSession,
+      visibleGenerationHistory,
+    ]
+  );
+
   return {
     router,
     project,
@@ -301,6 +414,7 @@ export function useProjectDetailController() {
     isBootstrapping,
     projectId,
     isExpanded: panelLayout.isExpanded,
+    expandedTool,
     sessionOptions,
     activeSessionId,
     isCreatingSession,
@@ -315,6 +429,8 @@ export function useProjectDetailController() {
     expandedChatHeight: panelLayout.expandedChatHeight,
     handleToolClick,
     handleChangeSession,
+    handleRenameSession,
+    handleDeleteSession,
     handleCreateSession,
     handleMouseDown: panelLayout.handleMouseDown,
     sourcesWidthPercent: panelLayout.sourcesWidthPercent,
