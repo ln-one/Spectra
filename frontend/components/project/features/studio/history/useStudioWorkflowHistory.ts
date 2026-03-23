@@ -44,8 +44,8 @@ function summarizeTitleFromText(text: string, toolLabel: string): string {
     .replace(/[`*_#>[\](){}]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!cleaned) return `${toolLabel}浠诲姟`;
-  const sentence = cleaned.split(/[銆傦紒锛燂紱\n\r,.!?;:]/)[0]?.trim() || cleaned;
+  if (!cleaned) return `${toolLabel}草稿`;
+  const sentence = cleaned.split(/[\n\r,.!?;:]/)[0]?.trim() || cleaned;
   return sentence.slice(0, 16);
 }
 
@@ -79,9 +79,7 @@ function makeWorkflowId(input: WorkflowEntryInput): string {
   return `workflow:${input.toolType}:local:${localToken}`;
 }
 
-type RequestedStepByTool = Partial<
-  Record<GenerationToolType, StudioHistoryStep>
->;
+type RequestedStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
 type CurrentStepByTool = Partial<Record<GenerationToolType, StudioHistoryStep>>;
 
 type PersistedWorkflowHistory = {
@@ -107,17 +105,17 @@ function readPersistedWorkflowHistory(
 
 function shouldPromoteWorkflowStatus(
   workflowItem: StudioHistoryItem,
-  latestArtifact: ArtifactHistoryItem | undefined
+  matchedArtifact: StudioHistoryItem | undefined
 ): boolean {
-  if (!latestArtifact) return false;
-  if (!workflowItem.sessionId || !latestArtifact.sessionId) return false;
-  if (workflowItem.sessionId !== latestArtifact.sessionId) return false;
-  if (workflowItem.toolType !== latestArtifact.toolType) return false;
+  if (!matchedArtifact) return false;
+  if (!workflowItem.sessionId || !matchedArtifact.sessionId) return false;
+  if (workflowItem.sessionId !== matchedArtifact.sessionId) return false;
+  if (workflowItem.toolType !== matchedArtifact.toolType) return false;
   if (workflowItem.status !== "processing" && workflowItem.status !== "previewing") {
     return false;
   }
   const workflowTime = new Date(workflowItem.createdAt).getTime();
-  const artifactTime = new Date(latestArtifact.createdAt).getTime();
+  const artifactTime = new Date(matchedArtifact.createdAt).getTime();
   if (!Number.isFinite(workflowTime) || !Number.isFinite(artifactTime)) return true;
   return artifactTime >= workflowTime;
 }
@@ -183,8 +181,6 @@ export function useStudioWorkflowHistory(
     setWorkflowItems((prev) => {
       let resolvedItemId = nextItem.id;
       if (!input.runId && input.sessionId) {
-        // When runId is not available (e.g. resume/reopen), continue writing
-        // to the latest workflow item in the same session to avoid duplicates.
         const sameSessionItem = prev.find(
           (item) =>
             item.origin === "workflow" &&
@@ -302,38 +298,51 @@ export function useStudioWorkflowHistory(
     const artifactItems = TOOL_ORDER.flatMap((toolType) =>
       (artifactHistoryByTool[toolType] ?? []).map(toArtifactHistoryItem)
     );
-    const latestArtifactByToolSession = new Map<string, ArtifactHistoryItem>();
-    for (const toolType of TOOL_ORDER) {
-      for (const item of artifactHistoryByTool[toolType] ?? []) {
-        if (!item.sessionId) continue;
-        const key = `${item.toolType}:${item.sessionId}`;
-        const existing = latestArtifactByToolSession.get(key);
-        if (!existing) {
-          latestArtifactByToolSession.set(key, item);
-          continue;
-        }
-        const existingTime = new Date(existing.createdAt).getTime();
-        const incomingTime = new Date(item.createdAt).getTime();
-        if (
-          Number.isFinite(incomingTime) &&
-          (!Number.isFinite(existingTime) || incomingTime > existingTime)
-        ) {
-          latestArtifactByToolSession.set(key, item);
-        }
+
+    const sessionScopedArtifacts = artifactItems.filter((item) => {
+      if (!activeSessionId) {
+        return !item.sessionId;
+      }
+      return item.sessionId === activeSessionId;
+    });
+
+    const artifactByRun = new Map<string, StudioHistoryItem>();
+    const latestArtifactByToolSession = new Map<string, StudioHistoryItem>();
+    for (const item of sessionScopedArtifacts) {
+      if (!item.sessionId) continue;
+      if (item.runId) {
+        artifactByRun.set(`${item.toolType}:${item.sessionId}:${item.runId}`, item);
+      }
+      const key = `${item.toolType}:${item.sessionId}`;
+      const existing = latestArtifactByToolSession.get(key);
+      if (!existing) {
+        latestArtifactByToolSession.set(key, item);
+        continue;
+      }
+      const existingTime = new Date(existing.createdAt).getTime();
+      const incomingTime = new Date(item.createdAt).getTime();
+      if (
+        Number.isFinite(incomingTime) &&
+        (!Number.isFinite(existingTime) || incomingTime > existingTime)
+      ) {
+        latestArtifactByToolSession.set(key, item);
       }
     }
+
     const latestCompletedBySession = new Map<string, number>();
-    artifactItems.forEach((item) => {
+    sessionScopedArtifacts.forEach((item) => {
       if (item.status !== "completed" || !item.sessionId) {
         return;
       }
       const key = `${item.toolType}:${item.sessionId}`;
       const completedAt = new Date(item.createdAt).getTime();
-      const previous = latestCompletedBySession.get(key) ?? Number.NEGATIVE_INFINITY;
+      const previous =
+        latestCompletedBySession.get(key) ?? Number.NEGATIVE_INFINITY;
       if (completedAt > previous) {
         latestCompletedBySession.set(key, completedAt);
       }
     });
+
     const sessionScopedWorkflow = workflowItems.filter((item) => {
       if (!activeSessionId) {
         return !item.sessionId;
@@ -343,18 +352,23 @@ export function useStudioWorkflowHistory(
       }
       return item.sessionId === activeSessionId;
     });
+
     const normalizedWorkflow = sessionScopedWorkflow.map((item) => {
       if (item.origin !== "workflow" || !item.sessionId) return item;
-      const key = `${item.toolType}:${item.sessionId}`;
-      const latestArtifact = latestArtifactByToolSession.get(key);
-      if (!shouldPromoteWorkflowStatus(item, latestArtifact)) {
+      const matchedArtifact = item.runId
+        ? artifactByRun.get(`${item.toolType}:${item.sessionId}:${item.runId}`)
+        : latestArtifactByToolSession.get(`${item.toolType}:${item.sessionId}`);
+      if (!shouldPromoteWorkflowStatus(item, matchedArtifact)) {
         return item;
       }
       return {
         ...item,
-        status: latestArtifact?.status === "failed" ? "failed" : "draft",
+        status: matchedArtifact?.status ?? item.status,
         step: "preview",
-        artifactId: latestArtifact?.artifactId ?? item.artifactId,
+        title: matchedArtifact?.title || item.title,
+        artifactId: matchedArtifact?.artifactId ?? item.artifactId,
+        runId: item.runId ?? matchedArtifact?.runId ?? null,
+        runNo: item.runNo ?? matchedArtifact?.runNo ?? null,
       };
     });
 
@@ -374,8 +388,29 @@ export function useStudioWorkflowHistory(
       return workflowStartedAt > latestCompletedAt;
     });
 
+    const workflowArtifactIds = new Set(
+      filteredWorkflow
+        .map((item) => item.artifactId)
+        .filter((id): id is string => Boolean(id))
+    );
+    const workflowRunKeys = new Set(
+      filteredWorkflow
+        .filter((item) => item.sessionId && item.runId)
+        .map((item) => `${item.toolType}:${item.sessionId}:${item.runId}`)
+    );
+
+    const dedupedArtifacts = sessionScopedArtifacts.filter((item) => {
+      if (workflowArtifactIds.has(item.artifactId)) return false;
+      if (item.sessionId && item.runId) {
+        if (workflowRunKeys.has(`${item.toolType}:${item.sessionId}:${item.runId}`)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
     return TOOL_ORDER.map((toolType) => {
-      const items = [...filteredWorkflow, ...artifactItems]
+      const items = [...filteredWorkflow, ...dedupedArtifacts]
         .filter((item) => !hiddenHistoryIds[item.id])
         .filter((item) => item.toolType === toolType)
         .sort(
@@ -399,8 +434,3 @@ export function useStudioWorkflowHistory(
     unarchiveHistoryItem,
   };
 }
-
-
-
-
-
