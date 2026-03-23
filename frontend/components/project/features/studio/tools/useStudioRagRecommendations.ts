@@ -20,7 +20,7 @@ interface StudioRagRecommendations {
 function normalizeLabel(value: string): string {
   return value
     .replace(/\.[a-zA-Z0-9]+$/g, "")
-        .replace(/["'`]/g, "")
+    .replace(/["'`]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -35,7 +35,7 @@ function extractKeywords(input: string): string[] {
 
 function extractSentences(input: string): string[] {
   return input
-    .split(/[。！？\n]/)
+    .split(/[\n。！？!?；;]+/)
     .map((item) => item.trim())
     .filter((item) => item.length >= 8 && item.length <= 60);
 }
@@ -57,18 +57,27 @@ export function useStudioRagRecommendations({
   const [isLoading, setIsLoading] = useState(false);
   const fallbackRef = useRef(fallbackSuggestions);
 
-  useEffect(() => {
-    fallbackRef.current = fallbackSuggestions;
-  }, [fallbackSuggestions]);
-
+  const fallbackKey = useMemo(
+    () => fallbackSuggestions.join("||"),
+    [fallbackSuggestions]
+  );
   const readyFileIds = useMemo(
     () => files.filter((file) => file.status === "ready").map((file) => file.id),
     [files]
   );
+  const readyFileIdsKey = useMemo(() => readyFileIds.join("|"), [readyFileIds]);
+  const selectedFileIdsKey = useMemo(
+    () => selectedFileIds.join("|"),
+    [selectedFileIds]
+  );
+
+  useEffect(() => {
+    fallbackRef.current = fallbackSuggestions;
+  }, [fallbackSuggestions]);
 
   useEffect(() => {
     if (!project?.id) {
-      setSuggestions(fallbackSuggestions);
+      setSuggestions(fallbackRef.current);
       setSummary("");
       return;
     }
@@ -123,12 +132,14 @@ export function useStudioRagRecommendations({
       cancelled = true;
     };
   }, [
-    fallbackSuggestions,
+    fallbackKey,
     maxSuggestions,
     project?.id,
     query,
     readyFileIds,
+    readyFileIdsKey,
     selectedFileIds,
+    selectedFileIdsKey,
   ]);
 
   return { suggestions, summary, isLoading };
