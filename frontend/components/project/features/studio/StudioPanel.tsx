@@ -1267,7 +1267,7 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         normalizeHistoryStep(currentStepByTool[toolType]) === "preview"
           ? "preview"
           : "generate";
-      const runId = startWorkflowRun(toolType);
+      const runId = getCurrentWorkflowRun(toolType) ?? startWorkflowRun(toolType);
 
       pushStudioStageHint(toolType, "generate", activeSessionId);
       syncStudioChatContextByStep(toolType, "generate", activeSessionId);
@@ -1288,20 +1288,6 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
         if (contextSessionId) {
           syncStudioChatContextByStep(toolType, "generate", contextSessionId);
           pushStudioStageHint(toolType, "generate", contextSessionId);
-        }
-        if (execution.resourceKind === "artifact") {
-          trackStep(toolType, "preview");
-          acknowledgeStep(toolType, "preview");
-          recordWorkflowEntry({
-            toolType,
-            title: `${TOOL_LABELS[toolType]}草稿中`,
-            status: "draft",
-            step: "preview",
-            sessionId: contextSessionId,
-            runId,
-            titleSource: JSON.stringify(currentToolDraft),
-            toolLabel: TOOL_LABELS[toolType],
-          });
         }
       } else if (activeSessionId) {
         recordWorkflowEntry({
