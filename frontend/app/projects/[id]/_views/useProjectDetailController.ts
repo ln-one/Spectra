@@ -252,9 +252,10 @@ export function useProjectDetailController() {
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
-      void generateApi
-        .getSession(nextSessionId)
-        .then((response) => {
+      void (queryRunId
+        ? generateApi.getSessionByRun(nextSessionId, { run_id: queryRunId })
+        : generateApi.getSession(nextSessionId)
+      ).then((response) => {
           const nextRunId =
             queryRunId ||
             ((response?.data as { current_run?: { run_id?: string } } | null)
@@ -271,6 +272,25 @@ export function useProjectDetailController() {
 
     if (nextSessionId) {
       void fetchMessages(projectId, nextSessionId);
+    }
+
+    if (
+      nextSessionId &&
+      nextSessionId === activeSessionId &&
+      queryRunId &&
+      queryRunId !== activeRunId
+    ) {
+      void generateApi
+        .getSessionByRun(nextSessionId, { run_id: queryRunId })
+        .then((response) => {
+          useProjectStore.setState({
+            generationSession: response?.data ?? null,
+            activeRunId: queryRunId,
+          });
+        })
+        .catch(() => {
+          // keep current snapshot when run-scoped sync fails
+        });
     }
 
     if (nextSessionId && querySessionId !== nextSessionId) {

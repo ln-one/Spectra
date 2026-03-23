@@ -47,7 +47,7 @@ interface UseGenerationConfigPanelArgs {
   resumeSignal?: number;
   onWorkflowStageChange?: (
     stage: "config" | "generating_outline" | "outline" | "preview",
-    payload?: { sessionId?: string | null }
+    payload?: { sessionId?: string | null; runId?: string | null }
   ) => void;
 }
 
@@ -67,7 +67,6 @@ export function useGenerationConfigPanel({
     selectedFileIds,
     generationSession,
     activeSessionId,
-    activeRunId,
   } = useProjectStore(
     useShallow((state) => ({
       project: state.project,
@@ -75,7 +74,6 @@ export function useGenerationConfigPanel({
       selectedFileIds: state.selectedFileIds,
       generationSession: state.generationSession,
       activeSessionId: state.activeSessionId,
-      activeRunId: state.activeRunId,
     }))
   );
 
@@ -90,10 +88,8 @@ export function useGenerationConfigPanel({
 
   const sessionId =
     activeSessionId || generationSession?.session?.session_id || "";
-  const currentRunId =
-    activeRunId || extractRunIdFromSessionPayload(generationSession);
-
   const suggestionRequestIdRef = useRef(0);
+  const outlinePollRequestIdRef = useRef(0);
   const workflowStageChangeRef = useRef(onWorkflowStageChange);
 
   useEffect(() => {
@@ -107,12 +103,10 @@ export function useGenerationConfigPanel({
 
   useEffect(() => {
     if (showOutlineEditor) {
-      workflowStageChangeRef.current?.(
-        isCreatingSession ? "generating_outline" : "outline",
-        {
-          sessionId: sessionId || null,
-        }
-      );
+      workflowStageChangeRef.current?.("outline", {
+        sessionId: sessionId || null,
+        runId: useProjectStore.getState().activeRunId ?? null,
+      });
       return;
     }
     workflowStageChangeRef.current?.("config", {
@@ -218,10 +212,8 @@ export function useGenerationConfigPanel({
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
 
+    const requestId = ++outlinePollRequestIdRef.current;
     setIsCreatingSession(true);
-    workflowStageChangeRef.current?.("generating_outline", {
-      sessionId: sessionId || null,
-    });
 
     try {
       const creationResult = await onGenerate?.({
@@ -237,109 +229,137 @@ export function useGenerationConfigPanel({
       }
 
       const sessionIdFromStore = sessionIdFromCallback;
+      const initialRunId =
+        useProjectStore.getState().activeRunId ||
+        extractRunIdFromSessionPayload(useProjectStore.getState().generationSession);
+
       setShowOutlineEditor(true);
-      workflowStageChangeRef.current?.("generating_outline", {
-        sessionId: sessionIdFromStore,
-      });
-
-      const maxAttempts = 60;
-      const intervalMs = 2000;
-      let outlineReady = false;
-      let outlineIncomplete = false;
-      let lastSessionState: string | undefined;
-
-      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const sessionResponse = await generateApi.getSession(sessionIdFromStore);
-        const latestSession = sessionResponse?.data ?? null;
-        const state = latestSession?.session?.state;
-        const currentPages = latestSession?.outline?.nodes?.length || 0;
-        const targetPages = Number(latestSession?.options?.pages || pageCount);
-        const latestRunId = extractRunIdFromSessionPayload(latestSession);
-
-        useProjectStore.setState({
-          generationSession: latestSession,
-          activeRunId: latestRunId,
-        });
-        lastSessionState = state;
-
-        if (state === "AWAITING_OUTLINE_CONFIRM") {
-          outlineReady = true;
-          outlineIncomplete = targetPages > 0 && currentPages < targetPages;
-          break;
-        }
-
-        if (
-          state === "GENERATING_CONTENT" ||
-          state === "RENDERING" ||
-          state === "SUCCESS"
-        ) {
-          outlineReady = currentPages > 0;
-          outlineIncomplete = targetPages > 0 && currentPages < targetPages;
-          if (outlineReady) {
-            break;
-          }
-        }
-
-        if (state === "FAILED") {
-          toast({
-            title: "大纲生成失败",
-            description: latestSession?.session?.state_reason || "请稍后重试",
-            variant: "destructive",
-          });
-          break;
-        }
-
-        await wait(intervalMs);
-      }
-
-      if (!outlineReady) {
-        toast({
-          title: "等待大纲超时",
-          description: lastSessionState
-            ? `当前状态为 ${lastSessionState}，请稍后重试。`
-            : "暂未拿到大纲内容，请稍后重试。",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (outlineIncomplete) {
-        toast({
-          title: "大纲页数偏少",
-          description: "已进入编辑页，你可以继续补全每一页内容。",
-        });
-      }
-
       workflowStageChangeRef.current?.("outline", {
         sessionId: sessionIdFromStore,
+        runId: initialRunId,
       });
-      setShowOutlineEditor(true);
+
+      void (async () => {
+        const maxAttempts = 60;
+        const intervalMs = 2000;
+        let outlineReady = false;
+        let outlineIncomplete = false;
+        let lastSessionState: string | undefined;
+
+        try {
+          for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            if (outlinePollRequestIdRef.current !== requestId) return;
+
+            const targetRunId =
+              useProjectStore.getState().activeRunId || initialRunId || null;
+            const sessionResponse = await generateApi.getSessionByRun(
+              sessionIdFromStore,
+              {
+                run_id: targetRunId,
+              }
+            );
+            const latestSession = sessionResponse?.data ?? null;
+            const state = latestSession?.session?.state;
+            const currentPages = latestSession?.outline?.nodes?.length || 0;
+            const targetPages = Number(latestSession?.options?.pages || pageCount);
+            const latestRunId =
+              targetRunId || extractRunIdFromSessionPayload(latestSession);
+
+            useProjectStore.setState({
+              generationSession: latestSession,
+              activeRunId: latestRunId,
+            });
+            lastSessionState = state;
+
+            if (state === "AWAITING_OUTLINE_CONFIRM") {
+              outlineReady = true;
+              outlineIncomplete = targetPages > 0 && currentPages < targetPages;
+              break;
+            }
+
+            if (
+              state === "GENERATING_CONTENT" ||
+              state === "RENDERING" ||
+              state === "SUCCESS"
+            ) {
+              outlineReady = currentPages > 0;
+              outlineIncomplete = targetPages > 0 && currentPages < targetPages;
+              if (outlineReady) {
+                break;
+              }
+            }
+
+            if (state === "FAILED") {
+              toast({
+                title: "Outline Generation Failed",
+                description: latestSession?.session?.state_reason || "Please try again later.",
+                variant: "destructive",
+              });
+              break;
+            }
+
+            await wait(intervalMs);
+          }
+
+          if (!outlineReady && lastSessionState && lastSessionState !== "FAILED") {
+            toast({
+              title: "Outline Is Still Generating",
+              description: `Current state is ${lastSessionState}. You can continue waiting in the outline editor.`,
+            });
+          }
+
+          if (outlineIncomplete) {
+            toast({
+              title: "Outline Is Being Completed",
+              description: "You can stay on the outline page while remaining pages are generated.",
+            });
+          }
+        } catch (error) {
+          if (outlinePollRequestIdRef.current !== requestId) return;
+          const message =
+            error instanceof Error ? error.message : "Failed to sync outline state.";
+          toast({
+            title: "Outline Sync Failed",
+            description: message,
+            variant: "destructive",
+          });
+        } finally {
+          if (outlinePollRequestIdRef.current === requestId) {
+            setIsCreatingSession(false);
+          }
+        }
+      })();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "创建生成会话失败，请稍后重试";
+        error instanceof Error ? error.message : "Failed to create generation session.";
       toast({
-        title: "创建课件任务失败",
+        title: "Start Generation Failed",
         description: message,
         variant: "destructive",
       });
       setShowOutlineEditor(false);
-    } finally {
       setIsCreatingSession(false);
     }
-  }, [onGenerate, outlineStyle, pageCount, projectId, prompt, router, sessionId]);
+  }, [onGenerate, outlineStyle, pageCount, prompt]);
 
   const handleGoToPreview = useCallback(() => {
     if (!projectId || !sessionId) return;
 
+    const latestState = useProjectStore.getState();
+    const latestRunId =
+      latestState.activeRunId ||
+      extractRunIdFromSessionPayload(latestState.generationSession);
+
     workflowStageChangeRef.current?.("preview", {
       sessionId: sessionId || null,
+      runId: latestRunId,
     });
 
-    const query = currentRunId
-      ? `session=${sessionId}&run=${currentRunId}`
+    const query = latestRunId
+      ? `session=${sessionId}&run=${latestRunId}`
       : `session=${sessionId}`;
     router.push(`/projects/${projectId}/generate?${query}`);
-  }, [currentRunId, projectId, router, sessionId]);
+  }, [projectId, router, sessionId]);
 
   return {
     prompt,

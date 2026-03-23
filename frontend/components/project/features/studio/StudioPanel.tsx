@@ -720,7 +720,11 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
 
       if (item.toolType === "ppt" && item.step === "outline" && sessionId) {
         try {
-          const sessionResponse = await generateApi.getSession(sessionId);
+          const sessionResponse = item.runId
+            ? await generateApi.getSessionByRun(sessionId, {
+                run_id: item.runId,
+              })
+            : await generateApi.getSession(sessionId);
           const latestSession = sessionResponse?.data ?? null;
           let latestRunId: string | null = null;
           if (latestSession) {
@@ -742,10 +746,11 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
             trackStep("ppt", "preview");
             acknowledgeStep("ppt", "preview");
             const runId = item.runId || resolvePptRunId(latestRunId) || undefined;
+            const isFinished = latestState === "SUCCESS";
             recordWorkflowEntry({
               toolType: "ppt",
-              title: "PPT 预览中",
-              status: "previewing",
+              title: isFinished ? "PPT Ready" : "PPT Generating",
+              status: isFinished ? "previewing" : "processing",
               step: "preview",
               sessionId,
               runId,
@@ -1463,15 +1468,18 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               if (!resolvedSessionId) {
                                 return;
                               }
-                              const runId = resolvePptRunId() || undefined;
-                              trackStep("ppt", "generate");
+                              const runId =
+                                payload?.runId || resolvePptRunId() || undefined;
+                              trackStep("ppt", "outline");
+                              acknowledgeStep("ppt", "outline");
                               recordWorkflowEntry({
                                 toolType: "ppt",
-                                title: "PPT Outline Generating",
-                                status: "processing",
-                                step: "generate",
+                                title: "PPT Outline Draft",
+                                status: "draft",
+                                step: "outline",
                                 sessionId: resolvedSessionId,
                                 runId,
+                                titleSource: "PPT Outline Draft",
                                 toolLabel: TOOL_LABELS.ppt,
                               });
                               return;
@@ -1484,11 +1492,12 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                               }
                               trackStep("ppt", "preview");
                               acknowledgeStep("ppt", "preview");
-                              const runId = resolvePptRunId() || undefined;
+                              const runId =
+                                payload?.runId || resolvePptRunId() || undefined;
                               recordWorkflowEntry({
                                 toolType: "ppt",
-                                title: "PPT 预览中",
-                                status: "previewing",
+                                title: "PPT Generating",
+                                status: "processing",
                                 step: "preview",
                                 sessionId: resolvedSessionId,
                                 runId,
@@ -1498,7 +1507,8 @@ export function StudioPanel({ onToolClick }: StudioPanelProps) {
                             }
                             trackStep("ppt", "outline");
                             acknowledgeStep("ppt", "outline");
-                            const runId = resolvePptRunId() || undefined;
+                            const runId =
+                              payload?.runId || resolvePptRunId() || undefined;
                             recordWorkflowEntry({
                               toolType: "ppt",
                               title: "PPT Outline Draft",

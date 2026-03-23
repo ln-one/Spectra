@@ -42,7 +42,7 @@ interface GenerationConfigPanelProps {
   resumeSignal?: number;
   onWorkflowStageChange?: (
     stage: "config" | "generating_outline" | "outline" | "preview",
-    payload?: { sessionId?: string | null }
+    payload?: { sessionId?: string | null; runId?: string | null }
   ) => void;
 }
 
