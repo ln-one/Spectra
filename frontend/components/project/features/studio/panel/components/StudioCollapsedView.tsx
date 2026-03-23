@@ -23,7 +23,7 @@ interface StudioCollapsedViewProps {
     sessionId: string | null
   ) => Promise<void>;
   onOpenHistoryItem: (item: StudioHistoryItem) => void | Promise<void>;
-  onArchiveHistoryItem: (id: string) => void;
+  onArchiveHistoryItem: (item: StudioHistoryItem) => void;
 }
 
 export function StudioCollapsedView({

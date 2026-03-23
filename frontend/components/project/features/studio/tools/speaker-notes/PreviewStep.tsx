@@ -22,36 +22,36 @@ function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
     return [];
   }
 
-  const content = flowContext.resolvedArtifact.content as Record<
-    string,
-    unknown
-  >;
+  const content = flowContext.resolvedArtifact.content as Record<string, unknown>;
   const rawSlides = Array.isArray(content.slides) ? content.slides : [];
+  const scripts: SlideScriptItem[] = [];
 
-  return rawSlides
-    .map((slide, index) => {
-      if (!slide || typeof slide !== "object") return null;
-      const row = slide as Record<string, unknown>;
-      const page = Number(row.page ?? index + 1);
-      const title =
-        typeof row.title === "string" && row.title.trim()
-          ? row.title.trim()
-          : `第 ${index + 1} 页`;
-      const script =
-        typeof row.script === "string" && row.script.trim()
-          ? row.script.trim()
-          : typeof row.summary === "string" && row.summary.trim()
-            ? row.summary.trim()
-            : "";
-      const actionHint =
-        typeof row.action_hint === "string" && row.action_hint.trim()
-          ? row.action_hint.trim()
-          : undefined;
+  for (let index = 0; index < rawSlides.length; index += 1) {
+    const slide = rawSlides[index];
+    if (!slide || typeof slide !== "object") continue;
 
-      if (!Number.isFinite(page) || !script) return null;
-      return { page, title, script, actionHint };
-    })
-    .filter((item): item is SlideScriptItem => Boolean(item));
+    const row = slide as Record<string, unknown>;
+    const page = Number(row.page ?? index + 1);
+    const title =
+      typeof row.title === "string" && row.title.trim()
+        ? row.title.trim()
+        : `第 ${index + 1} 页`;
+    const script =
+      typeof row.script === "string" && row.script.trim()
+        ? row.script.trim()
+        : typeof row.summary === "string" && row.summary.trim()
+          ? row.summary.trim()
+          : "";
+    const actionHint =
+      typeof row.action_hint === "string" && row.action_hint.trim()
+        ? row.action_hint.trim()
+        : undefined;
+
+    if (!Number.isFinite(page) || !script) continue;
+    scripts.push({ page, title, script, actionHint });
+  }
+
+  return scripts;
 }
 
 export function PreviewStep({
@@ -76,7 +76,7 @@ export function PreviewStep({
         <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
 
         <div className="mt-4">
-          <p className="text-sm font-semibold text-zinc-900">实时提词预览</p>
+          <p className="text-sm font-semibold text-zinc-900">实时讲稿预览</p>
           <p className="mt-1 text-[11px] text-zinc-500">
             {lastGeneratedAt
               ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
@@ -130,7 +130,7 @@ export function PreviewStep({
               暂未收到后端真实说课讲稿
             </p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              当前不再展示前端示意提词稿，等待后端结构化讲稿返回后会直接显示。
+              当前不再展示前端示意讲稿，等待后端结构化讲稿返回后会直接显示。
             </p>
           </div>
         )}

@@ -4,7 +4,8 @@ import type {
   StudioCardExecutionPlan,
 } from "@/lib/sdk/studio-cards";
 import type { CapabilityResolution } from "../tools/capability-resolver";
-import type { StudioTool, StudioToolKey, ToolDraftState } from "../tools";
+import type { StudioTool } from "../constants";
+import type { StudioToolKey, ToolDraftState } from "../tools";
 
 export interface StudioPanelProps {
   onToolClick?: (tool: StudioTool) => void;

@@ -49,34 +49,34 @@ function parseBackendTurns(flowContext?: ToolFlowContext): BackendTurnItem[] {
   >;
   const rawTurns = Array.isArray(content.turns) ? content.turns : [];
 
-  return rawTurns
-    .map((turn) => {
-      if (!turn || typeof turn !== "object") return null;
-      const row = turn as Record<string, unknown>;
-      const student = normalizeStudentLabel(row.student ?? row.student_profile);
-      const question =
-        typeof row.question === "string" && row.question.trim()
-          ? row.question.trim()
-          : typeof row.student_question === "string" &&
-              row.student_question.trim()
-            ? row.student_question.trim()
-            : "";
-      if (!question) return null;
-      return {
-        student,
-        question,
-        feedback:
-          typeof row.feedback === "string" && row.feedback.trim()
-            ? row.feedback.trim()
-            : undefined,
-        score: typeof row.score === "number" ? row.score : undefined,
-        teacherHint:
-          typeof row.teacher_hint === "string" && row.teacher_hint.trim()
-            ? row.teacher_hint.trim()
-            : undefined,
-      };
-    })
-    .filter((item): item is BackendTurnItem => Boolean(item));
+  const turns: BackendTurnItem[] = [];
+  for (const turn of rawTurns) {
+    if (!turn || typeof turn !== "object") continue;
+    const row = turn as Record<string, unknown>;
+    const student = normalizeStudentLabel(row.student ?? row.student_profile);
+    const question =
+      typeof row.question === "string" && row.question.trim()
+        ? row.question.trim()
+        : typeof row.student_question === "string" &&
+            row.student_question.trim()
+          ? row.student_question.trim()
+          : "";
+    if (!question) continue;
+    turns.push({
+      student,
+      question,
+      feedback:
+        typeof row.feedback === "string" && row.feedback.trim()
+          ? row.feedback.trim()
+          : undefined,
+      score: typeof row.score === "number" ? row.score : undefined,
+      teacherHint:
+        typeof row.teacher_hint === "string" && row.teacher_hint.trim()
+          ? row.teacher_hint.trim()
+          : undefined,
+    });
+  }
+  return turns;
 }
 
 export function PreviewStep({

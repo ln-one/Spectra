@@ -374,7 +374,9 @@ export function useStudioExecutionHandlers({
                   !hasConfirmedOutline &&
                   sessionState === "AWAITING_OUTLINE_CONFIRM"
                 ) {
-                  await generateApi.confirmOutline(sessionId, {});
+                  await generateApi.confirmOutline(sessionId, {
+                    continue_from_retrieval: false,
+                  });
                   hasConfirmedOutline = true;
                   continue;
                 }

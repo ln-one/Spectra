@@ -460,27 +460,31 @@ export function useStudioWorkflowHistory(
       return item.sessionId === activeSessionId;
     });
 
-    const normalizedWorkflow = sessionScopedWorkflow.map((item) => {
-      if (item.origin !== "workflow" || !item.sessionId) return item;
-      const normalizedRunId = normalizeRunId(item.runId);
-      const matchedArtifact = normalizedRunId
-        ? artifactByRun.get(
-            `${item.toolType}:${item.sessionId}:${normalizedRunId}`
-          )
-        : latestArtifactByToolSession.get(`${item.toolType}:${item.sessionId}`);
-      if (!shouldPromoteWorkflowStatus(item, matchedArtifact)) {
-        return item;
+    const normalizedWorkflow: StudioHistoryItem[] = sessionScopedWorkflow.map(
+      (item): StudioHistoryItem => {
+        if (item.origin !== "workflow" || !item.sessionId) return item;
+        const normalizedRunId = normalizeRunId(item.runId);
+        const matchedArtifact = normalizedRunId
+          ? artifactByRun.get(
+              `${item.toolType}:${item.sessionId}:${normalizedRunId}`
+            )
+          : latestArtifactByToolSession.get(
+              `${item.toolType}:${item.sessionId}`
+            );
+        if (!shouldPromoteWorkflowStatus(item, matchedArtifact)) {
+          return item;
+        }
+        return {
+          ...item,
+          status: matchedArtifact?.status ?? item.status,
+          step: "preview",
+          title: matchedArtifact?.title || item.title,
+          artifactId: matchedArtifact?.artifactId ?? item.artifactId,
+          runId: normalizedRunId ?? matchedArtifact?.runId ?? null,
+          runNo: item.runNo ?? matchedArtifact?.runNo ?? null,
+        };
       }
-      return {
-        ...item,
-        status: matchedArtifact?.status ?? item.status,
-        step: "preview",
-        title: matchedArtifact?.title || item.title,
-        artifactId: matchedArtifact?.artifactId ?? item.artifactId,
-        runId: normalizedRunId ?? matchedArtifact?.runId ?? null,
-        runNo: item.runNo ?? matchedArtifact?.runNo ?? null,
-      };
-    });
+    );
 
     const filteredWorkflow = normalizedWorkflow.filter((item) => {
       if (
@@ -532,7 +536,9 @@ export function useStudioWorkflowHistory(
     );
 
     const dedupedArtifacts = sessionScopedArtifacts.filter((item) => {
-      if (workflowArtifactIds.has(item.artifactId)) return false;
+      if (item.artifactId && workflowArtifactIds.has(item.artifactId)) {
+        return false;
+      }
       if (item.sessionId && item.runId) {
         if (
           workflowRunKeys.has(

@@ -78,7 +78,7 @@ function extractBackendTree(flowContext?: ToolFlowContext): MindNode | null {
   const nodes = row.nodes;
   if (!Array.isArray(nodes) || nodes.length === 0) return null;
   const nested = toMindNode(nodes[0]);
-  if (nested && nested.children.length > 0) {
+  if (nested && (nested.children?.length ?? 0) > 0) {
     return nested;
   }
   return buildTreeFromFlatNodes(nodes as Array<Record<string, unknown>>);
@@ -86,7 +86,8 @@ function extractBackendTree(flowContext?: ToolFlowContext): MindNode | null {
 
 function countTreeNodes(node: MindNode): number {
   return (
-    1 + node.children.reduce((sum, child) => sum + countTreeNodes(child), 0)
+    1 +
+    (node.children ?? []).reduce((sum, child) => sum + countTreeNodes(child), 0)
   );
 }
 

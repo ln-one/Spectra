@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { generateApi } from "@/lib/sdk";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { useProjectStore } from "@/stores/projectStore";
+import type { StudioChatContext } from "@/stores/project-store/types";
 import { TOOL_LABELS, type StudioTool } from "../constants";
 import type { StudioHistoryItem, StudioHistoryStep } from "../history/types";
 import type { StudioToolKey, ToolDraftState } from "../tools";
@@ -27,7 +28,7 @@ interface UseStudioHistoryHandlersArgs {
   setPptResumeStage: (stage: "config" | "outline") => void;
   bumpPptResumeSignal: () => void;
   setHoveredToolId: (toolId: string | null) => void;
-  setStudioChatContext: (context: unknown | null) => void;
+  setStudioChatContext: (context: StudioChatContext | null) => void;
   onToolClick?: (tool: StudioTool) => void;
   trackStep: (tool: GenerationToolType, step: StudioHistoryStep) => void;
   requestStep: (tool: GenerationToolType, step: StudioHistoryStep) => void;

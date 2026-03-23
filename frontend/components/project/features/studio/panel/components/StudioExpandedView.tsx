@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import type { ComponentType } from "react";
+import type { ComponentProps, ComponentType } from "react";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import type { StudioCardCapability } from "@/lib/sdk/studio-cards";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,9 @@ interface StudioExpandedViewProps {
   }> | null;
   pptResumeStage: "config" | "outline";
   pptResumeSignal: number;
-  onPptWorkflowStageChange: (
-    stage: string,
-    payload?: { sessionId?: string; runId?: string }
-  ) => void;
+  onPptWorkflowStageChange: NonNullable<
+    ComponentProps<typeof GenerationConfigPanel>["onWorkflowStageChange"]
+  >;
   onPptGenerate: (config: {
     pageCount: number;
     outlineStyle: "structured" | "story" | "problem" | "workshop";

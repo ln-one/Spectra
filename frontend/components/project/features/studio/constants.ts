@@ -8,9 +8,10 @@ import {
   Presentation,
   Radar,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
 
-export const TOOL_ICONS: Record<string, ElementType> = {
+export const TOOL_ICONS: Record<string, LucideIcon> = {
   ppt: Presentation,
   word: FileText,
   mindmap: Brain,
@@ -107,4 +108,3 @@ export const ICON_LAYOUT_TRANSITION = {
 };
 
 export type StudioTool = GenerationTool;
-import type { ElementType } from "react";
