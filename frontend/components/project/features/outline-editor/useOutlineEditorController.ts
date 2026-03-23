@@ -266,7 +266,7 @@ export function useOutlineEditorController({
       const intervalMs = 1500;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const targetRunId = useProjectStore.getState().activeRunId || null;
-        const sessionResponse = await generateApi.getSessionByRun(sessionId, {
+        const sessionResponse = await generateApi.getSessionSnapshot(sessionId, {
           run_id: targetRunId,
         });
         const latest = sessionResponse?.data ?? null;

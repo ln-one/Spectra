@@ -124,6 +124,17 @@ export const generateApi = {
     return payload as GenerationSessionResponse;
   },
 
+  async getSessionSnapshot(
+    sessionId: string,
+    options?: { run_id?: string | null }
+  ): Promise<GenerationSessionResponse> {
+    const runId = options?.run_id?.trim();
+    if (!runId) {
+      return this.getSession(sessionId);
+    }
+    return this.getSessionByRun(sessionId, { run_id: runId });
+  },
+
   async listSessions(params: {
     project_id: string;
     page?: number;

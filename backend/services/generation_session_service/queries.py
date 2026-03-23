@@ -19,6 +19,7 @@ from services.generation_session_service.session_artifacts import (
 from services.generation_session_service.run_queries import get_session_run
 from services.generation_session_service.session_history import get_latest_session_run
 from services.platform.generation_event_constants import GenerationEventType
+from services.platform.state_transition_guard import GenerationState
 
 
 def _parse_json_object(raw: object) -> Optional[dict]:

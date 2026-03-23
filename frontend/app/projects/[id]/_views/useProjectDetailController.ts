@@ -252,10 +252,9 @@ export function useProjectDetailController() {
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
-      void (queryRunId
-        ? generateApi.getSessionByRun(nextSessionId, { run_id: queryRunId })
-        : generateApi.getSession(nextSessionId)
-      ).then((response) => {
+      void generateApi
+        .getSessionSnapshot(nextSessionId, { run_id: queryRunId })
+        .then((response) => {
           const nextRunId =
             queryRunId ||
             ((response?.data as { current_run?: { run_id?: string } } | null)
@@ -281,7 +280,7 @@ export function useProjectDetailController() {
       queryRunId !== activeRunId
     ) {
       void generateApi
-        .getSessionByRun(nextSessionId, { run_id: queryRunId })
+        .getSessionSnapshot(nextSessionId, { run_id: queryRunId })
         .then((response) => {
           useProjectStore.setState({
             generationSession: response?.data ?? null,

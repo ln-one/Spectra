@@ -252,11 +252,9 @@ export function useGenerationConfigPanel({
 
             const targetRunId =
               initialRunId || useProjectStore.getState().activeRunId || null;
-            const sessionResponse = await generateApi.getSessionByRun(
+            const sessionResponse = await generateApi.getSessionSnapshot(
               sessionIdFromStore,
-              {
-                run_id: targetRunId,
-              }
+              { run_id: targetRunId }
             );
             const latestSession = sessionResponse?.data ?? null;
             const state = latestSession?.session?.state;

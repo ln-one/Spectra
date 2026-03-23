@@ -131,11 +131,10 @@ export function createGenerationActions({
           }));
 
           try {
-            const sessionResponse = runId
-              ? await generateApi.getSessionByRun(sessionId, {
-                  run_id: runId,
-                })
-              : await generateApi.getSession(sessionId);
+            const sessionResponse = await generateApi.getSessionSnapshot(
+              sessionId,
+              { run_id: runId }
+            );
             const latestSessionPayload = sessionResponse?.data ?? null;
             set({
               generationSession: latestSessionPayload,
@@ -145,15 +144,16 @@ export function createGenerationActions({
           } catch (sessionError) {
             const message = getErrorMessage(sessionError);
             set((state) => ({
-              generationHistory: state.generationHistory.map((h) =>
-                h.id === sessionId ? { ...h, status: "failed" as const } : h
-              ),
+              generationHistory: state.generationHistory.map((h) => {
+                if (h.id !== sessionId) return h;
+                if (h.status === "failed") return h;
+                return { ...h, status: "processing" as const };
+              }),
               error: createApiError({ code: "SESSION_FETCH_FAILED", message }),
             }));
             toast({
-              title: "获取会话状态失败",
-              description: message,
-              variant: "destructive",
+              title: "会话状态同步延迟",
+              description: `生成任务已创建，正在继续同步会话状态：${message}`,
             });
           }
 
@@ -373,11 +373,9 @@ export function createGenerationActions({
           outline,
         });
         const preferredRunId = get().activeRunId;
-        const sessionResponse = preferredRunId
-          ? await generateApi.getSessionByRun(sessionId, {
-              run_id: preferredRunId,
-            })
-          : await generateApi.getSession(sessionId);
+        const sessionResponse = await generateApi.getSessionSnapshot(sessionId, {
+          run_id: preferredRunId,
+        });
         const latestSessionPayload = sessionResponse?.data ?? null;
         set({
           generationSession: latestSessionPayload,
@@ -406,11 +404,9 @@ export function createGenerationActions({
           base_version: baseVersion,
         });
         const preferredRunId = get().activeRunId;
-        const sessionResponse = preferredRunId
-          ? await generateApi.getSessionByRun(sessionId, {
-              run_id: preferredRunId,
-            })
-          : await generateApi.getSession(sessionId);
+        const sessionResponse = await generateApi.getSessionSnapshot(sessionId, {
+          run_id: preferredRunId,
+        });
         const latestSessionPayload = sessionResponse?.data ?? null;
         set({
           generationSession: latestSessionPayload,
@@ -439,11 +435,9 @@ export function createGenerationActions({
           (confirmResponse as { data?: { run?: unknown } }).data?.run
         );
         const preferredRunId = confirmedRunId || get().activeRunId;
-        const sessionResponse = preferredRunId
-          ? await generateApi.getSessionByRun(sessionId, {
-              run_id: preferredRunId,
-            })
-          : await generateApi.getSession(sessionId);
+        const sessionResponse = await generateApi.getSessionSnapshot(sessionId, {
+          run_id: preferredRunId,
+        });
         const latestSessionPayload = sessionResponse?.data ?? null;
         set({
           generationSession: latestSessionPayload,
