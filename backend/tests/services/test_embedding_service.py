@@ -1,7 +1,7 @@
-"""
+﻿"""
 EmbeddingService 单元测试
 
-使用 mock 避免真实 API 调用。
+使用 mock 避免真实 API 调用�?
 """
 
 import logging
@@ -15,27 +15,27 @@ from services.media.embedding import EmbeddingService
 
 @pytest.fixture
 def dashscope_svc():
-    """DashScope 模式的 EmbeddingService"""
+    """DashScope 模式�?EmbeddingService"""
     return EmbeddingService(model="text-embedding-v4")
 
 
 @pytest.fixture
 def dashscope_text_svc():
-    """DashScope TextEmbedding 模式的 EmbeddingService"""
+    """DashScope TextEmbedding 模式�?EmbeddingService"""
     return EmbeddingService(model="text-embedding-v4")
 
 
 @pytest.fixture
 def local_svc():
-    """本地模型模式的 EmbeddingService"""
+    """本地模型模式�?EmbeddingService"""
     return EmbeddingService(model="local")
 
 
 class TestEmbeddingServiceDashScope:
-    """DashScope embedding 测试（mock API）"""
+    """DashScope embedding tests with mocked API calls."""
 
     def _mock_dashscope_response(self, embeddings_data):
-        """构造 mock DashScope 响应"""
+        """Build a mocked DashScope response payload."""
         resp = MagicMock()
         resp.status_code = 200
         resp.output = {"embeddings": [{"embedding": emb} for emb in embeddings_data]}
@@ -202,6 +202,33 @@ class TestEmbeddingServiceDashScope:
     def test_qwen3_vl_embedding_uses_batch_limit_10(self):
         svc = EmbeddingService(model="qwen3-vl-embedding")
         assert svc._dashscope_batch_limit() == 10
+
+    @pytest.mark.asyncio
+    async def test_embed_text_truncates_long_input_before_dashscope_call(self):
+        fake_emb = [0.1] * 1536
+        mock_resp = self._mock_dashscope_response([fake_emb])
+
+        mock_text_embedding = MagicMock()
+        mock_text_embedding.call.return_value = mock_resp
+
+        mock_dashscope = MagicMock()
+        mock_dashscope.TextEmbedding = mock_text_embedding
+        long_text = "x" * 3000
+
+        with (
+            patch.dict("sys.modules", {"dashscope": mock_dashscope}),
+            patch(
+                "services.media.embedding._resolve_dashscope_api_key",
+                return_value="sk-test",
+            ),
+            patch.dict("os.environ", {"EMBEDDING_DASHSCOPE_MAX_INPUT_CHARS": "2000"}),
+        ):
+            svc = EmbeddingService(model="text-embedding-v2")
+            result = await svc.embed_text(long_text)
+            assert len(result) == 1536
+
+        called_input = mock_text_embedding.call.call_args.kwargs["input"][0]
+        assert len(called_input) == 2000
 
 
 class TestEmbeddingServiceLocal:
