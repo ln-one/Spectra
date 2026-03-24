@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+﻿import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -11,10 +11,9 @@ import type { ToolFlowContext } from "../types";
 
 interface GenerateStepProps {
   topic: string;
-  modeLabel: string;
-  countdown: number;
-  life: number;
-  ideaTags: string[];
+  creativeDirection: string;
+  playerGoal: string;
+  mechanicsNotes: string;
   flowContext?: ToolFlowContext;
   isGenerating: boolean;
   onBack: () => void;
@@ -23,41 +22,34 @@ interface GenerateStepProps {
 
 export function GenerateStep({
   topic,
-  modeLabel,
-  countdown,
-  life,
-  ideaTags,
+  creativeDirection,
+  playerGoal,
+  mechanicsNotes,
   flowContext,
   isGenerating,
   onBack,
   onGenerate,
 }: GenerateStepProps) {
   const sourceOptions = flowContext?.sourceOptions ?? [];
-  const sourceOptionCount = sourceOptions.length;
 
   return (
     <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-3">
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <p className="text-xs font-semibold text-zinc-800">生成前确认</p>
-        <div className="mt-2 grid grid-cols-1 gap-2 text-[11px] text-zinc-600 sm:grid-cols-2">
+        <div className="mt-3 space-y-2 text-[11px] text-zinc-600">
           <p>训练主题：{topic}</p>
-          <p>玩法类型：{modeLabel}</p>
-          <p>倒计时：{countdown} 秒</p>
-          <p>生命值：{life} 次</p>
+          <p>玩法方向：{creativeDirection}</p>
+          {playerGoal ? <p>玩家目标：{playerGoal}</p> : null}
+          {mechanicsNotes ? <p>额外限制：{mechanicsNotes}</p> : null}
         </div>
-        <p className="mt-2 text-[11px] text-zinc-500">
-          灵感标签：{ideaTags.length > 0 ? ideaTags.join("、") : "未选择"}
-        </p>
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-3">
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-xs font-semibold text-zinc-800">参考已有成果</p>
+            <p className="text-xs font-semibold text-zinc-800">绑定参考成果</p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              {flowContext?.requiresSourceArtifact
-                ? "这个卡片需要先选一个已有成果，才能开始生成。"
-                : "可选：选一个已有成果，让游戏更贴合你的项目内容。"}
+              可选：如果你希望游戏紧贴某份课件或文档，可以在这里指定来源。
             </p>
           </div>
           <Button
@@ -78,7 +70,7 @@ export function GenerateStep({
             刷新列表
           </Button>
         </div>
-        {sourceOptionCount > 0 ? (
+        {sourceOptions.length > 0 ? (
           <div className="mt-3">
             <Select
               value={flowContext?.selectedSourceId ?? ""}
@@ -101,16 +93,10 @@ export function GenerateStep({
           </div>
         ) : (
           <p className="mt-3 text-[11px] text-zinc-500">
-            当前还没有可绑定成果，点击上方按钮可刷新。
+            当前还没有可绑定成果，点击上方按钮即可刷新。
           </p>
         )}
       </section>
-
-      {flowContext?.isProtocolPending ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          当前能力还在准备中，请稍后再试。
-        </div>
-      ) : null}
 
       <div className="flex items-center justify-between gap-2">
         <Button
@@ -131,7 +117,8 @@ export function GenerateStep({
             Boolean(flowContext?.isActionRunning) ||
             Boolean(flowContext?.isLoadingProtocol) ||
             flowContext?.canExecute === false ||
-            !topic.trim()
+            !topic.trim() ||
+            !creativeDirection.trim()
           }
           onClick={onGenerate}
         >
@@ -143,7 +130,7 @@ export function GenerateStep({
           ) : (
             <>
               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              一键生成游戏
+              交给后端生成
             </>
           )}
         </Button>

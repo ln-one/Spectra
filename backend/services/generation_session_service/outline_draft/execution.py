@@ -23,6 +23,16 @@ from services.generation_session_service.outline_draft.state_helpers import (
     persist_outline_failure_fallback,
     persist_outline_success,
 )
+from services.generation_session_service.outline_versions import (
+    load_latest_outline_record,
+)
+from services.generation_session_service.run_queries import resolve_output_tool_type
+from services.generation_session_service.session_history import (
+    RUN_STATUS_PENDING,
+    RUN_STATUS_PROCESSING,
+    RUN_STEP_CONFIG,
+    RUN_STEP_OUTLINE,
+)
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 
@@ -57,6 +67,52 @@ def _classify_outline_failure(exc: Exception) -> tuple[str, str, str]:
     )
 
 
+async def _resolve_outline_run_id(
+    *,
+    db,
+    session_id: str,
+    output_type: Optional[str],
+) -> Optional[str]:
+    run_model = getattr(db, "sessionrun", None)
+    if run_model is None or not hasattr(run_model, "find_first"):
+        return None
+
+    tool_type = resolve_output_tool_type(str(output_type or "").strip().lower())
+    active_outline_run = await run_model.find_first(
+        where={
+            "sessionId": session_id,
+            "toolType": tool_type,
+            "step": RUN_STEP_OUTLINE,
+            "status": {"in": [RUN_STATUS_PENDING, RUN_STATUS_PROCESSING]},
+        },
+        order={"updatedAt": "desc"},
+    )
+    if active_outline_run:
+        return getattr(active_outline_run, "id", None)
+
+    fallback_run = await run_model.find_first(
+        where={
+            "sessionId": session_id,
+            "step": RUN_STEP_OUTLINE,
+            "status": {"in": [RUN_STATUS_PENDING, RUN_STATUS_PROCESSING]},
+        },
+        order={"updatedAt": "desc"},
+    )
+    if fallback_run:
+        return getattr(fallback_run, "id", None)
+
+    studio_card_run = await run_model.find_first(
+        where={
+            "sessionId": session_id,
+            "toolType": {"startsWith": "studio_card:"},
+            "step": {"in": [RUN_STEP_CONFIG, RUN_STEP_OUTLINE]},
+            "status": {"in": [RUN_STATUS_PENDING, RUN_STATUS_PROCESSING]},
+        },
+        order={"updatedAt": "desc"},
+    )
+    return getattr(studio_card_run, "id", None) if studio_card_run else None
+
+
 async def execute_outline_draft_local(
     *,
     db,
@@ -70,6 +126,8 @@ async def execute_outline_draft_local(
     trace_id = trace_id or str(uuid.uuid4())
     next_outline_version = 1
     stage_timings_ms: dict[str, float] = {}
+    run_id: Optional[str] = None
+    output_type: Optional[str] = None
     try:
         session = await db.generationsession.find_unique(where={"id": session_id})
         if not session:
@@ -85,6 +143,11 @@ async def execute_outline_draft_local(
             if isinstance(session, dict)
             else session.currentOutlineVersion
         )
+        output_type = (
+            session.get("outputType")
+            if isinstance(session, dict)
+            else getattr(session, "outputType", None)
+        )
         if state != GenerationState.DRAFTING_OUTLINE.value:
             logger.info(
                 "Outline draft skipped due to non-drafting session state: "
@@ -94,9 +157,32 @@ async def execute_outline_draft_local(
                 current_outline_version,
             )
             return
-        next_outline_version = max(int(current_outline_version or 0), 0) + 1
+        latest_outline_record = await load_latest_outline_record(db, session_id)
+        latest_outline_version = (
+            max(
+                int(
+                    (
+                        latest_outline_record.get("version")
+                        if isinstance(latest_outline_record, dict)
+                        else getattr(latest_outline_record, "version", 0)
+                    )
+                    or 0
+                ),
+                0,
+            )
+            if latest_outline_record is not None
+            else 0
+        )
+        next_outline_version = (
+            max(int(current_outline_version or 0), latest_outline_version, 0) + 1
+        )
+        run_id = await _resolve_outline_run_id(
+            db=db,
+            session_id=session_id,
+            output_type=output_type,
+        )
 
-        await _emit_outline_progress(append_event, session_id, trace_id)
+        await _emit_outline_progress(append_event, session_id, trace_id, run_id=run_id)
         outline_started_at = time.perf_counter()
         outline_doc = await asyncio.wait_for(
             generate_outline_doc(
@@ -135,12 +221,19 @@ async def execute_outline_draft_local(
             (time.perf_counter() - persist_started_at) * 1000,
             2,
         )
+        if run_id is None:
+            run_id = await _resolve_outline_run_id(
+                db=db,
+                session_id=session_id,
+                output_type=output_type,
+            )
         await emit_outline_success(
             append_event,
             session_id=session_id,
             trace_id=trace_id,
             outline_version=next_outline_version,
             stage_timings_ms=stage_timings_ms,
+            run_id=run_id,
         )
         logger.info(
             "outline_draft_stage_timing",
@@ -166,12 +259,19 @@ async def execute_outline_draft_local(
             draft_err,
             exc_info=True,
         )
+        if run_id is None:
+            run_id = await _resolve_outline_run_id(
+                db=db,
+                session_id=session_id,
+                output_type=output_type,
+            )
         await emit_outline_failure(
             append_event,
             session_id=session_id,
             error_code=error_code,
             error_message=error_message,
             trace_id=trace_id,
+            run_id=run_id,
         )
         await persist_outline_failure_fallback(
             db=db,
@@ -187,14 +287,20 @@ async def execute_outline_draft_local(
             trace_id=trace_id,
             failure_state_reason=failure_state_reason,
             outline_version=next_outline_version,
+            run_id=run_id,
         )
 
 
-async def _emit_outline_progress(append_event, session_id: str, trace_id: str) -> None:
+async def _emit_outline_progress(
+    append_event,
+    session_id: str,
+    trace_id: str,
+    run_id: Optional[str] = None,
+) -> None:
     await append_event(
         session_id=session_id,
         event_type=GenerationEventType.PROGRESS_UPDATED.value,
         state=GenerationState.DRAFTING_OUTLINE.value,
         progress=15,
-        payload={"stage": "outline_draft", "trace_id": trace_id},
+        payload={"stage": "outline_draft", "trace_id": trace_id, "run_id": run_id},
     )

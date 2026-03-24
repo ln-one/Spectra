@@ -1,4 +1,4 @@
-import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
+﻿import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
 import {
   buildCapabilityWithoutArtifact,
   resolveCapabilityFromArtifact,

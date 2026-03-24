@@ -27,12 +27,18 @@ class SessionQueryMixin:
     _db: Any
     _guard: StateTransitionGuard
 
-    async def get_session_snapshot(self, session_id: str, user_id: str) -> dict:
+    async def get_session_snapshot(
+        self,
+        session_id: str,
+        user_id: str,
+        run_id: Optional[str] = None,
+    ) -> dict:
         return await query_session_snapshot(
             db=self._db,
             guard=self._guard,
             session_id=session_id,
             user_id=user_id,
+            run_id=run_id,
             contract_version=self.CONTRACT_VERSION,
             schema_version=self.SCHEMA_VERSION,
         )

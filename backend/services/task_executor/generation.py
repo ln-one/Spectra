@@ -7,6 +7,11 @@ import time
 from typing import Optional
 
 from schemas.generation import TaskStatus, normalize_generation_type
+from services.generation_session_service.session_history import (
+    RUN_STATUS_PROCESSING,
+    RUN_STEP_GENERATE,
+    update_session_run,
+)
 
 from .common import RETRYABLE_ERRORS, run_async_entrypoint
 from .generation_error_handling import (
@@ -112,6 +117,24 @@ async def execute_generation_task(
                 context.run_no = parsed_input.get("run_no")
                 context.run_title = parsed_input.get("run_title")
                 context.tool_type = parsed_input.get("tool_type")
+                outline_version = parsed_input.get("outline_version")
+                if isinstance(outline_version, bool):
+                    outline_version = None
+                if outline_version is not None:
+                    try:
+                        parsed_outline_version = int(outline_version)
+                    except (TypeError, ValueError):
+                        parsed_outline_version = None
+                    if parsed_outline_version and parsed_outline_version >= 1:
+                        context.outline_version = parsed_outline_version
+
+        if context.run_id:
+            await update_session_run(
+                db=db_service.db,
+                run_id=context.run_id,
+                status=RUN_STATUS_PROCESSING,
+                step=RUN_STEP_GENERATE,
+            )
 
         ai_started_at = time.perf_counter()
         courseware_content = await build_generation_inputs(db_service, context)

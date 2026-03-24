@@ -9,6 +9,14 @@ import { useShallow } from "zustand/react/shallow";
 import { ASPECT_RATIO_OPTIONS } from "./constants";
 import type { OutlineEditorPanelProps, SlideCard } from "./types";
 
+function extractRunIdFromSessionPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const currentRun = (payload as { current_run?: { run_id?: unknown } })
+    .current_run;
+  const runId = currentRun?.run_id;
+  return typeof runId === "string" && runId.trim() ? runId : null;
+}
+
 export function useOutlineEditorController({
   topic = "课程大纲",
   isBootstrapping = false,
@@ -258,9 +266,18 @@ export function useOutlineEditorController({
       const maxAttempts = 40;
       const intervalMs = 1500;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const sessionResponse = await generateApi.getSession(sessionId);
+        const targetRunId = useProjectStore.getState().activeRunId || null;
+        const sessionResponse = await generateApi.getSessionSnapshot(
+          sessionId,
+          {
+            run_id: targetRunId,
+          }
+        );
         const latest = sessionResponse?.data ?? null;
-        useProjectStore.setState({ generationSession: latest });
+        useProjectStore.setState({
+          generationSession: latest,
+          activeRunId: extractRunIdFromSessionPayload(latest) || targetRunId,
+        });
         const state = latest?.session?.state;
         const outlineVersion = Number(latest?.outline?.version || 0);
         const nodes = latest?.outline?.nodes || [];

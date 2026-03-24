@@ -20,13 +20,13 @@ model User {
   password  String   // bcrypt 哈希 (60 字符)
   username  String   @unique
   fullName  String?
-  
+
   // 关联关系
   projects  Project[]
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([email])
   @@index([username])
 }
@@ -37,7 +37,7 @@ model IdempotencyKey {
   key       String   @id
   response  String   // JSON 格式的响应
   createdAt DateTime @default(now())
-  
+
   @@index([createdAt])
 }
 
@@ -48,20 +48,20 @@ model IdempotencyKey {
 /// 项目模型 - 存储课件项目的基础信息和教学配置
 model Project {
   id          String   @id @default(uuid())
-  
+
   // 用户关联
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   name        String   // 项目名称，如"五年级数学-分数加减法"
   description String?  // 项目描述
-  
+
   // 教学信息
   subject             String?  // 学科：语文/数学/英语/物理/化学等
   gradeLevel          String?  // 学段：小学/初中/高中
   duration            Int?     // 课时（分钟），如 40、45、90
   teachingObjectives  String?  // 教学目标（JSON 格式）
-  
+
   // 状态管理
   status      String   @default("draft")  // draft/in_progress/completed
 
@@ -70,7 +70,7 @@ model Project {
   isReferenceable   Boolean  @default(false)
   currentVersionId  String?  @unique
   currentVersion    ProjectVersion? @relation("ProjectCurrentVersion", fields: [currentVersionId], references: [id])
-  
+
   // 关联关系
   conversations      Conversation[]
   uploads            Upload[]
@@ -83,10 +83,10 @@ model Project {
   candidateChanges   CandidateChange[]
   members            ProjectMember[]
   runs               SessionRun[]
-  
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@index([userId, status])
   @@index([userId, createdAt])
 }
@@ -96,17 +96,17 @@ model Conversation {
   id          String   @id @default(uuid())
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
+
   // session 作用域隔离（C5：同 project 下多 session 不串数据）
   sessionId   String?
   session     GenerationSession? @relation(fields: [sessionId], references: [id])
-  
+
   role        String   // user/assistant/system
   content     String   // 消息内容
   metadata    String?  // JSON：意图标签、追问类型、关键词等、citations
-  
+
   createdAt   DateTime @default(now())
-  
+
   @@index([projectId, createdAt])
   @@index([projectId, sessionId, createdAt])
 }
@@ -116,27 +116,27 @@ model Upload {
   id          String   @id @default(uuid())
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
+
   filename    String   // 原始文件名
   filepath    String   // 存储路径
   fileType    String   // pdf/word/ppt/image/video
   mimeType    String?  // MIME 类型
   size        Int      // 文件大小（字节）
-  
+
   // 解析状态
   status       String   @default("uploading")  // uploading/parsing/ready/failed
   parseResult  String?  // JSON：解析后的结构化数据
   errorMessage String?  // 解析失败时的错误信息
-  
+
   // 用途标注（UX 需求）
   usageIntent  String?  // 用户标注的文件用途，如"参考第2页的练习题设计"
-  
+
   // 关联关系
   chunks      ParsedChunk[]
-  
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@index([projectId, status])
 }
 
@@ -145,14 +145,14 @@ model ParsedChunk {
   id          String   @id @default(uuid())
   uploadId    String
   upload      Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
-  
+
   content     String   // 片段内容
   chunkIndex  Int      // 片段索引（在文件中的顺序）
   metadata    String?  // JSON：页码、时间戳、标题、场景描述等
   sourceType  String   // pdf/video/image/word/ppt
-  
+
   createdAt   DateTime @default(now())
-  
+
   @@index([uploadId, chunkIndex])
 }
 
@@ -161,27 +161,27 @@ model GenerationTask {
   id          String   @id @default(uuid())
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
+
   // session 关联（C1：任务显式关联 session，兼容旧任务可为空）
   sessionId   String?
   session     GenerationSession? @relation(fields: [sessionId], references: [id])
-  
+
   taskType    String   // ppt/word/both
   status      String   @default("pending")  // pending/processing/completed/failed
   progress    Int      @default(0)          // 0-100
-  
+
   // RQ 任务队列字段
   rqJobId     String?  // RQ Job ID
   retryCount  Int      @default(0)  // 重试次数
-  
+
   // 输入输出
   inputData    String?  // JSON：生成指令集（意图+RAG结果+配置）
   outputUrls   String?  // JSON：{ppt_url, word_url}
   errorMessage String?  // 生成失败时的错误信息
-  
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@index([projectId, status])
   @@index([rqJobId])
   @@index([sessionId])

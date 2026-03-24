@@ -15,18 +15,7 @@ class ArtifactMediaMixin:
         self, content, project_id: str, artifact_id: str
     ) -> str:
         storage_path = self.get_storage_path(project_id, "gif", artifact_id)
-        try:
-            actual_path = render_gif(content or {}, storage_path)
-        except (ImportError, ModuleNotFoundError) as exc:
-            logger.warning(
-                "GIF rendering is unavailable for %s/%s: %s",
-                project_id,
-                artifact_id,
-                exc,
-            )
-            raise RuntimeError(
-                "GIF rendering requires Pillow and a compatible image backend."
-            ) from exc
+        actual_path = render_gif(content or {}, storage_path)
         logger.info("Generated animation GIF at %s", actual_path)
         return actual_path
 
@@ -41,18 +30,7 @@ class ArtifactMediaMixin:
 
     async def generate_video(self, content, project_id: str, artifact_id: str) -> str:
         storage_path = self.get_storage_path(project_id, "mp4", artifact_id)
-        try:
-            actual_path = render_mp4(content or {}, storage_path)
-        except (ImportError, ModuleNotFoundError) as exc:
-            logger.warning(
-                "MP4 rendering is unavailable for %s/%s: %s",
-                project_id,
-                artifact_id,
-                exc,
-            )
-            raise RuntimeError(
-                "MP4 rendering requires opencv-python. Try GIF or HTML output instead."
-            ) from exc
+        actual_path = render_mp4(content or {}, storage_path)
         logger.info("Generated MP4 at %s", actual_path)
         return actual_path
 

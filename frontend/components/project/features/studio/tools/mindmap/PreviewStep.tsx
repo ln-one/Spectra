@@ -1,20 +1,14 @@
-﻿import { BookText, CircleCheck, Download, GitBranch } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { CapabilityNotice, FallbackPreviewHint } from "../CapabilityNotice";
+﻿import { Network } from "lucide-react";
+import { CapabilityNotice } from "../CapabilityNotice";
 import type { ToolFlowContext } from "../types";
 import { MindmapCanvas } from "./MindmapCanvas";
 import type { MindNode } from "./types";
 
 interface PreviewStepProps {
-  tree: MindNode;
   selectedId: string;
-  selectedNodeLabel: string;
-  totalNodeCount: number;
   lastGeneratedAt: string | null;
   flowContext?: ToolFlowContext;
   onSelectNode: (id: string) => void;
-  onRegenerate: () => void;
-  onInjectChildren: () => void;
 }
 
 function normalizeLabel(value: unknown, fallback: string): string {
@@ -75,14 +69,16 @@ function buildTreeFromFlatNodes(
   return root;
 }
 
-function extractBackendTree(content: unknown): MindNode | null {
+function extractBackendTree(flowContext?: ToolFlowContext): MindNode | null {
+  if (!flowContext?.resolvedArtifact) return null;
+  if (flowContext.resolvedArtifact.contentKind !== "json") return null;
+  const content = flowContext.resolvedArtifact.content;
   if (!content || typeof content !== "object") return null;
-  const obj = content as Record<string, unknown>;
-  const nodes = obj.nodes;
+  const row = content as Record<string, unknown>;
+  const nodes = row.nodes;
   if (!Array.isArray(nodes) || nodes.length === 0) return null;
-
   const nested = toMindNode(nodes[0]);
-  if (nested && nested.children && nested.children.length > 0) {
+  if (nested && (nested.children?.length ?? 0) > 0) {
     return nested;
   }
   return buildTreeFromFlatNodes(nodes as Array<Record<string, unknown>>);
@@ -91,162 +87,63 @@ function extractBackendTree(content: unknown): MindNode | null {
 function countTreeNodes(node: MindNode): number {
   return (
     1 +
-    (node.children ?? []).reduce((acc, child) => acc + countTreeNodes(child), 0)
+    (node.children ?? []).reduce((sum, child) => sum + countTreeNodes(child), 0)
   );
 }
 
 export function PreviewStep({
-  tree,
   selectedId,
-  selectedNodeLabel,
-  totalNodeCount,
   lastGeneratedAt,
   flowContext,
   onSelectNode,
-  onRegenerate,
-  onInjectChildren,
 }: PreviewStepProps) {
   const capabilityStatus =
     flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
-    flowContext?.capabilityReason ??
-    "未获取到后端导图内容，已回退前端示意内容。";
-
-  let backendTree: MindNode | null = null;
-  if (
-    capabilityStatus === "backend_ready" &&
-    flowContext?.resolvedArtifact?.contentKind === "json"
-  ) {
-    backendTree = extractBackendTree(flowContext.resolvedArtifact.content);
-  }
-
-  const shouldShowFallback = capabilityStatus !== "backend_ready";
-  const activeTree = backendTree ?? tree;
-  const activeSelectedId = backendTree ? backendTree.id : selectedId;
-  const activeSelectedLabel = backendTree
-    ? backendTree.label
-    : selectedNodeLabel;
-  const activeNodeCount = backendTree
-    ? countTreeNodes(backendTree)
-    : totalNodeCount;
+    flowContext?.capabilityReason ?? "正在等待后端返回真实导图结构。";
+  const backendTree =
+    capabilityStatus === "backend_ready"
+      ? extractBackendTree(flowContext)
+      : null;
+  const activeTree = backendTree;
 
   return (
     <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-3">
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-        {shouldShowFallback ? (
-          <div className="mt-3">
-            <FallbackPreviewHint />
-          </div>
-        ) : null}
 
-        <div className="mt-3 flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <CircleCheck className="h-4 w-4 text-emerald-600" />
-            <div>
-              <p className="text-xs font-semibold text-zinc-800">
-                导图预览（面板内）
-              </p>
-              <p className="mt-1 text-[11px] text-zinc-500">
-                {lastGeneratedAt
-                  ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
-                  : "当前展示的是生成后的导图结构。"}
-              </p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={onRegenerate}
-          >
-            重新生成
-          </Button>
-        </div>
-
-        <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[11px] text-zinc-600">
-              <GitBranch className="h-3.5 w-3.5" />
-              <span>节点总数：{activeNodeCount}</span>
-              <span>当前选中：{activeSelectedLabel}</span>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={onInjectChildren}
-              disabled={!shouldShowFallback}
-            >
-              为当前节点补充分支
-            </Button>
-          </div>
-          <MindmapCanvas
-            tree={activeTree}
-            selectedId={activeSelectedId}
-            onSelectNode={onSelectNode}
-          />
-          <p className="mt-3 text-[11px] text-zinc-500">
-            提示：选中节点后，可在右上角 Chat 输入“把这个点再展开两层”继续细化。
+        <div className="mt-4">
+          <p className="text-sm font-semibold text-zinc-900">实时导图预览</p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            {lastGeneratedAt
+              ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
+              : "这里只展示后端返回的真实思维导图。"}
           </p>
         </div>
-      </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <BookText className="h-4 w-4 text-zinc-600" />
-            <p className="text-xs font-semibold text-zinc-800">最近生成成果</p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs text-zinc-600"
-            onClick={() => void flowContext?.onRefine?.()}
-            disabled={!flowContext?.canRefine}
-          >
-            继续润色
-          </Button>
-        </div>
-        <div className="mt-2 space-y-2">
-          {flowContext?.latestArtifacts &&
-          flowContext.latestArtifacts.length > 0 ? (
-            flowContext.latestArtifacts.slice(0, 4).map((item) => (
-              <div
-                key={item.artifactId}
-                className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-zinc-800">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 text-[11px] text-zinc-500">
-                    {new Date(item.createdAt).toLocaleString()} · {item.status}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 shrink-0 text-xs"
-                  onClick={() =>
-                    void flowContext.onExportArtifact?.(item.artifactId)
-                  }
-                >
-                  <Download className="mr-1.5 h-3.5 w-3.5" />
-                  下载
-                </Button>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-3 text-[11px] text-zinc-500">
-              还没有历史成果。生成完成后会自动出现在这里，方便你随时下载。
+        {activeTree ? (
+          <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
+            <div className="mb-3 flex items-center gap-3 text-[11px] text-zinc-600">
+              <span>节点总数：{countTreeNodes(activeTree)}</span>
+              <span>当前根节点：{activeTree.label}</span>
             </div>
-          )}
-        </div>
+            <MindmapCanvas
+              tree={activeTree}
+              selectedId={selectedId || activeTree.id}
+              onSelectNode={onSelectNode}
+            />
+          </div>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
+            <Network className="mx-auto h-8 w-8 text-zinc-400" />
+            <p className="mt-3 text-sm font-medium text-zinc-700">
+              暂未收到后端真实导图
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              当前不再渲染前端示意导图，等待后端 nodes 返回后会直接展示。
+            </p>
+          </div>
+        )}
       </section>
     </div>
   );

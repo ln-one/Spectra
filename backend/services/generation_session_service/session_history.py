@@ -46,6 +46,8 @@ _STUDIO_CARD_LABELS = {
     "interactive_games": "互动游戏",
     "classroom_qa_simulator": "课堂问答模拟",
     "speaker_notes": "讲稿备注",
+    "knowledge_mindmap": "知识导图",
+    "demonstration_animations": "演示动画",
 }
 
 

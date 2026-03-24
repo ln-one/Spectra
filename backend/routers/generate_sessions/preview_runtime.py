@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import logging
 import time
@@ -83,7 +83,7 @@ async def get_session_preview_response(
             lesson_plan=lesson_plan,
             anchor=anchor,
         ),
-        message="预览获取成功",
+        message="棰勮鑾峰彇鎴愬姛",
     )
     duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
     logger.info(
@@ -125,7 +125,7 @@ async def modify_session_preview_response(
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=ErrorCode.INVALID_INPUT,
-            message="slide_id 和 patch 为必填字段",
+            message="slide_id 鍜?patch 涓哄繀濉瓧娈?",
         )
 
     expected_render_version = resolve_modify_expected_render_version(body)
@@ -170,7 +170,7 @@ async def modify_session_preview_response(
         payload=payload,
         attach_auto_candidate_change=attach_auto_candidate_change,
     )
-    return success_response(data=payload, message="预览修改请求已接收")
+    return success_response(data=payload, message="棰勮淇敼璇锋眰宸叉帴鍙?")
 
 
 async def get_session_slide_preview_response(
@@ -213,7 +213,7 @@ async def get_session_slide_preview_response(
             teaching_plan=teaching_plan,
             related_slides=related_slides,
         ),
-        message="页面预览获取成功",
+        message="椤甸潰棰勮鑾峰彇鎴愬姛",
     )
 
 
@@ -296,7 +296,7 @@ async def export_session_response(
         payload=payload,
         attach_auto_candidate_change=attach_auto_candidate_change,
     )
-    response = success_response(data=payload, message="导出成功")
+    response = success_response(data=payload, message="瀵煎嚭鎴愬姛")
     duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
     logger.info(
         (

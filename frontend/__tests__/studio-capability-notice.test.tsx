@@ -12,7 +12,7 @@ describe("CapabilityNotice", () => {
     render(
       <CapabilityNotice status="backend_placeholder" reason="placeholder" />
     );
-    expect(screen.getByText("后端占位内容")).toBeInTheDocument();
+    expect(screen.getByText("后端等待中")).toBeInTheDocument();
 
     render(
       <CapabilityNotice
@@ -28,6 +28,6 @@ describe("CapabilityNotice", () => {
 
   it("renders fallback preview hint text", () => {
     render(<FallbackPreviewHint />);
-    expect(screen.getByText("以下为前端临时占位/示意内容")).toBeInTheDocument();
+    expect(screen.getByText("正在等待后端返回真实内容")).toBeInTheDocument();
   });
 });

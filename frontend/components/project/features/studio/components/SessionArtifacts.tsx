@@ -45,7 +45,7 @@ function statusText(status: StudioHistoryItem["status"]) {
   if (status === "completed") return "可预览";
   if (status === "failed") return "失败";
   if (status === "processing") return "生成中";
-  if (status === "previewing") return "预览中";
+  if (status === "previewing") return "可预览";
   if (status === "pending") return "排队中";
   return "草稿中";
 }
@@ -61,7 +61,7 @@ function statusIcon(status: StudioHistoryItem["status"]) {
     return <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />;
   }
   if (status === "previewing") {
-    return <Clock3 className="h-3.5 w-3.5 text-sky-500" />;
+    return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
   }
   if (status === "pending") {
     return <Clock3 className="h-3.5 w-3.5 text-zinc-500" />;
@@ -148,7 +148,7 @@ export function SessionArtifacts({
                                 item.status === "processing"
                                   ? "bg-blue-100 text-blue-700"
                                   : item.status === "previewing"
-                                    ? "bg-sky-100 text-sky-700"
+                                    ? "bg-emerald-100 text-emerald-700"
                                     : item.status === "pending"
                                       ? "bg-zinc-100 text-zinc-700"
                                       : item.status === "draft"

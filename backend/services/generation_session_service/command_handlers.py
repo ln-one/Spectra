@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
@@ -19,11 +19,13 @@ from services.generation_session_service.outline_versions import (
     persist_outline_version,
 )
 from services.generation_session_service.run_queries import (
+    get_latest_active_session_run,
     get_latest_active_session_run_by_tool,
 )
 from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
     RUN_STATUS_PROCESSING,
+    RUN_STEP_CONFIG,
     RUN_STEP_GENERATE,
     RUN_STEP_OUTLINE,
     SESSION_TITLE_SOURCE_MANUAL,
@@ -232,7 +234,7 @@ async def handle_confirm_outline(
     expected_state = command.get("expected_state")
     if expected_state and session.state != expected_state:
         raise conflict_error_cls(
-            f"鐘舵€佷笉鍖归厤锛氭湡鏈?{expected_state}锛屽綋鍓?{session.state}"
+            f"Session state mismatch: expected {expected_state}, got {session.state}"
         )
     effective_outline_version = await get_effective_outline_version(db, session)
     if effective_outline_version != getattr(session, "currentOutlineVersion", 0):
@@ -258,24 +260,42 @@ async def handle_confirm_outline(
         "word": "word_generate",
         "both": "both_generate",
     }.get(str(session.outputType or "").strip().lower(), "both_generate")
-    active_outline_run = await get_latest_active_session_run_by_tool(
-        db,
-        session.id,
-        tool_type,
-    )
+
     run = None
-    if (
-        active_outline_run
-        and getattr(active_outline_run, "step", None) == RUN_STEP_OUTLINE
-    ):
-        run = await update_session_run(
-            db=db,
-            run_id=active_outline_run.id,
-            step=RUN_STEP_GENERATE,
-            status=RUN_STATUS_PENDING,
+    active_session_run = await get_latest_active_session_run(db, session.id)
+    if active_session_run and getattr(active_session_run, "step", None) in {
+        RUN_STEP_CONFIG,
+        RUN_STEP_OUTLINE,
+    }:
+        active_tool_type = str(getattr(active_session_run, "toolType", "") or "")
+        if active_tool_type == tool_type or active_tool_type.startswith("studio_card:"):
+            run = await update_session_run(
+                db=db,
+                run_id=active_session_run.id,
+                step=RUN_STEP_GENERATE,
+                status=RUN_STATUS_PENDING,
+            )
+            run = run or active_session_run
+
+    if run is None:
+        active_outline_run = await get_latest_active_session_run_by_tool(
+            db,
+            session.id,
+            tool_type,
         )
-        run = run or active_outline_run
-    else:
+        if (
+            active_outline_run
+            and getattr(active_outline_run, "step", None) == RUN_STEP_OUTLINE
+        ):
+            run = await update_session_run(
+                db=db,
+                run_id=active_outline_run.id,
+                step=RUN_STEP_GENERATE,
+                status=RUN_STATUS_PENDING,
+            )
+            run = run or active_outline_run
+
+    if run is None:
         run = await create_session_run(
             db=db,
             session_id=session.id,
@@ -342,7 +362,7 @@ async def handle_set_session_title(
     await db.generationsession.update(
         where={"id": session.id},
         data={
-            "displayTitle": display_title,
+            "displayTitle": display_title[:120],
             "displayTitleSource": SESSION_TITLE_SOURCE_MANUAL,
             "displayTitleUpdatedAt": datetime.now(timezone.utc),
         },

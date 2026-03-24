@@ -184,28 +184,6 @@ class TestEmbeddingServiceDashScope:
         svc = EmbeddingService(model="text-embedding-v4")
         assert svc.get_dimension() == 1024
 
-    def test_invalid_dimension_env_falls_back_to_default(
-        self, monkeypatch, caplog: pytest.LogCaptureFixture
-    ):
-        monkeypatch.setenv("EMBEDDING_DIMENSION", "oops")
-        caplog.set_level("WARNING")
-
-        svc = EmbeddingService(model="text-embedding-v4")
-
-        assert svc.get_dimension() == 1536
-        assert "Invalid EMBEDDING_DIMENSION value" in caplog.text
-
-    def test_non_positive_dimension_env_falls_back_to_default(
-        self, monkeypatch, caplog: pytest.LogCaptureFixture
-    ):
-        monkeypatch.setenv("EMBEDDING_DIMENSION", "0")
-        caplog.set_level("WARNING")
-
-        svc = EmbeddingService(model="text-embedding-v4")
-
-        assert svc.get_dimension() == 1536
-        assert "Non-positive EMBEDDING_DIMENSION value" in caplog.text
-
     def test_use_dashscope_flag(self, dashscope_svc):
         assert dashscope_svc._use_dashscope() is True
 

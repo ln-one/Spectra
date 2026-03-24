@@ -28,7 +28,17 @@ GenerationSessionResponseTarget:
       type: string
 
 GenerationSessionListItemTarget:
-  $ref: './generate-session-requests.yaml#/GenerationSessionListItem'
+  allOf:
+    - $ref: './generate-session-requests.yaml#/GenerationSessionListItem'
+    - type: object
+      properties:
+        display_title:
+          type: string
+        display_title_source:
+          $ref: './generate-session-models-target.yaml#/SessionTitleSource'
+        display_title_updated_at:
+          type: string
+          format: date-time
 
 GenerationSessionListResponseTarget:
   type: object
@@ -137,42 +147,6 @@ GenerationEventListResponseTarget:
           type: array
           items:
             $ref: './generate-session-models-target.yaml#/GenerationEventTarget'
-    message:
-      type: string
-
-GenerationSessionRunsResponseTarget:
-  type: object
-  required: [success, data, message]
-  properties:
-    success:
-      type: boolean
-    data:
-      type: object
-      properties:
-        runs:
-          type: array
-          items:
-            $ref: './generate-session-models-target.yaml#/SessionRun'
-        total:
-          type: integer
-        page:
-          type: integer
-        limit:
-          type: integer
-    message:
-      type: string
-
-GenerationSessionRunDetailResponseTarget:
-  type: object
-  required: [success, data, message]
-  properties:
-    success:
-      type: boolean
-    data:
-      type: object
-      properties:
-        run:
-          $ref: './generate-session-models-target.yaml#/SessionRun'
     message:
       type: string
 

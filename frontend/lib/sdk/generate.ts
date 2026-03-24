@@ -104,6 +104,37 @@ export const generateApi = {
     return unwrap<GenerationSessionResponse>(result);
   },
 
+  async getSessionByRun(
+    sessionId: string,
+    options?: { run_id?: string | null }
+  ): Promise<GenerationSessionResponse> {
+    const runId = options?.run_id?.trim();
+    if (!runId) {
+      return this.getSession(sessionId);
+    }
+    const url = new URL(
+      `${API_BASE_URL}/api/v1/generate/sessions/${encodeURIComponent(sessionId)}`
+    );
+    url.searchParams.set("run_id", runId);
+    const response = await apiFetch(url.toString(), { method: "GET" });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw toApiError(payload, response.status);
+    }
+    return payload as GenerationSessionResponse;
+  },
+
+  async getSessionSnapshot(
+    sessionId: string,
+    options?: { run_id?: string | null }
+  ): Promise<GenerationSessionResponse> {
+    const runId = options?.run_id?.trim();
+    if (!runId) {
+      return this.getSession(sessionId);
+    }
+    return this.getSessionByRun(sessionId, { run_id: runId });
+  },
+
   async listSessions(params: {
     project_id: string;
     page?: number;

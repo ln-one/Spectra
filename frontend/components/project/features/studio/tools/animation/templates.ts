@@ -8,6 +8,15 @@ interface BuildCodeParams {
   lineColor: string;
 }
 
+function escapeJsString(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n")
+    .replace(/\t/g, "\\t");
+}
+
 function sceneRuntimeName(scene: AnimationScene): string {
   if (scene === "bubble_sort") return "bubbleSortScene";
   if (scene === "magnetic_field") return "magneticFieldScene";
@@ -27,16 +36,15 @@ export function buildAnimationCode({
   showTrail,
   lineColor,
 }: BuildCodeParams): string {
-  const safeTopic = JSON.stringify(topic.trim() || "本节知识点");
-  const safeScene = JSON.stringify(sceneRuntimeName(scene));
-  const safeLineColor = JSON.stringify(lineColor);
+  const normalizedTopic = topic.trim() || "本节知识点";
+
   return [
     "const config = {",
-    `  topic: ${safeTopic},`,
-    `  scene: ${safeScene},`,
+    `  topic: "${escapeJsString(normalizedTopic)}",`,
+    `  scene: "${sceneRuntimeName(scene)}",`,
     `  speed: ${Number((speed / 100).toFixed(2))},`,
     `  showTrail: ${showTrail},`,
-    `  lineColor: ${safeLineColor},`,
+    `  lineColor: "${escapeJsString(lineColor)}",`,
     "};",
     "",
     "renderAnimation(config);",

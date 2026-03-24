@@ -1,32 +1,17 @@
-﻿import {
-  BookText,
-  CircleCheck,
-  Download,
-  Loader2,
-  MessageSquareText,
-} from "lucide-react";
+import { MessageSquareText, MessagesSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CapabilityNotice, FallbackPreviewHint } from "../CapabilityNotice";
+import { CapabilityNotice } from "../CapabilityNotice";
 import type { ToolFlowContext } from "../types";
-import { STRATEGY_POOL } from "./constants";
-import type { SimulationQuestion, VirtualStudent } from "./types";
 
 interface PreviewStepProps {
-  students: VirtualStudent[];
-  question: SimulationQuestion | null;
   answer: string;
   judgeText: string;
-  includeStrategyPanel: boolean;
-  strategyOffset: number;
   lastGeneratedAt: string | null;
   flowContext?: ToolFlowContext;
   isSubmittingTurn?: boolean;
-  onRegenerate: () => void;
   onAnswerChange: (value: string) => void;
   onSubmitAnswer: () => void;
-  onNextRound: () => void;
-  onOpenStrategies: () => void;
 }
 
 interface BackendTurnItem {
@@ -64,21 +49,22 @@ function parseBackendTurns(flowContext?: ToolFlowContext): BackendTurnItem[] {
   >;
   const rawTurns = Array.isArray(content.turns) ? content.turns : [];
 
-  const parsedTurns: Array<BackendTurnItem | null> = rawTurns.map((turn) => {
-    if (!turn || typeof turn !== "object") return null;
+  const turns: BackendTurnItem[] = [];
+  for (const turn of rawTurns) {
+    if (!turn || typeof turn !== "object") continue;
     const row = turn as Record<string, unknown>;
     const student = normalizeStudentLabel(row.student ?? row.student_profile);
-    const prompt =
+    const question =
       typeof row.question === "string" && row.question.trim()
         ? row.question.trim()
         : typeof row.student_question === "string" &&
             row.student_question.trim()
           ? row.student_question.trim()
           : "";
-    if (!prompt) return null;
-    return {
+    if (!question) continue;
+    turns.push({
       student,
-      question: prompt,
+      question,
       feedback:
         typeof row.feedback === "string" && row.feedback.trim()
           ? row.feedback.trim()
@@ -88,255 +74,101 @@ function parseBackendTurns(flowContext?: ToolFlowContext): BackendTurnItem[] {
         typeof row.teacher_hint === "string" && row.teacher_hint.trim()
           ? row.teacher_hint.trim()
           : undefined,
-    };
-  });
-
-  return parsedTurns.filter((item): item is BackendTurnItem => item !== null);
+    });
+  }
+  return turns;
 }
 
 export function PreviewStep({
-  students,
-  question,
   answer,
   judgeText,
-  includeStrategyPanel,
-  strategyOffset,
   lastGeneratedAt,
   flowContext,
   isSubmittingTurn = false,
-  onRegenerate,
   onAnswerChange,
   onSubmitAnswer,
-  onNextRound,
-  onOpenStrategies,
 }: PreviewStepProps) {
   const capabilityStatus =
     flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
-    flowContext?.capabilityReason ??
-    "正在等待学情预演生成，暂时先显示当前草稿。";
-  const visibleStrategies = [
-    STRATEGY_POOL[(strategyOffset + 0) % STRATEGY_POOL.length],
-    STRATEGY_POOL[(strategyOffset + 1) % STRATEGY_POOL.length],
-    STRATEGY_POOL[(strategyOffset + 2) % STRATEGY_POOL.length],
-  ];
+    flowContext?.capabilityReason ?? "正在等待后端返回真实问答预演内容。";
   const backendTurns = parseBackendTurns(flowContext);
-  const backendMode =
-    capabilityStatus === "backend_ready" && backendTurns.length > 0;
-  const activeBackendTurn = backendMode
-    ? backendTurns[backendTurns.length - 1]
-    : null;
-  const activeStudent = backendMode
-    ? { name: activeBackendTurn?.student ?? "虚拟学生", tag: "AI" }
-    : students.find((item) => item.id === question?.studentId);
-  const displayQuestion = backendMode
-    ? (activeBackendTurn?.question ?? "暂无问题")
-    : (question?.text ?? "暂无问题，请先点击“下一轮提问”。");
-  const displayJudgeText =
-    judgeText || (backendMode ? (activeBackendTurn?.feedback ?? "") : "");
-  const showFallbackHint = !backendMode;
+  const activeTurn = backendTurns[backendTurns.length - 1] ?? null;
+  const displayJudgeText = judgeText || activeTurn?.feedback || "";
+  const canSubmit = capabilityStatus === "backend_ready" && !!activeTurn;
 
   return (
     <div className="space-y-4">
-      <section className="rounded-xl border border-zinc-200 bg-white p-3">
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
-        {showFallbackHint ? (
-          <div className="mt-3">
-            <FallbackPreviewHint />
-          </div>
-        ) : null}
 
-        <div className="mt-3 flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <CircleCheck className="h-4 w-4 text-emerald-600" />
-            <div>
-              <p className="text-xs font-semibold text-zinc-800">
-                虚拟课堂群聊（面板内）
-              </p>
-              <p className="mt-1 text-[11px] text-zinc-500">
-                {lastGeneratedAt
-                  ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
-                  : "当前展示的是生成后的虚拟学生提问。"}
-              </p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={onRegenerate}
-          >
-            重新生成
-          </Button>
+        <div className="mt-4">
+          <p className="text-sm font-semibold text-zinc-900">实时问答预演</p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            {lastGeneratedAt
+              ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
+              : "这里只展示后端返回的真实问答预演。"}
+          </p>
         </div>
 
-        <div className="mt-3 space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
-          <div className="rounded-lg border border-zinc-200 bg-white p-3">
-            <p className="text-[11px] text-zinc-500">虚拟学生</p>
-            <div className="mt-2 space-y-2">
-              {students.map((student) => (
-                <div key={student.id} className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 text-[10px] text-zinc-700">
-                    {student.name.slice(-1)}
-                  </div>
-                  <span className="text-xs text-zinc-700">{student.name}</span>
-                  <span className="text-[10px] text-zinc-500">
-                    [{student.tag}]
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-zinc-200 bg-white p-3">
-            <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
-              <MessageSquareText className="h-3.5 w-3.5" />
-              <span>
-                当前提问：
-                {activeStudent
-                  ? `${activeStudent.name}（${activeStudent.tag}）`
-                  : "未选择"}
-              </span>
-            </div>
-            <p className="mt-2 text-sm text-zinc-800">{displayQuestion}</p>
-            {backendMode && activeBackendTurn?.teacherHint ? (
-              <p className="mt-2 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] text-sky-700">
-                教师提示：{activeBackendTurn.teacherHint}
+        {activeTurn ? (
+          <div className="mt-4 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+              <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+                <MessagesSquare className="h-4 w-4" />
+                <span>当前发言学生：{activeTurn.student}</span>
+              </div>
+              <p className="mt-3 text-sm text-zinc-900">
+                {activeTurn.question}
               </p>
-            ) : null}
-            {backendMode && typeof activeBackendTurn?.score === "number" ? (
-              <p className="mt-2 text-[11px] text-zinc-500">
-                当前评分：{activeBackendTurn.score}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex gap-2">
-            <Input
-              value={answer}
-              onChange={(event) => onAnswerChange(event.target.value)}
-              placeholder={
-                backendMode
-                  ? "输入你的回应，直接发给当前虚拟学生…"
-                  : "在这里输入你的回答..."
-              }
-              className="h-9 text-xs"
-            />
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 text-xs"
-              onClick={onSubmitAnswer}
-              disabled={isSubmittingTurn}
-            >
-              {isSubmittingTurn ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  提交中
-                </>
-              ) : (
-                "提交作答"
-              )}
-            </Button>
-          </div>
-
-          {displayJudgeText ? (
-            <div className="rounded-md border border-emerald-300 bg-emerald-50 p-2 text-xs text-emerald-700">
-              {displayJudgeText}
+              {activeTurn.teacherHint ? (
+                <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
+                  教师提示：{activeTurn.teacherHint}
+                </p>
+              ) : null}
+              {typeof activeTurn.score === "number" ? (
+                <p className="mt-2 text-[11px] text-zinc-500">
+                  当前评分：{activeTurn.score}
+                </p>
+              ) : null}
             </div>
-          ) : null}
 
-          <div className="flex items-center justify-between gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs"
-              onClick={onNextRound}
-            >
-              {backendMode ? "查看下一条" : "下一轮提问"}
-            </Button>
-            {includeStrategyPanel ? (
+            <div className="flex gap-2">
+              <Input
+                value={answer}
+                onChange={(event) => onAnswerChange(event.target.value)}
+                placeholder="输入你的回答，直接提交给当前虚拟学生"
+                className="h-9 text-xs"
+              />
               <Button
                 type="button"
                 size="sm"
-                className="h-8 rounded-lg bg-violet-600 text-xs hover:bg-violet-500"
-                onClick={onOpenStrategies}
+                className="h-9 text-xs"
+                onClick={onSubmitAnswer}
+                disabled={isSubmittingTurn || !answer.trim() || !canSubmit}
               >
-                解题锦囊
+                {isSubmittingTurn ? "提交中" : "提交作答"}
               </Button>
+            </div>
+
+            {displayJudgeText ? (
+              <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                {displayJudgeText}
+              </div>
             ) : null}
           </div>
-
-          {includeStrategyPanel ? (
-            <div className="space-y-2">
-              {visibleStrategies.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-md border border-violet-300 bg-violet-50 p-2 text-xs text-violet-700"
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-zinc-200 bg-white p-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <BookText className="h-4 w-4 text-zinc-600" />
-            <p className="text-xs font-semibold text-zinc-800">最近生成成果</p>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
+            <MessageSquareText className="mx-auto h-8 w-8 text-zinc-400" />
+            <p className="mt-3 text-sm font-medium text-zinc-700">
+              暂未收到后端真实预演内容
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              当前不再展示前端虚拟群聊示意，等待后端 turns
+              返回后会直接进入真实预演。
+            </p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs text-zinc-600"
-            onClick={() => void flowContext?.onRefine?.()}
-            disabled={!flowContext?.canRefine}
-          >
-            继续润色
-          </Button>
-        </div>
-        <div className="mt-2 space-y-2">
-          {flowContext?.latestArtifacts &&
-          flowContext.latestArtifacts.length > 0 ? (
-            flowContext.latestArtifacts.slice(0, 4).map((item) => (
-              <div
-                key={item.artifactId}
-                className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-zinc-800">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 text-[11px] text-zinc-500">
-                    {new Date(item.createdAt).toLocaleString()} · {item.status}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 shrink-0 text-xs"
-                  onClick={() =>
-                    void flowContext.onExportArtifact?.(item.artifactId)
-                  }
-                >
-                  <Download className="mr-1.5 h-3.5 w-3.5" />
-                  下载
-                </Button>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-3 text-[11px] text-zinc-500">
-              还没有历史成果。生成完成后会自动出现在这里，方便你随时下载。
-            </div>
-          )}
-        </div>
+        )}
       </section>
     </div>
   );

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -101,6 +101,7 @@ export function SessionSwitcher({
             whileTap={{ scale: 0.98 }}
             transition={{ type: "spring", stiffness: 360, damping: 28 }}
             className="project-session-trigger group flex items-center gap-2 rounded-[var(--project-control-radius)] px-4 py-2 transition-all duration-300 focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+            data-tour="session-switcher"
           >
             <motion.span
               layoutId="session-title"

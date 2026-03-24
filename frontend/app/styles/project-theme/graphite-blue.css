@@ -1,4 +1,4 @@
-[data-project-style="graphite-blue"] .project-panel-card {
+﻿[data-project-style="graphite-blue"] .project-panel-card {
   border-color: color-mix(in srgb, var(--project-border-strong) 82%, #0f172a);
   box-shadow: 12px 12px 0 -6px rgba(15, 23, 42, 0.72);
   background: linear-gradient(

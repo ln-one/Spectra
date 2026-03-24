@@ -92,9 +92,10 @@ async def load_session_snapshot_or_raise(
     svc: GenerationSessionService,
     session_id: str,
     user_id: str,
+    run_id: Optional[str] = None,
 ) -> dict:
     try:
-        return await svc.get_session_snapshot(session_id, user_id)
+        return await svc.get_session_snapshot(session_id, user_id, run_id=run_id)
     except ValueError as exc:
         raise _not_found_session() from exc
     except PermissionError as exc:

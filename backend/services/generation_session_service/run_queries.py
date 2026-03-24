@@ -40,6 +40,21 @@ async def get_session_run(db, session_id: str, run_id: str) -> Any | None:
     return run
 
 
+async def get_latest_active_session_run(
+    db,
+    session_id: str,
+) -> Any | None:
+    if not _supports_session_run(db):
+        return None
+    return await db.sessionrun.find_first(
+        where={
+            "sessionId": session_id,
+            "status": {"in": [RUN_STATUS_PENDING, RUN_STATUS_PROCESSING]},
+        },
+        order={"updatedAt": "desc"},
+    )
+
+
 async def get_latest_active_session_run_by_tool(
     db,
     session_id: str,

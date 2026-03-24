@@ -1,4 +1,4 @@
-import type { WorkflowStepItem } from "@/components/project/shared";
+﻿import type { WorkflowStepItem } from "@/components/project/shared";
 import type {
   WordDifficultyLayer,
   WordDocumentVariant,
@@ -10,20 +10,20 @@ export const WORD_STEPS: WorkflowStepItem[] = [
   {
     id: "config",
     title: "配置",
-    description: "先选文档类型，再补充教学目标和适用对象。",
+    description: "根据知识库推荐补齐文档目标、对象和输出要求。",
     caption: "准备参数",
   },
   {
     id: "generate",
     title: "生成",
-    description: "确认参数后开始生成文档。",
+    description: "确认配置后交给后端生成正式文档。",
     caption: "开始生成",
   },
   {
     id: "preview",
     title: "预览",
-    description: "在面板内阅读文档，并继续微调。",
-    caption: "查看结果",
+    description: "只查看后端真实预览结果，不再展示前端草稿。",
+    caption: "实时预览",
   },
 ];
 
@@ -35,22 +35,22 @@ export const DOCUMENT_VARIANTS: Array<{
   {
     value: "layered_lesson_plan",
     label: "分层教案",
-    helper: "按 A/B/C 层级安排课堂任务。",
+    helper: "适合 A/B/C 分层任务、课堂节奏和差异化指导。",
   },
   {
     value: "student_handout",
     label: "学生讲义",
-    helper: "生成可直接发给学生的课堂讲义。",
+    helper: "聚焦学生可直接阅读和打印使用的课堂材料。",
   },
   {
     value: "post_class_quiz",
-    label: "课后测验题",
-    helper: "课后巩固与拓展练习。",
+    label: "课后测验",
+    helper: "围绕课堂重点生成巩固题、变式题和讲评点。",
   },
   {
     value: "lab_guide",
     label: "实验指导书",
-    helper: "强调步骤、注意事项与复盘。",
+    helper: "强调实验步骤、风险提醒和复盘要求。",
   },
 ];
 
@@ -77,9 +77,9 @@ export const DIFFICULTY_LAYER_OPTIONS: Array<{
   value: WordDifficultyLayer;
   label: string;
 }> = [
-  { value: "A", label: "A 层（基础巩固）" },
-  { value: "B", label: "B 层（综合应用）" },
-  { value: "C", label: "C 层（探究提升）" },
+  { value: "A", label: "A 层：基础巩固" },
+  { value: "B", label: "B 层：综合应用" },
+  { value: "C", label: "C 层：探究提升" },
 ];
 
 export function getReadinessLabel(status?: string | null): string {

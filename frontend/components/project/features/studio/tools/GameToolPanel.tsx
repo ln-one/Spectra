@@ -1,33 +1,40 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { Gamepad2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { WorkflowStepper } from "@/components/project/shared";
+import { TOOL_COLORS } from "../constants";
 import type { ToolPanelProps } from "./types";
-import {
-  GAME_MODE_OPTIONS,
-  GAME_STEPS,
-  getReadinessLabel,
-} from "./game/constants";
 import { ConfigStep } from "./game/ConfigStep";
+import { GAME_STEPS, getReadinessLabel } from "./game/constants";
 import { GenerateStep } from "./game/GenerateStep";
 import { PreviewStep } from "./game/PreviewStep";
-import {
-  buildPseudoCode,
-  buildSandboxDescription,
-  buildSandboxTitle,
-} from "./game/templates";
-import type { GameMode, GameStep } from "./game/types";
+import type { GameStep } from "./game/types";
+import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
-function clampNumber(
-  value: string,
-  min: number,
-  max: number,
-  fallback: number
-): number {
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) return fallback;
-  return Math.min(max, Math.max(min, parsed));
+function inferGamePattern(
+  creativeDirection: string,
+  mechanicsNotes: string
+): "timeline_sort" | "concept_match" | "freeform" {
+  const text = `${creativeDirection} ${mechanicsNotes}`.toLowerCase();
+  if (/(时间轴|排序|顺序|timeline|sort)/i.test(text)) {
+    return "timeline_sort";
+  }
+  if (/(连线|匹配|配对|match|connect)/i.test(text)) {
+    return "concept_match";
+  }
+  return "freeform";
+}
+
+function buildIdeaTags(playerGoal: string, mechanicsNotes: string): string[] {
+  const raw = `${playerGoal}\n${mechanicsNotes}`;
+  const tokens = raw
+    .split(/[\n,，。；;、]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 2 && item.length <= 24);
+  return [...new Set(tokens)].slice(0, 4);
 }
 
 export function GameToolPanel({
@@ -37,130 +44,123 @@ export function GameToolPanel({
 }: ToolPanelProps) {
   const [activeStep, setActiveStep] = useState<GameStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);
-  const [topic, setTopic] = useState("工业革命关键事件");
-  const [mode, setMode] = useState<GameMode>("timeline_sort");
-  const [countdownInput, setCountdownInput] = useState("60");
-  const [lifeInput, setLifeInput] = useState("3");
-  const [ideaTags, setIdeaTags] = useState<string[]>(["30秒倒计时"]);
+  const [topic, setTopic] = useState("");
+  const [creativeDirection, setCreativeDirection] = useState("");
+  const [playerGoal, setPlayerGoal] = useState("");
+  const [mechanicsNotes, setMechanicsNotes] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
-  const [previewCountdown, setPreviewCountdown] = useState(60);
-  const [previewLife, setPreviewLife] = useState(3);
 
-  const countdown = useMemo(
-    () => clampNumber(countdownInput, 10, 180, 60),
-    [countdownInput]
-  );
-  const life = useMemo(() => clampNumber(lifeInput, 1, 10, 3), [lifeInput]);
-  const modeLabel =
-    GAME_MODE_OPTIONS.find((item) => item.value === mode)?.label ??
-    "时间轴排序";
+  const { suggestions, summary, isLoading } = useStudioRagRecommendations({
+    query: "为当前项目推荐适合生成课堂互动游戏的主题、玩法方向和闯关目标",
+    fallbackSuggestions: ["概念辨析", "因果链排序", "实验现象判断"],
+  });
 
   useEffect(() => {
+    if (!topic.trim() && suggestions[0]) {
+      setTopic(suggestions[0]);
+    }
+  }, [suggestions, topic]);
+
+  useEffect(() => {
+    if (!creativeDirection.trim() && summary) {
+      setCreativeDirection(summary);
+    }
+  }, [creativeDirection, summary]);
+
+  useEffect(() => {
+    const gamePattern = inferGamePattern(creativeDirection, mechanicsNotes);
+    const creativeBrief = [creativeDirection, playerGoal, mechanicsNotes]
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .join("\n");
+    const ideaTags = buildIdeaTags(playerGoal, mechanicsNotes);
     onDraftChange?.({
       topic,
-      mode,
-      countdown,
-      life,
+      creative_direction: creativeDirection,
+      player_goal: playerGoal,
+      mechanics_notes: mechanicsNotes,
+      game_pattern: gamePattern,
+      mode: gamePattern,
+      creative_brief: creativeBrief || creativeDirection,
+      countdown: 60,
+      life: 3,
       idea_tags: ideaTags,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [
-    countdown,
+    creativeDirection,
     flowContext?.selectedSourceId,
-    ideaTags,
-    life,
-    mode,
+    mechanicsNotes,
     onDraftChange,
+    playerGoal,
     topic,
   ]);
 
-  const sandboxTitle = useMemo(
-    () =>
-      buildSandboxTitle({
-        topic,
-        mode,
-        countdown: previewCountdown,
-        life: previewLife,
-        ideaTags,
-      }),
-    [ideaTags, mode, previewCountdown, previewLife, topic]
-  );
-  const sandboxDescription = useMemo(
-    () =>
-      buildSandboxDescription({
-        topic,
-        mode,
-        countdown: previewCountdown,
-        life: previewLife,
-        ideaTags,
-      }),
-    [ideaTags, mode, previewCountdown, previewLife, topic]
-  );
-  const pseudoCode = useMemo(
-    () =>
-      buildPseudoCode({
-        topic,
-        mode,
-        countdown: previewCountdown,
-        life: previewLife,
-        ideaTags,
-      }),
-    [ideaTags, mode, previewCountdown, previewLife, topic]
-  );
-
-  const handleToggleIdeaTag = (tag: string) => {
-    setIdeaTags((prev) =>
-      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]
-    );
-  };
-
-  const resetPreviewState = () => {
-    setPreviewCountdown(countdown);
-    setPreviewLife(life);
-  };
-
   const handleGenerate = async () => {
-    resetPreviewState();
+    setActiveStep("preview");
 
     if (!flowContext?.onExecute) {
       setLastGeneratedAt(new Date().toISOString());
-      setActiveStep("preview");
       return;
     }
 
     setIsGenerating(true);
     try {
       const executed = await flowContext.onExecute();
-      if (!executed) return;
+      if (!executed) {
+        setActiveStep("generate");
+        return;
+      }
       setLastGeneratedAt(new Date().toISOString());
-      setActiveStep("preview");
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const colors = TOOL_COLORS.game;
+
   return (
-    <div className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200 bg-[linear-gradient(160deg,#ffffff,#f8fafc)] shadow-[0_22px_65px_-48px_rgba(15,23,42,0.45)]">
+    <div
+      className="project-tool-workbench h-full overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-zinc-200/30 group/workbench"
+      style={{
+        ["--project-tool-accent" as any]: colors.primary,
+        ["--project-tool-accent-soft" as any]: colors.glow,
+        ["--project-tool-surface" as any]: colors.soft,
+      }}
+    >
+      {/* Tool Accent Tip */}
+      <div className={cn("h-1 w-full bg-gradient-to-r", colors.gradient)} />
+
       <div className="flex h-full min-h-0 flex-col">
-        <div className="border-b border-zinc-200 px-4 pb-3 pt-4">
+        <div className="border-b border-zinc-100/80 px-5 py-4 bg-zinc-50/30">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-zinc-900">
-                {toolName}三步工作台{" "}
-              </h3>
-              <p className="mt-1 text-xs leading-5 text-zinc-500">
-                先配置玩法，再生成小游戏，最后在面板里直接试玩和微调。{" "}
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-white shadow-sm border border-zinc-100 group-hover/workbench:scale-110 transition-transform duration-500">
+                <Gamepad2
+                  className="w-5 h-5"
+                  style={{ color: colors.primary }}
+                />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-zinc-900 tracking-tight">
+                  {toolName}智能工作台
+                </h3>
+                <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
+                  三步生成趣味课堂游戏 · 激发学生学习兴趣
+                </p>
+              </div>
             </div>
-            <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] text-zinc-600">
-              {getReadinessLabel(flowContext?.readiness)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-zinc-100 bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-600 shadow-sm uppercase tracking-wider">
+                {getReadinessLabel(flowContext?.readiness)}
+              </span>
+            </div>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-4">
-          <div className="grid h-full min-h-0 gap-3 grid-cols-1 lg:grid-cols-[176px_minmax(0,1fr)]">
+          <div className="grid h-full min-h-0 grid-cols-1 gap-3 lg:grid-cols-[176px_minmax(0,1fr)]">
             <WorkflowStepper
               className="hidden h-full min-h-0 overflow-y-auto lg:block"
               layout="rail"
@@ -184,15 +184,16 @@ export function GameToolPanel({
               {activeStep === "config" ? (
                 <ConfigStep
                   topic={topic}
-                  mode={mode}
-                  countdown={countdownInput}
-                  life={lifeInput}
-                  ideaTags={ideaTags}
+                  creativeDirection={creativeDirection}
+                  playerGoal={playerGoal}
+                  mechanicsNotes={mechanicsNotes}
+                  topicSuggestions={suggestions}
+                  ideaSuggestion={summary}
+                  isRecommendationsLoading={isLoading}
                   onTopicChange={setTopic}
-                  onModeChange={setMode}
-                  onCountdownChange={setCountdownInput}
-                  onLifeChange={setLifeInput}
-                  onToggleIdeaTag={handleToggleIdeaTag}
+                  onCreativeDirectionChange={setCreativeDirection}
+                  onPlayerGoalChange={setPlayerGoal}
+                  onMechanicsNotesChange={setMechanicsNotes}
                   onNext={() => setActiveStep("generate")}
                 />
               ) : null}
@@ -200,10 +201,9 @@ export function GameToolPanel({
               {activeStep === "generate" ? (
                 <GenerateStep
                   topic={topic}
-                  modeLabel={modeLabel}
-                  countdown={countdown}
-                  life={life}
-                  ideaTags={ideaTags}
+                  creativeDirection={creativeDirection}
+                  playerGoal={playerGoal}
+                  mechanicsNotes={mechanicsNotes}
                   flowContext={flowContext}
                   isGenerating={isGenerating}
                   onBack={() => setActiveStep("config")}
@@ -213,21 +213,8 @@ export function GameToolPanel({
 
               {activeStep === "preview" ? (
                 <PreviewStep
-                  sandboxTitle={sandboxTitle}
-                  sandboxDescription={sandboxDescription}
-                  pseudoCode={pseudoCode}
-                  countdown={previewCountdown}
-                  life={previewLife}
                   lastGeneratedAt={lastGeneratedAt}
                   flowContext={flowContext}
-                  onRegenerate={() => setActiveStep("generate")}
-                  onActionPenalty={() => {
-                    setPreviewCountdown((prev) => Math.max(10, prev - 10));
-                    setPreviewLife((prev) => Math.max(1, prev - 1));
-                  }}
-                  onActionReward={() => {
-                    setPreviewCountdown((prev) => Math.min(180, prev + 8));
-                  }}
                 />
               ) : null}
             </div>

@@ -14,7 +14,7 @@ const STATUS_STYLE: Record<CapabilityStatus, string> = {
 
 const STATUS_LABEL: Record<CapabilityStatus, string> = {
   backend_ready: "后端真实内容",
-  backend_placeholder: "后端占位内容",
+  backend_placeholder: "后端等待中",
   backend_not_implemented: "后端暂未实现",
   backend_error: "后端解析失败",
 };
@@ -33,7 +33,7 @@ export function CapabilityNotice({ status, reason }: CapabilityNoticeProps) {
 export function FallbackPreviewHint() {
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-      以下为前端临时占位/示意内容
+      正在等待后端返回真实内容
     </div>
   );
 }

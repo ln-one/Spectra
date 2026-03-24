@@ -39,6 +39,7 @@ export function useProjectDetailController() {
   const searchParams = useSearchParams();
   const projectId = params.id as string;
   const querySessionId = searchParams.get("session");
+  const queryRunId = searchParams.get("run");
 
   const {
     project,
@@ -51,8 +52,10 @@ export function useProjectDetailController() {
     fetchGenerationHistory,
     fetchArtifactHistory,
     setActiveSessionId,
+    setActiveRunId,
     generationHistory,
     activeSessionId,
+    activeRunId,
     reset,
   } = useProjectStore(
     useShallow((state) => ({
@@ -66,8 +69,10 @@ export function useProjectDetailController() {
       fetchGenerationHistory: state.fetchGenerationHistory,
       fetchArtifactHistory: state.fetchArtifactHistory,
       setActiveSessionId: state.setActiveSessionId,
+      setActiveRunId: state.setActiveRunId,
       generationHistory: state.generationHistory,
       activeSessionId: state.activeSessionId,
+      activeRunId: state.activeRunId,
       reset: state.reset,
     }))
   );
@@ -243,15 +248,24 @@ export function useProjectDetailController() {
     }
 
     const nextSessionId = preferredSessionId;
+    if (queryRunId && queryRunId !== activeRunId) {
+      setActiveRunId(queryRunId);
+    }
 
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
       void generateApi
-        .getSession(nextSessionId)
+        .getSessionSnapshot(nextSessionId, { run_id: queryRunId })
         .then((response) => {
+          const nextRunId =
+            queryRunId ||
+            ((response?.data as { current_run?: { run_id?: string } } | null)
+              ?.current_run?.run_id ??
+              null);
           useProjectStore.setState({
             generationSession: response?.data ?? null,
+            activeRunId: nextRunId,
           });
         })
         .catch(() => {
@@ -263,16 +277,38 @@ export function useProjectDetailController() {
       void fetchMessages(projectId, nextSessionId);
     }
 
+    if (
+      nextSessionId &&
+      nextSessionId === activeSessionId &&
+      queryRunId &&
+      queryRunId !== activeRunId
+    ) {
+      void generateApi
+        .getSessionSnapshot(nextSessionId, { run_id: queryRunId })
+        .then((response) => {
+          useProjectStore.setState({
+            generationSession: response?.data ?? null,
+            activeRunId: queryRunId,
+          });
+        })
+        .catch(() => {
+          // keep current snapshot when run-scoped sync fails
+        });
+    }
+
     if (nextSessionId && querySessionId !== nextSessionId) {
       updateSessionInUrl(nextSessionId);
     }
   }, [
     visibleGenerationHistory,
     querySessionId,
+    queryRunId,
     activeSessionId,
+    activeRunId,
     fetchArtifactHistory,
     fetchMessages,
     projectId,
+    setActiveRunId,
     setActiveSessionId,
     updateSessionInUrl,
   ]);

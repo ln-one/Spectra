@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-from services.artifact_generator import media as media_module
 from services.artifact_generator.media import ArtifactMediaMixin
 
 
@@ -28,33 +27,6 @@ async def test_generate_animation_writes_real_gif(tmp_path: Path):
     assert path.exists()
     assert path.suffix == ".gif"
     assert path.stat().st_size > 0
-
-
-@pytest.mark.asyncio
-async def test_generate_animation_raises_clear_error_without_pillow_backend(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    generator = _MediaGenerator(tmp_path)
-    monkeypatch.setattr(
-        media_module,
-        "render_gif",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            ModuleNotFoundError("No module named 'PIL'")
-        ),
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="GIF rendering requires Pillow and a compatible image backend",
-    ):
-        await generator.generate_animation(
-            {
-                "title": "冒泡排序",
-                "scenes": [{"title": "Scene 1", "description": "交换"}],
-            },
-            "project-1",
-            "artifact-gif",
-        )
 
 
 @pytest.mark.asyncio
@@ -103,33 +75,6 @@ async def test_generate_video_uses_cv2_writer(
     assert path.exists()
     assert path.suffix == ".mp4"
     assert path.stat().st_size > 0
-
-
-@pytest.mark.asyncio
-async def test_generate_video_raises_clear_error_without_cv2(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    generator = _MediaGenerator(tmp_path)
-    monkeypatch.setattr(
-        media_module,
-        "render_mp4",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            ModuleNotFoundError("No module named 'cv2'")
-        ),
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="MP4 rendering requires opencv-python",
-    ):
-        await generator.generate_video(
-            {
-                "title": "冒泡排序",
-                "scenes": [{"title": "Scene 1", "description": "交换"}],
-            },
-            "project-1",
-            "artifact-mp4",
-        )
 
 
 @pytest.mark.asyncio

@@ -1,8 +1,16 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Archive, Layers, Palette, Settings, Share2, User } from "lucide-react";
+import {
+  Archive,
+  HelpCircle,
+  Layers,
+  Palette,
+  Settings,
+  Share2,
+  User,
+} from "lucide-react";
 import type { components } from "@/lib/sdk/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -59,6 +67,9 @@ export function HeaderActions({
   const handleOpenArchiveHistory = () => {
     window.dispatchEvent(new CustomEvent("spectra:open-archive-history"));
   };
+  const handleOpenTour = () => {
+    window.dispatchEvent(new CustomEvent("spectra:open-tour"));
+  };
 
   return (
     <div className="project-header-actions justify-self-end flex items-center gap-2">
@@ -71,6 +82,7 @@ export function HeaderActions({
           size="sm"
           className="project-header-control project-header-library-btn rounded-full border transition-all duration-300 font-semibold px-4 h-[var(--project-control-height)] backdrop-blur-sm group"
           onClick={onOpenLibrary}
+          data-tour="library-toggle"
         >
           <Layers className="w-4 h-4 mr-2 text-[var(--project-control-muted)] group-hover:text-[var(--project-accent)] transition-colors duration-300" />
           Lib
@@ -111,6 +123,13 @@ export function HeaderActions({
           >
             <Archive className="w-4 h-4 text-[var(--project-control-muted)]" />
             归档历史
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={handleOpenTour}
+            className="rounded-xl cursor-pointer text-[13px] font-medium py-2.5 gap-2"
+          >
+            <HelpCircle className="w-4 h-4 text-[var(--project-control-muted)]" />
+            使用指南
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-[var(--project-control-border)] my-1" />
           <DropdownMenuSub>

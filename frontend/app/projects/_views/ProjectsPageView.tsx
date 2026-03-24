@@ -1,11 +1,28 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Plus, FolderOpen, Search, Grid3X3, List } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Grid3X3,
+  List,
+  Settings,
+  Grid,
+  LayoutGrid,
+  SlidersHorizontal,
+  Bell,
+  User,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ProjectCard, ProjectListItem } from "./ProjectItems";
+import {
+  ProjectCard,
+  ProjectListItem,
+  FeaturedProjectCard,
+  NewProjectCard,
+  ProjectSkeleton,
+} from "./ProjectItems";
 import { useProjectsPageState } from "./useProjectsPageState";
 
 export default function ProjectsPage() {
@@ -24,12 +41,14 @@ export default function ProjectsPage() {
     fetchProjects,
   } = useProjectsPageState();
 
+  // Simulate featured projects (e.g., first 3)
+  const featuredProjects = projects.slice(0, 4);
+
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
-          <p className="text-sm text-zinc-500">加载中...</p>
+      <div className="min-h-screen bg-[#f9f9f9] p-8">
+        <div className="max-w-7xl mx-auto">
+          <ProjectSkeleton />
         </div>
       </div>
     );
@@ -37,20 +56,21 @@ export default function ProjectsPage() {
 
   if (errorMessage) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-6">
-        <div className="w-full max-w-xl rounded-2xl border border-red-100 bg-white p-6">
-          <h2 className="text-lg font-semibold text-zinc-900">项目加载失败</h2>
-          <p className="mt-2 text-sm text-zinc-600 break-all">{errorMessage}</p>
-          <div className="mt-4 flex items-center gap-3">
-            <Button onClick={fetchProjects} className="rounded-full px-5">
-              重试
-            </Button>
+      <div className="flex min-h-screen items-center justify-center bg-[#f9f9f9] px-6">
+        <div className="w-full max-w-xl rounded-[2.5rem] border border-red-50 bg-white p-12 text-center shadow-xl">
+          <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-6">
+            <Bell className="w-10 h-10 text-red-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-zinc-900">项目加载失败</h2>
+          <p className="mt-4 text-zinc-500 break-all leading-relaxed">
+            {errorMessage}
+          </p>
+          <div className="mt-8 flex items-center justify-center gap-4">
             <Button
-              variant="outline"
-              onClick={() => router.push("/auth/login")}
-              className="rounded-full px-5"
+              onClick={fetchProjects}
+              className="rounded-full px-8 py-6 bg-zinc-900 hover:bg-zinc-800 transition-all"
             >
-              重新登录
+              尝试重连
             </Button>
           </div>
         </div>
@@ -59,131 +79,218 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl border-b border-zinc-100">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-zinc-900">我的项目</h1>
-              <p className="text-sm text-zinc-500 mt-0.5">
-                {projects.length} 个项目
-              </p>
-            </div>
-            <Button
-              onClick={() => router.push("/projects/new")}
-              className="gap-2 bg-zinc-900 hover:bg-zinc-800 rounded-full px-5"
+    <div className="min-h-screen bg-[#f9f9f9] pb-20">
+      {/* Global Dashboard Header */}
+      <header className="sticky top-0 z-30 bg-[#f9f9f9]/80 backdrop-blur-2xl border-b border-zinc-100">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-8">
+            <div
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={() => router.push("/")}
             >
-              <Plus className="w-4 h-4" />
-              新建项目
-            </Button>
+              <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full border-2 border-white" />
+              </div>
+              <span className="text-xl font-black tracking-tight text-zinc-900">
+                Spectra
+              </span>
+            </div>
           </div>
 
-          {projects.length > 0 && (
-            <div className="flex items-center gap-3 mt-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <Input
-                  placeholder="搜索项目..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-zinc-50 border-zinc-100 focus:bg-white"
-                />
-              </div>
-              <div className="flex items-center gap-1 p-1 bg-zinc-100 rounded-lg">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={cn(
-                    "p-1.5 rounded-md transition-colors",
-                    viewMode === "grid"
-                      ? "bg-white text-zinc-900 shadow-sm"
-                      : "text-zinc-500 hover:text-zinc-700"
-                  )}
-                >
-                  <Grid3X3 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={cn(
-                    "p-1.5 rounded-md transition-colors",
-                    viewMode === "list"
-                      ? "bg-white text-zinc-900 shadow-sm"
-                      : "text-zinc-500 hover:text-zinc-700"
-                  )}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full hover:bg-zinc-200/50"
+            >
+              <Settings className="w-5 h-5 text-zinc-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full hover:bg-zinc-200/50"
+            >
+              <Grid className="w-5 h-5 text-zinc-600" />
+            </Button>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold border-4 border-white shadow-sm cursor-pointer">
+              JD
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
+        {/* Navigation & Search Bar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+          <div className="flex items-center gap-2 p-1.5 bg-zinc-200/50 rounded-2xl w-fit">
+            <button className="px-6 py-2.5 rounded-xl bg-white text-zinc-900 shadow-sm text-sm font-bold transition-all">
+              全部
+            </button>
+            <button className="px-6 py-2.5 rounded-xl text-zinc-500 hover:text-zinc-800 text-sm font-bold transition-all">
+              我的笔记本
+            </button>
+            <button className="px-6 py-2.5 rounded-xl text-zinc-500 hover:text-zinc-800 text-sm font-bold transition-all">
+              精选笔记本
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-zinc-600 transition-colors" />
+              <Input
+                placeholder="搜索您的学习资源..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full md:w-80 h-12 pl-11 pr-4 bg-zinc-200/50 border-none rounded-2xl focus-visible:ring-2 focus-visible:ring-zinc-300 transition-all font-medium"
+              />
+            </div>
+
+            <div className="flex items-center gap-1 p-1 bg-zinc-200/50 rounded-xl">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  viewMode === "grid"
+                    ? "bg-white shadow-sm text-zinc-900"
+                    : "text-zinc-400 hover:text-zinc-600"
+                )}
+              >
+                <LayoutGrid className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  viewMode === "list"
+                    ? "bg-white shadow-sm text-zinc-900"
+                    : "text-zinc-400 hover:text-zinc-600"
+                )}
+              >
+                <List className="w-5 h-5" />
+              </button>
+            </div>
+
+            <Button className="h-12 px-6 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-sm font-bold transition-all shadow-lg hover:shadow-xl active:scale-95 gap-2">
+              <SlidersHorizontal className="w-4 h-4" />
+              筛选
+            </Button>
+
+            <Button
+              onClick={() => router.push("/projects/new")}
+              className="h-12 px-8 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-sm font-bold transition-all shadow-lg hover:shadow-xl active:scale-95 gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              新建
+            </Button>
+          </div>
+        </div>
+
         {projects.length === 0 ? (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-3xl border border-zinc-100 bg-white p-12 text-center"
+            className="flex flex-col items-center justify-center py-32 bg-white rounded-[3rem] border border-zinc-100 shadow-sm"
           >
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center mb-4">
-              <FolderOpen className="w-8 h-8 text-zinc-400" />
+            <div className="w-24 h-24 rounded-[2rem] bg-zinc-50 flex items-center justify-center mb-8 shadow-inner">
+              <Plus className="w-12 h-12 text-zinc-200" />
             </div>
-            <h2 className="text-xl font-semibold text-zinc-900">还没有项目</h2>
-            <p className="text-zinc-500 mt-2 mb-6">
-              创建第一个项目开始使用 Spectra
+            <h2 className="text-3xl font-black text-zinc-900 mb-4 tracking-tight">
+              开启您的 Spectra 之旅
+            </h2>
+            <p className="text-zinc-500 text-lg mb-10 max-w-sm text-center font-medium">
+              尚未发现任何项目。点击下方按钮，开始您的第一个智慧教学实践。
             </p>
             <Button
               onClick={() => router.push("/projects/new")}
-              className="rounded-full px-6 bg-zinc-900 hover:bg-zinc-800"
+              className="h-14 px-10 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-base font-bold shadow-2xl hover:scale-105 transition-all"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              新建项目
+              创建第一个笔记本
             </Button>
           </motion.div>
-        ) : filteredProjects.length === 0 ? (
-          <div className="rounded-2xl border border-zinc-100 bg-white p-10 text-center text-zinc-500">
-            没有匹配的项目
-          </div>
         ) : (
-          <AnimatePresence mode="popLayout">
-            {viewMode === "grid" ? (
-              <motion.div
-                key="grid"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
-              >
-                {filteredProjects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    onClick={() => router.push(`/projects/${project.id}`)}
-                    onDelete={() => handleDeleteProject(project)}
-                    isDeleting={deletingProjectId === project.id}
-                  />
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="list"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="space-y-3"
-              >
-                {filteredProjects.map((project) => (
-                  <ProjectListItem
-                    key={project.id}
-                    project={project}
-                    onClick={() => router.push(`/projects/${project.id}`)}
-                  />
-                ))}
-              </motion.div>
+          <div className="space-y-20">
+            {/* Featured Section */}
+            {!searchQuery && viewMode === "grid" && (
+              <section className="space-y-8">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-3xl font-black tracking-tight text-zinc-900">
+                    精选笔记本
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    className="text-zinc-500 hover:text-zinc-900 font-bold hover:bg-zinc-100 rounded-xl px-4"
+                  >
+                    查看全部 <Plus className="ml-2 w-4 h-4 rotate-45" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                  {featuredProjects.map((project) => (
+                    <FeaturedProjectCard
+                      key={project.id}
+                      project={project}
+                      onClick={() => router.push(`/projects/${project.id}`)}
+                    />
+                  ))}
+                </div>
+              </section>
             )}
-          </AnimatePresence>
+
+            {/* List/Grid Section */}
+            <section className="space-y-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-black tracking-tight text-zinc-900">
+                  {searchQuery
+                    ? `搜索结果 (${filteredProjects.length})`
+                    : "最近打开过的笔记本"}
+                </h2>
+              </div>
+
+              <AnimatePresence mode="popLayout">
+                {viewMode === "grid" ? (
+                  <motion.div
+                    key="grid"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:grid-cols-5 gap-6"
+                  >
+                    {!searchQuery && (
+                      <NewProjectCard
+                        onClick={() => router.push("/projects/new")}
+                      />
+                    )}
+                    {filteredProjects.map((project) => (
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                        onDelete={() => handleDeleteProject(project)}
+                        isDeleting={deletingProjectId === project.id}
+                      />
+                    ))}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="list"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="space-y-4"
+                  >
+                    {filteredProjects.map((project) => (
+                      <ProjectListItem
+                        key={project.id}
+                        project={project}
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                      />
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+          </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

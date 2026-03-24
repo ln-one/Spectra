@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
 import {
@@ -7,6 +7,7 @@ import {
   ProjectHeader,
   SourcesPanel,
   StudioPanel,
+  OnboardingTour,
 } from "@/components/project";
 import { LightRays } from "@/components/ui/light-rays";
 import {
@@ -186,7 +187,10 @@ export default function ProjectDetailPage() {
             }}
             transition={springConfig}
           >
-            <StudioPanel onToolClick={handleToolClick} />
+            <StudioPanel
+              onToolClick={handleToolClick}
+              data-tour="studio-panel"
+            />
           </motion.div>
 
           <motion.div
@@ -229,7 +233,7 @@ export default function ProjectDetailPage() {
             }}
             transition={springConfig}
           >
-            <ChatPanel projectId={projectId} />
+            <ChatPanel projectId={projectId} data-tour="chat-panel" />
           </motion.div>
 
           {!isExpanded ? (
@@ -295,6 +299,7 @@ export default function ProjectDetailPage() {
               isStudioExpanded={isExpanded}
               isExpandedContentCollapsed={isExpandedSourcesCollapsedByHeight}
               onToggleExpandedContentCollapsed={handleToggleExpandedSources}
+              data-tour="sources-panel"
             />
           </motion.div>
         </motion.div>
@@ -311,6 +316,8 @@ export default function ProjectDetailPage() {
         onOpenChange={setIsLibraryOpen}
         projectId={projectId}
       />
+
+      <OnboardingTour projectId={projectId} />
     </div>
   );
 }

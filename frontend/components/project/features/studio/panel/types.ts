@@ -1,0 +1,44 @@
+import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
+import type {
+  StudioCardCapability,
+  StudioCardExecutionPlan,
+} from "@/lib/sdk/studio-cards";
+import type { CapabilityResolution } from "../tools/capability-resolver";
+import type { StudioTool } from "../constants";
+import type { StudioToolKey, ToolDraftState } from "../tools";
+
+export interface StudioPanelProps {
+  onToolClick?: (tool: StudioTool) => void;
+}
+
+export interface StudioExecutionResult {
+  ok: boolean;
+  sessionId: string | null;
+  effectiveSessionId: string | null;
+  resourceKind: string | null;
+  runId: string | null;
+  runNo: number | null;
+}
+
+export type StudioSourceOption = {
+  id: string;
+  title?: string;
+  type?: string;
+};
+
+export type ToolDraftsState = Partial<Record<StudioToolKey, ToolDraftState>>;
+
+export type CapabilityStateByCardId = Record<
+  string,
+  CapabilityResolution & { isLoading: boolean }
+>;
+
+export type SourceOptionsByCard = Record<string, StudioSourceOption[]>;
+export type SelectedSourceByCard = Record<string, string | null>;
+
+export type CardCapabilityMap = Record<string, StudioCardCapability>;
+export type ExecutionPlanMap = Record<string, StudioCardExecutionPlan>;
+
+export type RuntimeArtifactsByTool = Partial<
+  Record<StudioToolKey, ArtifactHistoryItem[]>
+>;
