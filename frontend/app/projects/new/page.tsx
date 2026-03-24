@@ -32,6 +32,7 @@ export default function NewProjectPage() {
   const uploadFile = useProjectStore((state) => state.uploadFile);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -63,7 +64,19 @@ export default function NewProjectPage() {
       toast({ title: "请输入项目描述", variant: "destructive" });
       return;
     }
+    if (formData.visibility === "private" && formData.is_referenceable) {
+      const message =
+        "私有项目不能允许其他项目引用，请改成共享项目或关闭可引用选项。";
+      setSubmitError(message);
+      toast({
+        title: "创建项目失败",
+        description: message,
+        variant: "destructive",
+      });
+      return;
+    }
 
+    setSubmitError(null);
     setIsLoading(true);
     try {
       // Use prompt as name if name is empty
@@ -98,10 +111,13 @@ export default function NewProjectPage() {
         router.push(`/projects/${projectId}`);
         return;
       }
+      throw new Error("项目创建成功，但没有返回项目 ID。");
     } catch (error) {
+      const message = getErrorMessage(error);
+      setSubmitError(message);
       toast({
         title: "创建失败",
-        description: getErrorMessage(error),
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -468,6 +484,16 @@ export default function NewProjectPage() {
                       </label>
                     </motion.div>
                   )}
+                  {formData.visibility === "private" ? (
+                    <p className="text-xs font-bold text-zinc-500">
+                      私有项目默认不可被其他项目引用。如需作为基底项目使用，请改成共享项目。
+                    </p>
+                  ) : null}
+                  {submitError ? (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                      {submitError}
+                    </div>
+                  ) : null}
                 </div>
               </motion.div>
             )}
