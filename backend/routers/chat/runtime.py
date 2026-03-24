@@ -185,7 +185,14 @@ async def process_chat_message(
             body=body,
             session_id=session_id,
         )
-        _rag_results, citations, rag_hit, selected_files_hint, rag_payload = rag_result
+        (
+            _rag_results,
+            citations,
+            rag_hit,
+            selected_files_hint,
+            rag_payload,
+            rag_failure_reason,
+        ) = rag_result
         stage_timings_ms.update(context_timings)
 
         prompt = build_chat_prompt(
@@ -226,6 +233,8 @@ async def process_chat_message(
             selected_model=selected_model,
             provider_model=provider_model,
             has_rag_context=rag_hit,
+            rag_failure_reason=rag_failure_reason,
+            rag_query_length=len(body.content or ""),
             prompt_digest=prompt_digest,
             response_digest=assistant_digest,
             mechanical_pattern_hit=mechanical_pattern_hit,

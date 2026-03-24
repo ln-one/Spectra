@@ -23,6 +23,7 @@ load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 DEFAULT_DASHSCOPE_BATCH_LIMIT = 25
 TEXT_EMBEDDING_V4_BATCH_LIMIT = 10
 MULTIMODAL_EMBEDDING_BATCH_LIMIT = 10
+DEFAULT_DASHSCOPE_MAX_INPUT_CHARS = 2000
 _FALLBACK_LOG_MESSAGE = (
     "DashScope embedding failed for model %s; "
     "falling back to local sentence-transformers"
@@ -47,6 +48,17 @@ def _resolve_dashscope_api_key() -> str:
 def _allow_local_fallback() -> bool:
     value = os.getenv("EMBEDDING_ALLOW_LOCAL_FALLBACK", "").strip().lower()
     return value in {"1", "true", "yes", "on"}
+
+
+def _resolve_dashscope_max_input_chars() -> int:
+    raw_value = os.getenv("EMBEDDING_DASHSCOPE_MAX_INPUT_CHARS", "").strip()
+    if not raw_value:
+        return DEFAULT_DASHSCOPE_MAX_INPUT_CHARS
+    try:
+        parsed = int(raw_value)
+    except ValueError:
+        return DEFAULT_DASHSCOPE_MAX_INPUT_CHARS
+    return max(1, parsed)
 
 
 def _is_multimodal_embedding_model(model_name: str) -> bool:
@@ -90,6 +102,15 @@ class EmbeddingService:
         if model_name == "text-embedding-v4":
             return TEXT_EMBEDDING_V4_BATCH_LIMIT
         return DEFAULT_DASHSCOPE_BATCH_LIMIT
+
+    def _normalize_text_for_dashscope(self, text: str) -> str:
+        normalized = (text or "").strip()
+        if not normalized:
+            return " "
+        max_chars = _resolve_dashscope_max_input_chars()
+        if len(normalized) > max_chars:
+            return normalized[:max_chars]
+        return normalized
 
     def get_dimension(self) -> int:
         """获取向量维度"""
@@ -160,10 +181,28 @@ class EmbeddingService:
                 )
 
             all_embeddings: list[list[float]] = []
+            normalized_texts = [
+                self._normalize_text_for_dashscope(item) for item in texts
+            ]
+            truncated_count = sum(
+                1
+                for original, normalized in zip(texts, normalized_texts)
+                if len((original or "").strip()) > len(normalized)
+            )
+            if truncated_count > 0:
+                logger.warning(
+                    "Embedding input truncated before DashScope call",
+                    extra={
+                        "embedding_model": self._model,
+                        "embedding_provider": "dashscope",
+                        "truncated_count": truncated_count,
+                        "max_input_chars": _resolve_dashscope_max_input_chars(),
+                    },
+                )
 
             batch_limit = self._dashscope_batch_limit()
-            for i in range(0, len(texts), batch_limit):
-                batch = texts[i : i + batch_limit]
+            for i in range(0, len(normalized_texts), batch_limit):
+                batch = normalized_texts[i : i + batch_limit]
                 if self._uses_multimodal_dashscope():
                     from dashscope import MultiModalEmbedding
 

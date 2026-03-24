@@ -7,6 +7,7 @@ from schemas.common import (
 )
 from services.database import db_service
 from services.database.prisma_compat import find_many_with_select_fallback
+from utils.upstream_failures import classify_upstream_failure
 
 from .refine_context import rerank_by_chapter
 from .shared import logger
@@ -30,10 +31,10 @@ async def _search_rag_with_timeout(
         filters=rag_filters,
     )
     if timeout_seconds <= 0:
-        return await search_coro
+        return await search_coro, None
 
     try:
-        return await asyncio.wait_for(search_coro, timeout=timeout_seconds)
+        return await asyncio.wait_for(search_coro, timeout=timeout_seconds), None
     except asyncio.TimeoutError:
         message = (
             "RAG search timed out after %.2fs for project=%s; "
@@ -44,7 +45,7 @@ async def _search_rag_with_timeout(
             timeout_seconds,
             project_id,
         )
-        return []
+        return [], "rag_timeout"
 
 
 async def load_rag_context(
@@ -55,6 +56,7 @@ async def load_rag_context(
     rag_hit = False
     selected_files_hint = ""
     rag_payload = None
+    rag_failure_reason = None
     try:
         from services.rag_service import rag_service as _rag
 
@@ -85,7 +87,7 @@ async def load_rag_context(
             )
             if isinstance(rag_results_result, Exception):
                 raise rag_results_result
-            rag_results = rag_results_result
+            rag_results, rag_failure_reason = rag_results_result
 
             if isinstance(selected_uploads_result, Exception):
                 logger.warning(
@@ -99,7 +101,7 @@ async def load_rag_context(
                 ]
                 selected_files_hint = "已选资料（含解析状态）： " + "，".join(names)
         else:
-            rag_results = await rag_search_task
+            rag_results, rag_failure_reason = await rag_search_task
 
         rag_results = rerank_by_chapter(query, rag_results)
         if rag_results:
@@ -132,8 +134,16 @@ async def load_rag_context(
                 )
     except Exception as rag_exc:
         logger.warning("RAG search failed, continuing without context: %s", rag_exc)
+        rag_failure_reason = classify_upstream_failure(rag_exc)
 
-    return rag_results, citations, rag_hit, selected_files_hint, rag_payload
+    return (
+        rag_results,
+        citations,
+        rag_hit,
+        selected_files_hint,
+        rag_payload,
+        rag_failure_reason,
+    )
 
 
 async def build_history_payload(project_id: str, session_id: str | None):
