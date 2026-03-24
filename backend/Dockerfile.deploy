@@ -9,9 +9,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     CHROME_PATH=/usr/bin/chromium
 
 ARG TORCH_CPU_INDEX_URL=https://download.pytorch.org/whl/cpu
+ARG DEBIAN_MIRROR=http://mirrors.aliyun.com/debian
+ARG DEBIAN_SECURITY_MIRROR=http://mirrors.aliyun.com/debian-security
 
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
+    sed -i "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources; \
+    sed -i "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" /etc/apt/sources.list.d/debian.sources; \
     apt-get update -o Acquire::Retries=8; \
     apt-get install -y --no-install-recommends --fix-missing \
       gcc \
