@@ -88,6 +88,12 @@ class TestPromptService:
         prompt = self.svc.build_courseware_prompt("数学", template_style="academic")
         assert "学术风格" in prompt
 
+    def test_courseware_prompt_includes_general_quality_rules(self):
+        prompt = self.svc.build_courseware_prompt("历史人物生平")
+        assert "每页只服务一个核心教学目标" in prompt
+        assert "结论 + 解释 + 例子/提问" in prompt
+        assert "避免空泛套话、机械罗列" in prompt
+
     def test_intent_prompt(self):
         prompt = self.svc.build_intent_prompt("我想做一个课件")
         assert "我想做一个课件" in prompt

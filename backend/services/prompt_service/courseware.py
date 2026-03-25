@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from .constants import COURSEWARE_FEW_SHOT, STYLE_REQUIREMENTS
+from .constants import (
+    COURSEWARE_FEW_SHOT,
+    PPT_QUALITY_PROMPT_RULES,
+    STYLE_REQUIREMENTS,
+)
 from .semantics import (
     PromptCitationStyle,
     PromptOutputBlock,
@@ -77,6 +81,7 @@ def build_courseware_prompt(
 (Marp markdown slides)
 规则：
 {ppt_constraints}
+  {PPT_QUALITY_PROMPT_RULES}
   禁止在正文中出现标记词
   (PPT_CONTENT_START/END, LESSON_PLAN_START/END)。
 {ppt_end}
