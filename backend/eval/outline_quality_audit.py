@@ -128,7 +128,9 @@ def run_audit(
             "total_samples": metrics.total_samples,
             "metrics": {
                 "title_uniqueness_pass_rate": metrics.title_uniqueness_pass_rate,
-                "key_point_uniqueness_pass_rate": metrics.key_point_uniqueness_pass_rate,
+                "key_point_uniqueness_pass_rate": (
+                    metrics.key_point_uniqueness_pass_rate
+                ),
                 "cross_section_progression_pass_rate": (
                     metrics.cross_section_progression_pass_rate
                 ),
