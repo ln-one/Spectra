@@ -113,6 +113,60 @@ async def test_persist_generation_artifacts_partial_failure_keeps_success_output
 
 
 @pytest.mark.asyncio
+async def test_persist_generation_artifacts_word_updates_run_trace_contract():
+    db_service = SimpleNamespace(
+        db=SimpleNamespace(
+            generationsession=SimpleNamespace(
+                find_unique=AsyncMock(
+                    return_value=SimpleNamespace(
+                        userId="u-1",
+                        baseVersionId="v-1",
+                        projectId="p-1",
+                    )
+                )
+            )
+        ),
+        create_artifact=AsyncMock(return_value=SimpleNamespace(id="artifact-doc")),
+    )
+    context = SimpleNamespace(
+        task_id="task-1",
+        project_id="p-1",
+        session_id="s-1",
+        run_id="run-1",
+        run_no=3,
+        run_title="第3次Word生成",
+        tool_type="word_generate",
+    )
+
+    with patch(
+        "services.task_executor.runtime_helpers.update_session_run",
+        new=AsyncMock(),
+    ) as mock_update_run:
+        output_urls = await persist_generation_artifacts(
+            db_service=db_service,
+            context=context,
+            artifact_paths={"docx": "/tmp/a.docx"},
+        )
+
+    assert output_urls == {
+        "docx": "/api/v1/projects/p-1/artifacts/artifact-doc/download",
+    }
+    create_kwargs = db_service.create_artifact.await_args.kwargs
+    metadata = create_kwargs["metadata"]
+    assert create_kwargs["artifact_type"] == "docx"
+    assert metadata["output_type"] == "word"
+    assert metadata["run_id"] == "run-1"
+    assert metadata["run_no"] == 3
+    assert metadata["run_title"] == "第3次Word生成"
+    assert metadata["tool_type"] == "word_generate"
+    mock_update_run.assert_awaited_once_with(
+        db=db_service.db,
+        run_id="run-1",
+        artifact_id="artifact-doc",
+    )
+
+
+@pytest.mark.asyncio
 async def test_render_generation_outputs_parallel_for_both():
     db_service = SimpleNamespace(update_generation_task_status=AsyncMock())
     context = GenerationExecutionContext(
