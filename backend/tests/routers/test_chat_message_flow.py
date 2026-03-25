@@ -167,3 +167,83 @@ async def test_load_rag_context_times_out_and_degrades(monkeypatch):
     assert selected_files_hint == ""
     assert rag_payload is None
     assert rag_failure == "rag_timeout"
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_marks_source_not_found_for_unknown_selected_ids(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        message_flow.db_service,
+        "db",
+        SimpleNamespace(upload=SimpleNamespace(find_many=AsyncMock(return_value=[]))),
+    )
+    monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[]))
+
+    _, _, rag_hit, selected_files_hint, _, rag_failure = (
+        await message_flow.load_rag_context(
+            project_id="proj-1",
+            query="query",
+            session_id="sess-1",
+            rag_source_ids=["f-missing"],
+        )
+    )
+
+    assert rag_hit is False
+    assert selected_files_hint == ""
+    assert rag_failure == "source_not_found"
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_marks_source_not_ready_when_selected_upload_pending(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        message_flow.db_service,
+        "db",
+        SimpleNamespace(
+            upload=SimpleNamespace(
+                find_many=AsyncMock(
+                    return_value=[
+                        SimpleNamespace(
+                            id="f-1",
+                            filename="pending.pdf",
+                            status="parsing",
+                        )
+                    ]
+                )
+            )
+        ),
+    )
+    monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[]))
+
+    _, _, rag_hit, selected_files_hint, _, rag_failure = (
+        await message_flow.load_rag_context(
+            project_id="proj-1",
+            query="query",
+            session_id="sess-1",
+            rag_source_ids=["f-1"],
+        )
+    )
+
+    assert rag_hit is False
+    assert "pending.pdf(parsing)" in selected_files_hint
+    assert rag_failure == "source_not_ready"
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_marks_rag_no_match_when_retrieval_empty_without_error(
+    monkeypatch,
+):
+    monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[]))
+
+    _, _, rag_hit, _, rag_payload, rag_failure = await message_flow.load_rag_context(
+        project_id="proj-1",
+        query="query",
+        session_id="sess-1",
+        rag_source_ids=None,
+    )
+
+    assert rag_hit is False
+    assert rag_payload is None
+    assert rag_failure == "rag_no_match"

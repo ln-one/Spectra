@@ -1,5 +1,6 @@
 import asyncio
 import os
+from collections.abc import Iterable
 
 from schemas.common import (
     build_source_reference_payload,
@@ -11,6 +12,29 @@ from utils.upstream_failures import classify_upstream_failure
 
 from .refine_context import rerank_by_chapter
 from .shared import logger
+
+
+def _normalize_requested_source_ids(source_ids) -> list[str]:
+    if not source_ids:
+        return []
+    if isinstance(source_ids, (str, bytes)):
+        return []
+    if not isinstance(source_ids, Iterable):
+        return []
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for source_id in source_ids:
+        text = str(source_id or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+    return normalized
+
+
+def _normalize_upload_status(status) -> str:
+    return str(status or "").strip().lower()
 
 
 async def _search_rag_with_timeout(
@@ -36,12 +60,11 @@ async def _search_rag_with_timeout(
     try:
         return await asyncio.wait_for(search_coro, timeout=timeout_seconds), None
     except asyncio.TimeoutError:
-        message = (
-            "RAG search timed out after %.2fs for project=%s; "
-            "continuing without context"
-        )
         logger.warning(
-            message,
+            (
+                "RAG search timed out after %.2fs for project=%s; "
+                "continuing without context"
+            ),
             timeout_seconds,
             project_id,
         )
@@ -51,26 +74,30 @@ async def _search_rag_with_timeout(
 async def load_rag_context(
     project_id: str, query: str, session_id: str | None, rag_source_ids
 ):
+    requested_source_ids = _normalize_requested_source_ids(rag_source_ids)
     rag_results = []
     citations = []
     rag_hit = False
     selected_files_hint = ""
     rag_payload = None
     rag_failure_reason = None
+
     try:
         from services.rag_service import rag_service as _rag
 
-        rag_filters = {"file_ids": rag_source_ids} if rag_source_ids else None
+        rag_filters = (
+            {"file_ids": requested_source_ids} if requested_source_ids else None
+        )
 
         selected_uploads_task = None
-        if rag_source_ids:
+        if requested_source_ids:
             selected_uploads_task = find_many_with_select_fallback(
                 model=db_service.db.upload,
                 where={
                     "projectId": project_id,
-                    "id": {"in": rag_source_ids},
+                    "id": {"in": requested_source_ids},
                 },
-                select={"filename": True, "status": True},
+                select={"id": True, "filename": True, "status": True},
             )
 
         rag_search_task = _search_rag_with_timeout(
@@ -81,9 +108,12 @@ async def load_rag_context(
             rag_filters=rag_filters,
         )
 
+        selected_uploads = []
         if selected_uploads_task is not None:
             selected_uploads_result, rag_results_result = await asyncio.gather(
-                selected_uploads_task, rag_search_task, return_exceptions=True
+                selected_uploads_task,
+                rag_search_task,
+                return_exceptions=True,
             )
             if isinstance(rag_results_result, Exception):
                 raise rag_results_result
@@ -95,13 +125,50 @@ async def load_rag_context(
                     selected_uploads_result,
                 )
             elif selected_uploads_result:
+                selected_uploads = list(selected_uploads_result)
                 names = [
-                    f"{upload.filename}({upload.status})"
-                    for upload in selected_uploads_result
+                    f"{upload.filename}({upload.status})" for upload in selected_uploads
                 ]
-                selected_files_hint = "已选资料（含解析状态）： " + "，".join(names)
+                selected_files_hint = (
+                    "Selected files (with parse status): " + ", ".join(names)
+                )
+            elif requested_source_ids and not rag_failure_reason:
+                rag_failure_reason = "source_not_found"
         else:
             rag_results, rag_failure_reason = await rag_search_task
+
+        if selected_uploads and not rag_failure_reason:
+            found_source_ids: set[str] = set()
+            not_ready_uploads = []
+            has_complete_source_ids = True
+            for upload in selected_uploads:
+                upload_id = str(getattr(upload, "id", "") or "").strip()
+                if upload_id:
+                    found_source_ids.add(upload_id)
+                else:
+                    has_complete_source_ids = False
+                if _normalize_upload_status(getattr(upload, "status", "")) != "ready":
+                    not_ready_uploads.append(upload)
+
+            missing_source_ids = [
+                source_id
+                for source_id in requested_source_ids
+                if source_id not in found_source_ids
+            ]
+            if has_complete_source_ids and missing_source_ids:
+                rag_failure_reason = "source_not_found"
+                logger.info(
+                    "RAG selected sources missing in project: project=%s missing=%s",
+                    project_id,
+                    missing_source_ids,
+                )
+            elif not_ready_uploads and not rag_results:
+                rag_failure_reason = "source_not_ready"
+                logger.info(
+                    "RAG selected sources not ready: project=%s source_count=%s",
+                    project_id,
+                    len(not_ready_uploads),
+                )
 
         rag_results = rerank_by_chapter(query, rag_results)
         if rag_results:
@@ -132,6 +199,8 @@ async def load_rag_context(
                         "source": source,
                     }
                 )
+        elif not rag_failure_reason:
+            rag_failure_reason = "rag_no_match"
     except Exception as rag_exc:
         logger.warning("RAG search failed, continuing without context: %s", rag_exc)
         rag_failure_reason = classify_upstream_failure(rag_exc)
