@@ -234,6 +234,22 @@ cd backend
 - `image_match_pass_rate`：图片/素材是否与内容匹配
 - `overall_pass_rate`：是否可视为当前阶段可展示结果
 
+## P0 PPT 前后对照样本
+
+```bash
+cd backend
+
+.venv-wsl/bin/python eval/ppt_quality_comparison_audit.py \
+  --dataset eval/ppt_quality_comparison_samples.json \
+  --output eval/results/ppt_quality_comparison_latest.json
+```
+
+评测指标：
+- `overall_improvement_rate`：优化后整体质量提升的样本比例
+- `dimension_improvement_rate`：各维度从不通过到通过的提升比例
+- `improved_sample_ids`：明确提升的样本 ID
+- `non_improved_sample_ids`：未提升或退化的样本 ID
+
 ## D-8.3 引用标注质量评测
 
 ```bash

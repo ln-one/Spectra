@@ -1,0 +1,92 @@
+{
+  "samples": [
+    {
+      "id": "ppt-compare-001",
+      "topic": "牛顿第二定律导入",
+      "before": {
+        "passes": {
+          "structure": true,
+          "information_density": false,
+          "visual_balance": false,
+          "expression": true,
+          "image_match": true
+        }
+      },
+      "after": {
+        "passes": {
+          "structure": true,
+          "information_density": true,
+          "visual_balance": true,
+          "expression": true,
+          "image_match": true
+        }
+      }
+    },
+    {
+      "id": "ppt-compare-002",
+      "topic": "光合作用过程图解",
+      "before": {
+        "passes": {
+          "structure": true,
+          "information_density": true,
+          "visual_balance": true,
+          "expression": true,
+          "image_match": false
+        }
+      },
+      "after": {
+        "passes": {
+          "structure": true,
+          "information_density": true,
+          "visual_balance": true,
+          "expression": true,
+          "image_match": true
+        }
+      }
+    },
+    {
+      "id": "ppt-compare-003",
+      "topic": "二次函数图像性质总结",
+      "before": {
+        "passes": {
+          "structure": false,
+          "information_density": true,
+          "visual_balance": true,
+          "expression": false,
+          "image_match": true
+        }
+      },
+      "after": {
+        "passes": {
+          "structure": true,
+          "information_density": true,
+          "visual_balance": true,
+          "expression": true,
+          "image_match": true
+        }
+      }
+    },
+    {
+      "id": "ppt-compare-004",
+      "topic": "古诗词意象分析",
+      "before": {
+        "passes": {
+          "structure": true,
+          "information_density": false,
+          "visual_balance": true,
+          "expression": true,
+          "image_match": false
+        }
+      },
+      "after": {
+        "passes": {
+          "structure": true,
+          "information_density": true,
+          "visual_balance": true,
+          "expression": true,
+          "image_match": true
+        }
+      }
+    }
+  ]
+}
