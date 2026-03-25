@@ -6,6 +6,7 @@ from typing import Optional
 
 from .constants import (
     COURSEWARE_FEW_SHOT,
+    PPT_IMAGE_RETRIEVAL_RULES,
     PPT_LAYOUT_PROMPT_RULES,
     PPT_QUALITY_PROMPT_RULES,
     STYLE_REQUIREMENTS,
@@ -84,6 +85,7 @@ def build_courseware_prompt(
 {ppt_constraints}
   {PPT_QUALITY_PROMPT_RULES}
   {PPT_LAYOUT_PROMPT_RULES}
+  {PPT_IMAGE_RETRIEVAL_RULES}
   禁止在正文中出现标记词
   (PPT_CONTENT_START/END, LESSON_PLAN_START/END)。
 {ppt_end}

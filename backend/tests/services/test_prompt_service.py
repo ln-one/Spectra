@@ -100,6 +100,12 @@ class TestPromptService:
         assert "必须给视觉元素留出明确空间" in prompt
         assert "标题 + 2-3 组逻辑块 + 一句收束/提示" in prompt
 
+    def test_courseware_prompt_includes_image_retrieval_rules(self):
+        prompt = self.svc.build_courseware_prompt("植物细胞结构")
+        assert "优先使用项目资料或检索结果中的高相关素材" in prompt
+        assert "宁可不插图，也不要生成与内容弱相关的视觉元素" in prompt
+        assert "不能只是主题相关但讲解无用" in prompt
+
     def test_intent_prompt(self):
         prompt = self.svc.build_intent_prompt("我想做一个课件")
         assert "我想做一个课件" in prompt
