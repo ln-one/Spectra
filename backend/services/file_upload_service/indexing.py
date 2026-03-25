@@ -7,11 +7,23 @@ from fastapi import BackgroundTasks, Request
 from services.database import db_service
 from services.task_queue.status import inspect_worker_availability
 from services.task_queue.status_constants import QueueWorkerAvailability
+from utils.upstream_failures import describe_upstream_failure
 
 from .constants import UploadStatus
 
 logger = logging.getLogger(__name__)
 _SYNC_RAG_INDEXING = os.getenv("SYNC_RAG_INDEXING", "false").lower() == "true"
+
+
+def _build_rag_index_failure_payload(exc: Exception) -> dict:
+    failure = describe_upstream_failure(exc)
+    return {
+        "status": "failed",
+        "stage": "rag_indexing",
+        "failure_type": failure["failure_type"],
+        "retryable": bool(failure["retryable"]),
+        "raw_message": failure["raw_message"],
+    }
 
 
 async def index_upload_for_rag(
@@ -50,6 +62,7 @@ async def index_upload_for_rag(
         await db_service.update_upload_status(
             upload.id,
             status=UploadStatus.FAILED.value,
+            parse_result=_build_rag_index_failure_payload(exc),
             error_message=str(exc),
         )
 
