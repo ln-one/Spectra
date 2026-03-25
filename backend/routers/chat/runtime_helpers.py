@@ -6,6 +6,7 @@ from schemas.chat import SendMessageRequest
 from services.ai import ai_service
 from services.ai.model_resolution import _resolve_model_name
 from services.ai.model_router import ModelRouteTask
+from services.chat import resolve_effective_rag_source_ids
 from services.database import db_service
 from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 
@@ -19,13 +20,18 @@ async def load_chat_context(
     body: SendMessageRequest,
     session_id: str,
 ) -> tuple[tuple, list[dict], dict[str, float]]:
+    effective_rag_source_ids = resolve_effective_rag_source_ids(
+        rag_source_ids=body.rag_source_ids,
+        metadata=body.metadata,
+    )
+
     async def _timed_rag_context():
         started_at = time.perf_counter()
         result = await load_rag_context(
             project_id=body.project_id,
             query=body.content,
             session_id=session_id,
-            rag_source_ids=body.rag_source_ids,
+            rag_source_ids=effective_rag_source_ids,
         )
         return result, round((time.perf_counter() - started_at) * 1000, 2)
 
