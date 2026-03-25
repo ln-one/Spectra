@@ -19,7 +19,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-
 DIMENSIONS = (
     "structure",
     "information_density",
