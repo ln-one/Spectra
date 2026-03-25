@@ -204,6 +204,36 @@ cd backend
 - `rewrite_improvement_rate`：重写后质量提升率
 - `confirm_ready_rate`：确认阶段可进入生成比例
 
+## P0 PPT 质量样本与 baseline
+
+```bash
+cd backend
+
+# 运行 PPT 质量抽样评测（结构/密度/图文比例/表达/图片命中）
+.venv-wsl/bin/python eval/ppt_quality_audit.py \
+  --dataset eval/ppt_quality_samples.json \
+  --output eval/results/ppt_quality_latest.json
+
+# 冻结首版 PPT 质量基线
+.venv-wsl/bin/python eval/ppt_quality_baseline.py freeze \
+  --result eval/results/ppt_quality_latest.json \
+  --output eval/baselines/ppt-quality-baseline-v1.json \
+  --notes "P0 PPT quality baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/ppt_quality_baseline.py check \
+  --current eval/results/ppt_quality_latest.json \
+  --baseline eval/baselines/ppt-quality-baseline-v1.json
+```
+
+评测指标：
+- `structure_pass_rate`：页面结构是否清晰
+- `information_density_pass_rate`：信息密度是否适中
+- `visual_balance_pass_rate`：图文比例与版面平衡是否合格
+- `expression_pass_rate`：教学表达是否清楚
+- `image_match_pass_rate`：图片/素材是否与内容匹配
+- `overall_pass_rate`：是否可视为当前阶段可展示结果
+
 ## D-8.3 引用标注质量评测
 
 ```bash
