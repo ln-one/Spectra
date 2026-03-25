@@ -250,6 +250,32 @@ cd backend
 - `improved_sample_ids`：明确提升的样本 ID
 - `non_improved_sample_ids`：未提升或退化的样本 ID
 
+## P0 大纲重复质量 baseline
+
+```bash
+cd backend
+
+.venv-wsl/bin/python eval/outline_quality_audit.py \
+  --dataset eval/outline_quality_samples.json \
+  --output eval/results/outline_quality_latest.json
+
+.venv-wsl/bin/python eval/outline_quality_baseline.py freeze \
+  --result eval/results/outline_quality_latest.json \
+  --output eval/baselines/outline-quality-baseline-v1.json \
+  --notes "P0 outline quality baseline v1"
+
+.venv-wsl/bin/python eval/outline_quality_baseline.py check \
+  --current eval/results/outline_quality_latest.json \
+  --baseline eval/baselines/outline-quality-baseline-v1.json
+```
+
+评测指标：
+- `title_uniqueness_pass_rate`：章节标题是否不重复
+- `key_point_uniqueness_pass_rate`：关键要点是否不重复
+- `cross_section_progression_pass_rate`：相邻章节是否推进而非复述
+- `expression_specificity_pass_rate`：标题与要点是否足够具体
+- `overall_pass_rate`：整体是否可视为当前阶段可接受大纲
+
 ## D-8.3 引用标注质量评测
 
 ```bash
