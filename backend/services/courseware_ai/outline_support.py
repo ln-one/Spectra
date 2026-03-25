@@ -23,6 +23,47 @@ GENERIC_TITLE_PATTERNS = (
 )
 
 
+def _normalize_outline_text(text: str) -> str:
+    return normalize_outline_title(text)
+
+
+def _dedupe_points(points: list[str]) -> list[str]:
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for point in points:
+        normalized = _normalize_outline_text(point)
+        if not normalized or normalized in seen:
+            continue
+        deduped.append(point)
+        seen.add(normalized)
+    return deduped
+
+
+def _make_unique_section_title(
+    title: str,
+    key_points: list[str],
+    used_titles: set[str],
+    anchor: str,
+) -> str:
+    candidate = str(title or "").strip() or "章节"
+    normalized = _normalize_outline_text(candidate)
+    if normalized and normalized not in used_titles:
+        used_titles.add(normalized)
+        return candidate
+
+    suffix = next(
+        (point for point in key_points if point and not is_placeholder_point(point)),
+        anchor,
+    )
+    remapped = f"{candidate}：{suffix}"
+    normalized_remapped = _normalize_outline_text(remapped)
+    if normalized_remapped in used_titles:
+        remapped = f"{candidate}：{anchor}"
+        normalized_remapped = _normalize_outline_text(remapped)
+    used_titles.add(normalized_remapped)
+    return remapped
+
+
 def normalize_outline_title(title: str) -> str:
     return re.sub(r"\s+", "", str(title or "")).lower()
 
@@ -109,17 +150,14 @@ def inject_focus_anchors(outline: CoursewareOutline) -> CoursewareOutline:
             if str(point).strip()
         ]
         if not any("互动" in point or "提问" in point for point in key_points):
-            key_points.append("互动提问设计")
+            key_points.append(f"{section.title}互动提问")
         if not any("板书" in point for point in key_points):
-            key_points.append("板书逻辑梳理")
+            key_points.append(f"{section.title}板书逻辑")
         anchor = FOCUS_ANCHORS[idx % len(FOCUS_ANCHORS)]
         if not any(contains_anchor(point, anchor) for point in key_points):
             key_points.append(anchor)
 
-        deduped_points: list[str] = []
-        for point in key_points:
-            if point not in deduped_points:
-                deduped_points.append(point)
+        deduped_points = _dedupe_points(key_points)
         enriched_sections.append(
             OutlineSection(
                 title=section.title,
@@ -132,6 +170,69 @@ def inject_focus_anchors(outline: CoursewareOutline) -> CoursewareOutline:
         title=outline.title,
         sections=enriched_sections,
         total_slides=sum(item.slide_count for item in enriched_sections),
+        summary=outline.summary,
+    )
+
+
+def reduce_outline_repetition(outline: CoursewareOutline) -> CoursewareOutline:
+    sections = list(outline.sections or [])
+    if not sections:
+        return outline
+
+    reduced_sections: list[OutlineSection] = []
+    used_titles: set[str] = set()
+    seen_points: set[str] = set()
+
+    for idx, section in enumerate(sections):
+        raw_points = [
+            str(point).strip()
+            for point in (section.key_points or [])
+            if str(point).strip()
+        ]
+        unique_points: list[str] = []
+        for point in raw_points:
+            normalized = _normalize_outline_text(point)
+            if not normalized:
+                continue
+            if normalized in seen_points:
+                continue
+            unique_points.append(point)
+            seen_points.add(normalized)
+
+        if len(unique_points) < 2:
+            anchor = FOCUS_ANCHORS[idx % len(FOCUS_ANCHORS)]
+            fallback_points = [
+                f"{section.title}关键内容",
+                f"{section.title}课堂推进",
+                anchor,
+            ]
+            for point in fallback_points:
+                normalized = _normalize_outline_text(point)
+                if normalized in seen_points:
+                    continue
+                unique_points.append(point)
+                seen_points.add(normalized)
+                if len(unique_points) >= 3:
+                    break
+
+        title = _make_unique_section_title(
+            section.title,
+            unique_points,
+            used_titles,
+            FOCUS_ANCHORS[idx % len(FOCUS_ANCHORS)],
+        )
+        reduced_sections.append(
+            OutlineSection(
+                title=title,
+                key_points=_dedupe_points(unique_points)[:6],
+                slide_count=max(int(section.slide_count or 0), 2),
+            )
+        )
+
+    return CoursewareOutline(
+        title=outline.title,
+        sections=reduced_sections,
+        total_slides=sum(item.slide_count for item in reduced_sections),
         summary=outline.summary,
     )
 
