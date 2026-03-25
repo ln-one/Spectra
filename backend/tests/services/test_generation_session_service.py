@@ -262,6 +262,7 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
         generationtask=SimpleNamespace(
             create=AsyncMock(return_value=created_task),
             update=AsyncMock(),
+            find_unique=AsyncMock(return_value=SimpleNamespace(inputData=None)),
         ),
         sessionevent=SimpleNamespace(create=AsyncMock()),
     )
@@ -296,6 +297,34 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
     assert result["task_id"] == "task-101"
     assert result["session"]["task_id"] == "task-101"
     assert result["warnings"] == []
+
+    state_updates = [
+        call.kwargs["data"]
+        for call in db.generationsession.update.await_args_list
+        if "state" in (call.kwargs.get("data") or {})
+    ]
+    assert any(
+        update.get("state") == GenerationState.GENERATING_CONTENT.value
+        and update.get("stateReason") == SessionLifecycleReason.OUTLINE_CONFIRMED.value
+        and update.get("errorCode") is None
+        and update.get("errorMessage") is None
+        and update.get("errorRetryable") is False
+        for update in state_updates
+    )
+
+    event_calls = [
+        call.kwargs["data"] for call in db.sessionevent.create.await_args_list
+    ]
+    assert any(
+        event.get("state") == GenerationState.GENERATING_CONTENT.value
+        and event.get("stateReason") == SessionLifecycleReason.OUTLINE_CONFIRMED.value
+        for event in event_calls
+    )
+    assert any(
+        json.loads(event.get("payload") or "{}").get("dispatch") == "rq"
+        and json.loads(event.get("payload") or "{}").get("rq_job_id") == "rq-1"
+        for event in event_calls
+    )
 
 
 @pytest.mark.anyio
