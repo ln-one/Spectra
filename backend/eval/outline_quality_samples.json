@@ -1,0 +1,56 @@
+{
+  "samples": [
+    {
+      "id": "outline-quality-001",
+      "topic": "牛顿第二定律",
+      "passes": {
+        "title_uniqueness": false,
+        "key_point_uniqueness": false,
+        "cross_section_progression": false,
+        "expression_specificity": true
+      },
+      "issues": [
+        "duplicate_title",
+        "duplicate_key_point",
+        "cross_section_repetition"
+      ],
+      "notes": "相邻两章都叫核心知识点，且重复强调受力与加速度关系。"
+    },
+    {
+      "id": "outline-quality-002",
+      "topic": "光合作用",
+      "passes": {
+        "title_uniqueness": true,
+        "key_point_uniqueness": true,
+        "cross_section_progression": true,
+        "expression_specificity": false
+      },
+      "issues": ["generic_expression"],
+      "notes": "标题不重复，但存在“内容讲解”“知识梳理”这类过泛表述。"
+    },
+    {
+      "id": "outline-quality-003",
+      "topic": "古诗词意象分析",
+      "passes": {
+        "title_uniqueness": true,
+        "key_point_uniqueness": false,
+        "cross_section_progression": true,
+        "expression_specificity": true
+      },
+      "issues": ["duplicate_key_point", "paraphrase_repetition"],
+      "notes": "不同章节里反复出现“借景抒情”与同义变体。"
+    },
+    {
+      "id": "outline-quality-004",
+      "topic": "细胞结构",
+      "passes": {
+        "title_uniqueness": true,
+        "key_point_uniqueness": true,
+        "cross_section_progression": true,
+        "expression_specificity": true
+      },
+      "issues": [],
+      "notes": "当前阶段可接受的大纲样本。"
+    }
+  ]
+}
