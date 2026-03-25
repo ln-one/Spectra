@@ -106,6 +106,12 @@ class TestPromptService:
         assert "宁可不插图，也不要生成与内容弱相关的视觉元素" in prompt
         assert "不能只是主题相关但讲解无用" in prompt
 
+    def test_courseware_prompt_includes_image_insertion_rules(self):
+        prompt = self.svc.build_courseware_prompt("蒸发与沸腾")
+        assert "概念定义页优先不插图" in prompt
+        assert "过程讲解页优先考虑流程图、步骤图或时序图" in prompt
+        assert "图上看什么、为什么和本页结论有关" in prompt
+
     def test_intent_prompt(self):
         prompt = self.svc.build_intent_prompt("我想做一个课件")
         assert "我想做一个课件" in prompt
