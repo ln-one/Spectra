@@ -94,6 +94,12 @@ class TestPromptService:
         assert "结论 + 解释 + 例子/提问" in prompt
         assert "避免空泛套话、机械罗列" in prompt
 
+    def test_courseware_prompt_includes_layout_density_rules(self):
+        prompt = self.svc.build_courseware_prompt("化学实验现象")
+        assert "单页正文优先控制在 2-4 个要点" in prompt
+        assert "必须给视觉元素留出明确空间" in prompt
+        assert "标题 + 2-3 组逻辑块 + 一句收束/提示" in prompt
+
     def test_intent_prompt(self):
         prompt = self.svc.build_intent_prompt("我想做一个课件")
         assert "我想做一个课件" in prompt
