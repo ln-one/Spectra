@@ -179,8 +179,13 @@ def _extract_template_config(options_raw: Optional[str]) -> Optional[dict]:
         options = json.loads(options_raw)
     except (TypeError, json.JSONDecodeError):
         return None
-    template_config = options.get("template_config")
-    return template_config if isinstance(template_config, dict) else None
+    if not isinstance(options, dict):
+        return None
+    template_config = dict(options.get("template_config") or {})
+    rag_source_ids = options.get("rag_source_ids")
+    if isinstance(rag_source_ids, list) and rag_source_ids:
+        template_config["rag_source_ids"] = rag_source_ids
+    return template_config if template_config else None
 
 
 def _normalize_task_type(output_type: str, error_cls=ValueError) -> str:
