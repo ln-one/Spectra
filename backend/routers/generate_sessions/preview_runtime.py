@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 import time
@@ -41,6 +41,93 @@ def _raise_run_not_ready(run_id: str) -> None:
             "run_id": run_id,
         },
     )
+
+
+def _resolve_modify_instruction(body: dict) -> str:
+    instruction = str(body.get("instruction") or "").strip()
+    if not instruction:
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="instruction 字段为必填",
+        )
+    return instruction
+
+
+def _coerce_positive_int(value: object) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value >= 1:
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        parsed = int(value.strip())
+        return parsed if parsed >= 1 else None
+    return None
+
+
+def _resolve_target_slide_id(body: dict, slides: list[dict]) -> tuple[str, int]:
+    context = body.get("context") if isinstance(body.get("context"), dict) else {}
+    slide_id = (
+        str(body.get("slide_id") or "").strip()
+        or str(body.get("current_slide_id") or "").strip()
+        or str(body.get("active_slide_id") or "").strip()
+        or str(context.get("slide_id") or "").strip()
+        or str(context.get("current_slide_id") or "").strip()
+        or str(context.get("active_slide_id") or "").strip()
+    )
+    if slide_id:
+        for slide in slides:
+            if str(slide.get("id") or "").strip() == slide_id:
+                page = _coerce_positive_int((slide.get("index") or 0) + 1) or 1
+                return slide_id, page
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=f"未找到指定 slide_id: {slide_id}",
+        )
+
+    target_page = _coerce_positive_int(body.get("slide_index"))
+    if target_page is None:
+        raw_target_slides = body.get("target_slides")
+        if isinstance(raw_target_slides, list) and raw_target_slides:
+            target_page = _coerce_positive_int(raw_target_slides[0])
+    if target_page is None:
+        target_page = (
+            _coerce_positive_int(body.get("active_page"))
+            or _coerce_positive_int(body.get("current_page"))
+            or _coerce_positive_int(body.get("page"))
+            or _coerce_positive_int(context.get("active_page"))
+            or _coerce_positive_int(context.get("current_page"))
+            or _coerce_positive_int(context.get("page"))
+        )
+
+    if target_page is not None:
+        # API 对外 slide_index 从 1 开始；内部 slide.index 以 0 为主。
+        for expected in (target_page - 1, target_page):
+            for slide in slides:
+                if slide.get("index") == expected:
+                    resolved_slide_id = str(slide.get("id") or "").strip()
+                    if resolved_slide_id:
+                        return resolved_slide_id, target_page
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=ErrorCode.INVALID_INPUT,
+            message=f"未找到指定 slide_index: {target_page}",
+        )
+
+    # v1 默认当前页：若请求未传页码/slide_id，则回退当前预览首张。
+    ordered = sorted(
+        (s for s in slides if str(s.get("id") or "").strip()),
+        key=lambda item: int(item.get("index") or 0),
+    )
+    if not ordered:
+        raise APIException(
+            status_code=status.HTTP_409_CONFLICT,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="当前会话暂无可修改的预览页",
+        )
+    first = ordered[0]
+    return str(first.get("id")), int(first.get("index") or 0) + 1
 
 
 async def get_session_preview_response(
@@ -116,24 +203,43 @@ async def modify_session_preview_response(
     get_preview_snapshot_or_raise: SessionSnapshotLoader,
     resolve_modify_expected_render_version: Callable[[dict], Optional[int]],
     resolve_preview_anchor: PreviewAnchorResolver,
+    load_preview_material: PreviewMaterialLoader,
     attach_auto_candidate_change: CandidateChangeAttacher,
 ):
     parse_candidate_change_payload(body.get("candidate_change"), "candidate_change")
-    slide_id = body.get("slide_id")
-    patch = body.get("patch")
-    if not slide_id or not patch:
-        raise APIException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="slide_id 鍜?patch 涓哄繀濉瓧娈?",
-        )
+    instruction = _resolve_modify_instruction(body)
+    patch = body.get("patch") if isinstance(body.get("patch"), dict) else None
+    if patch is None:
+        patch = {"schema_version": 1, "operations": []}
 
     expected_render_version = resolve_modify_expected_render_version(body)
     validate_optional_positive_int(expected_render_version, "expected_render_version")
+    snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
+    anchor = await resolve_preview_anchor(
+        session_id,
+        snapshot,
+        body.get("artifact_id"),
+        body.get("run_id"),
+    )
+    task_id = snapshot["session"].get("task_id")
+    _, slides, _, _ = await load_preview_material(
+        session_id,
+        snapshot["session"]["project_id"],
+        anchor.get("artifact_id"),
+        task_id,
+        anchor.get("run_id"),
+    )
+    slide_id, slide_index = _resolve_target_slide_id(body, slides)
     parsed_idempotency_key = parse_idempotency_key(idempotency_key)
     generation_command = {
         "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
         "slide_id": slide_id,
+        "slide_index": slide_index,
+        "instruction": instruction,
+        "scope": body.get("scope") or "current_slide_only",
+        "preserve_style": bool(body.get("preserve_style", True)),
+        "preserve_layout": bool(body.get("preserve_layout", True)),
+        "preserve_deck_consistency": bool(body.get("preserve_deck_consistency", True)),
         "patch": patch,
         "expected_render_version": expected_render_version,
     }
@@ -144,19 +250,15 @@ async def modify_session_preview_response(
         command=generation_command,
         idempotency_key=parsed_idempotency_key,
     )
-    snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
-    anchor = await resolve_preview_anchor(
-        session_id,
-        snapshot,
-        body.get("artifact_id"),
-        body.get("run_id"),
-    )
     payload = build_modify_payload(
         session_id=session_id,
         snapshot=snapshot,
         anchor=anchor,
         result=result if isinstance(result, dict) else None,
     )
+    payload["slide_id"] = slide_id
+    payload["slide_index"] = slide_index
+    payload["scope"] = generation_command["scope"]
     payload = await attach_candidate_change_if_needed(
         session_id=session_id,
         user_id=user_id,

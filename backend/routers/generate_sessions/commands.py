@@ -32,7 +32,7 @@ from utils.responses import success_response
 
 router = APIRouter()
 
-# Backward-compatible aliases for tests and monkeypatches.
+# 为测试与 monkeypatch 保留的兼容别名。
 _get_session_service = get_session_service
 
 
@@ -192,7 +192,7 @@ async def redraft_outline(
         task_queue_service=get_task_queue_service(request),
     )
 
-    return success_response(data=result, message="大纲重写请求已接受")
+    return success_response(data=result, message="大纲重写请求已受理")
 
 
 @router.post("/sessions/{session_id}/resume")
@@ -226,14 +226,15 @@ async def regenerate_slide(
     user_id: str = Depends(get_current_user),
     idempotency_key: Optional[UUID] = Header(None, alias="Idempotency-Key"),
 ):
-    """局部重绘单页。"""
-    patch = body.get("patch")
-    if not patch:
-        raise APIException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="patch 字段为必填",
-        )
+    """单页局部修改入口（兼容旧 regenerate 路径）。"""
+    patch = body.get("patch") if isinstance(body.get("patch"), dict) else None
+    if patch is None:
+        patch = {"schema_version": 1, "operations": []}
+
+    instruction = str(body.get("instruction") or "").strip()
+    if not instruction:
+        # 兼容旧调用方：逐步收敛到“instruction 必填”契约。
+        instruction = "请按补丁修改当前页，并保持整套课件一致性。"
 
     validate_optional_positive_int(
         body.get("expected_render_version"),
@@ -248,10 +249,18 @@ async def regenerate_slide(
         command={
             "command_type": GenerationCommandType.REGENERATE_SLIDE.value,
             "slide_id": slide_id,
+            "slide_index": body.get("slide_index"),
+            "instruction": instruction,
+            "scope": body.get("scope") or "current_slide_only",
+            "preserve_style": bool(body.get("preserve_style", True)),
+            "preserve_layout": bool(body.get("preserve_layout", True)),
+            "preserve_deck_consistency": bool(
+                body.get("preserve_deck_consistency", True)
+            ),
             "patch": patch,
             "expected_render_version": body.get("expected_render_version"),
         },
         idempotency_key=parse_idempotency_key(idempotency_key),
     )
 
-    return success_response(data=result, message="局部重绘请求已接受")
+    return success_response(data=result, message="单页局部修改请求已受理")

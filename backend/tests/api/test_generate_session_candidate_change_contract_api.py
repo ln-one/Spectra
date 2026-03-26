@@ -231,6 +231,26 @@ def test_modify_preview_can_attach_candidate_change(client, monkeypatch, _as_use
         AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-010")),
     )
     monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="task-modify-001"),
+                [
+                    {
+                        "id": "slide-001",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+    monkeypatch.setattr(
         db_service,
         "get_project",
         AsyncMock(
@@ -244,6 +264,7 @@ def test_modify_preview_can_attach_candidate_change(client, monkeypatch, _as_use
         "/api/v1/generate/sessions/s-candidate-001/preview/modify",
         json={
             "slide_id": "slide-001",
+            "instruction": "请优化当前页表述",
             "patch": {"title": "updated"},
             "artifact_id": "a-001",
             "candidate_change": {

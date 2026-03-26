@@ -23,7 +23,13 @@ async def handle_regenerate_slide(
 ) -> dict:
     slide_id = command.get("slide_id")
     patch = command.get("patch", {})
+    instruction = str(command.get("instruction") or "").strip()
+    scope = str(command.get("scope") or "current_slide_only").strip()
     expected_render_version = command.get("expected_render_version")
+    preserve_style = bool(command.get("preserve_style", True))
+    preserve_layout = bool(command.get("preserve_layout", True))
+    preserve_deck_consistency = bool(command.get("preserve_deck_consistency", True))
+    slide_index = command.get("slide_index")
 
     if expected_render_version and session.renderVersion != expected_render_version:
         raise conflict_error_cls(
@@ -42,17 +48,35 @@ async def handle_regenerate_slide(
         where={"id": session.id},
         data={"state": new_state, "renderVersion": {"increment": 1}},
     )
+    run_trace_payload = build_run_trace_payload(
+        run,
+        slide_id=slide_id,
+        slide_index=slide_index,
+        instruction=instruction,
+        scope=scope,
+        preserve_style=preserve_style,
+        preserve_layout=preserve_layout,
+        preserve_deck_consistency=preserve_deck_consistency,
+        patch_schema_version=patch.get("schema_version", 1),
+    )
+    await append_event(
+        session_id=session.id,
+        event_type="slide.modify.started",
+        state=new_state,
+        payload=run_trace_payload,
+    )
     await append_event(
         session_id=session.id,
         event_type=GenerationEventType.SLIDE_UPDATED.value,
         state=new_state,
-        payload=build_run_trace_payload(
-            run,
-            slide_id=slide_id,
-            patch_schema_version=patch.get("schema_version", 1),
-        ),
+        payload=run_trace_payload,
     )
-    return {"run": serialize_session_run(run)}
+    return {
+        "run": serialize_session_run(run),
+        "slide_id": slide_id,
+        "slide_index": slide_index,
+        "scope": scope,
+    }
 
 
 async def handle_resume_session(
