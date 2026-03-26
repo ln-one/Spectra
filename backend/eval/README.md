@@ -204,6 +204,78 @@ cd backend
 - `rewrite_improvement_rate`：重写后质量提升率
 - `confirm_ready_rate`：确认阶段可进入生成比例
 
+## P0 PPT 质量样本与 baseline
+
+```bash
+cd backend
+
+# 运行 PPT 质量抽样评测（结构/密度/图文比例/表达/图片命中）
+.venv-wsl/bin/python eval/ppt_quality_audit.py \
+  --dataset eval/ppt_quality_samples.json \
+  --output eval/results/ppt_quality_latest.json
+
+# 冻结首版 PPT 质量基线
+.venv-wsl/bin/python eval/ppt_quality_baseline.py freeze \
+  --result eval/results/ppt_quality_latest.json \
+  --output eval/baselines/ppt-quality-baseline-v1.json \
+  --notes "P0 PPT quality baseline v1"
+
+# 后续改动后执行回归校验
+.venv-wsl/bin/python eval/ppt_quality_baseline.py check \
+  --current eval/results/ppt_quality_latest.json \
+  --baseline eval/baselines/ppt-quality-baseline-v1.json
+```
+
+评测指标：
+- `structure_pass_rate`：页面结构是否清晰
+- `information_density_pass_rate`：信息密度是否适中
+- `visual_balance_pass_rate`：图文比例与版面平衡是否合格
+- `expression_pass_rate`：教学表达是否清楚
+- `image_match_pass_rate`：图片/素材是否与内容匹配
+- `overall_pass_rate`：是否可视为当前阶段可展示结果
+
+## P0 PPT 前后对照样本
+
+```bash
+cd backend
+
+.venv-wsl/bin/python eval/ppt_quality_comparison_audit.py \
+  --dataset eval/ppt_quality_comparison_samples.json \
+  --output eval/results/ppt_quality_comparison_latest.json
+```
+
+评测指标：
+- `overall_improvement_rate`：优化后整体质量提升的样本比例
+- `dimension_improvement_rate`：各维度从不通过到通过的提升比例
+- `improved_sample_ids`：明确提升的样本 ID
+- `non_improved_sample_ids`：未提升或退化的样本 ID
+
+## P0 大纲重复质量 baseline
+
+```bash
+cd backend
+
+.venv-wsl/bin/python eval/outline_quality_audit.py \
+  --dataset eval/outline_quality_samples.json \
+  --output eval/results/outline_quality_latest.json
+
+.venv-wsl/bin/python eval/outline_quality_baseline.py freeze \
+  --result eval/results/outline_quality_latest.json \
+  --output eval/baselines/outline-quality-baseline-v1.json \
+  --notes "P0 outline quality baseline v1"
+
+.venv-wsl/bin/python eval/outline_quality_baseline.py check \
+  --current eval/results/outline_quality_latest.json \
+  --baseline eval/baselines/outline-quality-baseline-v1.json
+```
+
+评测指标：
+- `title_uniqueness_pass_rate`：章节标题是否不重复
+- `key_point_uniqueness_pass_rate`：关键要点是否不重复
+- `cross_section_progression_pass_rate`：相邻章节是否推进而非复述
+- `expression_specificity_pass_rate`：标题与要点是否足够具体
+- `overall_pass_rate`：整体是否可视为当前阶段可接受大纲
+
 ## D-8.3 引用标注质量评测
 
 ```bash

@@ -20,6 +20,7 @@ from services.courseware_ai.outline_support import (
     inject_focus_anchors,
     is_outline_too_sparse,
     looks_low_quality_outline,
+    reduce_outline_repetition,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,8 @@ async def generate_outline(
 2. 每章 3-6 个关键要点，且每章必须同时包含“互动提问”和“板书逻辑”相关要点。
 3. 整体必须覆盖“知识地图”“关键例题”“易错点澄清”三类教学要素（至少各出现一次）。
 4. {target_pages_constraint}
+5. 章节标题不得重复，不得使用“核心知识点”“内容讲解”这类泛化标题。
+6. 不同章节的关键要点不得直接重复或换说法原地复述，相邻章节必须体现教学推进。
 """
     try:
         response = await ai_service.generate(
@@ -137,12 +140,14 @@ async def generate_outline(
                 "Outline generation returned low-quality placeholders, rebuilding"
             )
             outline = build_deterministic_outline(user_requirements, target_pages)
+        outline = reduce_outline_repetition(outline)
         outline = inject_focus_anchors(outline)
         outline = align_slide_count_with_target(outline, target_pages)
         return outline
     except Exception as exc:
         logger.warning("Outline generation failed: %s, using fallback", exc)
         fallback = get_fallback_outline(user_requirements)
+        fallback = reduce_outline_repetition(fallback)
         fallback = inject_focus_anchors(fallback)
         fallback = align_slide_count_with_target(fallback, target_pages)
         return fallback

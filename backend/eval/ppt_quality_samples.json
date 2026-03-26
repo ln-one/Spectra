@@ -1,0 +1,82 @@
+{
+  "samples": [
+    {
+      "id": "ppt-quality-001",
+      "topic": "牛顿第二定律导入",
+      "passes": {
+        "structure": true,
+        "information_density": false,
+        "visual_balance": false,
+        "expression": true,
+        "image_match": true
+      },
+      "issues": ["information_density", "visual_balance", "text_overload"],
+      "notes": "单页文字块过长，标题与正文层次还清楚，但版面偏满。"
+    },
+    {
+      "id": "ppt-quality-002",
+      "topic": "光合作用过程图解",
+      "passes": {
+        "structure": true,
+        "information_density": true,
+        "visual_balance": true,
+        "expression": true,
+        "image_match": false
+      },
+      "issues": ["image_match", "weak_visual_evidence"],
+      "notes": "插图存在，但与页面讲解重点关联度不高。"
+    },
+    {
+      "id": "ppt-quality-003",
+      "topic": "二次函数图像性质总结",
+      "passes": {
+        "structure": false,
+        "information_density": true,
+        "visual_balance": true,
+        "expression": false,
+        "image_match": true
+      },
+      "issues": ["structure", "expression", "section_jump"],
+      "notes": "页内要点顺序跳跃，解释性句子不够教学化。"
+    },
+    {
+      "id": "ppt-quality-004",
+      "topic": "细胞结构课堂总结",
+      "passes": {
+        "structure": true,
+        "information_density": true,
+        "visual_balance": true,
+        "expression": true,
+        "image_match": true
+      },
+      "issues": [],
+      "notes": "当前阶段可展示样本。"
+    },
+    {
+      "id": "ppt-quality-005",
+      "topic": "古诗词意象分析",
+      "passes": {
+        "structure": true,
+        "information_density": false,
+        "visual_balance": true,
+        "expression": true,
+        "image_match": false
+      },
+      "issues": ["information_density", "image_match", "quote_overload"],
+      "notes": "引用文本较多，素材选择偏装饰性。"
+    },
+    {
+      "id": "ppt-quality-006",
+      "topic": "燃烧与灭火实验设计",
+      "passes": {
+        "structure": true,
+        "information_density": true,
+        "visual_balance": false,
+        "expression": true,
+        "image_match": true
+      },
+      "issues": ["visual_balance", "layout_weight"],
+      "notes": "图形和文字比例失衡，右侧区域拥挤。"
+    }
+  ]
+}

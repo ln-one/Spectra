@@ -1,0 +1,49 @@
+{
+  "baseline_version": "1",
+  "created_at": "2026-03-25T13:24:24.943049+00:00",
+  "source_result": "eval\\results\\outline_quality_latest.json",
+  "notes": "P0-outline-quality-baseline-v1",
+  "dataset": "eval\\outline_quality_samples.json",
+  "total_samples": 4,
+  "metrics": {
+    "title_uniqueness_pass_rate": 0.75,
+    "key_point_uniqueness_pass_rate": 0.5,
+    "cross_section_progression_pass_rate": 0.75,
+    "expression_specificity_pass_rate": 0.75,
+    "overall_pass_rate": 0.25,
+    "failed_sample_ids": [
+      "outline-quality-001",
+      "outline-quality-002",
+      "outline-quality-003"
+    ],
+    "failed_by_dimension": {
+      "title_uniqueness": [
+        "outline-quality-001"
+      ],
+      "key_point_uniqueness": [
+        "outline-quality-001",
+        "outline-quality-003"
+      ],
+      "cross_section_progression": [
+        "outline-quality-001"
+      ],
+      "expression_specificity": [
+        "outline-quality-002"
+      ]
+    },
+    "issue_tag_counts": {
+      "duplicate_title": 1,
+      "duplicate_key_point": 2,
+      "cross_section_repetition": 1,
+      "generic_expression": 1,
+      "paraphrase_repetition": 1
+    }
+  },
+  "guardrails": {
+    "max_title_uniqueness_drop": 0.05,
+    "max_key_point_uniqueness_drop": 0.05,
+    "max_cross_section_progression_drop": 0.05,
+    "max_expression_specificity_drop": 0.05,
+    "max_overall_drop": 0.05
+  }
+}

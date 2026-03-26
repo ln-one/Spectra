@@ -88,6 +88,30 @@ class TestPromptService:
         prompt = self.svc.build_courseware_prompt("数学", template_style="academic")
         assert "学术风格" in prompt
 
+    def test_courseware_prompt_includes_general_quality_rules(self):
+        prompt = self.svc.build_courseware_prompt("历史人物生平")
+        assert "每页只服务一个核心教学目标" in prompt
+        assert "结论 + 解释 + 例子/提问" in prompt
+        assert "避免空泛套话、机械罗列" in prompt
+
+    def test_courseware_prompt_includes_layout_density_rules(self):
+        prompt = self.svc.build_courseware_prompt("化学实验现象")
+        assert "单页正文优先控制在 2-4 个要点" in prompt
+        assert "必须给视觉元素留出明确空间" in prompt
+        assert "标题 + 2-3 组逻辑块 + 一句收束/提示" in prompt
+
+    def test_courseware_prompt_includes_image_retrieval_rules(self):
+        prompt = self.svc.build_courseware_prompt("植物细胞结构")
+        assert "优先使用项目资料或检索结果中的高相关素材" in prompt
+        assert "宁可不插图，也不要生成与内容弱相关的视觉元素" in prompt
+        assert "不能只是主题相关但讲解无用" in prompt
+
+    def test_courseware_prompt_includes_image_insertion_rules(self):
+        prompt = self.svc.build_courseware_prompt("蒸发与沸腾")
+        assert "概念定义页优先不插图" in prompt
+        assert "过程讲解页优先考虑流程图、步骤图或时序图" in prompt
+        assert "图上看什么、为什么和本页结论有关" in prompt
+
     def test_intent_prompt(self):
         prompt = self.svc.build_intent_prompt("我想做一个课件")
         assert "我想做一个课件" in prompt
