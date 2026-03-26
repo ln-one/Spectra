@@ -120,6 +120,12 @@ async def load_session_snapshot_or_raise(
         raise _not_found_session() from exc
     except PermissionError as exc:
         raise _forbidden_session_access() from exc
+    except ConflictError as exc:
+        raise_conflict(
+            str(exc),
+            error_code=getattr(exc, "error_code", "RESOURCE_CONFLICT"),
+            details=getattr(exc, "details", None),
+        )
 
 
 async def load_session_preview_snapshot_or_raise(
@@ -135,6 +141,12 @@ async def load_session_preview_snapshot_or_raise(
             raise _not_found_session() from exc
         except PermissionError as exc:
             raise _forbidden_session_access() from exc
+        except ConflictError as exc:
+            raise_conflict(
+                str(exc),
+                error_code=getattr(exc, "error_code", "RESOURCE_CONFLICT"),
+                details=getattr(exc, "details", None),
+            )
 
     return await load_session_snapshot_or_raise(svc, session_id, user_id)
 

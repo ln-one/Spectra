@@ -627,6 +627,73 @@ async def test_get_session_snapshot_handles_missing_artifact_model():
 
 
 @pytest.mark.anyio
+async def test_get_session_snapshot_rejects_state_event_mismatch():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    session.stateReason = "task_completed"
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        sessionevent=SimpleNamespace(
+            find_first=AsyncMock(
+                return_value=SimpleNamespace(
+                    state=GenerationState.FAILED.value,
+                    stateReason="task_failed",
+                )
+            )
+        ),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    with pytest.raises(ConflictError) as exc_info:
+        await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert exc_info.value.error_code == "RESOURCE_CONFLICT"
+    assert exc_info.value.details["reason"] == "state_event_mismatch"
+    assert exc_info.value.details["session_state"] == GenerationState.SUCCESS.value
+    assert exc_info.value.details["event_state"] == GenerationState.FAILED.value
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_rejects_inconsistent_artifact_anchor():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        sessionevent=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    with patch(
+        "services.generation_session_service.queries.get_session_artifact_history",
+        AsyncMock(
+            return_value={
+                "session_artifacts": [
+                    {
+                        "artifact_id": "a-001",
+                        "based_on_version_id": "ver-001",
+                    }
+                ],
+                "session_artifact_groups": [],
+                "artifact_id": "a-999",
+                "based_on_version_id": "ver-999",
+                "current_version_id": None,
+                "upstream_updated": False,
+                "artifact_anchor": {
+                    "session_id": "s-001",
+                    "artifact_id": "a-001",
+                    "based_on_version_id": "ver-001",
+                },
+            }
+        ),
+    ):
+        with pytest.raises(ConflictError) as exc_info:
+            await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert exc_info.value.error_code == "RESOURCE_CONFLICT"
+    assert exc_info.value.details["reason"] == "artifact_anchor_mismatch"
+
+
+@pytest.mark.anyio
 async def test_get_session_snapshot_fallbacks_when_artifact_select_not_supported():
     session = _fake_session(state=GenerationState.SUCCESS.value)
     now = datetime.now(timezone.utc)

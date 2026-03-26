@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from routers.generate_sessions import router as generate_sessions_router
 from services.database import db_service
+from services.generation_session_service import ConflictError
 from services.generation_session_service.constants import (
     OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
@@ -666,6 +667,34 @@ async def test_session_events_rejects_invalid_accept_query_value(app, _as_user):
     assert payload["detail"]["code"] == "INVALID_INPUT"
     assert "accept must be one of" in payload["detail"]["message"]
     session_service.get_events.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_get_session_returns_conflict_for_snapshot_contract_mismatch(
+    app, _as_user
+):
+    session_service = SimpleNamespace(
+        get_session_snapshot=AsyncMock(
+            side_effect=ConflictError(
+                "会话快照 artifact_anchor 与顶层产物字段不一致",
+                details={"reason": "artifact_anchor_mismatch"},
+            )
+        )
+    )
+
+    with patch(
+        "routers.generate_sessions.core.get_session_service",
+        return_value=session_service,
+    ):
+        client = TestClient(app)
+        response = client.get("/api/v1/generate/sessions/s-001")
+
+    assert response.status_code == 409
+    payload = response.json()
+    error = payload.get("error") or payload.get("detail") or {}
+    details = error.get("details") if isinstance(error, dict) else {}
+    assert error.get("code") == "RESOURCE_CONFLICT"
+    assert details.get("reason") == "artifact_anchor_mismatch"
 
 
 @pytest.mark.anyio
