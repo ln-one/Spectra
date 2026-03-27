@@ -108,7 +108,11 @@ class TestPromptService:
 
     def test_courseware_prompt_includes_image_insertion_rules(self):
         prompt = self.svc.build_courseware_prompt("蒸发与沸腾")
-        assert "概念定义页优先不插图" in prompt
+        assert (
+            "只在过程讲解页、结构讲解页、实验现象页、并列对比页优先考虑插图" in prompt
+        )
+        assert "默认优先使用左右并列或下方承接的稳定布局" in prompt
+        assert "大多数可插图页面默认使用 1 图" in prompt
         assert "过程讲解页优先考虑流程图、步骤图或时序图" in prompt
         assert "图上看什么、为什么和本页结论有关" in prompt
 
