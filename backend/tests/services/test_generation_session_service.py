@@ -322,6 +322,11 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
     )
     assert any(
         json.loads(event.get("payload") or "{}").get("dispatch") == "rq"
+        and event.get("stateReason") == SessionLifecycleReason.OUTLINE_CONFIRMED.value
+        for event in event_calls
+    )
+    assert any(
+        json.loads(event.get("payload") or "{}").get("dispatch") == "rq"
         and json.loads(event.get("payload") or "{}").get("rq_job_id") == "rq-1"
         for event in event_calls
     )
