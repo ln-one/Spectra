@@ -34,10 +34,8 @@ async def _load_rag_snippets(
     query: str,
     rag_source_ids: list[str] | None,
 ) -> list[str]:
-    if not rag_source_ids:
-        return []
     timeout_seconds = float(os.getenv("CHAT_RAG_TIMEOUT_SECONDS", "5") or "5")
-    filters = {"file_ids": rag_source_ids}
+    filters = {"file_ids": rag_source_ids} if rag_source_ids else None
     try:
         coroutine = ai_service._retrieve_rag_context(
             project_id=project_id,
