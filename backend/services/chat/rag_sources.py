@@ -8,6 +8,12 @@ _METADATA_SOURCE_KEYS: tuple[str, ...] = (
     "selected_file_ids",
     "file_ids",
 )
+_NESTED_SOURCE_CONTAINER_KEYS: tuple[str, ...] = (
+    "metadata",
+    "options",
+    "template_config",
+    "config",
+)
 
 
 def _normalize_source_ids(value: Any) -> list[str]:
@@ -27,6 +33,22 @@ def _normalize_source_ids(value: Any) -> list[str]:
     return normalized
 
 
+def _extract_source_ids_from_mapping(metadata: dict[str, Any]) -> list[str]:
+    for key in _METADATA_SOURCE_KEYS:
+        candidate_ids = _normalize_source_ids(metadata.get(key))
+        if candidate_ids:
+            return candidate_ids
+
+    for key in _NESTED_SOURCE_CONTAINER_KEYS:
+        nested = metadata.get(key)
+        if not isinstance(nested, dict):
+            continue
+        candidate_ids = _extract_source_ids_from_mapping(nested)
+        if candidate_ids:
+            return candidate_ids
+    return []
+
+
 def resolve_effective_rag_source_ids(
     *,
     rag_source_ids: Optional[list[str]],
@@ -41,8 +63,5 @@ def resolve_effective_rag_source_ids(
     if not isinstance(metadata, dict):
         return None
 
-    for key in _METADATA_SOURCE_KEYS:
-        candidate_ids = _normalize_source_ids(metadata.get(key))
-        if candidate_ids:
-            return candidate_ids
-    return None
+    candidate_ids = _extract_source_ids_from_mapping(metadata)
+    return candidate_ids or None

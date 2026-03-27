@@ -6,6 +6,7 @@ import os
 from typing import Optional
 
 from schemas.generation import GenerationType
+from services.chat import resolve_effective_rag_source_ids
 from services.project_space_service.artifact_semantics import (
     resolve_capability_from_artifact,
 )
@@ -182,8 +183,11 @@ def _extract_template_config(options_raw: Optional[str]) -> Optional[dict]:
     if not isinstance(options, dict):
         return None
     template_config = dict(options.get("template_config") or {})
-    rag_source_ids = options.get("rag_source_ids")
-    if isinstance(rag_source_ids, list) and rag_source_ids:
+    rag_source_ids = resolve_effective_rag_source_ids(
+        rag_source_ids=options.get("rag_source_ids"),
+        metadata=options,
+    )
+    if rag_source_ids:
         template_config["rag_source_ids"] = rag_source_ids
     return template_config if template_config else None
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 
+from services.chat import resolve_effective_rag_source_ids
 from services.generation_session_service.outline_helpers import (
     _build_outline_requirements,
     _courseware_outline_to_document,
@@ -120,12 +121,16 @@ async def generate_outline_doc(
     )
     template_style = (options or {}).get("template") or "default"
     llm_started_at = time.perf_counter()
+    rag_source_ids = resolve_effective_rag_source_ids(
+        rag_source_ids=(options or {}).get("rag_source_ids"),
+        metadata=options if isinstance(options, dict) else None,
+    )
     outline = await ai_service_obj.generate_outline(
         project_id=project_id,
         user_requirements=requirement_text,
         template_style=template_style,
         session_id=session_id,
-        rag_source_ids=(options or {}).get("rag_source_ids"),
+        rag_source_ids=rag_source_ids,
     )
     outline_doc = _courseware_outline_to_document(
         outline,
