@@ -8,6 +8,7 @@ from services.task_executor.generation import _validate_required_output_urls
 from services.task_executor.generation_runtime import (
     GenerationExecutionContext,
     _build_project_space_download_url,
+    build_generation_inputs,
     persist_generation_artifacts,
     persist_preview_payload,
     render_generation_outputs,
@@ -314,3 +315,83 @@ def test_validate_required_output_urls_allows_ppt_only_success():
         task_type="pptx",
         output_urls={"pptx": "/api/v1/projects/p-1/artifacts/a-1/download"},
     )
+
+
+@pytest.mark.asyncio
+async def test_build_generation_inputs_injects_images_for_ppt_flow():
+    db_service = SimpleNamespace()
+    courseware = SimpleNamespace(
+        title="网络课件",
+        markdown_content="# 封面\n\n- 引入",
+        lesson_plan_markdown="# 教案",
+    )
+    context = GenerationExecutionContext(
+        task_id="task-img-1",
+        project_id="p-1",
+        task_type="pptx",
+        template_config={"rag_source_ids": ["u-image-1"]},
+        session_id="s-1",
+    )
+
+    with (
+        patch(
+            "services.task_executor.generation_runtime.build_user_requirements",
+            new=AsyncMock(return_value="网络课件需求"),
+        ),
+        patch(
+            "services.task_executor.generation_runtime.load_session_outline",
+            new=AsyncMock(return_value=(None, None)),
+        ),
+        patch(
+            "services.ai.ai_service.generate_courseware_content",
+            new=AsyncMock(return_value=courseware),
+        ),
+        patch(
+            "services.task_executor.generation_runtime.inject_rag_images_into_courseware_content",
+            new=AsyncMock(),
+        ) as inject_mock,
+    ):
+        result = await build_generation_inputs(db_service, context)
+
+    assert result is courseware
+    inject_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_build_generation_inputs_skips_image_injection_for_docx_only():
+    db_service = SimpleNamespace()
+    courseware = SimpleNamespace(
+        title="教案",
+        markdown_content="# 封面\n\n- 引入",
+        lesson_plan_markdown="# 教案",
+    )
+    context = GenerationExecutionContext(
+        task_id="task-img-2",
+        project_id="p-1",
+        task_type="docx",
+        template_config={"rag_source_ids": ["u-image-1"]},
+        session_id="s-1",
+    )
+
+    with (
+        patch(
+            "services.task_executor.generation_runtime.build_user_requirements",
+            new=AsyncMock(return_value="教案需求"),
+        ),
+        patch(
+            "services.task_executor.generation_runtime.load_session_outline",
+            new=AsyncMock(return_value=(None, None)),
+        ),
+        patch(
+            "services.ai.ai_service.generate_courseware_content",
+            new=AsyncMock(return_value=courseware),
+        ),
+        patch(
+            "services.task_executor.generation_runtime.inject_rag_images_into_courseware_content",
+            new=AsyncMock(),
+        ) as inject_mock,
+    ):
+        result = await build_generation_inputs(db_service, context)
+
+    assert result is courseware
+    inject_mock.assert_not_awaited()
