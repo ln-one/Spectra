@@ -18,6 +18,28 @@ def test_extract_template_config_with_rag_source_ids():
     assert result["rag_source_ids"] == ["file-1", "file-2"]
 
 
+def test_extract_template_config_with_selected_file_ids_fallback():
+    options = {
+        "template_config": {"style": "default"},
+        "selected_file_ids": ["file-3", "file-4"],
+    }
+    result = _extract_template_config(json.dumps(options))
+    assert result is not None
+    assert result["style"] == "default"
+    assert result["rag_source_ids"] == ["file-3", "file-4"]
+
+
+def test_extract_template_config_with_nested_options_fallback():
+    options = {
+        "template_config": {"style": "gaia"},
+        "options": {"source_ids": ["file-5"]},
+    }
+    result = _extract_template_config(json.dumps(options))
+    assert result is not None
+    assert result["style"] == "gaia"
+    assert result["rag_source_ids"] == ["file-5"]
+
+
 def test_extract_template_config_without_rag_source_ids():
     """验证没有 rag_source_ids 时正常工作"""
     options = {"template_config": {"style": "gaia"}}

@@ -87,6 +87,25 @@ async def test_generate_outline_doc_passes_selected_sources():
     assert ai_service.kwargs["rag_source_ids"] == ["file-1", "file-2"]
 
 
+@pytest.mark.asyncio
+async def test_generate_outline_doc_supports_selected_file_ids_fallback():
+    db = SimpleNamespace(
+        project=SimpleNamespace(find_unique=_FakeFindProject()),
+        conversation=SimpleNamespace(find_many=_FakeFindMany()),
+    )
+    ai_service = _FakeAIService()
+
+    await _generate_outline_doc(
+        db=db,
+        session_id="s-001",
+        project_id="p-001",
+        options={"selected_file_ids": ["file-3", "file-4"]},
+        ai_service_obj=ai_service,
+    )
+
+    assert ai_service.kwargs["rag_source_ids"] == ["file-3", "file-4"]
+
+
 def test_outline_draft_timeout_defaults_to_ai_timeout(monkeypatch):
     monkeypatch.delenv("OUTLINE_DRAFT_TIMEOUT_SECONDS", raising=False)
     monkeypatch.setenv("AI_REQUEST_TIMEOUT_SECONDS", "90")

@@ -1503,6 +1503,58 @@ async def test_execute_studio_card_accepts_rag_source_ids(app, _as_user):
 
 
 @pytest.mark.anyio
+async def test_execute_studio_card_accepts_selected_file_ids_fallback(app, _as_user):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-map-002",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="mindmap",
+        visibility="project-visible",
+        storagePath="uploads/artifacts/a-map-002.json",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime_artifacts.build_studio_tool_artifact_content",
+            AsyncMock(return_value={"kind": "mindmap", "nodes": []}),
+        ) as build_content_mock,
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/knowledge_mindmap/execute",
+            json={
+                "project_id": "p-001",
+                "selected_file_ids": ["file-3", "file-4"],
+                "config": {
+                    "topic": "化学反应速率",
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    assert build_content_mock.await_args.kwargs["rag_source_ids"] == [
+        "file-3",
+        "file-4",
+    ]
+
+
+@pytest.mark.anyio
 async def test_get_studio_card_sources_returns_matching_artifacts(app, _as_user):
     client = TestClient(app)
     artifact = SimpleNamespace(
