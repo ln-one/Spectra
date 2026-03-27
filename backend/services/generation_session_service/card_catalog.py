@@ -14,6 +14,54 @@ from services.generation_session_service.constants import SessionOutputType
 
 CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
     StudioCardCapability(
+        id="courseware_ppt",
+        title="课件生成",
+        readiness=StudioCardReadiness.FOUNDATION_READY,
+        context_mode=StudioCardContextMode.HYBRID,
+        execution_mode=StudioCardExecutionMode.COMPOSITE,
+        primary_capabilities=["ppt", "outline"],
+        related_capabilities=["word", "summary"],
+        artifact_types=["pptx", "summary"],
+        session_output_type=SessionOutputType.PPT.value,
+        supports_chat_refine=True,
+        config_fields=[
+            StudioCardConfigField(
+                key="template",
+                label="课件模板",
+                type=StudioCardFieldType.SELECT,
+                options=[
+                    StudioCardConfigOption(value="default", label="默认模板"),
+                    StudioCardConfigOption(value="gaia", label="GAIA"),
+                    StudioCardConfigOption(value="uncover", label="UNCOVER"),
+                ],
+                default_value="default",
+            ),
+            StudioCardConfigField(
+                key="pages",
+                label="页数",
+                type=StudioCardFieldType.INTEGER,
+                default_value=12,
+            ),
+            StudioCardConfigField(
+                key="audience",
+                label="受众层级",
+                type=StudioCardFieldType.SELECT,
+                options=[
+                    StudioCardConfigOption(value="primary", label="小学"),
+                    StudioCardConfigOption(value="middle", label="初中"),
+                    StudioCardConfigOption(value="high", label="高中"),
+                    StudioCardConfigOption(value="intermediate", label="大学"),
+                ],
+                default_value="intermediate",
+            ),
+        ],
+        actions=[
+            StudioCardAction(type="generate", label="生成课件"),
+            StudioCardAction(type="chat_refine", label="在课件上下文中继续微调"),
+        ],
+        notes="课件卡片已接入 session 主链，可直接复用 outline->generate->artifact->download 闭环。",
+    ),
+    StudioCardCapability(
         id="word_document",
         title="Word 教案与文档",
         readiness=StudioCardReadiness.FOUNDATION_READY,

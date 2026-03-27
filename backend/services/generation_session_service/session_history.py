@@ -41,6 +41,7 @@ _RUN_TOOL_LABELS = {
 }
 
 _STUDIO_CARD_LABELS = {
+    "courseware_ppt": "课件生成",
     "word_document": "讲义文档",
     "interactive_quick_quiz": "随堂小测",
     "interactive_games": "互动游戏",

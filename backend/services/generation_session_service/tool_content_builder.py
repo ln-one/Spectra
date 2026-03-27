@@ -114,6 +114,12 @@ async def _generate_structured_content(
     if not _should_attempt_ai_generation():
         return None
     schema_hint = {
+        "courseware_ppt": (
+            '{"title":"", "summary":"", "pages":12, "template":"default"}'
+        ),
+        "word_document": (
+            '{"title":"", "summary":"", "document_variant":"layered_lesson_plan"}'
+        ),
         "knowledge_mindmap": (
             '{"title":"",'
             ' "nodes":[{"id":"","parent_id":null,"title":"","summary":""}]}'
@@ -138,7 +144,9 @@ async def _generate_structured_content(
             '"slides":[{"page":1,"title":"","script":"",'
             '"action_hint":"","transition_line":""}]}'
         ),
-    }[card_id]
+    }.get(card_id)
+    if not schema_hint:
+        return None
     prompt = (
         "你是教学工具内容生成器。请严格只返回 JSON，不要加 markdown 代码块。\n"
         f"卡片类型: {card_id}\n"
