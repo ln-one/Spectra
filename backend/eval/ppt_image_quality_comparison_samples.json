@@ -1,0 +1,70 @@
+{
+  "samples": [
+    {
+      "id": "ppt-image-compare-001",
+      "retrieval_mode": "default_library",
+      "before": {
+        "passes": {
+          "page_selection": false,
+          "placement": false,
+          "quantity": true,
+          "layout_risk_control": false,
+          "text_image_alignment": false
+        }
+      },
+      "after": {
+        "passes": {
+          "page_selection": true,
+          "placement": true,
+          "quantity": true,
+          "layout_risk_control": true,
+          "text_image_alignment": true
+        }
+      }
+    },
+    {
+      "id": "ppt-image-compare-002",
+      "retrieval_mode": "strict_sources",
+      "before": {
+        "passes": {
+          "page_selection": true,
+          "placement": false,
+          "quantity": false,
+          "layout_risk_control": false,
+          "text_image_alignment": true
+        }
+      },
+      "after": {
+        "passes": {
+          "page_selection": true,
+          "placement": true,
+          "quantity": true,
+          "layout_risk_control": true,
+          "text_image_alignment": true
+        }
+      }
+    },
+    {
+      "id": "ppt-image-compare-003",
+      "retrieval_mode": "default_library",
+      "before": {
+        "passes": {
+          "page_selection": true,
+          "placement": true,
+          "quantity": true,
+          "layout_risk_control": true,
+          "text_image_alignment": true
+        }
+      },
+      "after": {
+        "passes": {
+          "page_selection": true,
+          "placement": true,
+          "quantity": true,
+          "layout_risk_control": true,
+          "text_image_alignment": true
+        }
+      }
+    }
+  ]
+}

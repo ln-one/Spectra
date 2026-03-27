@@ -250,6 +250,37 @@ cd backend
 - `improved_sample_ids`：明确提升的样本 ID
 - `non_improved_sample_ids`：未提升或退化的样本 ID
 
+## P0 PPT 插图质量专项
+
+```bash
+cd backend
+
+.venv-wsl/bin/python eval/ppt_image_quality_audit.py \
+  --dataset eval/ppt_image_quality_samples.json \
+  --output eval/results/ppt_image_quality_latest.json
+
+.venv-wsl/bin/python eval/ppt_image_quality_baseline.py freeze \
+  --result eval/results/ppt_image_quality_latest.json \
+  --output eval/baselines/ppt-image-quality-baseline-v1.json \
+  --notes "P0 ppt image quality baseline v1"
+
+.venv-wsl/bin/python eval/ppt_image_quality_baseline.py check \
+  --current eval/results/ppt_image_quality_latest.json \
+  --baseline eval/baselines/ppt-image-quality-baseline-v1.json
+
+.venv-wsl/bin/python eval/ppt_image_quality_comparison_audit.py \
+  --dataset eval/ppt_image_quality_comparison_samples.json \
+  --output eval/results/ppt_image_quality_comparison_latest.json
+```
+
+评测指标：
+- `page_selection_pass_rate`：该插图页是否真的值得插图
+- `placement_pass_rate`：图位是否稳定、便于讲解
+- `quantity_pass_rate`：图片数量是否合理
+- `layout_risk_control_pass_rate`：是否避免高风险版式
+- `text_image_alignment_pass_rate`：图文是否服务同一结论
+- `overall_pass_rate`：是否可视为当前阶段可接入的插图结果
+
 ## P0 大纲重复质量 baseline
 
 ```bash
