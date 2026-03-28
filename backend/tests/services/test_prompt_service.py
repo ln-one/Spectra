@@ -124,6 +124,8 @@ class TestPromptService:
         assert "我想做一个课件" in prompt
         assert "describe_requirement" in prompt
         assert "JSON" in prompt
+        assert "<intent_task>" in prompt
+        assert "<decision_rules>" in prompt
 
     def test_modify_prompt(self):
         prompt = self.svc.build_modify_prompt(
