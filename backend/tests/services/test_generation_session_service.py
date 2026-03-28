@@ -299,6 +299,58 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
 
 
 @pytest.mark.anyio
+async def test_confirm_outline_persists_traceability_fields_in_task_input(monkeypatch):
+    session_before = _fake_session(
+        output_type=SessionOutputType.PPT.value,
+        options='{"template_config": {"style": "gaia", "rag_source_ids": ["file-1"]}}',
+    )
+    session_after = _fake_session(
+        state=GenerationState.GENERATING_CONTENT.value,
+        output_type=SessionOutputType.PPT.value,
+    )
+    created_task = SimpleNamespace(id="task-201")
+
+    db = SimpleNamespace(
+        idempotencykey=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+        generationsession=SimpleNamespace(
+            find_unique=AsyncMock(side_effect=[session_before, session_after]),
+            update=AsyncMock(),
+        ),
+        generationtask=SimpleNamespace(
+            create=AsyncMock(return_value=created_task),
+            update=AsyncMock(),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+    service = GenerationSessionService(db=db)
+
+    queue = Mock()
+    queue.get_queue_info.return_value = {"workers": {"count": 1, "stale": []}}
+    queue.enqueue_generation_task.return_value = SimpleNamespace(id="rq-201")
+
+    monkeypatch.setattr(
+        "services.platform.task_recovery.TaskRecoveryService.is_session_already_running",
+        AsyncMock(return_value=False),
+    )
+    monkeypatch.setattr(
+        service._guard, "validate", lambda *_: _allow_confirm_transition()
+    )
+
+    await service.execute_command(
+        session_id="s-001",
+        user_id="u-001",
+        command={"command_type": "CONFIRM_OUTLINE"},
+        task_queue_service=queue,
+    )
+
+    raw_input = db.generationtask.create.await_args.kwargs["data"]["inputData"]
+    payload = json.loads(raw_input)
+    assert payload["retrieval_mode"] == "strict_sources"
+    assert payload["policy_version"] == "prompt-policy-v2026-03-28"
+    assert payload["baseline_id"] == "prompt-baseline-v1"
+
+
+@pytest.mark.anyio
 async def test_execute_command_fallbacks_to_local_when_queue_unavailable(monkeypatch):
     session_before = _fake_session(output_type=SessionOutputType.PPT.value)
     session_after = _fake_session(

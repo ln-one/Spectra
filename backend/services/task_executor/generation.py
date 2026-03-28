@@ -117,6 +117,9 @@ async def execute_generation_task(
                 context.run_no = parsed_input.get("run_no")
                 context.run_title = parsed_input.get("run_title")
                 context.tool_type = parsed_input.get("tool_type")
+                context.retrieval_mode = parsed_input.get("retrieval_mode")
+                context.policy_version = parsed_input.get("policy_version")
+                context.baseline_id = parsed_input.get("baseline_id")
                 outline_version = parsed_input.get("outline_version")
                 if isinstance(outline_version, bool):
                     outline_version = None

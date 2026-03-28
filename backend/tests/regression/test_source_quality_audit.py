@@ -30,7 +30,7 @@ def test_compute_audit_metrics_all_pass():
     assert m.readability_rate == pytest.approx(1.0)
     assert m.relevance_rate == pytest.approx(1.0)
     assert m.failed_sample_ids == []
-    assert m.by_retrieval_mode["unspecified"]["coverage_rate"] == pytest.approx(1.0)
+    assert m.by_retrieval_mode["default_library"]["coverage_rate"] == pytest.approx(1.0)
 
 
 def test_compute_audit_metrics_fail_missing_locator():
@@ -103,7 +103,9 @@ def test_compute_audit_metrics_normalizes_source_type_aliases():
     m = compute_audit_metrics(samples)
     assert m.readability_rate == pytest.approx(1.0)
     assert m.relevance_rate == pytest.approx(1.0)
-    assert m.by_retrieval_mode["unspecified"]["relevance_rate"] == pytest.approx(1.0)
+    assert m.by_retrieval_mode["default_library"]["relevance_rate"] == pytest.approx(
+        1.0
+    )
 
 
 def test_compute_audit_metrics_groups_by_retrieval_mode():

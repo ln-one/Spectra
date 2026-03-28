@@ -151,6 +151,9 @@ class ChatObservability(BaseModel):
     )
     prompt_template_version: Optional[str] = Field(None, description="prompt 模板版本")
     few_shot_version: Optional[str] = Field(None, description="few-shot 模板版本")
+    retrieval_mode: Optional[str] = Field(None, description="检索语义模式")
+    policy_version: Optional[str] = Field(None, description="提示词/规则策略版本")
+    baseline_id: Optional[str] = Field(None, description="提示词评测基线版本")
 
     @field_validator("route_task", mode="before")
     @classmethod

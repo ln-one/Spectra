@@ -65,6 +65,23 @@ def test_chat_observability_normalizes_route_decision_enums():
     assert payload.route_decision.failure_reason == "timeout"
 
 
+def test_chat_observability_supports_retrieval_and_policy_traceability():
+    payload = ChatObservability(
+        request_id="req-004",
+        route_task=ChatRouteTask.CHAT_RESPONSE,
+        selected_model="qwen3.5-plus",
+        has_rag_context=True,
+        fallback_triggered=False,
+        retrieval_mode="strict_sources",
+        policy_version="prompt-policy-v2026-03-28",
+        baseline_id="prompt-baseline-v1",
+    )
+
+    assert payload.retrieval_mode == "strict_sources"
+    assert payload.policy_version == "prompt-policy-v2026-03-28"
+    assert payload.baseline_id == "prompt-baseline-v1"
+
+
 def test_send_message_response_supports_contract_fields():
     message = Message(
         id="msg-1",

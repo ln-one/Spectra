@@ -22,6 +22,7 @@ if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from schemas.common import SourceType, normalize_source_type
+from services.prompt_service import RETRIEVAL_MODE_DEFAULT_LIBRARY
 
 
 @dataclass
@@ -149,7 +150,7 @@ def compute_audit_metrics(samples: list[dict]) -> AuditMetrics:
     by_retrieval_mode: dict[str, dict] = {}
     grouped_samples: dict[str, list[dict]] = {}
     for sample in samples:
-        mode = str(sample.get("retrieval_mode") or "unspecified")
+        mode = str(sample.get("retrieval_mode") or RETRIEVAL_MODE_DEFAULT_LIBRARY)
         grouped_samples.setdefault(mode, []).append(sample)
 
     for mode, grouped in grouped_samples.items():

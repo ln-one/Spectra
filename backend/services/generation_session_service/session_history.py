@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from services.ai import ai_service
 from services.ai.model_router import ModelRouteTask
+from services.prompt_service import build_prompt_traceability
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +112,10 @@ def build_run_trace_payload(run: Any | dict | None, **extra: Any) -> dict:
             payload.update(run_payload)
     payload.update({key: value for key, value in extra.items() if value is not None})
     return payload
+
+
+def build_run_prompt_trace_payload(*, rag_source_ids: list[str] | None = None) -> dict:
+    return build_prompt_traceability(rag_source_ids=rag_source_ids)
 
 
 async def get_latest_session_run(db, session_id: str) -> Any | None:

@@ -21,6 +21,14 @@ from .semantics import (
     build_session_scope_section,
     output_block_marker,
 )
+from .traceability import (
+    PROMPT_BASELINE_ID,
+    PROMPT_POLICY_VERSION,
+    RETRIEVAL_MODE_DEFAULT_LIBRARY,
+    RETRIEVAL_MODE_STRICT_SOURCES,
+    build_prompt_traceability,
+    resolve_retrieval_mode,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,5 +104,11 @@ __all__ = [
     "build_conversation_history_section",
     "build_session_scope_section",
     "output_block_marker",
+    "RETRIEVAL_MODE_DEFAULT_LIBRARY",
+    "RETRIEVAL_MODE_STRICT_SOURCES",
+    "PROMPT_POLICY_VERSION",
+    "PROMPT_BASELINE_ID",
+    "resolve_retrieval_mode",
+    "build_prompt_traceability",
     "prompt_service",
 ]
