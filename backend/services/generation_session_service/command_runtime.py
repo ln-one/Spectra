@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Awaitable, Callable
 
@@ -37,8 +37,8 @@ async def handle_regenerate_slide(
         if expected_render_version and session.renderVersion != expected_render_version:
             raise conflict_error_cls(
                 (
-                    f"Render version conflict: expected {expected_render_version}, "
-                    f"got {session.renderVersion}"
+                    f"渲染版本冲突：期望 {expected_render_version}，"
+                    f"当前 {session.renderVersion}"
                 )
             )
 
