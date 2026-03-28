@@ -2,7 +2,10 @@
 import { previewApi } from "@/lib/sdk/preview";
 import { generateApi } from "@/lib/sdk/generate";
 import { ApiError } from "@/lib/sdk/client";
-import { downloadArtifact, getArtifacts } from "@/lib/sdk/project-space/artifacts";
+import {
+  downloadArtifact,
+  getArtifacts,
+} from "@/lib/sdk/project-space/artifacts";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
 import { toast } from "@/hooks/use-toast";
@@ -253,12 +256,17 @@ export function useGeneratePreviewState({
         targetArtifactType = pptArtifact?.type ?? undefined;
       } else {
         const sessionArtifacts = await ensureArtifacts();
-        const exact = sessionArtifacts.find((item) => item.id === targetArtifactId);
+        const exact = sessionArtifacts.find(
+          (item) => item.id === targetArtifactId
+        );
         targetArtifactType = exact?.type ?? undefined;
       }
 
       if (targetArtifactId) {
-        const artifactBlob = await downloadArtifact(projectId, targetArtifactId);
+        const artifactBlob = await downloadArtifact(
+          projectId,
+          targetArtifactId
+        );
         const extension = targetArtifactType === "docx" ? "docx" : "pptx";
         const artifactUrl = URL.createObjectURL(artifactBlob);
         const link = document.createElement("a");
@@ -303,13 +311,7 @@ export function useGeneratePreviewState({
     } finally {
       setIsExporting(false);
     }
-  }, [
-    activeRunId,
-    activeSessionId,
-    currentArtifactId,
-    isExporting,
-    projectId,
-  ]);
+  }, [activeRunId, activeSessionId, currentArtifactId, isExporting, projectId]);
 
   const handleRegenerateSlide = useCallback(
     async (slide: Slide) => {
