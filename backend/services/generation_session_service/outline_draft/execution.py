@@ -41,6 +41,24 @@ logger = logging.getLogger(__name__)
 _generate_outline_doc = generate_outline_doc
 
 
+def _iter_outline_sections(outline_doc: dict) -> list[dict]:
+    nodes = outline_doc.get("nodes")
+    if not isinstance(nodes, list):
+        return []
+    sections: list[dict] = []
+    for index, node in enumerate(nodes, start=1):
+        if not isinstance(node, dict):
+            continue
+        sections.append(
+            {
+                "section_index": index,
+                "section_title": str(node.get("title") or "").strip(),
+                "section_payload": node,
+            }
+        )
+    return sections
+
+
 def _outline_draft_timeout_seconds() -> float:
     raw = os.getenv("OUTLINE_DRAFT_TIMEOUT_SECONDS")
     if raw is None or not str(raw).strip():
@@ -181,6 +199,12 @@ async def execute_outline_draft_local(
             session_id=session_id,
             output_type=output_type,
         )
+        await append_event(
+            session_id=session_id,
+            event_type=GenerationEventType.OUTLINE_STARTED.value,
+            state=GenerationState.DRAFTING_OUTLINE.value,
+            payload={"stage": "outline_draft", "trace_id": trace_id, "run_id": run_id},
+        )
 
         await _emit_outline_progress(append_event, session_id, trace_id, run_id=run_id)
         outline_started_at = time.perf_counter()
@@ -210,6 +234,17 @@ async def execute_outline_draft_local(
             float(outline_doc.pop("_outline_llm_ms", 0.0)),
             2,
         )
+        for section in _iter_outline_sections(outline_doc):
+            await append_event(
+                session_id=session_id,
+                event_type=GenerationEventType.OUTLINE_SECTION_GENERATED.value,
+                state=GenerationState.DRAFTING_OUTLINE.value,
+                payload={
+                    "trace_id": trace_id,
+                    "run_id": run_id,
+                    **section,
+                },
+            )
         persist_started_at = time.perf_counter()
         await persist_outline_success(
             db=db,
