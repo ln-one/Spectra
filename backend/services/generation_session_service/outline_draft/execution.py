@@ -35,6 +35,7 @@ from services.generation_session_service.session_history import (
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
+from services.prompt_service import build_prompt_traceability
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,9 @@ async def execute_outline_draft_local(
     stage_timings_ms: dict[str, float] = {}
     run_id: Optional[str] = None
     output_type: Optional[str] = None
+    traceability_payload = build_prompt_traceability(
+        rag_source_ids=(options or {}).get("rag_source_ids")
+    )
     try:
         session = await db.generationsession.find_unique(where={"id": session_id})
         if not session:
@@ -182,7 +186,13 @@ async def execute_outline_draft_local(
             output_type=output_type,
         )
 
-        await _emit_outline_progress(append_event, session_id, trace_id, run_id=run_id)
+        await _emit_outline_progress(
+            append_event,
+            session_id,
+            trace_id,
+            run_id=run_id,
+            traceability_payload=traceability_payload,
+        )
         outline_started_at = time.perf_counter()
         outline_doc = await asyncio.wait_for(
             generate_outline_doc(
@@ -234,6 +244,7 @@ async def execute_outline_draft_local(
             outline_version=next_outline_version,
             stage_timings_ms=stage_timings_ms,
             run_id=run_id,
+            traceability_payload=traceability_payload,
         )
         logger.info(
             "outline_draft_stage_timing",
@@ -272,6 +283,7 @@ async def execute_outline_draft_local(
             error_message=error_message,
             trace_id=trace_id,
             run_id=run_id,
+            traceability_payload=traceability_payload,
         )
         await persist_outline_failure_fallback(
             db=db,
@@ -288,6 +300,7 @@ async def execute_outline_draft_local(
             failure_state_reason=failure_state_reason,
             outline_version=next_outline_version,
             run_id=run_id,
+            traceability_payload=traceability_payload,
         )
 
 
@@ -296,11 +309,17 @@ async def _emit_outline_progress(
     session_id: str,
     trace_id: str,
     run_id: Optional[str] = None,
+    traceability_payload: Optional[dict] = None,
 ) -> None:
     await append_event(
         session_id=session_id,
         event_type=GenerationEventType.PROGRESS_UPDATED.value,
         state=GenerationState.DRAFTING_OUTLINE.value,
         progress=15,
-        payload={"stage": "outline_draft", "trace_id": trace_id, "run_id": run_id},
+        payload={
+            "stage": "outline_draft",
+            "trace_id": trace_id,
+            "run_id": run_id,
+            **(traceability_payload or {}),
+        },
     )

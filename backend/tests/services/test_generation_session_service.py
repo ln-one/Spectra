@@ -1264,6 +1264,14 @@ async def test_execute_outline_draft_local_success_path():
 
     assert progress_events
     assert outline_events
+    progress_payload = json.loads(progress_events[0]["payload"])
+    assert progress_payload["retrieval_mode"] == "default_library"
+    assert progress_payload["policy_version"] == "prompt-policy-v2026-03-28"
+    assert progress_payload["baseline_id"] == "prompt-baseline-v1"
+    outline_payload = json.loads(outline_events[0]["payload"])
+    assert outline_payload["retrieval_mode"] == "default_library"
+    assert outline_payload["policy_version"] == "prompt-policy-v2026-03-28"
+    assert outline_payload["baseline_id"] == "prompt-baseline-v1"
     assert any(
         e["state"] == GenerationState.AWAITING_OUTLINE_CONFIRM.value
         for e in state_events
@@ -1334,6 +1342,9 @@ async def test_execute_outline_draft_local_failure_path():
     assert failed_payload["error_code"] == OutlineGenerationErrorCode.FAILED.value
     assert failed_payload["retryable"] is True
     assert "trace_id" in failed_payload
+    assert failed_payload["retrieval_mode"] == "default_library"
+    assert failed_payload["policy_version"] == "prompt-policy-v2026-03-28"
+    assert failed_payload["baseline_id"] == "prompt-baseline-v1"
 
     db.outlineversion.create.assert_called_once()
     outline_data = db.outlineversion.create.await_args.kwargs["data"]
