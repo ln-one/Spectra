@@ -27,14 +27,15 @@ export function SimulationToolPanel({
   onDraftChange,
   flowContext,
 }: ToolPanelProps) {
-  const { project, activeSessionId, fetchArtifactHistory } = useProjectStore(
+  const { project, activeSessionId, selectedFileIds, fetchArtifactHistory } =
+    useProjectStore(
     useShallow((state) => ({
       project: state.project,
       activeSessionId: state.activeSessionId,
       selectedFileIds: state.selectedFileIds,
       fetchArtifactHistory: state.fetchArtifactHistory,
     }))
-  );
+    );
 
   const [activeStep, setActiveStep] = useState<SimulationStep>("config");
   useWorkflowStepSync(activeStep, setActiveStep, flowContext);

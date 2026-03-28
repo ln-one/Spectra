@@ -8,6 +8,16 @@ export type ExportResponse = components["schemas"]["ExportResponse"];
 
 export type ModifySessionRequest =
   components["schemas"]["ModifySessionRequest"];
+export type ModifySessionRequestV1 = ModifySessionRequest & {
+  run_id?: string;
+  slide_id?: string;
+  slide_index?: number;
+  scope?: "current_slide_only" | string;
+  preserve_style?: boolean;
+  preserve_layout?: boolean;
+  preserve_deck_consistency?: boolean;
+  patch?: components["schemas"]["StructuredSlidePatch"];
+};
 export type ExportRequest = components["schemas"]["ExportRequest"] & {
   run_id?: string;
 };
@@ -33,7 +43,7 @@ export const previewApi = {
 
   async modifySessionPreview(
     sessionId: string,
-    data: ModifySessionRequest
+    data: ModifySessionRequestV1
   ): Promise<ModifyResponse> {
     const headers = withIdempotency({}, true);
     const result = await sdkClient.POST(

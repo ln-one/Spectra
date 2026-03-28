@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useState } from "react";
-import { previewApi } from "@/lib/sdk/preview";
+import { previewApi, type ModifySessionRequestV1 } from "@/lib/sdk/preview";
 import { generateApi } from "@/lib/sdk/generate";
 import { projectSpaceApi } from "@/lib/sdk/project-space";
 import { ApiError } from "@/lib/sdk/client";
@@ -26,8 +26,6 @@ function inferDownloadExt(artifactType: ArtifactType | undefined): string {
       return "pptx";
     case "docx":
       return "docx";
-    case "pdf":
-      return "pdf";
     case "html":
       return "html";
     case "mp4":
@@ -230,10 +228,18 @@ export function useGeneratePreviewState({
   }, [loadSlides]);
 
   useEffect(() => {
-    if (
-      latestEvent?.event_type === "slide.updated" &&
-      latestEvent.payload?.slide
-    ) {
+    if (latestEvent?.event_type === "slide.modify.started") {
+      const eventSlideId =
+        typeof latestEvent.payload?.slide_id === "string"
+          ? latestEvent.payload.slide_id
+          : null;
+      if (eventSlideId) {
+        setRegeneratingSlideId(eventSlideId);
+      }
+      return;
+    }
+
+    if (latestEvent?.event_type === "slide.updated" && latestEvent.payload?.slide) {
       const updatedSlide = latestEvent.payload.slide as Slide;
       setSlides((prev) => {
         const idx = prev.findIndex(
@@ -243,6 +249,11 @@ export function useGeneratePreviewState({
         if (idx !== -1) {
           const next = [...prev];
           next[idx] = { ...next[idx], ...updatedSlide };
+          if (updatedSlide.id) {
+            setRegeneratingSlideId((current) =>
+              current === updatedSlide.id ? null : current
+            );
+          }
           return next.sort((a, b) => a.index - b.index);
         }
         return [...prev, updatedSlide].sort((a, b) => a.index - b.index);
@@ -341,7 +352,7 @@ export function useGeneratePreviewState({
       }
       try {
         setRegeneratingSlideId(slideId);
-        const requestBody = {
+        const requestBody: ModifySessionRequestV1 = {
           artifact_id: currentArtifactId ?? undefined,
           run_id: activeRunId ?? undefined,
           slide_id: slide.id ?? undefined,
@@ -356,7 +367,7 @@ export function useGeneratePreviewState({
             schema_version: 1,
             operations: [],
           },
-        } as unknown as components["schemas"]["ModifySessionRequest"];
+        };
         await previewApi.modifySessionPreview(activeSessionId, requestBody);
         await loadSlides();
         toast({
