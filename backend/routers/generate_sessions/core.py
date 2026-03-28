@@ -25,6 +25,8 @@ from services.generation_session_service.run_queries import (
     resolve_output_tool_type,
 )
 from services.generation_session_service.session_history import (
+    SESSION_TITLE_SOURCE_DEFAULT,
+    build_default_session_title,
     serialize_session_run,
 )
 from services.platform.state_transition_guard import GenerationState
@@ -170,8 +172,10 @@ async def list_sessions(
                 "base_version_id": getattr(s, "baseVersionId", None),
                 "output_type": s.outputType,
                 "state": s.state,
-                "display_title": getattr(s, "displayTitle", None),
-                "display_title_source": getattr(s, "displayTitleSource", None),
+                "display_title": getattr(s, "displayTitle", None)
+                or build_default_session_title(s.id),
+                "display_title_source": getattr(s, "displayTitleSource", None)
+                or SESSION_TITLE_SOURCE_DEFAULT,
                 "display_title_updated_at": (
                     s.displayTitleUpdatedAt.isoformat()
                     if getattr(s, "displayTitleUpdatedAt", None)

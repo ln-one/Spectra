@@ -4,7 +4,11 @@ import json
 from typing import Optional
 
 from schemas.generation import TaskStatus
-from services.generation_session_service.session_history import serialize_session_run
+from services.generation_session_service.session_history import (
+    SESSION_TITLE_SOURCE_DEFAULT,
+    build_default_session_title,
+    serialize_session_run,
+)
 from services.platform.state_transition_guard import GenerationState
 
 
@@ -29,6 +33,12 @@ def _to_session_ref(
     schema_version: int,
     task_id: Optional[str] = None,
 ) -> dict:
+    display_title = getattr(
+        session, "displayTitle", None
+    ) or build_default_session_title(session.id)
+    display_title_source = (
+        getattr(session, "displayTitleSource", None) or SESSION_TITLE_SOURCE_DEFAULT
+    )
     return {
         "session_id": session.id,
         "project_id": session.projectId,
@@ -43,8 +53,8 @@ def _to_session_ref(
         "resumable": session.resumable,
         "updated_at": session.updatedAt.isoformat() if session.updatedAt else None,
         "render_version": session.renderVersion,
-        "display_title": getattr(session, "displayTitle", None),
-        "display_title_source": getattr(session, "displayTitleSource", None),
+        "display_title": display_title,
+        "display_title_source": display_title_source,
         "display_title_updated_at": (
             session.displayTitleUpdatedAt.isoformat()
             if getattr(session, "displayTitleUpdatedAt", None)
