@@ -1305,6 +1305,21 @@ async def test_execute_outline_draft_local_success_path():
         for e in event_calls
         if e["eventType"] == GenerationEventType.OUTLINE_UPDATED.value
     ]
+    outline_started_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.OUTLINE_STARTED.value
+    ]
+    outline_section_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.OUTLINE_SECTION_GENERATED.value
+    ]
+    outline_completed_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.OUTLINE_COMPLETED.value
+    ]
     state_events = [
         e
         for e in event_calls
@@ -1312,6 +1327,9 @@ async def test_execute_outline_draft_local_success_path():
     ]
 
     assert progress_events
+    assert outline_started_events
+    assert outline_section_events
+    assert outline_completed_events
     assert outline_events
     assert any(
         e["state"] == GenerationState.AWAITING_OUTLINE_CONFIRM.value
@@ -1377,7 +1395,13 @@ async def test_execute_outline_draft_local_failure_path():
         for e in event_calls
         if e["eventType"] == GenerationEventType.TASK_FAILED.value
     ]
+    generation_failed_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.GENERATION_FAILED.value
+    ]
     assert len(failed_events) == 1
+    assert len(generation_failed_events) == 1
     failed_payload = json.loads(failed_events[0]["payload"])
     assert failed_payload["stage"] == "outline_draft"
     assert failed_payload["error_code"] == OutlineGenerationErrorCode.FAILED.value
