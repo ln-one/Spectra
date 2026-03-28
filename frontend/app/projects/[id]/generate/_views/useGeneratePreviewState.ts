@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useState } from "react";
 import { previewApi } from "@/lib/sdk/preview";
 import { generateApi } from "@/lib/sdk/generate";
+import { projectSpaceApi } from "@/lib/sdk/project-space";
 import { ApiError } from "@/lib/sdk/client";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
@@ -10,12 +11,39 @@ import { useShallow } from "zustand/react/shallow";
 
 type Slide = components["schemas"]["Slide"];
 type SessionStatePayload = components["schemas"]["SessionStatePayload"];
+type ArtifactType = components["schemas"]["Artifact"]["type"];
 
 type SessionStatePayloadWithRun = SessionStatePayload & {
   current_run?: {
     run_id?: string;
   };
 };
+
+function inferDownloadExt(artifactType: ArtifactType | undefined): string {
+  if (!artifactType) return "bin";
+  switch (artifactType) {
+    case "pptx":
+      return "pptx";
+    case "docx":
+      return "docx";
+    case "pdf":
+      return "pdf";
+    case "html":
+      return "html";
+    case "mp4":
+      return "mp4";
+    case "gif":
+      return "gif";
+    case "mindmap":
+      return "json";
+    case "summary":
+      return "md";
+    case "exercise":
+      return "json";
+    default:
+      return "bin";
+  }
+}
 
 export function useGeneratePreviewState({
   projectId,
@@ -231,6 +259,31 @@ export function useGeneratePreviewState({
     if (!activeSessionId || isExporting) return;
     try {
       setIsExporting(true);
+
+      if (projectId && currentArtifactId) {
+        try {
+          const [artifactResponse, artifactBlob] = await Promise.all([
+            projectSpaceApi.getArtifact(projectId, currentArtifactId),
+            projectSpaceApi.downloadArtifact(projectId, currentArtifactId),
+          ]);
+          const artifactType = artifactResponse.data.artifact?.type;
+          const downloadExt = inferDownloadExt(artifactType);
+          const url = URL.createObjectURL(artifactBlob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `artifact-${currentArtifactId.slice(0, 8)}.${downloadExt}`;
+          link.click();
+          URL.revokeObjectURL(url);
+          toast({
+            title: "导出成功",
+            description: "已通过 artifact 下载文件。",
+          });
+          return;
+        } catch {
+          // Fall back to preview export for artifacts not ready in project space.
+        }
+      }
+
       const response = await previewApi.exportSessionPreview(activeSessionId, {
         artifact_id: currentArtifactId ?? undefined,
         run_id: activeRunId ?? undefined,
@@ -247,6 +300,10 @@ export function useGeneratePreviewState({
       link.download = `preview-${activeSessionId.slice(0, 8)}.html`;
       link.click();
       URL.revokeObjectURL(url);
+      toast({
+        title: "导出成功",
+        description: "已回退为预览 HTML 导出。",
+      });
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         toast({
@@ -260,7 +317,13 @@ export function useGeneratePreviewState({
     } finally {
       setIsExporting(false);
     }
-  }, [activeRunId, activeSessionId, currentArtifactId, isExporting]);
+  }, [
+    activeRunId,
+    activeSessionId,
+    currentArtifactId,
+    isExporting,
+    projectId,
+  ]);
 
   const handleRegenerateSlide = useCallback(
     async (slide: Slide) => {
