@@ -245,7 +245,20 @@ async def dispatch_created_task(
 
 
 async def _load_task_run_payload(*, db, task_id: str) -> Optional[dict]:
-    task = await db.generationtask.find_unique(where={"id": task_id})
+    task_actions = getattr(db, "generationtask", None)
+    if task_actions is None:
+        return None
+
+    find_unique = getattr(task_actions, "find_unique", None)
+    find_first = getattr(task_actions, "find_first", None)
+
+    if callable(find_unique):
+        task = await find_unique(where={"id": task_id})
+    elif callable(find_first):
+        task = await find_first(where={"id": task_id})
+    else:
+        return None
+
     raw = getattr(task, "inputData", None) if task else None
     if not raw:
         return None
