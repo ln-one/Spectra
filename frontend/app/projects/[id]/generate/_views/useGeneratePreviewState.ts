@@ -32,6 +32,9 @@ export function useGeneratePreviewState({
   const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(
     null
   );
+  const [currentRenderVersion, setCurrentRenderVersion] = useState<
+    number | null
+  >(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
@@ -119,6 +122,7 @@ export function useGeneratePreviewState({
       if (response.success && response.data?.slides) {
         setSlides(response.data.slides.sort((a, b) => a.index - b.index));
         setCurrentArtifactId(response.data.artifact_id ?? null);
+        setCurrentRenderVersion(response.data.render_version ?? null);
       }
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
@@ -262,27 +266,45 @@ export function useGeneratePreviewState({
     async (slide: Slide) => {
       if (!activeSessionId || regeneratingSlideId) return;
       const slideId = slide.id || `slide-${slide.index}`;
+      const instruction = window.prompt("请输入该页的修改要求");
+      const normalizedInstruction = instruction?.trim() ?? "";
+      if (!normalizedInstruction) {
+        toast({
+          title: "未提交修改",
+          description: "修改要求不能为空。",
+          variant: "destructive",
+        });
+        return;
+      }
       try {
         setRegeneratingSlideId(slideId);
-        await generateApi.regenerateSlide(activeSessionId, slideId, {
-          slide_index: slide.index,
+        const requestBody = {
+          artifact_id: currentArtifactId ?? undefined,
+          run_id: activeRunId ?? undefined,
+          slide_id: slide.id ?? undefined,
+          slide_index: slide.index + 1,
+          instruction: normalizedInstruction,
+          base_render_version: currentRenderVersion ?? undefined,
+          scope: "current_slide_only",
+          preserve_style: true,
+          preserve_layout: true,
+          preserve_deck_consistency: true,
           patch: {
             schema_version: 1,
             operations: [],
           },
-        });
+        } as unknown as components["schemas"]["ModifySessionRequest"];
+        await previewApi.modifySessionPreview(activeSessionId, requestBody);
         await loadSlides();
         toast({
-          title: "局部重绘已提交",
-          description: `第 ${slide.index} 页已进入重绘队列。`,
+          title: "单页修改已提交",
+          description: `第 ${slide.index + 1} 页已进入修改队列。`,
         });
       } catch (error) {
         const message =
-          error instanceof ApiError
-            ? error.message
-            : "局部重绘失败，请稍后重试";
+          error instanceof ApiError ? error.message : "单页修改失败，请稍后重试";
         toast({
-          title: "局部重绘失败",
+          title: "单页修改失败",
           description: message,
           variant: "destructive",
         });
@@ -290,7 +312,14 @@ export function useGeneratePreviewState({
         setRegeneratingSlideId(null);
       }
     },
-    [activeSessionId, loadSlides, regeneratingSlideId]
+    [
+      activeRunId,
+      activeSessionId,
+      currentArtifactId,
+      currentRenderVersion,
+      loadSlides,
+      regeneratingSlideId,
+    ]
   );
 
   return {
