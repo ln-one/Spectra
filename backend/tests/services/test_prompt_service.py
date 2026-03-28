@@ -30,9 +30,9 @@ class TestFormatRagContext:
             }
         ]
         formatted = _format_rag_context(results)
-        assert "参考资料 1" in formatted
-        assert "bio.pdf" in formatted
-        assert "光合作用的过程" in formatted
+        assert '<reference index="1">' in formatted
+        assert "<filename>bio.pdf</filename>" in formatted
+        assert "<content>光合作用的过程</content>" in formatted
         assert '<cite chunk_id="chunk-001"></cite>' in formatted
 
     def test_multiple_results(self):
@@ -41,8 +41,8 @@ class TestFormatRagContext:
             {"content": "内容B", "source": {"filename": "b.pdf"}},
         ]
         formatted = _format_rag_context(results)
-        assert "参考资料 1" in formatted
-        assert "参考资料 2" in formatted
+        assert '<reference index="1">' in formatted
+        assert '<reference index="2">' in formatted
 
     def test_scope_is_rendered_for_local_and_reference_sources(self):
         results = [
@@ -61,8 +61,8 @@ class TestFormatRagContext:
             },
         ]
         formatted = _format_rag_context(results)
-        assert "当前会话资料" in formatted
-        assert "主基底引用资料" in formatted
+        assert "<scope>当前会话资料</scope>" in formatted
+        assert "<scope>主基底引用资料</scope>" in formatted
 
 
 class TestPromptService:
@@ -224,7 +224,8 @@ class TestPromptSemantics:
             rag, citation_style=PromptCitationStyle.INLINE_CITE_TAG
         )
         assert '<cite chunk_id="..."></cite>' in section
-        assert "参考资料（按相关度排序）" in section
+        assert "<retrieved_references>" in section
+        assert "<reference_usage_rules>" in section
 
     def test_build_rag_reference_section_for_courseware_uses_source_index_instruction(
         self,
@@ -241,8 +242,12 @@ class TestPromptSemantics:
             {"role": "user", "content": "问题"},
             {"role": "assistant", "content": "回答"},
         ]
-        assert "Conversation history:" in build_conversation_history_section(history)
-        assert "session_id=s-001" in build_session_scope_section("s-001")
+        history_section = build_conversation_history_section(history)
+        session_section = build_session_scope_section("s-001")
+        assert "<conversation_history>" in history_section
+        assert '<message role="user">问题</message>' in history_section
+        assert "<session_scope>" in session_section
+        assert "<session_id>s-001</session_id>" in session_section
 
     def test_output_block_markers_exposed_as_formal_semantics(self):
         assert (

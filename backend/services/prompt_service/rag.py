@@ -37,9 +37,16 @@ def format_rag_context(rag_results: list[dict]) -> str:
             content = content[:_RAG_CHUNK_MAX_CHARS] + "...（已截断）"
         cite_hint = ""
         if chunk_id:
-            cite_hint = f'\n可用引用标签：<cite chunk_id="{chunk_id}"></cite>'
+            cite_hint = (
+                f'\n  <citation_tag><cite chunk_id="{chunk_id}"></cite></citation_tag>'
+            )
         sections.append(
-            f"参考资料 {i}（{filename}｜{scope_hint}｜相关度={score:.0%}）\n"
-            f"{content}{cite_hint}"
+            f'<reference index="{i}">\n'
+            f"  <filename>{filename}</filename>\n"
+            f"  <scope>{scope_hint}</scope>\n"
+            f"  <relevance>{score:.0%}</relevance>\n"
+            f"  <content>{content}</content>"
+            f"{cite_hint}\n"
+            f"</reference>"
         )
     return "\n\n".join(sections)
