@@ -80,11 +80,6 @@ export function useProjectDetailController() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [sessionMetaHydratedProjectId, setSessionMetaHydratedProjectId] =
-    useState<string | null>(null);
-  const [sessionTitleOverrides, setSessionTitleOverrides] = useState<
-    Record<string, string>
-  >({});
   const [hiddenSessionIds, setHiddenSessionIds] = useState<
     Record<string, true>
   >({});
@@ -103,46 +98,26 @@ export function useProjectDetailController() {
     () =>
       visibleGenerationHistory.map((item) => ({
         sessionId: item.id,
-        title:
-          (sessionTitleOverrides[item.id] || item.title || "").trim() ||
-          `会话 ${item.id.slice(-6)}`,
+        title: (item.title || "").trim() || `会话 ${item.id.slice(-6)}`,
         updatedAt: formatSessionTime(item.createdAt),
       })),
-    [sessionTitleOverrides, visibleGenerationHistory]
+    [visibleGenerationHistory]
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setSessionMetaHydratedProjectId(null);
-    const titleKey = `project-session-title-overrides:${projectId}`;
     const hiddenKey = `project-hidden-sessions:${projectId}`;
-    const rawTitleMap = window.localStorage.getItem(titleKey);
     const rawHiddenMap = window.localStorage.getItem(hiddenKey);
-    setSessionTitleOverrides(
-      readRecordFromStorage<Record<string, string>>(rawTitleMap)
-    );
     setHiddenSessionIds(
       readRecordFromStorage<Record<string, true>>(rawHiddenMap)
     );
-    setSessionMetaHydratedProjectId(projectId);
   }, [projectId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (sessionMetaHydratedProjectId !== projectId) return;
-    const titleKey = `project-session-title-overrides:${projectId}`;
     const hiddenKey = `project-hidden-sessions:${projectId}`;
-    window.localStorage.setItem(
-      titleKey,
-      JSON.stringify(sessionTitleOverrides)
-    );
     window.localStorage.setItem(hiddenKey, JSON.stringify(hiddenSessionIds));
-  }, [
-    hiddenSessionIds,
-    projectId,
-    sessionMetaHydratedProjectId,
-    sessionTitleOverrides,
-  ]);
+  }, [hiddenSessionIds, projectId]);
 
   const updateSessionInUrl = useCallback(
     (sessionId: string) => {
@@ -382,7 +357,7 @@ export function useProjectDetailController() {
   }, [fetchGenerationHistory, handleChangeSession, projectId]);
 
   const handleRenameSession = useCallback(
-    (sessionId: string, nextTitle: string) => {
+    async (sessionId: string, nextTitle: string) => {
       const target = generationHistory.find((item) => item.id === sessionId);
       if (!target) return;
 
@@ -395,15 +370,42 @@ export function useProjectDetailController() {
         return;
       }
 
-      setSessionTitleOverrides((prev) => ({
-        ...prev,
-        [sessionId]: normalizedTitle,
-      }));
-      toast({
-        title: "会话名称已更新",
-      });
+      try {
+        await generateApi.sendCommand(sessionId, {
+          command: {
+            command_type: "SET_SESSION_TITLE",
+            display_title: normalizedTitle,
+          } as never,
+        });
+
+        await fetchGenerationHistory(projectId);
+        if (activeSessionId === sessionId) {
+          const snapshot = await generateApi.getSessionSnapshot(sessionId, {
+            run_id: activeRunId ?? undefined,
+          });
+          useProjectStore.setState({
+            generationSession: snapshot?.data ?? null,
+          });
+        }
+
+        toast({
+          title: "会话名称已更新",
+        });
+      } catch (error) {
+        toast({
+          title: "会话名称更新失败",
+          description: getErrorMessage(error),
+          variant: "destructive",
+        });
+      }
     },
-    [generationHistory]
+    [
+      activeRunId,
+      activeSessionId,
+      fetchGenerationHistory,
+      generationHistory,
+      projectId,
+    ]
   );
 
   const handleDeleteSession = useCallback(
