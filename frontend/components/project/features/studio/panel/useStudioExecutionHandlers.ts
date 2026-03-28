@@ -16,6 +16,7 @@ interface UseStudioExecutionHandlersArgs {
   currentCardId: string | null;
   currentToolDraft: ToolDraftState;
   selectedSourceId: string | null;
+  selectedFileIds: string[];
   draftSourceArtifactId: string | null;
   activeSessionId: string | null;
   activeRunId: string | null;
@@ -58,6 +59,7 @@ export function useStudioExecutionHandlers({
   currentCardId,
   currentToolDraft,
   selectedSourceId,
+  selectedFileIds,
   draftSourceArtifactId,
   activeSessionId,
   activeRunId,
@@ -111,6 +113,7 @@ export function useStudioExecutionHandlers({
       client_session_id: activeSessionId ?? undefined,
       source_artifact_id:
         selectedSourceId || draftSourceArtifactId || undefined,
+      rag_source_ids: selectedFileIds,
       config: currentToolDraft,
     };
   }, [
@@ -119,6 +122,7 @@ export function useStudioExecutionHandlers({
     currentToolDraft,
     draftSourceArtifactId,
     project,
+    selectedFileIds,
     selectedSourceId,
   ]);
 

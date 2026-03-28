@@ -31,6 +31,7 @@ export function SimulationToolPanel({
     useShallow((state) => ({
       project: state.project,
       activeSessionId: state.activeSessionId,
+      selectedFileIds: state.selectedFileIds,
       fetchArtifactHistory: state.fetchArtifactHistory,
     }))
   );
@@ -139,6 +140,7 @@ export function SimulationToolPanel({
         project_id: project.id,
         artifact_id: latestArtifactId,
         teacher_answer: answer,
+        rag_source_ids: selectedFileIds,
       });
       setJudgeText(response.data.turn_result.feedback);
       await fetchArtifactHistory(project.id, activeSessionId ?? null);
