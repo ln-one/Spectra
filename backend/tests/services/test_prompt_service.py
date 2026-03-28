@@ -139,7 +139,8 @@ class TestPromptService:
         assert "你好" in prompt
         assert "Spectra" in prompt
         assert "严禁使用机械的 A/B/C 选项格式" in prompt
-        assert "自然助教口吻" in prompt
+        assert "<task_context>" in prompt
+        assert "<response_contract>" in prompt
         assert "Markdown 自然分段" in prompt
 
     def test_chat_response_with_history(self):
@@ -155,6 +156,7 @@ class TestPromptService:
         )
         assert "之前的问题" in prompt
         assert "session_id=s-001" in prompt
+        assert "<teacher_message>继续</teacher_message>" in prompt
 
     def test_mechanical_option_detection_positive(self):
         text = "你可以选择 A/B/C 三种方式来完成。"
