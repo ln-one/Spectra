@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
 from copy import deepcopy
 from threading import RLock
 from typing import Any
 
 from schemas.system_settings import SystemSettingsData, SystemSettingsUpdateRequest
+
+logger = logging.getLogger(__name__)
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -57,11 +60,18 @@ class SystemSettingsService:
 
         with self._lock:
             self._deep_merge(self._overlay, patch)
-        return self.get_settings()
+            merged = self._build_default_payload()
+            self._deep_merge(merged, deepcopy(self._overlay))
+            settings = SystemSettingsData.model_validate(merged)
+        self._apply_runtime_effects(settings)
+        return settings
 
     def reset_for_tests(self) -> None:
         with self._lock:
             self._overlay.clear()
+            defaults = self._build_default_payload()
+            settings = SystemSettingsData.model_validate(defaults)
+        self._apply_runtime_effects(settings)
 
     def _build_default_payload(self) -> dict[str, Any]:
         default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-flash")
@@ -99,6 +109,25 @@ class SystemSettingsService:
                 self._deep_merge(base[key], value)
             else:
                 base[key] = value
+
+    def _apply_runtime_effects(self, settings: SystemSettingsData) -> None:
+        try:
+            from services.ai import ai_service
+
+            ai_service.apply_runtime_overrides(
+                default_model=settings.models.default_model,
+                large_model=settings.models.large_model,
+                small_model=settings.models.small_model,
+                ai_request_timeout_seconds=(
+                    settings.experience.ai_request_timeout_seconds
+                ),
+                chat_timeout_seconds=settings.experience.chat_timeout_seconds,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to apply runtime system settings; "
+                "API response remains updated."
+            )
 
 
 system_settings_service = SystemSettingsService()
