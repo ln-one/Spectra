@@ -27,8 +27,8 @@ interface SessionSwitcherProps {
   sessions: SessionSwitcherItem[];
   activeSessionId: string | null;
   onChangeSession: (sessionId: string) => void;
-  onRenameSession: (sessionId: string, title: string) => void;
-  onDeleteSession: (sessionId: string) => void;
+  onRenameSession?: (sessionId: string, title: string) => void;
+  onDeleteSession?: (sessionId: string) => void;
   onCreateSession: () => void;
   isCreatingSession: boolean;
 }
@@ -50,12 +50,16 @@ export function SessionSwitcher({
   const [renameValue, setRenameValue] = useState("");
   const [pendingDeleteSession, setPendingDeleteSession] =
     useState<SessionSwitcherItem | null>(null);
+
+  const safeRenameSession = onRenameSession ?? (() => {});
+  const safeDeleteSession = onDeleteSession ?? (() => {});
+
   const normalizedActiveSessionId =
-    activeSessionId ??
-    (sessions.length > 0 ? sessions[0].sessionId : undefined);
+    activeSessionId ?? (sessions.length > 0 ? sessions[0].sessionId : undefined);
   const activeSession = sessions.find(
     (session) => session.sessionId === normalizedActiveSessionId
   );
+
   const handleContainerRef = (node: HTMLDivElement | null) => {
     if (!node) {
       setPortalContainer(null);
@@ -66,16 +70,19 @@ export function SessionSwitcher({
     ) as HTMLElement | null;
     setPortalContainer((prev) => (prev === themeRoot ? prev : themeRoot));
   };
+
   const handleStartInlineEdit = (session: SessionSwitcherItem) => {
     setEditingSessionId(session.sessionId);
     setRenameValue(session.title);
   };
+
   const handleCancelInlineEdit = () => {
     setEditingSessionId(null);
     setRenameValue("");
   };
+
   const handleSaveInlineEdit = (sessionId: string) => {
-    onRenameSession(sessionId, renameValue);
+    safeRenameSession(sessionId, renameValue);
     setEditingSessionId(null);
     setRenameValue("");
   };
@@ -91,10 +98,7 @@ export function SessionSwitcher({
           onClick={() => setIsSessionMenuOpen(false)}
         />
       ) : null}
-      <DropdownMenu
-        open={isSessionMenuOpen}
-        onOpenChange={setIsSessionMenuOpen}
-      >
+      <DropdownMenu open={isSessionMenuOpen} onOpenChange={setIsSessionMenuOpen}>
         <DropdownMenuTrigger asChild>
           <motion.button
             whileHover={{ scale: 1.01 }}
@@ -146,7 +150,7 @@ export function SessionSwitcher({
                     暂无历史会话
                   </div>
                 ) : (
-                  <>
+                  <div className="max-h-[320px] overflow-y-auto pr-1">
                     {sessions.map((session) => (
                       <div
                         key={session.sessionId}
@@ -203,16 +207,23 @@ export function SessionSwitcher({
                             onClick={() => onChangeSession(session.sessionId)}
                             className="flex min-w-0 flex-1 items-center justify-between gap-3 pr-1 text-left"
                           >
-                            <span
-                              className={cn(
-                                "truncate text-[13px] font-semibold",
-                                session.sessionId === normalizedActiveSessionId
-                                  ? "text-[var(--project-control-text)]"
-                                  : "text-[var(--project-text-primary)]"
-                              )}
-                            >
-                              {session.title}
-                            </span>
+                            <div className="min-w-0">
+                              <span
+                                className={cn(
+                                  "block truncate text-[13px] font-semibold",
+                                  session.sessionId === normalizedActiveSessionId
+                                    ? "text-[var(--project-control-text)]"
+                                    : "text-[var(--project-text-primary)]"
+                                )}
+                              >
+                                {session.title}
+                              </span>
+                              {session.runSummary ? (
+                                <span className="block truncate text-[10px] text-[var(--project-control-muted)]">
+                                  {session.runSummary}
+                                </span>
+                              ) : null}
+                            </div>
                             <span className="project-session-timestamp shrink-0 text-[10px] font-medium tracking-wide text-[var(--project-control-muted)]">
                               {session.updatedAt}
                             </span>
@@ -241,23 +252,25 @@ export function SessionSwitcher({
                         </div>
                       </div>
                     ))}
-                    <DropdownMenuSeparator className="my-2 bg-[var(--project-control-border)]" />
-                  </>
+                  </div>
                 )}
-                <DropdownMenuItem
-                  onClick={onCreateSession}
-                  disabled={isCreatingSession}
-                  className="cursor-pointer rounded-[var(--project-chip-radius)] px-3 py-2 focus:bg-[var(--project-surface-muted)]"
-                >
-                  {isCreatingSession ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin text-[var(--project-control-muted)]" />
-                  ) : (
-                    <Plus className="mr-2 h-4 w-4 text-[var(--project-control-muted)]" />
-                  )}
-                  <span className="text-[13px] font-medium text-[var(--project-text-primary)]">
-                    新建会话
-                  </span>
-                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-2 bg-[var(--project-control-border)]" />
+                <div className="sticky bottom-0 rounded-[var(--project-chip-radius)] bg-[var(--project-surface)]/95 backdrop-blur-sm">
+                  <DropdownMenuItem
+                    onClick={onCreateSession}
+                    disabled={isCreatingSession}
+                    className="cursor-pointer rounded-[var(--project-chip-radius)] px-3 py-2 focus:bg-[var(--project-surface-muted)]"
+                  >
+                    {isCreatingSession ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin text-[var(--project-control-muted)]" />
+                    ) : (
+                      <Plus className="mr-2 h-4 w-4 text-[var(--project-control-muted)]" />
+                    )}
+                    <span className="text-[13px] font-medium text-[var(--project-text-primary)]">
+                      新建会话
+                    </span>
+                  </DropdownMenuItem>
+                </div>
               </motion.div>
             </AnimatePresence>
           </DropdownMenuPrimitive.Content>
@@ -269,14 +282,14 @@ export function SessionSwitcher({
         title="隐藏会话"
         description={
           pendingDeleteSession
-            ? `将隐藏「${pendingDeleteSession.title}」，可在清理本地数据后重新显示。`
+            ? `将隐藏“${pendingDeleteSession.title}”，清理本地数据后可重新显示。`
             : ""
         }
         confirmText="隐藏"
         onCancel={() => setPendingDeleteSession(null)}
         onConfirm={() => {
           if (!pendingDeleteSession) return;
-          onDeleteSession(pendingDeleteSession.sessionId);
+          safeDeleteSession(pendingDeleteSession.sessionId);
           setPendingDeleteSession(null);
         }}
       />

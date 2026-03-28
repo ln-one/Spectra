@@ -45,12 +45,15 @@ export default function GeneratePreviewPage() {
 
   const {
     slides,
+    sessionRuns,
     isLoading,
     isExporting,
     isResuming,
     regeneratingSlideId,
     previewBlockedReason,
     isSessionGenerating,
+    isOutlineGenerating,
+    outlineSections,
     activeSessionId,
     handleExport,
     handleResume,
@@ -183,6 +186,81 @@ export default function GeneratePreviewPage() {
           ref={containerRef}
           className="flex-1 overflow-y-auto bg-muted/20 relative scroll-smooth overflow-x-hidden p-4 md:p-8"
         >
+          {sessionRuns.length > 0 ? (
+            <div className="max-w-4xl mx-auto w-full mb-4 rounded-xl border bg-white/90 p-3 shadow-sm">
+              <p className="mb-2 text-xs font-semibold text-zinc-700">
+                Run 历史
+              </p>
+              <div className="space-y-1.5">
+                {sessionRuns.slice(0, 8).map((run) => {
+                  const mappedStatus =
+                    run.run_status === "processing" &&
+                    (run.run_step === "outline" || run.run_step === "generate")
+                      ? "进行中"
+                      : run.run_status === "completed" &&
+                          run.run_step === "completed"
+                        ? "已完成"
+                        : run.run_status || "-";
+                  return (
+                    <div
+                      key={run.run_id}
+                      className="flex items-center justify-between rounded-md border border-zinc-200 bg-white px-2.5 py-2 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-zinc-800">
+                          #{run.run_no ?? "-"} · {run.run_title || "pending"}
+                        </p>
+                        <p className="truncate text-zinc-500">
+                          {run.run_title_source || "pending"} · {mappedStatus} /{" "}
+                          {run.run_step || "-"} · {run.updated_at || "-"}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        {run.artifact_id ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const artifactId = String(run.artifact_id);
+                              const query = new URLSearchParams(searchQueryString);
+                              query.set("run", run.run_id);
+                              query.set("artifact_id", artifactId);
+                              router.replace(
+                                `/projects/${projectId}/generate?${query.toString()}`
+                              );
+                            }}
+                            className="h-7 rounded-full px-2.5 text-[11px]"
+                          >
+                            跳转产物
+                          </Button>
+                        ) : (
+                          <span className="text-zinc-400">无产物</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {isOutlineGenerating ? (
+            <div className="max-w-4xl mx-auto w-full mb-4 rounded-xl border bg-white/90 p-3 shadow-sm">
+              <p className="mb-2 text-xs font-semibold text-zinc-700">
+                大纲增量生成中
+              </p>
+              <div className="space-y-1 text-xs text-zinc-600">
+                {outlineSections.length === 0 ? (
+                  <p>等待章节事件...</p>
+                ) : (
+                  outlineSections.map((section, index) => (
+                    <p key={`${index}-${section}`}>{index + 1}. {section}</p>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
+
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full opacity-70">
               <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />

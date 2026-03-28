@@ -21,6 +21,7 @@ export interface SessionRun {
   tool_type?: string;
   run_no?: number;
   run_title?: string;
+  run_title_source?: string;
   run_status?: string;
   run_step?: string;
   artifact_id?: string | null;

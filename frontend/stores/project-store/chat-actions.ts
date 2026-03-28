@@ -263,6 +263,29 @@ export function createChatActions({
           set({ activeSessionId: response.data.session_id });
         }
 
+        const responseData = (response?.data ??
+          {}) as Record<string, unknown> & {
+          session_id?: string;
+        };
+        const sessionTitleUpdated = responseData.session_title_updated === true;
+        const sessionTitle =
+          typeof responseData.session_title === "string"
+            ? responseData.session_title.trim()
+            : "";
+        if (
+          sessionTitleUpdated &&
+          sessionTitle &&
+          typeof responseData.session_id === "string"
+        ) {
+          set((state) => ({
+            generationHistory: state.generationHistory.map((item) =>
+              item.id === responseData.session_id
+                ? { ...item, title: sessionTitle }
+                : item
+            ),
+          }));
+        }
+
         await get().fetchGenerationHistory(projectId);
 
         if (response?.data?.message) {

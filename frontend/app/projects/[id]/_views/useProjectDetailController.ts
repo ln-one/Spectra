@@ -80,6 +80,9 @@ export function useProjectDetailController() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [sessionRunSummaryById, setSessionRunSummaryById] = useState<
+    Record<string, { summary: string; artifactId: string | null }>
+  >({});
   const [hiddenSessionIds, setHiddenSessionIds] = useState<
     Record<string, true>
   >({});
@@ -100,9 +103,71 @@ export function useProjectDetailController() {
         sessionId: item.id,
         title: (item.title || "").trim() || `会话 ${item.id.slice(-6)}`,
         updatedAt: formatSessionTime(item.createdAt),
+        runSummary: sessionRunSummaryById[item.id]?.summary,
+        artifactId: sessionRunSummaryById[item.id]?.artifactId ?? null,
       })),
-    [visibleGenerationHistory]
+    [sessionRunSummaryById, visibleGenerationHistory]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (visibleGenerationHistory.length === 0) {
+      setSessionRunSummaryById({});
+      return;
+    }
+
+    const loadRunSummary = async () => {
+      const entries = await Promise.all(
+        visibleGenerationHistory.map(async (item) => {
+          try {
+            const response = await generateApi.listRuns(item.id, { limit: 1 });
+            const latestRun = response?.data?.runs?.[0];
+            if (!latestRun) return [item.id, null] as const;
+            const runNo =
+              typeof latestRun.run_no === "number"
+                ? `#${latestRun.run_no}`
+                : "Run";
+            const runTitle = latestRun.run_title?.trim() || "pending";
+            const runStatus = latestRun.run_status || "processing";
+            const runStep = latestRun.run_step || "-";
+            const mappedStatus =
+              runStatus === "completed" && runStep === "completed"
+                ? "已完成"
+                : runStatus === "processing" &&
+                    (runStep === "outline" || runStep === "generate")
+                  ? "进行中"
+                  : runStatus;
+            return [
+              item.id,
+              {
+                summary: `${runNo} · ${runTitle} · ${mappedStatus}/${runStep}`,
+                artifactId: latestRun.artifact_id ?? null,
+              },
+            ] as const;
+          } catch {
+            return [item.id, null] as const;
+          }
+        })
+      );
+
+      if (cancelled) return;
+      const nextMap: Record<
+        string,
+        { summary: string; artifactId: string | null }
+      > = {};
+      for (const [sessionId, summary] of entries) {
+        if (summary) {
+          nextMap[sessionId] = summary;
+        }
+      }
+      setSessionRunSummaryById(nextMap);
+    };
+
+    void loadRunSummary();
+    return () => {
+      cancelled = true;
+    };
+  }, [visibleGenerationHistory]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

@@ -22,6 +22,13 @@ import { PreviewStep } from "./simulation/PreviewStep";
 import type { SimulationStep, StudentProfile } from "./simulation/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
 
+function resolveEffectiveRagSourceIds(selectedFileIds: string[]): string[] {
+  const normalized = selectedFileIds.filter(
+    (id) => typeof id === "string" && id.trim().length > 0
+  );
+  return Array.from(new Set(normalized));
+}
+
 export function SimulationToolPanel({
   toolName,
   onDraftChange,
@@ -137,11 +144,12 @@ export function SimulationToolPanel({
 
     try {
       setIsSubmittingTurn(true);
+      const effectiveRagSourceIds = resolveEffectiveRagSourceIds(selectedFileIds);
       const response = await studioCardsApi.turn({
         project_id: project.id,
         artifact_id: latestArtifactId,
         teacher_answer: answer,
-        rag_source_ids: selectedFileIds,
+        rag_source_ids: effectiveRagSourceIds,
       });
       setJudgeText(response.data.turn_result.feedback);
       await fetchArtifactHistory(project.id, activeSessionId ?? null);

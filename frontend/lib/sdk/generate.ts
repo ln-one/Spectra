@@ -58,11 +58,20 @@ export interface SessionRun {
   tool_type?: string;
   run_no?: number;
   run_title?: string;
+  run_title_source?: string;
   run_status?: string;
   run_step?: string;
   artifact_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+}
+
+export interface GenerationEventListResponse {
+  success: boolean;
+  data: {
+    events?: GenerationEvent[];
+  };
+  message: string;
 }
 
 export interface GenerationSessionRunsResponse {
@@ -180,6 +189,27 @@ export const generateApi = {
       throw toApiError(payload, response.status);
     }
     return payload as GenerationSessionRunDetailResponse;
+  },
+
+  async listEvents(
+    sessionId: string,
+    params?: { cursor?: string | null; limit?: number }
+  ): Promise<GenerationEventListResponse> {
+    const url = new URL(
+      `${API_BASE_URL}/api/v1/generate/sessions/${encodeURIComponent(sessionId)}/events`
+    );
+    if (params?.cursor) {
+      url.searchParams.set("cursor", params.cursor);
+    }
+    if (params?.limit) {
+      url.searchParams.set("limit", String(params.limit));
+    }
+    const response = await apiFetch(url.toString(), { method: "GET" });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw toApiError(payload, response.status);
+    }
+    return payload as GenerationEventListResponse;
   },
 
   async resumeSession(

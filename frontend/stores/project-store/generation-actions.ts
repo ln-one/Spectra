@@ -52,6 +52,11 @@ function extractCurrentRunId(
   );
 }
 
+function isFallbackSessionTitle(title: string, sessionId: string): boolean {
+  const normalized = title.trim();
+  return normalized === `会话 ${sessionId.slice(-6)}`;
+}
+
 export function createGenerationActions({
   set,
   get,
@@ -187,10 +192,15 @@ export function createGenerationActions({
           previousHistory.map((item) => [item.id, item.title])
         );
         const history: GenerationHistory[] = mapSessionsToHistory(sessions).map(
-          (item) => ({
-            ...item,
-            title: previousTitleById.get(item.id) || item.title,
-          })
+          (item) => {
+            const previousTitle = previousTitleById.get(item.id);
+            if (!previousTitle) return item;
+            if (!isFallbackSessionTitle(item.title, item.id)) return item;
+            return {
+              ...item,
+              title: previousTitle,
+            };
+          }
         );
         const activeSessionId =
           get().activeSessionId ??
