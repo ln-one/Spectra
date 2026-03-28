@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from fastapi.encoders import jsonable_encoder
@@ -55,6 +56,50 @@ def _inline_title_refresh_timeout_seconds() -> float:
     if timeout <= 0:
         return 0.0
     return min(timeout, 3.0)
+
+
+def _derive_first_message_title(first_message: str, *, max_length: int = 18) -> str:
+    compact = " ".join((first_message or "").strip().split())
+    if not compact:
+        return ""
+    return compact[:max_length]
+
+
+async def _fallback_first_message_title_refresh(
+    *,
+    session_id: str,
+    first_message: str,
+) -> dict | None:
+    if not hasattr(db_service.db.generationsession, "update"):
+        return None
+    title = _derive_first_message_title(first_message)
+    if not title:
+        return None
+    try:
+        updated = await db_service.db.generationsession.update(
+            where={"id": session_id},
+            data={
+                "displayTitle": title,
+                "displayTitleSource": "first_message",
+                "displayTitleUpdatedAt": datetime.now(timezone.utc),
+            },
+        )
+    except Exception as exc:
+        logger.warning(
+            "Fallback session title refresh failed: session=%s error=%s",
+            session_id,
+            exc,
+        )
+        return None
+    return {
+        "display_title": getattr(updated, "displayTitle", None),
+        "display_title_source": getattr(updated, "displayTitleSource", None),
+        "display_title_updated_at": (
+            updated.displayTitleUpdatedAt.isoformat()
+            if getattr(updated, "displayTitleUpdatedAt", None)
+            else None
+        ),
+    }
 
 
 async def _ensure_chat_session(
@@ -198,6 +243,11 @@ async def process_chat_message(
                                 session_id,
                                 exc,
                             )
+                if not refreshed:
+                    refreshed = await _fallback_first_message_title_refresh(
+                        session_id=session_id,
+                        first_message=body.content,
+                    )
                 if refreshed:
                     session_title_updated = True
                     session_title = refreshed.get("display_title")
