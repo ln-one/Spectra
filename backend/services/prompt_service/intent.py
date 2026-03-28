@@ -1,12 +1,14 @@
 """Intent classification prompt helpers."""
 
+from .escaping import escape_prompt_text
+
 
 def build_intent_prompt(user_message: str) -> str:
     """Build prompt for intent classification."""
     return f"""你是 Spectra 教学课件助手的意图分类器。你的任务不是回复用户，而是稳定判断当前消息最主要的意图。
 
 <intent_task>
-  <user_message>{user_message}</user_message>
+  <user_message>{escape_prompt_text(user_message)}</user_message>
 </intent_task>
 
 <intent_candidates>

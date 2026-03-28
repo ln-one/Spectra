@@ -4,6 +4,7 @@ import re
 
 from schemas.intent import IntentClassification, IntentType, ModifyIntent, ModifyType
 from services.ai.model_router import ModelRouteTask
+from services.prompt_service.escaping import escape_prompt_text
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ async def parse_modify_intent(service, instruction: str) -> ModifyIntent:
         prompt = f"""你是 Spectra 课件修改指令分类器。请分析这条修改指令，并判断修改类型与目标页码。
 
 <modify_intent_task>
-  <instruction>{instruction}</instruction>
+  <instruction>{escape_prompt_text(instruction)}</instruction>
 </modify_intent_task>
 
 <modify_types>

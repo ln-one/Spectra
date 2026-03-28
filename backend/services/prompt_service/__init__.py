@@ -9,6 +9,7 @@ from typing import Optional
 from .chat import build_chat_response_prompt, contains_mechanical_option_pattern
 from .constants import _RAG_CHUNK_MAX_CHARS, STYLE_REQUIREMENTS
 from .courseware import build_courseware_prompt, build_modify_prompt
+from .escaping import escape_prompt_text
 from .intent import build_intent_prompt
 from .rag import format_rag_context as _format_rag_context
 from .semantics import (
@@ -81,6 +82,7 @@ __all__ = [
     "PromptService",
     "STYLE_REQUIREMENTS",
     "_RAG_CHUNK_MAX_CHARS",
+    "escape_prompt_text",
     "_format_rag_context",
     "build_chat_response_prompt",
     "build_courseware_prompt",

@@ -15,6 +15,7 @@ from .constants import (
     PPT_QUALITY_PROMPT_RULES,
     STYLE_REQUIREMENTS,
 )
+from .escaping import escape_prompt_text
 from .semantics import (
     PromptCitationStyle,
     PromptOutputBlock,
@@ -78,13 +79,13 @@ def build_courseware_prompt(
 
 <generation_task>
   <task>生成完整课件内容与配套教案</task>
-  <template_style>{template_style}</template_style>
-  <style_requirement>{style_instruction}</style_requirement>
+  <template_style>{escape_prompt_text(template_style)}</template_style>
+  <style_requirement>{escape_prompt_text(style_instruction)}</style_requirement>
   <language>默认使用简体中文输出，除非用户明确要求其他语言。</language>
 </generation_task>
 
 <input_requirements>
-{user_requirements}
+{escape_prompt_text(user_requirements)}
 </input_requirements>
 {rag_section}
 <planning_rules>
@@ -141,11 +142,11 @@ def build_modify_prompt(
     return f"""你是资深学科教学设计师。请根据修改指令，在保持现有教学结构尽量稳定的前提下更新课件。
 
 <current_courseware>
-{current_content}
+{escape_prompt_text(current_content)}
 </current_courseware>
 
 <modify_instruction>
-{instruction}{target_info}
+{escape_prompt_text(instruction)}{escape_prompt_text(target_info)}
 </modify_instruction>
 
 要求：

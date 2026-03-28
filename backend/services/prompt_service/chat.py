@@ -6,6 +6,7 @@ import re
 from typing import Optional
 
 from .constants import CHAT_NATURAL_FEW_SHOT
+from .escaping import escape_prompt_text
 from .semantics import (
     PromptCitationStyle,
     build_conversation_history_section,
@@ -50,8 +51,8 @@ def build_chat_response_prompt(
     return f"""你是 Spectra 教学助教。你的任务是与老师自然共创，帮助老师推进教学设计，而不是机械应答。
 
 <task_context>
-  <intent>{intent}</intent>
-  <teacher_message>{user_message}</teacher_message>
+  <intent>{escape_prompt_text(intent)}</intent>
+  <teacher_message>{escape_prompt_text(user_message)}</teacher_message>
 </task_context>
 {history_section}{session_section}{rag_section}
 <response_contract>

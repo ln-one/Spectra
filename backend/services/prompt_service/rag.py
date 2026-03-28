@@ -1,6 +1,7 @@
 """Helpers for formatting retrieved context inside prompts."""
 
 from .constants import _RAG_CHUNK_MAX_CHARS
+from .escaping import escape_prompt_text
 
 
 def _describe_scope(item: dict) -> str:
@@ -38,14 +39,16 @@ def format_rag_context(rag_results: list[dict]) -> str:
         cite_hint = ""
         if chunk_id:
             cite_hint = (
-                f'\n  <citation_tag><cite chunk_id="{chunk_id}"></cite></citation_tag>'
+                '\n  <citation_tag><cite chunk_id="'
+                f"{escape_prompt_text(chunk_id)}"
+                '"></cite></citation_tag>'
             )
         sections.append(
             f'<reference index="{i}">\n'
-            f"  <filename>{filename}</filename>\n"
-            f"  <scope>{scope_hint}</scope>\n"
+            f"  <filename>{escape_prompt_text(filename)}</filename>\n"
+            f"  <scope>{escape_prompt_text(scope_hint)}</scope>\n"
             f"  <relevance>{score:.0%}</relevance>\n"
-            f"  <content>{content}</content>"
+            f"  <content>{escape_prompt_text(content)}</content>"
             f"{cite_hint}\n"
             f"</reference>"
         )

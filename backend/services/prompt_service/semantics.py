@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Optional
 
+from .escaping import escape_prompt_text
 from .rag import format_rag_context
 
 
@@ -72,7 +73,11 @@ def build_conversation_history_section(
     for msg in conversation_history[-limit:]:
         role = "User" if msg.get("role") == "user" else "Assistant"
         lines.append(
-            f"  <message role=\"{role.lower()}\">{msg.get('content', '')}</message>"
+            '  <message role="'
+            f"{role.lower()}"
+            '">'
+            f"{escape_prompt_text(msg.get('content', ''))}"
+            "</message>"
         )
     return (
         "\n<conversation_history>\n" + "\n".join(lines) + "\n</conversation_history>\n"
@@ -84,8 +89,10 @@ def build_session_scope_section(session_id: Optional[str]) -> str:
         return ""
     return (
         "\n<session_scope>\n"
-        f"  <session_id>{session_id}</session_id>\n"
-        f"  <legacy_session_label>session_id={session_id}</legacy_session_label>\n"
+        f"  <session_id>{escape_prompt_text(session_id)}</session_id>\n"
+        "  <legacy_session_label>"
+        f"session_id={escape_prompt_text(session_id)}"
+        "</legacy_session_label>\n"
         "  <scope_rule>"
         "请仅基于该会话上下文进行回复与引用，不要混入其他会话信息。"
         "</scope_rule>\n"
