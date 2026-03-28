@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
 import {
@@ -28,6 +28,7 @@ import {
   OUTLINE_STYLES,
   PAGE_PRESETS,
 } from "./constants";
+import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 import {
   type GenerationConfig,
   useGenerationConfigPanel,
@@ -353,9 +354,12 @@ export function GenerationConfigPanel({
                   <Card className="rounded-2xl border-zinc-100 bg-white text-zinc-900 shadow-sm">
                     <CardContent className="flex flex-col gap-3 px-4 pb-4 pt-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
                       <div>
-                        <p className="text-sm font-semibold text-zinc-900">
-                          开始生成大纲
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <p className="text-sm font-semibold text-zinc-900">
+                            开始生成大纲
+                          </p>
+                          <SelectedSourceScopeBadge />
+                        </div>
                         <p className="mt-1 text-xs leading-5 text-zinc-500">
                           下一步会进入大纲编辑页，你可以继续微调每一页。
                         </p>

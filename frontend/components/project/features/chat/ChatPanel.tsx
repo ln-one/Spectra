@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SUGGESTIONS } from "./constants";
 import { MessageBubble } from "./components/MessageBubble";
+import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "./types";
 
@@ -465,28 +466,31 @@ export function ChatPanel({
                   : undefined
               }
             >
-              {isStudioRefineMode && toolColors ? (
-                <div
-                  className="mb-1.5 flex items-center justify-between gap-2 rounded-[calc(var(--project-input-radius)-4px)] px-2 py-1 text-[11px] font-medium transition-colors"
-                  style={{
-                    backgroundColor: toolColors.soft,
-                    color: toolColors.primary,
-                    border: `1px solid ${toolColors.glow}`,
-                  }}
-                >
-                  <span className="truncate flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    正在微调：{refineToolLabel}
-                  </span>
-                  {isStudioRefining ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <span className="shrink-0 opacity-80">
-                      发送后会按顺序处理
+              <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                <SelectedSourceScopeBadge />
+                {isStudioRefineMode && toolColors ? (
+                  <div
+                    className="flex items-center justify-between gap-2 rounded-[calc(var(--project-input-radius)-4px)] px-2 py-1 text-[11px] font-medium transition-colors"
+                    style={{
+                      backgroundColor: toolColors.soft,
+                      color: toolColors.primary,
+                      border: `1px solid ${toolColors.glow}`,
+                    }}
+                  >
+                    <span className="truncate flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      正在微调：{refineToolLabel}
                     </span>
-                  )}
-                </div>
-              ) : null}
+                    {isStudioRefining ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <span className="shrink-0 opacity-80">
+                        发送后会按顺序处理
+                      </span>
+                    )}
+                  </div>
+                ) : null}
+              </div>
               <div className="flex w-full items-end gap-2">
                 <Textarea
                   ref={textareaRef}

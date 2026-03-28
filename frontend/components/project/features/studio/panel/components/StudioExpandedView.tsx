@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import type { ComponentProps, ComponentType } from "react";
@@ -13,6 +13,7 @@ import type {
   ToolDraftState,
   ToolFlowContext,
 } from "../../tools";
+import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 
 interface StudioExpandedViewProps {
   isExpanded: boolean;
@@ -167,6 +168,7 @@ export function StudioExpandedView({
                         </select>
                       ) : null}
                       <div className="ml-auto flex items-center gap-2">
+                        <SelectedSourceScopeBadge />
                         <Button
                           size="sm"
                           variant="outline"
