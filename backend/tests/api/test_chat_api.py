@@ -194,6 +194,68 @@ def test_send_message_inline_session_title_refresh_updates_response(
     spawn_mock.assert_not_called()
 
 
+def test_send_message_first_message_title_fallback_updates_response(
+    client, monkeypatch, _as_user
+):
+    _mock(monkeypatch, db_service, "get_project", _fake_project())
+    monkeypatch.setattr(
+        db_service.db,
+        "generationsession",
+        SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="s-bootstrap-001",
+                    displayTitle="会话-ap-001",
+                    displayTitleSource="default",
+                )
+            ),
+            update=AsyncMock(
+                return_value=SimpleNamespace(
+                    displayTitle="Hello AI",
+                    displayTitleSource="first_message",
+                    displayTitleUpdatedAt=_NOW,
+                )
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        db_service.db,
+        "conversation",
+        SimpleNamespace(count=AsyncMock(return_value=1)),
+    )
+    monkeypatch.setattr(
+        db_service,
+        "create_conversation_message",
+        AsyncMock(
+            side_effect=[
+                _fake_conv(role="user", conv_id="c-user"),
+                _fake_conv(role="assistant", content="assistant reply", conv_id="c-ai"),
+            ]
+        ),
+    )
+    _mock(
+        monkeypatch,
+        db_service,
+        "get_recent_conversation_messages",
+        [_fake_conv(role="user", content="previous message")],
+    )
+    monkeypatch.setattr(
+        "routers.chat.runtime.generate_semantic_session_title",
+        AsyncMock(return_value=None),
+    )
+    spawn_mock = AsyncMock()
+    monkeypatch.setattr("routers.chat.runtime.spawn_background_task", spawn_mock)
+    _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
+
+    resp = client.post("/api/v1/chat/messages", json=_MSG)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["session_title_updated"] is True
+    assert body["data"]["session_title"] == "Hello AI"
+    assert body["data"]["session_title_source"] == "first_message"
+    spawn_mock.assert_not_called()
+
+
 def test_send_message_rejects_missing_session_id(client, monkeypatch, _as_user):
     _mock(monkeypatch, db_service, "get_project", _fake_project())
     resp = client.post(
