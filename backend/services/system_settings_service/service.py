@@ -126,7 +126,8 @@ class SystemSettingsService:
         except Exception:
             logger.warning(
                 "Failed to apply runtime system settings; "
-                "API response remains updated."
+                "API response remains updated.",
+                exc_info=True,
             )
 
 

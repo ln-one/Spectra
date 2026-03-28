@@ -1,7 +1,7 @@
-﻿"""
+"""
 EmbeddingService 单元测试
 
-使用 mock 避免真实 API 调用�?
+使用 mock 避免真实 API 调用。
 """
 
 import logging
@@ -15,19 +15,19 @@ from services.media.embedding import EmbeddingService
 
 @pytest.fixture
 def dashscope_svc():
-    """DashScope 模式�?EmbeddingService"""
+    """DashScope 模式的 EmbeddingService。"""
     return EmbeddingService(model="text-embedding-v4")
 
 
 @pytest.fixture
 def dashscope_text_svc():
-    """DashScope TextEmbedding 模式�?EmbeddingService"""
+    """DashScope TextEmbedding 模式的 EmbeddingService。"""
     return EmbeddingService(model="text-embedding-v4")
 
 
 @pytest.fixture
 def local_svc():
-    """本地模型模式�?EmbeddingService"""
+    """本地模型模式的 EmbeddingService。"""
     return EmbeddingService(model="local")
 
 
