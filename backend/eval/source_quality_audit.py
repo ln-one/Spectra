@@ -14,10 +14,15 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 from schemas.common import SourceType, normalize_source_type
+from services.prompt_service import RETRIEVAL_MODE_DEFAULT_LIBRARY
 
 
 @dataclass
@@ -27,6 +32,7 @@ class AuditMetrics:
     readability_rate: float
     relevance_rate: float
     failed_sample_ids: list[str]
+    by_retrieval_mode: dict[str, dict]
 
     def summary(self) -> str:
         return (
@@ -34,7 +40,8 @@ class AuditMetrics:
             f"coverage={self.coverage_rate:.1%}, "
             f"readability={self.readability_rate:.1%}, "
             f"relevance={self.relevance_rate:.1%}, "
-            f"failed={len(self.failed_sample_ids)}"
+            f"failed={len(self.failed_sample_ids)}, "
+            f"modes={','.join(sorted(self.by_retrieval_mode.keys())) or 'none'}"
         )
 
 
@@ -113,7 +120,7 @@ def _sample_has_relevance(sample: dict, min_overlap_tokens: int = 1) -> bool:
 
 def compute_audit_metrics(samples: list[dict]) -> AuditMetrics:
     if not samples:
-        return AuditMetrics(0, 0.0, 0.0, 0.0, [])
+        return AuditMetrics(0, 0.0, 0.0, 0.0, [], {})
 
     covered = 0
     readable = 0
@@ -140,12 +147,55 @@ def compute_audit_metrics(samples: list[dict]) -> AuditMetrics:
             failed_ids.append(sample_id)
 
     total = len(samples)
+    by_retrieval_mode: dict[str, dict] = {}
+    grouped_samples: dict[str, list[dict]] = {}
+    for sample in samples:
+        mode = str(sample.get("retrieval_mode") or RETRIEVAL_MODE_DEFAULT_LIBRARY)
+        grouped_samples.setdefault(mode, []).append(sample)
+
+    for mode, grouped in grouped_samples.items():
+        covered_mode = 0
+        readable_mode = 0
+        relevant_mode = 0
+        failed_mode: list[str] = []
+
+        for idx, sample in enumerate(grouped):
+            sample_id = sample.get("id", f"{mode}-sample-{idx+1}")
+            sources = _extract_sources(sample)
+
+            has_coverage = len(sources) > 0
+            if has_coverage:
+                covered_mode += 1
+
+            has_readability = has_coverage and all(
+                _is_readable_source(s) for s in sources
+            )
+            if has_readability:
+                readable_mode += 1
+
+            has_relevance = _sample_has_relevance(sample)
+            if has_relevance:
+                relevant_mode += 1
+
+            if not (has_coverage and has_readability and has_relevance):
+                failed_mode.append(sample_id)
+
+        mode_total = len(grouped)
+        by_retrieval_mode[mode] = {
+            "total_samples": mode_total,
+            "coverage_rate": covered_mode / mode_total,
+            "readability_rate": readable_mode / mode_total,
+            "relevance_rate": relevant_mode / mode_total,
+            "failed_sample_ids": failed_mode,
+        }
+
     return AuditMetrics(
         total_samples=total,
         coverage_rate=covered / total,
         readability_rate=readable / total,
         relevance_rate=relevant / total,
         failed_sample_ids=failed_ids,
+        by_retrieval_mode=by_retrieval_mode,
     )
 
 
@@ -163,6 +213,7 @@ def run_audit(dataset_path: Path, output_path: Path | None = None) -> AuditMetri
                 "readability_rate": metrics.readability_rate,
                 "relevance_rate": metrics.relevance_rate,
                 "failed_sample_ids": metrics.failed_sample_ids,
+                "by_retrieval_mode": metrics.by_retrieval_mode,
             },
         }
         output_path.parent.mkdir(parents=True, exist_ok=True)

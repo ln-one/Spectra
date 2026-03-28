@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Optional
 
+from .escaping import escape_prompt_text
 from .rag import format_rag_context
 
 
@@ -42,14 +43,22 @@ def build_rag_reference_section(
         instruction = (
             '若使用资料内容，请在对应句末插入 <cite chunk_id="..."></cite> 标签。'
         )
-        prefix = "\n参考资料（按相关度排序）：\n"
-        suffix = "\n"
+        prefix = "\n<retrieved_references>\n参考资料（按相关度排序）：\n"
+        suffix = "\n</retrieved_references>\n"
     else:
         instruction = "如引用资料，请在句末标注来源编号（如：[来源1]）。"
-        prefix = "\n以下为从项目资料检索到的参考资料，请优先利用高相关度内容。\n"
-        suffix = "\n\n"
+        prefix = "\n<retrieved_references>\n以下为从项目资料检索到的参考资料：\n"
+        suffix = "\n</retrieved_references>\n\n"
 
-    return prefix + instruction + "\n\n" + format_rag_context(rag_context) + suffix
+    return (
+        prefix
+        + "<reference_usage_rules>\n"
+        + instruction
+        + "\n优先利用高相关度内容；当前作用域更贴近的资料优先于远端资料；不要把低相关材料硬塞进回答。\n"
+        + "</reference_usage_rules>\n\n"
+        + format_rag_context(rag_context)
+        + suffix
+    )
 
 
 def build_conversation_history_section(
@@ -63,16 +72,31 @@ def build_conversation_history_section(
     lines: list[str] = []
     for msg in conversation_history[-limit:]:
         role = "User" if msg.get("role") == "user" else "Assistant"
-        lines.append(f"{role}: {msg.get('content', '')}")
-    return "\nConversation history:\n" + "\n".join(lines) + "\n"
+        lines.append(
+            '  <message role="'
+            f"{role.lower()}"
+            '">'
+            f"{escape_prompt_text(msg.get('content', ''))}"
+            "</message>"
+        )
+    return (
+        "\n<conversation_history>\n" + "\n".join(lines) + "\n</conversation_history>\n"
+    )
 
 
 def build_session_scope_section(session_id: Optional[str]) -> str:
     if not session_id:
         return ""
     return (
-        f"\n当前会话：session_id={session_id}\n"
-        "请仅基于该会话上下文进行回复与引用，不要混入其他会话信息。\n"
+        "\n<session_scope>\n"
+        f"  <session_id>{escape_prompt_text(session_id)}</session_id>\n"
+        "  <legacy_session_label>"
+        f"session_id={escape_prompt_text(session_id)}"
+        "</legacy_session_label>\n"
+        "  <scope_rule>"
+        "请仅基于该会话上下文进行回复与引用，不要混入其他会话信息。"
+        "</scope_rule>\n"
+        "</session_scope>\n"
     )
 
 

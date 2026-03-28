@@ -29,6 +29,7 @@ from services.generation_session_service.session_history import (
     RUN_STEP_GENERATE,
     RUN_STEP_OUTLINE,
     SESSION_TITLE_SOURCE_MANUAL,
+    build_run_prompt_trace_payload,
     build_run_trace_payload,
     create_session_run,
     serialize_session_run,
@@ -254,6 +255,10 @@ async def handle_confirm_outline(
     input_payload = {"outline_version": effective_outline_version}
     if options.get("template_config"):
         input_payload["template_config"] = options.get("template_config")
+    traceability_payload = build_run_prompt_trace_payload(
+        rag_source_ids=(options.get("template_config") or {}).get("rag_source_ids")
+    )
+    input_payload.update(traceability_payload)
 
     tool_type = {
         "ppt": "ppt_generate",
@@ -347,6 +352,7 @@ async def handle_confirm_outline(
             confirmed=True,
             task_id=task.id,
             reason=SessionLifecycleReason.OUTLINE_CONFIRMED.value,
+            **traceability_payload,
         ),
     )
     return {"task_id": task.id, "run": serialize_session_run(run)}

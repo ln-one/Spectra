@@ -1,0 +1,24 @@
+{
+  "baseline_version": "1",
+  "created_at": "2026-03-27T00:00:00+00:00",
+  "source_result": "eval/results/ppt_image_quality_latest.json",
+  "notes": "P0 ppt image quality baseline v1",
+  "dataset": "eval/ppt_image_quality_samples.json",
+  "total_samples": 4,
+  "metrics": {
+    "page_selection_pass_rate": 0.5,
+    "placement_pass_rate": 0.5,
+    "quantity_pass_rate": 0.5,
+    "layout_risk_control_pass_rate": 0.5,
+    "text_image_alignment_pass_rate": 0.5,
+    "overall_pass_rate": 0.25
+  },
+  "guardrails": {
+    "max_page_selection_drop": 0.05,
+    "max_placement_drop": 0.05,
+    "max_quantity_drop": 0.05,
+    "max_layout_risk_control_drop": 0.05,
+    "max_text_image_alignment_drop": 0.05,
+    "max_overall_drop": 0.05
+  }
+}

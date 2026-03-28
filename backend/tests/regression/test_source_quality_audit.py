@@ -30,6 +30,7 @@ def test_compute_audit_metrics_all_pass():
     assert m.readability_rate == pytest.approx(1.0)
     assert m.relevance_rate == pytest.approx(1.0)
     assert m.failed_sample_ids == []
+    assert m.by_retrieval_mode["default_library"]["coverage_rate"] == pytest.approx(1.0)
 
 
 def test_compute_audit_metrics_fail_missing_locator():
@@ -79,6 +80,7 @@ def test_run_audit_writes_output(tmp_path):
     saved = json.loads(output_path.read_text(encoding="utf-8"))
     assert "metrics" in saved
     assert saved["metrics"]["coverage_rate"] == pytest.approx(1.0)
+    assert "by_retrieval_mode" in saved["metrics"]
 
 
 def test_compute_audit_metrics_normalizes_source_type_aliases():
@@ -101,3 +103,44 @@ def test_compute_audit_metrics_normalizes_source_type_aliases():
     m = compute_audit_metrics(samples)
     assert m.readability_rate == pytest.approx(1.0)
     assert m.relevance_rate == pytest.approx(1.0)
+    assert m.by_retrieval_mode["default_library"]["relevance_rate"] == pytest.approx(
+        1.0
+    )
+
+
+def test_compute_audit_metrics_groups_by_retrieval_mode():
+    samples = [
+        {
+            "id": "s5",
+            "retrieval_mode": "default_library",
+            "output_text": "牛顿第二定律公式是F=ma",
+            "rag_results": [
+                {
+                    "content": "牛顿第二定律常写作F=ma",
+                    "source": {
+                        "chunk_id": "c5",
+                        "source_type": "document",
+                        "filename": "p.pdf",
+                        "page_number": 1,
+                    },
+                }
+            ],
+        },
+        {
+            "id": "s6",
+            "retrieval_mode": "strict_sources",
+            "output_text": "该页内容来自视频中光合作用片段。",
+            "preview_sources": [
+                {"chunk_id": "c6", "source_type": "video", "filename": "b.mp4"}
+            ],
+            "source_details": [{"content": "光合作用需要光能"}],
+        },
+    ]
+
+    m = compute_audit_metrics(samples)
+
+    assert m.by_retrieval_mode["default_library"]["coverage_rate"] == pytest.approx(1.0)
+    assert m.by_retrieval_mode["strict_sources"]["readability_rate"] == pytest.approx(
+        0.0
+    )
+    assert "s6" in m.by_retrieval_mode["strict_sources"]["failed_sample_ids"]

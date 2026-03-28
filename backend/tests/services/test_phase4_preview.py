@@ -9,10 +9,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import FastAPI
-from starlette.testclient import TestClient
 
-from routers.generate_sessions import router as generate_sessions_router
 from schemas.generation import TaskStatus
 from schemas.intent import ModifyIntent, ModifyType
 from schemas.outline import CoursewareOutline, OutlineSection
@@ -33,7 +30,6 @@ from schemas.preview import (
 from services.ai import AIService
 from services.courseware_ai import CoursewareAIMixin
 from services.quality_service import QualityReport, check_quality
-from utils.dependencies import get_current_user
 
 # ============================================================
 # Preview Schemas
@@ -391,11 +387,14 @@ class TestParseModifyIntent:
             "generate",
             new_callable=AsyncMock,
             return_value={"content": mock_response},
-        ):
+        ) as mock_generate:
             result = await ai.parse_modify_intent("把第3页标题改成xxx")
         assert isinstance(result, ModifyIntent)
         assert result.modify_type == ModifyType.CONTENT
         assert result.target_slides == [3]
+        prompt_arg = mock_generate.call_args.kwargs["prompt"]
+        assert "<modify_intent_task>" in prompt_arg
+        assert "<decision_rules>" in prompt_arg
 
     @pytest.mark.asyncio
     async def test_llm_parse_fallback(self):

@@ -84,12 +84,19 @@ async def generate_outline(
         else "总页数通常控制在 10-20 页。"
     )
 
-    prompt = f"""你是资深学科教学设计师。
-请基于以下需求生成结构化课件大纲。
+    prompt = f"""你是资深学科教学设计师。请先在内部完成“教学目标 -> 章节推进 -> 页数分配”的规划，再输出结构化课件大纲。
 {rag_hint}
-{rag_instruction}教学需求：{user_requirements}
-模板风格：{template_style} - {style_desc}
+{rag_instruction}<outline_task>
+  <template_style>{template_style}</template_style>
+  <style_requirement>{style_desc}</style_requirement>
+  <target_pages_rule>{target_pages_constraint}</target_pages_rule>
+</outline_task>
 
+<teacher_requirements>
+{user_requirements}
+</teacher_requirements>
+
+<outline_contract>
 仅返回 JSON：
 {{
   "title": "课件标题",
@@ -98,6 +105,7 @@ async def generate_outline(
   ],
   "summary": "一句话总结"
 }}
+</outline_contract>
 
 约束：
 1. 章节数 3-8，完整覆盖教学流程（导入 -> 讲授 -> 案例/练习 -> 总结）。
@@ -106,6 +114,8 @@ async def generate_outline(
 4. {target_pages_constraint}
 5. 章节标题不得重复，不得使用“核心知识点”“内容讲解”这类泛化标题。
 6. 不同章节的关键要点不得直接重复或换说法原地复述，相邻章节必须体现教学推进。
+7. 每章都要说明该章真正承担的教学任务，不要把多个章节写成同一类“概念堆砌”页面。
+8. 如使用参考资料，优先吸收与当前教学目标直接相关的内容，不要因为资料命中就机械照抄原文。
 """
     try:
         response = await ai_service.generate(
