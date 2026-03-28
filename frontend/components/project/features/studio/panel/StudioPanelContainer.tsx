@@ -437,15 +437,15 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
       style={{ transform: "translateZ(0)" }}
     >
       <Card className="project-panel-card project-studio-panel h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
-        <StudioPanelHeader
-          isExpanded={isExpanded}
-          expandedTool={(expandedTool as GenerationToolType | null) ?? null}
-          onClose={historyHandlers.handleClose}
-          currentIcon={CurrentIcon}
-          currentColor={currentColor}
-        />
-        <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
-          <LayoutGroup id="studio-content-layout">
+        <LayoutGroup id="studio-layout">
+          <StudioPanelHeader
+            isExpanded={isExpanded}
+            expandedTool={(expandedTool as GenerationToolType | null) ?? null}
+            onClose={historyHandlers.handleClose}
+            currentIcon={CurrentIcon}
+            currentColor={currentColor}
+          />
+          <CardContent className="relative h-[calc(100%-52px)] overflow-hidden p-0">
             <StudioCollapsedView
               isExpanded={isExpanded}
               hoveredToolId={hoveredToolId}
@@ -574,8 +574,8 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
               onDraftChange={handleExpandedToolDraftChange}
               toolFlowContext={toolFlowContext}
             />
-          </LayoutGroup>
-        </CardContent>
+          </CardContent>
+        </LayoutGroup>
       </Card>
 
       <StudioArchiveHistoryDialog

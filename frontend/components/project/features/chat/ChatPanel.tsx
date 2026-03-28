@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Loader2, Sparkles } from "lucide-react";
+import { ArrowUp, Bot, Loader2, Sparkles } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
@@ -326,10 +326,10 @@ export function ChatPanel({
           style={{ height: "52px" }}
         >
           <div className="min-w-0 flex-1 flex-col justify-center">
-            <CardTitle className="text-sm font-semibold leading-tight">
-              Chat
+            <CardTitle className="truncate text-lg font-bold leading-tight">
+              <span className="truncate whitespace-nowrap">智能助手</span>
             </CardTitle>
-            <CardDescription className="text-xs leading-tight text-[var(--project-text-muted)]">
+            <CardDescription className="mt-0.5 text-xs font-medium leading-tight text-[var(--project-text-muted)]">
               {CHAT_DESCRIPTION}
             </CardDescription>
           </div>

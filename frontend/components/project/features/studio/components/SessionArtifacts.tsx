@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -137,14 +137,14 @@ export function SessionArtifacts({
                         >
                           {statusIcon(item.status)}
                         </button>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)]">
+                        <div className="flex flex-1 flex-col justify-center min-w-0">
+                          <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)] w-full">
                             第 {runNo} 次 · {item.title}
                           </p>
-                          <p className="flex items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
+                          <p className="flex items-center gap-1.5 text-[10px] text-[var(--project-text-muted)] min-w-0">
                             <span
                               className={cn(
-                                "rounded-full px-1.5 py-0.5",
+                                "rounded-full px-1.5 py-0.5 whitespace-nowrap",
                                 item.status === "processing"
                                   ? "bg-blue-100 text-blue-700"
                                   : item.status === "previewing"
@@ -161,16 +161,19 @@ export function SessionArtifacts({
                               {statusText(item.status)}
                             </span>
                             <span
-                              className="inline-block h-1.5 w-1.5 rounded-full"
+                              className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
                               style={{ backgroundColor: toolAccent }}
                             />
-                            <span>
+                            <span 
+                              className="truncate whitespace-nowrap" 
+                              title={new Date(item.createdAt).toLocaleString("zh-CN")}
+                            >
                               {new Date(item.createdAt).toLocaleString("zh-CN")}
                             </span>
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-1">
+                        <div className="flex shrink-0 items-center gap-1">
                           <Button
                             variant="ghost"
                             size="icon"

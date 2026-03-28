@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
@@ -41,7 +41,7 @@ export function StudioPanelHeader({
                 layout
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
               >
-                {isExpanded ? TOOL_LABELS[expandedTool || "ppt"] : "Studio"}
+                {isExpanded ? TOOL_LABELS[expandedTool || "ppt"] : "备课工坊"}
               </motion.span>
             </CardTitle>
             <CardDescription className="truncate text-xs leading-tight text-[var(--project-text-muted)]">

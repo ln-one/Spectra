@@ -1,25 +1,27 @@
 import {
-  Brain,
-  CircleHelp,
-  Film,
+  ClipboardCheck,
+  Clapperboard,
   FileText,
   Gamepad2,
-  GraduationCap,
-  Presentation,
-  Radar,
+  MonitorPlay,
+  Network,
+  Projector,
+  ScrollText,
+  Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GENERATION_TOOLS, type GenerationTool } from "@/stores/projectStore";
 
 export const TOOL_ICONS: Record<string, LucideIcon> = {
-  ppt: Presentation,
+  ppt: MonitorPlay,
   word: FileText,
-  mindmap: Brain,
+  mindmap: Network,
   outline: Gamepad2,
-  quiz: CircleHelp,
-  summary: GraduationCap,
-  animation: Film,
-  handout: Radar,
+  quiz: ClipboardCheck,
+  summary: ScrollText,
+  animation: Clapperboard,
+  handout: Projector,
+  game: Gamepad2,
 };
 
 export const TOOL_LABELS: Record<string, string> = Object.fromEntries(
@@ -103,7 +105,7 @@ export const TOOL_COLORS: Record<
 
 export const ICON_LAYOUT_TRANSITION = {
   type: "tween" as const,
-  duration: 0.2,
+  duration: 0.4,
   ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
 };
 

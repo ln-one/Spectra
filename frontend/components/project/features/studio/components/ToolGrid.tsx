@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
@@ -79,7 +79,7 @@ export function ToolGrid({
             >
               <Icon className="h-4.5 w-4.5" style={{ color: color.primary }} />
             </motion.div>
-            <span className="text-center text-[11px] font-medium text-[var(--project-text-primary)]">
+            <span className="text-center text-[13px] font-medium text-[var(--project-text-primary)]">
               {tool.name}
             </span>
             <motion.div

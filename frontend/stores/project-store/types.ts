@@ -1,4 +1,4 @@
-﻿import type { components as sdkComponents } from "@/lib/sdk/types";
+import type { components as sdkComponents } from "@/lib/sdk/types";
 import {
   groupArtifactsByTool,
   type ArtifactHistoryByTool,
