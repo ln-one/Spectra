@@ -77,6 +77,8 @@ class TestPromptService:
         assert "资深学科教学设计师" in prompt
         assert "PPT_CONTENT_START" in prompt
         assert "LESSON_PLAN_START" in prompt
+        assert "<generation_task>" in prompt
+        assert "<input_requirements>" in prompt
 
     def test_courseware_prompt_with_rag(self):
         rag = [{"content": "Python 基础语法", "source": {"filename": "py.pdf"}}]
@@ -93,6 +95,7 @@ class TestPromptService:
         assert "每页只服务一个核心教学目标" in prompt
         assert "结论 + 解释 + 例子/提问" in prompt
         assert "避免空泛套话、机械罗列" in prompt
+        assert "先判断教学目标、知识推进顺序和每页承担的讲解任务" in prompt
 
     def test_courseware_prompt_includes_layout_density_rules(self):
         prompt = self.svc.build_courseware_prompt("化学实验现象")
@@ -130,6 +133,8 @@ class TestPromptService:
         )
         assert "把标题改成新标题" in prompt
         assert "1, 2" in prompt
+        assert "<current_courseware>" in prompt
+        assert "<modify_instruction>" in prompt
 
     def test_chat_response_prompt(self):
         prompt = self.svc.build_chat_response_prompt(
