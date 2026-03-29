@@ -9,6 +9,14 @@ type RenderState = "idle" | "loading" | "ready" | "failed";
 
 declare global {
   interface Window {
+    JSZip?: {
+      loadAsync: (
+        data: ArrayBuffer
+      ) => Promise<{
+        file: (path: string, data?: string, options?: { base64?: boolean }) => unknown;
+        generateAsync: (options: { type: "arraybuffer" }) => Promise<ArrayBuffer>;
+      }>;
+    };
     pptx2html?: (
       pptx: ArrayBuffer,
       resultElement: Element | string,
@@ -17,9 +25,13 @@ declare global {
   }
 }
 
+const JSZIP_SCRIPT_ID = "jszip-runtime-script";
+const JSZIP_SCRIPT_SRC = "https://unpkg.com/jszip@3.10.1/dist/jszip.min.js";
 const RUNTIME_SCRIPT_ID = "pptx2html-runtime-script";
 const RUNTIME_SCRIPT_SRC =
   "https://unpkg.com/pptx2html@0.3.4/dist/pptx2html.full.min.js";
+const FALLBACK_THUMBNAIL_JPEG_BASE64 =
+  "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAHFAP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAQUCx//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQMBAT8BP//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQIBAT8BP//Z";
 
 let runtimeLoadingPromise: Promise<void> | null = null;
 
@@ -66,6 +78,13 @@ function ensurePptxRuntime(): Promise<void> {
   if (runtimeLoadingPromise) return runtimeLoadingPromise;
 
   runtimeLoadingPromise = (async () => {
+    await ensureRuntimeAsset(JSZIP_SCRIPT_ID, () => {
+      const script = document.createElement("script");
+      script.src = JSZIP_SCRIPT_SRC;
+      script.async = true;
+      return script;
+    });
+
     await ensureRuntimeAsset(RUNTIME_SCRIPT_ID, () => {
       const script = document.createElement("script");
       script.src = RUNTIME_SCRIPT_SRC;
@@ -82,6 +101,26 @@ function ensurePptxRuntime(): Promise<void> {
   });
 
   return runtimeLoadingPromise;
+}
+
+async function ensureThumbnail(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+  if (typeof window === "undefined" || !window.JSZip?.loadAsync) {
+    return buffer;
+  }
+
+  try {
+    const zip = await window.JSZip.loadAsync(buffer);
+    const thumbFile = zip.file("docProps/thumbnail.jpeg");
+    if (!thumbFile) {
+      zip.file("docProps/thumbnail.jpeg", FALLBACK_THUMBNAIL_JPEG_BASE64, {
+        base64: true,
+      });
+      return zip.generateAsync({ type: "arraybuffer" });
+    }
+    return buffer;
+  } catch {
+    return buffer;
+  }
 }
 
 interface PptArtifactRendererProps {
@@ -128,8 +167,10 @@ export function PptArtifactRenderer({
         if (cancelled) return;
         const buffer = await blob.arrayBuffer();
         if (cancelled) return;
+        const normalizedBuffer = await ensureThumbnail(buffer);
+        if (cancelled) return;
 
-        await renderer(buffer, containerRef.current);
+        await renderer(normalizedBuffer, containerRef.current);
         if (cancelled) return;
 
         setState("ready");
