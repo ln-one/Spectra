@@ -173,18 +173,6 @@ async def handle_regenerate_slide(
                 )
             )
 
-        run = await create_session_run(
-            db=db,
-            session_id=session.id,
-            project_id=session.projectId,
-            tool_type="slide_modify",
-            step=RUN_STEP_MODIFY_SLIDE,
-            status=RUN_STATUS_PROCESSING,
-        )
-        await db.generationsession.update(
-            where={"id": session.id},
-            data={"state": new_state, "renderVersion": {"increment": 1}},
-        )
         latest_task = await _load_latest_session_task(db, session.id)
         preview_content = await _load_task_preview_content(latest_task)
         if not preview_content:
@@ -198,6 +186,19 @@ async def handle_regenerate_slide(
         target_slide_index = _resolve_target_slide_index(command)
         if target_slide_index is None:
             raise conflict_error_cls("failed to resolve target slide index")
+
+        run = await create_session_run(
+            db=db,
+            session_id=session.id,
+            project_id=session.projectId,
+            tool_type="slide_modify",
+            step=RUN_STEP_MODIFY_SLIDE,
+            status=RUN_STATUS_PROCESSING,
+        )
+        await db.generationsession.update(
+            where={"id": session.id},
+            data={"state": new_state, "renderVersion": {"increment": 1}},
+        )
 
         rag_source_ids = _extract_rag_source_ids(session=session, task=latest_task)
         rag_context = None

@@ -126,6 +126,43 @@ async def test_handle_regenerate_slide_emits_failed_event_on_conflict():
 
 
 @pytest.mark.anyio
+async def test_handle_regenerate_slide_does_not_mutate_session_when_preview_missing():
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(update=AsyncMock()),
+        generationtask=SimpleNamespace(
+            find_first=AsyncMock(return_value=None), update=AsyncMock()
+        ),
+        sessionrun=SimpleNamespace(count=AsyncMock(return_value=0), create=AsyncMock()),
+    )
+    session = SimpleNamespace(
+        id="s-001",
+        projectId="p-001",
+        renderVersion=2,
+        options=None,
+    )
+    append_event = AsyncMock()
+
+    with pytest.raises(RuntimeError, match="preview content is missing"):
+        await handle_regenerate_slide(
+            db=db,
+            session=session,
+            command={
+                "slide_id": "slide-1",
+                "slide_index": 1,
+                "instruction": "optimize page one",
+            },
+            new_state="RENDERING",
+            append_event=append_event,
+            conflict_error_cls=RuntimeError,
+        )
+
+    db.sessionrun.create.assert_not_called()
+    db.generationsession.update.assert_not_called()
+    event_types = [call.kwargs["event_type"] for call in append_event.await_args_list]
+    assert event_types == [GenerationEventType.SLIDE_MODIFY_FAILED.value]
+
+
+@pytest.mark.anyio
 async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_source_misses():
     db = SimpleNamespace(
         generationsession=SimpleNamespace(update=AsyncMock()),
