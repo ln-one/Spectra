@@ -659,6 +659,58 @@ async def test_get_session_snapshot_rejects_state_event_mismatch():
 
 
 @pytest.mark.anyio
+async def test_get_session_snapshot_with_run_scope_ignores_other_run_state_events():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    session.stateReason = "task_completed"
+    now = datetime.now(timezone.utc)
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        sessionevent=SimpleNamespace(
+            find_first=AsyncMock(return_value=None),
+            find_many=AsyncMock(
+                return_value=[
+                    SimpleNamespace(
+                        state=GenerationState.FAILED.value,
+                        stateReason="task_failed",
+                        payload='{"run_id":"run-other"}',
+                    )
+                ]
+            ),
+        ),
+        sessionrun=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="run-001",
+                    sessionId="s-001",
+                    projectId="p-001",
+                    toolType="ppt_generate",
+                    runNo=1,
+                    title="第1次PPT生成",
+                    titleSource="pending",
+                    status="processing",
+                    step="generate",
+                    artifactId=None,
+                    createdAt=now,
+                    updatedAt=now,
+                )
+            )
+        ),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(
+        session_id="s-001",
+        user_id="u-001",
+        run_id="run-001",
+    )
+
+    assert payload["session"]["state"] == GenerationState.SUCCESS.value
+    assert payload["current_run"]["run_id"] == "run-001"
+    db.sessionevent.find_many.assert_awaited_once()
+
+
+@pytest.mark.anyio
 async def test_get_session_snapshot_rejects_inconsistent_artifact_anchor():
     session = _fake_session(state=GenerationState.SUCCESS.value)
     db = SimpleNamespace(

@@ -207,6 +207,22 @@ async def get_session_snapshot(
         event_model = getattr(db, "sessionevent", None)
         if event_model is None or not hasattr(event_model, "find_first"):
             return None
+        if run_id and hasattr(event_model, "find_many"):
+            run_events = await event_model.find_many(
+                where={
+                    "sessionId": session.id,
+                    "eventType": GenerationEventType.STATE_CHANGED.value,
+                },
+                order={"createdAt": "desc"},
+                take=100,
+            )
+            for event in run_events:
+                payload = _parse_json_object(getattr(event, "payload", None))
+                if not payload:
+                    continue
+                if str(payload.get("run_id") or "") == run_id:
+                    return event
+            return None
         return await event_model.find_first(
             where={
                 "sessionId": session.id,
