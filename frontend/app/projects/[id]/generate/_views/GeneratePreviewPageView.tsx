@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { generateApi } from "@/lib/sdk";
+import { generateApi, projectSpaceApi } from "@/lib/sdk";
 import { SlideCard } from "./SlideCard";
 import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { PreviewHeader } from "./components/PreviewHeader";
@@ -32,6 +32,10 @@ export default function GeneratePreviewPage() {
   const [pptRenderState, setPptRenderState] = useState<
     "idle" | "loading" | "ready" | "failed"
   >("idle");
+  const [artifactTypeState, setArtifactTypeState] = useState<{
+    artifactId: string;
+    type: string | null;
+  } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const slidesRef = useRef<HTMLDivElement>(null);
@@ -102,6 +106,32 @@ export default function GeneratePreviewPage() {
   ]);
 
   useEffect(() => {
+    if (!projectId || !currentArtifactId) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const detail = await projectSpaceApi.getArtifact(projectId, currentArtifactId);
+        if (cancelled) return;
+        setArtifactTypeState({
+          artifactId: currentArtifactId,
+          type: detail?.data?.artifact?.type ?? null,
+        });
+      } catch {
+        if (cancelled) return;
+        setArtifactTypeState({
+          artifactId: currentArtifactId,
+          type: null,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentArtifactId, projectId]);
+
+  useEffect(() => {
     activeSlideIndexRef.current = activeSlideIndex;
   }, [activeSlideIndex]);
 
@@ -163,6 +193,13 @@ export default function GeneratePreviewPage() {
       slideElement.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, []);
+
+  const boundArtifactType =
+    artifactTypeState?.artifactId === currentArtifactId
+      ? artifactTypeState.type
+      : null;
+  const canRenderRealPpt =
+    Boolean(currentArtifactId) && boundArtifactType === "pptx";
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -266,7 +303,7 @@ export default function GeneratePreviewPage() {
             )
           ) : (
             <div className="max-w-4xl mx-auto w-full pb-32" ref={slidesRef}>
-              {currentArtifactId ? (
+              {canRenderRealPpt && currentArtifactId ? (
                 <PptArtifactRenderer
                   className="mb-4"
                   projectId={projectId}
@@ -275,7 +312,17 @@ export default function GeneratePreviewPage() {
                 />
               ) : null}
 
-              {!currentArtifactId || pptRenderState !== "ready" ? (
+              {currentArtifactId &&
+              boundArtifactType &&
+              boundArtifactType !== "pptx" ? (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Bound artifact type is <code>{boundArtifactType}</code>, not{" "}
+                  <code>pptx</code>. Real PPT render is disabled until backend
+                  binds a pptx artifact.
+                </div>
+              ) : null}
+
+              {!canRenderRealPpt || pptRenderState !== "ready" ? (
                 <AnimatePresence>
                   {slides.map((slide, i) => (
                     <motion.div
