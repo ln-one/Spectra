@@ -60,11 +60,15 @@ class PromptService:
         current_content: str,
         instruction: str,
         target_slides: Optional[list[str]] = None,
+        rag_context: Optional[list[dict]] = None,
+        strict_source_mode: bool = False,
     ) -> str:
         return build_modify_prompt(
             current_content=current_content,
             instruction=instruction,
             target_slides=target_slides,
+            rag_context=rag_context,
+            strict_source_mode=strict_source_mode,
         )
 
     def build_chat_response_prompt(
