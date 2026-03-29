@@ -138,7 +138,6 @@ export function PptArtifactRenderer({
 }: PptArtifactRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<RenderState>("idle");
-  const [errorMessage, setErrorMessage] = useState<string>("");
 
   useEffect(() => {
     onRenderStateChange?.(state);
@@ -151,7 +150,6 @@ export function PptArtifactRenderer({
       if (!projectId || !artifactId || !containerRef.current) return;
 
       setState("loading");
-      setErrorMessage("");
       containerRef.current.innerHTML = "";
 
       try {
@@ -177,9 +175,11 @@ export function PptArtifactRenderer({
       } catch (error) {
         if (cancelled) return;
         setState("failed");
-        setErrorMessage(
-          error instanceof Error ? error.message : "Unknown render failure."
-        );
+        console.warn("PPT artifact render failed, falling back to slide preview.", {
+          projectId,
+          artifactId,
+          error,
+        });
       }
     };
 
@@ -200,7 +200,7 @@ export function PptArtifactRenderer({
             : state === "ready"
               ? "Ready"
               : state === "failed"
-                ? "Fallback"
+                ? "Preview"
                 : "Idle"}
         </span>
       </div>
@@ -209,13 +209,6 @@ export function PptArtifactRenderer({
         <div className="flex min-h-[220px] items-center justify-center text-sm text-zinc-500">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Rendering real PPT pages...
-        </div>
-      ) : null}
-
-      {state === "failed" ? (
-        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          Real PPT render failed, text preview fallback is shown.
-          {errorMessage ? ` (${errorMessage})` : ""}
         </div>
       ) : null}
 
