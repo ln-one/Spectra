@@ -1,6 +1,7 @@
 ﻿import { generateApi, previewApi, projectSpaceApi } from "@/lib/sdk";
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
+import { parseActiveRunConflict } from "@/lib/project/generation-run-conflict";
 import { groupArtifactsByTool } from "@/lib/project-space/artifact-history";
 import {
   mapSessionsToHistory,
@@ -109,6 +110,20 @@ export function createGenerationActions({
           const runId = extractRunId(
             (response as { data?: { run?: unknown } }).data?.run
           );
+          const previousHistoryTitle =
+            get().generationHistory.find((item) => item.id === sessionId)?.title ||
+            "";
+          const sessionDisplayTitle = String(
+            (
+              response.data.session as {
+                display_title?: string | null;
+              }
+            ).display_title || ""
+          ).trim();
+          const resolvedHistoryTitle =
+            previousHistoryTitle.trim() ||
+            sessionDisplayTitle ||
+            `会话 ${sessionId.slice(-6)}`;
 
           set({
             activeSessionId: sessionId,
@@ -126,7 +141,7 @@ export function createGenerationActions({
             status: "processing",
             sessionState: "CONFIGURING",
             createdAt: new Date().toISOString(),
-            title: tool.name,
+            title: resolvedHistoryTitle,
           };
           set((state) => ({
             generationHistory: [
@@ -171,11 +186,14 @@ export function createGenerationActions({
       } catch (error) {
         const message = getErrorMessage(error);
         set({ error: createApiError({ code: "GENERATION_FAILED", message }) });
-        toast({
-          title: "创建生成任务失败",
-          description: message,
-          variant: "destructive",
-        });
+        const runConflict = parseActiveRunConflict(error);
+        if (!runConflict) {
+          toast({
+            title: "创建生成任务失败",
+            description: message,
+            variant: "destructive",
+          });
+        }
         throw error;
       }
     },
