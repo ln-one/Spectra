@@ -141,10 +141,19 @@ export function useProjectPanelLayout({
       ? (effectivePanelAreaHeight * (100 - expandedChatHeight)) / 100 -
         (PAGE_GAP + PANEL_GAP / 2)
       : 0;
+  const maxExpandedChatHeightByCollapsedSources =
+    effectivePanelAreaHeight > 0
+      ? 100 -
+        ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
+          effectivePanelAreaHeight) *
+          100
+      : 92;
+  const isExpandedSourcesNearCollapsedTarget =
+    expandedChatHeight >= maxExpandedChatHeightByCollapsedSources - 0.1;
   const isExpandedSourcesCollapsedByHeight =
     isExpanded &&
-    expandedSourcesHeightPx > 0 &&
-    expandedSourcesHeightPx <= COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP;
+    (expandedSourcesHeightPx <= COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP ||
+      isExpandedSourcesNearCollapsedTarget);
 
   const toggleSourcesCollapsed = useCallback(
     (action: "collapse" | "expand" | "toggle" = "toggle") => {
@@ -199,16 +208,21 @@ export function useProjectPanelLayout({
 
     const containerHeight =
       panelAreaRef.current?.clientHeight ??
+      panelAreaHeight ??
       window.innerHeight - (HEADER_TO_PANEL_GAP + PAGE_GAP);
     const maxChatByCollapsedSources =
       100 -
       ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
         containerHeight) *
         100;
+    const currentSourcesHeightPx =
+      (containerHeight * (100 - expandedChatHeight)) / 100 -
+      (PAGE_GAP + PANEL_GAP / 2);
     const isNearCollapsedTarget =
       expandedChatHeight >= maxChatByCollapsedSources - 0.1;
     const shouldExpand =
-      isExpandedSourcesCollapsedByHeight || isNearCollapsedTarget;
+      currentSourcesHeightPx <= COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP ||
+      isNearCollapsedTarget;
 
     if (!shouldExpand) {
       previousExpandedChatHeightRef.current = expandedChatHeight;
@@ -219,7 +233,11 @@ export function useProjectPanelLayout({
     }
 
     setExpandedChatHeight(previousExpandedChatHeightRef.current ?? 50);
-  }, [expandedChatHeight, isExpanded, isExpandedSourcesCollapsedByHeight]);
+  }, [
+    expandedChatHeight,
+    isExpanded,
+    panelAreaHeight,
+  ]);
 
   const handleMouseDown = useCallback(
     (
