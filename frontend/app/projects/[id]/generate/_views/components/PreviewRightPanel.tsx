@@ -33,6 +33,8 @@ interface PreviewRightPanelProps {
   onSelectSlideIndex: (index: number) => void;
   onUseTemplate: (template: string) => void;
   onSubmitEdit: () => void;
+  onSubmitImageReplace: () => void;
+  onSubmitImageInsert: () => void;
   onRetryQueueItem: (itemId: string) => void;
 }
 
@@ -92,6 +94,8 @@ export function PreviewRightPanel({
   onSelectSlideIndex,
   onUseTemplate,
   onSubmitEdit,
+  onSubmitImageReplace,
+  onSubmitImageInsert,
   onRetryQueueItem,
 }: PreviewRightPanelProps) {
   const selectedSlide =
@@ -246,25 +250,32 @@ export function PreviewRightPanel({
           <h3 className="text-sm font-semibold">Replace / Insert image</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          This entry is wired on frontend and currently gated by backend capability.
+          Submit image replace/insert requests directly. If backend structured
+          image patch is unavailable, the request falls back to generic AI redo.
         </p>
         <div className="space-y-2">
-          <Button type="button" className="w-full" disabled={!supportsImageEditing}>
-            Replace image (gated)
+          <Button
+            type="button"
+            className="w-full"
+            disabled={!selectedSlide || isSubmittingEdit}
+            onClick={onSubmitImageReplace}
+          >
+            Replace image
           </Button>
           <Button
             type="button"
             variant="outline"
             className="w-full"
-            disabled={!supportsImageEditing}
+            disabled={!selectedSlide || isSubmittingEdit}
+            onClick={onSubmitImageInsert}
           >
-            Insert image block (gated)
+            Insert image block
           </Button>
         </div>
         {!supportsImageEditing ? (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
-            Backend support required: structured patch execution for image ops,
-            artifact replacement response, and page-level result tracing.
+            Backend structured image patch is unavailable. Request will use AI
+            instruction fallback.
           </p>
         ) : null}
       </section>

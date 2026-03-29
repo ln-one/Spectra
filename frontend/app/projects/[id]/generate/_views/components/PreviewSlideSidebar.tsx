@@ -1,33 +1,28 @@
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { SessionRun } from "@/lib/sdk/generate";
 import type { components } from "@/lib/sdk/types";
 
 type Slide = components["schemas"]["Slide"];
 
 interface PreviewSlideSidebarProps {
   slides: Slide[];
-  sessionRuns: SessionRun[];
   activeSlideIndex: number;
   selectedEditSlideIndex: number | null;
   isOutlineGenerating: boolean;
   outlineSections: string[];
   onSelectSlide: (index: number) => void;
   onSelectEditSlide: (index: number) => void;
-  onOpenRunArtifact: (run: SessionRun) => void;
 }
 
 export function PreviewSlideSidebar({
   slides,
-  sessionRuns,
   activeSlideIndex,
   selectedEditSlideIndex,
   isOutlineGenerating,
   outlineSections,
   onSelectSlide,
   onSelectEditSlide,
-  onOpenRunArtifact,
 }: PreviewSlideSidebarProps) {
   return (
     <aside className="h-full border-r bg-muted/20 overflow-y-auto px-3 py-4 space-y-4">
@@ -78,42 +73,6 @@ export function PreviewSlideSidebar({
           {slides.length === 0 ? (
             <p className="rounded-lg border border-dashed px-3 py-4 text-xs text-muted-foreground">
               No slide metadata yet. Preview will appear after generation.
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Run History
-        </p>
-        <div className="space-y-2">
-          {sessionRuns.slice(0, 8).map((run) => (
-            <div
-              key={run.run_id}
-              className="rounded-xl border bg-background px-3 py-2 text-xs"
-            >
-              <p className="truncate font-medium">
-                #{run.run_no ?? "-"} {run.run_title || "pending"}
-              </p>
-              <p className="truncate text-muted-foreground">
-                {run.run_status || "-"} / {run.run_step || "-"}
-              </p>
-              {run.artifact_id ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="mt-1 h-6 px-2 text-[11px]"
-                  onClick={() => onOpenRunArtifact(run)}
-                >
-                  Open artifact
-                </Button>
-              ) : null}
-            </div>
-          ))}
-          {sessionRuns.length === 0 ? (
-            <p className="rounded-lg border border-dashed px-3 py-4 text-xs text-muted-foreground">
-              Run history is empty.
             </p>
           ) : null}
         </div>
