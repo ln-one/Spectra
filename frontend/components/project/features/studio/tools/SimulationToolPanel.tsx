@@ -36,12 +36,12 @@ export function SimulationToolPanel({
 }: ToolPanelProps) {
   const { project, activeSessionId, selectedFileIds, fetchArtifactHistory } =
     useProjectStore(
-    useShallow((state) => ({
-      project: state.project,
-      activeSessionId: state.activeSessionId,
-      selectedFileIds: state.selectedFileIds,
-      fetchArtifactHistory: state.fetchArtifactHistory,
-    }))
+      useShallow((state) => ({
+        project: state.project,
+        activeSessionId: state.activeSessionId,
+        selectedFileIds: state.selectedFileIds,
+        fetchArtifactHistory: state.fetchArtifactHistory,
+      }))
     );
 
   const [activeStep, setActiveStep] = useState<SimulationStep>("config");
@@ -53,14 +53,24 @@ export function SimulationToolPanel({
   const [teacherStrategy, setTeacherStrategy] = useState("");
   const [answer, setAnswer] = useState("");
   const [judgeText, setJudgeText] = useState("");
+  const [turnResult, setTurnResult] = useState<{
+    studentQuestion?: string;
+    score?: number | null;
+    nextFocus?: string;
+    studentProfile?: string;
+  } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmittingTurn, setIsSubmittingTurn] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
 
   const { suggestions, summary, isLoading } = useStudioRagRecommendations({
     query:
-      "为当前项目推荐适合课堂问答预演的主题、学生疑问点、追问方向和教师应对策略",
-    fallbackSuggestions: ["核心概念追问", "常见误区澄清", "课堂即时纠错"],
+      "Recommend classroom QA simulation topic, likely student confusion points, and teacher response strategy.",
+    fallbackSuggestions: [
+      "Core concept questioning",
+      "Common misconception correction",
+      "On-the-fly classroom diagnosis",
+    ],
   });
 
   useEffect(() => {
@@ -78,7 +88,7 @@ export function SimulationToolPanel({
   const profileLabel = useMemo(
     () =>
       STUDENT_PROFILES.find((item) => item.value === profile)?.label ??
-      "细节型学生",
+      "Detail-oriented Student",
     [profile]
   );
 
@@ -112,6 +122,7 @@ export function SimulationToolPanel({
   const handleGenerate = async () => {
     setAnswer("");
     setJudgeText("");
+    setTurnResult(null);
     setActiveStep("preview");
 
     if (!flowContext?.onExecute) {
@@ -151,10 +162,21 @@ export function SimulationToolPanel({
         teacher_answer: answer,
         rag_source_ids: effectiveRagSourceIds,
       });
-      setJudgeText(response.data.turn_result.feedback);
+      const latestTurnResult = response.data.turn_result;
+      setJudgeText(latestTurnResult.feedback || "");
+      setTurnResult({
+        studentQuestion: latestTurnResult.student_question,
+        score:
+          typeof latestTurnResult.score === "number"
+            ? latestTurnResult.score
+            : null,
+        nextFocus: latestTurnResult.next_focus,
+        studentProfile: latestTurnResult.student_profile,
+      });
       await fetchArtifactHistory(project.id, activeSessionId ?? null);
     } catch (error) {
-      setJudgeText(`提交失败：${getErrorMessage(error)}`);
+      setTurnResult(null);
+      setJudgeText(`Submit failed: ${getErrorMessage(error)}`);
     } finally {
       setIsSubmittingTurn(false);
     }
@@ -171,7 +193,6 @@ export function SimulationToolPanel({
         ["--project-tool-surface" as any]: colors.soft,
       }}
     >
-      {/* Tool Accent Tip */}
       <div className={cn("h-1 w-full bg-gradient-to-r", colors.gradient)} />
 
       <div className="flex h-full min-h-0 flex-col">
@@ -186,10 +207,10 @@ export function SimulationToolPanel({
               </div>
               <div>
                 <h3 className="text-sm font-black text-zinc-900 tracking-tight">
-                  {toolName}智能工作台
+                  {toolName} Workbench
                 </h3>
                 <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-zinc-500">
-                  三步生成模拟问答 · 全方位预演教学现场
+                  Three-step simulation flow with backend-grounded preview.
                 </p>
               </div>
             </div>
@@ -209,7 +230,7 @@ export function SimulationToolPanel({
               currentStep={activeStep}
               steps={SIMULATION_STEPS}
               onStepChange={(stepId) => setActiveStep(stepId as SimulationStep)}
-              title="问答预演流程"
+              title="Simulation Workflow"
               subtitle="Workflow"
             />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -221,7 +242,7 @@ export function SimulationToolPanel({
                   onStepChange={(stepId) =>
                     setActiveStep(stepId as SimulationStep)
                   }
-                  title="问答预演流程"
+                  title="Simulation Workflow"
                   subtitle="Workflow"
                 />
               </div>
@@ -262,6 +283,7 @@ export function SimulationToolPanel({
                   lastGeneratedAt={lastGeneratedAt}
                   flowContext={flowContext}
                   isSubmittingTurn={isSubmittingTurn}
+                  turnResult={turnResult}
                   onAnswerChange={setAnswer}
                   onSubmitAnswer={() => void handleSubmitAnswer()}
                 />

@@ -109,8 +109,10 @@ export function WordToolPanel({
     if (activeStep !== "preview") return;
     if (!activeSessionId) return;
     if (flowContext?.capabilityStatus !== "backend_ready") return;
-    const latestArtifactId = flowContext.latestArtifacts?.[0]?.artifactId;
-    if (!latestArtifactId) return;
+    const previewArtifactId =
+      flowContext?.resolvedArtifact?.artifactId ??
+      flowContext?.latestArtifacts?.[0]?.artifactId;
+    if (!previewArtifactId) return;
 
     let cancelled = false;
     const loadBackendPreview = async () => {
@@ -120,7 +122,7 @@ export function WordToolPanel({
         const response = await previewApi.exportSessionPreview(
           activeSessionId,
           {
-            artifact_id: latestArtifactId,
+            artifact_id: previewArtifactId,
             format: "markdown",
             include_sources: true,
           }
@@ -146,6 +148,7 @@ export function WordToolPanel({
     activeSessionId,
     activeStep,
     flowContext?.capabilityStatus,
+    flowContext?.resolvedArtifact?.artifactId,
     flowContext?.latestArtifacts,
   ]);
 
