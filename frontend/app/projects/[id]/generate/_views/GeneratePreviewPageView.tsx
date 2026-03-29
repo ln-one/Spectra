@@ -17,7 +17,6 @@ import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { PreviewHeader } from "./components/PreviewHeader";
 import { PreviewSlideSidebar } from "./components/PreviewSlideSidebar";
 import { PreviewRightPanel } from "./components/PreviewRightPanel";
-import { PptArtifactRenderer } from "./components/PptArtifactRenderer";
 
 export default function GeneratePreviewPage() {
   const router = useRouter();
@@ -39,9 +38,6 @@ export default function GeneratePreviewPage() {
   );
   const [editInstruction, setEditInstruction] = useState("");
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
-  const [pptRenderState, setPptRenderState] = useState<
-    "idle" | "loading" | "ready" | "failed"
-  >("idle");
 
   const centerRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +53,7 @@ export default function GeneratePreviewPage() {
 
   const {
     slides,
+    sessionRuns,
     isLoading,
     isExporting,
     isResuming,
@@ -153,20 +150,15 @@ export default function GeneratePreviewPage() {
     await submitSlideEdit(selectedSlide, editInstruction.trim());
   }, [editInstruction, selectedSlide, submitSlideEdit]);
 
-  const handleSubmitImageOperation = useCallback(
-    async (operation: "replace_image" | "insert_image") => {
-      if (!selectedSlide) return;
-      const instructionSuffix = editInstruction.trim();
-      const operationInstruction =
-        operation === "replace_image"
-          ? "Replace the current slide image while keeping style and layout consistent."
-          : "Insert a supporting image block on the current slide and keep visual balance.";
-      const finalInstruction = instructionSuffix
-        ? `${operationInstruction}\n${instructionSuffix}`
-        : operationInstruction;
-      await submitSlideEdit(selectedSlide, finalInstruction);
+  const openRunArtifact = useCallback(
+    (run: { run_id: string; artifact_id?: string | null }) => {
+      if (!run.artifact_id) return;
+      const query = new URLSearchParams(searchQueryString);
+      query.set("run", run.run_id);
+      query.set("artifact_id", String(run.artifact_id));
+      router.replace(`/projects/${projectId}/generate?${query.toString()}`);
     },
-    [editInstruction, selectedSlide, submitSlideEdit]
+    [projectId, router, searchQueryString]
   );
 
   return (
@@ -204,6 +196,7 @@ export default function GeneratePreviewPage() {
         >
           <PreviewSlideSidebar
             slides={slides}
+            sessionRuns={sessionRuns}
             activeSlideIndex={activeSlideIndex}
             selectedEditSlideIndex={effectiveSelectedEditSlideIndex}
             isOutlineGenerating={isOutlineGenerating}
@@ -213,6 +206,7 @@ export default function GeneratePreviewPage() {
               setSelectedEditSlideIndex(index);
               scrollToSlide(index);
             }}
+            onOpenRunArtifact={openRunArtifact}
           />
 
           <section
@@ -249,15 +243,6 @@ export default function GeneratePreviewPage() {
                       Open download URL
                     </Button>
                   </div>
-                  {currentArtifactId ? (
-                    <div className="mt-4">
-                      <PptArtifactRenderer
-                        projectId={projectId}
-                        artifactId={currentArtifactId}
-                        onRenderStateChange={setPptRenderState}
-                      />
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
 
@@ -300,11 +285,10 @@ export default function GeneratePreviewPage() {
                 </div>
               ) : null}
 
-              {slides.length > 0 && pptRenderState !== "ready" ? (
+              {slides.length > 0 ? (
                 <>
                   <div className="rounded-xl border bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                    Text fallback mode: real PPT rendering unavailable, showing
-                    markdown approximation.
+                    Text approximation mode: this is generated markdown content, not final PPT page rendering.
                   </div>
                   <AnimatePresence>
                     {slides.map((slide, index) => (
@@ -341,12 +325,6 @@ export default function GeneratePreviewPage() {
               }}
               onSubmitEdit={() => {
                 void handleSubmitEdit();
-              }}
-              onSubmitImageReplace={() => {
-                void handleSubmitImageOperation("replace_image");
-              }}
-              onSubmitImageInsert={() => {
-                void handleSubmitImageOperation("insert_image");
               }}
               onRetryQueueItem={(itemId) => {
                 void retryEditQueueItem(itemId);
