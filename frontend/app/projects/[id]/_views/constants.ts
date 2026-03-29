@@ -10,6 +10,7 @@ export const PANEL_GAP = 12;
 export const HEADER_TO_PANEL_GAP = 0;
 export const PANEL_TOP_INSET = 0;
 export const MIN_RESIZABLE_PANEL_WIDTH = 85;
+export const MIN_STUDIO_PANEL_WIDTH_PX = 260;
 export const MIN_EXPANDED_RIGHT_PANEL_WIDTH = 260;
 export const COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX = 126;
 export const COLLAPSED_SOURCES_WIDTH_PX = 85;

@@ -9,6 +9,7 @@ import {
   Eye,
   Loader2,
   XCircle,
+  RotateCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,16 @@ function statusIcon(status: StudioHistoryItem["status"]) {
   return <Clock3 className="h-3.5 w-3.5 text-amber-500" />;
 }
 
+function formatHistoryTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const hour = `${date.getHours()}`.padStart(2, "0");
+  const minute = `${date.getMinutes()}`.padStart(2, "0");
+  return `${month}-${day} ${hour}:${minute}`;
+}
+
 export function SessionArtifacts({
   groupedHistory,
   toolLabels,
@@ -78,6 +89,18 @@ export function SessionArtifacts({
 }: SessionArtifactsProps) {
   const [pendingArchiveItem, setPendingArchiveItem] =
     useState<StudioHistoryItem | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      // 保证至少动画旋转 600ms 以增加打击感
+      setTimeout(() => setIsRefreshing(false), 600);
+    }
+  };
 
   return (
     <motion.div
@@ -92,11 +115,18 @@ export function SessionArtifacts({
         </h3>
         <Button
           variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-[10px] text-[var(--project-text-muted)]"
-          onClick={onRefresh}
+          size="icon"
+          className="h-6 w-6 text-[var(--project-text-muted)] hover:text-[var(--project-text-primary)] transition-colors"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          aria-label="刷新历史记录"
         >
-          刷新
+          <RotateCw
+            className={cn(
+              "h-3.5 w-3.5 transition-transform duration-500",
+              isRefreshing && "animate-spin"
+            )}
+          />
         </Button>
       </div>
       <div className="space-y-2">
@@ -141,10 +171,10 @@ export function SessionArtifacts({
                           <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)] w-full">
                             第 {runNo} 次 · {item.title}
                           </p>
-                          <p className="flex items-center gap-1.5 text-[10px] text-[var(--project-text-muted)] min-w-0">
+                          <p className="flex w-full min-w-0 items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
                             <span
                               className={cn(
-                                "rounded-full px-1.5 py-0.5 whitespace-nowrap",
+                                "shrink-0 rounded-full px-1.5 py-0.5 whitespace-nowrap",
                                 item.status === "processing"
                                   ? "bg-blue-100 text-blue-700"
                                   : item.status === "previewing"
@@ -164,11 +194,11 @@ export function SessionArtifacts({
                               className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
                               style={{ backgroundColor: toolAccent }}
                             />
-                            <span 
-                              className="truncate whitespace-nowrap" 
+                            <span
+                              className="min-w-0 flex-1 truncate whitespace-nowrap"
                               title={new Date(item.createdAt).toLocaleString("zh-CN")}
                             >
-                              {new Date(item.createdAt).toLocaleString("zh-CN")}
+                              {formatHistoryTime(item.createdAt)}
                             </span>
                           </p>
                         </div>

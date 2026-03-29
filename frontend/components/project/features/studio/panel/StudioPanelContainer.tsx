@@ -5,6 +5,7 @@ import { LayoutGroup } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { STUDIO_TOOL_COMPONENTS } from "../tools";
@@ -25,7 +26,12 @@ import { StudioCollapsedView } from "./components/StudioCollapsedView";
 import { StudioExpandedView } from "./components/StudioExpandedView";
 import { StudioArchiveHistoryDialog } from "./components/StudioArchiveHistoryDialog";
 
-export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
+export function StudioPanelContainer({
+  onToolClick,
+  className,
+  style,
+  ...props
+}: StudioPanelProps) {
   const {
     project,
     layoutMode,
@@ -433,8 +439,9 @@ export function StudioPanelContainer({ onToolClick }: StudioPanelProps) {
 
   return (
     <div
-      className="project-panel-root h-full bg-transparent"
-      style={{ transform: "translateZ(0)" }}
+      className={cn("project-panel-root h-full bg-transparent", className)}
+      style={{ transform: "translateZ(0)", ...style }}
+      {...props}
     >
       <Card className="project-panel-card project-studio-panel h-full overflow-hidden rounded-2xl border border-[var(--project-border)] bg-[var(--project-surface)] text-[var(--project-text-primary)] shadow-lg backdrop-blur-xl will-change-[box-shadow,transform]">
         <LayoutGroup id="studio-layout">

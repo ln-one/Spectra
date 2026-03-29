@@ -26,7 +26,7 @@ export function ToolGrid({
 }: ToolGridProps) {
   return (
     <motion.div
-      className="grid grid-cols-2 gap-2 pb-2"
+      className="grid min-w-0 grid-cols-1 gap-2 pb-2 [@media(min-width:260px)]:grid-cols-2"
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
     >
       {GENERATION_TOOLS.map((tool) => {
@@ -45,12 +45,19 @@ export function ToolGrid({
             }}
             whileTap={{ scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            onClick={() => onToolClick(tool)}
+            onMouseDown={(event) => {
+              // Keep click interactions from leaving browser default focus outline.
+              event.preventDefault();
+            }}
+            onClick={(event) => {
+              onToolClick(tool);
+              event.currentTarget.blur();
+            }}
             onMouseEnter={() => !isExpanded && onHoveredToolIdChange(tool.id)}
             onMouseLeave={() => onHoveredToolIdChange(null)}
             className={cn(
-              "project-tool-card group relative flex h-auto w-full flex-col items-center justify-center rounded-[var(--project-chip-radius)] border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-3 backdrop-blur-sm",
-              "cursor-pointer transition-shadow duration-200 ease-out"
+              "project-tool-card group relative flex h-auto min-h-[60px] w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded-[var(--project-chip-radius)] border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-1 py-1.5 backdrop-blur-sm",
+              "cursor-pointer outline-none transition-shadow duration-200 ease-out focus-visible:outline-none focus-visible:ring-0"
             )}
             style={{
               boxShadow:
@@ -67,7 +74,7 @@ export function ToolGrid({
               layoutId={`icon-${tool.id}`}
               layout="position"
               className={cn(
-                "project-tool-icon mb-1.5 flex items-center justify-center rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
+                "project-tool-icon mb-0.5 flex items-center justify-center rounded-[var(--project-chip-radius)] border border-white/40 backdrop-blur-md transform-gpu will-change-transform [backface-visibility:hidden]"
               )}
               style={{
                 width: 40,
@@ -79,7 +86,7 @@ export function ToolGrid({
             >
               <Icon className="h-4.5 w-4.5" style={{ color: color.primary }} />
             </motion.div>
-            <span className="text-center text-[13px] font-medium text-[var(--project-text-primary)]">
+            <span className="w-full min-w-0 truncate px-0.5 text-center text-[13px] font-medium text-[var(--project-text-primary)]">
               {tool.name}
             </span>
             <motion.div

@@ -8,6 +8,7 @@ import {
   HEADER_TO_PANEL_GAP,
   MIN_EXPANDED_RIGHT_PANEL_WIDTH,
   MIN_RESIZABLE_PANEL_WIDTH,
+  MIN_STUDIO_PANEL_WIDTH_PX,
   PAGE_GAP,
   PANEL_GAP,
   SOURCES_TITLE_SAFE_MIN_WIDTH_PX,
@@ -254,9 +255,14 @@ export function useProjectPanelLayout({
         const deltaYPercent = (deltaY / containerHeight) * 100;
 
         if (handle === "studio-chat") {
+          const minStudioPercent =
+            ((MIN_STUDIO_PANEL_WIDTH_PX + PAGE_GAP + PANEL_GAP / 2) /
+              containerWidth) *
+            100;
+          const maxStudioPercent = 40;
           const nextStudio = Math.max(
-            15,
-            Math.min(40, startSizesRef.current.studio + deltaPercent)
+            minStudioPercent,
+            Math.min(maxStudioPercent, startSizesRef.current.studio + deltaPercent)
           );
           const nextChat = Math.max(
             30,
