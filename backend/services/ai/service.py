@@ -50,6 +50,32 @@ class AIService(CoursewareAIMixin):
         self.upstream_retry_attempts = resolve_upstream_retry_attempts()
         self.upstream_retry_delay_seconds = resolve_upstream_retry_delay_seconds()
 
+    def apply_runtime_overrides(
+        self,
+        *,
+        default_model: Optional[str] = None,
+        large_model: Optional[str] = None,
+        small_model: Optional[str] = None,
+        ai_request_timeout_seconds: Optional[float] = None,
+        chat_timeout_seconds: Optional[float] = None,
+    ) -> None:
+        """Apply runtime overrides for model/timeouts and refresh router."""
+        if default_model:
+            self.default_model = default_model
+        if large_model:
+            self.large_model = large_model
+        if small_model:
+            self.small_model = small_model
+        if ai_request_timeout_seconds is not None:
+            self.request_timeout_seconds = float(ai_request_timeout_seconds)
+        if chat_timeout_seconds is not None:
+            self.chat_request_timeout_seconds = float(chat_timeout_seconds)
+
+        self.model_router = ModelRouter(
+            heavy_model=self.large_model,
+            light_model=self.small_model,
+        )
+
     def _resolve_timeout_seconds(
         self, route_task: Optional[ModelRouteTask | str]
     ) -> float:

@@ -41,6 +41,7 @@ _RUN_TOOL_LABELS = {
 }
 
 _STUDIO_CARD_LABELS = {
+    "courseware_ppt": "课件生成",
     "word_document": "讲义文档",
     "interactive_quick_quiz": "随堂小测",
     "interactive_games": "互动游戏",
@@ -361,6 +362,8 @@ def spawn_background_task(coro, *, label: str) -> None:
     try:
         task = asyncio.create_task(coro)
     except RuntimeError:
+        if asyncio.iscoroutine(coro):
+            coro.close()
         logger.warning("Skip background task without running loop: %s", label)
         return
 

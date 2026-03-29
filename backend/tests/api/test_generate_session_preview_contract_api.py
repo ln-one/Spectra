@@ -1,4 +1,4 @@
-﻿from types import SimpleNamespace
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -133,11 +133,32 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
         "_resolve_session_artifact_binding",
         AsyncMock(return_value=SimpleNamespace(id="a-002", basedOnVersionId="v-002")),
     )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-001"),
+                [
+                    {
+                        "id": "slide-1",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
 
     resp = client.post(
         "/api/v1/generate/sessions/s-preview-001/preview/modify",
         json={
             "slide_id": "slide-1",
+            "instruction": "请把当前页标题改得更清晰",
             "patch": {"title": "new title"},
             "artifact_id": "a-002",
         },
@@ -151,6 +172,9 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     assert data["current_version_id"] == "v-current"
     assert data["upstream_updated"] is True
     assert data["render_version"] == 5
+    assert data["slide_id"] == "slide-1"
+    assert data["slide_index"] == 1
+    assert data["scope"] == "current_slide_only"
 
 
 def test_modify_preview_accepts_base_render_version_alias(
@@ -169,11 +193,32 @@ def test_modify_preview_accepts_base_render_version_alias(
         "_resolve_session_artifact_binding",
         AsyncMock(return_value=SimpleNamespace(id="a-002", basedOnVersionId="v-002")),
     )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-001"),
+                [
+                    {
+                        "id": "slide-1",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
 
     resp = client.post(
         "/api/v1/generate/sessions/s-preview-001/preview/modify",
         json={
             "slide_id": "slide-1",
+            "instruction": "把第1页改成问题导入",
             "patch": {"title": "new title"},
             "artifact_id": "a-002",
             "base_render_version": 3,
@@ -184,11 +229,70 @@ def test_modify_preview_accepts_base_render_version_alias(
     assert command["expected_render_version"] == 3
 
 
+def test_modify_preview_defaults_to_current_slide_when_page_not_passed(
+    client, monkeypatch, _as_user
+):
+    execute_command = AsyncMock(return_value={"task_id": "gt-002"})
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=6)),
+        execute_command=execute_command,
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-003", basedOnVersionId="v-003")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-002"),
+                [
+                    {
+                        "id": "slide-1",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    },
+                    {
+                        "id": "slide-2",
+                        "index": 1,
+                        "title": "S2",
+                        "content": "C2",
+                        "sources": [],
+                    },
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/modify",
+        json={
+            "instruction": "把这一页改成课堂提问风格",
+            "artifact_id": "a-003",
+        },
+    )
+    assert resp.status_code == 200
+    command = execute_command.await_args.kwargs["command"]
+    assert command["slide_id"] == "slide-1"
+    assert command["slide_index"] == 1
+    assert command["instruction"] == "把这一页改成课堂提问风格"
+
+
 def test_modify_preview_rejects_conflicting_render_versions(client, _as_user):
     resp = client.post(
         "/api/v1/generate/sessions/s-preview-001/preview/modify",
         json={
             "slide_id": "slide-1",
+            "instruction": "改标题",
             "patch": {"title": "new title"},
             "base_render_version": 3,
             "expected_render_version": 4,
@@ -199,6 +303,48 @@ def test_modify_preview_rejects_conflicting_render_versions(client, _as_user):
     body = resp.json()
     assert body["success"] is False
     assert body["error"]["code"] == "INVALID_INPUT"
+
+
+def test_modify_preview_requires_instruction(client, monkeypatch, _as_user):
+    svc = SimpleNamespace(
+        get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
+        execute_command=AsyncMock(return_value={"task_id": "gt-001"}),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-002", basedOnVersionId="v-002")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-001"),
+                [
+                    {
+                        "id": "slide-1",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+
+    resp = client.post(
+        "/api/v1/generate/sessions/s-preview-001/preview/modify",
+        json={"slide_id": "slide-1", "patch": {"title": "new title"}},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_INPUT"
 
 
 def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):

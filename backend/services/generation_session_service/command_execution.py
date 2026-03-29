@@ -11,12 +11,18 @@ from services.generation_session_service.capability_helpers import (
     _normalize_task_type,
     _resolve_queue_worker_availability,
 )
-from services.generation_session_service.constants import DispatchFallbackReason
+from services.generation_session_service.constants import (
+    DispatchFallbackReason,
+    SessionLifecycleReason,
+)
 from services.generation_session_service.serialization_helpers import _to_session_ref
 from services.generation_session_service.session_history import (
+    build_run_trace_payload,
     get_latest_session_run,
     serialize_session_run,
 )
+from services.platform.generation_event_constants import GenerationEventType
+from services.platform.state_transition_guard import GenerationState
 from services.platform.task_recovery import TaskRecoveryService
 
 logger = logging.getLogger(__name__)
@@ -120,6 +126,7 @@ async def dispatch_created_task(
     schedule_local_execution: Callable[..., Awaitable[bool]],
     mark_dispatch_failed: Callable[..., Awaitable[None]],
     schedule_enqueued_task_watchdog: Callable[..., None],
+    append_event: Callable[..., Awaitable[None]],
 ) -> list[str]:
     warnings: list[str] = []
     if not created_task_id:
@@ -177,6 +184,20 @@ async def dispatch_created_task(
             where={"id": created_task_id},
             data={"rqJobId": job.id},
         )
+        run_payload = await _load_task_run_payload(db=db, task_id=created_task_id)
+        await append_event(
+            session_id=session_id,
+            event_type=GenerationEventType.STATE_CHANGED.value,
+            state=GenerationState.GENERATING_CONTENT.value,
+            state_reason=SessionLifecycleReason.OUTLINE_CONFIRMED.value,
+            payload=build_run_trace_payload(
+                run_payload,
+                task_id=created_task_id,
+                dispatch="rq",
+                rq_job_id=job.id,
+                **dispatch_context,
+            ),
+        )
         logger.info(
             "Session task enqueued: session=%s task=%s rq_job=%s",
             session_id,
@@ -221,6 +242,38 @@ async def dispatch_created_task(
             ),
         )
         raise conflict_error_cls("任务分发失败，请稍后重试")
+
+
+async def _load_task_run_payload(*, db, task_id: str) -> Optional[dict]:
+    task_actions = getattr(db, "generationtask", None)
+    if task_actions is None:
+        return None
+
+    find_unique = getattr(task_actions, "find_unique", None)
+    find_first = getattr(task_actions, "find_first", None)
+
+    if callable(find_unique):
+        task = await find_unique(where={"id": task_id})
+    elif callable(find_first):
+        task = await find_first(where={"id": task_id})
+    else:
+        return None
+
+    raw = getattr(task, "inputData", None) if task else None
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(parsed, dict) or not parsed.get("run_id"):
+        return None
+    return {
+        "run_id": parsed.get("run_id"),
+        "run_no": parsed.get("run_no"),
+        "run_title": parsed.get("run_title"),
+        "tool_type": parsed.get("tool_type"),
+    }
 
 
 def build_command_response(

@@ -29,6 +29,7 @@ from utils.responses import success_response
 
 from .shared import get_session_service, get_task_queue_service
 from .studio_card_route_support import (
+    _resolve_request_rag_source_ids,
     build_chat_refine_request,
     build_execution_request,
     build_refine_request,
@@ -47,7 +48,7 @@ def _build_preview_or_raise(card_id: str, body: dict):
         config=body.get("config"),
         visibility=body.get("visibility"),
         source_artifact_id=body.get("source_artifact_id"),
-        rag_source_ids=body.get("rag_source_ids"),
+        rag_source_ids=_resolve_request_rag_source_ids(body),
     )
     if preview is None:
         raise NotFoundException(

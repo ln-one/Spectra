@@ -29,6 +29,49 @@ def build_studio_card_execution_preview(
     cfg = dict(config or {})
     artifact_visibility = _normalize_visibility(visibility)
 
+    if card_id == "courseware_ppt":
+        return StudioCardExecutionPreview(
+            card_id=card_id,
+            readiness=StudioCardReadiness.FOUNDATION_READY,
+            initial_request=StudioCardResolvedRequest(
+                method="POST",
+                endpoint="/api/v1/generate/sessions",
+                payload={
+                    "project_id": project_id,
+                    "output_type": SessionOutputType.PPT.value,
+                    "options": {
+                        "card_id": card_id,
+                        "template": cfg.get("template", "default"),
+                        "pages": cfg.get("pages", 12),
+                        "audience": cfg.get("audience", "intermediate"),
+                        "system_prompt_tone": cfg.get("system_prompt_tone"),
+                        "include_animations": bool(
+                            cfg.get("include_animations", False)
+                        ),
+                        "include_games": bool(cfg.get("include_games", False)),
+                        "source_artifact_id": source_artifact_id
+                        or cfg.get("source_artifact_id"),
+                        "rag_source_ids": rag_source_ids or [],
+                    },
+                },
+                notes="课件卡片通过 create-session 主路径落地，卡片配置写入 options。",
+            ),
+            refine_request=StudioCardResolvedRequest(
+                method="POST",
+                endpoint="/api/v1/chat/messages",
+                payload={
+                    "project_id": project_id,
+                    "message": "",
+                    "metadata": {
+                        "card_id": card_id,
+                        "template": cfg.get("template", "default"),
+                        "pages": cfg.get("pages", 12),
+                    },
+                },
+                notes="课件上下文微调通过 chat 路径承托，message 由前端填充。",
+            ),
+        )
+
     if card_id == "word_document":
         return StudioCardExecutionPreview(
             card_id=card_id,

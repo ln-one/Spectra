@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from schemas.project_space import ProjectPermission
 from schemas.studio_cards import (
     StudioCardExecutionPreviewRequest,
@@ -10,6 +12,9 @@ from schemas.studio_cards import (
     StudioCardTurnRequest,
     StudioCardTurnResult,
 )
+from services.generation_session_service.event_store import append_event
+from services.generation_session_service.session_history import build_run_trace_payload
+from services.platform.generation_event_constants import GenerationEventType
 from services.project_space_service import project_space_service
 from utils.exceptions import APIException, ErrorCode
 
@@ -94,6 +99,9 @@ async def execute_studio_card_artifact_request(
         run=run,
         request_preview=preview.initial_request,
     )
+
+
+logger = logging.getLogger(__name__)
 
 
 async def execute_studio_card_structured_refine(
@@ -257,6 +265,12 @@ async def _create_artifact_run(
             ),
             label=f"studio-card-run:{run.id}",
         )
+    await _append_card_execution_completed_event(
+        card_id=card_id,
+        session_id=getattr(artifact, "sessionId", None) or session_id,
+        artifact=artifact,
+        run=run_for_response,
+    )
     return serialize_session_run(run_for_response)
 
 
@@ -294,3 +308,57 @@ async def _resolve_execution_session_id(
             message="client_session_id 无效或不属于当前项目",
         )
     return getattr(session, "id", None) or normalized
+
+
+async def _append_card_execution_completed_event(
+    *,
+    card_id: str,
+    session_id: str | None,
+    artifact,
+    run,
+) -> None:
+    if not session_id:
+        return
+
+    db_handle = getattr(project_space_service.db, "db", None)
+    if db_handle is None:
+        return
+
+    session_model = getattr(db_handle, "generationsession", None)
+    event_model = getattr(db_handle, "sessionevent", None)
+    if session_model is None or event_model is None:
+        return
+    if not hasattr(session_model, "find_unique") or not hasattr(event_model, "create"):
+        return
+
+    try:
+        session = await session_model.find_unique(where={"id": session_id})
+    except Exception as exc:
+        logger.warning(
+            "Skip studio-card completion event due to session lookup error: %s", exc
+        )
+        return
+    if not session:
+        return
+
+    payload = {
+        "stage": "studio_card_execute",
+        "card_id": card_id,
+        "artifact_id": getattr(artifact, "id", None),
+        "artifact_type": getattr(artifact, "type", None),
+        "run_trace": build_run_trace_payload(run),
+    }
+
+    try:
+        await append_event(
+            db=db_handle,
+            schema_version=1,
+            session_id=session_id,
+            event_type=GenerationEventType.TASK_COMPLETED.value,
+            state=getattr(session, "state", None),
+            state_reason=getattr(session, "stateReason", None),
+            progress=getattr(session, "progress", None),
+            payload=payload,
+        )
+    except Exception as exc:
+        logger.warning("Skip studio-card completion event persistence failure: %s", exc)

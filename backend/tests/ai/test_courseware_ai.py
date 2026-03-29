@@ -431,6 +431,65 @@ class TestGenerateOutline:
         assert "互动提问" in result.markdown_content
         assert "板书逻辑" in result.lesson_plan_markdown
 
+    @pytest.mark.asyncio
+    async def test_generate_courseware_content_prefers_rag_grounded_fallback_on_timeout(
+        self,
+    ):
+        ai = AIService()
+        outline_document = {
+            "title": "RAG fallback test",
+            "nodes": [
+                {
+                    "order": 1,
+                    "title": "Selected Evidence",
+                    "key_points": ["point-a", "point-b", "point-c"],
+                },
+                {
+                    "order": 2,
+                    "title": "Teaching Plan",
+                    "key_points": ["point-d", "point-e", "point-f"],
+                },
+            ],
+        }
+        rag_results = [
+            {
+                "content": "Only from selected source: Newton's second law describes F=ma.",
+                "source": {"filename": "selected.pdf"},
+                "metadata": {"upload_id": "file-1"},
+            },
+            {
+                "content": "Only from selected source: free-body diagram should include all forces.",
+                "source": {"filename": "selected.pdf"},
+                "metadata": {"upload_id": "file-1"},
+            },
+        ]
+        with (
+            patch.object(
+                ai,
+                "generate",
+                new_callable=AsyncMock,
+                side_effect=TimeoutError("provider timeout"),
+            ),
+            patch.object(
+                ai,
+                "_retrieve_rag_context",
+                new_callable=AsyncMock,
+                return_value=rag_results,
+            ),
+        ):
+            result = await ai.generate_courseware_content(
+                project_id="proj-rag-fallback",
+                user_requirements="physics lesson",
+                outline_document=outline_document,
+                outline_version=1,
+                rag_source_ids=["file-1"],
+            )
+
+        assert isinstance(result, CoursewareContent)
+        assert "selected.pdf" in result.markdown_content
+        assert "F=ma" in result.markdown_content
+        assert "source-grounded" in result.lesson_plan_markdown
+
 
 class TestExtractStructuredContent:
     """extract_structured_content() 测试"""

@@ -52,6 +52,19 @@ async def emit_outline_success(
 ) -> None:
     await append_event(
         session_id=session_id,
+        event_type=GenerationEventType.OUTLINE_COMPLETED.value,
+        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        progress=100,
+        payload={
+            "version": outline_version,
+            "change_reason": OutlineChangeReason.DRAFTED_ASYNC.value,
+            "trace_id": trace_id,
+            "run_id": run_id,
+            "stage_timings_ms": stage_timings_ms or {},
+        },
+    )
+    await append_event(
+        session_id=session_id,
         event_type=GenerationEventType.OUTLINE_UPDATED.value,
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         progress=100,
@@ -119,6 +132,19 @@ async def emit_outline_failure(
     trace_id: str,
     run_id: Optional[str] = None,
 ) -> None:
+    await append_event(
+        session_id=session_id,
+        event_type=GenerationEventType.GENERATION_FAILED.value,
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        payload={
+            "stage": "outline_draft",
+            "error_code": error_code,
+            "error_message": error_message,
+            "retryable": True,
+            "trace_id": trace_id,
+            "run_id": run_id,
+        },
+    )
     await append_event(
         session_id=session_id,
         event_type=GenerationEventType.TASK_FAILED.value,

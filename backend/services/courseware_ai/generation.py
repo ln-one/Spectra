@@ -10,6 +10,7 @@ from schemas.outline import CoursewareOutline
 from services.ai.model_router import ModelRouteTask
 from services.courseware_ai.generation_support import (
     build_outline_based_fallback_courseware,
+    build_rag_grounded_fallback_courseware,
     merge_requirements_with_outline,
     retrieve_rag_context,
     sorted_outline_nodes,
@@ -32,12 +33,19 @@ async def modify_courseware(
     current_content: str,
     instruction: str,
     target_slides: Optional[list[int]] = None,
+    rag_context: Optional[list[dict]] = None,
+    strict_source_mode: bool = False,
 ) -> CoursewareContent:
     """按整份或指定页修改课件内容。"""
     from services.prompt_service import prompt_service
 
     frontmatter = extract_frontmatter(current_content)
     all_slides = parse_marp_slides(current_content)
+
+    if strict_source_mode and not rag_context:
+        raise ValueError(
+            "source constrained slide modify requires non-empty rag_context"
+        )
 
     if target_slides and all_slides:
         target_indices = [
@@ -54,10 +62,13 @@ async def modify_courseware(
             current_content=target_content,
             instruction=instruction,
             target_slides=target_labels,
+            rag_context=rag_context,
+            strict_source_mode=strict_source_mode,
         )
         response = await ai_service.generate(
             prompt=prompt,
             route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
+            has_rag_context=bool(rag_context),
             max_tokens=3000,
         )
         modified_raw = strip_outer_code_fence(response["content"])
@@ -75,10 +86,13 @@ async def modify_courseware(
             prompt = prompt_service.build_modify_prompt(
                 current_content=current_content,
                 instruction=instruction,
+                rag_context=rag_context,
+                strict_source_mode=strict_source_mode,
             )
             response = await ai_service.generate(
                 prompt=prompt,
                 route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
+                has_rag_context=bool(rag_context),
                 max_tokens=4000,
             )
             new_markdown = strip_outer_code_fence(response["content"])
@@ -91,10 +105,13 @@ async def modify_courseware(
         prompt = prompt_service.build_modify_prompt(
             current_content=current_content,
             instruction=instruction,
+            rag_context=rag_context,
+            strict_source_mode=strict_source_mode,
         )
         response = await ai_service.generate(
             prompt=prompt,
             route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
+            has_rag_context=bool(rag_context),
             max_tokens=4000,
         )
         new_markdown = strip_outer_code_fence(response["content"])
@@ -171,6 +188,9 @@ async def generate_courseware_content(
     """生成课件 Markdown 与教案 Markdown。"""
     from services.prompt_service import prompt_service
 
+    outline_nodes: list[dict] = []
+    rag_context: Optional[list[dict]] = None
+
     try:
         if not user_requirements:
             user_requirements = "通用教学课件"
@@ -245,6 +265,21 @@ async def generate_courseware_content(
             exc_info=True,
         )
         if outline_nodes:
+            rag_grounded_fallback = build_rag_grounded_fallback_courseware(
+                user_requirements=user_requirements,
+                rag_context=rag_context,
+                outline_document=outline_document,
+            )
+            if rag_grounded_fallback is not None:
+                logger.warning(
+                    "Using RAG-grounded fallback courseware due to generation failure",
+                    extra={
+                        "project_id": project_id,
+                        "outline_node_count": len(outline_nodes),
+                        "rag_chunk_count": len(rag_context or []),
+                    },
+                )
+                return rag_grounded_fallback
             logger.warning(
                 "Using outline-based fallback courseware due to generation failure",
                 extra={
