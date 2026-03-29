@@ -15,6 +15,7 @@ from services.generation_session_service.tool_content_builder_fallbacks import (
     fallback_simulator_turn_result,
 )
 from services.project_space_service import project_space_service
+from services.system_settings_service import system_settings_service
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ async def _load_rag_snippets(
     query: str,
     rag_source_ids: list[str] | None,
 ) -> list[str]:
-    timeout_seconds = float(os.getenv("CHAT_RAG_TIMEOUT_SECONDS", "5") or "5")
+    timeout_seconds = system_settings_service.resolve_chat_rag_timeout_seconds()
     filters = {"file_ids": rag_source_ids} if rag_source_ids else None
     try:
         coroutine = ai_service._retrieve_rag_context(

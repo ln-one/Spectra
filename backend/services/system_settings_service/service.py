@@ -29,6 +29,16 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw.strip())
+    except ValueError:
+        return default
+
+
 class SystemSettingsService:
     """Development-friendly system settings facade.
 
@@ -72,6 +82,24 @@ class SystemSettingsService:
             defaults = self._build_default_payload()
             settings = SystemSettingsData.model_validate(defaults)
         self._apply_runtime_effects(settings)
+
+    def resolve_chat_rag_timeout_seconds(self) -> float:
+        """Resolve chat RAG timeout from runtime settings with env fallback."""
+        base_timeout = _env_float("CHAT_RAG_TIMEOUT_SECONDS", 5.0)
+        if base_timeout <= 0:
+            return 0.0
+
+        default_ai_timeout = float(_env_int("AI_REQUEST_TIMEOUT_SECONDS", 60))
+        if default_ai_timeout <= 0:
+            return base_timeout
+        try:
+            runtime_ai_timeout = float(
+                self.get_settings().experience.ai_request_timeout_seconds
+            )
+        except Exception:
+            return base_timeout
+        scaled_timeout = base_timeout * (runtime_ai_timeout / default_ai_timeout)
+        return max(0.0, min(scaled_timeout, 30.0))
 
     def _build_default_payload(self) -> dict[str, Any]:
         default_model = os.getenv("DEFAULT_MODEL", "qwen3.5-flash")

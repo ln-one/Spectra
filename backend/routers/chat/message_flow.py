@@ -1,5 +1,4 @@
 import asyncio
-import os
 from collections.abc import Iterable
 
 from schemas.common import (
@@ -8,6 +7,7 @@ from schemas.common import (
 )
 from services.database import db_service
 from services.database.prisma_compat import find_many_with_select_fallback
+from services.system_settings_service import system_settings_service
 from utils.upstream_failures import classify_upstream_failure
 
 from .refine_context import rerank_by_chapter
@@ -45,7 +45,7 @@ async def _search_rag_with_timeout(
     session_id: str | None,
     rag_filters,
 ):
-    timeout_seconds = float(os.getenv("CHAT_RAG_TIMEOUT_SECONDS", "5"))
+    timeout_seconds = system_settings_service.resolve_chat_rag_timeout_seconds()
     search_coro = rag_service.search(
         project_id=project_id,
         query=query,
