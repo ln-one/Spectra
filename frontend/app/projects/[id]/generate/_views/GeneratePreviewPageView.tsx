@@ -12,6 +12,7 @@ import { useGeneratePreviewState } from "./useGeneratePreviewState";
 import { PreviewHeader } from "./components/PreviewHeader";
 import { PreviewFloatingTools } from "./components/PreviewFloatingTools";
 import { PreviewSlideStrip } from "./components/PreviewSlideStrip";
+import { PptArtifactRenderer } from "./components/PptArtifactRenderer";
 
 export default function GeneratePreviewPage() {
   const router = useRouter();
@@ -28,6 +29,9 @@ export default function GeneratePreviewPage() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [projectTitle, setProjectTitle] = useState("生成结果");
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const [pptRenderState, setPptRenderState] = useState<
+    "idle" | "loading" | "ready" | "failed"
+  >("idle");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const slidesRef = useRef<HTMLDivElement>(null);
@@ -54,6 +58,7 @@ export default function GeneratePreviewPage() {
     isOutlineGenerating,
     outlineSections,
     activeSessionId,
+    currentArtifactId,
     handleExport,
     handleResume,
     handleRegenerateSlide,
@@ -152,6 +157,7 @@ export default function GeneratePreviewPage() {
   }, [slides]);
 
   const scrollToSlide = useCallback((index: number) => {
+    setActiveSlideIndex(index);
     const slideElement = document.querySelector(`[data-index="${index}"]`);
     if (slideElement) {
       slideElement.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -260,25 +266,36 @@ export default function GeneratePreviewPage() {
             )
           ) : (
             <div className="max-w-4xl mx-auto w-full pb-32" ref={slidesRef}>
-              <AnimatePresence>
-                {slides.map((slide, i) => (
-                  <motion.div
-                    key={slide.id || `s-${i}`}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      duration: 0.4,
-                      ease: "easeOut",
-                      delay: i * 0.05,
-                    }}
-                  >
-                    <SlideCard
-                      slide={slide}
-                      isActive={activeSlideIndex === slide.index}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+              {currentArtifactId ? (
+                <PptArtifactRenderer
+                  className="mb-4"
+                  projectId={projectId}
+                  artifactId={currentArtifactId}
+                  onRenderStateChange={setPptRenderState}
+                />
+              ) : null}
+
+              {!currentArtifactId || pptRenderState !== "ready" ? (
+                <AnimatePresence>
+                  {slides.map((slide, i) => (
+                    <motion.div
+                      key={slide.id || `s-${i}`}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: 0.4,
+                        ease: "easeOut",
+                        delay: i * 0.05,
+                      }}
+                    >
+                      <SlideCard
+                        slide={slide}
+                        isActive={activeSlideIndex === slide.index}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              ) : null}
             </div>
           )}
         </main>
