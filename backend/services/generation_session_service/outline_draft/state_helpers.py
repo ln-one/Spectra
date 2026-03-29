@@ -49,6 +49,7 @@ async def emit_outline_success(
     outline_version: int,
     stage_timings_ms: Optional[dict] = None,
     run_id: Optional[str] = None,
+    traceability_payload: Optional[dict] = None,
 ) -> None:
     await append_event(
         session_id=session_id,
@@ -74,6 +75,7 @@ async def emit_outline_success(
             "trace_id": trace_id,
             "run_id": run_id,
             "stage_timings_ms": stage_timings_ms or {},
+            **(traceability_payload or {}),
         },
     )
     await append_event(
@@ -85,6 +87,7 @@ async def emit_outline_success(
             "trace_id": trace_id,
             "run_id": run_id,
             "stage_timings_ms": stage_timings_ms or {},
+            **(traceability_payload or {}),
         },
     )
 
@@ -131,6 +134,7 @@ async def emit_outline_failure(
     error_message: str,
     trace_id: str,
     run_id: Optional[str] = None,
+    traceability_payload: Optional[dict] = None,
 ) -> None:
     await append_event(
         session_id=session_id,
@@ -156,6 +160,7 @@ async def emit_outline_failure(
             "retryable": True,
             "trace_id": trace_id,
             "run_id": run_id,
+            **(traceability_payload or {}),
         },
     )
 
@@ -215,6 +220,7 @@ async def emit_outline_failure_state(
     failure_state_reason: str,
     outline_version: int,
     run_id: Optional[str] = None,
+    traceability_payload: Optional[dict] = None,
 ) -> None:
     await append_event(
         session_id=session_id,
@@ -225,6 +231,7 @@ async def emit_outline_failure_state(
             "change_reason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
             "trace_id": trace_id,
             "run_id": run_id,
+            **(traceability_payload or {}),
         },
     )
     await append_event(
@@ -232,5 +239,9 @@ async def emit_outline_failure_state(
         event_type=GenerationEventType.STATE_CHANGED.value,
         state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
         state_reason=failure_state_reason,
-        payload={"trace_id": trace_id, "run_id": run_id},
+        payload={
+            "trace_id": trace_id,
+            "run_id": run_id,
+            **(traceability_payload or {}),
+        },
     )

@@ -14,6 +14,7 @@ from services.generation_session_service.session_history import (
     generate_semantic_session_title,
     spawn_background_task,
 )
+from services.prompt_service import build_prompt_traceability
 from utils.exceptions import (
     APIException,
     ErrorCode,
@@ -342,6 +343,9 @@ async def process_chat_message(
         )
         observability_metadata["prompt_template_version"] = PROMPT_TEMPLATE_VERSION
         observability_metadata["few_shot_version"] = FEW_SHOT_VERSION
+        observability_metadata.update(
+            build_prompt_traceability(rag_source_ids=body.rag_source_ids)
+        )
 
         observability_with_rag = {
             "rag_hit": rag_hit,

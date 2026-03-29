@@ -1,0 +1,64 @@
+{
+  "samples": [
+    {
+      "id": "ppt-image-001",
+      "retrieval_mode": "default_library",
+      "topic": "牛顿第二定律实验现象页",
+      "passes": {
+        "page_selection": true,
+        "placement": true,
+        "quantity": true,
+        "layout_risk_control": true,
+        "text_image_alignment": true
+      },
+      "issues": [],
+      "notes": "实验现象页保留 1 张实验装置图，右侧并列，文字明确指出观察重点。"
+    },
+    {
+      "id": "ppt-image-002",
+      "retrieval_mode": "default_library",
+      "topic": "细胞结构纯定义页",
+      "passes": {
+        "page_selection": false,
+        "placement": false,
+        "quantity": false,
+        "layout_risk_control": false,
+        "text_image_alignment": false
+      },
+      "issues": [
+        "should_skip_image",
+        "tail_append_layout",
+        "split_attention"
+      ],
+      "notes": "定义页被强行加图，且图片追加在页尾，正文没有指向图片的讲解句。"
+    },
+    {
+      "id": "ppt-image-003",
+      "retrieval_mode": "strict_sources",
+      "topic": "燃烧与灭火步骤页",
+      "passes": {
+        "page_selection": true,
+        "placement": false,
+        "quantity": true,
+        "layout_risk_control": false,
+        "text_image_alignment": true
+      },
+      "issues": ["placement", "layout_weight"],
+      "notes": "步骤图命中正确，但顶图过宽，压缩了正文空间。"
+    },
+    {
+      "id": "ppt-image-004",
+      "retrieval_mode": "strict_sources",
+      "topic": "古诗词总结页",
+      "passes": {
+        "page_selection": true,
+        "placement": true,
+        "quantity": false,
+        "layout_risk_control": true,
+        "text_image_alignment": false
+      },
+      "issues": ["over_inserted", "weak_visual_support"],
+      "notes": "总结页插入 2 张装饰图，数量过多，且图文不服务同一结论。"
+    }
+  ]
+}

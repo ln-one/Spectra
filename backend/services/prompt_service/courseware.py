@@ -114,22 +114,26 @@ def build_modify_prompt(
     source_constraints = ""
     if strict_source_mode:
         source_constraints = (
-            "\n4. 仅允许使用参考资料中的事实。"
-            "\n5. 若参考资料不足，保留原文表述，不得编造新事实。"
-            "\n6. 禁止引入来源外示例、术语或结论。"
+            "\n5. 仅允许使用参考资料中的事实。"
+            "\n6. 若参考资料不足，保留原文表述，不得编造新事实。"
+            "\n7. 禁止引入来源外示例、术语或结论。"
         )
 
-    return f"""你是资深学科教学设计师。
-请根据指令修改课件内容。
+    return f"""你是资深学科教学设计师。请根据修改指令，在保持现有教学结构尽量稳定的前提下更新课件。
 
 {rag_section}
-当前内容：
+<current_courseware>
 {current_content}
+</current_courseware>
 
-修改指令：
+<modify_instruction>
 {instruction}{target_info}
+</modify_instruction>
 
 要求：
 1. 未指定修改的部分尽量保持不变。
 2. 保留 Marp markdown 格式与分隔符。
-3. 返回完整修改后的 markdown。{source_constraints}"""
+3. 若指令只涉及局部页，优先做局部修改，不要无端重写整份课件。
+4. 修改后的内容仍应保持教学推进、标题层级和图文逻辑一致。{source_constraints}
+
+返回完整修改后的 markdown。"""

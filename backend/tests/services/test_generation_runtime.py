@@ -47,6 +47,9 @@ async def test_persist_generation_artifacts_returns_download_urls():
         task_id="task-1",
         project_id="p-1",
         session_id="s-1",
+        retrieval_mode="strict_sources",
+        policy_version="prompt-policy-v2026-03-28",
+        baseline_id="prompt-baseline-v1",
     )
 
     output_urls = await persist_generation_artifacts(
@@ -70,6 +73,13 @@ async def test_persist_generation_artifacts_returns_download_urls():
             "projectId": True,
         },
     )
+    create_calls = db_service.create_artifact.await_args_list
+    assert create_calls[0].kwargs["metadata"]["retrieval_mode"] == "strict_sources"
+    assert (
+        create_calls[0].kwargs["metadata"]["policy_version"]
+        == "prompt-policy-v2026-03-28"
+    )
+    assert create_calls[0].kwargs["metadata"]["baseline_id"] == "prompt-baseline-v1"
 
 
 @pytest.mark.asyncio
@@ -97,6 +107,9 @@ async def test_persist_generation_artifacts_partial_failure_keeps_success_output
         task_id="task-1",
         project_id="p-1",
         session_id="s-1",
+        retrieval_mode="strict_sources",
+        policy_version="prompt-policy-v2026-03-28",
+        baseline_id="prompt-baseline-v1",
     )
 
     output_urls = await persist_generation_artifacts(

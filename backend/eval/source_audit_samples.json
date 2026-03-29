@@ -4,6 +4,7 @@
   "samples": [
     {
       "id": "audit-001",
+      "retrieval_mode": "default_library",
       "output_text": "本节介绍牛顿第二定律，核心公式是 F=ma。",
       "rag_results": [
         {
@@ -26,6 +27,7 @@
     },
     {
       "id": "audit-002",
+      "retrieval_mode": "strict_sources",
       "output_text": "该页内容来自视频中光合作用片段。",
       "preview_sources": [
         {

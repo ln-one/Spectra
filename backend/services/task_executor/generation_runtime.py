@@ -49,6 +49,9 @@ class GenerationExecutionContext:
     run_title: Optional[str] = None
     tool_type: Optional[str] = None
     outline_version: Optional[int] = None
+    retrieval_mode: Optional[str] = None
+    policy_version: Optional[str] = None
+    baseline_id: Optional[str] = None
 
 
 async def build_generation_inputs(db_service, context: GenerationExecutionContext):

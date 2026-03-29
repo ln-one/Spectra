@@ -39,7 +39,7 @@ class TestGenerateOutline:
                 "generate",
                 new_callable=AsyncMock,
                 return_value={"content": mock_json},
-            ),
+            ) as mock_gen,
             patch.object(
                 ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
             ),
@@ -53,9 +53,14 @@ class TestGenerateOutline:
         assert "导入" in section_titles
         assert "核心" in section_titles
         assert "总结" in section_titles
-        # sparse-outline enrichment may expand sections/slides, but should keep baseline size
+        # sparse-outline enrichment may expand sections/slides,
+        # but should keep baseline size
         assert outline.total_slides >= 2 + 4 + 1
         assert outline.summary == "Python 基础教学大纲"
+        prompt_arg = mock_gen.call_args.kwargs["prompt"]
+        assert "<outline_task>" in prompt_arg
+        assert "<teacher_requirements>" in prompt_arg
+        assert "<outline_contract>" in prompt_arg
 
     @pytest.mark.asyncio
     async def test_outline_with_rag_context(self):
@@ -91,6 +96,7 @@ class TestGenerateOutline:
         # prompt 中应包含 RAG 上下文
         prompt_arg = mock_gen.call_args[1]["prompt"]
         assert "参考内容" in prompt_arg
+        assert "优先吸收与当前教学目标直接相关的内容" in prompt_arg
         assert isinstance(outline, CoursewareOutline)
 
     @pytest.mark.asyncio

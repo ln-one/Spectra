@@ -29,13 +29,19 @@ logger = logging.getLogger(__name__)
 
 def _run_context_payload(context) -> dict:
     run_id = getattr(context, "run_id", None)
-    if not run_id:
+    retrieval_mode = getattr(context, "retrieval_mode", None)
+    policy_version = getattr(context, "policy_version", None)
+    baseline_id = getattr(context, "baseline_id", None)
+    if not any([run_id, retrieval_mode, policy_version, baseline_id]):
         return {}
     return {
         "run_id": run_id,
         "run_no": getattr(context, "run_no", None),
         "run_title": getattr(context, "run_title", None),
         "tool_type": getattr(context, "tool_type", None),
+        "retrieval_mode": retrieval_mode,
+        "policy_version": policy_version,
+        "baseline_id": baseline_id,
     }
 
 
