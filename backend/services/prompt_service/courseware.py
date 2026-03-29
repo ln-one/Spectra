@@ -98,15 +98,31 @@ def build_modify_prompt(
     current_content: str,
     instruction: str,
     target_slides: Optional[list[str]] = None,
+    rag_context: Optional[list[dict]] = None,
+    strict_source_mode: bool = False,
 ) -> str:
     """Build prompt for modifying existing courseware."""
     target_info = ""
     if target_slides:
         target_info = f"\nTarget slides: {', '.join(target_slides)}"
 
+    rag_section = build_rag_reference_section(
+        rag_context,
+        citation_style=PromptCitationStyle.SOURCE_INDEX,
+    )
+
+    source_constraints = ""
+    if strict_source_mode:
+        source_constraints = (
+            "\n4. 仅允许使用参考资料中的事实。"
+            "\n5. 若参考资料不足，保留原文表述，不得编造新事实。"
+            "\n6. 禁止引入来源外示例、术语或结论。"
+        )
+
     return f"""你是资深学科教学设计师。
 请根据指令修改课件内容。
 
+{rag_section}
 当前内容：
 {current_content}
 
@@ -116,4 +132,4 @@ def build_modify_prompt(
 要求：
 1. 未指定修改的部分尽量保持不变。
 2. 保留 Marp markdown 格式与分隔符。
-3. 返回完整修改后的 markdown。"""
+3. 返回完整修改后的 markdown。{source_constraints}"""

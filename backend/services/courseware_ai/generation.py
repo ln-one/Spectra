@@ -33,12 +33,19 @@ async def modify_courseware(
     current_content: str,
     instruction: str,
     target_slides: Optional[list[int]] = None,
+    rag_context: Optional[list[dict]] = None,
+    strict_source_mode: bool = False,
 ) -> CoursewareContent:
     """按整份或指定页修改课件内容。"""
     from services.prompt_service import prompt_service
 
     frontmatter = extract_frontmatter(current_content)
     all_slides = parse_marp_slides(current_content)
+
+    if strict_source_mode and not rag_context:
+        raise ValueError(
+            "source constrained slide modify requires non-empty rag_context"
+        )
 
     if target_slides and all_slides:
         target_indices = [
@@ -55,10 +62,13 @@ async def modify_courseware(
             current_content=target_content,
             instruction=instruction,
             target_slides=target_labels,
+            rag_context=rag_context,
+            strict_source_mode=strict_source_mode,
         )
         response = await ai_service.generate(
             prompt=prompt,
             route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
+            has_rag_context=bool(rag_context),
             max_tokens=3000,
         )
         modified_raw = strip_outer_code_fence(response["content"])
@@ -76,10 +86,13 @@ async def modify_courseware(
             prompt = prompt_service.build_modify_prompt(
                 current_content=current_content,
                 instruction=instruction,
+                rag_context=rag_context,
+                strict_source_mode=strict_source_mode,
             )
             response = await ai_service.generate(
                 prompt=prompt,
                 route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
+                has_rag_context=bool(rag_context),
                 max_tokens=4000,
             )
             new_markdown = strip_outer_code_fence(response["content"])
@@ -92,10 +105,13 @@ async def modify_courseware(
         prompt = prompt_service.build_modify_prompt(
             current_content=current_content,
             instruction=instruction,
+            rag_context=rag_context,
+            strict_source_mode=strict_source_mode,
         )
         response = await ai_service.generate(
             prompt=prompt,
             route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
+            has_rag_context=bool(rag_context),
             max_tokens=4000,
         )
         new_markdown = strip_outer_code_fence(response["content"])
