@@ -1,6 +1,7 @@
 ﻿import { Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { components } from "@/lib/sdk/types";
 
@@ -14,47 +15,54 @@ export function SlideCard({
   isActive: boolean;
 }) {
   return (
-    <div
+    <section
       id={slide.id || `slide-${slide.index}`}
       data-index={slide.index}
       className={cn(
-        "slide-card bg-card border rounded-2xl p-8 md:p-12 mb-12 shadow-sm transition-all duration-300 w-full min-h-[400px] flex flex-col",
-        isActive
-          ? "ring-2 ring-primary/20 shadow-md translate-x-1"
-          : "hover:shadow-md hover:-translate-y-1"
+        "slide-card rounded-2xl border bg-background p-5 md:p-7 shadow-sm transition",
+        isActive ? "ring-2 ring-primary/20" : "hover:shadow-md"
       )}
     >
-      {slide.title && (
-        <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-8 text-center md:text-left title-text">
-          {slide.title}
-        </h2>
-      )}
-
-      <div className="flex-1 prose prose-lg dark:prose-invert max-w-none text-muted-foreground prose-h1:text-foreground prose-h2:text-foreground prose-h3:text-foreground prose-strong:text-foreground">
-        {slide.content ? (
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {slide.content}
-          </ReactMarkdown>
-        ) : (
-          <div className="flex items-center justify-center h-full opacity-50">
-            <Loader2 className="w-8 h-8 animate-spin" />
-          </div>
-        )}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Page {slide.index + 1}
+        </p>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" disabled>
+          Visual render pending backend support
+        </Button>
       </div>
 
-      {slide.sources && slide.sources.length > 0 && (
-        <div className="mt-8 pt-4 border-t flex flex-wrap gap-2">
-          {slide.sources.map((source, idx) => (
+      <div className="rounded-xl border bg-card p-4 md:p-6">
+        {slide.title ? (
+          <h2 className="mb-4 text-2xl font-semibold text-foreground md:text-3xl">
+            {slide.title}
+          </h2>
+        ) : null}
+
+        <div className="prose prose-sm md:prose-base max-w-none text-muted-foreground prose-headings:text-foreground prose-strong:text-foreground">
+          {slide.content ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{slide.content}</ReactMarkdown>
+          ) : (
+            <div className="flex items-center justify-center py-16 opacity-50">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {slide.sources && slide.sources.length > 0 ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {slide.sources.map((source, index) => (
             <span
-              key={idx}
-              className="text-xs bg-muted/60 text-muted-foreground px-2 py-1 rounded-full border flex items-center gap-1"
+              key={`${source.chunk_id}-${index}`}
+              className="rounded-full border bg-muted px-2 py-1 text-[11px] text-muted-foreground"
             >
-              来源 {source.filename}
-              {source.page_number && ` (P${source.page_number})`}
+              {source.filename}
+              {source.page_number ? ` (p${source.page_number})` : ""}
             </span>
           ))}
         </div>
-      )}
-    </div>
+      ) : null}
+    </section>
   );
 }
