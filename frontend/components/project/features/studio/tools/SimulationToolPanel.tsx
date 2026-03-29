@@ -54,6 +54,7 @@ export function SimulationToolPanel({
   const [answer, setAnswer] = useState("");
   const [judgeText, setJudgeText] = useState("");
   const [turnResult, setTurnResult] = useState<{
+    turnAnchor?: string;
     studentQuestion?: string;
     score?: number | null;
     nextFocus?: string;
@@ -160,11 +161,20 @@ export function SimulationToolPanel({
         project_id: project.id,
         artifact_id: latestArtifactId,
         teacher_answer: answer,
+        turn_anchor: turnResult?.turnAnchor,
+        config: {
+          active_student_profile: profile,
+          student_profiles: [profile],
+          topic,
+          intensity,
+          teacher_strategy: teacherStrategy,
+        },
         rag_source_ids: effectiveRagSourceIds,
       });
       const latestTurnResult = response.data.turn_result;
       setJudgeText(latestTurnResult.feedback || "");
       setTurnResult({
+        turnAnchor: latestTurnResult.turn_anchor,
         studentQuestion: latestTurnResult.student_question,
         score:
           typeof latestTurnResult.score === "number"

@@ -93,6 +93,7 @@ function readStudioCardToolType(
     : normalized;
 
   if (studioCardId === "word_document") return "word";
+  if (studioCardId === "courseware_ppt") return "ppt";
   if (studioCardId === "knowledge_mindmap") return "mindmap";
   if (studioCardId === "interactive_quick_quiz") return "quiz";
   if (studioCardId === "interactive_games") return "outline";

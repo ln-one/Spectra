@@ -118,13 +118,12 @@ export function createGenerationActions({
               selectedFileIds.length > 0 ? selectedFileIds : undefined,
           },
           client_session_id: currentSessionId,
+          bootstrap_only: false,
         });
 
         if (response?.data?.session) {
           const sessionId = response.data.session.session_id;
-          const runId = extractRunId(
-            (response as { data?: { run?: unknown } }).data?.run
-          );
+          const runId = extractRunId(response.data.run);
           const previousHistoryTitle =
             get().generationHistory.find((item) => item.id === sessionId)?.title ||
             "";

@@ -14,14 +14,25 @@ export type GenerationSessionMode =
 export type GenerationState = components["schemas"]["GenerationState"];
 export type GenerationOptions = components["schemas"]["GenerationOptions"];
 export type OutlineDocument = components["schemas"]["OutlineDocument"];
-export type SessionStatePayload = components["schemas"]["SessionStatePayload"];
+export type SessionStatePayload =
+  components["schemas"]["SessionStatePayloadTarget"];
 export type CreateGenerationSessionRequest =
   components["schemas"]["CreateGenerationSessionRequest"];
+type CreateGenerationSessionResponseTarget =
+  components["schemas"]["CreateGenerationSessionResponseTarget"];
 export type CreateGenerationSessionResponse =
-  components["schemas"]["CreateGenerationSessionResponse"];
+  CreateGenerationSessionResponseTarget & {
+    data: CreateGenerationSessionResponseTarget["data"] & {
+      /**
+       * Runtime compatibility:
+       * backend currently returns data.run, while openapi-target does not declare it yet.
+       */
+      run?: SessionRun;
+    };
+  };
 export type GenerationSessionResponse =
-  components["schemas"]["GenerationSessionResponse"];
-export type GenerationEvent = components["schemas"]["GenerationEvent"];
+  components["schemas"]["GenerationSessionResponseTarget"];
+export type GenerationEvent = components["schemas"]["GenerationEventTarget"];
 export type ConfirmOutlineRequest =
   components["schemas"]["ConfirmOutlineRequest"];
 export type ConfirmOutlineResponse =
@@ -37,19 +48,31 @@ export type UpdateOutlineResponse =
 export type ResumeSessionRequest =
   components["schemas"]["ResumeSessionRequest"];
 export type ResumeSessionResponse =
-  components["schemas"]["ResumeSessionResponse"];
+  components["schemas"]["ResumeSessionResponseTarget"];
 export type RegenerateSlideRequest =
-  components["schemas"]["RegenerateSlideRequest"];
+  components["schemas"]["LocalModifySlideRequestTarget"];
 export type RegenerateSlideResponse =
-  components["schemas"]["RegenerateSlideResponse"];
+  components["schemas"]["LocalModifySlideResponseTarget"];
 export type GenerationSessionCommandRequest =
-  components["schemas"]["GenerationSessionCommandRequest"];
+  components["schemas"]["GenerationSessionCommandRequestTarget"];
 export type GenerationSessionCommandResponse =
-  components["schemas"]["GenerationSessionCommandResponse"];
+  components["schemas"]["GenerationSessionCommandResponseTarget"];
 export type GenerationCapabilitiesResponse =
   components["schemas"]["GenerationCapabilitiesResponse"];
 export type GenerationSessionListResponse =
-  components["schemas"]["GenerationSessionListResponse"];
+  components["schemas"]["GenerationSessionListResponseTarget"];
+export type CandidateChangeRequest =
+  components["schemas"]["CandidateChangeRequest"];
+export type CandidateChangeResponse =
+  components["schemas"]["CandidateChangeResponse"];
+export type CandidateChangesResponse =
+  components["schemas"]["CandidateChangesResponse"];
+
+type CreateGenerationSessionRequestInput = Omit<
+  CreateGenerationSessionRequest,
+  "bootstrap_only"
+> &
+  Partial<Pick<CreateGenerationSessionRequest, "bootstrap_only">>;
 
 export interface SessionRun {
   run_id: string;
@@ -93,16 +116,43 @@ export interface GenerationSessionRunDetailResponse {
   message: string;
 }
 
+function normalizeCreateSessionRequest(
+  data: CreateGenerationSessionRequestInput
+): CreateGenerationSessionRequest {
+  return {
+    ...data,
+    bootstrap_only: data.bootstrap_only ?? false,
+  };
+}
+
+function readOptionalSessionRun(value: unknown): SessionRun | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  return value as SessionRun;
+}
+
 export const generateApi = {
   async createSession(
-    data: CreateGenerationSessionRequest
+    data: CreateGenerationSessionRequestInput
   ): Promise<CreateGenerationSessionResponse> {
     const headers = withIdempotency({}, true);
     const result = await sdkClient.POST("/api/v1/generate/sessions", {
-      body: data,
+      body: normalizeCreateSessionRequest(data),
       headers,
     });
-    return unwrap<CreateGenerationSessionResponse>(result);
+    const payload = await unwrap<CreateGenerationSessionResponseTarget>(result);
+    const run = readOptionalSessionRun(
+      (payload as { data?: { run?: unknown } })?.data?.run
+    );
+    if (!run) {
+      return payload as CreateGenerationSessionResponse;
+    }
+    return {
+      ...payload,
+      data: {
+        ...payload.data,
+        run,
+      },
+    };
   },
 
   async getSession(sessionId: string): Promise<GenerationSessionResponse> {
@@ -312,6 +362,41 @@ export const generateApi = {
   async getCapabilities(): Promise<GenerationCapabilitiesResponse> {
     const result = await sdkClient.GET("/api/v1/generate/capabilities");
     return unwrap<GenerationCapabilitiesResponse>(result);
+  },
+
+  async listSessionCandidateChanges(
+    sessionId: string,
+    params?: {
+      status?: "pending" | "accepted" | "rejected";
+      proposer_user_id?: string;
+    }
+  ): Promise<CandidateChangesResponse> {
+    const result = await sdkClient.GET(
+      "/api/v1/generate/sessions/{session_id}/candidate-change",
+      {
+        params: {
+          path: { session_id: sessionId },
+          query: params,
+        },
+      }
+    );
+    return unwrap<CandidateChangesResponse>(result);
+  },
+
+  async createSessionCandidateChange(
+    sessionId: string,
+    data: CandidateChangeRequest
+  ): Promise<CandidateChangeResponse> {
+    const headers = withIdempotency({}, true);
+    const result = await sdkClient.POST(
+      "/api/v1/generate/sessions/{session_id}/candidate-change",
+      {
+        params: { path: { session_id: sessionId } },
+        body: data,
+        headers,
+      }
+    );
+    return unwrap<CandidateChangeResponse>(result);
   },
 
   getEventStream(sessionId: string, cursor?: string): string {

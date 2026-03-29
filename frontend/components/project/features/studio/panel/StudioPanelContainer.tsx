@@ -5,6 +5,8 @@ import { LayoutGroup } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Card, CardContent } from "@/components/ui/card";
+import { ApiError } from "@/lib/sdk/client";
+import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
@@ -25,6 +27,52 @@ import { StudioPanelHeader } from "./components/StudioPanelHeader";
 import { StudioCollapsedView } from "./components/StudioCollapsedView";
 import { StudioExpandedView } from "./components/StudioExpandedView";
 import { StudioArchiveHistoryDialog } from "./components/StudioArchiveHistoryDialog";
+
+function extractSessionIdFromExecutionResult(
+  executionResult: Record<string, unknown>
+): string | null {
+  const session =
+    typeof executionResult.session === "object" &&
+    executionResult.session !== null
+      ? (executionResult.session as Record<string, unknown>)
+      : null;
+  return (
+    (typeof session?.session_id === "string" && session.session_id) ||
+    (typeof session?.id === "string" && session.id) ||
+    null
+  );
+}
+
+function extractRunIdFromExecutionResult(
+  executionResult: Record<string, unknown>
+): string | null {
+  const run =
+    typeof executionResult.run === "object" && executionResult.run !== null
+      ? (executionResult.run as Record<string, unknown>)
+      : null;
+  return (
+    (typeof run?.run_id === "string" && run.run_id) ||
+    (typeof run?.id === "string" && run.id) ||
+    null
+  );
+}
+
+function shouldFallbackToLegacyPptStart(error: unknown): boolean {
+  if (error instanceof ApiError && error.status === 404) {
+    return true;
+  }
+  if (!(error instanceof ApiError)) {
+    return false;
+  }
+  const code = String(error.code || "");
+  const message = String(error.message || "");
+  const reason =
+    typeof error.details?.reason === "string" ? error.details.reason : "";
+  const readiness =
+    typeof error.details?.readiness === "string" ? error.details.readiness : "";
+  const signal = `${code} ${message} ${reason} ${readiness}`.toLowerCase();
+  return signal.includes("protocol_pending");
+}
 
 export function StudioPanelContainer({
   onToolClick,
@@ -537,22 +585,74 @@ export function StudioPanelContainer({
                   (item) => item.type === expandedTool
                 );
                 if (!project || !tool) return null;
-                const sessionId = await startGeneration(project.id, tool, {
-                  template: "default",
-                  show_page_number: true,
-                  include_animations: false,
-                  include_games: false,
-                  use_text_to_image: false,
-                  pages: Number(config.pageCount) || 15,
-                  audience: "intermediate",
-                  system_prompt_tone: [
-                    `[outline_style=${config.outlineStyle}]`,
-                    config.prompt,
-                    "Keep a clear teaching structure and slide pacing.",
-                  ].join("\n"),
-                });
+
+                const startLegacyGeneration = async () =>
+                  startGeneration(project.id, tool, {
+                    template: "default",
+                    show_page_number: true,
+                    include_animations: false,
+                    include_games: false,
+                    use_text_to_image: false,
+                    pages: Number(config.pageCount) || 15,
+                    audience: "intermediate",
+                    system_prompt_tone: [
+                      `[outline_style=${config.outlineStyle}]`,
+                      config.prompt,
+                      "Keep a clear teaching structure and slide pacing.",
+                    ].join("\n"),
+                  });
+
+                let sessionId: string | null = null;
+                let runId: string | null = null;
+                try {
+                  const executeResponse = await studioCardsApi.execute(
+                    "courseware_ppt",
+                    {
+                      project_id: project.id,
+                      client_session_id: activeSessionId ?? undefined,
+                      rag_source_ids:
+                        selectedFileIds.length > 0
+                          ? selectedFileIds
+                          : undefined,
+                      config: {
+                        template: "default",
+                        pages: Number(config.pageCount) || 15,
+                        audience: "intermediate",
+                        include_animations: false,
+                        include_games: false,
+                        system_prompt_tone: [
+                          `[outline_style=${config.outlineStyle}]`,
+                          config.prompt,
+                          "Keep a clear teaching structure and slide pacing.",
+                        ].join("\n"),
+                      },
+                    }
+                  );
+                  const executionResult =
+                    (executeResponse?.data?.execution_result as Record<
+                      string,
+                      unknown
+                    >) ?? {};
+                  sessionId = extractSessionIdFromExecutionResult(executionResult);
+                  runId = extractRunIdFromExecutionResult(executionResult);
+
+                  if (!sessionId) {
+                    sessionId = await startLegacyGeneration();
+                  }
+                } catch (error) {
+                  if (shouldFallbackToLegacyPptStart(error)) {
+                    sessionId = await startLegacyGeneration();
+                  } else {
+                    throw error;
+                  }
+                }
+
                 if (sessionId) {
                   setActiveSessionId(sessionId);
+                  if (runId) {
+                    setActiveRunId(runId);
+                  }
+                  void fetchArtifactHistory(project.id, sessionId);
                 }
                 return sessionId;
               }}

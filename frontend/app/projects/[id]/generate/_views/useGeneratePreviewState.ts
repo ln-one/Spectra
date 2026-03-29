@@ -10,7 +10,7 @@ import type { components } from "@/lib/sdk/types";
 import { useShallow } from "zustand/react/shallow";
 
 type Slide = components["schemas"]["Slide"];
-type SessionStatePayload = components["schemas"]["SessionStatePayload"];
+type SessionStatePayload = components["schemas"]["SessionStatePayloadTarget"];
 type ArtifactType = components["schemas"]["Artifact"]["type"];
 type OutlineSectionPayload = {
   section_index?: number;
@@ -63,6 +63,31 @@ function resolveEventKey(event: {
   if (event.event_id) return `id:${event.event_id}`;
   if (event.cursor) return `cursor:${event.cursor}`;
   return `fallback:${event.timestamp ?? ""}:${event.event_type ?? ""}`;
+}
+
+function readStringField(
+  payload: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = payload[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function readRunIdFromTrace(payload: Record<string, unknown>): string | null {
+  const trace = payload.run_trace;
+  if (!trace || typeof trace !== "object") return null;
+  const runId = (trace as { run_id?: unknown }).run_id;
+  if (typeof runId === "string" && runId.trim()) return runId;
+  const traceRun = (trace as { run?: { run_id?: unknown } }).run;
+  if (
+    traceRun &&
+    typeof traceRun === "object" &&
+    typeof traceRun.run_id === "string" &&
+    traceRun.run_id.trim()
+  ) {
+    return traceRun.run_id;
+  }
+  return null;
 }
 
 export function useGeneratePreviewState({
@@ -385,11 +410,59 @@ export function useGeneratePreviewState({
         void loadSessionRuns();
         continue;
       }
+      if (eventType === "task.failed") {
+        const stage = readStringField(payload, "stage");
+        const cardId = readStringField(payload, "card_id");
+        const artifactId = readStringField(payload, "artifact_id");
+        const runId = readRunIdFromTrace(payload);
+
+        if (stage === "studio_card_execute") {
+          if (artifactId) setCurrentArtifactId(artifactId);
+          if (runId) setActiveRunId(runId);
+
+          const failedMessage =
+            readStringField(payload, "error_message") ||
+            readStringField(payload, "error") ||
+            readStringField(payload, "state_reason") ||
+            readStringField(payload, "message") ||
+            "Studio execution task failed.";
+
+          const runLabel = runId ? `run ${runId}` : "unknown run";
+          const cardLabel = cardId ?? "unknown card";
+          toast({
+            title: "Studio task failed",
+            description: `${cardLabel}, ${runLabel}: ${failedMessage}`,
+            variant: "destructive",
+          });
+          void Promise.all([loadSlides(), loadSessionRuns()]);
+          continue;
+        }
+      }
+      if (eventType === "task.completed") {
+        const stage = readStringField(payload, "stage");
+        const cardId = readStringField(payload, "card_id");
+        const artifactId = readStringField(payload, "artifact_id");
+        const runId = readRunIdFromTrace(payload);
+
+        if (stage === "studio_card_execute") {
+          if (artifactId) setCurrentArtifactId(artifactId);
+          if (runId) setActiveRunId(runId);
+
+          const runLabel = runId ? `run ${runId}` : "unknown run";
+          const cardLabel = cardId ?? "unknown card";
+          toast({
+            title: "Studio task completed",
+            description: `${cardLabel}, ${runLabel}. Preview is refreshing.`,
+          });
+          void Promise.all([loadSlides(), loadSessionRuns()]);
+          continue;
+        }
+      }
       if (eventType === "task.completed" || event.state === "SUCCESS") {
         void Promise.all([loadSlides(), loadSessionRuns()]);
       }
     }
-  }, [events, loadSessionRuns, loadSlides]);
+  }, [events, loadSessionRuns, loadSlides, setActiveRunId]);
 
   const handleExport = useCallback(async () => {
     if (!activeSessionId || isExporting) return;

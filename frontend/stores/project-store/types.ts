@@ -12,7 +12,7 @@ export type Message = sdkComponents["schemas"]["Message"];
 export type OutlineDocument = sdkComponents["schemas"]["OutlineDocument"];
 export type GenerationOptions = sdkComponents["schemas"]["GenerationOptions"];
 export type SessionStatePayload =
-  sdkComponents["schemas"]["SessionStatePayload"];
+  sdkComponents["schemas"]["SessionStatePayloadTarget"];
 
 export interface SessionRun {
   run_id: string;
