@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { generateApi, ragApi } from "@/lib/sdk";
+import { getErrorMessage } from "@/lib/sdk/errors";
+import {
+  isSessionRunActive,
+  parseActiveRunConflict,
+} from "@/lib/project/generation-run-conflict";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
@@ -68,6 +73,8 @@ export function useGenerationConfigPanel({
     selectedFileIds,
     generationSession,
     activeSessionId,
+    activeRunId,
+    redraftOutline,
   } = useProjectStore(
     useShallow((state) => ({
       project: state.project,
@@ -75,6 +82,8 @@ export function useGenerationConfigPanel({
       selectedFileIds: state.selectedFileIds,
       generationSession: state.generationSession,
       activeSessionId: state.activeSessionId,
+      activeRunId: state.activeRunId,
+      redraftOutline: state.redraftOutline,
     }))
   );
 
@@ -89,6 +98,10 @@ export function useGenerationConfigPanel({
 
   const sessionId =
     activeSessionId || generationSession?.session?.session_id || "";
+  const hasInProgressRun =
+    Boolean(
+      activeRunId || extractRunIdFromSessionPayload(generationSession || null)
+    ) && isSessionRunActive(generationSession?.session?.state || null);
   const suggestionRequestIdRef = useRef(0);
   const outlinePollRequestIdRef = useRef(0);
   const workflowStageChangeRef = useRef(onWorkflowStageChange);
@@ -210,8 +223,128 @@ export function useGenerationConfigPanel({
     };
   }, [generateSuggestionBatch]);
 
+  const redraftOutlineFromConfig = useCallback(async () => {
+    const latestState = useProjectStore.getState();
+    const targetSessionId =
+      latestState.activeSessionId ||
+      latestState.generationSession?.session?.session_id ||
+      null;
+    if (!targetSessionId) return { ok: false as const, reason: "NO_SESSION" };
+
+    const state = String(latestState.generationSession?.session?.state || "");
+    const allowRedraft =
+      state === "DRAFTING_OUTLINE" || state === "AWAITING_OUTLINE_CONFIRM";
+    if (!allowRedraft) {
+      return { ok: false as const, reason: "STATE_NOT_SUPPORTED", state };
+    }
+
+    const instruction = [
+      "请按以下新配置重新生成整套大纲，并覆盖旧草案：",
+      `- 主题：${prompt.trim()}`,
+      `- 目标页数：${pageCount}`,
+      `- 大纲风格：${outlineStyle}`,
+      "- 要求：保持教学结构清晰、页间衔接自然，并确保页数接近目标值。",
+    ].join("\n");
+
+    try {
+      await redraftOutline(targetSessionId, instruction);
+      const refreshed = useProjectStore.getState();
+      const latestRunId =
+        refreshed.activeRunId ||
+        extractRunIdFromSessionPayload(refreshed.generationSession) ||
+        null;
+
+      setShowOutlineEditor(true);
+      workflowStageChangeRef.current?.("outline", {
+        sessionId: targetSessionId,
+        runId: latestRunId,
+      });
+      toast({
+        title: "已按新配置重新生成大纲",
+        description: "正在重新生成中，你可以在大纲页继续观察并编辑。",
+      });
+      return { ok: true as const };
+    } catch {
+      return { ok: false as const, reason: "REDRAFT_FAILED" };
+    }
+  }, [outlineStyle, pageCount, prompt, redraftOutline]);
+
+  const resumeExistingRun = useCallback(
+    async (input?: { sessionId?: string | null; runId?: string | null }) => {
+      const latestState = useProjectStore.getState();
+      const targetSessionId =
+        input?.sessionId ||
+        latestState.activeSessionId ||
+        latestState.generationSession?.session?.session_id ||
+        null;
+      if (!targetSessionId) return false;
+
+      const hintedRunId = input?.runId || null;
+      const fallbackRunId =
+        latestState.activeRunId ||
+        extractRunIdFromSessionPayload(latestState.generationSession) ||
+        null;
+      const targetRunId = hintedRunId || fallbackRunId;
+
+      try {
+        const sessionResponse = await generateApi.getSessionSnapshot(
+          targetSessionId,
+          { run_id: targetRunId }
+        );
+        const latestSession = sessionResponse?.data ?? null;
+        const latestRunId =
+          extractRunIdFromSessionPayload(latestSession) || targetRunId;
+
+        useProjectStore.setState({
+          activeSessionId: targetSessionId,
+          activeRunId: latestRunId,
+          generationSession: latestSession,
+        });
+        setShowOutlineEditor(true);
+        workflowStageChangeRef.current?.("outline", {
+          sessionId: targetSessionId,
+          runId: latestRunId,
+        });
+        toast({
+          title: "已恢复进行中的 Run",
+          description:
+            "当前会话已有进行中的大纲任务，已返回大纲编辑。需要改配置时，请在任务完成后点“重新生成大纲”。",
+        });
+        return true;
+      } catch (syncError) {
+        toast({
+          title: "同步运行状态失败",
+          description: getErrorMessage(syncError),
+          variant: "destructive",
+        });
+        return false;
+      }
+    },
+    []
+  );
+
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
+
+    if (hasInProgressRun) {
+      setIsCreatingSession(true);
+      try {
+        const redraftResult = await redraftOutlineFromConfig();
+        if (redraftResult.ok) return;
+
+        const resumed = await resumeExistingRun();
+        if (!resumed && redraftResult.reason === "STATE_NOT_SUPPORTED") {
+          toast({
+            title: "当前阶段暂不支持重开",
+            description:
+              "任务已进入内容生成或渲染阶段，后端暂不支持中断后按新配置重开，已为你保持当前任务。",
+          });
+        }
+      } finally {
+        setIsCreatingSession(false);
+      }
+      return;
+    }
 
     const requestId = ++outlinePollRequestIdRef.current;
     setIsCreatingSession(true);
@@ -344,6 +477,23 @@ export function useGenerationConfigPanel({
         }
       })();
     } catch (error) {
+      const conflict = parseActiveRunConflict(error);
+      if (conflict) {
+        const redraftResult = await redraftOutlineFromConfig();
+        if (!redraftResult.ok) {
+          const resumed = await resumeExistingRun({
+            sessionId: conflict.sessionId,
+            runId: conflict.runId,
+          });
+          if (resumed) {
+            setIsCreatingSession(false);
+            return;
+          }
+        } else {
+          setIsCreatingSession(false);
+          return;
+        }
+      }
       const message =
         error instanceof Error
           ? error.message
@@ -356,7 +506,15 @@ export function useGenerationConfigPanel({
       setShowOutlineEditor(false);
       setIsCreatingSession(false);
     }
-  }, [onGenerate, outlineStyle, pageCount, prompt]);
+  }, [
+    hasInProgressRun,
+    onGenerate,
+    outlineStyle,
+    pageCount,
+    prompt,
+    redraftOutlineFromConfig,
+    resumeExistingRun,
+  ]);
 
   const handleGoToPreview = useCallback(() => {
     if (!projectId || !sessionId) return;
@@ -387,6 +545,7 @@ export function useGenerationConfigPanel({
     suggestions,
     loadingSuggestions,
     isCreatingSession,
+    hasInProgressRun,
     showOutlineEditor,
     setShowOutlineEditor,
     sessionId,

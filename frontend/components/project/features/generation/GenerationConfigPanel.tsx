@@ -68,6 +68,7 @@ export function GenerationConfigPanel({
     suggestions,
     loadingSuggestions,
     isCreatingSession,
+    hasInProgressRun,
     showOutlineEditor,
     setShowOutlineEditor,
     pageLabel,
@@ -361,8 +362,13 @@ export function GenerationConfigPanel({
                           <SelectedSourceScopeBadge />
                         </div>
                         <p className="mt-1 text-xs leading-5 text-zinc-500">
-                          下一步会进入大纲编辑页，你可以继续微调每一页。
+                          下一步将进入大纲编辑页，你可以继续微调每一页。
                         </p>
+                        {hasInProgressRun ? (
+                          <p className="mt-1 text-xs leading-5 text-amber-600">
+                            当前会话已有进行中的 Run，点击右侧按钮会按新配置重新生成大纲。
+                          </p>
+                        ) : null}
                       </div>
                       <Button
                         onClick={() => void handleGenerate()}
@@ -376,6 +382,12 @@ export function GenerationConfigPanel({
                           <>
                             <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                             正在创建...
+                          </>
+                        ) : hasInProgressRun ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            按新配置重生成
+                            <ArrowRight className="ml-2 h-4 w-4" />
                           </>
                         ) : (
                           <>
