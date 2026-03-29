@@ -58,6 +58,21 @@ function isFallbackSessionTitle(title: string, sessionId: string): boolean {
   return normalized === `会话 ${sessionId.slice(-6)}`;
 }
 
+function resolveOutlineBaseVersion(
+  session: SessionStatePayload | null | undefined
+): number {
+  const rawVersion =
+    session && typeof session === "object" ? session.outline?.version : null;
+  const parsed =
+    typeof rawVersion === "number"
+      ? rawVersion
+      : Number.parseInt(String(rawVersion ?? ""), 10);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  const hasOutlineNodes =
+    Array.isArray(session?.outline?.nodes) && session.outline.nodes.length > 0;
+  return hasOutlineNodes ? 1 : 0;
+}
+
 export function createGenerationActions({
   set,
   get,
@@ -400,7 +415,7 @@ export function createGenerationActions({
 
     updateOutline: async (sessionId: string, outline: OutlineDocument) => {
       const session = get().generationSession;
-      const baseVersion = session?.outline?.version ?? 1;
+      const baseVersion = resolveOutlineBaseVersion(session);
       try {
         await generateApi.updateOutline(sessionId, {
           base_version: baseVersion,
@@ -435,7 +450,7 @@ export function createGenerationActions({
 
     redraftOutline: async (sessionId: string, instruction: string) => {
       const session = get().generationSession;
-      const baseVersion = session?.outline?.version ?? 1;
+      const baseVersion = resolveOutlineBaseVersion(session);
       try {
         await generateApi.redraftOutline(sessionId, {
           instruction,
