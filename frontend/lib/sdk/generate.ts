@@ -140,6 +140,8 @@ export const generateApi = {
       headers,
     });
     const payload = await unwrap<CreateGenerationSessionResponseTarget>(result);
+    // Runtime compatibility:
+    // backend currently returns data.run, while openapi-target does not declare it yet.
     const run = readOptionalSessionRun(
       (payload as { data?: { run?: unknown } })?.data?.run
     );
