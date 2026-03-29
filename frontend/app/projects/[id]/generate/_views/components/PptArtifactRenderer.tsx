@@ -18,10 +18,8 @@ declare global {
 }
 
 const RUNTIME_SCRIPT_ID = "pptx2html-runtime-script";
-const RUNTIME_STYLE_ID = "pptx2html-runtime-style";
 const RUNTIME_SCRIPT_SRC =
   "https://unpkg.com/pptx2html@0.3.4/dist/pptx2html.full.min.js";
-const RUNTIME_STYLE_HREF = "https://unpkg.com/pptx2html@0.3.4/dist/pptx2html.css";
 
 let runtimeLoadingPromise: Promise<void> | null = null;
 
@@ -68,13 +66,6 @@ function ensurePptxRuntime(): Promise<void> {
   if (runtimeLoadingPromise) return runtimeLoadingPromise;
 
   runtimeLoadingPromise = (async () => {
-    await ensureRuntimeAsset(RUNTIME_STYLE_ID, () => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = RUNTIME_STYLE_HREF;
-      return link;
-    });
-
     await ensureRuntimeAsset(RUNTIME_SCRIPT_ID, () => {
       const script = document.createElement("script");
       script.src = RUNTIME_SCRIPT_SRC;
