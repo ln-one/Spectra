@@ -1,11 +1,10 @@
-﻿import {
+import {
   ArrowLeft,
-  Bot,
   Download,
   Loader2,
-  PanelRightOpen,
   Play,
   RefreshCw,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,14 +18,12 @@ interface PreviewHeaderProps {
   isExporting: boolean;
   isResuming: boolean;
   canResume: boolean;
-  isRightPanelOpen: boolean;
   onSetEditingTitle: (value: boolean) => void;
   onSetProjectTitle: (value: string) => void;
   onGoBack: () => void;
   onExport: () => void;
   onRefresh: () => void;
   onResume: () => void;
-  onToggleRightPanel: () => void;
 }
 
 export function PreviewHeader({
@@ -37,17 +34,15 @@ export function PreviewHeader({
   isExporting,
   isResuming,
   canResume,
-  isRightPanelOpen,
   onSetEditingTitle,
   onSetProjectTitle,
   onGoBack,
   onExport,
   onRefresh,
   onResume,
-  onToggleRightPanel,
 }: PreviewHeaderProps) {
   return (
-    <header className="h-16 border-b bg-background px-4 md:px-6 flex items-center justify-between shrink-0">
+    <header className="h-14 border-b bg-background/80 backdrop-blur-md px-4 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         <Button
           variant="ghost"
@@ -61,10 +56,10 @@ export function PreviewHeader({
         {isEditingTitle ? (
           <Input
             value={projectTitle}
-            onChange={(event) => onSetProjectTitle(event.target.value)}
+            onChange={(e) => onSetProjectTitle(e.target.value)}
             onBlur={() => onSetEditingTitle(false)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") onSetEditingTitle(false);
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSetEditingTitle(false);
             }}
             className="h-8 w-56"
             autoFocus
@@ -79,32 +74,25 @@ export function PreviewHeader({
         )}
 
         {activeSessionId ? (
-          <span className="text-xs text-muted-foreground hidden lg:inline">
-            Session: {activeSessionId.slice(0, 8)}
+          <span className="text-xs text-muted-foreground hidden md:inline">
+            会话: {activeSessionId.slice(0, 8)}
           </span>
         ) : null}
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="hidden md:flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border bg-muted/50">
+        <div className="hidden md:flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border bg-muted/40">
           <span
             className={cn(
               "w-1.5 h-1.5 rounded-full",
-              isSessionGenerating ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+              isSessionGenerating
+                ? "bg-amber-500 animate-pulse"
+                : "bg-emerald-500"
             )}
           />
-          {isSessionGenerating ? "Generating" : "Synced"}
+          {isSessionGenerating ? "生成中" : "已同步"}
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="hidden sm:flex rounded-full h-9"
-          onClick={onToggleRightPanel}
-        >
-          <PanelRightOpen className="w-4 h-4 mr-2" />
-          {isRightPanelOpen ? "Hide Panel" : "Redo Panel"}
-        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -112,7 +100,7 @@ export function PreviewHeader({
           onClick={onRefresh}
         >
           <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
+          刷新
         </Button>
         <Button
           variant="outline"
@@ -126,7 +114,7 @@ export function PreviewHeader({
           ) : (
             <Play className="w-4 h-4 mr-2" />
           )}
-          {isResuming ? "Resuming" : "Resume"}
+          {isResuming ? "恢复中" : "继续会话"}
         </Button>
         <Button
           variant="outline"
@@ -136,16 +124,15 @@ export function PreviewHeader({
           disabled={!activeSessionId || isExporting}
         >
           <Download className="w-4 h-4 mr-2" />
-          {isExporting ? "Exporting" : "Download"}
+          {isExporting ? "导出中" : "导出"}
         </Button>
         <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full h-9 w-9"
-          onClick={onToggleRightPanel}
-          aria-label="Toggle redo panel"
+          variant="outline"
+          size="sm"
+          className="hidden sm:flex rounded-full h-9"
         >
-          <Bot className="w-4 h-4" />
+          <Share2 className="w-4 h-4 mr-2" />
+          分享
         </Button>
       </div>
     </header>

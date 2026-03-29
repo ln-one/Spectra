@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { previewApi, type ModifySessionRequestV1 } from "@/lib/sdk/preview";
 import { generateApi, type SessionRun } from "@/lib/sdk/generate";
 import { projectSpaceApi } from "@/lib/sdk/project-space";
@@ -7,11 +7,6 @@ import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
 import { toast } from "@/hooks/use-toast";
 import type { components } from "@/lib/sdk/types";
-import {
-  patchLatestQueueItem,
-  supportsImagePatchFromEnv,
-  type EditQueueItem,
-} from "@/lib/project/preview-workbench";
 import { useShallow } from "zustand/react/shallow";
 
 type Slide = components["schemas"]["Slide"];
@@ -30,17 +25,10 @@ type SessionStatePayloadWithRun = SessionStatePayload & {
   };
 };
 
-type RetryDraft = {
+type ModifyRetryContext = {
   slide: Slide;
   instruction: string;
 };
-
-const MAX_QUEUE_ITEMS = 24;
-
-function trimQueue(queue: EditQueueItem[]): EditQueueItem[] {
-  if (queue.length <= MAX_QUEUE_ITEMS) return queue;
-  return queue.slice(queue.length - MAX_QUEUE_ITEMS);
-}
 
 function inferDownloadExt(artifactType: ArtifactType | undefined): string {
   if (!artifactType) return "bin";
@@ -77,66 +65,6 @@ function resolveEventKey(event: {
   return `fallback:${event.timestamp ?? ""}:${event.event_type ?? ""}`;
 }
 
-function makeQueueItem(slide: Slide, instruction: string): EditQueueItem {
-  const now = new Date().toISOString();
-  return {
-    id: `edit-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-    slideId: slide.id || null,
-    slideIndex: slide.index,
-    instruction,
-    status: "submitted",
-    message: "Submitting request...",
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-function patchQueueItemById(
-  queue: EditQueueItem[],
-  itemId: string,
-  patch: Partial<EditQueueItem>
-): EditQueueItem[] {
-  return queue.map((item) =>
-    item.id === itemId
-      ? {
-          ...item,
-          ...patch,
-          updatedAt: patch.updatedAt ?? new Date().toISOString(),
-        }
-      : item
-  );
-}
-
-function patchLatestPendingQueueItem(
-  queue: EditQueueItem[],
-  patch: Partial<EditQueueItem>
-): EditQueueItem[] {
-  const next = [...queue];
-  for (let index = next.length - 1; index >= 0; index -= 1) {
-    const item = next[index];
-    if (item.status === "success" || item.status === "failed") continue;
-    next[index] = {
-      ...item,
-      ...patch,
-      updatedAt: patch.updatedAt ?? new Date().toISOString(),
-    };
-    return next;
-  }
-  return queue;
-}
-
-function extractSlideTarget(payload: Record<string, unknown>): {
-  slideId?: string | null;
-  slideIndex?: number;
-} {
-  const slideId = typeof payload.slide_id === "string" ? payload.slide_id : null;
-  const zeroBasedIndex =
-    typeof payload.slide_index === "number"
-      ? Math.max(0, payload.slide_index - 1)
-      : undefined;
-  return { slideId, slideIndex: zeroBasedIndex };
-}
-
 export function useGeneratePreviewState({
   projectId,
   sessionIdFromQuery,
@@ -150,26 +78,27 @@ export function useGeneratePreviewState({
 }) {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [sessionRuns, setSessionRuns] = useState<SessionRun[]>([]);
-  const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(null);
-  const [currentRenderVersion, setCurrentRenderVersion] = useState<number | null>(
+  const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(
     null
   );
+  const [currentRenderVersion, setCurrentRenderVersion] = useState<
+    number | null
+  >(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
-  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-  const [previewBlockedReason, setPreviewBlockedReason] = useState<string | null>(
+  const [regeneratingSlideId, setRegeneratingSlideId] = useState<string | null>(
     null
   );
+  const [previewBlockedReason, setPreviewBlockedReason] = useState<
+    string | null
+  >(null);
   const [isOutlineGenerating, setIsOutlineGenerating] = useState(false);
   const [outlineSections, setOutlineSections] = useState<string[]>([]);
-  const [editQueue, setEditQueue] = useState<EditQueueItem[]>([]);
 
   const processedEventKeysRef = useRef<Set<string>>(new Set());
   const eventsCursorRef = useRef<string | null>(null);
-  const retryDraftsRef = useRef<Map<string, RetryDraft>>(new Map());
-
-  const supportsImageEditing = useMemo(() => supportsImagePatchFromEnv(), []);
+  const pendingModifyRetryRef = useRef<ModifyRetryContext | null>(null);
 
   const {
     generationSession,
@@ -197,7 +126,8 @@ export function useGeneratePreviewState({
   const activeRunId =
     runIdFromQuery ||
     activeRunIdInStore ||
-    ((generationSession as SessionStatePayloadWithRun | null)?.current_run?.run_id ??
+    ((generationSession as SessionStatePayloadWithRun | null)?.current_run
+      ?.run_id ??
       null);
 
   useEffect(() => {
@@ -256,23 +186,38 @@ export function useGeneratePreviewState({
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         const reason =
-          typeof error.details?.reason === "string" ? error.details.reason : null;
+          typeof error.details?.reason === "string"
+            ? error.details.reason
+            : null;
         if (reason === "run_not_ready") {
-          setPreviewBlockedReason(
-            "The selected run is not preview-ready yet. Wait for generation to finish."
-          );
+          setPreviewBlockedReason("当前运行尚未产生可预览内容，请稍候。");
           return;
         }
         toast({
-          title: "Render version changed",
-          description: "Refresh completed. Please retry your operation.",
+          title: "版本已变化",
+          description: "版本变化，请刷新后重试。",
           variant: "destructive",
         });
         return;
       }
 
-      if (error instanceof ApiError) {
-        setPreviewBlockedReason(error.message);
+      if (error instanceof ApiError && error.message.includes("不支持预览")) {
+        try {
+          const sessionResp = await generateApi.getSessionSnapshot(
+            activeSessionId,
+            { run_id: activeRunId ?? undefined }
+          );
+          const state = sessionResp?.data?.session?.state;
+          if (state === "AWAITING_OUTLINE_CONFIRM") {
+            setPreviewBlockedReason(
+              "当前会话仍在大纲确认阶段，请先确认后再预览。"
+            );
+          } else {
+            setPreviewBlockedReason(error.message);
+          }
+        } catch {
+          setPreviewBlockedReason(error.message);
+        }
       } else {
         console.error("Failed to load slides preview:", error);
       }
@@ -298,7 +243,7 @@ export function useGeneratePreviewState({
         }
       }
     } catch {
-      // Keep SSE-only mode when snapshot fetch fails.
+      // keep SSE-only mode when snapshot fetch fails
     }
   }, [activeSessionId]);
 
@@ -308,7 +253,8 @@ export function useGeneratePreviewState({
 
   const latestEvent = events.length > 0 ? events[events.length - 1] : null;
   const isSessionGenerating =
-    latestEvent?.state === "GENERATING_CONTENT" || latestEvent?.state === "RENDERING";
+    latestEvent?.state === "GENERATING_CONTENT" ||
+    latestEvent?.state === "RENDERING";
 
   const handleResume = useCallback(async () => {
     if (!activeSessionId || isResuming) return;
@@ -318,16 +264,14 @@ export function useGeneratePreviewState({
       await fetchGenerationHistory(projectId);
       await Promise.all([loadSessionRuns(), loadSlides()]);
       toast({
-        title: "Session resumed",
-        description: "Runtime state refreshed.",
+        title: "会话恢复成功",
+        description: "已尝试恢复会话并刷新预览。",
       });
     } catch (error) {
       const message =
-        error instanceof ApiError
-          ? error.message
-          : "Failed to resume the session. Please retry.";
+        error instanceof ApiError ? error.message : "恢复会话失败，请稍后重试";
       toast({
-        title: "Resume failed",
+        title: "恢复会话失败",
         description: message,
         variant: "destructive",
       });
@@ -346,6 +290,7 @@ export function useGeneratePreviewState({
   useEffect(() => {
     processedEventKeysRef.current.clear();
     eventsCursorRef.current = null;
+    pendingModifyRetryRef.current = null;
     setOutlineSections([]);
     setIsOutlineGenerating(false);
     void Promise.all([loadEventsSnapshot(), loadSessionRuns(), loadSlides()]);
@@ -378,7 +323,7 @@ export function useGeneratePreviewState({
         const title =
           (typeof section.title === "string" && section.title) ||
           (typeof section.heading === "string" && section.heading) ||
-          "Untitled section";
+          "未命名章节";
         if (typeof index === "number") {
           setOutlineSections((prev) => {
             const next = [...prev];
@@ -392,72 +337,54 @@ export function useGeneratePreviewState({
         setIsOutlineGenerating(false);
         continue;
       }
-
       if (
         eventType === "slide.modify.started" ||
         eventType === "slide.modify.processing"
       ) {
-        const target = extractSlideTarget(payload);
-        setEditQueue((prev) =>
-          patchLatestQueueItem(prev, target, {
-            status: "processing",
-            message: "Backend is processing this edit request.",
-          })
-        );
+        const eventSlideId =
+          typeof payload.slide_id === "string" ? payload.slide_id : null;
+        if (eventSlideId) {
+          setRegeneratingSlideId(eventSlideId);
+        }
         continue;
       }
-
       if (eventType === "slide.modify.failed") {
-        const target = extractSlideTarget(payload);
+        setRegeneratingSlideId(null);
         const message =
           typeof payload.error_message === "string"
             ? payload.error_message
-            : "Slide modify request failed.";
-        setEditQueue((prev) => {
-          const patched = patchLatestQueueItem(prev, target, {
-            status: "failed",
-            message,
-          });
-          if (patched === prev) {
-            return patchLatestPendingQueueItem(prev, {
-              status: "failed",
-              message,
-            });
-          }
-          return patched;
+            : "单页修改失败";
+        toast({
+          title: "单页修改失败",
+          description: message,
+          variant: "destructive",
         });
         continue;
       }
-
       if (eventType === "slide.updated" && payload.slide) {
         const updatedSlide = payload.slide as Slide;
         setSlides((prev) => {
-          const index = prev.findIndex(
-            (slide) =>
-              (slide.id && slide.id === updatedSlide.id) ||
-              slide.index === updatedSlide.index
+          const idx = prev.findIndex(
+            (s) =>
+              (s.id && s.id === updatedSlide.id) || s.index === updatedSlide.index
           );
-          if (index !== -1) {
+          if (idx !== -1) {
             const next = [...prev];
-            next[index] = { ...next[index], ...updatedSlide };
+            next[idx] = { ...next[idx], ...updatedSlide };
             return next.sort((a, b) => a.index - b.index);
           }
           return [...prev, updatedSlide].sort((a, b) => a.index - b.index);
         });
-        setEditQueue((prev) =>
-          patchLatestQueueItem(
-            prev,
-            { slideId: updatedSlide.id, slideIndex: updatedSlide.index },
-            {
-              status: "success",
-              message: "Slide updated event received.",
-            }
-          )
-        );
+        if (updatedSlide.id) {
+          setRegeneratingSlideId((current) =>
+            current === updatedSlide.id ? null : current
+          );
+        } else {
+          setRegeneratingSlideId(null);
+        }
         void loadSessionRuns();
         continue;
       }
-
       if (eventType === "task.completed" || event.state === "SUCCESS") {
         void Promise.all([loadSlides(), loadSessionRuns()]);
       }
@@ -484,8 +411,8 @@ export function useGeneratePreviewState({
           link.click();
           URL.revokeObjectURL(url);
           toast({
-            title: "Download started",
-            description: "File is being downloaded from artifact storage.",
+            title: "导出成功",
+            description: "已通过 artifact 下载文件。",
           });
           return;
         } catch {
@@ -510,14 +437,14 @@ export function useGeneratePreviewState({
       link.click();
       URL.revokeObjectURL(url);
       toast({
-        title: "Fallback export started",
-        description: "Using preview HTML export as fallback.",
+        title: "导出成功",
+        description: "已回退为预览 HTML 导出。",
       });
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         toast({
-          title: "Render version changed",
-          description: "Please refresh and retry export.",
+          title: "版本已变化",
+          description: "版本变化，请刷新后重试。",
           variant: "destructive",
         });
         return;
@@ -534,136 +461,92 @@ export function useGeneratePreviewState({
     projectId,
   ]);
 
-  const submitSlideEdit = useCallback(
-    async (
-      slide: Slide,
-      instruction: string,
-      existingQueueItemId?: string
-    ): Promise<string | null> => {
-      if (!activeSessionId) return null;
-      const normalizedInstruction = instruction.trim();
-      if (!normalizedInstruction) return null;
-
-      const itemId = existingQueueItemId ?? makeQueueItem(slide, normalizedInstruction).id;
-      const isRetry = Boolean(existingQueueItemId);
-
-      if (!isRetry) {
-        const newItem: EditQueueItem = {
-          id: itemId,
-          slideId: slide.id || null,
-          slideIndex: slide.index,
-          instruction: normalizedInstruction,
-          status: "submitted",
-          message: "Submitting request...",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        setEditQueue((prev) => trimQueue([...prev, newItem]));
-      } else {
-        setEditQueue((prev) =>
-          patchQueueItemById(prev, itemId, {
-            status: "submitted",
-            message: "Retrying with latest render version...",
-          })
-        );
-      }
-
-      retryDraftsRef.current.set(itemId, {
-        slide,
-        instruction: normalizedInstruction,
-      });
-
-      setIsSubmittingEdit(true);
-      try {
-        const requestBody: ModifySessionRequestV1 = {
-          artifact_id: currentArtifactId ?? undefined,
-          run_id: activeRunId ?? undefined,
-          slide_id: slide.id ?? undefined,
-          slide_index: slide.index + 1,
-          instruction: normalizedInstruction,
-          base_render_version: currentRenderVersion ?? undefined,
-          scope: "current_slide_only",
-          preserve_style: true,
-          preserve_layout: true,
-          preserve_deck_consistency: true,
-          patch: {
-            schema_version: 1,
-            operations: [],
-          },
-        };
-        await previewApi.modifySessionPreview(activeSessionId, requestBody);
-        setEditQueue((prev) =>
-          patchQueueItemById(prev, itemId, {
-            status: "submitted",
-            message: "Accepted by backend. Waiting for processing event.",
-          })
-        );
-        toast({
-          title: "Redo request submitted",
-          description: `Slide ${slide.index + 1} was queued for backend processing.`,
-        });
-        return itemId;
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 409) {
-          await loadSlides();
-          setEditQueue((prev) =>
-            patchQueueItemById(prev, itemId, {
-              status: "conflict",
-              message:
-                "Render version conflict detected. Refresh done. Use Retry button.",
-            })
-          );
-          toast({
-            title: "Render conflict",
-            description: "Version refreshed. Click retry in the queue item.",
-            variant: "destructive",
-          });
-          return itemId;
-        }
-
-        const message =
-          error instanceof ApiError
-            ? error.message
-            : "Slide modify request failed. Please retry.";
-        setEditQueue((prev) =>
-          patchQueueItemById(prev, itemId, {
-            status: "failed",
-            message,
-          })
-        );
-        toast({
-          title: "Redo request failed",
-          description: message,
-          variant: "destructive",
-        });
-        return itemId;
-      } finally {
-        setIsSubmittingEdit(false);
-      }
+  const submitModifyRequest = useCallback(
+    async (slide: Slide, instruction: string) => {
+      if (!activeSessionId) return;
+      const slideId = slide.id || `slide-${slide.index}`;
+      setRegeneratingSlideId(slideId);
+      const requestBody: ModifySessionRequestV1 = {
+        artifact_id: currentArtifactId ?? undefined,
+        run_id: activeRunId ?? undefined,
+        slide_id: slide.id ?? undefined,
+        slide_index: slide.index + 1,
+        instruction,
+        base_render_version: currentRenderVersion ?? undefined,
+        scope: "current_slide_only",
+        preserve_style: true,
+        preserve_layout: true,
+        preserve_deck_consistency: true,
+        patch: {
+          schema_version: 1,
+          operations: [],
+        },
+      };
+      await previewApi.modifySessionPreview(activeSessionId, requestBody);
     },
-    [
-      activeRunId,
-      activeSessionId,
-      currentArtifactId,
-      currentRenderVersion,
-      loadSlides,
-    ]
+    [activeRunId, activeSessionId, currentArtifactId, currentRenderVersion]
   );
 
-  const retryEditQueueItem = useCallback(
-    async (itemId: string) => {
-      const draft = retryDraftsRef.current.get(itemId);
-      if (!draft) {
+  const handleRegenerateSlide = useCallback(
+    async (slide: Slide) => {
+      if (!activeSessionId || regeneratingSlideId) return;
+      const instruction = window.prompt("请输入该页的修改要求");
+      const normalizedInstruction = instruction?.trim() ?? "";
+      if (!normalizedInstruction) {
         toast({
-          title: "Retry unavailable",
-          description: "No retry payload cached for this queue item.",
+          title: "未提交修改",
+          description: "修改要求不能为空。",
           variant: "destructive",
         });
         return;
       }
-      await submitSlideEdit(draft.slide, draft.instruction, itemId);
+      try {
+        await submitModifyRequest(slide, normalizedInstruction);
+        await loadSlides();
+        toast({
+          title: "单页修改已提交",
+          description: `第 ${slide.index + 1} 页已进入修改队列。`,
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) {
+          pendingModifyRetryRef.current = {
+            slide,
+            instruction: normalizedInstruction,
+          };
+          await loadSlides();
+          const shouldRetry = window.confirm(
+            "检测到版本冲突，已拉取最新 render version。是否立即重试？"
+          );
+          if (shouldRetry && pendingModifyRetryRef.current) {
+            const pending = pendingModifyRetryRef.current;
+            pendingModifyRetryRef.current = null;
+            await submitModifyRequest(pending.slide, pending.instruction);
+            await loadSlides();
+            toast({
+              title: "重试已提交",
+              description: "已使用最新 render version 重新提交。",
+            });
+            return;
+          }
+          toast({
+            title: "版本冲突",
+            description: "已刷新到最新版本，可再次点击单页修改。",
+            variant: "destructive",
+          });
+          return;
+        }
+        const message =
+          error instanceof ApiError ? error.message : "单页修改失败，请稍后重试";
+        toast({
+          title: "单页修改失败",
+          description: message,
+          variant: "destructive",
+        });
+      } finally {
+        setRegeneratingSlideId(null);
+      }
     },
-    [submitSlideEdit]
+    [activeSessionId, loadSlides, regeneratingSlideId, submitModifyRequest]
   );
 
   return {
@@ -672,7 +555,7 @@ export function useGeneratePreviewState({
     isLoading,
     isExporting,
     isResuming,
-    isSubmittingEdit,
+    regeneratingSlideId,
     previewBlockedReason,
     isSessionGenerating,
     isOutlineGenerating,
@@ -680,12 +563,9 @@ export function useGeneratePreviewState({
     activeSessionId,
     activeRunId,
     currentArtifactId,
-    editQueue,
-    supportsImageEditing,
     handleExport,
     handleResume,
-    submitSlideEdit,
-    retryEditQueueItem,
+    handleRegenerateSlide,
     loadSlides,
     loadSessionRuns,
   };
