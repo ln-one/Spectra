@@ -1195,6 +1195,12 @@ paths:
           schema:
             type: string
           description: 指定预览的成果 ID（可选）
+        - name: run_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定运行 ID（可选）
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
@@ -1273,6 +1279,12 @@ paths:
           schema:
             type: string
           description: 指定来源成果 ID（可选）
+        - name: run_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定运行 ID（可选）
         - $ref: '#/components/parameters/ContractVersion'
       responses:
         '200':
@@ -1301,6 +1313,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: run_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 指定运行 ID（可选）
         - $ref: '#/components/parameters/ContractVersion'
       requestBody:
         required: true
@@ -5066,6 +5084,9 @@ components:
         based_on_version_id:
           type: string
           nullable: true
+        run_id:
+          type: string
+          nullable: true
     preview_SourceReference:
       type: object
       required:
@@ -5164,7 +5185,7 @@ components:
           properties:
             session_id:
               type: string
-              description: 会话级预览上下文 ID（session-first 流程）
+              description: 会话级预览上下文 ID（session-first）
             task_id:
               type: string
               description: 兼容旧任务流的执行 ID
@@ -5177,6 +5198,13 @@ components:
               type: string
               description: 当前预览基于的正式版本 ID
               nullable: true
+            current_version_id:
+              type: string
+              description: 当前项目正式版本 ID
+              nullable: true
+            upstream_updated:
+              type: boolean
+              description: 预览基于的上游版本是否与当前项目版本一致
             render_version:
               type: integer
               minimum: 1
@@ -5199,6 +5227,9 @@ components:
         artifact_id:
           type: string
           description: 指定要修改的成果 ID（可选）
+        run_id:
+          type: string
+          description: 指定运行 ID（可选）
         instruction:
           type: string
           minLength: 1
@@ -5209,10 +5240,32 @@ components:
             type: string
         context:
           type: object
+          additionalProperties: true
         base_render_version:
           type: integer
           minimum: 1
           description: 并发控制版本（防止覆盖更新）
+        slide_id:
+          type: string
+          description: 指定要修改的 slide ID（可选）
+        slide_index:
+          type: integer
+          minimum: 1
+          description: 指定要修改的页码（从 1 开始）
+        scope:
+          type: string
+          description: 修改作用范围
+        preserve_style:
+          type: boolean
+          default: true
+        preserve_layout:
+          type: boolean
+          default: true
+        preserve_deck_consistency:
+          type: boolean
+          default: true
+        patch:
+          $ref: '#/components/schemas/StructuredSlidePatch'
         candidate_change:
           $ref: '#/components/schemas/CandidateChangeRequest'
     ModifyResponse:
@@ -5251,8 +5304,22 @@ components:
               type: string
               description: 修改任务基于的正式版本 ID
               nullable: true
+            current_version_id:
+              type: string
+              description: 当前项目正式版本 ID
+              nullable: true
+            upstream_updated:
+              type: boolean
+              description: 修改基于的上游版本是否与当前项目版本一致
             artifact_anchor:
               $ref: '#/components/schemas/ArtifactAnchor'
+            slide_id:
+              type: string
+            slide_index:
+              type: integer
+              minimum: 1
+            scope:
+              type: string
             candidate_change:
               $ref: '#/components/schemas/CandidateChange'
         message:
@@ -5272,6 +5339,21 @@ components:
             session_id:
               type: string
               description: 当前幻灯片详情所属会话
+            artifact_id:
+              type: string
+              description: 当前预览对应的成果 ID
+              nullable: true
+            based_on_version_id:
+              type: string
+              description: 当前预览基于的正式版本 ID
+              nullable: true
+            current_version_id:
+              type: string
+              description: 当前项目正式版本 ID
+              nullable: true
+            upstream_updated:
+              type: boolean
+              description: 预览基于的上游版本是否与当前项目版本一致
             slide:
               $ref: '#/components/schemas/Slide'
             teaching_plan:
@@ -5305,6 +5387,9 @@ components:
         artifact_id:
           type: string
           description: 指定要导出的成果 ID（可选）
+        run_id:
+          type: string
+          description: 指定运行 ID（可选）
         format:
           type: string
           enum:
@@ -5350,6 +5435,13 @@ components:
               type: string
               description: 导出基于的正式版本 ID
               nullable: true
+            current_version_id:
+              type: string
+              description: 当前项目正式版本 ID
+              nullable: true
+            upstream_updated:
+              type: boolean
+              description: 导出基于的上游版本是否与当前项目版本一致
             artifact_anchor:
               $ref: '#/components/schemas/ArtifactAnchor'
             content:

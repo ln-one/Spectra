@@ -17,6 +17,12 @@
         schema:
           type: string
         description: 指定预览的成果 ID（可选）
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 指定运行 ID（可选）
       - $ref: '../components/parameters.yaml#/ContractVersion'
     responses:
       '200':
@@ -95,6 +101,12 @@
         schema:
           type: string
         description: 指定来源成果 ID（可选）
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 指定运行 ID（可选）
       - $ref: '../components/parameters.yaml#/ContractVersion'
     responses:
       '200':
@@ -123,6 +135,12 @@
         required: true
         schema:
           type: string
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 指定运行 ID（可选）
       - $ref: '../components/parameters.yaml#/ContractVersion'
     requestBody:
       required: true

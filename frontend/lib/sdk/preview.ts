@@ -1,31 +1,21 @@
-﻿import { sdkClient, unwrap, withIdempotency } from "./client";
-import type { components } from "./types";
+import { sdkClient, unwrap, withIdempotency } from "./client";
+import type { components, operations } from "./types";
 
 export type PreviewResponse = components["schemas"]["PreviewResponse"];
 export type ModifyResponse = components["schemas"]["ModifyResponse"];
 export type SlideDetailResponse = components["schemas"]["SlideDetailResponse"];
 export type ExportResponse = components["schemas"]["ExportResponse"];
-
+export type PreviewQuery =
+  operations["getGenerateSessionsBySessionIdPreview"]["parameters"]["query"];
 export type ModifySessionRequest =
   components["schemas"]["ModifySessionRequest"];
-export type ModifySessionRequestV1 = ModifySessionRequest & {
-  run_id?: string;
-  slide_id?: string;
-  slide_index?: number;
-  scope?: "current_slide_only" | string;
-  preserve_style?: boolean;
-  preserve_layout?: boolean;
-  preserve_deck_consistency?: boolean;
-  patch?: components["schemas"]["StructuredSlidePatch"];
-};
-export type ExportRequest = components["schemas"]["ExportRequest"] & {
-  run_id?: string;
-};
+export type ExportRequest = components["schemas"]["ExportRequest"];
+export type SlideDetailQuery = PreviewQuery;
 
 export const previewApi = {
   async getSessionPreview(
     sessionId: string,
-    options?: { artifact_id?: string; run_id?: string }
+    options?: PreviewQuery
   ): Promise<PreviewResponse> {
     const query =
       options?.artifact_id || options?.run_id
@@ -36,21 +26,21 @@ export const previewApi = {
         : undefined;
     const result = await sdkClient.GET(
       "/api/v1/generate/sessions/{session_id}/preview",
-      { params: { path: { session_id: sessionId }, query: query as never } }
+      { params: { path: { session_id: sessionId }, query } }
     );
     return unwrap<PreviewResponse>(result);
   },
 
   async modifySessionPreview(
     sessionId: string,
-    data: ModifySessionRequestV1
+    data: ModifySessionRequest
   ): Promise<ModifyResponse> {
     const headers = withIdempotency({}, true);
     const result = await sdkClient.POST(
       "/api/v1/generate/sessions/{session_id}/preview/modify",
       {
         params: { path: { session_id: sessionId } },
-        body: data as components["schemas"]["ModifySessionRequest"],
+        body: data,
         headers,
       }
     );
@@ -60,7 +50,7 @@ export const previewApi = {
   async getSessionSlideDetail(
     sessionId: string,
     slideId: string,
-    options?: { artifact_id?: string; run_id?: string }
+    options?: SlideDetailQuery
   ): Promise<SlideDetailResponse> {
     const query =
       options?.artifact_id || options?.run_id
@@ -74,7 +64,7 @@ export const previewApi = {
       {
         params: {
           path: { session_id: sessionId, slide_id: slideId },
-          query: query as never,
+          query,
         },
       }
     );
@@ -85,16 +75,15 @@ export const previewApi = {
     sessionId: string,
     data: ExportRequest
   ): Promise<ExportResponse> {
-    const body: components["schemas"]["ExportRequest"] & { run_id?: string } = {
+    const body: ExportRequest = {
       ...data,
       include_sources: data.include_sources ?? true,
-      run_id: data.run_id,
     };
     const result = await sdkClient.POST(
       "/api/v1/generate/sessions/{session_id}/preview/export",
       {
         params: { path: { session_id: sessionId } },
-        body: body as never,
+        body,
       }
     );
     return unwrap<ExportResponse>(result);

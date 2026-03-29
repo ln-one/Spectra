@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { previewApi, type ModifySessionRequestV1 } from "@/lib/sdk/preview";
+import { previewApi, type ModifySessionRequest } from "@/lib/sdk/preview";
 import { generateApi, type SessionRun } from "@/lib/sdk/generate";
 import { projectSpaceApi } from "@/lib/sdk/project-space";
 import { ApiError } from "@/lib/sdk/client";
@@ -190,12 +190,12 @@ export function useGeneratePreviewState({
             ? error.details.reason
             : null;
         if (reason === "run_not_ready") {
-          setPreviewBlockedReason("当前运行尚未产生可预览内容，请稍候。");
+          setPreviewBlockedReason("当前运行尚未生成可预览内容，请稍后再试。");
           return;
         }
         toast({
           title: "版本已变化",
-          description: "版本变化，请刷新后重试。",
+          description: "版本已变化，请刷新后重试。",
           variant: "destructive",
         });
         return;
@@ -444,7 +444,7 @@ export function useGeneratePreviewState({
       if (error instanceof ApiError && error.status === 409) {
         toast({
           title: "版本已变化",
-          description: "版本变化，请刷新后重试。",
+          description: "版本已变化，请刷新后重试。",
           variant: "destructive",
         });
         return;
@@ -466,7 +466,7 @@ export function useGeneratePreviewState({
       if (!activeSessionId) return;
       const slideId = slide.id || `slide-${slide.index}`;
       setRegeneratingSlideId(slideId);
-      const requestBody: ModifySessionRequestV1 = {
+      const requestBody: ModifySessionRequest = {
         artifact_id: currentArtifactId ?? undefined,
         run_id: activeRunId ?? undefined,
         slide_id: slide.id ?? undefined,
@@ -490,7 +490,7 @@ export function useGeneratePreviewState({
   const handleRegenerateSlide = useCallback(
     async (slide: Slide) => {
       if (!activeSessionId || regeneratingSlideId) return;
-      const instruction = window.prompt("请输入该页的修改要求");
+      const instruction = window.prompt("请输入这一页的修改要求");
       const normalizedInstruction = instruction?.trim() ?? "";
       if (!normalizedInstruction) {
         toast({
