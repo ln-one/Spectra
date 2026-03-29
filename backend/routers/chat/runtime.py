@@ -80,7 +80,7 @@ async def _fallback_first_message_title_refresh(
             where={"id": session_id},
             data={
                 "displayTitle": title,
-                "displayTitleSource": "first_message",
+                "displayTitleSource": SESSION_TITLE_SOURCE_DEFAULT,
                 "displayTitleUpdatedAt": datetime.now(timezone.utc),
             },
         )
@@ -224,6 +224,7 @@ async def process_chat_message(
                 and session_title_source == SESSION_TITLE_SOURCE_DEFAULT
             ):
                 refreshed = None
+                fallback_applied = False
                 if hasattr(db_service.db.generationsession, "update"):
                     inline_timeout = _inline_title_refresh_timeout_seconds()
                     if inline_timeout > 0:
@@ -248,10 +249,20 @@ async def process_chat_message(
                         session_id=session_id,
                         first_message=body.content,
                     )
+                    fallback_applied = bool(refreshed)
                 if refreshed:
                     session_title_updated = True
                     session_title = refreshed.get("display_title")
                     session_title_source = refreshed.get("display_title_source")
+                    if fallback_applied:
+                        spawn_background_task(
+                            generate_semantic_session_title(
+                                db=db_service.db,
+                                session_id=session_id,
+                                first_message=body.content,
+                            ),
+                            label=f"session-title:{session_id}",
+                        )
                 else:
                     spawn_background_task(
                         generate_semantic_session_title(

@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -181,7 +181,7 @@ def test_send_message_inline_session_title_refresh_updates_response(
             }
         ),
     )
-    spawn_mock = AsyncMock()
+    spawn_mock = Mock()
     monkeypatch.setattr("routers.chat.runtime.spawn_background_task", spawn_mock)
     _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
 
@@ -212,7 +212,7 @@ def test_send_message_first_message_title_fallback_updates_response(
             update=AsyncMock(
                 return_value=SimpleNamespace(
                     displayTitle="Hello AI",
-                    displayTitleSource="first_message",
+                    displayTitleSource="default",
                     displayTitleUpdatedAt=_NOW,
                 )
             ),
@@ -243,7 +243,7 @@ def test_send_message_first_message_title_fallback_updates_response(
         "routers.chat.runtime.generate_semantic_session_title",
         AsyncMock(return_value=None),
     )
-    spawn_mock = AsyncMock()
+    spawn_mock = Mock()
     monkeypatch.setattr("routers.chat.runtime.spawn_background_task", spawn_mock)
     _mock(monkeypatch, ai_service, "generate", {"content": "assistant reply"})
 
@@ -252,8 +252,8 @@ def test_send_message_first_message_title_fallback_updates_response(
     body = resp.json()
     assert body["data"]["session_title_updated"] is True
     assert body["data"]["session_title"] == "Hello AI"
-    assert body["data"]["session_title_source"] == "first_message"
-    spawn_mock.assert_not_called()
+    assert body["data"]["session_title_source"] == "default"
+    spawn_mock.assert_called_once()
 
 
 def test_send_message_rejects_missing_session_id(client, monkeypatch, _as_user):
