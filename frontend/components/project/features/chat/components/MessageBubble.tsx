@@ -9,6 +9,7 @@ import { toCitationViewModels } from "@/lib/chat/citation-view-model";
 import type { ChatMessage } from "../types";
 import { CitationBadge } from "./CitationBadge";
 import { MarkdownContent } from "./MarkdownContent";
+import { ThinkingBubble } from "./ThinkingBubble";
 
 function splitContentAndSources(content: string): { body: string } {
   const markers = ["\n\n\u6765\u6e90\uff1a", "\n\n\u6765\u6e90:"];
@@ -25,12 +26,21 @@ export function MessageBubble({
   message,
   index,
   projectId,
+  toolColor,
 }: {
   message: ChatMessage;
   index: number;
   projectId: string;
+  toolColor?: {
+    primary: string;
+    secondary: string;
+    glow: string;
+    soft: string;
+  };
 }) {
   const isUser = message.role === "user";
+  const isInlineThinkingMessage =
+    !isUser && message.content.includes("Spectra 正在构思");
   const { focusSourceByChunk } = useProjectStore(
     useShallow((state) => ({
       focusSourceByChunk: state.focusSourceByChunk,
@@ -43,6 +53,9 @@ export function MessageBubble({
   );
 
   return (
+    isInlineThinkingMessage ? (
+      <ThinkingBubble toolColor={toolColor} />
+    ) : (
     <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -124,5 +137,6 @@ export function MessageBubble({
         </span>
       </div>
     </motion.div>
+    )
   );
 }

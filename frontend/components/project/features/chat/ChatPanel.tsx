@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
+import { ragApi } from "@/lib/sdk/rag";
 import {
   Card,
   CardContent,
@@ -28,13 +29,54 @@ interface ChatPanelProps {
   projectId: string;
 }
 
-const CHAT_DESCRIPTION = "AI 助手对话";
-const THINKING_LABEL = "Spectra 正在构思...";
-const EMPTY_TITLE = "开始对话";
-const EMPTY_DESCRIPTION = "向 AI 助手提问关于项目的内容";
-const INPUT_PLACEHOLDER = "输入消息...";
-const NO_SESSION_PLACEHOLDER = "请先在会话选择器中点击“新建会话”";
-const REFINE_PLACEHOLDER = "例如：再详细一点 / 增加案例 / 更简洁";
+type VoiceInputState = "idle" | "listening" | "transcribing" | "failed";
+
+type BrowserSpeechRecognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: {
+    resultIndex: number;
+    results: SpeechRecognitionResultList;
+  }) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type BrowserSpeechRecognitionCtor = new () => BrowserSpeechRecognition;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: BrowserSpeechRecognitionCtor;
+    webkitSpeechRecognition?: BrowserSpeechRecognitionCtor;
+  }
+}
+
+function getSpeechRecognitionCtor(): BrowserSpeechRecognitionCtor | null {
+  if (typeof window === "undefined") return null;
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function getPreferredRecorderMimeType(): string | null {
+  if (typeof MediaRecorder === "undefined") return null;
+  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  for (const type of candidates) {
+    if (MediaRecorder.isTypeSupported(type)) {
+      return type;
+    }
+  }
+  return null;
+}
+
+const CHAT_DESCRIPTION = "AI 閸斺晜澧滅€电鐦?;
+const THINKING_LABEL = "Spectra 濮濓絽婀弸鍕??..";
+const EMPTY_TITLE = "瀵?婵顕拠?;
+const EMPTY_DESCRIPTION = "閸?AI 閸斺晜澧滈幓鎰版６閸忓厖绨い鍦窗閻ㄥ嫬鍞寸€?;
+const INPUT_PLACEHOLDER = "鏉堟挸鍙嗗☉鍫熶紖...";
+const NO_SESSION_PLACEHOLDER = "鐠囧嘲鍘涢崷銊ょ窗鐠囨繈?澶嬪閸ｃ劋鑵戦悙鐟板毊閳ユ粍鏌婂杞扮窗鐠囨績??;
+const REFINE_PLACEHOLDER = "娓氬顩ч敍姘晙鐠囷妇绮忔稉?閻?/ 婢х偛濮炲鍫滅伐 / 閺囧鐣濆ú?;
 
 export function ChatPanel({
   projectId,
@@ -74,7 +116,7 @@ export function ChatPanel({
 
   const [input, setInput] = useState("");
   const [isFocused, setIsFocused] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
+  const [voiceState, setVoiceState] = useState<VoiceInputState>("idle");
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
   const [isSessionTransitioning, setIsSessionTransitioning] = useState(true);
@@ -88,6 +130,14 @@ export function ChatPanel({
   const previousSessionIdRef = useRef<string | null>(null);
   const transitionStartedAtRef = useRef(0);
   const wasMessagesLoadingRef = useRef(false);
+  const voiceRequestIdRef = useRef(0);
+  const activeVoiceRequestIdRef = useRef<number | null>(null);
+  const isVoicePressingRef = useRef(false);
+  const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const speechFinalTextRef = useRef("");
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
 
   const localSessionMessages = useMemo(() => {
     if (!activeSessionId) return [];
@@ -124,9 +174,19 @@ export function ChatPanel({
     isStudioRefineMode && studioChatContext
       ? TOOL_COLORS[studioChatContext.toolType]
       : undefined;
-  const refineToolLabel = studioChatContext?.toolLabel ?? "工具卡片";
+  const refineToolLabel = studioChatContext?.toolLabel ?? "瀹搞儱鍙块崡锛勫";
   const isAIGenerating = isSending || isStudioRefining;
   const showHeaderThinkingIndicator = isSending && !isStudioRefineMode;
+  const hasInlineRefineThinkingMessage =
+    isStudioRefineMode &&
+    mergedMessages.some(
+      (message) =>
+        message.role === "assistant" &&
+        message.content.includes("Spectra 正在构思")
+    );
+  const showGlobalThinkingBubble =
+    isAIGenerating &&
+    !(isStudioRefineMode && hasInlineRefineThinkingMessage);
 
   useEffect(() => {
     hydrateStudioLocalState(projectId);
@@ -283,16 +343,242 @@ export function ChatPanel({
     await sendMessage(projectId, content);
   };
 
-  const handleVoiceInput = () => {
-    if (isRecording) {
-      setIsRecording(false);
-      toast.success("语音输入已结束");
-    } else {
-      setIsRecording(true);
-      toast.info("正在听取语音输入...");
+  const mergeTranscriptToInput = (transcript: string) => {
+    const normalized = transcript.trim();
+    if (!normalized) return;
+    setInput((prev) => (prev.trim() ? `${prev}\n${normalized}` : normalized));
+  };
+
+  const releaseVoiceResources = () => {
+    const recognition = speechRecognitionRef.current;
+    if (recognition) {
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+    }
+    speechRecognitionRef.current = null;
+
+    const recorder = mediaRecorderRef.current;
+    if (recorder) {
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      recorder.onerror = null;
+    }
+    mediaRecorderRef.current = null;
+    mediaChunksRef.current = [];
+
+    const stream = mediaStreamRef.current;
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    mediaStreamRef.current = null;
+  };
+
+  const finalizeVoiceAsFailure = (message: string) => {
+    releaseVoiceResources();
+    activeVoiceRequestIdRef.current = null;
+    setVoiceState("failed");
+    toast.error(message);
+    setTimeout(() => setVoiceState("idle"), 0);
+  };
+
+  const stopMediaRecorderAndTranscribe = async (requestId: number) => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) {
+      finalizeVoiceAsFailure("语音转写失败，请重试");
+      return;
+    }
+
+    if (recorder.state !== "inactive") {
+      setVoiceState("transcribing");
+      recorder.stop();
+      return;
+    }
+
+    const blob = new Blob(mediaChunksRef.current, {
+      type: recorder.mimeType || "audio/webm",
+    });
+    if (blob.size === 0) {
+      finalizeVoiceAsFailure("未检测到语音内容，请重试");
+      return;
+    }
+
+    const ext = blob.type.includes("mp4") ? "m4a" : "webm";
+    const file = new File([blob], `chat-voice-${Date.now()}.${ext}`, {
+      type: blob.type || "audio/webm",
+    });
+
+    try {
+      const response = await ragApi.transcribeAudio(file, {
+        project_id: projectId,
+        auto_index: false,
+        language: "zh",
+      });
+      if (activeVoiceRequestIdRef.current !== requestId) {
+        return;
+      }
+      const transcript = response.data?.text?.trim() ?? "";
+      if (!transcript) {
+        finalizeVoiceAsFailure("未识别到语音内容，请重试或改用文字输入");
+        return;
+      }
+      mergeTranscriptToInput(transcript);
+      releaseVoiceResources();
+      activeVoiceRequestIdRef.current = null;
+      setVoiceState("idle");
+    } catch (error) {
+      if (activeVoiceRequestIdRef.current !== requestId) {
+        return;
+      }
+      const message =
+        error instanceof Error ? error.message : "语音转写失败，请重试";
+      finalizeVoiceAsFailure(message);
     }
   };
 
+  const startFallbackMediaRecorder = async (requestId: number) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (activeVoiceRequestIdRef.current !== requestId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      mediaStreamRef.current = stream;
+      mediaChunksRef.current = [];
+
+      const mimeType = getPreferredRecorderMimeType();
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          mediaChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        if (activeVoiceRequestIdRef.current !== requestId) return;
+        void stopMediaRecorderAndTranscribe(requestId);
+      };
+
+      recorder.onerror = () => {
+        if (activeVoiceRequestIdRef.current !== requestId) return;
+        finalizeVoiceAsFailure("录音失败，请检查麦克风权限");
+      };
+
+      mediaRecorderRef.current = recorder;
+      setVoiceState("listening");
+      recorder.start();
+    } catch {
+      if (activeVoiceRequestIdRef.current !== requestId) return;
+      finalizeVoiceAsFailure("无法访问麦克风，请检查浏览器权限");
+    }
+  };
+
+  const startVoiceCapture = async () => {
+    if (!activeSessionId || isSending || isStudioRefining) {
+      return;
+    }
+    if (voiceState === "listening" || voiceState === "transcribing") {
+      return;
+    }
+
+    const requestId = voiceRequestIdRef.current + 1;
+    voiceRequestIdRef.current = requestId;
+    activeVoiceRequestIdRef.current = requestId;
+    speechFinalTextRef.current = "";
+    releaseVoiceResources();
+    setVoiceState("listening");
+
+    const RecognitionCtor = getSpeechRecognitionCtor();
+    if (!RecognitionCtor) {
+      await startFallbackMediaRecorder(requestId);
+      return;
+    }
+
+    try {
+      const recognition = new RecognitionCtor();
+      speechRecognitionRef.current = recognition;
+      recognition.lang = "zh-CN";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onresult = (event) => {
+        if (activeVoiceRequestIdRef.current !== requestId) return;
+        const fragments: string[] = [];
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            fragments.push(result[0]?.transcript ?? "");
+          }
+        }
+        if (fragments.length > 0) {
+          speechFinalTextRef.current = `${speechFinalTextRef.current} ${fragments.join(" ")}`.trim();
+        }
+      };
+
+      recognition.onerror = () => {
+        if (activeVoiceRequestIdRef.current !== requestId) return;
+        releaseVoiceResources();
+        void startFallbackMediaRecorder(requestId);
+      };
+
+      recognition.onend = () => {
+        if (activeVoiceRequestIdRef.current !== requestId) return;
+        const transcript = speechFinalTextRef.current.trim();
+        if (transcript) {
+          mergeTranscriptToInput(transcript);
+          releaseVoiceResources();
+          activeVoiceRequestIdRef.current = null;
+          setVoiceState("idle");
+          return;
+        }
+        if (isVoicePressingRef.current) {
+          releaseVoiceResources();
+          void startFallbackMediaRecorder(requestId);
+          return;
+        }
+        finalizeVoiceAsFailure("未识别到语音内容，请重试或改用文字输入");
+      };
+
+      recognition.start();
+    } catch {
+      releaseVoiceResources();
+      await startFallbackMediaRecorder(requestId);
+    }
+  };
+
+  const stopVoiceCapture = async () => {
+    const requestId = activeVoiceRequestIdRef.current;
+    if (!requestId) return;
+
+    const recognition = speechRecognitionRef.current;
+    if (recognition) {
+      setVoiceState("transcribing");
+      try {
+        recognition.stop();
+      } catch {
+        releaseVoiceResources();
+        await startFallbackMediaRecorder(requestId);
+      }
+      return;
+    }
+
+    if (!mediaRecorderRef.current) {
+      return;
+    }
+
+    await stopMediaRecorderAndTranscribe(requestId);
+  };
+
+  useEffect(() => {
+    return () => {
+      activeVoiceRequestIdRef.current = null;
+      isVoicePressingRef.current = false;
+      releaseVoiceResources();
+    };
+  }, []);
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing) {
       return;
@@ -307,6 +593,10 @@ export function ChatPanel({
     setInput(suggestion);
     textareaRef.current?.focus();
   };
+
+  const hasInput = Boolean(input.trim());
+  const isVoiceListening = voiceState === "listening";
+  const isVoiceTranscribing = voiceState === "transcribing";
 
   return (
     <div
@@ -342,7 +632,7 @@ export function ChatPanel({
         >
           <div className="min-w-0 flex-1 flex-col justify-center">
             <CardTitle className="truncate text-lg font-bold leading-tight">
-              <span className="truncate whitespace-nowrap">智能助手</span>
+              <span className="truncate whitespace-nowrap">閺呴缚鍏橀崝鈺傚</span>
             </CardTitle>
             <CardDescription className="mt-0.5 text-xs font-medium leading-tight text-[var(--project-text-muted)]">
               {CHAT_DESCRIPTION}
@@ -435,10 +725,13 @@ export function ChatPanel({
                         message={message as ChatMessage}
                         index={index}
                         projectId={projectId}
+                        toolColor={toolColors}
                       />
                     ))}
                   </AnimatePresence>
-                  {isAIGenerating && <ThinkingBubble toolColor={toolColors} />}
+                  {showGlobalThinkingBubble && (
+                    <ThinkingBubble toolColor={toolColors} />
+                  )}
                   <div
                     ref={messagesEndRef}
                     style={{ scrollMarginBottom: `${composerClearance}px` }}
@@ -515,13 +808,13 @@ export function ChatPanel({
                   >
                     <span className="truncate flex items-center gap-1.5">
                       <Sparkles className="h-3.5 w-3.5" />
-                      正在微调：{refineToolLabel}
+                      濮濓絽婀顔跨殶閿涙refineToolLabel}
                     </span>
                     {isStudioRefining ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <span className="shrink-0 opacity-80">
-                        发送后会按顺序处理
+                        閸欐垿?浣告倵娴兼碍瀵滄い鍝勭碍婢跺嫮鎮?
                       </span>
                     )}
                   </div>
@@ -548,32 +841,61 @@ export function ChatPanel({
                 />
                 <Button
                   size="icon"
-                  onClick={() => {
-                    if (input.trim()) {
+                  onClick={(event) => {
+                    if (hasInput) {
                       void handleSend();
-                    } else {
-                      handleVoiceInput();
+                      return;
                     }
+                    event.preventDefault();
+                  }}
+                  onPointerDown={(event) => {
+                    if (hasInput || !activeSessionId || isAIGenerating) return;
+                    isVoicePressingRef.current = true;
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    void startVoiceCapture();
+                  }}
+                  onPointerUp={(event) => {
+                    if (hasInput || !isVoicePressingRef.current) return;
+                    isVoicePressingRef.current = false;
+                    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                      event.currentTarget.releasePointerCapture(event.pointerId);
+                    }
+                    void stopVoiceCapture();
+                  }}
+                  onPointerCancel={(event) => {
+                    if (hasInput || !isVoicePressingRef.current) return;
+                    isVoicePressingRef.current = false;
+                    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                      event.currentTarget.releasePointerCapture(event.pointerId);
+                    }
+                    void stopVoiceCapture();
+                  }}
+                  onPointerLeave={() => {
+                    if (hasInput || !isVoicePressingRef.current) return;
+                    isVoicePressingRef.current = false;
+                    void stopVoiceCapture();
                   }}
                   disabled={
                     !activeSessionId ||
-                    (!isStudioRefineMode && isSending && !!input.trim())
+                    (hasInput
+                      ? !isStudioRefineMode && isSending
+                      : isAIGenerating || isVoiceTranscribing)
                   }
                   className={cn(
                     "project-chat-send-btn relative h-10 w-10 shrink-0 rounded-[var(--project-input-radius)] overflow-hidden transition-all duration-300",
-                    input.trim() || isRecording
-                      ? input.trim() && isStudioRefineMode
+                    hasInput || isVoiceListening
+                      ? hasInput && isStudioRefineMode
                         ? "text-white shadow-sm hover:brightness-110 focus:ring-0"
                         : "bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-md hover:bg-[var(--project-accent-hover)] hover:shadow-lg"
                       : "bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] border border-transparent hover:bg-[var(--project-surface)] hover:text-[var(--project-text-primary)]"
                   )}
                   style={
-                    input.trim() && isStudioRefineMode && toolColors
+                    hasInput && isStudioRefineMode && toolColors
                       ? {
                           background: `linear-gradient(135deg, ${toolColors.primary}, ${toolColors.secondary})`,
                           borderColor: toolColors.primary,
                         }
-                      : isRecording
+                      : isVoiceListening
                         ? {
                             boxShadow:
                               "0 0 0 2px color-mix(in srgb, var(--project-accent) 20%, transparent)",
@@ -596,7 +918,7 @@ export function ChatPanel({
                       >
                         <Loader2 className="h-4 w-4 animate-spin text-white" />
                       </motion.div>
-                    ) : input.trim() ? (
+                    ) : hasInput ? (
                       <motion.div
                         key="send"
                         initial={{ scale: 0.5, opacity: 0, y: 10 }}
@@ -617,11 +939,11 @@ export function ChatPanel({
                         className="absolute inset-0 flex items-center justify-center"
                       >
                         <Mic
-                          className={cn(
-                            "h-4 w-4 transition-transform duration-300",
-                            isRecording && "animate-pulse scale-110"
-                          )}
-                        />
+                            className={cn(
+                              "h-4 w-4 transition-transform duration-300",
+                              isVoiceListening && "animate-pulse scale-110"
+                            )}
+                          />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -634,3 +956,6 @@ export function ChatPanel({
     </div>
   );
 }
+
+
+
