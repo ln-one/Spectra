@@ -70,13 +70,13 @@ function getPreferredRecorderMimeType(): string | null {
   return null;
 }
 
-const CHAT_DESCRIPTION = "AI 閸斺晜澧滅€电鐦?;
-const THINKING_LABEL = "Spectra 濮濓絽婀弸鍕??..";
-const EMPTY_TITLE = "瀵?婵顕拠?;
-const EMPTY_DESCRIPTION = "閸?AI 閸斺晜澧滈幓鎰版６閸忓厖绨い鍦窗閻ㄥ嫬鍞寸€?;
-const INPUT_PLACEHOLDER = "鏉堟挸鍙嗗☉鍫熶紖...";
-const NO_SESSION_PLACEHOLDER = "鐠囧嘲鍘涢崷銊ょ窗鐠囨繈?澶嬪閸ｃ劋鑵戦悙鐟板毊閳ユ粍鏌婂杞扮窗鐠囨績??;
-const REFINE_PLACEHOLDER = "娓氬顩ч敍姘晙鐠囷妇绮忔稉?閻?/ 婢х偛濮炲鍫滅伐 / 閺囧鐣濆ú?;
+const CHAT_DESCRIPTION = "AI 助手对话";
+const THINKING_LABEL = "Spectra 正在思考...";
+const EMPTY_TITLE = "开始对话";
+const EMPTY_DESCRIPTION = "向 AI 助手提问关于项目的内容";
+const INPUT_PLACEHOLDER = "输入消息...";
+const NO_SESSION_PLACEHOLDER = "请先在会话选择器中点击“新建会话”";
+const REFINE_PLACEHOLDER = "例如：再详细一点 / 增加案例 / 更简洁";
 
 export function ChatPanel({
   projectId,
@@ -808,13 +808,13 @@ export function ChatPanel({
                   >
                     <span className="truncate flex items-center gap-1.5">
                       <Sparkles className="h-3.5 w-3.5" />
-                      濮濓絽婀顔跨殶閿涙refineToolLabel}
+                      正在微调：{refineToolLabel}
                     </span>
                     {isStudioRefining ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <span className="shrink-0 opacity-80">
-                        閸欐垿?浣告倵娴兼碍瀵滄い鍝勭碍婢跺嫮鎮?
+                        发送后会按顺序处理
                       </span>
                     )}
                   </div>
@@ -956,6 +956,8 @@ export function ChatPanel({
     </div>
   );
 }
+
+
 
 
 
