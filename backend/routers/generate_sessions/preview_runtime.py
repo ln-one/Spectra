@@ -331,7 +331,7 @@ async def get_session_slide_preview_response(
             related_slides=related_slides,
             rendered_page=rendered_page,
         ),
-        message="椤甸潰棰勮鑾峰彇鎴愬姛",
+        message="页面预览获取成功",
     )
 
 
