@@ -176,6 +176,7 @@ export function useGeneratePreviewState({
   const processedEventKeysRef = useRef<Set<string>>(new Set());
   const eventsCursorRef = useRef<string | null>(null);
   const pendingModifyRetryRef = useRef<ModifyRetryContext | null>(null);
+  const eventsSnapshotReadyRef = useRef(false);
 
   const {
     generationSession,
@@ -407,6 +408,8 @@ export function useGeneratePreviewState({
       }
     } catch {
       // keep SSE-only mode when snapshot fetch fails
+    } finally {
+      eventsSnapshotReadyRef.current = true;
     }
   }, [activeSessionId]);
 
@@ -454,6 +457,7 @@ export function useGeneratePreviewState({
     processedEventKeysRef.current.clear();
     eventsCursorRef.current = null;
     pendingModifyRetryRef.current = null;
+    eventsSnapshotReadyRef.current = false;
     setOutlineSections([]);
     setIsOutlineGenerating(false);
     void Promise.all([loadEventsSnapshot(), loadSessionRuns(), loadSlides()]);
@@ -513,15 +517,17 @@ export function useGeneratePreviewState({
       }
       if (eventType === "slide.modify.failed") {
         setRegeneratingSlideId(null);
-        const message =
-          typeof payload.error_message === "string"
-            ? payload.error_message
-            : "单页修改失败";
-        toast({
-          title: "单页修改失败",
-          description: message,
-          variant: "destructive",
-        });
+        if (eventsSnapshotReadyRef.current) {
+          const message =
+            typeof payload.error_message === "string"
+              ? payload.error_message
+              : "单页修改失败";
+          toast({
+            title: "单页修改失败",
+            description: message,
+            variant: "destructive",
+          });
+        }
         continue;
       }
       if (
