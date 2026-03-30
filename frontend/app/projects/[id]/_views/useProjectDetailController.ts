@@ -33,6 +33,30 @@ function readRecordFromStorage<T extends Record<string, unknown>>(
   return {} as T;
 }
 
+function mapRunStatusLabel(runStatus?: string, runStep?: string): string {
+  if (runStatus === "completed" && runStep === "completed") return "已完成";
+  if (
+    runStatus === "processing" &&
+    (runStep === "outline" || runStep === "generate")
+  ) {
+    return "进行中";
+  }
+  if (runStatus === "failed") return "失败";
+  return runStatus || "processing";
+}
+
+function formatRunSummaryLine(run: {
+  run_no?: number;
+  run_title?: string;
+  run_status?: string;
+  run_step?: string;
+}): string {
+  const runNo = typeof run.run_no === "number" ? `#${run.run_no}` : "Run";
+  const runTitle = run.run_title?.trim() || "pending";
+  const mappedStatus = mapRunStatusLabel(run.run_status, run.run_step);
+  const runStep = run.run_step || "-";
+  return `${runNo} · ${runTitle} · ${mappedStatus}/${runStep}`;
+}
 export function useProjectDetailController() {
   const params = useParams();
   const router = useRouter();
@@ -120,28 +144,23 @@ export function useProjectDetailController() {
       const entries = await Promise.all(
         visibleGenerationHistory.map(async (item) => {
           try {
-            const response = await generateApi.listRuns(item.id, { limit: 1 });
-            const latestRun = response?.data?.runs?.[0];
+            const response = await generateApi.listRuns(item.id, { limit: 2 });
+            const runs = response?.data?.runs ?? [];
+            const latestRun = runs[0];
             if (!latestRun) return [item.id, null] as const;
-            const runNo =
-              typeof latestRun.run_no === "number"
-                ? `#${latestRun.run_no}`
-                : "Run";
-            const runTitle = latestRun.run_title?.trim() || "pending";
-            const runStatus = latestRun.run_status || "processing";
-            const runStep = latestRun.run_step || "-";
-            const mappedStatus =
-              runStatus === "completed" && runStep === "completed"
-                ? "已完成"
-                : runStatus === "processing" &&
-                    (runStep === "outline" || runStep === "generate")
-                  ? "进行中"
-                  : runStatus;
+            const previousRun = runs[1];
+            const latestSummary = formatRunSummaryLine(latestRun);
+            const previousSummary = previousRun
+              ? `上次 ${formatRunSummaryLine(previousRun)}`
+              : "";
             return [
               item.id,
               {
-                summary: `${runNo} · ${runTitle} · ${mappedStatus}/${runStep}`,
-                artifactId: latestRun.artifact_id ?? null,
+                summary: previousSummary
+                  ? `${latestSummary} | ${previousSummary}`
+                  : latestSummary,
+                artifactId:
+                  latestRun.artifact_id ?? previousRun?.artifact_id ?? null,
               },
             ] as const;
           } catch {
@@ -544,3 +563,4 @@ export function useProjectDetailController() {
     handleToggleExpandedSources: panelLayout.handleToggleExpandedSources,
   };
 }
+

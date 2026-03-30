@@ -107,6 +107,7 @@ export function useStudioCapabilityState({
         id: item.artifactId,
         title: item.title,
         type: item.artifactType,
+        sessionId: item.sessionId ?? null,
       });
     }
     return normalized;

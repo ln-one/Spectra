@@ -8,3 +8,12 @@ export interface SlideScriptItem {
   script: string;
   actionHint?: string;
 }
+
+export interface SourcePptSlidePreview {
+  page: number;
+  title: string;
+  summary?: string;
+  thumbnailUrl?: string;
+  imageUrl?: string;
+  slideId?: string;
+}

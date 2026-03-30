@@ -42,6 +42,7 @@ export interface ToolSourceOption {
   id: string;
   title?: string;
   type?: string;
+  sessionId?: string | null;
 }
 
 export interface ToolArtifactPreviewItem {

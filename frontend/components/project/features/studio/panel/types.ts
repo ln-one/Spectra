@@ -25,6 +25,7 @@ export type StudioSourceOption = {
   id: string;
   title?: string;
   type?: string;
+  sessionId?: string | null;
 };
 
 export type ToolDraftsState = Partial<Record<StudioToolKey, ToolDraftState>>;

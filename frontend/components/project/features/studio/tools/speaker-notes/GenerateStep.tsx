@@ -1,6 +1,7 @@
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ToolFlowContext } from "../types";
+import type { SourcePptSlidePreview } from "./types";
 
 interface GenerateStepProps {
   selectedDeckTitle: string;
@@ -8,6 +9,9 @@ interface GenerateStepProps {
   toneLabel: string;
   emphasizeInteraction: boolean;
   speakerGoal: string;
+  sourceSlides: SourcePptSlidePreview[];
+  isSourceSlidesLoading: boolean;
+  sourcePreviewError: string | null;
   flowContext?: ToolFlowContext;
   isGenerating: boolean;
   onBack: () => void;
@@ -20,6 +24,9 @@ export function GenerateStep({
   toneLabel,
   emphasizeInteraction,
   speakerGoal,
+  sourceSlides,
+  isSourceSlidesLoading,
+  sourcePreviewError,
   flowContext,
   isGenerating,
   onBack,
@@ -40,6 +47,51 @@ export function GenerateStep({
             说课重点：{speakerGoal}
           </div>
         ) : null}
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-zinc-800">已选课件预览</p>
+          <span className="text-[11px] text-zinc-500">
+            {isSourceSlidesLoading ? "加载中..." : `${sourceSlides.length} 页`}
+          </span>
+        </div>
+
+        {sourcePreviewError ? (
+          <p className="mt-2 text-[11px] text-amber-700">{sourcePreviewError}</p>
+        ) : null}
+
+        {sourceSlides.length > 0 ? (
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {sourceSlides.slice(0, 8).map((slide) => (
+              <div
+                key={`${slide.slideId ?? "page"}-${slide.page}`}
+                className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50"
+              >
+                <div className="aspect-[16/10] bg-white">
+                  {slide.thumbnailUrl || slide.imageUrl ? (
+                    <img
+                      src={slide.thumbnailUrl || slide.imageUrl}
+                      alt={`P${slide.page} ${slide.title}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[10px] text-zinc-500">
+                      P{slide.page}
+                    </div>
+                  )}
+                </div>
+                <p className="truncate border-t border-zinc-200 px-2 py-1 text-[10px] text-zinc-600">
+                  P{slide.page} · {slide.title}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-[11px] text-zinc-500">
+            未获取到可预览页，请确认该课件已生成并可预览。
+          </p>
+        )}
       </section>
 
       {flowContext?.isProtocolPending ? (

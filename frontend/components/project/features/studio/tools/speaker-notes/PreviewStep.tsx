@@ -2,12 +2,13 @@ import { Mic2 } from "lucide-react";
 import { CapabilityNotice } from "../CapabilityNotice";
 import type { ToolFlowContext } from "../types";
 import { ACTION_HINT_STYLE } from "./constants";
-import type { SlideScriptItem } from "./types";
+import type { SlideScriptItem, SourcePptSlidePreview } from "./types";
 
 interface PreviewStepProps {
   activePage: number;
   lastGeneratedAt: string | null;
   highlightTransition: boolean;
+  sourceSlides: SourcePptSlidePreview[];
   flowContext?: ToolFlowContext;
   onSelectPage: (page: number) => void;
 }
@@ -97,6 +98,7 @@ export function PreviewStep({
   activePage,
   lastGeneratedAt,
   highlightTransition,
+  sourceSlides,
   flowContext,
   onSelectPage,
 }: PreviewStepProps) {
@@ -111,6 +113,7 @@ export function PreviewStep({
     backendScripts.find((item) => item.page === activePage) ??
     backendScripts[0] ??
     null;
+  const sourceSlideByPage = new Map(sourceSlides.map((item) => [item.page, item]));
 
   return (
     <div className="space-y-4">
@@ -129,43 +132,65 @@ export function PreviewStep({
         </div>
 
         {activeScript ? (
-          <div className="mt-4 grid grid-cols-[88px_minmax(0,1fr)] gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
-            <div className="space-y-2">
-              {backendScripts.map((item) => (
+          <div className="mt-4 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
+            {backendScripts.map((item) => {
+              const sourceSlide = sourceSlideByPage.get(item.page);
+              const thumbnailUrl =
+                sourceSlide?.thumbnailUrl ?? sourceSlide?.imageUrl ?? "";
+              const isActive = activePage === item.page;
+              return (
                 <button
                   key={item.page}
                   type="button"
                   onClick={() => onSelectPage(item.page)}
-                  className={`h-14 w-full rounded-lg border px-2 text-[11px] ${
-                    activePage === item.page
-                      ? "border-zinc-900 bg-zinc-900 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600"
+                  className={`w-full rounded-xl border text-left transition ${
+                    isActive
+                      ? "border-zinc-900 bg-white shadow-sm"
+                      : "border-zinc-200 bg-white/80"
                   }`}
                 >
-                  P{item.page}
+                  <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-3 p-3">
+                    <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+                      <div className="aspect-[16/10]">
+                        {thumbnailUrl ? (
+                          <img
+                            src={thumbnailUrl}
+                            alt={`P${item.page} ${item.title}`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-xs text-zinc-500">
+                            P{item.page}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-zinc-800">
+                        <Mic2 className="h-4 w-4" />
+                        <p className="truncate text-sm font-semibold">
+                          第 {item.page} 页 · {item.title}
+                        </p>
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-[14px] leading-6 text-zinc-800">
+                        {item.script}
+                      </p>
+                      {item.actionHint ? (
+                        <p
+                          className={`mt-2 inline-flex rounded px-2 py-1 text-xs ${ACTION_HINT_STYLE} ${
+                            highlightTransition && isActive
+                              ? "ring-2 ring-violet-200"
+                              : ""
+                          }`}
+                        >
+                          {item.actionHint}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
                 </button>
-              ))}
-            </div>
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-              <div className="flex items-center gap-2 text-zinc-800">
-                <Mic2 className="h-4 w-4" />
-                <p className="text-sm font-semibold">
-                  Slide {activeScript.page} - {activeScript.title}
-                </p>
-              </div>
-              <p className="mt-4 whitespace-pre-wrap text-[17px] leading-8 text-zinc-800">
-                {activeScript.script}
-              </p>
-              {activeScript.actionHint ? (
-                <p
-                  className={`mt-4 inline-flex rounded px-2 py-1 text-xs ${ACTION_HINT_STYLE} ${
-                    highlightTransition ? "ring-2 ring-violet-200" : ""
-                  }`}
-                >
-                  {activeScript.actionHint}
-                </p>
-              ) : null}
-            </div>
+              );
+            })}
           </div>
         ) : backendSummary ? (
           <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">

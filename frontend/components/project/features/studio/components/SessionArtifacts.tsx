@@ -97,7 +97,7 @@ export function SessionArtifacts({
     try {
       await onRefresh();
     } finally {
-      // 保证至少动画旋转 600ms 以增加打击感
+      // 保证至少旋转 600ms，避免刷新动效过快闪烁
       setTimeout(() => setIsRefreshing(false), 600);
     }
   };
@@ -151,7 +151,6 @@ export function SessionArtifacts({
                     <span>{toolLabels[toolKey] ?? toolKey}</span>
                   </p>
                   {items.slice(0, 4).map((item, index) => {
-                    const runNo = item.runNo ?? items.length - index;
                     return (
                       <motion.div
                         key={item.id}
@@ -169,7 +168,7 @@ export function SessionArtifacts({
                         </button>
                         <div className="flex flex-1 flex-col justify-center min-w-0">
                           <p className="truncate text-[11px] font-medium text-[var(--project-text-primary)] w-full">
-                            第 {runNo} 次 · {item.title}
+                            {item.title}
                           </p>
                           <p className="flex w-full min-w-0 items-center gap-1.5 text-[10px] text-[var(--project-text-muted)]">
                             <span
@@ -256,3 +255,4 @@ export function SessionArtifacts({
     </motion.div>
   );
 }
+

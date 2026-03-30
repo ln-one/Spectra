@@ -192,6 +192,7 @@ export function useStudioExecutionHandlers({
         id: item.id,
         title: item.title,
         type: item.type,
+        sessionId: item.session_id ?? null,
       }));
       upsertCurrentCardSources(sources);
       toast({

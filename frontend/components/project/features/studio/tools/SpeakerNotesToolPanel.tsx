@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { FileSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkflowStepper } from "@/components/project/shared";
+import { previewApi } from "@/lib/sdk/preview";
+import type { components } from "@/lib/sdk/types";
 import { TOOL_COLORS } from "../constants";
 import type { ToolPanelProps } from "./types";
 import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
@@ -15,8 +17,15 @@ import {
 } from "./speaker-notes/constants";
 import { GenerateStep } from "./speaker-notes/GenerateStep";
 import { PreviewStep } from "./speaker-notes/PreviewStep";
-import type { SpeakerNotesStep, SpeechTone } from "./speaker-notes/types";
+import type {
+  SourcePptSlidePreview,
+  SpeakerNotesStep,
+  SpeechTone,
+} from "./speaker-notes/types";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
+
+type Slide = components["schemas"]["Slide"];
+type RenderedPreview = components["schemas"]["RenderedPreview"];
 
 export function SpeakerNotesToolPanel({
   toolName,
@@ -34,6 +43,11 @@ export function SpeakerNotesToolPanel({
   const [activePage, setActivePage] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null);
+  const [sourceSlides, setSourceSlides] = useState<SourcePptSlidePreview[]>([]);
+  const [isSourceSlidesLoading, setIsSourceSlidesLoading] = useState(false);
+  const [sourcePreviewError, setSourcePreviewError] = useState<string | null>(
+    null
+  );
 
   const sourceOptions = useMemo(
     () => flowContext?.sourceOptions ?? [],
@@ -77,9 +91,113 @@ export function SpeakerNotesToolPanel({
     () => sourceOptions.find((item) => item.id === selectedDeckId)?.title ?? "",
     [selectedDeckId, sourceOptions]
   );
+  const selectedSourceOption = useMemo(
+    () => sourceOptions.find((item) => item.id === selectedDeckId) ?? null,
+    [selectedDeckId, sourceOptions]
+  );
   const toneLabel = getToneLabel(tone);
 
   useEffect(() => {
+    if (!selectedDeckId) {
+      setSourceSlides([]);
+      setSourcePreviewError(null);
+      return;
+    }
+
+    const sourceSessionId = selectedSourceOption?.sessionId ?? null;
+    if (!sourceSessionId) {
+      setSourceSlides([]);
+      setSourcePreviewError("该课件缺少会话上下文，暂无法加载缩略图预览。");
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSourceSlides = async () => {
+      setIsSourceSlidesLoading(true);
+      setSourcePreviewError(null);
+      try {
+        const response = await previewApi.getSessionPreview(sourceSessionId, {
+          artifact_id: selectedDeckId,
+        });
+        if (cancelled) return;
+        const slides = (response.data?.slides ?? []) as Slide[];
+        const renderedPreview = response.data?.rendered_preview as
+          | RenderedPreview
+          | undefined;
+        const renderedPages = renderedPreview?.pages ?? [];
+        const pageBySlideId = new Map(
+          renderedPages
+            .filter(
+              (
+                page
+              ): page is NonNullable<RenderedPreview["pages"]>[number] & {
+                slide_id: string;
+              } => Boolean(page?.slide_id)
+            )
+            .map((page) => [page.slide_id, page])
+        );
+        const pageByIndex = new Map(
+          renderedPages
+            .filter(
+              (
+                page
+              ): page is NonNullable<RenderedPreview["pages"]>[number] & {
+                index: number;
+              } => typeof page?.index === "number"
+            )
+            .map((page) => [page.index, page])
+        );
+
+        const normalizedSlides: SourcePptSlidePreview[] = slides
+          .map((slide) => {
+            const matchedPage =
+              (slide.id ? pageBySlideId.get(slide.id) : undefined) ??
+              pageByIndex.get(slide.index);
+            const title =
+              typeof slide.title === "string" && slide.title.trim()
+                ? slide.title.trim()
+                : `Slide ${slide.index + 1}`;
+            const summary =
+              typeof slide.content === "string" ? slide.content.trim() : "";
+            return {
+              page: slide.index + 1,
+              title,
+              summary,
+              thumbnailUrl: matchedPage?.image_url ?? slide.thumbnail_url ?? undefined,
+              imageUrl: matchedPage?.image_url ?? undefined,
+              slideId: slide.id,
+            };
+          })
+          .sort((a, b) => a.page - b.page);
+
+        setSourceSlides(normalizedSlides);
+      } catch {
+        if (cancelled) return;
+        setSourceSlides([]);
+        setSourcePreviewError("课件预览加载失败，请稍后重试。");
+      } finally {
+        if (!cancelled) {
+          setIsSourceSlidesLoading(false);
+        }
+      }
+    };
+
+    void loadSourceSlides();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDeckId, selectedSourceOption?.sessionId]);
+
+  useEffect(() => {
+    const sourceSlideContext = sourceSlides
+      .slice(0, 60)
+      .map((item) => ({
+        page: item.page,
+        title: item.title,
+        summary: (item.summary || "").slice(0, 600),
+      }));
+
     onDraftChange?.({
       source_artifact_id: selectedDeckId,
       topic,
@@ -87,6 +205,8 @@ export function SpeakerNotesToolPanel({
       emphasize_interaction: emphasizeInteraction,
       speaker_goal: speakerGoal,
       active_page: activePage,
+      source_slide_count: sourceSlides.length,
+      source_slide_context_json: JSON.stringify(sourceSlideContext),
     });
   }, [
     activePage,
@@ -94,6 +214,7 @@ export function SpeakerNotesToolPanel({
     onDraftChange,
     selectedDeckId,
     speakerGoal,
+    sourceSlides,
     tone,
     topic,
   ]);
@@ -224,6 +345,9 @@ export function SpeakerNotesToolPanel({
                   toneLabel={toneLabel}
                   emphasizeInteraction={emphasizeInteraction}
                   speakerGoal={speakerGoal}
+                  sourceSlides={sourceSlides}
+                  isSourceSlidesLoading={isSourceSlidesLoading}
+                  sourcePreviewError={sourcePreviewError}
                   flowContext={flowContext}
                   isGenerating={isGenerating}
                   onBack={() => setActiveStep("config")}
@@ -236,6 +360,7 @@ export function SpeakerNotesToolPanel({
                   activePage={activePage}
                   lastGeneratedAt={lastGeneratedAt}
                   highlightTransition={false}
+                  sourceSlides={sourceSlides}
                   flowContext={flowContext}
                   onSelectPage={setActivePage}
                 />
