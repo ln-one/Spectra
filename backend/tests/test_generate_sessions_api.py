@@ -87,6 +87,12 @@ def _as_user(app):
     app.dependency_overrides.pop(get_current_user_optional, None)
 
 
+@pytest.fixture(autouse=True)
+def _studio_tool_fallback_allow_for_legacy_tests(monkeypatch):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "allow")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+
+
 @pytest.mark.anyio
 async def test_create_session_returns_quickly_and_schedules_outline(
     app, mock_db_service, _as_user
@@ -1500,6 +1506,53 @@ async def test_execute_studio_card_accepts_rag_source_ids(app, _as_user):
     assert kwargs["artifact_type"] == "mindmap"
     assert kwargs["artifact_mode"] == "replace"
     assert kwargs["content"]["nodes"]
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_strict_mode_returns_upstream_error_and_no_artifact(
+    app, _as_user, monkeypatch
+):
+    client = TestClient(app)
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "strict")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.tool_content_builder.ai_service.generate",
+            AsyncMock(side_effect=RuntimeError("provider timeout")),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/knowledge_mindmap/execute",
+            json={
+                "project_id": "p-001",
+                "config": {
+                    "topic": "Electromagnetism",
+                    "depth": 3,
+                    "focus": "concept",
+                },
+            },
+        )
+
+    assert response.status_code == 502
+    body = response.json()
+    assert body["success"] is False
+    assert body["error"]["code"] in {
+        "EXTERNAL_SERVICE_ERROR",
+        "UPSTREAM_UNAVAILABLE",
+    }
+    assert body["error"]["details"]["card_id"] == "knowledge_mindmap"
+    assert body["error"]["details"]["phase"] in {"generate", "parse", "validate"}
+    assert body["error"]["details"]["failure_reason"]
+    create_artifact_mock.assert_not_awaited()
 
 
 @pytest.mark.anyio

@@ -39,3 +39,17 @@ ServiceUnavailable:
     application/json:
       schema:
         $ref: '../schemas/common.yaml#/ErrorResponse'
+
+BadGateway:
+  description: 上游服务不可用或返回异常
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ErrorResponse'
+
+GatewayTimeout:
+  description: 上游服务响应超时
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ErrorResponse'

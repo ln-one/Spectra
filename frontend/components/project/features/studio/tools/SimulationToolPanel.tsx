@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { WorkflowStepper } from "@/components/project/shared";
 import { studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
+import { ApiError } from "@/lib/sdk/client";
 import { useProjectStore } from "@/stores/projectStore";
 import { TOOL_COLORS } from "../constants";
 import type { ToolPanelProps } from "./types";
@@ -27,6 +28,25 @@ function resolveEffectiveRagSourceIds(selectedFileIds: string[]): string[] {
     (id) => typeof id === "string" && id.trim().length > 0
   );
   return Array.from(new Set(normalized));
+}
+
+function formatStudioTurnError(error: unknown): string {
+  if (error instanceof ApiError) {
+    const code = error.code || "UNKNOWN_ERROR";
+    const message = error.message || "Request failed";
+    const details = error.details ?? {};
+    const phase =
+      typeof details.phase === "string" ? String(details.phase) : null;
+    const reason =
+      typeof details.failure_reason === "string"
+        ? String(details.failure_reason)
+        : null;
+    const hints = [phase ? `phase=${phase}` : "", reason ? `reason=${reason}` : ""]
+      .filter(Boolean)
+      .join(", ");
+    return hints ? `[${code}] ${message} (${hints})` : `[${code}] ${message}`;
+  }
+  return getErrorMessage(error);
 }
 
 export function SimulationToolPanel({
@@ -187,7 +207,7 @@ export function SimulationToolPanel({
       await fetchArtifactHistory(project.id, activeSessionId ?? null);
     } catch (error) {
       setTurnResult(null);
-      setJudgeText(`Submit failed: ${getErrorMessage(error)}`);
+      setJudgeText(`Submit failed: ${formatStudioTurnError(error)}`);
     } finally {
       setIsSubmittingTurn(false);
     }

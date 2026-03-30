@@ -182,6 +182,12 @@
         $ref: '../components/responses.yaml#/NotFound'
       '409':
         $ref: '../components/responses.yaml#/Conflict'
+      '502':
+        $ref: '../components/responses.yaml#/BadGateway'
+      '503':
+        $ref: '../components/responses.yaml#/ServiceUnavailable'
+      '504':
+        $ref: '../components/responses.yaml#/GatewayTimeout'
 
 /api/v1/generate/capabilities:
   get:
@@ -360,6 +366,12 @@
         $ref: '../components/responses.yaml#/NotFound'
       '409':
         $ref: '../components/responses.yaml#/Conflict'
+      '502':
+        $ref: '../components/responses.yaml#/BadGateway'
+      '503':
+        $ref: '../components/responses.yaml#/ServiceUnavailable'
+      '504':
+        $ref: '../components/responses.yaml#/GatewayTimeout'
 
 /api/v1/generate/studio-cards/{card_id}/refine:
   post:
@@ -399,6 +411,12 @@
         $ref: '../components/responses.yaml#/NotFound'
       '409':
         $ref: '../components/responses.yaml#/Conflict'
+      '502':
+        $ref: '../components/responses.yaml#/BadGateway'
+      '503':
+        $ref: '../components/responses.yaml#/ServiceUnavailable'
+      '504':
+        $ref: '../components/responses.yaml#/GatewayTimeout'
 
 /api/v1/generate/studio-cards/classroom_qa_simulator/turn:
   post:
@@ -433,6 +451,12 @@
         $ref: '../components/responses.yaml#/NotFound'
       '409':
         $ref: '../components/responses.yaml#/Conflict'
+      '502':
+        $ref: '../components/responses.yaml#/BadGateway'
+      '503':
+        $ref: '../components/responses.yaml#/ServiceUnavailable'
+      '504':
+        $ref: '../components/responses.yaml#/GatewayTimeout'
 
 /api/v1/generate/studio-cards/{card_id}/sources:
   get:

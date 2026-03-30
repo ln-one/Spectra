@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { generateApi, studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
+import { ApiError } from "@/lib/sdk/client";
 import type {
   ArtifactHistoryItem,
   GenerationToolType,
@@ -73,6 +74,25 @@ function isRestrictedRagModeEnabled(draft: ToolDraftState): boolean {
     normalized === "selected" ||
     normalized === "strict"
   );
+}
+
+function formatStudioExecutionError(error: unknown): string {
+  if (error instanceof ApiError) {
+    const code = error.code || "UNKNOWN_ERROR";
+    const message = error.message || "Request failed";
+    const details = error.details ?? {};
+    const phase =
+      typeof details.phase === "string" ? String(details.phase) : null;
+    const reason =
+      typeof details.failure_reason === "string"
+        ? String(details.failure_reason)
+        : null;
+    const hints = [phase ? `phase=${phase}` : "", reason ? `reason=${reason}` : ""]
+      .filter(Boolean)
+      .join(", ");
+    return hints ? `[${code}] ${message} (${hints})` : `[${code}] ${message}`;
+  }
+  return getErrorMessage(error);
 }
 
 export function useStudioExecutionHandlers({
@@ -181,7 +201,7 @@ export function useStudioExecutionHandlers({
     } catch (error) {
       toast({
         title: "Failed to load sources",
-        description: getErrorMessage(error),
+        description: formatStudioExecutionError(error),
         variant: "destructive",
       });
     } finally {
@@ -234,7 +254,7 @@ export function useStudioExecutionHandlers({
     } catch (error) {
       toast({
         title: "Execution preview failed",
-        description: getErrorMessage(error),
+        description: formatStudioExecutionError(error),
         variant: "destructive",
       });
     } finally {
@@ -492,7 +512,7 @@ export function useStudioExecutionHandlers({
       } catch (error) {
         toast({
           title: "Studio execution failed",
-          description: getErrorMessage(error),
+          description: formatStudioExecutionError(error),
           variant: "destructive",
         });
         return {
