@@ -31,6 +31,11 @@ async def cache_preview_content(task_id: str, courseware_content) -> dict:
             "lesson_plan_markdown",
         ),
     }
+    if hasattr(courseware_content, "_image_metadata"):
+        preview_payload["_image_metadata"] = getattr(courseware_content, "_image_metadata")
+    elif isinstance(courseware_content, dict) and "_image_metadata" in courseware_content:
+        preview_payload["_image_metadata"] = courseware_content["_image_metadata"]
+
     try:
         from services.preview_helpers import save_preview_content
 

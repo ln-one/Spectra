@@ -94,7 +94,7 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
         ),
     )
     if requires_pptx_output(context.task_type):
-        await inject_rag_images_into_courseware_content(
+        image_metadata = await inject_rag_images_into_courseware_content(
             db_service=db_service,
             project_id=context.project_id,
             query=user_requirements,
@@ -106,4 +106,11 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
             ),
             courseware_content=courseware_content,
         )
+        if image_metadata:
+            logger.info(
+                "Image insertion completed: mode=%s, count=%d",
+                image_metadata.get("retrieval_mode"),
+                image_metadata.get("image_count", 0)
+            )
+            setattr(courseware_content, "_image_metadata", image_metadata)
     return courseware_content

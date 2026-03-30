@@ -87,6 +87,16 @@ async def test_get_or_generate_content_rehydrates_from_task_input_data(monkeypat
                     "title": "缓存课件",
                     "markdown_content": "# Cached",
                     "lesson_plan_markdown": "cached plan",
+                    "_image_metadata": {
+                        "retrieval_mode": "default_library",
+                        "slides_metadata": [
+                            {
+                                "slide_index": 0,
+                                "page_semantic_type": "priority",
+                                "image_insertion_decision": "insert",
+                            }
+                        ],
+                    },
                 }
             }
         ),
@@ -114,6 +124,16 @@ async def test_get_or_generate_content_rehydrates_from_task_input_data(monkeypat
         "title": "缓存课件",
         "markdown_content": "# Cached",
         "lesson_plan_markdown": "cached plan",
+        "_image_metadata": {
+            "retrieval_mode": "default_library",
+            "slides_metadata": [
+                {
+                    "slide_index": 0,
+                    "page_semantic_type": "priority",
+                    "image_insertion_decision": "insert",
+                }
+            ],
+        },
     }
     save_mock.assert_awaited_once()
     generate_mock.assert_not_awaited()
@@ -269,7 +289,7 @@ async def test_load_preview_material_fallbacks_when_task_select_not_supported(
     )
     monkeypatch.setattr(
         "services.preview_helpers.content.build_slides",
-        lambda _task_id, _md: [
+        lambda _task_id, _md, _image_metadata=None: [
             SimpleNamespace(model_dump=lambda: {"id": "slide-1", "title": "S1"})
         ],
     )

@@ -64,6 +64,53 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     assert body["data"]["upstream_updated"] is True
 
 
+def test_get_preview_includes_slide_image_metadata(client, monkeypatch, _as_user):
+    svc = SimpleNamespace(get_session_snapshot=AsyncMock(return_value=_snapshot()))
+    monkeypatch.setattr(
+        generate_sessions_preview_router, "_get_session_service", lambda: svc
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_resolve_session_artifact_binding",
+        AsyncMock(return_value=SimpleNamespace(id="a-001", basedOnVersionId="v-001")),
+    )
+    monkeypatch.setattr(
+        generate_sessions_preview_router,
+        "_load_preview_material",
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-001"),
+                [
+                    {
+                        "id": "slide-1",
+                        "index": 0,
+                        "title": "S1",
+                        "content": "C1",
+                        "sources": [],
+                        "image_metadata": {
+                            "retrieval_mode": "default_library",
+                            "page_semantic_type": "priority",
+                            "image_insertion_decision": "insert",
+                            "image_count": 1,
+                            "image_slot": "bottom_panel",
+                            "layout_risk_level": "low",
+                            "image_match_reason": "RAG matched: demo.png",
+                        },
+                    }
+                ],
+                None,
+                {},
+            )
+        ),
+    )
+
+    resp = client.get("/api/v1/generate/sessions/s-preview-001/preview")
+    assert resp.status_code == 200
+    slide = resp.json()["data"]["slides"][0]
+    assert slide["image_metadata"]["image_insertion_decision"] == "insert"
+    assert slide["image_metadata"]["image_slot"] == "bottom_panel"
+
+
 def test_get_preview_prefers_lightweight_snapshot_when_available(
     client, monkeypatch, _as_user
 ):

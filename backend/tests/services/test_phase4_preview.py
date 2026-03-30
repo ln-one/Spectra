@@ -303,6 +303,32 @@ class TestPreviewHelpers:
         assert slides[0].title == "标题页"
         assert len(slides[0].sources) == 1
 
+    def test_build_slides_with_image_metadata(self):
+        from services.preview_helpers import build_slides
+
+        image_metadata = {
+            "retrieval_mode": "strict_sources",
+            "slides_metadata": [
+                {
+                    "slide_index": 1,
+                    "page_semantic_type": "priority",
+                    "image_insertion_decision": "insert",
+                    "image_count": 1,
+                    "image_slot": "bottom_panel",
+                    "layout_risk_level": "low",
+                    "image_match_reason": "RAG matched: demo.png",
+                }
+            ],
+        }
+
+        slides = build_slides("task1", SAMPLE_MARP, image_metadata)
+        assert slides[1].image_metadata is not None
+        assert slides[1].image_metadata.retrieval_mode == "strict_sources"
+        assert slides[1].image_metadata.page_semantic_type == "priority"
+        assert slides[1].image_metadata.image_insertion_decision == "insert"
+        assert slides[1].image_metadata.image_slot == "bottom_panel"
+        assert slides[0].image_metadata is None
+
     def test_build_lesson_plan(self):
         from services.preview_helpers import build_lesson_plan
 

@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from typing import Optional
 
 from services.database import db_service
@@ -41,7 +41,8 @@ async def load_preview_material(
             if not project:
                 raise ValueError("project not found for preview")
             content = await get_or_generate_content(task, project)
-            slide_models = build_slides(task.id, content.get("markdown_content", ""))
+            image_metadata = content.get("_image_metadata")
+            slide_models = build_slides(task.id, content.get("markdown_content", ""), image_metadata)
             slides = [slide.model_dump() for slide in slide_models]
             lesson_plan = build_lesson_plan(
                 slide_models,
