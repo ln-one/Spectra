@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Bot, Loader2, Sparkles, Mic } from "lucide-react";
+import { ArrowUp, Loader2, Sparkles, Mic } from "lucide-react";
 import { toast } from "sonner";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
@@ -78,6 +78,10 @@ const INPUT_PLACEHOLDER = "输入消息...";
 const NO_SESSION_PLACEHOLDER = "请先在会话选择器中点击“新建会话”";
 const REFINE_PLACEHOLDER = "例如：再详细一点 / 增加案例 / 更简洁";
 
+function normalizeMessageContent(content: string): string {
+  return content.replace(/\s+/g, " ").trim();
+}
+
 export function ChatPanel({
   projectId,
   ...props
@@ -132,9 +136,13 @@ export function ChatPanel({
   const wasMessagesLoadingRef = useRef(false);
   const voiceRequestIdRef = useRef(0);
   const activeVoiceRequestIdRef = useRef<number | null>(null);
-  const isVoicePressingRef = useRef(false);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const hasSpeechRecognitionRef = useRef(false);
+  const voiceBaseInputRef = useRef("");
+  const voiceSegmentStartRef = useRef<number | null>(null);
+  const voiceSegmentEndRef = useRef<number | null>(null);
   const speechFinalTextRef = useRef("");
+  const liveInterimTextRef = useRef("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaChunksRef = useRef<Blob[]>([]);
@@ -150,7 +158,7 @@ export function ChatPanel({
     merged.forEach((message) => {
       uniqueById.set(message.id, message);
     });
-    return Array.from(uniqueById.values()).sort((left, right) => {
+    const sorted = Array.from(uniqueById.values()).sort((left, right) => {
       const leftTs = Date.parse(left.timestamp);
       const rightTs = Date.parse(right.timestamp);
       const leftTime = Number.isNaN(leftTs) ? 0 : leftTs;
@@ -159,6 +167,37 @@ export function ChatPanel({
         return leftTime - rightTime;
       }
       return left.id.localeCompare(right.id);
+    });
+
+    const localRefineUsers = sorted.filter(
+      (message) =>
+        message.localMeta?.kind === "studio_refine_user" &&
+        message.role === "user"
+    );
+    if (localRefineUsers.length === 0) {
+      return sorted;
+    }
+
+    return sorted.filter((message) => {
+      if (message.localMeta?.kind === "studio_refine_user") return true;
+      if (message.localMeta?.kind === "studio_refine_status") return true;
+      if (message.role !== "user") return true;
+      if (message.localMeta) return true;
+
+      const normalizedMessage = normalizeMessageContent(message.content);
+      if (!normalizedMessage) return true;
+      const messageTs = Date.parse(message.timestamp);
+      const messageTime = Number.isNaN(messageTs) ? 0 : messageTs;
+
+      return !localRefineUsers.some((localMessage) => {
+        const localNormalized = normalizeMessageContent(localMessage.content);
+        if (!localNormalized || localNormalized !== normalizedMessage) {
+          return false;
+        }
+        const localTs = Date.parse(localMessage.timestamp);
+        const localTime = Number.isNaN(localTs) ? 0 : localTs;
+        return Math.abs(localTime - messageTime) <= 12000;
+      });
     });
   }, [localSessionMessages, messages]);
 
@@ -169,12 +208,17 @@ export function ChatPanel({
     studioChatContext?.step === "preview" &&
     studioChatContext?.canRefine === true &&
     (!activeSessionId || studioChatContext?.sessionId === activeSessionId);
+  const isStudioRefineIntent =
+    Boolean(studioChatContext) &&
+    studioChatContext?.projectId === projectId &&
+    studioChatContext?.step === "preview" &&
+    (!activeSessionId || studioChatContext?.sessionId === activeSessionId);
 
   const toolColors =
     isStudioRefineMode && studioChatContext
       ? TOOL_COLORS[studioChatContext.toolType]
       : undefined;
-  const refineToolLabel = studioChatContext?.toolLabel ?? "瀹搞儱鍙块崡锛勫";
+  const refineToolLabel = studioChatContext?.toolLabel ?? "工具微调";
   const isAIGenerating = isSending || isStudioRefining;
   const showHeaderThinkingIndicator = isSending && !isStudioRefineMode;
   const hasInlineRefineThinkingMessage =
@@ -330,12 +374,12 @@ export function ChatPanel({
 
   const handleSend = async () => {
     if (!input.trim() || !activeSessionId) return;
-    if (!isStudioRefineMode && isSending) return;
+    if (!isStudioRefineIntent && isSending) return;
 
     const content = input.trim();
     setInput("");
 
-    if (isStudioRefineMode) {
+    if (isStudioRefineIntent) {
       await sendStudioRefineMessage(projectId, content);
       return;
     }
@@ -343,10 +387,20 @@ export function ChatPanel({
     await sendMessage(projectId, content);
   };
 
-  const mergeTranscriptToInput = (transcript: string) => {
+  const composeVoiceSegment = (transcript: string) => {
+    const base = voiceBaseInputRef.current;
     const normalized = transcript.trim();
-    if (!normalized) return;
-    setInput((prev) => (prev.trim() ? `${prev}\n${normalized}` : normalized));
+    const separator = base.trim() ? "\n" : "";
+    const start = base.length + separator.length;
+    const text = normalized ? `${base}${separator}${normalized}` : base;
+    return { text, start, end: start + normalized.length };
+  };
+
+  const applyVoiceSegment = (transcript: string) => {
+    const segment = composeVoiceSegment(transcript);
+    voiceSegmentStartRef.current = segment.start;
+    voiceSegmentEndRef.current = segment.end;
+    setInput(segment.text);
   };
 
   const releaseVoiceResources = () => {
@@ -357,6 +411,7 @@ export function ChatPanel({
       recognition.onend = null;
     }
     speechRecognitionRef.current = null;
+    hasSpeechRecognitionRef.current = false;
 
     const recorder = mediaRecorderRef.current;
     if (recorder) {
@@ -377,21 +432,18 @@ export function ChatPanel({
   const finalizeVoiceAsFailure = (message: string) => {
     releaseVoiceResources();
     activeVoiceRequestIdRef.current = null;
+    liveInterimTextRef.current = "";
+    voiceSegmentStartRef.current = null;
+    voiceSegmentEndRef.current = null;
     setVoiceState("failed");
     toast.error(message);
     setTimeout(() => setVoiceState("idle"), 0);
   };
 
-  const stopMediaRecorderAndTranscribe = async (requestId: number) => {
+  const transcribeCapturedAudio = async (requestId: number) => {
     const recorder = mediaRecorderRef.current;
     if (!recorder) {
       finalizeVoiceAsFailure("语音转写失败，请重试");
-      return;
-    }
-
-    if (recorder.state !== "inactive") {
-      setVoiceState("transcribing");
-      recorder.stop();
       return;
     }
 
@@ -422,9 +474,12 @@ export function ChatPanel({
         finalizeVoiceAsFailure("未识别到语音内容，请重试或改用文字输入");
         return;
       }
-      mergeTranscriptToInput(transcript);
+      applyVoiceSegment(transcript);
       releaseVoiceResources();
       activeVoiceRequestIdRef.current = null;
+      liveInterimTextRef.current = "";
+      voiceSegmentStartRef.current = null;
+      voiceSegmentEndRef.current = null;
       setVoiceState("idle");
     } catch (error) {
       if (activeVoiceRequestIdRef.current !== requestId) {
@@ -436,12 +491,12 @@ export function ChatPanel({
     }
   };
 
-  const startFallbackMediaRecorder = async (requestId: number) => {
+  const startMediaRecorder = async (requestId: number) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (activeVoiceRequestIdRef.current !== requestId) {
         stream.getTracks().forEach((track) => track.stop());
-        return;
+        return false;
       }
       mediaStreamRef.current = stream;
       mediaChunksRef.current = [];
@@ -457,22 +512,18 @@ export function ChatPanel({
         }
       };
 
-      recorder.onstop = () => {
-        if (activeVoiceRequestIdRef.current !== requestId) return;
-        void stopMediaRecorderAndTranscribe(requestId);
-      };
-
       recorder.onerror = () => {
         if (activeVoiceRequestIdRef.current !== requestId) return;
         finalizeVoiceAsFailure("录音失败，请检查麦克风权限");
       };
 
       mediaRecorderRef.current = recorder;
-      setVoiceState("listening");
       recorder.start();
+      return true;
     } catch {
-      if (activeVoiceRequestIdRef.current !== requestId) return;
+      if (activeVoiceRequestIdRef.current !== requestId) return false;
       finalizeVoiceAsFailure("无法访问麦克风，请检查浏览器权限");
+      return false;
     }
   };
 
@@ -488,64 +539,72 @@ export function ChatPanel({
     voiceRequestIdRef.current = requestId;
     activeVoiceRequestIdRef.current = requestId;
     speechFinalTextRef.current = "";
+    liveInterimTextRef.current = "";
+    voiceBaseInputRef.current = input;
+    voiceSegmentStartRef.current = null;
+    voiceSegmentEndRef.current = null;
     releaseVoiceResources();
+
+    const recorderStarted = await startMediaRecorder(requestId);
+    if (!recorderStarted) {
+      return;
+    }
+
     setVoiceState("listening");
 
     const RecognitionCtor = getSpeechRecognitionCtor();
     if (!RecognitionCtor) {
-      await startFallbackMediaRecorder(requestId);
+      hasSpeechRecognitionRef.current = false;
       return;
     }
 
     try {
       const recognition = new RecognitionCtor();
+      hasSpeechRecognitionRef.current = true;
       speechRecognitionRef.current = recognition;
       recognition.lang = "zh-CN";
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
 
       recognition.onresult = (event) => {
-        if (activeVoiceRequestIdRef.current !== requestId) return;
-        const fragments: string[] = [];
-        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        if (activeVoiceRequestIdRef.current !== requestId) {
+          return;
+        }
+        let finalText = "";
+        let interimText = "";
+        for (let i = 0; i < event.results.length; i += 1) {
           const result = event.results[i];
+          const transcript = result[0]?.transcript ?? "";
           if (result.isFinal) {
-            fragments.push(result[0]?.transcript ?? "");
+            finalText += transcript;
+          } else {
+            interimText += transcript;
           }
         }
-        if (fragments.length > 0) {
-          speechFinalTextRef.current = `${speechFinalTextRef.current} ${fragments.join(" ")}`.trim();
-        }
+
+        speechFinalTextRef.current = finalText.trim();
+        liveInterimTextRef.current = interimText.trim();
+        const fullText =
+          `${speechFinalTextRef.current} ${liveInterimTextRef.current}`.trim();
+        applyVoiceSegment(fullText);
       };
 
       recognition.onerror = () => {
         if (activeVoiceRequestIdRef.current !== requestId) return;
-        releaseVoiceResources();
-        void startFallbackMediaRecorder(requestId);
+        hasSpeechRecognitionRef.current = false;
+        speechRecognitionRef.current = null;
+        toast.info("实时识别不可用，将在结束后使用后端转写校正");
       };
 
       recognition.onend = () => {
         if (activeVoiceRequestIdRef.current !== requestId) return;
-        const transcript = speechFinalTextRef.current.trim();
-        if (transcript) {
-          mergeTranscriptToInput(transcript);
-          releaseVoiceResources();
-          activeVoiceRequestIdRef.current = null;
-          setVoiceState("idle");
-          return;
-        }
-        if (isVoicePressingRef.current) {
-          releaseVoiceResources();
-          void startFallbackMediaRecorder(requestId);
-          return;
-        }
-        finalizeVoiceAsFailure("未识别到语音内容，请重试或改用文字输入");
+        speechRecognitionRef.current = null;
       };
 
       recognition.start();
     } catch {
-      releaseVoiceResources();
-      await startFallbackMediaRecorder(requestId);
+      hasSpeechRecognitionRef.current = false;
+      speechRecognitionRef.current = null;
     }
   };
 
@@ -553,29 +612,35 @@ export function ChatPanel({
     const requestId = activeVoiceRequestIdRef.current;
     if (!requestId) return;
 
+    setVoiceState("transcribing");
+
     const recognition = speechRecognitionRef.current;
-    if (recognition) {
-      setVoiceState("transcribing");
+    if (recognition && hasSpeechRecognitionRef.current) {
       try {
         recognition.stop();
       } catch {
-        releaseVoiceResources();
-        await startFallbackMediaRecorder(requestId);
+        speechRecognitionRef.current = null;
       }
+    }
+
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) {
+      finalizeVoiceAsFailure("录音设备不可用，请重试");
       return;
     }
 
-    if (!mediaRecorderRef.current) {
-      return;
+    if (recorder.state !== "inactive") {
+      await new Promise<void>((resolve) => {
+        recorder.onstop = () => resolve();
+        recorder.stop();
+      });
     }
 
-    await stopMediaRecorderAndTranscribe(requestId);
+    await transcribeCapturedAudio(requestId);
   };
-
   useEffect(() => {
     return () => {
       activeVoiceRequestIdRef.current = null;
-      isVoicePressingRef.current = false;
       releaseVoiceResources();
     };
   }, []);
@@ -597,6 +662,8 @@ export function ChatPanel({
   const hasInput = Boolean(input.trim());
   const isVoiceListening = voiceState === "listening";
   const isVoiceTranscribing = voiceState === "transcribing";
+  const showVoiceStatus = isVoiceListening || isVoiceTranscribing;
+  const canSend = hasInput && !isVoiceListening && !isVoiceTranscribing;
 
   return (
     <div
@@ -632,7 +699,7 @@ export function ChatPanel({
         >
           <div className="min-w-0 flex-1 flex-col justify-center">
             <CardTitle className="truncate text-lg font-bold leading-tight">
-              <span className="truncate whitespace-nowrap">閺呴缚鍏橀崝鈺傚</span>
+              <span className="truncate whitespace-nowrap">智能助手</span>
             </CardTitle>
             <CardDescription className="mt-0.5 text-xs font-medium leading-tight text-[var(--project-text-muted)]">
               {CHAT_DESCRIPTION}
@@ -820,6 +887,28 @@ export function ChatPanel({
                   </div>
                 ) : null}
               </div>
+              <AnimatePresence>
+                {showVoiceStatus ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18 }}
+                    className="mb-1.5 flex items-center gap-1.5 rounded-[calc(var(--project-input-radius)-4px)] border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-2 py-1 text-[11px] text-[var(--project-text-muted)]"
+                  >
+                    {isVoiceListening ? (
+                      <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                    ) : (
+                      <Loader2 className="h-3 w-3 animate-spin text-[var(--project-accent)]" />
+                    )}
+                    <span>
+                      {isVoiceListening
+                        ? "正在语音输入，点击麦克风结束"
+                        : "正在校正语音文本..."}
+                    </span>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
               <div className="flex w-full items-end gap-2">
                 <Textarea
                   ref={textareaRef}
@@ -833,7 +922,9 @@ export function ChatPanel({
                         : INPUT_PLACEHOLDER
                       : NO_SESSION_PLACEHOLDER
                   }
-                  disabled={!activeSessionId}
+                  disabled={
+                    !activeSessionId || isVoiceListening || isVoiceTranscribing
+                  }
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   className="min-h-[44px] max-h-[176px] resize-none rounded-[var(--project-input-radius)] border-none bg-transparent px-2 py-1.5 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors duration-200"
@@ -841,56 +932,40 @@ export function ChatPanel({
                 />
                 <Button
                   size="icon"
+                  aria-label={
+                    isVoiceListening ? "结束语音输入" : canSend ? "发送消息" : "语音输入"
+                  }
                   onClick={(event) => {
-                    if (hasInput) {
+                    event.preventDefault();
+                    if (isVoiceListening) {
+                      void stopVoiceCapture();
+                      return;
+                    }
+                    if (canSend) {
                       void handleSend();
                       return;
                     }
-                    event.preventDefault();
-                  }}
-                  onPointerDown={(event) => {
-                    if (hasInput || !activeSessionId || isAIGenerating) return;
-                    isVoicePressingRef.current = true;
-                    event.currentTarget.setPointerCapture(event.pointerId);
+                    if (!activeSessionId || isAIGenerating || isVoiceTranscribing) {
+                      return;
+                    }
                     void startVoiceCapture();
-                  }}
-                  onPointerUp={(event) => {
-                    if (hasInput || !isVoicePressingRef.current) return;
-                    isVoicePressingRef.current = false;
-                    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                      event.currentTarget.releasePointerCapture(event.pointerId);
-                    }
-                    void stopVoiceCapture();
-                  }}
-                  onPointerCancel={(event) => {
-                    if (hasInput || !isVoicePressingRef.current) return;
-                    isVoicePressingRef.current = false;
-                    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                      event.currentTarget.releasePointerCapture(event.pointerId);
-                    }
-                    void stopVoiceCapture();
-                  }}
-                  onPointerLeave={() => {
-                    if (hasInput || !isVoicePressingRef.current) return;
-                    isVoicePressingRef.current = false;
-                    void stopVoiceCapture();
                   }}
                   disabled={
                     !activeSessionId ||
-                    (hasInput
+                    (canSend
                       ? !isStudioRefineMode && isSending
                       : isAIGenerating || isVoiceTranscribing)
                   }
                   className={cn(
                     "project-chat-send-btn relative h-10 w-10 shrink-0 rounded-[var(--project-input-radius)] overflow-hidden transition-all duration-300",
-                    hasInput || isVoiceListening
-                      ? hasInput && isStudioRefineMode
+                    canSend || isVoiceListening
+                      ? canSend && isStudioRefineMode
                         ? "text-white shadow-sm hover:brightness-110 focus:ring-0"
                         : "bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-md hover:bg-[var(--project-accent-hover)] hover:shadow-lg"
                       : "bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] border border-transparent hover:bg-[var(--project-surface)] hover:text-[var(--project-text-primary)]"
                   )}
                   style={
-                    hasInput && isStudioRefineMode && toolColors
+                    canSend && isStudioRefineMode && toolColors
                       ? {
                           background: `linear-gradient(135deg, ${toolColors.primary}, ${toolColors.secondary})`,
                           borderColor: toolColors.primary,
@@ -918,7 +993,7 @@ export function ChatPanel({
                       >
                         <Loader2 className="h-4 w-4 animate-spin text-white" />
                       </motion.div>
-                    ) : hasInput ? (
+                    ) : canSend ? (
                       <motion.div
                         key="send"
                         initial={{ scale: 0.5, opacity: 0, y: 10 }}
@@ -956,6 +1031,7 @@ export function ChatPanel({
     </div>
   );
 }
+
 
 
 

@@ -135,6 +135,11 @@ export function createChatActions({
       payload;
     ensureProjectLocalState(projectId);
 
+    const hintMessage = buildStageHintMessage(toolType, stage, toolLabel);
+    if (!hintMessage.trim()) {
+      return;
+    }
+
     const state = get();
     const projectHints = state.studioHintDedupeByProject[projectId] ?? {};
     if (projectHints[dedupeKey]) {
@@ -147,10 +152,7 @@ export function createChatActions({
       ...projectMessages,
       [sessionId]: [
         ...sessionMessages,
-        createLocalMessage(
-          "assistant",
-          buildStageHintMessage(toolType, stage, toolLabel)
-        ),
+        createLocalMessage("assistant", hintMessage),
       ].slice(-120),
     };
     const nextProjectHints = {

@@ -8,6 +8,17 @@ export type StudioLocalStoragePayload = {
   hintDedupe: Record<string, true>;
 };
 
+const LEGACY_PREVIEW_HINT_PATTERN =
+  /已进入.+预览。现在可以直接在这里说“再详细一点 \/ 增加案例 \/ 更简洁”，我会实时帮你微调。/;
+
+function isLegacyPreviewHintMessage(message: Message): boolean {
+  return (
+    message.role === "assistant" &&
+    typeof message.content === "string" &&
+    LEGACY_PREVIEW_HINT_PATTERN.test(message.content)
+  );
+}
+
 function getStudioChatStorageKey(projectId: string): string {
   return `studio-chat-local:${projectId}`;
 }
@@ -34,10 +45,18 @@ export function readStudioLocalPayload(
     }
 
     const parsed = JSON.parse(raw) as Partial<StudioLocalStoragePayload>;
-    const messagesBySession =
+    const messagesBySessionRaw =
       parsed.messagesBySession && typeof parsed.messagesBySession === "object"
         ? parsed.messagesBySession
         : {};
+    const messagesBySession = Object.fromEntries(
+      Object.entries(messagesBySessionRaw).map(([sessionId, items]) => {
+        const safeItems = Array.isArray(items)
+          ? (items as Message[]).filter((message) => !isLegacyPreviewHintMessage(message))
+          : [];
+        return [sessionId, safeItems];
+      })
+    ) as Record<string, Message[]>;
     const hintDedupe =
       parsed.hintDedupe && typeof parsed.hintDedupe === "object"
         ? parsed.hintDedupe
@@ -114,7 +133,7 @@ export function buildStageHintMessage(
   if (stage === "generate") {
     return `已开始生成${alias}，我会先产出一版初稿。你也可以继续补充需求。`;
   }
-  return `已进入${alias}预览。现在可以直接在这里说“再详细一点 / 增加案例 / 更简洁”，我会实时帮你微调。`;
+  return "";
 }
 
 export function buildRefineProcessingMessage(
