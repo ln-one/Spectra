@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -13,6 +14,7 @@ from services.task_executor.generation_runtime import (
     persist_preview_payload,
     render_generation_outputs,
 )
+from services.task_executor.preview_runtime import cache_preview_content
 
 
 def test_build_project_space_download_url():
@@ -316,6 +318,95 @@ async def test_persist_preview_payload_merges_existing_input_data():
     payload = update.await_args.kwargs["data"]["inputData"]
     assert '"template_config"' in payload
     assert '"preview_content"' in payload
+
+
+@pytest.mark.asyncio
+async def test_cache_preview_content_includes_rendered_preview():
+    courseware = SimpleNamespace(
+        title="T",
+        markdown_content="# Slide",
+        lesson_plan_markdown="plan",
+    )
+    with (
+        patch(
+            "services.preview_helpers.save_preview_content",
+            new=AsyncMock(),
+        ),
+        patch(
+            "services.task_executor.preview_runtime.build_rendered_preview_payload",
+            new=AsyncMock(
+                return_value={
+                    "format": "png",
+                    "page_count": 1,
+                    "pages": [
+                        {
+                            "index": 0,
+                            "slide_id": "task-200-slide-0",
+                            "image_url": "data:image/png;base64,abc",
+                        }
+                    ],
+                }
+            ),
+        ),
+    ):
+        payload = await cache_preview_content(
+            "task-200",
+            courseware,
+            template_config={"style": "default"},
+        )
+
+    assert payload["rendered_preview"]["page_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_generate_slide_images_collects_temp_stem_outputs(tmp_path):
+    from services.generation.marp_generator import generate_slide_images
+
+    async def _fake_exec(*_args, **_kwargs):
+        (tmp_path / "task-300_temp.001.png").write_bytes(
+            b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+        )
+        (tmp_path / "task-300_temp.002.png").write_bytes(
+            b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+        )
+
+        class _Proc:
+            returncode = 0
+
+            async def communicate(self):
+                return b"", b""
+
+        return _Proc()
+
+    with (
+        patch(
+            "services.generation.marp_generator.check_marp_installed",
+            new=lambda: None,
+        ),
+        patch(
+            "services.generation.marp_generator.ensure_directory_exists",
+            new=lambda _path: None,
+        ),
+        patch(
+            "services.generation.marp_generator.get_temp_file_path",
+            new=lambda _output_dir, _task_id, _ext: Path(tmp_path / "task-300_temp.md"),
+        ),
+        patch(
+            "services.generation.marp_generator.validate_file_exists",
+            new=lambda path, min_size=1: Path(path).exists()
+            and Path(path).stat().st_size >= min_size,
+        ),
+        patch(
+            "services.generation.marp_generator.asyncio.create_subprocess_exec",
+            new=_fake_exec,
+        ),
+    ):
+        images = await generate_slide_images("task-300", tmp_path, "# Demo")
+
+    assert images == [
+        str(tmp_path / "task-300_temp.001.png"),
+        str(tmp_path / "task-300_temp.002.png"),
+    ]
 
 
 def test_validate_required_output_urls_raises_for_missing_both_output():

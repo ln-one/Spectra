@@ -16,6 +16,7 @@ interface UseStudioExecutionHandlersArgs {
   currentCardId: string | null;
   currentToolDraft: ToolDraftState;
   selectedSourceId: string | null;
+  selectedFileIds: string[];
   draftSourceArtifactId: string | null;
   activeSessionId: string | null;
   activeRunId: string | null;
@@ -52,12 +53,35 @@ function resolveExecutionRunNo(
   return null;
 }
 
+function resolveEffectiveRagSourceIds(selectedFileIds: string[]): string[] {
+  const normalized = selectedFileIds.filter(
+    (id) => typeof id === "string" && id.trim().length > 0
+  );
+  return Array.from(new Set(normalized));
+}
+
+function isRestrictedRagModeEnabled(draft: ToolDraftState): boolean {
+  const draftRecord = draft as Record<string, unknown>;
+  const value = [draftRecord.rag_mode, draftRecord.source_mode].find(
+    (item) => typeof item === "string"
+  );
+  if (typeof value !== "string") return false;
+  const normalized = value.toLowerCase();
+  return (
+    normalized === "restricted" ||
+    normalized === "selected_only" ||
+    normalized === "selected" ||
+    normalized === "strict"
+  );
+}
+
 export function useStudioExecutionHandlers({
   project,
   expandedTool,
   currentCardId,
   currentToolDraft,
   selectedSourceId,
+  selectedFileIds,
   draftSourceArtifactId,
   activeSessionId,
   activeRunId,
@@ -106,11 +130,13 @@ export function useStudioExecutionHandlers({
 
   const buildStudioExecutionRequest = useCallback(() => {
     if (!project || !currentCardId) return null;
+    const effectiveRagSourceIds = resolveEffectiveRagSourceIds(selectedFileIds);
     return {
       project_id: project.id,
       client_session_id: activeSessionId ?? undefined,
       source_artifact_id:
         selectedSourceId || draftSourceArtifactId || undefined,
+      rag_source_ids: effectiveRagSourceIds,
       config: currentToolDraft,
     };
   }, [
@@ -119,6 +145,7 @@ export function useStudioExecutionHandlers({
     currentToolDraft,
     draftSourceArtifactId,
     project,
+    selectedFileIds,
     selectedSourceId,
   ]);
 
@@ -166,12 +193,29 @@ export function useStudioExecutionHandlers({
     if (!currentCardId || isStudioActionRunning) return;
     const requestBody = buildStudioExecutionRequest();
     if (!requestBody) return;
+    if (
+      isRestrictedRagModeEnabled(currentToolDraft) &&
+      requestBody.rag_source_ids.length === 0
+    ) {
+      toast({
+        title: "Missing constrained sources",
+        description: "Restricted mode requires at least one selected source.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       setIsStudioActionRunning(true);
       const response = await studioCardsApi.getExecutionPreview(
         currentCardId,
         requestBody
       );
+      if (response?.data?.execution_preview) {
+        console.info(
+          "[studio.preview.request_preview]",
+          response.data.execution_preview
+        );
+      }
       const preview = response?.data?.execution_preview ?? {};
       const endpoint =
         typeof preview.endpoint === "string"
@@ -196,7 +240,12 @@ export function useStudioExecutionHandlers({
     } finally {
       setIsStudioActionRunning(false);
     }
-  }, [buildStudioExecutionRequest, currentCardId, isStudioActionRunning]);
+  }, [
+    buildStudioExecutionRequest,
+    currentCardId,
+    currentToolDraft,
+    isStudioActionRunning,
+  ]);
 
   const resolvePptRunId = useCallback(
     (fallback?: string | null) => {
@@ -275,6 +324,25 @@ export function useStudioExecutionHandlers({
           runNo: null,
         };
       }
+      if (
+        isRestrictedRagModeEnabled(currentToolDraft) &&
+        requestBody.rag_source_ids.length === 0
+      ) {
+        toast({
+          title: "Missing constrained sources",
+          description:
+            "Restricted mode is enabled and requires selected source files.",
+          variant: "destructive",
+        });
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
 
       try {
         setIsStudioActionRunning(true);
@@ -305,6 +373,15 @@ export function useStudioExecutionHandlers({
           (run?.id as string | undefined) ||
           null;
         const runNo = resolveExecutionRunNo(run);
+        const responseData = (response?.data ?? {}) as {
+          request_preview?: unknown;
+        };
+        if (responseData.request_preview) {
+          console.info(
+            "[studio.execute.request_preview]",
+            responseData.request_preview
+          );
+        }
 
         if (sessionId) setActiveSessionId(sessionId);
         if (runId) setActiveRunId(runId);
@@ -434,6 +511,7 @@ export function useStudioExecutionHandlers({
       appendRuntimeArtifact,
       buildStudioExecutionRequest,
       currentCardId,
+      currentToolDraft,
       ensureActiveSession,
       expandedTool,
       fetchArtifactHistory,

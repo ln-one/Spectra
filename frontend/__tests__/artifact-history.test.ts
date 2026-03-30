@@ -39,6 +39,16 @@ describe("artifact history mapper", () => {
     expect(mapArtifactToToolType(artifact)).toBe("handout");
   });
 
+  it("maps courseware_ppt studio-card artifacts to ppt", () => {
+    const artifact: Artifact = {
+      ...baseArtifact,
+      id: "art_4",
+      type: "summary",
+      metadata: { tool_type: "studio_card:courseware_ppt" },
+    };
+    expect(mapArtifactToToolType(artifact)).toBe("ppt");
+  });
+
   it("groups by session and sorts by created time desc", () => {
     const artifacts: Artifact[] = [
       {

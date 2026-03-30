@@ -129,13 +129,20 @@ async function fetchWithAuth(
     input instanceof Request ? input : new Request(input, init);
   const url = baseRequest.url;
   const headers = new Headers(baseRequest.headers);
+  const shouldAttachAuth = !shouldSkipAuth(url);
 
   if (!headers.has("X-Contract-Version")) {
     headers.set("X-Contract-Version", DEFAULT_CONTRACT_VERSION);
   }
 
-  if (!shouldSkipAuth(url)) {
-    const token = TokenStorage.getAccessToken();
+  if (shouldAttachAuth) {
+    let token = TokenStorage.getAccessToken();
+    if (!token && TokenStorage.getRefreshToken()) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        token = TokenStorage.getAccessToken();
+      }
+    }
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
@@ -161,7 +168,7 @@ async function fetchWithAuth(
     );
   }
 
-  if (response.status === 401 && !shouldSkipAuth(url)) {
+  if (response.status === 401 && shouldAttachAuth) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
       const retryHeaders = new Headers(headers);

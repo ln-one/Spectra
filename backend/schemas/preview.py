@@ -40,6 +40,20 @@ class Slide(BaseModel):
     thumbnail_url: Optional[str] = None
 
 
+class RenderedPreviewPage(BaseModel):
+    index: int = Field(..., ge=0)
+    slide_id: str
+    image_url: str
+    width: Optional[int] = Field(None, ge=1)
+    height: Optional[int] = Field(None, ge=1)
+
+
+class RenderedPreview(BaseModel):
+    format: str = "png"
+    page_count: int = Field(default=0, ge=0)
+    pages: list[RenderedPreviewPage] = Field(default_factory=list)
+
+
 class SlidePlan(BaseModel):
     """单页教学计划"""
 
@@ -96,6 +110,7 @@ class SlideDetailData(BaseModel):
     slide: Slide
     teaching_plan: Optional[SlidePlan] = None
     related_slides: list[RelatedSlide] = Field(default_factory=list)
+    rendered_page: Optional[RenderedPreviewPage] = None
 
 
 class ExportFormat(str, Enum):

@@ -137,6 +137,8 @@ class TestPromptService:
         assert "1, 2" in prompt
         assert "<current_courseware>" in prompt
         assert "<modify_instruction>" in prompt
+        assert "只返回目标页的 Marp markdown" in prompt
+        assert "返回页数必须与目标页数完全一致" in prompt
 
     def test_chat_response_prompt(self):
         prompt = self.svc.build_chat_response_prompt(

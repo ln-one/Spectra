@@ -150,6 +150,47 @@ GenerationEventListResponseTarget:
     message:
       type: string
 
+GenerationSessionRunListResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [runs, total, page, limit]
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: './generate-session-models-target.yaml#/SessionRun'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+    message:
+      type: string
+
+GenerationSessionRunDetailResponseTarget:
+  type: object
+  required: [success, data, message]
+  properties:
+    success:
+      type: boolean
+    data:
+      type: object
+      required: [run]
+      properties:
+        run:
+          $ref: './generate-session-models-target.yaml#/SessionRun'
+    message:
+      type: string
+
 GenerationSessionCommandRequestTarget:
   $ref: './generate-command-core-target.yaml#/GenerationSessionCommandRequestTarget'
 

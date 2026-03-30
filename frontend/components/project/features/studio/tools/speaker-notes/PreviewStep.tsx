@@ -12,6 +12,11 @@ interface PreviewStepProps {
   onSelectPage: (page: number) => void;
 }
 
+interface BackendSummaryPayload {
+  summary: string;
+  keyPoints: string[];
+}
+
 function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
   if (!flowContext?.resolvedArtifact) return [];
   if (flowContext.resolvedArtifact.contentKind !== "json") return [];
@@ -38,7 +43,7 @@ function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
     const title =
       typeof row.title === "string" && row.title.trim()
         ? row.title.trim()
-        : `第 ${index + 1} 页`;
+        : `Slide ${index + 1}`;
     const script =
       typeof row.script === "string" && row.script.trim()
         ? row.script.trim()
@@ -57,6 +62,37 @@ function parseBackendScripts(flowContext?: ToolFlowContext): SlideScriptItem[] {
   return scripts;
 }
 
+function parseBackendSummary(
+  flowContext?: ToolFlowContext
+): BackendSummaryPayload | null {
+  if (!flowContext?.resolvedArtifact) return null;
+  if (flowContext.resolvedArtifact.contentKind !== "json") return null;
+  if (
+    !flowContext.resolvedArtifact.content ||
+    typeof flowContext.resolvedArtifact.content !== "object"
+  ) {
+    return null;
+  }
+
+  const content = flowContext.resolvedArtifact.content as Record<
+    string,
+    unknown
+  >;
+  const summary =
+    typeof content.summary === "string" ? content.summary.trim() : "";
+  const keyPoints = Array.isArray(content.key_points)
+    ? content.key_points
+        .filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0
+        )
+        .map((item) => item.trim())
+    : [];
+
+  if (!summary && keyPoints.length === 0) return null;
+  return { summary, keyPoints };
+}
+
 export function PreviewStep({
   activePage,
   lastGeneratedAt,
@@ -67,11 +103,14 @@ export function PreviewStep({
   const capabilityStatus =
     flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
-    flowContext?.capabilityReason ?? "正在等待后端返回真实说课讲稿。";
+    flowContext?.capabilityReason ??
+    "Waiting for backend speaker notes content.";
   const backendScripts = parseBackendScripts(flowContext);
+  const backendSummary = parseBackendSummary(flowContext);
   const activeScript =
     backendScripts.find((item) => item.page === activePage) ??
-    backendScripts[0];
+    backendScripts[0] ??
+    null;
 
   return (
     <div className="space-y-4">
@@ -79,11 +118,13 @@ export function PreviewStep({
         <CapabilityNotice status={capabilityStatus} reason={capabilityReason} />
 
         <div className="mt-4">
-          <p className="text-sm font-semibold text-zinc-900">实时讲稿预览</p>
+          <p className="text-sm font-semibold text-zinc-900">
+            Real-time Speaker Notes
+          </p>
           <p className="mt-1 text-[11px] text-zinc-500">
             {lastGeneratedAt
-              ? `最近一次生成：${new Date(lastGeneratedAt).toLocaleString()}`
-              : "这里只展示后端返回的真实逐页讲稿。"}
+              ? `Last generated: ${new Date(lastGeneratedAt).toLocaleString()}`
+              : "Only real backend content is rendered in this view."}
           </p>
         </div>
 
@@ -109,7 +150,7 @@ export function PreviewStep({
               <div className="flex items-center gap-2 text-zinc-800">
                 <Mic2 className="h-4 w-4" />
                 <p className="text-sm font-semibold">
-                  第 {activeScript.page} 页 · {activeScript.title}
+                  Slide {activeScript.page} - {activeScript.title}
                 </p>
               </div>
               <p className="mt-4 whitespace-pre-wrap text-[17px] leading-8 text-zinc-800">
@@ -126,6 +167,21 @@ export function PreviewStep({
               ) : null}
             </div>
           </div>
+        ) : backendSummary ? (
+          <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4">
+            {backendSummary.summary ? (
+              <p className="text-sm leading-6 text-zinc-800">
+                {backendSummary.summary}
+              </p>
+            ) : null}
+            {backendSummary.keyPoints.length > 0 ? (
+              <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-zinc-700">
+                {backendSummary.keyPoints.map((point, index) => (
+                  <li key={`${point}-${index}`}>{point}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         ) : (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-12 text-center">
             <Mic2 className="mx-auto h-8 w-8 text-zinc-400" />
@@ -133,7 +189,7 @@ export function PreviewStep({
               暂未收到后端真实说课讲稿
             </p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              当前不再展示前端示意讲稿，等待后端结构化讲稿返回后会直接显示。
+              This panel no longer renders frontend mock data.
             </p>
           </div>
         )}

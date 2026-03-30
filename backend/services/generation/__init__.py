@@ -18,6 +18,7 @@ try:
     from ..runtime_paths import get_generated_dir
     from ..template import TemplateConfig, TemplateService
     from .marp_generator import generate_pptx as _generate_pptx
+    from .marp_generator import generate_slide_images as _generate_slide_images
     from .pandoc_generator import generate_docx as _generate_docx
     from .tool_checker import check_tools_installed
     from .types import CoursewareContent
@@ -26,6 +27,9 @@ except ImportError:
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     from services.generation.marp_generator import generate_pptx as _generate_pptx
+    from services.generation.marp_generator import (
+        generate_slide_images as _generate_slide_images,
+    )
     from services.generation.pandoc_generator import generate_docx as _generate_docx
     from services.generation.tool_checker import check_tools_installed
     from services.generation.types import CoursewareContent
@@ -92,6 +96,20 @@ class GenerationService:
 
         # 调用生成器
         return await _generate_pptx(content, task_id, self.output_dir, full_markdown)
+
+    async def generate_slide_images(
+        self,
+        content: CoursewareContent,
+        task_id: str,
+        template_config: Optional[TemplateConfig] = None,
+    ) -> list[str]:
+        if template_config is None:
+            template_config = TemplateConfig()
+
+        full_markdown = self.template_service.wrap_markdown_with_template(
+            content.markdown_content, template_config, content.title
+        )
+        return await _generate_slide_images(task_id, self.output_dir, full_markdown)
 
     async def generate_docx(
         self,

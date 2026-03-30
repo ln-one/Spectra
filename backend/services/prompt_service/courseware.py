@@ -154,6 +154,16 @@ def build_modify_prompt(
             "\n7. 禁止引入来源外示例、术语或结论。"
         )
 
+    output_contract = "\n返回完整修改后的 markdown。"
+    if target_slides:
+        output_contract = (
+            "\n输出要求："
+            "\n- 只返回目标页的 Marp markdown，不要返回整份课件。"
+            "\n- 不要返回 frontmatter、教案、解释文字或额外说明。"
+            "\n- 若目标页只有 1 页，只返回这一页内容。"
+            "\n- 若目标页有多页，必须按原顺序返回，并用 `---` 分隔。"
+            "\n- 返回页数必须与目标页数完全一致。"
+        )
     return f"""你是资深学科教学设计师。请根据修改指令，在保持现有教学结构尽量稳定的前提下更新课件。
 
 {rag_section}<current_courseware>
@@ -168,6 +178,5 @@ def build_modify_prompt(
 1. 未指定修改的部分尽量保持不变。
 2. 保留 Marp markdown 格式与分隔符。
 3. 若指令只涉及局部页，优先做局部修改，不要无端重写整份课件。
-4. 修改后的内容仍应保持教学推进、标题层级和图文逻辑一致。{source_constraints}
-
-返回完整修改后的 markdown。"""
+4. 修改后的内容仍应保持教学推进、标题层级和图文逻辑一致。{source_constraints}{output_contract}
+"""

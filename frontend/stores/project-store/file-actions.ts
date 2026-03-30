@@ -121,13 +121,7 @@ export function createFileActions({
         const detail = response?.data ?? null;
         set({ activeSourceDetail: detail });
         const fileId = detail?.file_info?.id;
-        if (fileId) {
-          set((state) => ({
-            selectedFileIds: state.selectedFileIds.includes(fileId)
-              ? state.selectedFileIds
-              : [...state.selectedFileIds, fileId],
-          }));
-        } else {
+        if (!fileId) {
           const currentProjectId = projectId ?? get().project?.id;
           if (currentProjectId) {
             await get().fetchFiles(currentProjectId);

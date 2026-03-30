@@ -80,6 +80,29 @@ function readArtifactKind(artifact: Artifact): string | null {
   return normalized || null;
 }
 
+function readStudioCardToolType(
+  metadata: Artifact["metadata"]
+): GenerationToolType | null {
+  const rawToolType = readMetadataField(metadata, "tool_type");
+  if (typeof rawToolType !== "string") return null;
+  const normalized = rawToolType.trim();
+  if (!normalized) return null;
+
+  const studioCardId = normalized.startsWith("studio_card:")
+    ? normalized.slice("studio_card:".length)
+    : normalized;
+
+  if (studioCardId === "word_document") return "word";
+  if (studioCardId === "courseware_ppt") return "ppt";
+  if (studioCardId === "knowledge_mindmap") return "mindmap";
+  if (studioCardId === "interactive_quick_quiz") return "quiz";
+  if (studioCardId === "interactive_games") return "outline";
+  if (studioCardId === "speaker_notes") return "summary";
+  if (studioCardId === "demonstration_animations") return "animation";
+  if (studioCardId === "classroom_qa_simulator") return "handout";
+  return null;
+}
+
 function readRunNo(metadata: Artifact["metadata"]): number | null {
   const raw = readMetadataField(metadata, "run_no");
   if (typeof raw === "number" && Number.isFinite(raw)) {
@@ -112,6 +135,9 @@ export function mapArtifactToToolType(artifact: Artifact): GenerationToolType {
   ) {
     return metadataOutputType as GenerationToolType;
   }
+
+  const studioCardToolType = readStudioCardToolType(artifact.metadata);
+  if (studioCardToolType) return studioCardToolType;
 
   const artifactKind = readArtifactKind(artifact);
   if (artifactKind === "interactive_game") return "outline";

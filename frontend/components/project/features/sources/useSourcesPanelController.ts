@@ -9,6 +9,7 @@ import {
   HEADER_COMPACT_HYSTERESIS,
   HEADER_FORCE_NORMAL_WIDTH,
   HEADER_MIN_VISIBLE_WIDTH,
+  HORIZONTAL_ICON_MODE_TRIGGER_HEIGHT,
 } from "./constants";
 import { getUploadErrorMessage, normalizeUploadingProgress } from "./utils";
 import type { SourceFocusDetail } from "./types";
@@ -55,6 +56,7 @@ export function useSourcesPanelController({
   const fileRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [isCompact, setIsCompact] = useState(false);
+  const [isHeightTight, setIsHeightTight] = useState(false);
   const [isHeaderTight, setIsHeaderTight] = useState(false);
   const [uploadingTasksCount, setUploadingTasksCount] = useState(0);
 
@@ -62,8 +64,14 @@ export function useSourcesPanelController({
     const checkWidth = () => {
       if (!containerRef.current) return;
       const width = containerRef.current.offsetWidth;
+      const height = containerRef.current.offsetHeight;
       const nextCompact = width < COMPACT_MODE_WIDTH;
       setIsCompact(nextCompact);
+      setIsHeightTight((prev) => {
+        if (!isStudioExpanded) return false;
+        if (prev) return height <= HORIZONTAL_ICON_MODE_TRIGGER_HEIGHT + 10;
+        return height <= HORIZONTAL_ICON_MODE_TRIGGER_HEIGHT;
+      });
 
       if (nextCompact) {
         setIsHeaderTight(true);
@@ -108,7 +116,12 @@ export function useSourcesPanelController({
       window.removeEventListener("resize", checkWidth);
       resizeObserver?.disconnect();
     };
-  }, [files.length, selectedFileIds.length, uploadingTasksCount]);
+  }, [
+    files.length,
+    isStudioExpanded,
+    selectedFileIds.length,
+    uploadingTasksCount,
+  ]);
 
   const focusedFileId = activeSourceDetail?.file_info?.id;
   const focusPayload = useMemo<SourceFocusDetail | null>(() => {
@@ -244,7 +257,8 @@ export function useSourcesPanelController({
     []
   );
 
-  const isHorizontalIconMode = isStudioExpanded && isExpandedContentCollapsed;
+  const isHorizontalIconMode =
+    isStudioExpanded && (isExpandedContentCollapsed || isHeightTight);
   const isEffectiveCompact = isCompact || isCollapsed || isHorizontalIconMode;
   const isHeaderCompact = isStudioExpanded
     ? isCompact || isCollapsed || isHeaderTight

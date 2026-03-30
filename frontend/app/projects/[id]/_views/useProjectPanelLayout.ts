@@ -8,6 +8,7 @@ import {
   HEADER_TO_PANEL_GAP,
   MIN_EXPANDED_RIGHT_PANEL_WIDTH,
   MIN_RESIZABLE_PANEL_WIDTH,
+  MIN_STUDIO_PANEL_WIDTH_PX,
   PAGE_GAP,
   PANEL_GAP,
   SOURCES_TITLE_SAFE_MIN_WIDTH_PX,
@@ -140,10 +141,20 @@ export function useProjectPanelLayout({
       ? (effectivePanelAreaHeight * (100 - expandedChatHeight)) / 100 -
         (PAGE_GAP + PANEL_GAP / 2)
       : 0;
+  const maxExpandedChatHeightByCollapsedSources =
+    effectivePanelAreaHeight > 0
+      ? 100 -
+        ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
+          effectivePanelAreaHeight) *
+          100
+      : 92;
+  const isExpandedSourcesNearCollapsedTarget =
+    expandedChatHeight >= maxExpandedChatHeightByCollapsedSources - 0.1;
   const isExpandedSourcesCollapsedByHeight =
     isExpanded &&
-    expandedSourcesHeightPx > 0 &&
-    expandedSourcesHeightPx <= COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP;
+    (expandedSourcesHeightPx <=
+      COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP ||
+      isExpandedSourcesNearCollapsedTarget);
 
   const toggleSourcesCollapsed = useCallback(
     (action: "collapse" | "expand" | "toggle" = "toggle") => {
@@ -198,16 +209,22 @@ export function useProjectPanelLayout({
 
     const containerHeight =
       panelAreaRef.current?.clientHeight ??
+      panelAreaHeight ??
       window.innerHeight - (HEADER_TO_PANEL_GAP + PAGE_GAP);
     const maxChatByCollapsedSources =
       100 -
       ((COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PAGE_GAP + PANEL_GAP / 2) /
         containerHeight) *
         100;
+    const currentSourcesHeightPx =
+      (containerHeight * (100 - expandedChatHeight)) / 100 -
+      (PAGE_GAP + PANEL_GAP / 2);
     const isNearCollapsedTarget =
       expandedChatHeight >= maxChatByCollapsedSources - 0.1;
     const shouldExpand =
-      isExpandedSourcesCollapsedByHeight || isNearCollapsedTarget;
+      currentSourcesHeightPx <=
+        COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP ||
+      isNearCollapsedTarget;
 
     if (!shouldExpand) {
       previousExpandedChatHeightRef.current = expandedChatHeight;
@@ -218,7 +235,7 @@ export function useProjectPanelLayout({
     }
 
     setExpandedChatHeight(previousExpandedChatHeightRef.current ?? 50);
-  }, [expandedChatHeight, isExpanded, isExpandedSourcesCollapsedByHeight]);
+  }, [expandedChatHeight, isExpanded, panelAreaHeight]);
 
   const handleMouseDown = useCallback(
     (
@@ -254,9 +271,17 @@ export function useProjectPanelLayout({
         const deltaYPercent = (deltaY / containerHeight) * 100;
 
         if (handle === "studio-chat") {
+          const minStudioPercent =
+            ((MIN_STUDIO_PANEL_WIDTH_PX + PAGE_GAP + PANEL_GAP / 2) /
+              containerWidth) *
+            100;
+          const maxStudioPercent = 40;
           const nextStudio = Math.max(
-            15,
-            Math.min(40, startSizesRef.current.studio + deltaPercent)
+            minStudioPercent,
+            Math.min(
+              maxStudioPercent,
+              startSizesRef.current.studio + deltaPercent
+            )
           );
           const nextChat = Math.max(
             30,

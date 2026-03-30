@@ -113,7 +113,7 @@ export function SourcesPanel({
                         }
                       }}
                     >
-                      <div className="project-sources-horizontal-track -translate-y-1 flex min-w-max items-center gap-3 px-0.5 pb-1 pt-0">
+                      <div className="project-sources-horizontal-track flex min-w-max items-center gap-3 px-0.5 py-1">
                         <div
                           key={WEB_SOURCE_CARD_ID}
                           ref={(element) =>

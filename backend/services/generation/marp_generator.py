@@ -3,6 +3,7 @@
 """
 
 import asyncio
+import glob
 import logging
 import os
 from pathlib import Path
@@ -248,3 +249,82 @@ async def generate_pptx(
         # 清理临时文件
         cleanup_file(markdown_file)
         raise FileSystemError("generate_pptx", str(output_file), str(e))
+
+
+async def generate_slide_images(
+    task_id: str,
+    output_dir: Path,
+    full_markdown: str,
+    image_format: str = "png",
+) -> list[str]:
+    """
+    使用 Marp CLI 生成整套幻灯片页图。
+
+    返回按页顺序排序后的本地图片路径列表。
+    """
+
+    logger.info(f"[Task: {task_id}] Starting slide image generation")
+    ensure_directory_exists(output_dir)
+
+    markdown_file = get_temp_file_path(output_dir, task_id, "md")
+    image_ext = "jpg" if image_format == "jpeg" else image_format
+
+    try:
+        markdown_file.write_text(full_markdown, encoding="utf-8")
+        output_stem = markdown_file.stem
+        for stale_path in glob.glob(str(output_dir / f"{output_stem}.*.{image_ext}")):
+            cleanup_file(Path(stale_path))
+
+        chrome_path = _resolve_browser_path()
+        cmd = [
+            "marp",
+            str(markdown_file),
+            "--images",
+            image_format,
+            "--allow-local-files",
+        ]
+        if chrome_path:
+            cmd.extend(["--browser-path", chrome_path])
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        if process.returncode != 0:
+            error_msg = stderr.decode("utf-8", errors="replace")
+            logger.error(
+                "Marp CLI slide image generation failed with return code %s: %s",
+                process.returncode,
+                error_msg,
+            )
+            raise ToolExecutionError("Marp CLI", error_msg, process.returncode)
+
+        image_paths = sorted(
+            str(path)
+            for path in output_dir.glob(f"{output_stem}.*.{image_ext}")
+            if validate_file_exists(path, min_size=1)
+        )
+        if not image_paths:
+            raise FileSystemError(
+                "generate_slide_images",
+                str(output_dir),
+                "No image output created",
+            )
+        logger.info(
+            "[Task: %s] Slide images generated successfully: %s pages",
+            task_id,
+            len(image_paths),
+        )
+        cleanup_file(markdown_file)
+        return image_paths
+    except (
+        ToolNotFoundError,
+        ToolExecutionError,
+        FileSystemError,
+        GenerationTimeoutError,
+    ):
+        cleanup_file(markdown_file)
+        raise
+    except Exception as e:
+        cleanup_file(markdown_file)
+        raise FileSystemError("generate_slide_images", str(output_dir), str(e))
