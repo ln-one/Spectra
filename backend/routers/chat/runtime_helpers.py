@@ -1,18 +1,36 @@
 import asyncio
 import os
 import time
+from pathlib import Path
 
 from schemas.chat import SendMessageRequest
+from schemas.common import normalize_source_type
 from services.ai import ai_service
 from services.ai.model_resolution import _resolve_model_name
 from services.ai.model_router import ModelRouteTask
 from services.chat import resolve_effective_rag_source_ids
 from services.database import db_service
+from services.database.prisma_compat import find_many_with_select_fallback
 from services.prompt_service import contains_mechanical_option_pattern, prompt_service
 
 from .message_flow import build_history_payload, load_rag_context
 from .refine_context import build_card_context_hint
 from .shared import logger, normalize_markdown_paragraphs
+
+_IMAGE_EXTENSIONS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp",
+    ".bmp",
+    ".gif",
+    ".tiff",
+    ".svg",
+}
+
+
+def _is_image_path(value: str) -> bool:
+    return Path((value or "").strip().lower()).suffix in _IMAGE_EXTENSIONS
 
 
 async def load_chat_context(
@@ -59,6 +77,7 @@ def build_chat_prompt(
     selected_files_hint: str,
     rag_payload,
     history_payload: list[dict],
+    image_analysis_hint: str | None = None,
 ) -> str:
     message_hints = []
     if selected_files_hint:
@@ -71,10 +90,12 @@ def build_chat_prompt(
     card_context_hint = build_card_context_hint(body.metadata)
     if card_context_hint:
         message_hints.append(card_context_hint)
+    if image_analysis_hint:
+        message_hints.append(image_analysis_hint)
 
     user_message_for_prompt = body.content
     if message_hints:
-        user_message_for_prompt = f"{body.content}\n\n系统提示：\n" + "\n".join(
+        user_message_for_prompt = f"{body.content}\n\n绯荤粺鎻愮ず锛歕n" + "\n".join(
             message_hints
         )
 
@@ -86,6 +107,114 @@ def build_chat_prompt(
         conversation_history=history_payload,
     )
     return f"项目：{project_name}\n{prompt}"
+
+
+def _extract_image_upload_ids(rag_results) -> list[str]:
+    upload_ids: list[str] = []
+    seen: set[str] = set()
+    for item in rag_results or []:
+        source = getattr(item, "source", None)
+        metadata = getattr(item, "metadata", None) or {}
+        source_type_raw = (
+            str(getattr(source, "source_type", "document") or "").strip().lower()
+        )
+        source_type = normalize_source_type(source_type_raw).value
+        source_filename = str(getattr(source, "filename", "") or "").strip().lower()
+        metadata_filename = str(metadata.get("filename") or "").strip().lower()
+        is_image_source = source_type_raw == "image" or (
+            source_type_raw == "document"
+            and str(metadata.get("file_type") or "").strip().lower() == "image"
+        )
+        if not is_image_source:
+            is_image_source = _is_image_path(source_filename) or _is_image_path(
+                metadata_filename
+            )
+        upload_id = str(metadata.get("upload_id") or "").strip()
+        if not upload_id:
+            continue
+        if not is_image_source and source_type != "image":
+            continue
+        if upload_id in seen:
+            continue
+        seen.add(upload_id)
+        upload_ids.append(upload_id)
+    return upload_ids
+
+
+async def build_image_analysis_hint(
+    *,
+    project_id: str,
+    user_message: str,
+    rag_results,
+    requested_source_ids: list[str] | None = None,
+) -> tuple[str | None, str | None, str | None]:
+    image_upload_ids = _extract_image_upload_ids(rag_results)
+    if requested_source_ids:
+        seen_ids = set(image_upload_ids)
+        for source_id in requested_source_ids:
+            normalized = str(source_id or "").strip()
+            if not normalized or normalized in seen_ids:
+                continue
+            seen_ids.add(normalized)
+            image_upload_ids.append(normalized)
+    if not image_upload_ids:
+        return None, None, None
+
+    try:
+        upload_rows = await find_many_with_select_fallback(
+            model=db_service.db.upload,
+            where={
+                "projectId": project_id,
+                "id": {"in": image_upload_ids},
+                "status": "ready",
+            },
+            select={"id": True, "filename": True, "filepath": True},
+        )
+    except Exception as exc:
+        logger.warning("chat image lookup failed: project=%s error=%s", project_id, exc)
+        return None, "image_lookup_error", None
+
+    image_inputs: list[dict[str, str]] = []
+    for upload in upload_rows or []:
+        if isinstance(upload, dict):
+            upload_id = str(upload.get("id") or "").strip()
+            filename = str(upload.get("filename") or "").strip()
+            filepath = str(upload.get("filepath") or "").strip()
+        else:
+            upload_id = str(getattr(upload, "id", "") or "").strip()
+            filename = str(getattr(upload, "filename", "") or "").strip()
+            filepath = str(getattr(upload, "filepath", "") or "").strip()
+        if not upload_id or not filepath:
+            continue
+        if not (_is_image_path(filename) or _is_image_path(filepath)):
+            continue
+        image_inputs.append(
+            {"id": upload_id, "filename": filename, "filepath": filepath}
+        )
+        if len(image_inputs) >= 2:
+            break
+
+    if not image_inputs:
+        return None, "image_not_ready", None
+
+    analysis = await ai_service.analyze_images_for_chat(
+        user_message=user_message,
+        image_inputs=image_inputs,
+    )
+    if not analysis or not analysis.get("content"):
+        reason = (analysis or {}).get("reason") if isinstance(analysis, dict) else None
+        vision_model = (
+            str((analysis or {}).get("model") or "").strip()
+            if isinstance(analysis, dict)
+            else ""
+        )
+        return None, reason or "image_analysis_unavailable", vision_model or None
+
+    return (
+        "图片可视解析补充（仅基于图中可见信息）：\n" + str(analysis["content"]).strip(),
+        None,
+        str(analysis.get("model") or "").strip() or None,
+    )
 
 
 async def generate_assistant_reply(
@@ -134,7 +263,7 @@ async def generate_assistant_reply(
                 "attempting soft rewrite"
             )
             rewrite_prompt = (
-                "请将下面这段回复改写为自然、温和的助教口吻，"
+                "请将下面这段回复改写成自然、温和的助教口吻；"
                 "保留原始信息，不要使用 A/B/C 选项式表达，"
                 "给出 1-2 个具体可执行教学切入点：\n\n"
                 f"{assistant_content}"
@@ -158,13 +287,13 @@ async def generate_assistant_reply(
             logger.warning("[DEV] AI error detail: %s", ai_exc)
         if isinstance(ai_exc, TimeoutError):
             assistant_content = (
-                "AI 回复这次有点慢，我已经收到你的需求。你可以先继续补充"
-                "教学目标、重点难点或使用场景，我会在下一次响应里继续接上。"
+                "这次 AI 回复超时了，但我已收到你的需求。"
+                "你可以先补充教学目标、重难点或使用场景，我会在下一次回复里继续接上。"
             )
         else:
             assistant_content = (
-                "AI 服务暂时不可用，我已收到你的需求。你可以先补充更多细节，"
-                "我会在恢复后继续帮你完善。"
+                "AI 服务暂时不可用，但我已收到你的需求。"
+                "你可以先补充更多细节，我会在恢复后继续帮你完善。"
             )
 
     return (

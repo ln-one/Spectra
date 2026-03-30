@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from fastapi.encoders import jsonable_encoder
 
 from schemas.chat import ChatRouteTask, SendMessageRequest
+from services.chat import resolve_effective_rag_source_ids
 from services.database import db_service
 from services.generation_session_service.access import get_owned_session
 from services.generation_session_service.session_history import (
@@ -37,6 +38,7 @@ from .observability import (
 )
 from .runtime_helpers import (
     build_chat_prompt,
+    build_image_analysis_hint,
     generate_assistant_reply,
     load_chat_context,
     persist_assistant_message,
@@ -293,6 +295,25 @@ async def process_chat_message(
             rag_failure_reason,
         ) = rag_result
         stage_timings_ms.update(context_timings)
+        effective_rag_source_ids = resolve_effective_rag_source_ids(
+            rag_source_ids=body.rag_source_ids,
+            metadata=body.metadata,
+        )
+
+        image_hint_started = time.perf_counter()
+        (
+            image_analysis_hint,
+            image_analysis_reason,
+            image_analysis_model,
+        ) = await build_image_analysis_hint(
+            project_id=body.project_id,
+            user_message=body.content,
+            rag_results=_rag_results,
+            requested_source_ids=effective_rag_source_ids,
+        )
+        stage_timings_ms["image_hint_ms"] = round(
+            (time.perf_counter() - image_hint_started) * 1000, 2
+        )
 
         prompt = build_chat_prompt(
             body=body,
@@ -302,6 +323,7 @@ async def process_chat_message(
             selected_files_hint=selected_files_hint,
             rag_payload=rag_payload,
             history_payload=history_payload,
+            image_analysis_hint=image_analysis_hint,
         )
 
         request_id = str(uuid4())
@@ -349,6 +371,9 @@ async def process_chat_message(
 
         observability_with_rag = {
             "rag_hit": rag_hit,
+            "image_analysis_applied": bool(image_analysis_hint),
+            "image_analysis_reason": image_analysis_reason,
+            "vision_model": image_analysis_model,
             **observability_metadata,
         }
         assistant_msg, persist_ms = await persist_assistant_message(
@@ -361,10 +386,15 @@ async def process_chat_message(
         stage_timings_ms["persist_ms"] = persist_ms
         total_duration_ms = round((time.perf_counter() - request_started) * 1000, 2)
         logger.info(
-            "chat_pipeline project=%s session=%s rag_hit=%s total=%sms stages=%s",
+            "chat_pipeline project=%s session=%s rag_hit=%s "
+            "image_analysis_applied=%s image_analysis_reason=%s vision_model=%s "
+            "total=%sms stages=%s",
             body.project_id,
             session_id,
             rag_hit,
+            bool(image_analysis_hint),
+            image_analysis_reason,
+            image_analysis_model,
             total_duration_ms,
             stage_timings_ms,
         )
