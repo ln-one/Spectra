@@ -164,7 +164,6 @@ def build_modify_prompt(
             "\n- 若目标页有多页，必须按原顺序返回，并用 `---` 分隔。"
             "\n- 返回页数必须与目标页数完全一致。"
         )
-
     return f"""你是资深学科教学设计师。请根据修改指令，在保持现有教学结构尽量稳定的前提下更新课件。
 
 {rag_section}<current_courseware>
