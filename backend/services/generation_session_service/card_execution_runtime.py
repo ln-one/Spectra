@@ -176,58 +176,71 @@ async def _execute_session_request(
         card_id=card_id,
         source_artifact_id=source_artifact_id,
     )
-    if body.client_session_id:
-        try:
-            existing_session = await session_service._db.generationsession.find_first(
-                where={
-                    "projectId": body.project_id,
-                    "userId": user_id,
-                    "OR": [
-                        {"id": body.client_session_id},
-                        {"clientSessionId": body.client_session_id},
-                    ],
-                }
-            )
-        except Exception as exc:
-            logger.warning(
-                (
-                    "Skip studio-card active-run precheck before session lookup is"
-                    " ready: project=%s card=%s client_session=%s error=%s"
-                ),
-                body.project_id,
-                card_id,
-                body.client_session_id,
-                exc,
-            )
-            existing_session = None
-        if existing_session:
-            try:
-                active_generate_run = await session_service._db.sessionrun.find_first(
-                    where={
-                        "sessionId": existing_session.id,
-                        "toolType": f"studio_card:{card_id}",
-                        "status": {"in": [RUN_STATUS_PENDING, RUN_STATUS_PROCESSING]},
-                        "step": RUN_STEP_GENERATE,
-                    },
-                    order={"updatedAt": "desc"},
-                )
-            except Exception as exc:
-                logger.warning(
-                    (
-                        "Skip studio-card active-run precheck before run storage is"
-                        " ready: session=%s card=%s error=%s"
-                    ),
-                    existing_session.id,
-                    card_id,
-                    exc,
-                )
-                active_generate_run = None
-            if active_generate_run:
-                raise APIException(
-                    status_code=409,
-                    error_code=ErrorCode.RESOURCE_CONFLICT,
-                    message="当前卡片已有进行中的生成任务，请等待完成后再发起新一轮。",
-                )
+    if not body.client_session_id:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="请先在会话管理器中创建或选择会话，再执行 Studio 卡片。",
+        )
+
+    try:
+        existing_session = await session_service._db.generationsession.find_first(
+            where={
+                "projectId": body.project_id,
+                "userId": user_id,
+                "OR": [
+                    {"id": body.client_session_id},
+                    {"clientSessionId": body.client_session_id},
+                ],
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            (
+                "Studio-card session lookup failed before active-run precheck: "
+                "project=%s card=%s client_session=%s error=%s"
+            ),
+            body.project_id,
+            card_id,
+            body.client_session_id,
+            exc,
+        )
+        existing_session = None
+
+    if not existing_session:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="client_session_id 无效或不属于当前项目，请先在会话管理器中创建会话。",
+        )
+
+    try:
+        active_generate_run = await session_service._db.sessionrun.find_first(
+            where={
+                "sessionId": existing_session.id,
+                "toolType": f"studio_card:{card_id}",
+                "status": {"in": [RUN_STATUS_PENDING, RUN_STATUS_PROCESSING]},
+                "step": RUN_STEP_GENERATE,
+            },
+            order={"updatedAt": "desc"},
+        )
+    except Exception as exc:
+        logger.warning(
+            (
+                "Skip studio-card active-run precheck before run storage is"
+                " ready: session=%s card=%s error=%s"
+            ),
+            existing_session.id,
+            card_id,
+            exc,
+        )
+        active_generate_run = None
+    if active_generate_run:
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="当前卡片已有进行中的生成任务，请等待完成后再发起新一轮。",
+        )
 
     session_ref = await session_service.create_session(
         project_id=body.project_id,

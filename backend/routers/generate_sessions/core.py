@@ -106,14 +106,16 @@ async def _ensure_no_active_run_conflict(
     output_type: str,
     client_session_id: Optional[str],
     bootstrap_only: bool,
+    session_candidate=None,
 ) -> None:
     if bootstrap_only:
         return
-    session_candidate = await _find_owned_session_candidate(
-        project_id=project_id,
-        user_id=user_id,
-        client_session_id=client_session_id,
-    )
+    if session_candidate is None:
+        session_candidate = await _find_owned_session_candidate(
+            project_id=project_id,
+            user_id=user_id,
+            client_session_id=client_session_id,
+        )
     if not session_candidate:
         return
 
@@ -141,6 +143,39 @@ async def _ensure_no_active_run_conflict(
             "tool_type": tool_type,
         },
     )
+
+
+async def _require_bound_session_for_generation(
+    *,
+    project_id: str,
+    user_id: str,
+    client_session_id: Optional[str],
+    bootstrap_only: bool,
+):
+    if bootstrap_only:
+        return None
+
+    normalized_client_session_id = str(client_session_id or "").strip()
+    if not normalized_client_session_id:
+        raise_conflict(
+            "请先在会话管理器中创建或选择会话，再发起生成。",
+            details={"reason": "missing_client_session_id"},
+        )
+
+    session_candidate = await _find_owned_session_candidate(
+        project_id=project_id,
+        user_id=user_id,
+        client_session_id=normalized_client_session_id,
+    )
+    if not session_candidate:
+        raise_conflict(
+            "client_session_id 无效或不属于当前项目，请先在会话管理器中创建会话。",
+            details={
+                "reason": "invalid_client_session_id",
+                "client_session_id": normalized_client_session_id,
+            },
+        )
+    return session_candidate
 
 
 @router.get("/sessions")
@@ -217,7 +252,7 @@ async def create_generation_session(
     project_id = body.get("project_id")
     output_type = body.get("output_type")
     bootstrap_only = bool(body.get("bootstrap_only"))
-    client_session_id = body.get("client_session_id")
+    client_session_id = str(body.get("client_session_id") or "").strip() or None
     if not project_id or not output_type:
         raise APIException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -247,9 +282,18 @@ async def create_generation_session(
 
     svc = get_session_service()
     task_queue_svc = get_task_queue_service(request)
+    session_candidate = await _require_bound_session_for_generation(
+        project_id=project_id,
+        user_id=user_id,
+        client_session_id=client_session_id,
+        bootstrap_only=bootstrap_only,
+    )
     key_str = parse_idempotency_key(idempotency_key)
     cache_key = (
-        f"create_session:{user_id}:{project_id}:{output_type}:{key_str}"
+        (
+            "create_session:"
+            f"{user_id}:{project_id}:{output_type}:{client_session_id or '-'}:{key_str}"
+        )
         if key_str
         else None
     )
@@ -267,6 +311,7 @@ async def create_generation_session(
         output_type=output_type,
         client_session_id=client_session_id,
         bootstrap_only=bootstrap_only,
+        session_candidate=session_candidate,
     )
 
     session_ref = await svc.create_session(

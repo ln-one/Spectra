@@ -977,7 +977,7 @@ async def test_get_session_runtime_state_uses_lightweight_select():
 
 
 @pytest.mark.anyio
-async def test_create_session_creates_new_session_when_existing_success_is_terminal():
+async def test_create_session_reuses_existing_success_session():
     existing_session = SimpleNamespace(
         id="s-success",
         projectId="p-001",
@@ -994,13 +994,13 @@ async def test_create_session_creates_new_session_when_existing_success_is_termi
         updatedAt=datetime.now(timezone.utc),
         progress=100,
     )
-    created_session = SimpleNamespace(
-        id="s-new",
+    updated_session = SimpleNamespace(
+        id="s-success",
         projectId="p-001",
         userId="u-001",
         baseVersionId="ver-current-002",
         state=GenerationState.DRAFTING_OUTLINE.value,
-        stateReason=SessionLifecycleReason.SESSION_CREATED.value,
+        stateReason=SessionLifecycleReason.SESSION_REUSED.value,
         outputType=SessionOutputType.PPT.value,
         options='{"pages": 12}',
         clientSessionId="s-success",
@@ -1021,8 +1021,8 @@ async def test_create_session_creates_new_session_when_existing_success_is_termi
         ),
         generationsession=SimpleNamespace(
             find_first=AsyncMock(return_value=existing_session),
-            create=AsyncMock(return_value=created_session),
-            update=AsyncMock(),
+            create=AsyncMock(),
+            update=AsyncMock(return_value=updated_session),
         ),
         sessionevent=SimpleNamespace(create=AsyncMock()),
     )
@@ -1039,16 +1039,18 @@ async def test_create_session_creates_new_session_when_existing_success_is_termi
         task_queue_service=None,
     )
 
-    assert session_ref["session_id"] == "s-new"
-    db.generationsession.create.assert_awaited_once()
-    create_payload = db.generationsession.create.await_args.kwargs["data"]
-    assert create_payload["projectId"] == "p-001"
-    assert create_payload["clientSessionId"] == "s-success"
+    assert session_ref["session_id"] == "s-success"
+    db.generationsession.create.assert_not_awaited()
+    db.generationsession.update.assert_awaited_once()
+    update_payload = db.generationsession.update.await_args.kwargs["data"]
+    assert update_payload["outputType"] == SessionOutputType.PPT.value
+    assert update_payload["clientSessionId"] == "s-success"
+    assert update_payload["state"] == GenerationState.DRAFTING_OUTLINE.value
     event_data = db.sessionevent.create.await_args.kwargs["data"]
     assert event_data["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert (
         json.loads(event_data["payload"]).get("reason")
-        == SessionLifecycleReason.SESSION_CREATED.value
+        == SessionLifecycleReason.SESSION_REUSED.value
     )
 
 

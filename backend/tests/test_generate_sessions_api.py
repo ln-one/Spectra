@@ -58,7 +58,7 @@ def mock_db_service():
         updatedAt=datetime.now(timezone.utc),
         progress=0,
         stateReason=None,
-        displayTitle="浼氳瘽-001",
+        displayTitle="会话-001",
         displayTitleSource="default",
         displayTitleUpdatedAt=None,
     )
@@ -97,6 +97,44 @@ def _studio_tool_fallback_allow_for_legacy_tests(monkeypatch):
 async def test_create_session_returns_quickly_and_schedules_outline(
     app, mock_db_service, _as_user
 ):
+    existing_session = SimpleNamespace(
+        id="s-001",
+        projectId="p-001",
+        userId="u-001",
+        state=GenerationState.IDLE.value,
+        outputType="ppt",
+        options=None,
+        clientSessionId="s-001",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+        stateReason=None,
+    )
+    started_session = SimpleNamespace(
+        id="s-001",
+        projectId="p-001",
+        userId="u-001",
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        outputType="ppt",
+        options=json.dumps({"pages": 10}),
+        clientSessionId="s-001",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+        stateReason=None,
+        displayTitle="会话-001",
+        displayTitleSource="default",
+        displayTitleUpdatedAt=None,
+    )
+    mock_db_service.generationsession.find_first = AsyncMock(
+        return_value=existing_session
+    )
+    mock_db_service.generationsession.update = AsyncMock(return_value=started_session)
+
     schedule_mock = AsyncMock()
     with patch.object(db_service, "get_project", mock_db_service.get_project):
         with patch.object(db_service, "db", mock_db_service):
@@ -111,6 +149,7 @@ async def test_create_session_returns_quickly_and_schedules_outline(
                     json={
                         "project_id": "p-001",
                         "output_type": SessionOutputType.PPT.value,
+                        "client_session_id": "s-001",
                         "options": {"pages": 10},
                     },
                 )
@@ -123,7 +162,7 @@ async def test_create_session_returns_quickly_and_schedules_outline(
     assert data["success"] is True
     assert data["data"]["session"]["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert data["data"]["session"]["session_id"] == "s-001"
-    assert data["data"]["session"]["display_title"] == "浼氳瘽-001"
+    assert data["data"]["session"]["display_title"] == "会话-001"
     assert data["data"]["session"]["display_title_source"] == "default"
 
 
@@ -171,6 +210,57 @@ async def test_create_session_bootstrap_only_does_not_schedule_outline(
     data = response.json()
     assert data["data"]["session"]["state"] == GenerationState.IDLE.value
     assert data["data"]["session"]["session_id"] == "s-bootstrap-001"
+
+
+@pytest.mark.anyio
+async def test_create_session_requires_client_session_id_for_tool_invocation(
+    app, mock_db_service, _as_user
+):
+    with patch.object(db_service, "get_project", mock_db_service.get_project):
+        with patch.object(db_service, "db", mock_db_service):
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/generate/sessions",
+                json={
+                    "project_id": "p-001",
+                    "output_type": SessionOutputType.PPT.value,
+                    "options": {"pages": 10},
+                },
+            )
+
+    assert response.status_code == 409
+    payload = response.json()
+    error = payload.get("error") or payload.get("detail") or {}
+    details = error.get("details") if isinstance(error, dict) else {}
+    assert error.get("code") == "RESOURCE_CONFLICT"
+    assert details.get("reason") == "missing_client_session_id"
+
+
+@pytest.mark.anyio
+async def test_create_session_rejects_invalid_client_session_id(
+    app, mock_db_service, _as_user
+):
+    mock_db_service.generationsession.find_first = AsyncMock(return_value=None)
+    with patch.object(db_service, "get_project", mock_db_service.get_project):
+        with patch.object(db_service, "db", mock_db_service):
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/generate/sessions",
+                json={
+                    "project_id": "p-001",
+                    "output_type": SessionOutputType.PPT.value,
+                    "client_session_id": "s-not-found",
+                    "options": {"pages": 10},
+                },
+            )
+
+    assert response.status_code == 409
+    payload = response.json()
+    error = payload.get("error") or payload.get("detail") or {}
+    details = error.get("details") if isinstance(error, dict) else {}
+    assert error.get("code") == "RESOURCE_CONFLICT"
+    assert details.get("reason") == "invalid_client_session_id"
+    assert details.get("client_session_id") == "s-not-found"
 
 
 @pytest.mark.anyio
@@ -534,6 +624,12 @@ async def test_rq_fallback_to_local_when_worker_unavailable():
 @pytest.mark.anyio
 async def test_idempotency_prevents_duplicate_creation(app):
     mock_project = SimpleNamespace(id="p-001", userId="u-001", name="test-project")
+    mock_session = SimpleNamespace(
+        id="s-existing-001",
+        projectId="p-001",
+        userId="u-001",
+        clientSessionId="s-existing-001",
+    )
     cached_response = {
         "success": True,
         "data": {"session": {"session_id": "s-001"}},
@@ -547,13 +643,22 @@ async def test_idempotency_prevents_duplicate_creation(app):
             "get_idempotency_response",
             AsyncMock(return_value=cached_response),
         ):
-            with patch.object(db_service, "db", SimpleNamespace()):
+            with patch.object(
+                db_service,
+                "db",
+                SimpleNamespace(
+                    generationsession=SimpleNamespace(
+                        find_first=AsyncMock(return_value=mock_session)
+                    )
+                ),
+            ):
                 client = TestClient(app)
                 response = client.post(
                     "/api/v1/generate/sessions",
                     json={
                         "project_id": "p-001",
                         "output_type": SessionOutputType.PPT.value,
+                        "client_session_id": "s-existing-001",
                     },
                     headers={"Idempotency-Key": "123e4567-e89b-12d3-a456-426614174000"},
                 )
@@ -1175,6 +1280,7 @@ async def test_preview_studio_card_execution_requires_project_id(app, _as_user):
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_courseware_session(app, _as_user):
     client = TestClient(app)
+    existing_session = SimpleNamespace(id="client-card-ppt-001")
     session_ref = {
         "session_id": "s-card-ppt-001",
         "project_id": "p-001",
@@ -1190,6 +1296,16 @@ async def test_execute_studio_card_creates_courseware_session(app, _as_user):
         patch(
             "services.generation_session_service.card_execution_runtime.get_owned_project",
             AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+        ),
+        patch.object(
+            db_service,
+            "db",
+            SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_first=AsyncMock(return_value=existing_session)
+                ),
+                sessionevent=SimpleNamespace(create=AsyncMock()),
+            ),
         ),
     ):
         response = client.post(
@@ -1223,6 +1339,7 @@ async def test_execute_studio_card_creates_courseware_session(app, _as_user):
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_word_session(app, _as_user):
     client = TestClient(app)
+    existing_session = SimpleNamespace(id="client-card-001")
     session_ref = {
         "session_id": "s-card-001",
         "project_id": "p-001",
@@ -1238,6 +1355,16 @@ async def test_execute_studio_card_creates_word_session(app, _as_user):
         patch(
             "services.generation_session_service.card_execution_runtime.get_owned_project",
             AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+        ),
+        patch.object(
+            db_service,
+            "db",
+            SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_first=AsyncMock(return_value=existing_session)
+                ),
+                sessionevent=SimpleNamespace(create=AsyncMock()),
+            ),
         ),
     ):
         response = client.post(
@@ -1265,6 +1392,30 @@ async def test_execute_studio_card_creates_word_session(app, _as_user):
     assert kwargs["output_type"] == "word"
     assert kwargs["client_session_id"] == "client-card-001"
     assert kwargs["options"]["document_variant"] == "student_handout"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_requires_bound_session(app, _as_user):
+    client = TestClient(app)
+
+    with patch(
+        "services.generation_session_service.card_execution_runtime.get_owned_project",
+        AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/word_document/execute",
+            json={
+                "project_id": "p-001",
+                "config": {
+                    "document_variant": "student_handout",
+                },
+            },
+        )
+
+    assert response.status_code == 409
+    payload = response.json()
+    detail = payload.get("detail") or {}
+    assert detail.get("code") == "RESOURCE_CONFLICT"
 
 
 @pytest.mark.anyio
