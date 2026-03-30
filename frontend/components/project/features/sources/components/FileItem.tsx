@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronUp, Sparkles, Trash2, X } from "lucide-react";
+import { Check, ChevronUp, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FILE_TYPE_CONFIG, STATUS_CONFIG } from "../constants";

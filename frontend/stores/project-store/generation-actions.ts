@@ -76,10 +76,8 @@ function resolveOutlineBaseVersion(
     typeof rawVersion === "number"
       ? rawVersion
       : Number.parseInt(String(rawVersion ?? ""), 10);
-  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
-  const hasOutlineNodes =
-    Array.isArray(session?.outline?.nodes) && session.outline.nodes.length > 0;
-  return hasOutlineNodes ? 1 : 0;
+  if (Number.isFinite(parsed) && parsed >= 1) return parsed;
+  return 1;
 }
 
 export function createGenerationActions({

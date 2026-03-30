@@ -65,7 +65,7 @@ export function PreviewSlideStrip({
                     : "text-muted-foreground group-hover:text-foreground"
                 )}
               >
-                {slide.index}
+                {slide.index + 1}
               </span>
               {isActive ? (
                 <motion.span
@@ -73,7 +73,7 @@ export function PreviewSlideStrip({
                   animate={{ opacity: 1, y: 0 }}
                   className="text-xs font-semibold z-10 truncate text-foreground leading-tight mt-auto block drop-shadow-sm"
                 >
-                  {slide.title || `第 ${slide.index} 页`}
+                  {slide.title || `第 ${slide.index + 1} 页`}
                 </motion.span>
               ) : null}
             </div>

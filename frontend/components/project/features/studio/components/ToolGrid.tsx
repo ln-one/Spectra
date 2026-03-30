@@ -45,19 +45,14 @@ export function ToolGrid({
             }}
             whileTap={{ scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            onMouseDown={(event) => {
-              // Keep click interactions from leaving browser default focus outline.
-              event.preventDefault();
-            }}
-            onClick={(event) => {
+            onClick={() => {
               onToolClick(tool);
-              event.currentTarget.blur();
             }}
             onMouseEnter={() => !isExpanded && onHoveredToolIdChange(tool.id)}
             onMouseLeave={() => onHoveredToolIdChange(null)}
             className={cn(
               "project-tool-card group relative flex h-auto min-h-[60px] w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded-[var(--project-chip-radius)] border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-1 py-1.5 backdrop-blur-sm",
-              "cursor-pointer outline-none transition-shadow duration-200 ease-out focus-visible:outline-none focus-visible:ring-0"
+              "cursor-pointer transition-shadow duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--project-border-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--project-surface)]"
             )}
             style={{
               boxShadow:
