@@ -150,13 +150,15 @@ async def get_session_preview_response(
             error_code=ErrorCode.INVALID_INPUT,
             message=str(exc),
         )
-    anchor, task, slides, lesson_plan, _ = await load_preview_material_for_snapshot(
-        session_id=session_id,
-        snapshot=snapshot,
-        artifact_id=artifact_id,
-        run_id=run_id,
-        resolve_preview_anchor=resolve_preview_anchor,
-        load_preview_material=load_preview_material,
+    anchor, task, slides, lesson_plan, content = (
+        await load_preview_material_for_snapshot(
+            session_id=session_id,
+            snapshot=snapshot,
+            artifact_id=artifact_id,
+            run_id=run_id,
+            resolve_preview_anchor=resolve_preview_anchor,
+            load_preview_material=load_preview_material,
+        )
     )
     if run_id and task is None:
         _raise_run_not_ready(run_id)
@@ -169,6 +171,9 @@ async def get_session_preview_response(
             slides=slides,
             lesson_plan=lesson_plan,
             anchor=anchor,
+            rendered_preview=(
+                content.get("rendered_preview") if isinstance(content, dict) else None
+            ),
         ),
         message="棰勮鑾峰彇鎴愬姛",
     )
@@ -287,13 +292,15 @@ async def get_session_slide_preview_response(
     load_preview_material: PreviewMaterialLoader,
 ):
     snapshot = await get_preview_snapshot_or_raise(session_id, user_id)
-    anchor, task, slides, lesson_plan, _ = await load_preview_material_for_snapshot(
-        session_id=session_id,
-        snapshot=snapshot,
-        artifact_id=artifact_id,
-        run_id=run_id,
-        resolve_preview_anchor=resolve_preview_anchor,
-        load_preview_material=load_preview_material,
+    anchor, task, slides, lesson_plan, content = (
+        await load_preview_material_for_snapshot(
+            session_id=session_id,
+            snapshot=snapshot,
+            artifact_id=artifact_id,
+            run_id=run_id,
+            resolve_preview_anchor=resolve_preview_anchor,
+            load_preview_material=load_preview_material,
+        )
     )
     if run_id and task is None:
         _raise_run_not_ready(run_id)
@@ -306,6 +313,14 @@ async def get_session_slide_preview_response(
         )
     except LookupError as exc:
         raise NotFoundException(message=str(exc), error_code=ErrorCode.NOT_FOUND)
+    rendered_page = None
+    if isinstance(content, dict):
+        rendered_preview = content.get("rendered_preview")
+        if isinstance(rendered_preview, dict):
+            for page in rendered_preview.get("pages", []) or []:
+                if page.get("slide_id") == selected_slide.get("id"):
+                    rendered_page = page
+                    break
     return success_response(
         data=build_slide_preview_payload(
             session_id=session_id,
@@ -314,6 +329,7 @@ async def get_session_slide_preview_response(
             selected_slide=selected_slide,
             teaching_plan=teaching_plan,
             related_slides=related_slides,
+            rendered_page=rendered_page,
         ),
         message="椤甸潰棰勮鑾峰彇鎴愬姛",
     )

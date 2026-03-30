@@ -10,6 +10,7 @@ import type { components } from "@/lib/sdk/types";
 import { useShallow } from "zustand/react/shallow";
 
 type Slide = components["schemas"]["Slide"];
+type RenderedPreview = components["schemas"]["RenderedPreview"];
 type SessionStatePayload = components["schemas"]["SessionStatePayloadTarget"];
 type ArtifactType = components["schemas"]["Artifact"]["type"];
 type OutlineSectionPayload = {
@@ -29,6 +30,15 @@ type ModifyRetryContext = {
   slide: Slide;
   instruction: string;
 };
+
+type SessionIdentity = {
+  session?: {
+    session_id?: string;
+  } | null;
+  current_run?: {
+    run_id?: string;
+  } | null;
+} | null;
 
 function inferDownloadExt(artifactType: ArtifactType | undefined): string {
   if (!artifactType) return "bin";
@@ -90,6 +100,37 @@ function readRunIdFromTrace(payload: Record<string, unknown>): string | null {
   return null;
 }
 
+export function resolveActivePreviewRunId({
+  activeSessionId,
+  runIdFromQuery,
+  storeActiveSessionId,
+  storeActiveRunId,
+  generationSession,
+}: {
+  activeSessionId: string | null;
+  runIdFromQuery: string | null;
+  storeActiveSessionId: string | null;
+  storeActiveRunId: string | null;
+  generationSession: SessionIdentity;
+}): string | null {
+  if (runIdFromQuery) return runIdFromQuery;
+  if (
+    activeSessionId &&
+    storeActiveSessionId === activeSessionId &&
+    storeActiveRunId
+  ) {
+    return storeActiveRunId;
+  }
+  if (
+    activeSessionId &&
+    generationSession?.session?.session_id === activeSessionId &&
+    generationSession.current_run?.run_id
+  ) {
+    return generationSession.current_run.run_id;
+  }
+  return null;
+}
+
 export function useGeneratePreviewState({
   projectId,
   sessionIdFromQuery,
@@ -109,6 +150,9 @@ export function useGeneratePreviewState({
   const [currentRenderVersion, setCurrentRenderVersion] = useState<
     number | null
   >(null);
+  const [previewMode, setPreviewMode] = useState<"rendered" | "markdown">(
+    "markdown"
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
@@ -128,6 +172,7 @@ export function useGeneratePreviewState({
   const {
     generationSession,
     generationHistory,
+    activeSessionId: activeSessionIdInStore,
     activeRunId: activeRunIdInStore,
     fetchGenerationHistory,
     setActiveSessionId,
@@ -136,6 +181,7 @@ export function useGeneratePreviewState({
     useShallow((state) => ({
       generationSession: state.generationSession,
       generationHistory: state.generationHistory,
+      activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
       fetchGenerationHistory: state.fetchGenerationHistory,
       setActiveSessionId: state.setActiveSessionId,
@@ -148,17 +194,23 @@ export function useGeneratePreviewState({
     generationSession?.session.session_id ||
     (generationHistory.length > 0 ? generationHistory[0].id : null);
 
-  const activeRunId =
-    runIdFromQuery ||
-    activeRunIdInStore ||
-    ((generationSession as SessionStatePayloadWithRun | null)?.current_run
-      ?.run_id ??
-      null);
+  const activeRunId = resolveActivePreviewRunId({
+    activeSessionId,
+    runIdFromQuery,
+    storeActiveSessionId: activeSessionIdInStore,
+    storeActiveRunId: activeRunIdInStore,
+    generationSession: generationSession as SessionStatePayloadWithRun | null,
+  });
 
   useEffect(() => {
     if (!sessionIdFromQuery) return;
     setActiveSessionId(sessionIdFromQuery);
   }, [sessionIdFromQuery, setActiveSessionId]);
+
+  useEffect(() => {
+    if (!activeSessionId || activeSessionId === activeSessionIdInStore) return;
+    setActiveSessionId(activeSessionId);
+  }, [activeSessionId, activeSessionIdInStore, setActiveSessionId]);
 
   useEffect(() => {
     if (!runIdFromQuery) return;
@@ -183,7 +235,9 @@ export function useGeneratePreviewState({
       return;
     }
     try {
-      const response = await generateApi.listRuns(activeSessionId, { limit: 30 });
+      const response = await generateApi.listRuns(activeSessionId, {
+        limit: 30,
+      });
       setSessionRuns(response?.data?.runs ?? []);
     } catch {
       setSessionRuns([]);
@@ -196,19 +250,89 @@ export function useGeneratePreviewState({
       return;
     }
 
+    const applyPreviewResponse = (
+      response: Awaited<ReturnType<typeof previewApi.getSessionPreview>>
+    ) => {
+      if (response.success && response.data?.slides) {
+        const renderedPreview = response.data.rendered_preview as
+          | RenderedPreview
+          | undefined;
+        const renderedPages = renderedPreview?.pages ?? [];
+        const pageBySlideId = new Map(
+          renderedPages
+            .filter(
+              (
+                page
+              ): page is NonNullable<RenderedPreview["pages"]>[number] & {
+                slide_id: string;
+              } => Boolean(page?.slide_id)
+            )
+            .map((page) => [page.slide_id, page])
+        );
+        const pageByIndex = new Map(
+          renderedPages
+            .filter(
+              (
+                page
+              ): page is NonNullable<RenderedPreview["pages"]>[number] & {
+                index: number;
+              } => typeof page?.index === "number"
+            )
+            .map((page) => [page.index, page])
+        );
+        const nextSlides = response.data.slides
+          .map((slide) => {
+            const matchedPage =
+              (slide.id ? pageBySlideId.get(slide.id) : undefined) ??
+              pageByIndex.get(slide.index);
+            if (!matchedPage?.image_url) {
+              return slide;
+            }
+            return {
+              ...slide,
+              thumbnail_url: matchedPage.image_url,
+            };
+          })
+          .sort((a, b) => a.index - b.index);
+        setSlides(nextSlides);
+        setCurrentArtifactId(response.data.artifact_id ?? null);
+        setCurrentRenderVersion(response.data.render_version ?? null);
+        setPreviewMode(renderedPages.length > 0 ? "rendered" : "markdown");
+      }
+    };
+
     try {
       setPreviewBlockedReason(null);
       const response = await previewApi.getSessionPreview(activeSessionId, {
         artifact_id: currentArtifactId ?? undefined,
         run_id: activeRunId ?? undefined,
       });
-
-      if (response.success && response.data?.slides) {
-        setSlides(response.data.slides.sort((a, b) => a.index - b.index));
-        setCurrentArtifactId(response.data.artifact_id ?? null);
-        setCurrentRenderVersion(response.data.render_version ?? null);
-      }
+      applyPreviewResponse(response);
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.status === 404 &&
+        activeRunId &&
+        !runIdFromQuery &&
+        error.message.includes("不属于会话")
+      ) {
+        try {
+          setActiveRunId(null);
+          const fallbackResponse = await previewApi.getSessionPreview(
+            activeSessionId,
+            {
+              artifact_id: currentArtifactId ?? undefined,
+            }
+          );
+          applyPreviewResponse(fallbackResponse);
+          return;
+        } catch (fallbackError) {
+          console.error(
+            "Failed to reload slides preview after clearing stale run:",
+            fallbackError
+          );
+        }
+      }
       if (error instanceof ApiError && error.status === 409) {
         const reason =
           typeof error.details?.reason === "string"
@@ -249,7 +373,13 @@ export function useGeneratePreviewState({
     } finally {
       setIsLoading(false);
     }
-  }, [activeRunId, activeSessionId, currentArtifactId]);
+  }, [
+    activeRunId,
+    activeSessionId,
+    currentArtifactId,
+    runIdFromQuery,
+    setActiveRunId,
+  ]);
 
   const loadEventsSnapshot = useCallback(async () => {
     if (!activeSessionId) return;
@@ -391,7 +521,8 @@ export function useGeneratePreviewState({
         setSlides((prev) => {
           const idx = prev.findIndex(
             (s) =>
-              (s.id && s.id === updatedSlide.id) || s.index === updatedSlide.index
+              (s.id && s.id === updatedSlide.id) ||
+              s.index === updatedSlide.index
           );
           if (idx !== -1) {
             const next = [...prev];
@@ -526,13 +657,7 @@ export function useGeneratePreviewState({
     } finally {
       setIsExporting(false);
     }
-  }, [
-    activeRunId,
-    activeSessionId,
-    currentArtifactId,
-    isExporting,
-    projectId,
-  ]);
+  }, [activeRunId, activeSessionId, currentArtifactId, isExporting, projectId]);
 
   const submitModifyRequest = useCallback(
     async (slide: Slide, instruction: string) => {
@@ -609,7 +734,9 @@ export function useGeneratePreviewState({
           return;
         }
         const message =
-          error instanceof ApiError ? error.message : "单页修改失败，请稍后重试";
+          error instanceof ApiError
+            ? error.message
+            : "单页修改失败，请稍后重试";
         toast({
           title: "单页修改失败",
           description: message,
@@ -630,6 +757,7 @@ export function useGeneratePreviewState({
     isResuming,
     regeneratingSlideId,
     previewBlockedReason,
+    previewMode,
     isSessionGenerating,
     isOutlineGenerating,
     outlineSections,

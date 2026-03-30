@@ -107,11 +107,15 @@ def parse_preview_content_from_input_data(raw_input_data: object) -> Optional[di
         return None
     if not isinstance(lesson_plan_markdown, str):
         return None
-    return {
+    rendered_preview = preview_content.get("rendered_preview")
+    normalized = {
         "title": title,
         "markdown_content": markdown_content,
         "lesson_plan_markdown": lesson_plan_markdown,
     }
+    if isinstance(rendered_preview, dict):
+        normalized["rendered_preview"] = rendered_preview
+    return normalized
 
 
 def parse_task_input_data(raw_input_data: object) -> dict:

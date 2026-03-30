@@ -162,12 +162,16 @@ export function StudioExpandedView({
                           {sourceOptions.map((item) => (
                             <option key={item.id} value={item.id}>
                               {(() => {
-                                const baseTitle = item.title || item.id.slice(0, 8);
+                                const baseTitle =
+                                  item.title || item.id.slice(0, 8);
                                 const compactTitle =
                                   baseTitle.length > 18
                                     ? `${baseTitle.slice(0, 18)}...`
                                     : baseTitle;
-                                return compactTitle + (item.type ? ` (${item.type})` : "");
+                                return (
+                                  compactTitle +
+                                  (item.type ? ` (${item.type})` : "")
+                                );
                               })()}
                             </option>
                           ))}

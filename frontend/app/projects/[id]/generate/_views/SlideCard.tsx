@@ -32,7 +32,10 @@ function parseTableRow(line: string): string[] {
 function isSeparatorRow(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed.includes("-")) return false;
-  const normalized = trimmed.replace(/\|/g, "").replace(/:/g, "").replace(/\s/g, "");
+  const normalized = trimmed
+    .replace(/\|/g, "")
+    .replace(/:/g, "")
+    .replace(/\s/g, "");
   return normalized.length > 0 && /^-+$/.test(normalized);
 }
 
@@ -128,9 +131,13 @@ function SlideChart({ data }: { data: ChartDatum[] }) {
       </p>
       <div className="flex h-48 items-end gap-2">
         {data.map((item) => {
-          const heightPercent = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
+          const heightPercent =
+            maxValue > 0 ? (item.value / maxValue) * 100 : 0;
           return (
-            <div key={`${item.label}-${item.value}`} className="flex flex-1 flex-col items-center gap-2">
+            <div
+              key={`${item.label}-${item.value}`}
+              className="flex flex-1 flex-col items-center gap-2"
+            >
               <span className="text-[10px] text-zinc-500">{item.value}</span>
               <div className="flex h-32 w-full items-end rounded bg-zinc-100 p-1">
                 <div
@@ -138,7 +145,9 @@ function SlideChart({ data }: { data: ChartDatum[] }) {
                   style={{ height: `${Math.max(heightPercent, 6)}%` }}
                 />
               </div>
-              <span className="line-clamp-1 text-center text-[10px] text-zinc-600">{item.label}</span>
+              <span className="line-clamp-1 text-center text-[10px] text-zinc-600">
+                {item.label}
+              </span>
             </div>
           );
         })}
@@ -154,9 +163,19 @@ export function SlideCard({
   slide: Slide;
   isActive: boolean;
 }) {
-  const table = useMemo(() => extractFirstMarkdownTable(slide.content || ""), [slide.content]);
-  const chartData = useMemo(() => (table ? buildChartData(table) : []), [table]);
-  const bodyMarkdown = useMemo(() => stripTable(slide.content || "", table), [slide.content, table]);
+  const hasRenderedPreview = Boolean(slide.thumbnail_url);
+  const table = useMemo(
+    () => extractFirstMarkdownTable(slide.content || ""),
+    [slide.content]
+  );
+  const chartData = useMemo(
+    () => (table ? buildChartData(table) : []),
+    [table]
+  );
+  const bodyMarkdown = useMemo(
+    () => stripTable(slide.content || "", table),
+    [slide.content, table]
+  );
   const hasChart = chartData.length > 0;
 
   return (
@@ -169,36 +188,67 @@ export function SlideCard({
         isActive ? "ring-2 ring-primary/30 shadow-md" : "hover:shadow-md"
       )}
     >
-      <div className="grid h-full grid-rows-[auto_1fr_auto] gap-4 p-6 md:p-8">
-        <header>
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Slide {slide.index + 1}
-          </p>
-          <h2 className="mt-1 text-2xl font-bold text-zinc-900 md:text-3xl">
-            {slide.title || `Untitled slide ${slide.index + 1}`}
-          </h2>
-        </header>
+      <div
+        className={cn(
+          "grid h-full gap-4",
+          hasRenderedPreview
+            ? "grid-rows-[1fr] p-3 md:p-4"
+            : "grid-rows-[auto_1fr_auto] p-6 md:p-8"
+        )}
+      >
+        {!hasRenderedPreview ? (
+          <header>
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Slide {slide.index + 1}
+            </p>
+            <h2 className="mt-1 text-2xl font-bold text-zinc-900 md:text-3xl">
+              {slide.title || `Untitled slide ${slide.index + 1}`}
+            </h2>
+          </header>
+        ) : null}
 
         <main
           className={cn(
             "grid min-h-0 gap-4",
-            hasChart ? "md:grid-cols-[1.25fr_1fr]" : "grid-cols-1"
+            hasRenderedPreview
+              ? "grid-cols-1"
+              : hasChart
+                ? "md:grid-cols-[1.25fr_1fr]"
+                : "grid-cols-1"
           )}
         >
-          <div className="min-h-0 overflow-auto rounded-xl border bg-white/80 p-4 prose prose-sm max-w-none text-zinc-700 prose-headings:text-zinc-900 prose-strong:text-zinc-900">
-            {slide.content ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{bodyMarkdown || slide.content}</ReactMarkdown>
-            ) : (
-              <div className="flex h-full items-center justify-center opacity-60">
-                <Loader2 className="h-7 w-7 animate-spin" />
+          {hasRenderedPreview ? (
+            <div className="relative min-h-0 overflow-hidden rounded-xl border bg-zinc-100">
+              <div className="absolute left-3 top-3 z-10 rounded-full bg-white/92 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 shadow-sm">
+                Slide {slide.index + 1}
               </div>
-            )}
-          </div>
+              <img
+                src={slide.thumbnail_url ?? undefined}
+                alt={slide.title || `Slide ${slide.index + 1}`}
+                className="h-full w-full object-contain bg-white"
+                loading="lazy"
+              />
+            </div>
+          ) : (
+            <>
+              <div className="min-h-0 overflow-auto rounded-xl border bg-white/80 p-4 prose prose-sm max-w-none text-zinc-700 prose-headings:text-zinc-900 prose-strong:text-zinc-900">
+                {slide.content ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {bodyMarkdown || slide.content}
+                  </ReactMarkdown>
+                ) : (
+                  <div className="flex h-full items-center justify-center opacity-60">
+                    <Loader2 className="h-7 w-7 animate-spin" />
+                  </div>
+                )}
+              </div>
 
-          {hasChart ? <SlideChart data={chartData} /> : null}
+              {hasChart ? <SlideChart data={chartData} /> : null}
+            </>
+          )}
         </main>
 
-        {slide.sources && slide.sources.length > 0 ? (
+        {!hasRenderedPreview && slide.sources && slide.sources.length > 0 ? (
           <footer className="flex flex-wrap gap-2 border-t pt-3">
             {slide.sources.map((source, idx) => (
               <span

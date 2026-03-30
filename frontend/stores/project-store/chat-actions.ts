@@ -270,8 +270,10 @@ export function createChatActions({
           set({ activeSessionId: response.data.session_id });
         }
 
-        const responseData = (response?.data ??
-          {}) as Record<string, unknown> & {
+        const responseData = (response?.data ?? {}) as Record<
+          string,
+          unknown
+        > & {
           session_id?: string;
         };
         const sessionTitleUpdated = responseData.session_title_updated === true;

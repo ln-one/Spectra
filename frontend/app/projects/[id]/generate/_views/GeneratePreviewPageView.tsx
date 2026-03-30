@@ -58,6 +58,7 @@ export default function GeneratePreviewPage() {
     isResuming,
     regeneratingSlideId,
     previewBlockedReason,
+    previewMode,
     isSessionGenerating,
     isOutlineGenerating,
     outlineSections,
@@ -111,7 +112,10 @@ export default function GeneratePreviewPage() {
 
     void (async () => {
       try {
-        const detail = await projectSpaceApi.getArtifact(projectId, currentArtifactId);
+        const detail = await projectSpaceApi.getArtifact(
+          projectId,
+          currentArtifactId
+        );
         if (cancelled) return;
         setArtifactTypeState({
           artifactId: currentArtifactId,
@@ -200,6 +204,7 @@ export default function GeneratePreviewPage() {
       : null;
   const canRenderRealPpt =
     Boolean(currentArtifactId) && boundArtifactType === "pptx";
+  const shouldUseRenderedPreviewFirst = previewMode === "rendered";
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -238,7 +243,9 @@ export default function GeneratePreviewPage() {
                   <p>等待章节事件...</p>
                 ) : (
                   outlineSections.map((section, index) => (
-                    <p key={`${index}-${section}`}>{index + 1}. {section}</p>
+                    <p key={`${index}-${section}`}>
+                      {index + 1}. {section}
+                    </p>
                   ))
                 )}
               </div>
@@ -302,8 +309,17 @@ export default function GeneratePreviewPage() {
               </div>
             )
           ) : (
-            <div className="max-w-4xl mx-auto w-full pb-32" ref={slidesRef}>
-              {canRenderRealPpt && currentArtifactId ? (
+            <div
+              className={
+                previewMode === "rendered"
+                  ? "mx-auto w-full max-w-[1400px] pb-32"
+                  : "mx-auto w-full max-w-4xl pb-32"
+              }
+              ref={slidesRef}
+            >
+              {canRenderRealPpt &&
+              currentArtifactId &&
+              !shouldUseRenderedPreviewFirst ? (
                 <PptArtifactRenderer
                   className="mb-4"
                   projectId={projectId}
@@ -322,7 +338,20 @@ export default function GeneratePreviewPage() {
                 </div>
               ) : null}
 
-              {!canRenderRealPpt || pptRenderState !== "ready" ? (
+              {pptRenderState !== "ready" || shouldUseRenderedPreviewFirst ? (
+                <div className="mb-4 rounded-lg border border-zinc-200 bg-white/80 px-3 py-2 text-xs text-zinc-600">
+                  {previewMode === "rendered"
+                    ? "当前展示的是后端渲染后的页图预览。"
+                    : "当前展示的是 Markdown 兼容预览，真实页图尚未就绪。"}
+                  {regeneratingSlideId
+                    ? " 当前版本正在重渲染，完成后会自动刷新。"
+                    : ""}
+                </div>
+              ) : null}
+
+              {!canRenderRealPpt ||
+              pptRenderState !== "ready" ||
+              shouldUseRenderedPreviewFirst ? (
                 <AnimatePresence>
                   {slides.map((slide, i) => (
                     <motion.div

@@ -127,8 +127,16 @@ export function SelectedSourceScopeBadge({
               {selectedFiles.slice(0, maxVisibleItems).map((fileInfo, idx) => {
                 const Icon = fileInfo.Icon;
                 return (
-                  <div key={idx} className="flex items-start gap-1.5 px-0.5 truncate">
-                    <Icon className={cn("mt-[2px] h-3 w-3 shrink-0", fileInfo.iconClass)} />
+                  <div
+                    key={idx}
+                    className="flex items-start gap-1.5 px-0.5 truncate"
+                  >
+                    <Icon
+                      className={cn(
+                        "mt-[2px] h-3 w-3 shrink-0",
+                        fileInfo.iconClass
+                      )}
+                    />
                     <span className="truncate">{fileInfo.name}</span>
                   </div>
                 );
@@ -142,7 +150,8 @@ export function SelectedSourceScopeBadge({
           )}
           {isAll && (
             <p className="text-[11px] leading-relaxed text-[var(--project-text-muted)] px-0.5 mt-0.5">
-              默认使用项目内的所有资料辅助生成。可在 Sources 面板中勾选指定文件以缩小范围。
+              默认使用项目内的所有资料辅助生成。可在 Sources
+              面板中勾选指定文件以缩小范围。
             </p>
           )}
         </div>

@@ -69,7 +69,8 @@ function parseBackendTurns(flowContext?: ToolFlowContext): BackendTurnItem[] {
     const question =
       typeof row.question === "string" && row.question.trim()
         ? row.question.trim()
-        : typeof row.student_question === "string" && row.student_question.trim()
+        : typeof row.student_question === "string" &&
+            row.student_question.trim()
           ? row.student_question.trim()
           : "";
     if (!question) continue;

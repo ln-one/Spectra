@@ -238,7 +238,7 @@ export async function resolveCapabilityFromArtifact(params: {
       }
       return buildResolution(
         "backend_placeholder",
-        "Mindmap artifact exists but nodes are empty."
+        "导图内容暂时为空，请重新生成或补充节点。"
       );
     }
 
@@ -247,12 +247,16 @@ export async function resolveCapabilityFromArtifact(params: {
       const parsed = parseJsonSafely(raw) as Record<string, unknown>;
       const questions = parsed?.questions;
       if (isNonEmptyArray(questions)) {
-        return buildResolution("backend_ready", "Loaded backend quiz content.", {
-          artifactId: artifact.artifactId,
-          artifactType,
-          contentKind: "json",
-          content: parsed,
-        });
+        return buildResolution(
+          "backend_ready",
+          "Loaded backend quiz content.",
+          {
+            artifactId: artifact.artifactId,
+            artifactType,
+            contentKind: "json",
+            content: parsed,
+          }
+        );
       }
       return buildResolution(
         "backend_placeholder",

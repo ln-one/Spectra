@@ -633,7 +633,8 @@ export function StudioPanelContainer({
                       string,
                       unknown
                     >) ?? {};
-                  sessionId = extractSessionIdFromExecutionResult(executionResult);
+                  sessionId =
+                    extractSessionIdFromExecutionResult(executionResult);
                   runId = extractRunIdFromExecutionResult(executionResult);
 
                   if (!sessionId) {

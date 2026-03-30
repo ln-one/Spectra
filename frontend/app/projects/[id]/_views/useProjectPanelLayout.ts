@@ -152,7 +152,8 @@ export function useProjectPanelLayout({
     expandedChatHeight >= maxExpandedChatHeightByCollapsedSources - 0.1;
   const isExpandedSourcesCollapsedByHeight =
     isExpanded &&
-    (expandedSourcesHeightPx <= COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP ||
+    (expandedSourcesHeightPx <=
+      COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP ||
       isExpandedSourcesNearCollapsedTarget);
 
   const toggleSourcesCollapsed = useCallback(
@@ -221,7 +222,8 @@ export function useProjectPanelLayout({
     const isNearCollapsedTarget =
       expandedChatHeight >= maxChatByCollapsedSources - 0.1;
     const shouldExpand =
-      currentSourcesHeightPx <= COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP ||
+      currentSourcesHeightPx <=
+        COLLAPSED_EXPANDED_SOURCES_HEIGHT_PX + PANEL_GAP ||
       isNearCollapsedTarget;
 
     if (!shouldExpand) {
@@ -233,11 +235,7 @@ export function useProjectPanelLayout({
     }
 
     setExpandedChatHeight(previousExpandedChatHeightRef.current ?? 50);
-  }, [
-    expandedChatHeight,
-    isExpanded,
-    panelAreaHeight,
-  ]);
+  }, [expandedChatHeight, isExpanded, panelAreaHeight]);
 
   const handleMouseDown = useCallback(
     (
@@ -280,7 +278,10 @@ export function useProjectPanelLayout({
           const maxStudioPercent = 40;
           const nextStudio = Math.max(
             minStudioPercent,
-            Math.min(maxStudioPercent, startSizesRef.current.studio + deltaPercent)
+            Math.min(
+              maxStudioPercent,
+              startSizesRef.current.studio + deltaPercent
+            )
           );
           const nextChat = Math.max(
             30,

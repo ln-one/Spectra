@@ -203,7 +203,7 @@ export function FileItem({
                 <Sparkles className="h-3 w-3" />
                 <span>文件解析摘要</span>
               </div>
-              
+
               {!(isFocused && focusDetail?.content) && (
                 <Button
                   variant="secondary"

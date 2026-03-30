@@ -55,7 +55,7 @@ export function ThinkingBubble({ toolColor }: ThinkingBubbleProps) {
           )}
 
           <div className="relative z-10 flex items-center gap-3">
-            <motion.div 
+            <motion.div
               animate={{
                 rotate: [0, 90, 180, 270, 360],
               }}
@@ -65,11 +65,17 @@ export function ThinkingBubble({ toolColor }: ThinkingBubbleProps) {
                 ease: "linear",
               }}
               className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--project-surface-muted)]"
-              style={toolColor ? { backgroundColor: toolColor.soft } : undefined}
+              style={
+                toolColor ? { backgroundColor: toolColor.soft } : undefined
+              }
             >
-              <Sparkles 
-                className="h-3.5 w-3.5" 
-                style={{ color: toolColor ? toolColor.primary : "var(--project-accent)" }} 
+              <Sparkles
+                className="h-3.5 w-3.5"
+                style={{
+                  color: toolColor
+                    ? toolColor.primary
+                    : "var(--project-accent)",
+                }}
               />
             </motion.div>
 
@@ -93,7 +99,9 @@ export function ThinkingBubble({ toolColor }: ThinkingBubbleProps) {
                     }}
                     className="h-1.5 w-1.5 rounded-full"
                     style={{
-                      backgroundColor: toolColor ? toolColor.primary : "var(--project-accent)",
+                      backgroundColor: toolColor
+                        ? toolColor.primary
+                        : "var(--project-accent)",
                     }}
                   />
                 ))}

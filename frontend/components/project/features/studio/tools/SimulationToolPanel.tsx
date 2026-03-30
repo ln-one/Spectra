@@ -156,7 +156,8 @@ export function SimulationToolPanel({
 
     try {
       setIsSubmittingTurn(true);
-      const effectiveRagSourceIds = resolveEffectiveRagSourceIds(selectedFileIds);
+      const effectiveRagSourceIds =
+        resolveEffectiveRagSourceIds(selectedFileIds);
       const response = await studioCardsApi.turn({
         project_id: project.id,
         artifact_id: latestArtifactId,

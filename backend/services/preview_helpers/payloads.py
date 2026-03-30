@@ -73,6 +73,7 @@ def build_preview_payload(
     slides: list[dict],
     lesson_plan: Optional[dict],
     anchor: dict,
+    rendered_preview: Optional[dict] = None,
 ) -> dict:
     return {
         "session_id": session_id,
@@ -85,6 +86,7 @@ def build_preview_payload(
         "render_version": snapshot["session"].get("render_version") or 1,
         "slides": slides,
         "lesson_plan": lesson_plan,
+        "rendered_preview": rendered_preview,
     }
 
 
@@ -118,6 +120,7 @@ def build_slide_preview_payload(
     selected_slide: dict,
     teaching_plan: Optional[dict],
     related_slides: list[dict],
+    rendered_page: Optional[dict] = None,
 ) -> dict:
     return {
         "session_id": session_id,
@@ -129,6 +132,7 @@ def build_slide_preview_payload(
         "slide": selected_slide,
         "teaching_plan": teaching_plan,
         "related_slides": related_slides,
+        "rendered_page": rendered_page,
     }
 
 

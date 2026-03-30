@@ -125,8 +125,8 @@ export function createGenerationActions({
           const sessionId = response.data.session.session_id;
           const runId = extractRunId(response.data.run);
           const previousHistoryTitle =
-            get().generationHistory.find((item) => item.id === sessionId)?.title ||
-            "";
+            get().generationHistory.find((item) => item.id === sessionId)
+              ?.title || "";
           const sessionDisplayTitle = String(
             (
               response.data.session as {

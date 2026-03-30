@@ -196,7 +196,9 @@ export function SessionArtifacts({
                             />
                             <span
                               className="min-w-0 flex-1 truncate whitespace-nowrap"
-                              title={new Date(item.createdAt).toLocaleString("zh-CN")}
+                              title={new Date(item.createdAt).toLocaleString(
+                                "zh-CN"
+                              )}
                             >
                               {formatHistoryTime(item.createdAt)}
                             </span>

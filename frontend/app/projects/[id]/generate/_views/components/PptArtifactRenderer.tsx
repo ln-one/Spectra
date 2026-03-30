@@ -10,11 +10,15 @@ type RenderState = "idle" | "loading" | "ready" | "failed";
 declare global {
   interface Window {
     JSZip?: {
-      loadAsync: (
-        data: ArrayBuffer
-      ) => Promise<{
-        file: (path: string, data?: string, options?: { base64?: boolean }) => unknown;
-        generateAsync: (options: { type: "arraybuffer" }) => Promise<ArrayBuffer>;
+      loadAsync: (data: ArrayBuffer) => Promise<{
+        file: (
+          path: string,
+          data?: string,
+          options?: { base64?: boolean }
+        ) => unknown;
+        generateAsync: (options: {
+          type: "arraybuffer";
+        }) => Promise<ArrayBuffer>;
       }>;
     };
     pptx2html?: (
@@ -39,7 +43,9 @@ function ensureRuntimeAsset(
   id: string,
   create: () => HTMLScriptElement | HTMLLinkElement
 ): Promise<void> {
-  if (typeof document === "undefined") return Promise.resolve();
+  if (typeof document === "undefined" || !document.head || !document.body) {
+    return Promise.resolve();
+  }
   const existing = document.getElementById(id) as
     | (HTMLScriptElement & { dataset: DOMStringMap })
     | (HTMLLinkElement & { dataset: DOMStringMap })
@@ -51,13 +57,18 @@ function ensureRuntimeAsset(
 
   return new Promise<void>((resolve, reject) => {
     const el = existing ?? create();
+    if (!el) {
+      reject(new Error(`Failed to create runtime asset: ${id}`));
+      return;
+    }
     el.id = id;
 
     const onLoad = () => {
       el.dataset.loaded = "true";
       resolve();
     };
-    const onError = () => reject(new Error(`Failed to load runtime asset: ${id}`));
+    const onError = () =>
+      reject(new Error(`Failed to load runtime asset: ${id}`));
 
     el.addEventListener("load", onLoad, { once: true });
     el.addEventListener("error", onError, { once: true });
@@ -161,7 +172,10 @@ export function PptArtifactRenderer({
           throw new Error("PPT renderer is unavailable.");
         }
 
-        const blob = await projectSpaceApi.downloadArtifact(projectId, artifactId);
+        const blob = await projectSpaceApi.downloadArtifact(
+          projectId,
+          artifactId
+        );
         if (cancelled) return;
         const buffer = await blob.arrayBuffer();
         if (cancelled) return;
@@ -175,11 +189,14 @@ export function PptArtifactRenderer({
       } catch (error) {
         if (cancelled) return;
         setState("failed");
-        console.warn("PPT artifact render failed, falling back to slide preview.", {
-          projectId,
-          artifactId,
-          error,
-        });
+        console.warn(
+          "PPT artifact render failed, falling back to slide preview.",
+          {
+            projectId,
+            artifactId,
+            error,
+          }
+        );
       }
     };
 
@@ -191,7 +208,9 @@ export function PptArtifactRenderer({
   }, [artifactId, projectId]);
 
   return (
-    <div className={cn("rounded-xl border bg-white/90 p-3 shadow-sm", className)}>
+    <div
+      className={cn("rounded-xl border bg-white/90 p-3 shadow-sm", className)}
+    >
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold text-zinc-700">PPT render</p>
         <span className="text-xs text-zinc-500">

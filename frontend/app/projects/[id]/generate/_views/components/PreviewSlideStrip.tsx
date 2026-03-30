@@ -6,6 +6,7 @@ type SlideItem = {
   id?: string;
   index: number;
   title?: string;
+  thumbnail_url?: string;
 };
 
 interface PreviewSlideStripProps {
@@ -54,6 +55,14 @@ export function PreviewSlideStrip({
                   : "w-20 border-border/50 bg-muted/50 hover:border-primary/40 hover:bg-muted"
               )}
             >
+              {slide.thumbnail_url ? (
+                <img
+                  src={slide.thumbnail_url}
+                  alt={slide.title || `第 ${slide.index + 1} 页`}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : null}
               <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent pointer-events-none" />
               <span
                 className={cn(

@@ -49,7 +49,26 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     monkeypatch.setattr(
         generate_sessions_preview_router,
         "_load_preview_material",
-        AsyncMock(return_value=(SimpleNamespace(id="t-001"), [], None, {})),
+        AsyncMock(
+            return_value=(
+                SimpleNamespace(id="t-001"),
+                [],
+                None,
+                {
+                    "rendered_preview": {
+                        "format": "png",
+                        "page_count": 1,
+                        "pages": [
+                            {
+                                "index": 0,
+                                "slide_id": "slide-1",
+                                "image_url": "data:image/png;base64,abc",
+                            }
+                        ],
+                    }
+                },
+            )
+        ),
     )
 
     resp = client.get(
@@ -62,6 +81,7 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     assert body["data"]["based_on_version_id"] == "v-001"
     assert body["data"]["current_version_id"] == "v-current"
     assert body["data"]["upstream_updated"] is True
+    assert body["data"]["rendered_preview"]["pages"][0]["slide_id"] == "slide-1"
 
 
 def test_get_preview_prefers_lightweight_snapshot_when_available(
@@ -386,7 +406,22 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
         ],
     }
     load_preview_material = AsyncMock(
-        return_value=(SimpleNamespace(id="t-003"), slides, lesson_plan, {})
+        return_value=(
+            SimpleNamespace(id="t-003"),
+            slides,
+            lesson_plan,
+            {
+                "rendered_preview": {
+                    "pages": [
+                        {
+                            "index": 1,
+                            "slide_id": "slide-2",
+                            "image_url": "data:image/png;base64,slide2",
+                        }
+                    ]
+                }
+            },
+        )
     )
     monkeypatch.setattr(
         generate_sessions_preview_router,
@@ -405,6 +440,7 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
     assert body["data"]["current_version_id"] == "v-current"
     assert body["data"]["upstream_updated"] is True
     assert body["data"]["artifact_anchor"]["run_id"] == "run-003"
+    assert body["data"]["rendered_page"]["slide_id"] == "slide-2"
     assert load_preview_material.await_args.args[4] == "run-003"
 
 
@@ -495,5 +531,3 @@ def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_use
     assert data["content"] == "# Demo"
     assert data["artifact_anchor"]["run_id"] == "run-007"
     assert load_preview_material.await_args.args[4] == "run-007"
-
-

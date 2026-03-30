@@ -564,4 +564,3 @@ export function useGenerationConfigPanel({
     handleGoToPreview,
   };
 }
-

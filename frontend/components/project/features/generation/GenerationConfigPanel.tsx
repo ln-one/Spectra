@@ -366,7 +366,8 @@ export function GenerationConfigPanel({
                         </p>
                         {hasInProgressRun ? (
                           <p className="mt-1 text-xs leading-5 text-amber-600">
-                            当前会话已有进行中的 Run，点击右侧按钮会按新配置重新生成大纲。
+                            当前会话已有进行中的
+                            Run，点击右侧按钮会按新配置重新生成大纲。
                           </p>
                         ) : null}
                       </div>

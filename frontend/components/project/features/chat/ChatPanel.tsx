@@ -438,13 +438,11 @@ export function ChatPanel({
                       />
                     ))}
                   </AnimatePresence>
-                    {isAIGenerating && (
-                      <ThinkingBubble toolColor={toolColors} />
-                    )}
-                    <div
-                      ref={messagesEndRef}
-                      style={{ scrollMarginBottom: `${composerClearance}px` }}
-                    />
+                  {isAIGenerating && <ThinkingBubble toolColor={toolColors} />}
+                  <div
+                    ref={messagesEndRef}
+                    style={{ scrollMarginBottom: `${composerClearance}px` }}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -485,8 +483,8 @@ export function ChatPanel({
               ref={composerShellRef}
               initial={false}
               animate={{
-                boxShadow: isFocused 
-                  ? "0 0 0 2px color-mix(in srgb, var(--project-accent) 40%, transparent), 0 12px 32px -12px rgba(15,23,42,0.45)" 
+                boxShadow: isFocused
+                  ? "0 0 0 2px color-mix(in srgb, var(--project-accent) 40%, transparent), 0 12px 32px -12px rgba(15,23,42,0.45)"
                   : "0 8px 24px -18px rgba(15,23,42,0.35)",
               }}
               className={cn(
@@ -497,7 +495,7 @@ export function ChatPanel({
                 isStudioRefineMode && toolColors
                   ? {
                       background: `color-mix(in srgb, ${toolColors.primary} 6%, var(--project-surface-elevated))`,
-                      boxShadow: isFocused 
+                      boxShadow: isFocused
                         ? `0 0 0 2px ${toolColors.primary}, 0 12px 32px -12px color-mix(in srgb, ${toolColors.primary} 50%, rgba(15,23,42,0.45))`
                         : `0 0 0 1px ${toolColors.primary}, 0 8px 24px -18px color-mix(in srgb, ${toolColors.primary} 40%, rgba(15,23,42,0.38))`,
                     }
@@ -576,12 +574,14 @@ export function ChatPanel({
                           borderColor: toolColors.primary,
                         }
                       : isRecording
-                      ? {
-                          boxShadow: "0 0 0 2px color-mix(in srgb, var(--project-accent) 20%, transparent)",
-                          color: "var(--project-accent)",
-                          backgroundColor: "color-mix(in srgb, var(--project-accent) 15%, transparent)",
-                        }
-                      : undefined
+                        ? {
+                            boxShadow:
+                              "0 0 0 2px color-mix(in srgb, var(--project-accent) 20%, transparent)",
+                            color: "var(--project-accent)",
+                            backgroundColor:
+                              "color-mix(in srgb, var(--project-accent) 15%, transparent)",
+                          }
+                        : undefined
                   }
                 >
                   <AnimatePresence mode="popLayout" initial={false}>
@@ -616,7 +616,12 @@ export function ChatPanel({
                         transition={{ duration: 0.2 }}
                         className="absolute inset-0 flex items-center justify-center"
                       >
-                        <Mic className={cn("h-4 w-4 transition-transform duration-300", isRecording && "animate-pulse scale-110")} />
+                        <Mic
+                          className={cn(
+                            "h-4 w-4 transition-transform duration-300",
+                            isRecording && "animate-pulse scale-110"
+                          )}
+                        />
                       </motion.div>
                     )}
                   </AnimatePresence>

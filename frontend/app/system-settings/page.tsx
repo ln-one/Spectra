@@ -47,7 +47,8 @@ function buildSettingsPatch(
 }
 
 export default function SystemSettingsPage() {
-  const [initialSettings, setInitialSettings] = useState<NullableSettings>(null);
+  const [initialSettings, setInitialSettings] =
+    useState<NullableSettings>(null);
   const [draftSettings, setDraftSettings] = useState<NullableSettings>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -302,7 +303,9 @@ export default function SystemSettingsPage() {
           <label className="mb-2 flex items-center gap-3 text-sm text-zinc-700">
             <input
               type="checkbox"
-              checked={Boolean(draftSettings.feature_flags.enable_ai_generation)}
+              checked={Boolean(
+                draftSettings.feature_flags.enable_ai_generation
+              )}
               onChange={(event) =>
                 updateSettings("feature_flags", {
                   enable_ai_generation: event.target.checked,
@@ -326,7 +329,9 @@ export default function SystemSettingsPage() {
         </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-zinc-900">体验与超时</h2>
+          <h2 className="mb-4 text-sm font-semibold text-zinc-900">
+            体验与超时
+          </h2>
           <div className="space-y-3">
             <Input
               type="number"

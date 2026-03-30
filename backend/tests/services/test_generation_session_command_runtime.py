@@ -48,6 +48,19 @@ async def test_handle_regenerate_slide_emits_processing_event():
             new=AsyncMock(return_value=None),
         ),
         patch(
+            "services.generation_session_service.command_runtime._refresh_rendered_preview",
+            new=AsyncMock(
+                side_effect=lambda **kwargs: {
+                    **kwargs["preview_payload"],
+                    "rendered_preview": {"pages": []},
+                }
+            ),
+        ),
+        patch(
+            "services.generation_session_service.command_runtime._persist_modified_pptx_artifact",
+            new=AsyncMock(return_value=("artifact-001", {"pptx": "/download/a"})),
+        ),
+        patch(
             "services.generation_session_service.command_runtime.save_preview_content",
             new=AsyncMock(),
         ),
@@ -85,7 +98,11 @@ async def test_handle_regenerate_slide_emits_processing_event():
         "slide.modify.started",
         GenerationEventType.SLIDE_MODIFY_PROCESSING.value,
         GenerationEventType.SLIDE_UPDATED.value,
+        GenerationEventType.TASK_COMPLETED.value,
+        GenerationEventType.STATE_CHANGED.value,
     ]
+    assert result["artifact_id"] == "artifact-001"
+    assert result["rendered_preview_ready"] is True
 
 
 @pytest.mark.anyio
@@ -203,6 +220,19 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
             new=AsyncMock(return_value=None),
         ),
         patch(
+            "services.generation_session_service.command_runtime._refresh_rendered_preview",
+            new=AsyncMock(
+                side_effect=lambda **kwargs: {
+                    **kwargs["preview_payload"],
+                    "rendered_preview": {"pages": []},
+                }
+            ),
+        ),
+        patch(
+            "services.generation_session_service.command_runtime._persist_modified_pptx_artifact",
+            new=AsyncMock(return_value=("artifact-001", {"pptx": "/download/a"})),
+        ),
+        patch(
             "services.generation_session_service.command_runtime.retrieve_rag_context",
             new=AsyncMock(
                 side_effect=[
@@ -244,6 +274,8 @@ async def test_handle_regenerate_slide_fallbacks_to_project_rag_when_selected_so
         "slide.modify.started",
         GenerationEventType.SLIDE_MODIFY_PROCESSING.value,
         GenerationEventType.SLIDE_UPDATED.value,
+        GenerationEventType.TASK_COMPLETED.value,
+        GenerationEventType.STATE_CHANGED.value,
     ]
     assert result["source_bound"] is True
     assert result["source_scope"] == "project_kb_fallback"

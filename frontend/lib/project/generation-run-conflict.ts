@@ -97,7 +97,10 @@ export function parseActiveRunConflict(
     null;
 
   const hasRunMeta =
-    Boolean(runId) || Boolean(sessionId) || Boolean(runStatus) || Boolean(runStep);
+    Boolean(runId) ||
+    Boolean(sessionId) ||
+    Boolean(runStatus) ||
+    Boolean(runStep);
   const hasMessageHint = RUN_CONFLICT_MESSAGE_HINTS.some((hint) =>
     message.includes(hint)
   );

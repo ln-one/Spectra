@@ -7,8 +7,17 @@ import logging
 import time
 
 from services.database.prisma_compat import find_unique_with_select_fallback
+from services.preview_helpers.rendered_preview import build_rendered_preview_payload
+from services.preview_helpers.rendering import build_slides
 
 logger = logging.getLogger(__name__)
+
+
+def _slide_identity(slide, fallback_index: int) -> str:
+    value = getattr(slide, "id", None)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return f"{fallback_index}"
 
 
 def extract_courseware_value(courseware_content, key: str) -> str:
@@ -19,17 +28,28 @@ def extract_courseware_value(courseware_content, key: str) -> str:
     return value if isinstance(value, str) else ""
 
 
-async def cache_preview_content(task_id: str, courseware_content) -> dict:
+async def cache_preview_content(
+    task_id: str, courseware_content, template_config: dict | None = None
+) -> dict:
+    markdown_content = extract_courseware_value(courseware_content, "markdown_content")
+    slide_models = build_slides(task_id, markdown_content)
+    rendered_preview = await build_rendered_preview_payload(
+        task_id=task_id,
+        title=extract_courseware_value(courseware_content, "title"),
+        markdown_content=markdown_content,
+        template_config=template_config,
+        slide_ids=[
+            _slide_identity(slide, index) for index, slide in enumerate(slide_models)
+        ],
+    )
     preview_payload = {
         "title": extract_courseware_value(courseware_content, "title"),
-        "markdown_content": extract_courseware_value(
-            courseware_content,
-            "markdown_content",
-        ),
+        "markdown_content": markdown_content,
         "lesson_plan_markdown": extract_courseware_value(
             courseware_content,
             "lesson_plan_markdown",
         ),
+        "rendered_preview": rendered_preview,
     }
     try:
         from services.preview_helpers import save_preview_content
