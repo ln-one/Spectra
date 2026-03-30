@@ -120,7 +120,7 @@ export function buildRefineProcessingMessage(
   toolLabel?: string
 ): string {
   const alias = resolveToolAlias(toolType, toolLabel);
-  return `收到，正在根据你的要求微调${alias}...`;
+  return `Spectra 正在构思你的微调要求，马上基于当前${alias}继续优化...`;
 }
 
 export function buildRefineSuccessMessage(
