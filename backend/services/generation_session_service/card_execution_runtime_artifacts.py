@@ -137,16 +137,28 @@ async def execute_studio_card_structured_refine(
         user_id=user_id,
         content=updated_content,
     )
+    run = await _create_artifact_run(
+        card_id=card_id,
+        body=body,
+        artifact=new_artifact,
+        session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
+    )
     current_version_id = await get_current_version_id(body.project_id)
     return StudioCardExecutionResult(
         card_id=card_id,
         readiness=preview.readiness,
         transport=StudioCardTransport.ARTIFACT_CREATE,
         resource_kind=StudioCardExecutionResultKind.ARTIFACT,
+        session=(
+            {"session_id": getattr(new_artifact, "sessionId", None) or body.session_id}
+            if (getattr(new_artifact, "sessionId", None) or body.session_id)
+            else None
+        ),
         artifact=artifact_result_payload(
             new_artifact,
             current_version_id=current_version_id,
         ),
+        run=run,
         request_preview=preview.refine_request,
     )
 
@@ -202,6 +214,7 @@ async def _create_artifact_run(
         RUN_STATUS_COMPLETED,
         RUN_STATUS_PROCESSING,
         RUN_STEP_COMPLETED,
+        RUN_STEP_OUTLINE,
         RUN_STEP_GENERATE,
         create_session_run,
         generate_semantic_run_title,
@@ -215,12 +228,19 @@ async def _create_artifact_run(
         session_id=getattr(artifact, "sessionId", None) or session_id,
         project_id=body.project_id,
         tool_type=f"studio_card:{card_id}",
-        step=RUN_STEP_GENERATE,
+        step=RUN_STEP_OUTLINE,
         status=RUN_STATUS_PROCESSING,
-        artifact_id=artifact.id,
     )
     run_for_response = run
     if run:
+        generating_run = await update_session_run(
+            db=project_space_service.db.db,
+            run_id=run.id,
+            status=RUN_STATUS_PROCESSING,
+            step=RUN_STEP_GENERATE,
+        )
+        if generating_run:
+            run_for_response = generating_run
         finalized_run = await update_session_run(
             db=project_space_service.db.db,
             run_id=run.id,

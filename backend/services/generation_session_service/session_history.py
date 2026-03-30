@@ -125,7 +125,7 @@ async def get_latest_session_run(db, session_id: str) -> Any | None:
     try:
         return await db.sessionrun.find_first(
             where={"sessionId": session_id},
-            order={"updatedAt": "desc"},
+            order={"createdAt": "desc"},
         )
     except Exception as exc:
         logger.warning("Skip session run lookup: session=%s error=%s", session_id, exc)
@@ -302,6 +302,57 @@ def _stringify_snapshot(snapshot: Any) -> str:
         return str(snapshot)
 
 
+def _parse_artifact_metadata(raw_metadata: Any) -> dict:
+    if isinstance(raw_metadata, dict):
+        return dict(raw_metadata)
+    if isinstance(raw_metadata, str):
+        try:
+            parsed = json.loads(raw_metadata)
+        except (TypeError, json.JSONDecodeError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+async def _sync_run_title_to_artifact_metadata(*, db, run: Any | None) -> None:
+    if run is None:
+        return
+    artifact_id = getattr(run, "artifactId", None)
+    run_title = str(getattr(run, "title", "") or "").strip()
+    if not artifact_id or not run_title:
+        return
+    artifact_model = getattr(db, "artifact", None)
+    if artifact_model is None:
+        return
+    if not hasattr(artifact_model, "find_unique") or not hasattr(
+        artifact_model, "update"
+    ):
+        return
+
+    try:
+        artifact = await artifact_model.find_unique(where={"id": artifact_id})
+        if not artifact:
+            return
+        metadata = _parse_artifact_metadata(getattr(artifact, "metadata", None))
+        title_source = str(getattr(run, "titleSource", "") or "").strip()
+        metadata["run_title"] = run_title
+        if title_source:
+            metadata["run_title_source"] = title_source
+        if title_source in {RUN_TITLE_SOURCE_AUTO, RUN_TITLE_SOURCE_MANUAL}:
+            metadata["title"] = run_title
+        await artifact_model.update(
+            where={"id": artifact_id},
+            data={"metadata": json.dumps(metadata, ensure_ascii=False)},
+        )
+    except Exception as exc:
+        logger.warning(
+            "Sync run title to artifact metadata failed: run=%s artifact=%s error=%s",
+            getattr(run, "id", None),
+            artifact_id,
+            exc,
+        )
+
+
 async def generate_semantic_run_title(
     *,
     db,
@@ -345,6 +396,7 @@ async def generate_semantic_run_title(
                 run_id=run_id,
                 title_source=RUN_TITLE_SOURCE_FALLBACK,
             )
+            await _sync_run_title_to_artifact_metadata(db=db, run=updated)
             return serialize_session_run(updated)
         updated = await update_session_run(
             db=db,
@@ -352,6 +404,7 @@ async def generate_semantic_run_title(
             title=title[:120],
             title_source=RUN_TITLE_SOURCE_AUTO,
         )
+        await _sync_run_title_to_artifact_metadata(db=db, run=updated)
         return serialize_session_run(updated)
     except Exception as exc:
         logger.warning("Auto run title generation failed: run=%s error=%s", run_id, exc)
@@ -360,6 +413,7 @@ async def generate_semantic_run_title(
             run_id=run_id,
             title_source=RUN_TITLE_SOURCE_FALLBACK,
         )
+        await _sync_run_title_to_artifact_metadata(db=db, run=updated)
         return serialize_session_run(updated)
 
 
