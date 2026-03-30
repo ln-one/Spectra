@@ -4,9 +4,22 @@ import asyncio
 import logging
 from typing import Optional
 
+from utils.upstream_failures import describe_upstream_failure
+
 from .common import run_async_entrypoint
 
 logger = logging.getLogger(__name__)
+
+
+def _build_rag_index_failure_payload(exc: Exception) -> dict:
+    failure = describe_upstream_failure(exc)
+    return {
+        "status": "failed",
+        "stage": "rag_indexing",
+        "failure_type": failure["failure_type"],
+        "retryable": bool(failure["retryable"]),
+        "raw_message": failure["raw_message"],
+    }
 
 
 def run_rag_indexing_task(
@@ -75,6 +88,7 @@ async def execute_rag_indexing_task(
             await db.update_upload_status(
                 file_id,
                 status=UploadStatus.FAILED.value,
+                parse_result=_build_rag_index_failure_payload(exc),
                 error_message=str(exc),
             )
         except Exception as status_exc:

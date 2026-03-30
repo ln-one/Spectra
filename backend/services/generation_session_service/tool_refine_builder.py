@@ -35,9 +35,8 @@ async def _load_rag_snippets(
     query: str,
     rag_source_ids: list[str] | None,
 ) -> list[str]:
-    if not rag_source_ids:
-        return []
     timeout_seconds = 5.0
+    filters = {"file_ids": rag_source_ids} if rag_source_ids else None
     try:
         coroutine = ai_service._retrieve_rag_context(
             project_id=project_id,
@@ -45,7 +44,7 @@ async def _load_rag_snippets(
             top_k=3,
             score_threshold=0.3,
             session_id=None,
-            filters={"file_ids": rag_source_ids},
+            filters=filters,
         )
         results = await asyncio.wait_for(coroutine, timeout=timeout_seconds)
     except Exception:

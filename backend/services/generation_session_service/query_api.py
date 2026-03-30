@@ -15,6 +15,9 @@ from services.generation_session_service.queries import (
 from services.generation_session_service.queries import (
     get_session_snapshot as query_session_snapshot,
 )
+from services.generation_session_service.snapshot_consistency import (
+    SnapshotContractError,
+)
 from services.platform.state_transition_guard import GenerationCommandType
 
 if TYPE_CHECKING:
@@ -33,15 +36,25 @@ class SessionQueryMixin:
         user_id: str,
         run_id: Optional[str] = None,
     ) -> dict:
-        return await query_session_snapshot(
-            db=self._db,
-            guard=self._guard,
-            session_id=session_id,
-            user_id=user_id,
-            run_id=run_id,
-            contract_version=self.CONTRACT_VERSION,
-            schema_version=self.SCHEMA_VERSION,
-        )
+        try:
+            return await query_session_snapshot(
+                db=self._db,
+                guard=self._guard,
+                session_id=session_id,
+                user_id=user_id,
+                run_id=run_id,
+                contract_version=self.CONTRACT_VERSION,
+                schema_version=self.SCHEMA_VERSION,
+            )
+        except SnapshotContractError as exc:
+            conflict_error_cls = getattr(self, "conflict_error_cls", None)
+            if conflict_error_cls is not None:
+                raise conflict_error_cls(
+                    str(exc),
+                    error_code="RESOURCE_CONFLICT",
+                    details=exc.details,
+                ) from exc
+            raise
 
     async def get_session_preview_snapshot(self, session_id: str, user_id: str) -> dict:
         return await query_session_preview_snapshot(

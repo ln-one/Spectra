@@ -9,6 +9,39 @@ from schemas.studio_cards import (
 )
 
 CARD_EXECUTION_PLANS: dict[str, StudioCardExecutionPlan] = {
+    "courseware_ppt": StudioCardExecutionPlan(
+        card_id="courseware_ppt",
+        readiness=StudioCardReadiness.FOUNDATION_READY,
+        initial_binding=StudioCardExecutionBinding(
+            transport=StudioCardTransport.SESSION_CREATE,
+            status=StudioCardBindingStatus.READY,
+            method="POST",
+            endpoint="/api/v1/generate/sessions",
+            required_fields=["project_id", "output_type"],
+            bound_config_keys=[
+                "output_type",
+                "template",
+                "pages",
+                "audience",
+                "include_animations",
+                "include_games",
+            ],
+            pending_config_keys=[],
+            result_fields=["session.session_id", "session.output_type"],
+            notes="课件卡片已接入 create-session 主链，配置写入 options 并进入标准生成流程。",
+        ),
+        refine_binding=StudioCardExecutionBinding(
+            transport=StudioCardTransport.CHAT_MESSAGE,
+            status=StudioCardBindingStatus.PARTIAL,
+            method="POST",
+            endpoint="/api/v1/chat/messages",
+            required_fields=["project_id", "message"],
+            bound_config_keys=["card_id"],
+            pending_config_keys=["selection_anchor", "slide_scope"],
+            result_fields=["message", "citations"],
+            notes="课件微调先承托到 chat 通道，单页定向 patch 仍由生成主链局部修改协议负责。",
+        ),
+    ),
     "word_document": StudioCardExecutionPlan(
         card_id="word_document",
         readiness=StudioCardReadiness.FOUNDATION_READY,

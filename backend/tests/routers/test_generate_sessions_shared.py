@@ -66,3 +66,18 @@ def test_validate_command_payload_rejects_overlong_session_title():
     assert exc.status_code == 400
     assert exc.detail["code"] == ErrorCode.INVALID_INPUT.value
     assert "at most 120 characters" in exc.detail["message"]
+
+
+def test_validate_command_payload_rejects_regenerate_without_instruction():
+    with pytest.raises(APIException) as exc_info:
+        validate_command_payload(
+            {
+                "command_type": "REGENERATE_SLIDE",
+                "slide_id": "slide-1",
+            }
+        )
+
+    exc = exc_info.value
+    assert exc.status_code == 400
+    assert exc.detail["code"] == ErrorCode.INVALID_INPUT.value
+    assert "command.instruction is required" in exc.detail["message"]

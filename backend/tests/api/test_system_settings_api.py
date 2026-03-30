@@ -1,6 +1,8 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from main import app
+from services.ai import ai_service
 from services.system_settings_service import system_settings_service
 from utils.dependencies import get_current_user
 
@@ -83,3 +85,48 @@ def test_patch_system_settings_merges_partial_sections():
     assert payload["models"]["default_model"] == "model-a"
     assert payload["models"]["small_model"] == "model-b"
     assert payload["models"]["large_model"] == "model-c"
+
+
+def test_patch_system_settings_applies_ai_runtime_overrides():
+    client = _client()
+
+    response = client.patch(
+        "/api/v1/system-settings",
+        json={
+            "models": {
+                "default_model": "runtime-default",
+                "large_model": "runtime-large",
+                "small_model": "runtime-small",
+            },
+            "experience": {
+                "chat_timeout_seconds": 123,
+                "ai_request_timeout_seconds": 77,
+            },
+        },
+    )
+    assert response.status_code == 200
+
+    assert ai_service.default_model == "runtime-default"
+    assert ai_service.large_model == "runtime-large"
+    assert ai_service.small_model == "runtime-small"
+    assert ai_service.request_timeout_seconds == 77.0
+    assert ai_service.chat_request_timeout_seconds == 123.0
+    assert ai_service.model_router.heavy_model == "runtime-large"
+    assert ai_service.model_router.light_model == "runtime-small"
+
+
+def test_patch_system_settings_scales_chat_rag_timeout_with_runtime_ai_timeout(
+    monkeypatch,
+):
+    monkeypatch.setenv("CHAT_RAG_TIMEOUT_SECONDS", "5")
+    monkeypatch.setenv("AI_REQUEST_TIMEOUT_SECONDS", "60")
+    client = _client()
+
+    response = client.patch(
+        "/api/v1/system-settings",
+        json={"experience": {"ai_request_timeout_seconds": 120}},
+    )
+    assert response.status_code == 200
+    assert system_settings_service.resolve_chat_rag_timeout_seconds() == pytest.approx(
+        10.0
+    )

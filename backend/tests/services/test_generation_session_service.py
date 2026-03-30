@@ -262,6 +262,7 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
         generationtask=SimpleNamespace(
             create=AsyncMock(return_value=created_task),
             update=AsyncMock(),
+            find_unique=AsyncMock(return_value=SimpleNamespace(inputData=None)),
         ),
         sessionevent=SimpleNamespace(create=AsyncMock()),
     )
@@ -296,6 +297,39 @@ async def test_confirm_outline_normalizes_task_type_for_create_and_enqueue(monke
     assert result["task_id"] == "task-101"
     assert result["session"]["task_id"] == "task-101"
     assert result["warnings"] == []
+
+    state_updates = [
+        call.kwargs["data"]
+        for call in db.generationsession.update.await_args_list
+        if "state" in (call.kwargs.get("data") or {})
+    ]
+    assert any(
+        update.get("state") == GenerationState.GENERATING_CONTENT.value
+        and update.get("stateReason") == SessionLifecycleReason.OUTLINE_CONFIRMED.value
+        and update.get("errorCode") is None
+        and update.get("errorMessage") is None
+        and update.get("errorRetryable") is False
+        for update in state_updates
+    )
+
+    event_calls = [
+        call.kwargs["data"] for call in db.sessionevent.create.await_args_list
+    ]
+    assert any(
+        event.get("state") == GenerationState.GENERATING_CONTENT.value
+        and event.get("stateReason") == SessionLifecycleReason.OUTLINE_CONFIRMED.value
+        for event in event_calls
+    )
+    assert any(
+        json.loads(event.get("payload") or "{}").get("dispatch") == "rq"
+        and event.get("stateReason") == SessionLifecycleReason.OUTLINE_CONFIRMED.value
+        for event in event_calls
+    )
+    assert any(
+        json.loads(event.get("payload") or "{}").get("dispatch") == "rq"
+        and json.loads(event.get("payload") or "{}").get("rq_job_id") == "rq-1"
+        for event in event_calls
+    )
 
 
 @pytest.mark.anyio
@@ -647,6 +681,125 @@ async def test_get_session_snapshot_handles_missing_artifact_model():
     }
     assert payload["session_artifacts"] == []
     assert payload["session_artifact_groups"] == []
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_rejects_state_event_mismatch():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    session.stateReason = "task_completed"
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        sessionevent=SimpleNamespace(
+            find_first=AsyncMock(
+                return_value=SimpleNamespace(
+                    state=GenerationState.FAILED.value,
+                    stateReason="task_failed",
+                )
+            )
+        ),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    with pytest.raises(ConflictError) as exc_info:
+        await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert exc_info.value.error_code == "RESOURCE_CONFLICT"
+    assert exc_info.value.details["reason"] == "state_event_mismatch"
+    assert exc_info.value.details["session_state"] == GenerationState.SUCCESS.value
+    assert exc_info.value.details["event_state"] == GenerationState.FAILED.value
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_with_run_scope_ignores_other_run_state_events():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    session.stateReason = "task_completed"
+    now = datetime.now(timezone.utc)
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        sessionevent=SimpleNamespace(
+            find_first=AsyncMock(return_value=None),
+            find_many=AsyncMock(
+                return_value=[
+                    SimpleNamespace(
+                        state=GenerationState.FAILED.value,
+                        stateReason="task_failed",
+                        payload='{"run_id":"run-other"}',
+                    )
+                ]
+            ),
+        ),
+        sessionrun=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="run-001",
+                    sessionId="s-001",
+                    projectId="p-001",
+                    toolType="ppt_generate",
+                    runNo=1,
+                    title="第1次PPT生成",
+                    titleSource="pending",
+                    status="processing",
+                    step="generate",
+                    artifactId=None,
+                    createdAt=now,
+                    updatedAt=now,
+                )
+            )
+        ),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    payload = await service.get_session_snapshot(
+        session_id="s-001",
+        user_id="u-001",
+        run_id="run-001",
+    )
+
+    assert payload["session"]["state"] == GenerationState.SUCCESS.value
+    assert payload["current_run"]["run_id"] == "run-001"
+    db.sessionevent.find_many.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_get_session_snapshot_rejects_inconsistent_artifact_anchor():
+    session = _fake_session(state=GenerationState.SUCCESS.value)
+    db = SimpleNamespace(
+        generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
+        sessionevent=SimpleNamespace(find_first=AsyncMock(return_value=None)),
+    )
+    service = GenerationSessionService(db=db)
+    service._guard.get_allowed_actions = Mock(return_value=["export"])
+
+    with patch(
+        "services.generation_session_service.queries.get_session_artifact_history",
+        AsyncMock(
+            return_value={
+                "session_artifacts": [
+                    {
+                        "artifact_id": "a-001",
+                        "based_on_version_id": "ver-001",
+                    }
+                ],
+                "session_artifact_groups": [],
+                "artifact_id": "a-999",
+                "based_on_version_id": "ver-999",
+                "current_version_id": None,
+                "upstream_updated": False,
+                "artifact_anchor": {
+                    "session_id": "s-001",
+                    "artifact_id": "a-001",
+                    "based_on_version_id": "ver-001",
+                },
+            }
+        ),
+    ):
+        with pytest.raises(ConflictError) as exc_info:
+            await service.get_session_snapshot(session_id="s-001", user_id="u-001")
+
+    assert exc_info.value.error_code == "RESOURCE_CONFLICT"
+    assert exc_info.value.details["reason"] == "artifact_anchor_mismatch"
 
 
 @pytest.mark.anyio
@@ -1256,6 +1409,21 @@ async def test_execute_outline_draft_local_success_path():
         for e in event_calls
         if e["eventType"] == GenerationEventType.OUTLINE_UPDATED.value
     ]
+    outline_started_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.OUTLINE_STARTED.value
+    ]
+    outline_section_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.OUTLINE_SECTION_GENERATED.value
+    ]
+    outline_completed_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.OUTLINE_COMPLETED.value
+    ]
     state_events = [
         e
         for e in event_calls
@@ -1263,6 +1431,9 @@ async def test_execute_outline_draft_local_success_path():
     ]
 
     assert progress_events
+    assert outline_started_events
+    assert outline_section_events
+    assert outline_completed_events
     assert outline_events
     progress_payload = json.loads(progress_events[0]["payload"])
     assert progress_payload["retrieval_mode"] == "default_library"
@@ -1336,7 +1507,13 @@ async def test_execute_outline_draft_local_failure_path():
         for e in event_calls
         if e["eventType"] == GenerationEventType.TASK_FAILED.value
     ]
+    generation_failed_events = [
+        e
+        for e in event_calls
+        if e["eventType"] == GenerationEventType.GENERATION_FAILED.value
+    ]
     assert len(failed_events) == 1
+    assert len(generation_failed_events) == 1
     failed_payload = json.loads(failed_events[0]["payload"])
     assert failed_payload["stage"] == "outline_draft"
     assert failed_payload["error_code"] == OutlineGenerationErrorCode.FAILED.value

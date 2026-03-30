@@ -118,6 +118,109 @@ def build_outline_based_fallback_courseware(
     )
 
 
+def _sanitize_rag_text(text: str, *, limit: int = 220) -> str:
+    compact = " ".join(str(text or "").split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 1].rstrip() + "..."
+
+
+def _collect_rag_bullets(
+    rag_context: Optional[list[dict]],
+    *,
+    max_items: int = 8,
+) -> list[str]:
+    bullets: list[str] = []
+    seen: set[str] = set()
+    if not isinstance(rag_context, list):
+        return bullets
+
+    for item in rag_context:
+        if not isinstance(item, dict):
+            continue
+        content = _sanitize_rag_text(str(item.get("content") or ""))
+        if not content:
+            continue
+        source = item.get("source") if isinstance(item.get("source"), dict) else {}
+        filename = str(source.get("filename") or "").strip()
+        bullet = f"{filename}: {content}" if filename else content
+        if bullet in seen:
+            continue
+        seen.add(bullet)
+        bullets.append(bullet)
+        if len(bullets) >= max_items:
+            break
+    return bullets
+
+
+def build_rag_grounded_fallback_courseware(
+    *,
+    user_requirements: str,
+    rag_context: Optional[list[dict]],
+    outline_document: Optional[dict] = None,
+) -> Optional[CoursewareContent]:
+    bullets = _collect_rag_bullets(rag_context)
+    if not bullets:
+        return None
+
+    nodes = sorted_outline_nodes(outline_document)
+    title = (
+        str((outline_document or {}).get("title") or "").strip()
+        if isinstance(outline_document, dict)
+        else ""
+    )
+    if not title:
+        title = (user_requirements or "Courseware")[:50]
+
+    slide_titles: list[str] = []
+    if nodes:
+        slide_titles = [str(node.get("title") or "").strip() for node in nodes]
+        slide_titles = [item for item in slide_titles if item]
+    if not slide_titles:
+        slide_titles = ["Source Summary", "Key Evidence", "Teaching Prompts"]
+
+    chunk_size = max(1, (len(bullets) + len(slide_titles) - 1) // len(slide_titles))
+    markdown_slides: list[str] = []
+    lesson_plan_lines: list[str] = [
+        "# Teaching Goals",
+        "- Prioritize facts extracted from selected source files.",
+        "- Keep interpretations bounded by retrieved evidence.",
+        "",
+        "# Teaching Process",
+    ]
+
+    for index, slide_title in enumerate(slide_titles, start=1):
+        start = (index - 1) * chunk_size
+        end = min(start + chunk_size, len(bullets))
+        if start >= len(bullets):
+            segment = [f"Follow-up discussion based on selected sources ({index})."]
+        else:
+            segment = bullets[start:end]
+        markdown_slides.append(
+            "\n".join(
+                [
+                    f"# {slide_title}",
+                    "",
+                    *[f"- {point}" for point in segment],
+                ]
+            )
+        )
+        lesson_plan_lines.extend(
+            [
+                f"## {index:02d}. {slide_title}",
+                "- Explain using source-grounded statements only.",
+                "- Ask one comprehension question from this slide evidence.",
+                "- Record one likely misconception and correction strategy.",
+            ]
+        )
+
+    return CoursewareContent(
+        title=title,
+        markdown_content="\n\n---\n\n".join(markdown_slides),
+        lesson_plan_markdown="\n".join(lesson_plan_lines),
+    )
+
+
 def merge_requirements_with_outline(
     user_requirements: str, outline_document: dict
 ) -> str:

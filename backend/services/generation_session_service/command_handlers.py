@@ -339,6 +339,10 @@ async def handle_confirm_outline(
         where={"id": session.id},
         data={
             "state": new_state,
+            "stateReason": SessionLifecycleReason.OUTLINE_CONFIRMED.value,
+            "errorCode": None,
+            "errorMessage": None,
+            "errorRetryable": False,
             "renderVersion": {"increment": 1},
             "resumable": True,
         },
@@ -347,6 +351,7 @@ async def handle_confirm_outline(
         session_id=session.id,
         event_type=GenerationEventType.STATE_CHANGED.value,
         state=new_state,
+        state_reason=SessionLifecycleReason.OUTLINE_CONFIRMED.value,
         payload=build_run_trace_payload(
             run,
             confirmed=True,

@@ -8,6 +8,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
+from schemas.generation import requires_pptx_output
+
+from .ppt_image_insertion import inject_rag_images_into_courseware_content
 from .preview_runtime import cache_preview_content, persist_preview_payload
 from .requirements import build_user_requirements, load_session_outline
 from .runtime_helpers import (
@@ -90,4 +93,17 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
             else None
         ),
     )
+    if requires_pptx_output(context.task_type):
+        await inject_rag_images_into_courseware_content(
+            db_service=db_service,
+            project_id=context.project_id,
+            query=user_requirements,
+            session_id=context.session_id,
+            rag_source_ids=(
+                context.template_config.get("rag_source_ids")
+                if context.template_config
+                else None
+            ),
+            courseware_content=courseware_content,
+        )
     return courseware_content

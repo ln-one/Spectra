@@ -57,7 +57,7 @@ async def test_load_rag_context_keeps_rag_when_selected_upload_lookup_fails(
     )
     monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[rag_item]))
 
-    rag_results, citations, rag_hit, selected_files_hint, rag_payload = (
+    rag_results, citations, rag_hit, selected_files_hint, rag_payload, rag_failure = (
         await message_flow.load_rag_context(
             project_id="proj-1",
             query="牛顿第二定律",
@@ -72,6 +72,7 @@ async def test_load_rag_context_keeps_rag_when_selected_upload_lookup_fails(
     assert len(citations) == 1
     assert citations[0]["chunk_id"] == "chunk-1"
     assert rag_payload and rag_payload[0]["content"] == "牛顿第二定律"
+    assert rag_failure is None
 
 
 @pytest.mark.asyncio
@@ -107,7 +108,7 @@ async def test_load_rag_context_falls_back_when_upload_select_not_supported(
     )
     monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[rag_item]))
 
-    rag_results, _, rag_hit, selected_files_hint, _ = (
+    rag_results, _, rag_hit, selected_files_hint, _, rag_failure = (
         await message_flow.load_rag_context(
             project_id="proj-1",
             query="牛顿第二定律",
@@ -122,6 +123,7 @@ async def test_load_rag_context_falls_back_when_upload_select_not_supported(
     assert len(upload_calls) == 2
     assert "select" in upload_calls[0]
     assert "select" not in upload_calls[1]
+    assert rag_failure is None
 
 
 @pytest.mark.asyncio
@@ -150,7 +152,7 @@ async def test_load_rag_context_times_out_and_degrades(monkeypatch):
 
     monkeypatch.setattr(rag_service, "search", _slow_search)
 
-    rag_results, citations, rag_hit, selected_files_hint, rag_payload = (
+    rag_results, citations, rag_hit, selected_files_hint, rag_payload, rag_failure = (
         await message_flow.load_rag_context(
             project_id="proj-1",
             query="slow query",
@@ -164,3 +166,84 @@ async def test_load_rag_context_times_out_and_degrades(monkeypatch):
     assert rag_hit is False
     assert selected_files_hint == ""
     assert rag_payload is None
+    assert rag_failure == "rag_timeout"
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_marks_source_not_found_for_unknown_selected_ids(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        message_flow.db_service,
+        "db",
+        SimpleNamespace(upload=SimpleNamespace(find_many=AsyncMock(return_value=[]))),
+    )
+    monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[]))
+
+    _, _, rag_hit, selected_files_hint, _, rag_failure = (
+        await message_flow.load_rag_context(
+            project_id="proj-1",
+            query="query",
+            session_id="sess-1",
+            rag_source_ids=["f-missing"],
+        )
+    )
+
+    assert rag_hit is False
+    assert selected_files_hint == ""
+    assert rag_failure == "source_not_found"
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_marks_source_not_ready_when_selected_upload_pending(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        message_flow.db_service,
+        "db",
+        SimpleNamespace(
+            upload=SimpleNamespace(
+                find_many=AsyncMock(
+                    return_value=[
+                        SimpleNamespace(
+                            id="f-1",
+                            filename="pending.pdf",
+                            status="parsing",
+                        )
+                    ]
+                )
+            )
+        ),
+    )
+    monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[]))
+
+    _, _, rag_hit, selected_files_hint, _, rag_failure = (
+        await message_flow.load_rag_context(
+            project_id="proj-1",
+            query="query",
+            session_id="sess-1",
+            rag_source_ids=["f-1"],
+        )
+    )
+
+    assert rag_hit is False
+    assert "pending.pdf(parsing)" in selected_files_hint
+    assert rag_failure == "source_not_ready"
+
+
+@pytest.mark.asyncio
+async def test_load_rag_context_marks_rag_no_match_when_retrieval_empty_without_error(
+    monkeypatch,
+):
+    monkeypatch.setattr(rag_service, "search", AsyncMock(return_value=[]))
+
+    _, _, rag_hit, _, rag_payload, rag_failure = await message_flow.load_rag_context(
+        project_id="proj-1",
+        query="query",
+        session_id="sess-1",
+        rag_source_ids=None,
+    )
+
+    assert rag_hit is False
+    assert rag_payload is None
+    assert rag_failure == "rag_no_match"

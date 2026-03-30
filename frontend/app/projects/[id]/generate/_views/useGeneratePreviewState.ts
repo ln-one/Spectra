@@ -2,6 +2,10 @@
 import { previewApi } from "@/lib/sdk/preview";
 import { generateApi } from "@/lib/sdk/generate";
 import { ApiError } from "@/lib/sdk/client";
+import {
+  downloadArtifact,
+  getArtifacts,
+} from "@/lib/sdk/project-space/artifacts";
 import { useGenerationEvents } from "@/hooks/useGenerationEvents";
 import { useProjectStore } from "@/stores/projectStore";
 import { toast } from "@/hooks/use-toast";
@@ -227,22 +231,73 @@ export function useGeneratePreviewState({
     if (!activeSessionId || isExporting) return;
     try {
       setIsExporting(true);
-      const response = await previewApi.exportSessionPreview(activeSessionId, {
-        artifact_id: currentArtifactId ?? undefined,
-        run_id: activeRunId ?? undefined,
-        format: "html",
-        include_sources: true,
-      });
-      const content = response?.data?.content ?? "";
-      if (!content) return;
+      let targetArtifactId = currentArtifactId;
+      let targetArtifactType: string | undefined;
+      let artifacts: Array<{ id: string; type?: string | null }> = [];
 
-      const blob = new Blob([content], { type: "text/html;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
+      const ensureArtifacts = async () => {
+        if (artifacts.length > 0) return artifacts;
+        const artifactsResp = await getArtifacts(projectId, {
+          session_id: activeSessionId,
+        });
+        artifacts = (artifactsResp?.data?.artifacts ?? []).map((item) => ({
+          id: item.id,
+          type: item.type,
+        }));
+        return artifacts;
+      };
+
+      if (!targetArtifactId) {
+        const sessionArtifacts = await ensureArtifacts();
+        const pptArtifact =
+          sessionArtifacts.find((item) => item.type === "pptx") ??
+          sessionArtifacts[0];
+        targetArtifactId = pptArtifact?.id ?? null;
+        targetArtifactType = pptArtifact?.type ?? undefined;
+      } else {
+        const sessionArtifacts = await ensureArtifacts();
+        const exact = sessionArtifacts.find(
+          (item) => item.id === targetArtifactId
+        );
+        targetArtifactType = exact?.type ?? undefined;
+      }
+
+      if (targetArtifactId) {
+        const artifactBlob = await downloadArtifact(
+          projectId,
+          targetArtifactId
+        );
+        const extension = targetArtifactType === "docx" ? "docx" : "pptx";
+        const artifactUrl = URL.createObjectURL(artifactBlob);
+        const link = document.createElement("a");
+        link.href = artifactUrl;
+        link.download = `artifact-${targetArtifactId.slice(0, 8)}.${extension}`;
+        link.click();
+        URL.revokeObjectURL(artifactUrl);
+        return;
+      }
+
+      const previewResponse = await previewApi.exportSessionPreview(
+        activeSessionId,
+        {
+          artifact_id: currentArtifactId ?? undefined,
+          run_id: activeRunId ?? undefined,
+          format: "html",
+          include_sources: true,
+        }
+      );
+      const previewContent = previewResponse?.data?.content ?? "";
+      if (!previewContent) return;
+
+      const previewBlob = new Blob([previewContent], {
+        type: "text/html;charset=utf-8",
+      });
+      const previewUrl = URL.createObjectURL(previewBlob);
       const link = document.createElement("a");
-      link.href = url;
+      link.href = previewUrl;
       link.download = `preview-${activeSessionId.slice(0, 8)}.html`;
       link.click();
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(previewUrl);
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         toast({
@@ -256,7 +311,7 @@ export function useGeneratePreviewState({
     } finally {
       setIsExporting(false);
     }
-  }, [activeRunId, activeSessionId, currentArtifactId, isExporting]);
+  }, [activeRunId, activeSessionId, currentArtifactId, isExporting, projectId]);
 
   const handleRegenerateSlide = useCallback(
     async (slide: Slide) => {

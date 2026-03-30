@@ -138,6 +138,12 @@ class ChatObservability(BaseModel):
     route_task: str = Field(..., description="聊天侧任务路由类型")
     selected_model: str = Field(..., description="实际选中的模型")
     has_rag_context: bool = Field(..., description="是否命中 RAG 上下文")
+    rag_failure_reason: Optional[str] = Field(
+        None, description="RAG 检索退化时的失败原因"
+    )
+    rag_query_length: Optional[int] = Field(
+        None, description="RAG 检索前的原始查询长度"
+    )
     fallback_triggered: bool = Field(..., description="是否触发了降级回退")
     latency_ms: Optional[float] = Field(None, description="链路耗时（毫秒）")
     provider_model: Optional[str] = Field(None, description="底层 provider 模型")

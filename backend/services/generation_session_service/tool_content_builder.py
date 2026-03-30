@@ -15,6 +15,7 @@ from services.generation_session_service.tool_content_builder_fallbacks import (
     fallback_simulator_turn_result,
 )
 from services.project_space_service import project_space_service
+from services.system_settings_service import system_settings_service
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +35,8 @@ async def _load_rag_snippets(
     query: str,
     rag_source_ids: list[str] | None,
 ) -> list[str]:
-    if not rag_source_ids:
-        return []
-    timeout_seconds = float(os.getenv("CHAT_RAG_TIMEOUT_SECONDS", "5") or "5")
-    filters = {"file_ids": rag_source_ids}
+    timeout_seconds = system_settings_service.resolve_chat_rag_timeout_seconds()
+    filters = {"file_ids": rag_source_ids} if rag_source_ids else None
     try:
         coroutine = ai_service._retrieve_rag_context(
             project_id=project_id,
@@ -114,6 +113,12 @@ async def _generate_structured_content(
     if not _should_attempt_ai_generation():
         return None
     schema_hint = {
+        "courseware_ppt": (
+            '{"title":"", "summary":"", "pages":12, "template":"default"}'
+        ),
+        "word_document": (
+            '{"title":"", "summary":"", "document_variant":"layered_lesson_plan"}'
+        ),
         "knowledge_mindmap": (
             '{"title":"",'
             ' "nodes":[{"id":"","parent_id":null,"title":"","summary":""}]}'
@@ -138,7 +143,9 @@ async def _generate_structured_content(
             '"slides":[{"page":1,"title":"","script":"",'
             '"action_hint":"","transition_line":""}]}'
         ),
-    }[card_id]
+    }.get(card_id)
+    if not schema_hint:
+        return None
     prompt = (
         "你是教学工具内容生成器。请严格只返回 JSON，不要加 markdown 代码块。\n"
         f"卡片类型: {card_id}\n"

@@ -68,6 +68,26 @@ def validate_command_payload(command: dict):
     }:
         validate_positive_int(command.get("base_version"), "base_version")
     if command_type == GenerationCommandType.REGENERATE_SLIDE.value:
+        slide_id = str(command.get("slide_id") or "").strip()
+        if not slide_id:
+            raise APIException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="command.slide_id is required",
+            )
+        instruction = str(command.get("instruction") or "").strip()
+        if not instruction:
+            raise APIException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="command.instruction is required",
+            )
+        if len(instruction) > 2000:
+            raise APIException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="command.instruction must be at most 2000 characters",
+            )
         validate_optional_positive_int(
             command.get("expected_render_version"),
             "expected_render_version",
@@ -100,6 +120,12 @@ async def load_session_snapshot_or_raise(
         raise _not_found_session() from exc
     except PermissionError as exc:
         raise _forbidden_session_access() from exc
+    except ConflictError as exc:
+        raise_conflict(
+            str(exc),
+            error_code=getattr(exc, "error_code", "RESOURCE_CONFLICT"),
+            details=getattr(exc, "details", None),
+        )
 
 
 async def load_session_preview_snapshot_or_raise(
@@ -115,6 +141,12 @@ async def load_session_preview_snapshot_or_raise(
             raise _not_found_session() from exc
         except PermissionError as exc:
             raise _forbidden_session_access() from exc
+        except ConflictError as exc:
+            raise_conflict(
+                str(exc),
+                error_code=getattr(exc, "error_code", "RESOURCE_CONFLICT"),
+                details=getattr(exc, "details", None),
+            )
 
     return await load_session_snapshot_or_raise(svc, session_id, user_id)
 

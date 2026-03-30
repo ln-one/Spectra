@@ -69,9 +69,16 @@ class CoursewareAIMixin:
         current_content: str,
         instruction: str,
         target_slides: Optional[list[int]] = None,
+        rag_context: Optional[list[dict]] = None,
+        strict_source_mode: bool = False,
     ) -> CoursewareContent:
         return await modify_courseware(
-            self, current_content, instruction, target_slides
+            self,
+            current_content,
+            instruction,
+            target_slides,
+            rag_context,
+            strict_source_mode,
         )
 
     async def extract_structured_content(
