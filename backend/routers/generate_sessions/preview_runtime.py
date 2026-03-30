@@ -175,7 +175,7 @@ async def get_session_preview_response(
                 content.get("rendered_preview") if isinstance(content, dict) else None
             ),
         ),
-        message="棰勮鑾峰彇鎴愬姛",
+        message="预览获取成功",
     )
     duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
     logger.info(
