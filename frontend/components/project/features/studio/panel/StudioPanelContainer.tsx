@@ -235,6 +235,7 @@ export function StudioPanelContainer({
         setStudioChatContext(null);
         return;
       }
+      const latestToolArtifact = capability.currentToolArtifacts[0];
       setStudioChatContext({
         projectId: project.id,
         sessionId: targetSessionId,
@@ -244,6 +245,8 @@ export function StudioPanelContainer({
         step,
         canRefine: canRefineBase,
         isRefineMode: step === "preview" && canRefineBase,
+        targetArtifactId: latestToolArtifact?.artifactId ?? null,
+        targetRunId: latestToolArtifact?.runId ?? null,
         sourceArtifactId:
           capability.selectedSourceId ??
           capability.draftSourceArtifactId ??
@@ -255,6 +258,7 @@ export function StudioPanelContainer({
       activeSessionId,
       canRefineBase,
       capability.currentCardId,
+      capability.currentToolArtifacts,
       capability.draftSourceArtifactId,
       capability.selectedSourceId,
       currentToolDraft,

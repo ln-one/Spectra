@@ -385,8 +385,16 @@ export function createChatActions({
         });
         return;
       }
+      if (!context.targetArtifactId) {
+        toast({
+          title: "当前不可微调",
+          description: "未定位到可微调的生成结果，请先完成一次生成后再试。",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      const initialRunId = get().activeRunId || null;
+      const initialRunId = context.targetRunId || get().activeRunId || null;
       const userRefineMessage = createLocalMessage("user", normalizedContent, {
         kind: "studio_refine_user",
         refineToolType: context.toolType,
@@ -425,21 +433,54 @@ export function createChatActions({
           const response = await studioCardsApi.refine(context.cardId, {
             project_id: projectId,
             session_id: effectiveSessionId,
+            artifact_id: context.targetArtifactId || undefined,
             message: normalizedContent,
             source_artifact_id: context.sourceArtifactId || undefined,
             config: context.configSnapshot,
             rag_source_ids:
               selectedFileIds.length > 0 ? selectedFileIds : undefined,
           });
+          const executionResult =
+            (response?.data as { execution_result?: Record<string, unknown> })
+              ?.execution_result || null;
+          const runPayload =
+            executionResult &&
+            typeof executionResult.run === "object" &&
+            executionResult.run !== null
+              ? (executionResult.run as Record<string, unknown>)
+              : null;
+          const artifactPayload =
+            executionResult &&
+            typeof executionResult.artifact === "object" &&
+            executionResult.artifact !== null
+              ? (executionResult.artifact as Record<string, unknown>)
+              : null;
+          const sessionPayload =
+            executionResult &&
+            typeof executionResult.session === "object" &&
+            executionResult.session !== null
+              ? (executionResult.session as Record<string, unknown>)
+              : null;
+
           const refinedSessionId =
-            response?.data?.session_id || effectiveSessionId;
+            (typeof sessionPayload?.session_id === "string" &&
+              sessionPayload.session_id) ||
+            (typeof sessionPayload?.id === "string" && sessionPayload.id) ||
+            response?.data?.session_id ||
+            effectiveSessionId;
           const refinedRunId =
+            (typeof runPayload?.run_id === "string" && runPayload.run_id) ||
+            (typeof runPayload?.id === "string" && runPayload.id) ||
             (response?.data as { run_id?: string } | undefined)?.run_id ||
             get().activeRunId ||
             initialRunId;
           const refinedArtifactId =
+            (typeof artifactPayload?.id === "string" && artifactPayload.id) ||
+            (typeof artifactPayload?.artifact_id === "string" &&
+              artifactPayload.artifact_id) ||
             (response?.data as { artifact_id?: string } | undefined)
-              ?.artifact_id || null;
+              ?.artifact_id ||
+            null;
 
           if (refinedSessionId !== get().activeSessionId) {
             set({ activeSessionId: refinedSessionId });
