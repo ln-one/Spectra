@@ -100,6 +100,36 @@ export function createChatActions({
     persistProjectLocalState(projectId, nextProjectMessages, projectHints);
   };
 
+  const updateLocalMessage = (
+    projectId: string,
+    sessionId: string,
+    messageId: string,
+    updater: (message: Message) => Message
+  ) => {
+    ensureProjectLocalState(projectId);
+    const state = get();
+    const projectMessages = state.localToolMessages[projectId] ?? {};
+    const projectHints = state.studioHintDedupeByProject[projectId] ?? {};
+    const sessionMessages = projectMessages[sessionId] ?? [];
+    const messageIndex = sessionMessages.findIndex((msg) => msg.id === messageId);
+    if (messageIndex < 0) return;
+    const nextSessionMessages = [...sessionMessages];
+    nextSessionMessages[messageIndex] = updater(nextSessionMessages[messageIndex]);
+    const nextProjectMessages = {
+      ...projectMessages,
+      [sessionId]: nextSessionMessages.slice(-120),
+    };
+
+    set((prev) => ({
+      localToolMessages: {
+        ...prev.localToolMessages,
+        [projectId]: nextProjectMessages,
+      },
+    }));
+
+    persistProjectLocalState(projectId, nextProjectMessages, projectHints);
+  };
+
   const pushHintMessage = (payload: StudioHintMessagePayload) => {
     const { projectId, sessionId, dedupeKey, stage, toolLabel, toolType } =
       payload;
@@ -354,18 +384,36 @@ export function createChatActions({
         return;
       }
 
+      const initialRunId = get().activeRunId || null;
+      const userRefineMessage = createLocalMessage("user", normalizedContent, {
+        kind: "studio_refine_user",
+        refineToolType: context.toolType,
+        refineToolLabel: context.toolLabel,
+        sessionId: effectiveSessionId,
+        runId: initialRunId,
+      });
+      const refineStatusMessage = createLocalMessage(
+        "assistant",
+        buildRefineProcessingMessage(context.toolType, context.toolLabel),
+        {
+          kind: "studio_refine_status",
+          refineStatus: "processing",
+          refineToolType: context.toolType,
+          refineToolLabel: context.toolLabel,
+          sessionId: effectiveSessionId,
+          runId: initialRunId,
+        }
+      );
+
       appendLocalMessage(
         projectId,
         effectiveSessionId,
-        createLocalMessage("user", normalizedContent)
+        userRefineMessage
       );
       appendLocalMessage(
         projectId,
         effectiveSessionId,
-        createLocalMessage(
-          "assistant",
-          buildRefineProcessingMessage(context.toolType, context.toolLabel)
-        )
+        refineStatusMessage
       );
 
       const selectedFileIds = get().selectedFileIds;
@@ -383,30 +431,61 @@ export function createChatActions({
           });
           const refinedSessionId =
             response?.data?.session_id || effectiveSessionId;
+          const refinedRunId =
+            (response?.data as { run_id?: string } | undefined)?.run_id ||
+            get().activeRunId ||
+            initialRunId;
+          const refinedArtifactId =
+            (response?.data as { artifact_id?: string } | undefined)
+              ?.artifact_id || null;
 
           if (refinedSessionId !== get().activeSessionId) {
             set({ activeSessionId: refinedSessionId });
           }
+          if (refinedRunId && refinedRunId !== get().activeRunId) {
+            set({ activeRunId: refinedRunId });
+          }
 
           await get().fetchArtifactHistory(projectId, refinedSessionId);
 
-          appendLocalMessage(
+          updateLocalMessage(
             projectId,
-            refinedSessionId,
-            createLocalMessage(
-              "assistant",
-              buildRefineSuccessMessage(context.toolType, context.toolLabel)
-            )
+            effectiveSessionId,
+            refineStatusMessage.id,
+            (message) => ({
+              ...message,
+              content: buildRefineSuccessMessage(context.toolType, context.toolLabel),
+              localMeta: {
+                ...message.localMeta,
+                kind: "studio_refine_status",
+                refineStatus: "completed",
+                refineToolType: context.toolType,
+                refineToolLabel: context.toolLabel,
+                sessionId: refinedSessionId,
+                runId: refinedRunId,
+                artifactId: refinedArtifactId,
+              },
+            })
           );
         } catch (error) {
           const message = getErrorMessage(error);
-          appendLocalMessage(
+          updateLocalMessage(
             projectId,
             effectiveSessionId,
-            createLocalMessage(
-              "assistant",
-              buildRefineFailureMessage(context.toolType, context.toolLabel)
-            )
+            refineStatusMessage.id,
+            (prevMessage) => ({
+              ...prevMessage,
+              content: buildRefineFailureMessage(context.toolType, context.toolLabel),
+              localMeta: {
+                ...prevMessage.localMeta,
+                kind: "studio_refine_status",
+                refineStatus: "failed",
+                refineToolType: context.toolType,
+                refineToolLabel: context.toolLabel,
+                sessionId: effectiveSessionId,
+                runId: initialRunId,
+              },
+            })
           );
           toast({
             title: "微调失败",

@@ -76,6 +76,7 @@ export function writeStudioLocalPayload(
 export function createLocalMessage(
   role: Message["role"],
   content: string,
+  localMeta?: Message["localMeta"],
   now = new Date()
 ): Message {
   return {
@@ -83,6 +84,7 @@ export function createLocalMessage(
     role,
     content,
     timestamp: now.toISOString(),
+    localMeta,
   };
 }
 
@@ -120,7 +122,7 @@ export function buildRefineProcessingMessage(
   toolLabel?: string
 ): string {
   const alias = resolveToolAlias(toolType, toolLabel);
-  return `Spectra 正在构思你的微调要求，马上基于当前${alias}继续优化...`;
+  return `Spectra 正在构思，正在微调${alias}...`;
 }
 
 export function buildRefineSuccessMessage(
@@ -128,7 +130,7 @@ export function buildRefineSuccessMessage(
   toolLabel?: string
 ): string {
   const alias = resolveToolAlias(toolType, toolLabel);
-  return `${alias}已按你的要求更新，请在左侧预览查看最新效果。`;
+  return `${alias}微调已完成，点击查看。`;
 }
 
 export function buildRefineFailureMessage(
@@ -136,5 +138,5 @@ export function buildRefineFailureMessage(
   toolLabel?: string
 ): string {
   const alias = resolveToolAlias(toolType, toolLabel);
-  return `${alias}微调失败，请稍后重试或换一种描述方式。`;
+  return `${alias}微调失败，请重试。`;
 }

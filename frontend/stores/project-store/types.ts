@@ -8,7 +8,19 @@ import type { ApiErrorShape } from "@/lib/sdk/errors";
 
 export type Project = sdkComponents["schemas"]["Project"];
 export type UploadedFile = sdkComponents["schemas"]["UploadedFile"];
-export type Message = sdkComponents["schemas"]["Message"];
+export type RefineStatus = "processing" | "completed" | "failed";
+export interface MessageLocalMeta {
+  kind?: "studio_refine_user" | "studio_refine_status";
+  refineStatus?: RefineStatus;
+  refineToolType?: StudioManagedTool;
+  refineToolLabel?: string;
+  runId?: string | null;
+  sessionId?: string | null;
+  artifactId?: string | null;
+}
+export type Message = sdkComponents["schemas"]["Message"] & {
+  localMeta?: MessageLocalMeta;
+};
 export type OutlineDocument = sdkComponents["schemas"]["OutlineDocument"];
 export type GenerationOptions = sdkComponents["schemas"]["GenerationOptions"];
 export type SessionStatePayload =

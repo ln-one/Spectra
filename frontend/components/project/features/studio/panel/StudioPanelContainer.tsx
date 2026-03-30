@@ -27,6 +27,7 @@ import { StudioPanelHeader } from "./components/StudioPanelHeader";
 import { StudioCollapsedView } from "./components/StudioCollapsedView";
 import { StudioExpandedView } from "./components/StudioExpandedView";
 import { StudioArchiveHistoryDialog } from "./components/StudioArchiveHistoryDialog";
+import type { StudioHistoryItem } from "../history/types";
 
 function extractSessionIdFromExecutionResult(
   executionResult: Record<string, unknown>
@@ -342,6 +343,25 @@ export function StudioPanelContainer({
     syncStudioChatContextByStep,
     pushStudioStageHint,
   });
+
+  useEffect(() => {
+    const handleOpenHistoryItemFromChat = (event: Event) => {
+      const customEvent = event as CustomEvent<StudioHistoryItem>;
+      const item = customEvent.detail;
+      if (!item || typeof item !== "object") return;
+      void historyHandlers.handleOpenHistoryItem(item);
+    };
+    window.addEventListener(
+      "spectra:open-history-item",
+      handleOpenHistoryItemFromChat as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "spectra:open-history-item",
+        handleOpenHistoryItemFromChat as EventListener
+      );
+    };
+  }, [historyHandlers]);
 
   const handleExpandedToolDraftChange = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") {
