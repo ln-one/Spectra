@@ -35,6 +35,89 @@ function extractKeywords(input: string): string[] {
     .slice(0, 8);
 }
 
+function uniqueNonEmpty(items: string[]): string[] {
+  return Array.from(
+    new Set(items.map((item) => item.trim()).filter(Boolean))
+  );
+}
+
+function pickOne<T>(items: T[], fallback: T): T {
+  if (!items.length) return fallback;
+  const index = Math.floor(Math.random() * items.length);
+  return items[index];
+}
+
+function buildRagGuidedSuggestions(args: {
+  seed: string;
+  prompt: string;
+  keywords: string[];
+  mergedText: string;
+}): string[] {
+  const { seed, prompt, keywords, mergedText } = args;
+  const refinedKeywords = uniqueNonEmpty(keywords).slice(0, 8);
+  const focusA = refinedKeywords.slice(0, 2).join("、") || "核心概念";
+  const focusB = refinedKeywords.slice(2, 5).join("、") || focusA;
+  const moduleA = refinedKeywords.slice(0, 2).join(" / ") || "基础认知";
+  const moduleB = refinedKeywords.slice(2, 4).join(" / ") || "重点突破";
+  const moduleC = refinedKeywords.slice(4, 6).join(" / ") || "应用迁移";
+
+  const evidenceSignals = uniqueNonEmpty(
+    mergedText
+      .split(/[。！？；\n]/)
+      .map((line) => line.trim())
+      .filter((line) => line.length >= 10)
+      .flatMap((line) => extractKeywords(line).slice(0, 2))
+  ).slice(0, 4);
+  const evidenceHint =
+    evidenceSignals.join("、") || refinedKeywords.slice(0, 3).join("、") || "关键知识点";
+
+  const leadIns = [
+    `我准备讲“${seed}”`,
+    `围绕“${seed}”这节课`,
+    `请基于“${seed}”`,
+    `我想把“${seed}”讲清楚`,
+  ];
+  const goals = [
+    "先定义教学主线，再拆分知识板块",
+    "先明确学生应掌握的能力，再安排教学内容",
+    "先梳理概念层级，再设计课堂推进节奏",
+    "先聚焦理解难点，再规划巩固路径",
+  ];
+  const structures = [
+    "按“概念建模-典型误区-应用练习-课堂总结”组织",
+    "按“问题导入-知识讲授-案例拆解-迁移训练”组织",
+    "按“基础认知-重点突破-综合应用-反思复盘”组织",
+    "按“学情预热-核心讲解-当堂演练-形成性评价”组织",
+  ];
+  const deliverables = [
+    "并为每个板块写出教学目标、关键问题和课堂活动。",
+    "并给出每个板块的讲解重点、提问设计与当堂检验方式。",
+    "并标注每个板块学生常见卡点及教师应对策略。",
+    "并输出每个板块可直接放入大纲的标题和一句话说明。",
+  ];
+
+  const dynamic = Array.from({ length: 8 }, () => {
+    const lineA = pickOne(leadIns, leadIns[0]);
+    const lineB = pickOne(goals, goals[0]);
+    const lineC = pickOne(structures, structures[0]);
+    const lineD = pickOne(deliverables, deliverables[0]);
+    const focus = Math.random() > 0.5 ? focusA : `${focusA}、${focusB}`;
+    return `${lineA}，请重点围绕${focus}，${lineB}，${lineC}，${lineD}`;
+  });
+
+  const focused = [
+    `请把“${seed}”按知识板块拆成 4-6 个教学单元，优先覆盖 ${moduleA}、${moduleB}、${moduleC}，并说明每个单元学生要学会什么。`,
+    `请结合资料里高频出现的内容（${evidenceHint}），规划“${seed}”的大纲走向：每个板块都要有“讲解重点 + 课堂任务 + 快速反馈”。`,
+    `我需要“${seed}”的大纲配置提示，请按“先学什么、为何先学、如何练习、如何检查掌握”给出可直接使用的结构建议。`,
+    `请把“${seed}”设计成可授课的知识路径：从基础概念到综合应用逐步推进，并为每个板块补充一个可执行课堂活动。`,
+    prompt.trim()
+      ? `基于我的需求“${prompt.trim()}”，请抽取最关键的知识主题并重组为可教学的大纲骨架，强调板块衔接与学习目标。`
+      : `请围绕“${seed}”提炼关键知识主题，生成可直接用于大纲配置的教学骨架，突出板块衔接与学习目标。`,
+  ];
+
+  return uniqueNonEmpty([...dynamic, ...focused]);
+}
+
 const wait = (ms: number) =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
@@ -182,24 +265,14 @@ export function useGenerationConfigPanel({
       });
 
       const chunks = ragResponse?.data?.results || [];
-      const sourceHints = chunks
-        .map((item) => item.source?.filename)
-        .filter(Boolean)
-        .slice(0, 3)
-        .join("、");
       const mergedText = chunks.map((item) => item.content).join(" ");
       const keywords = extractKeywords(mergedText);
-      const topic =
-        keywords.slice(0, 3).join(" / ") ||
-        (prompt.trim() ? prompt.trim().slice(0, 20) : "课程主题");
-
-      const candidates = [
-        `围绕“${seed}”生成 ${pageCount} 页 16:9 课堂 PPT，突出教学目标、关键概念、案例演示与课堂互动，重点覆盖：${topic}。`,
-        `请基于资料${sourceHints ? `（参考：${sourceHints}）` : ""}设计 ${pageCount} 页课件，结构包含导入、讲授、练习和总结，并给出每页讲解要点。`,
-        `我需要一份 ${pageCount} 页的教学课件：先讲清核心概念，再用真实案例解释，最后加入课堂讨论与即时练习。`,
-        `请输出逻辑清晰、节奏适中的课程 PPT（${pageCount} 页），每页都要有明确标题、核心内容和教师讲解提示。`,
-        `做一份面向学生的教学演示（${pageCount} 页），要求视觉简洁、重点突出、知识点可复习，并包含课堂提问设计。`,
-      ];
+      const candidates = buildRagGuidedSuggestions({
+        seed,
+        prompt,
+        keywords,
+        mergedText,
+      });
 
       setSuggestions((prev) => {
         const next = pickRandom(candidates, 4);
@@ -214,10 +287,10 @@ export function useGenerationConfigPanel({
     } catch {
       const seed = prompt.trim() || project?.name || "课程主题";
       const fallback = [
-        `请围绕“${seed}”生成一份结构化教学课件，包含导入、知识讲解、案例和课堂练习。`,
-        `我要做一份 ${pageCount} 页课程 PPT，请按“背景-核心知识-应用-总结”组织内容。`,
-        "请生成面向课堂教学的课件，每页都标注讲解重点与互动建议。",
-        "请给出一套可直接授课的课件内容，兼顾逻辑性与学生理解难度。",
+        `请围绕“${seed}”先明确教学方向，再拆分核心知识板块，并写出每个板块学生应达到的学习目标。`,
+        `我想讲“${seed}”，请按“基础概念-重点难点-应用训练-课堂总结”给出可直接用于大纲配置的提示。`,
+        "请给我一组帮助教师生成大纲的智能提示，要求每条都包含知识模块、课堂活动和当堂检验建议。",
+        "请从学生理解路径出发，为这节课规划“先学什么、再练什么、最后如何评估掌握”的大纲方向。",
       ];
       setSuggestions((prev) => {
         if (
@@ -231,7 +304,7 @@ export function useGenerationConfigPanel({
     } finally {
       setLoadingSuggestions(false);
     }
-  }, [files, pageCount, project?.name, projectId, prompt, selectedFileIds]);
+  }, [files, project?.name, projectId, prompt, selectedFileIds]);
 
   useEffect(() => {
     const requestId = ++suggestionRequestIdRef.current;
