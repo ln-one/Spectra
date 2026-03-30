@@ -1,6 +1,7 @@
 ﻿import { generateApi, previewApi, projectSpaceApi } from "@/lib/sdk";
 import { createApiError, getErrorMessage } from "@/lib/sdk/errors";
 import { toast } from "@/hooks/use-toast";
+import { parseActiveRunConflict } from "@/lib/project/generation-run-conflict";
 import { groupArtifactsByTool } from "@/lib/project-space/artifact-history";
 import {
   mapSessionsToHistory,
@@ -52,6 +53,26 @@ function extractCurrentRunId(
   );
 }
 
+function isFallbackSessionTitle(title: string, sessionId: string): boolean {
+  const normalized = title.trim();
+  return normalized === `会话 ${sessionId.slice(-6)}`;
+}
+
+function resolveOutlineBaseVersion(
+  session: SessionStatePayload | null | undefined
+): number {
+  const rawVersion =
+    session && typeof session === "object" ? session.outline?.version : null;
+  const parsed =
+    typeof rawVersion === "number"
+      ? rawVersion
+      : Number.parseInt(String(rawVersion ?? ""), 10);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  const hasOutlineNodes =
+    Array.isArray(session?.outline?.nodes) && session.outline.nodes.length > 0;
+  return hasOutlineNodes ? 1 : 0;
+}
+
 export function createGenerationActions({
   set,
   get,
@@ -97,13 +118,26 @@ export function createGenerationActions({
               selectedFileIds.length > 0 ? selectedFileIds : undefined,
           },
           client_session_id: currentSessionId,
+          bootstrap_only: false,
         });
 
         if (response?.data?.session) {
           const sessionId = response.data.session.session_id;
-          const runId = extractRunId(
-            (response as { data?: { run?: unknown } }).data?.run
-          );
+          const runId = extractRunId(response.data.run);
+          const previousHistoryTitle =
+            get().generationHistory.find((item) => item.id === sessionId)?.title ||
+            "";
+          const sessionDisplayTitle = String(
+            (
+              response.data.session as {
+                display_title?: string | null;
+              }
+            ).display_title || ""
+          ).trim();
+          const resolvedHistoryTitle =
+            previousHistoryTitle.trim() ||
+            sessionDisplayTitle ||
+            `会话 ${sessionId.slice(-6)}`;
 
           set({
             activeSessionId: sessionId,
@@ -121,7 +155,7 @@ export function createGenerationActions({
             status: "processing",
             sessionState: "CONFIGURING",
             createdAt: new Date().toISOString(),
-            title: tool.name,
+            title: resolvedHistoryTitle,
           };
           set((state) => ({
             generationHistory: [
@@ -166,11 +200,14 @@ export function createGenerationActions({
       } catch (error) {
         const message = getErrorMessage(error);
         set({ error: createApiError({ code: "GENERATION_FAILED", message }) });
-        toast({
-          title: "创建生成任务失败",
-          description: message,
-          variant: "destructive",
-        });
+        const runConflict = parseActiveRunConflict(error);
+        if (!runConflict) {
+          toast({
+            title: "创建生成任务失败",
+            description: message,
+            variant: "destructive",
+          });
+        }
         throw error;
       }
     },
@@ -187,10 +224,15 @@ export function createGenerationActions({
           previousHistory.map((item) => [item.id, item.title])
         );
         const history: GenerationHistory[] = mapSessionsToHistory(sessions).map(
-          (item) => ({
-            ...item,
-            title: previousTitleById.get(item.id) || item.title,
-          })
+          (item) => {
+            const previousTitle = previousTitleById.get(item.id);
+            if (!previousTitle) return item;
+            if (!isFallbackSessionTitle(item.title, item.id)) return item;
+            return {
+              ...item,
+              title: previousTitle,
+            };
+          }
         );
         const activeSessionId =
           get().activeSessionId ??
@@ -372,7 +414,7 @@ export function createGenerationActions({
 
     updateOutline: async (sessionId: string, outline: OutlineDocument) => {
       const session = get().generationSession;
-      const baseVersion = session?.outline?.version ?? 1;
+      const baseVersion = resolveOutlineBaseVersion(session);
       try {
         await generateApi.updateOutline(sessionId, {
           base_version: baseVersion,
@@ -407,7 +449,7 @@ export function createGenerationActions({
 
     redraftOutline: async (sessionId: string, instruction: string) => {
       const session = get().generationSession;
-      const baseVersion = session?.outline?.version ?? 1;
+      const baseVersion = resolveOutlineBaseVersion(session);
       try {
         await generateApi.redraftOutline(sessionId, {
           instruction,

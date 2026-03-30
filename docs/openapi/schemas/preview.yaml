@@ -9,7 +9,7 @@ PreviewResponse:
       properties:
         session_id:
           type: string
-          description: 会话级预览上下文 ID（session-first 流程）
+          description: 会话级预览上下文 ID（session-first）
         task_id:
           type: string
           description: 兼容旧任务流的执行 ID
@@ -22,6 +22,13 @@ PreviewResponse:
           type: string
           description: 当前预览基于的正式版本 ID
           nullable: true
+        current_version_id:
+          type: string
+          description: 当前项目正式版本 ID
+          nullable: true
+        upstream_updated:
+          type: boolean
+          description: 预览基于的上游版本是否与当前项目版本一致
         render_version:
           type: integer
           minimum: 1
@@ -117,7 +124,7 @@ ModifyRequest:
   properties:
     session_id:
       type: string
-      description: 兼容字段。仅在 task 路由下用于显式绑定会话。
+      description: 兼容字段，仅在 task 路由下用于显式绑定会话
     instruction:
       type: string
       minLength: 1
@@ -128,6 +135,7 @@ ModifyRequest:
         type: string
     context:
       type: object
+      additionalProperties: true
     base_render_version:
       type: integer
       minimum: 1
@@ -140,6 +148,9 @@ ModifySessionRequest:
     artifact_id:
       type: string
       description: 指定要修改的成果 ID（可选）
+    run_id:
+      type: string
+      description: 指定运行 ID（可选）
     instruction:
       type: string
       minLength: 1
@@ -150,10 +161,32 @@ ModifySessionRequest:
         type: string
     context:
       type: object
+      additionalProperties: true
     base_render_version:
       type: integer
       minimum: 1
       description: 并发控制版本（防止覆盖更新）
+    slide_id:
+      type: string
+      description: 指定要修改的 slide ID（可选）
+    slide_index:
+      type: integer
+      minimum: 1
+      description: 指定要修改的页码（从 1 开始）
+    scope:
+      type: string
+      description: 修改作用范围
+    preserve_style:
+      type: boolean
+      default: true
+    preserve_layout:
+      type: boolean
+      default: true
+    preserve_deck_consistency:
+      type: boolean
+      default: true
+    patch:
+      $ref: './generate-command-core.yaml#/StructuredSlidePatch'
     candidate_change:
       $ref: "./project-space.yaml#/CandidateChangeRequest"
 
@@ -186,8 +219,22 @@ ModifyResponse:
           type: string
           description: 修改任务基于的正式版本 ID
           nullable: true
+        current_version_id:
+          type: string
+          description: 当前项目正式版本 ID
+          nullable: true
+        upstream_updated:
+          type: boolean
+          description: 修改基于的上游版本是否与当前项目版本一致
         artifact_anchor:
           $ref: "#/ArtifactAnchor"
+        slide_id:
+          type: string
+        slide_index:
+          type: integer
+          minimum: 1
+        scope:
+          type: string
         candidate_change:
           $ref: "./project-space.yaml#/CandidateChange"
     message:
@@ -205,6 +252,21 @@ SlideDetailResponse:
         session_id:
           type: string
           description: 当前幻灯片详情所属会话
+        artifact_id:
+          type: string
+          description: 当前预览对应的成果 ID
+          nullable: true
+        based_on_version_id:
+          type: string
+          description: 当前预览基于的正式版本 ID
+          nullable: true
+        current_version_id:
+          type: string
+          description: 当前项目正式版本 ID
+          nullable: true
+        upstream_updated:
+          type: boolean
+          description: 预览基于的上游版本是否与当前项目版本一致
         slide:
           $ref: '#/Slide'
         teaching_plan:
@@ -235,6 +297,9 @@ ExportRequest:
     artifact_id:
       type: string
       description: 指定要导出的成果 ID（可选）
+    run_id:
+      type: string
+      description: 指定运行 ID（可选）
     format:
       type: string
       enum: [json, markdown, html]
@@ -275,6 +340,13 @@ ExportResponse:
           type: string
           description: 导出基于的正式版本 ID
           nullable: true
+        current_version_id:
+          type: string
+          description: 当前项目正式版本 ID
+          nullable: true
+        upstream_updated:
+          type: boolean
+          description: 导出基于的上游版本是否与当前项目版本一致
         artifact_anchor:
           $ref: "#/ArtifactAnchor"
         content:
@@ -290,7 +362,6 @@ ExportResponse:
     message:
       type: string
 
-
 ArtifactAnchor:
   type: object
   properties:
@@ -301,5 +372,8 @@ ArtifactAnchor:
       type: string
       nullable: true
     based_on_version_id:
+      type: string
+      nullable: true
+    run_id:
       type: string
       nullable: true

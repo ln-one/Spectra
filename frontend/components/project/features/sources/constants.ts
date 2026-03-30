@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 export const COMPACT_MODE_WIDTH = 140;
+export const HORIZONTAL_ICON_MODE_TRIGGER_HEIGHT = 150;
 export const HEADER_FORCE_NORMAL_WIDTH = 260;
 export const HEADER_MIN_VISIBLE_WIDTH = 96;
 export const HEADER_COMPACT_HYSTERESIS = 16;

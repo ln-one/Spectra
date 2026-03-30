@@ -49,7 +49,7 @@ export function StudioCollapsedView({
         opacity: isExpanded ? 0 : 1,
         scale: isExpanded ? 0.985 : 1,
       }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.4 }}
     >
       <ScrollArea className="h-full">
         <div className="p-3">

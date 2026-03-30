@@ -48,31 +48,34 @@ export function mapSessionsToHistory(
     state: string;
     output_type: string;
     created_at: string;
+    display_title?: string | null;
   }>
 ): GenerationHistory[] {
-  return sessions.map((s) => {
+  return sessions.map((session) => {
     let status: GenerationHistory["status"] = "processing";
-    if (s.state === "SUCCESS") status = "completed";
-    else if (s.state === "FAILED") status = "failed";
-    else if (s.state === "IDLE") status = "pending";
+    if (session.state === "SUCCESS") status = "completed";
+    else if (session.state === "FAILED") status = "failed";
+    else if (session.state === "IDLE") status = "pending";
 
     const toolId =
-      s.output_type === "ppt"
+      session.output_type === "ppt"
         ? "ppt"
-        : s.output_type === "word"
+        : session.output_type === "word"
           ? "word"
           : "ppt";
-    const tool = GENERATION_TOOLS.find((t) => t.id === toolId);
-    const fallbackTitle = `会话 ${s.session_id.slice(-6)}`;
+    const tool = GENERATION_TOOLS.find((entry) => entry.id === toolId);
+    const fallbackTitle = `会话 ${session.session_id.slice(-6)}`;
+    const resolvedTitle =
+      String(session.display_title || "").trim() || fallbackTitle;
 
     return {
-      id: s.session_id,
+      id: session.session_id,
       toolId,
       toolName: tool?.name || "生成任务",
       status,
-      sessionState: s.state,
-      createdAt: s.created_at,
-      title: fallbackTitle,
+      sessionState: session.state,
+      createdAt: session.created_at,
+      title: resolvedTitle,
     };
   });
 }

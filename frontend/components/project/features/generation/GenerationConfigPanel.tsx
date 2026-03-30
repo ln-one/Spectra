@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
 import {
@@ -28,6 +28,7 @@ import {
   OUTLINE_STYLES,
   PAGE_PRESETS,
 } from "./constants";
+import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 import {
   type GenerationConfig,
   useGenerationConfigPanel,
@@ -67,6 +68,7 @@ export function GenerationConfigPanel({
     suggestions,
     loadingSuggestions,
     isCreatingSession,
+    hasInProgressRun,
     showOutlineEditor,
     setShowOutlineEditor,
     pageLabel,
@@ -353,12 +355,20 @@ export function GenerationConfigPanel({
                   <Card className="rounded-2xl border-zinc-100 bg-white text-zinc-900 shadow-sm">
                     <CardContent className="flex flex-col gap-3 px-4 pb-4 pt-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
                       <div>
-                        <p className="text-sm font-semibold text-zinc-900">
-                          开始生成大纲
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <p className="text-sm font-semibold text-zinc-900">
+                            开始生成大纲
+                          </p>
+                          <SelectedSourceScopeBadge />
+                        </div>
                         <p className="mt-1 text-xs leading-5 text-zinc-500">
-                          下一步会进入大纲编辑页，你可以继续微调每一页。
+                          下一步将进入大纲编辑页，你可以继续微调每一页。
                         </p>
+                        {hasInProgressRun ? (
+                          <p className="mt-1 text-xs leading-5 text-amber-600">
+                            当前会话已有进行中的 Run，点击右侧按钮会按新配置重新生成大纲。
+                          </p>
+                        ) : null}
                       </div>
                       <Button
                         onClick={() => void handleGenerate()}
@@ -372,6 +382,12 @@ export function GenerationConfigPanel({
                           <>
                             <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                             正在创建...
+                          </>
+                        ) : hasInProgressRun ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            按新配置重生成
+                            <ArrowRight className="ml-2 h-4 w-4" />
                           </>
                         ) : (
                           <>

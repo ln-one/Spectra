@@ -1,4 +1,4 @@
-﻿import type { components as sdkComponents } from "@/lib/sdk/types";
+import type { components as sdkComponents } from "@/lib/sdk/types";
 import {
   groupArtifactsByTool,
   type ArtifactHistoryByTool,
@@ -12,7 +12,7 @@ export type Message = sdkComponents["schemas"]["Message"];
 export type OutlineDocument = sdkComponents["schemas"]["OutlineDocument"];
 export type GenerationOptions = sdkComponents["schemas"]["GenerationOptions"];
 export type SessionStatePayload =
-  sdkComponents["schemas"]["SessionStatePayload"];
+  sdkComponents["schemas"]["SessionStatePayloadTarget"];
 
 export interface SessionRun {
   run_id: string;
@@ -21,6 +21,7 @@ export interface SessionRun {
   tool_type?: string;
   run_no?: number;
   run_title?: string;
+  run_title_source?: string;
   run_status?: string;
   run_step?: string;
   artifact_id?: string | null;

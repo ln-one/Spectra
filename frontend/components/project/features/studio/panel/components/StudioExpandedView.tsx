@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
 import type { ComponentProps, ComponentType } from "react";
@@ -13,6 +13,7 @@ import type {
   ToolDraftState,
   ToolFlowContext,
 } from "../../tools";
+import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 
 interface StudioExpandedViewProps {
   isExpanded: boolean;
@@ -92,7 +93,7 @@ export function StudioExpandedView({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
+          transition={{ duration: 0.3 }}
           className={cn(
             "absolute inset-0 z-10 p-3",
             isExpanded ? "pointer-events-auto" : "pointer-events-none"
@@ -119,11 +120,11 @@ export function StudioExpandedView({
               <div className="h-full flex flex-col gap-2">
                 {!isCardManagedFlowExpanded ? (
                   <>
-                    <div className="project-studio-protocol-bar rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-control-bg)] px-2 py-2 flex items-center gap-2">
+                    <div className="project-studio-protocol-bar rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-control-bg)] px-2 py-2 flex min-w-0 flex-wrap items-center gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="project-studio-protocol-btn h-8 text-xs"
+                        className="project-studio-protocol-btn h-8 shrink-0 text-xs"
                         onClick={() => {
                           void onPreviewExecution();
                         }}
@@ -138,7 +139,7 @@ export function StudioExpandedView({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="project-studio-protocol-btn h-8 text-xs"
+                        className="project-studio-protocol-btn h-8 shrink-0 text-xs"
                         onClick={() => {
                           void onLoadSources();
                         }}
@@ -156,21 +157,28 @@ export function StudioExpandedView({
                           onChange={(event) =>
                             onSelectedSourceChange(event.target.value || null)
                           }
-                          className="project-studio-protocol-select h-8 rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-2 text-xs text-[var(--project-text-primary)]"
+                          className="project-studio-protocol-select h-8 min-w-0 max-w-[180px] flex-1 basis-[140px] rounded-[var(--project-chip-radius)] border border-[var(--project-control-border)] bg-[var(--project-surface-elevated)] px-2 text-xs text-[var(--project-text-primary)]"
                         >
                           {sourceOptions.map((item) => (
                             <option key={item.id} value={item.id}>
-                              {(item.title || item.id.slice(0, 8)) +
-                                (item.type ? ` (${item.type})` : "")}
+                              {(() => {
+                                const baseTitle = item.title || item.id.slice(0, 8);
+                                const compactTitle =
+                                  baseTitle.length > 18
+                                    ? `${baseTitle.slice(0, 18)}...`
+                                    : baseTitle;
+                                return compactTitle + (item.type ? ` (${item.type})` : "");
+                              })()}
                             </option>
                           ))}
                         </select>
                       ) : null}
-                      <div className="ml-auto flex items-center gap-2">
+                      <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+                        <SelectedSourceScopeBadge />
                         <Button
                           size="sm"
                           variant="outline"
-                          className="project-studio-protocol-btn h-8 text-xs"
+                          className="project-studio-protocol-btn h-8 shrink-0 text-xs"
                           onClick={onOpenChatRefine}
                           disabled={!canRefine || isLoadingCardProtocol}
                         >
@@ -178,7 +186,7 @@ export function StudioExpandedView({
                         </Button>
                         <Button
                           size="sm"
-                          className="project-studio-protocol-btn project-studio-protocol-btn-primary h-8 text-xs"
+                          className="project-studio-protocol-btn project-studio-protocol-btn-primary h-8 shrink-0 text-xs"
                           onClick={() => {
                             void onExecute();
                           }}

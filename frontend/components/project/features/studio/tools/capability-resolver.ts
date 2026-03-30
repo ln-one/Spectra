@@ -34,6 +34,7 @@ function extractHtmlFromJsonPayload(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
+
   try {
     const parsed = parseJsonSafely(trimmed);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -92,25 +93,41 @@ function isNonEmptyArray(value: unknown): boolean {
   return Array.isArray(value) && value.length > 0;
 }
 
+function hasNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function readSummaryText(parsed: Record<string, unknown>): string {
+  if (!hasNonEmptyString(parsed.summary)) return "";
+  return parsed.summary.trim();
+}
+
+function readKeyPoints(parsed: Record<string, unknown>): string[] {
+  if (!Array.isArray(parsed.key_points)) return [];
+  return parsed.key_points
+    .filter((item): item is string => hasNonEmptyString(item))
+    .map((item) => item.trim());
+}
+
 function resolveDefaultCapabilityByTool(
   toolId: StudioToolKey
 ): CapabilityResolution | null {
   if (toolId === "word") {
     return buildResolution(
       "backend_placeholder",
-      "正在等待后端生成 Word 文档，完成后会显示真实预览与下载入口。"
+      "Waiting for backend Word artifact."
     );
   }
   if (toolId === "summary") {
     return buildResolution(
       "backend_placeholder",
-      "正在等待后端生成说课讲稿，完成后会在当前面板展示真实内容。"
+      "Waiting for backend speaker notes content."
     );
   }
   if (toolId === "handout") {
     return buildResolution(
       "backend_placeholder",
-      "正在等待后端生成问答预演，完成后会在当前面板展示真实内容。"
+      "Waiting for backend classroom simulation content."
     );
   }
   return null;
@@ -125,7 +142,7 @@ export function buildCapabilityWithoutArtifact(
   }
   return buildResolution(
     "backend_placeholder",
-    "当前还没有后端产物，预览区会在后端返回真实内容后直接显示。"
+    "No backend artifact yet. Preview will render real backend output once available."
   );
 }
 
@@ -134,10 +151,13 @@ function resolveSummaryPayload(
   artifact: ArtifactHistoryItem,
   parsed: Record<string, unknown>
 ): CapabilityResolution {
+  const summaryText = readSummaryText(parsed);
+  const keyPoints = readKeyPoints(parsed);
+
   if (toolId === "summary") {
     const slides = parsed.slides;
-    if (isNonEmptyArray(slides) || typeof parsed.summary === "string") {
-      return buildResolution("backend_ready", "已读取后端说课讲稿内容。", {
+    if (isNonEmptyArray(slides) || summaryText || keyPoints.length > 0) {
+      return buildResolution("backend_ready", "Loaded backend speaker notes.", {
         artifactId: artifact.artifactId,
         artifactType: artifact.artifactType,
         contentKind: "json",
@@ -146,29 +166,41 @@ function resolveSummaryPayload(
     }
     return buildResolution(
       "backend_placeholder",
-      "说课讲稿产物结构为空，暂未收到可展示的后端讲稿内容。"
+      "Speaker notes artifact has no displayable content yet."
     );
   }
 
   if (toolId === "handout") {
     const turns = parsed.turns;
-    if (isNonEmptyArray(turns) || typeof parsed.summary === "string") {
-      return buildResolution("backend_ready", "已读取后端问答预演内容。", {
-        artifactId: artifact.artifactId,
-        artifactType: artifact.artifactType,
-        contentKind: "json",
-        content: parsed,
-      });
+    const questionFocus = hasNonEmptyString(parsed.question_focus)
+      ? parsed.question_focus.trim()
+      : "";
+    if (
+      isNonEmptyArray(turns) ||
+      summaryText ||
+      keyPoints.length > 0 ||
+      questionFocus
+    ) {
+      return buildResolution(
+        "backend_ready",
+        "Loaded backend classroom simulation content.",
+        {
+          artifactId: artifact.artifactId,
+          artifactType: artifact.artifactType,
+          contentKind: "json",
+          content: parsed,
+        }
+      );
     }
     return buildResolution(
       "backend_placeholder",
-      "问答预演产物结构为空，暂未收到可展示的后端预演内容。"
+      "Classroom simulation artifact has no displayable content yet."
     );
   }
 
   return buildResolution(
     "backend_error",
-    `当前工具不支持解析 ${artifact.artifactType} 产物。`
+    `Tool does not support summary artifact type: ${artifact.artifactType}.`
   );
 }
 
@@ -183,17 +215,13 @@ export async function resolveCapabilityFromArtifact(params: {
 
   try {
     if (artifactType === "docx") {
-      return buildResolution(
-        "backend_ready",
-        "已读取到后端生成的 Word 文档。",
-        {
-          artifactId: artifact.artifactId,
-          artifactType,
-          contentKind: "binary",
-          content: null,
-          blob,
-        }
-      );
+      return buildResolution("backend_ready", "Loaded backend Word document.", {
+        artifactId: artifact.artifactId,
+        artifactType,
+        contentKind: "binary",
+        content: null,
+        blob,
+      });
     }
 
     if (artifactType === "mindmap") {
@@ -201,7 +229,7 @@ export async function resolveCapabilityFromArtifact(params: {
       const parsed = parseJsonSafely(raw) as Record<string, unknown>;
       const nodes = parsed?.nodes;
       if (isNonEmptyArray(nodes)) {
-        return buildResolution("backend_ready", "已读取后端思维导图结构。", {
+        return buildResolution("backend_ready", "Loaded backend mindmap.", {
           artifactId: artifact.artifactId,
           artifactType,
           contentKind: "json",
@@ -210,7 +238,7 @@ export async function resolveCapabilityFromArtifact(params: {
       }
       return buildResolution(
         "backend_placeholder",
-        "思维导图产物暂时为空，暂未收到可展示的后端导图结构。"
+        "Mindmap artifact exists but nodes are empty."
       );
     }
 
@@ -219,7 +247,7 @@ export async function resolveCapabilityFromArtifact(params: {
       const parsed = parseJsonSafely(raw) as Record<string, unknown>;
       const questions = parsed?.questions;
       if (isNonEmptyArray(questions)) {
-        return buildResolution("backend_ready", "已读取后端题目内容。", {
+        return buildResolution("backend_ready", "Loaded backend quiz content.", {
           artifactId: artifact.artifactId,
           artifactType,
           contentKind: "json",
@@ -228,7 +256,7 @@ export async function resolveCapabilityFromArtifact(params: {
       }
       return buildResolution(
         "backend_placeholder",
-        "题目产物暂时为空，暂未收到可展示的后端题目内容。"
+        "Quiz artifact exists but questions are empty."
       );
     }
 
@@ -247,15 +275,15 @@ export async function resolveCapabilityFromArtifact(params: {
         return buildResolution(
           "backend_placeholder",
           toolId === "outline"
-            ? "互动游戏产物仍是空模板，暂未收到可玩的后端 HTML。"
-            : "演示动画产物仍是空模板，暂未收到可播放的后端内容。"
+            ? "Interactive game HTML is still placeholder."
+            : "Animation HTML is still placeholder."
         );
       }
       return buildResolution(
         "backend_ready",
         toolId === "outline"
-          ? "已读取后端互动游戏 HTML。"
-          : "已读取后端演示动画 HTML。",
+          ? "Loaded backend interactive game HTML."
+          : "Loaded backend animation HTML.",
         {
           artifactId: artifact.artifactId,
           artifactType,
@@ -269,12 +297,12 @@ export async function resolveCapabilityFromArtifact(params: {
       if (blob.size <= PLACEHOLDER_MEDIA_SIZE_THRESHOLD) {
         return buildResolution(
           "backend_placeholder",
-          `${artifactType.toUpperCase()} 仍是占位素材，暂未收到可播放的后端媒体内容。`
+          `${artifactType.toUpperCase()} artifact is still placeholder media.`
         );
       }
       return buildResolution(
         "backend_ready",
-        `已读取后端 ${artifactType.toUpperCase()} 媒体内容。`,
+        `Loaded backend ${artifactType.toUpperCase()} media.`,
         {
           artifactId: artifact.artifactId,
           artifactType,
@@ -291,14 +319,14 @@ export async function resolveCapabilityFromArtifact(params: {
 
     return buildResolution(
       "backend_error",
-      `暂不支持解析 ${artifactType} 类型的产物。`
+      `Unsupported artifact type for capability resolver: ${artifactType}.`
     );
   } catch (error) {
     return buildResolution(
       "backend_error",
-      `解析后端产物失败：${
+      `Failed to parse backend artifact: ${
         error instanceof Error ? error.message : "unknown error"
-      }。`,
+      }.`,
       null
     );
   }

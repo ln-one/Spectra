@@ -121,6 +121,22 @@ def test_get_preview_with_run_id_returns_run_not_ready_when_no_task(
 
 
 def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
+    load_preview_material = AsyncMock(
+        return_value=(
+            SimpleNamespace(id="t-001"),
+            [
+                {
+                    "id": "slide-1",
+                    "index": 0,
+                    "title": "S1",
+                    "content": "C1",
+                    "sources": [],
+                }
+            ],
+            None,
+            {},
+        )
+    )
     svc = SimpleNamespace(
         get_session_snapshot=AsyncMock(return_value=_snapshot(render_version=5)),
         execute_command=AsyncMock(return_value={"task_id": "gt-001"}),
@@ -136,30 +152,21 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     monkeypatch.setattr(
         generate_sessions_preview_router,
         "_load_preview_material",
-        AsyncMock(
-            return_value=(
-                SimpleNamespace(id="t-001"),
-                [
-                    {
-                        "id": "slide-1",
-                        "index": 0,
-                        "title": "S1",
-                        "content": "C1",
-                        "sources": [],
-                    }
-                ],
-                None,
-                {},
-            )
-        ),
+        load_preview_material,
     )
 
     resp = client.post(
         "/api/v1/generate/sessions/s-preview-001/preview/modify",
         json={
+            "run_id": "run-002",
             "slide_id": "slide-1",
+            "slide_index": 1,
             "instruction": "请把当前页标题改得更清晰",
             "patch": {"title": "new title"},
+            "scope": "current_slide_only",
+            "preserve_style": False,
+            "preserve_layout": False,
+            "preserve_deck_consistency": False,
             "artifact_id": "a-002",
         },
     )
@@ -175,6 +182,12 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     assert data["slide_id"] == "slide-1"
     assert data["slide_index"] == 1
     assert data["scope"] == "current_slide_only"
+    command = svc.execute_command.await_args.kwargs["command"]
+    assert command["preserve_style"] is False
+    assert command["preserve_layout"] is False
+    assert command["preserve_deck_consistency"] is False
+    assert command["patch"] == {"title": "new title"}
+    assert load_preview_material.await_args.args[4] == "run-002"
 
 
 def test_modify_preview_accepts_base_render_version_alias(
@@ -372,13 +385,18 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
             }
         ],
     }
+    load_preview_material = AsyncMock(
+        return_value=(SimpleNamespace(id="t-003"), slides, lesson_plan, {})
+    )
     monkeypatch.setattr(
         generate_sessions_preview_router,
         "_load_preview_material",
-        AsyncMock(return_value=(SimpleNamespace(id="t-003"), slides, lesson_plan, {})),
+        load_preview_material,
     )
 
-    resp = client.get("/api/v1/generate/sessions/s-preview-001/preview/slides/slide-2")
+    resp = client.get(
+        "/api/v1/generate/sessions/s-preview-001/preview/slides/slide-2?run_id=run-003"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["data"]["slide"]["id"] == "slide-2"
@@ -386,6 +404,8 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
     assert body["data"]["artifact_id"] == "a-003"
     assert body["data"]["current_version_id"] == "v-current"
     assert body["data"]["upstream_updated"] is True
+    assert body["data"]["artifact_anchor"]["run_id"] == "run-003"
+    assert load_preview_material.await_args.args[4] == "run-003"
 
 
 def test_export_preview_expected_render_version_conflict(client, monkeypatch, _as_user):
@@ -438,30 +458,31 @@ def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_use
         "_resolve_session_artifact_binding",
         AsyncMock(return_value=SimpleNamespace(id="a-004", basedOnVersionId="v-007")),
     )
+    load_preview_material = AsyncMock(
+        return_value=(
+            SimpleNamespace(id="t-007"),
+            [
+                {
+                    "id": "slide-1",
+                    "index": 0,
+                    "title": "S1",
+                    "content": "C1",
+                    "sources": [],
+                }
+            ],
+            {"teaching_objectives": [], "slides_plan": []},
+            {"markdown_content": "# Demo"},
+        )
+    )
     monkeypatch.setattr(
         generate_sessions_preview_router,
         "_load_preview_material",
-        AsyncMock(
-            return_value=(
-                SimpleNamespace(id="t-007"),
-                [
-                    {
-                        "id": "slide-1",
-                        "index": 0,
-                        "title": "S1",
-                        "content": "C1",
-                        "sources": [],
-                    }
-                ],
-                {"teaching_objectives": [], "slides_plan": []},
-                {"markdown_content": "# Demo"},
-            )
-        ),
+        load_preview_material,
     )
 
     resp = client.post(
         "/api/v1/generate/sessions/s-preview-001/preview/export",
-        json={"format": "markdown", "artifact_id": "a-004"},
+        json={"format": "markdown", "artifact_id": "a-004", "run_id": "run-007"},
     )
     assert resp.status_code == 200
     data = resp.json()["data"]
@@ -472,3 +493,7 @@ def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_use
     assert data["format"] == "markdown"
     assert data["render_version"] == 7
     assert data["content"] == "# Demo"
+    assert data["artifact_anchor"]["run_id"] == "run-007"
+    assert load_preview_material.await_args.args[4] == "run-007"
+
+
