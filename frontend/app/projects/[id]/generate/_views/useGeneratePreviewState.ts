@@ -100,6 +100,14 @@ function readRunIdFromTrace(payload: Record<string, unknown>): string | null {
   return null;
 }
 
+function readBooleanField(
+  payload: Record<string, unknown>,
+  key: string
+): boolean | null {
+  const value = payload[key];
+  return typeof value === "boolean" ? value : null;
+}
+
 export function resolveActivePreviewRunId({
   activeSessionId,
   runIdFromQuery,
@@ -516,6 +524,21 @@ export function useGeneratePreviewState({
         });
         continue;
       }
+      if (
+        (eventType === "task.completed" || eventType === "state.changed") &&
+        readStringField(payload, "tool_type") === "slide_modify"
+      ) {
+        const eventSlideId =
+          typeof payload.slide_id === "string" ? payload.slide_id : null;
+        const previewReady = readBooleanField(payload, "preview_ready");
+        if (event.state === "SUCCESS" || previewReady === true) {
+          setRegeneratingSlideId((current) => {
+            if (!current) return null;
+            if (!eventSlideId) return null;
+            return current === eventSlideId ? null : current;
+          });
+        }
+      }
       if (eventType === "slide.updated" && payload.slide) {
         const updatedSlide = payload.slide as Slide;
         setSlides((prev) => {
@@ -590,6 +613,9 @@ export function useGeneratePreviewState({
         }
       }
       if (eventType === "task.completed" || event.state === "SUCCESS") {
+        if (event.state === "SUCCESS") {
+          setRegeneratingSlideId(null);
+        }
         void Promise.all([loadSlides(), loadSessionRuns()]);
       }
     }

@@ -53,6 +53,15 @@ function extractCurrentRunId(
   );
 }
 
+function isTransientNetworkFailure(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  const message = getErrorMessage(error).toLowerCase();
+  return (
+    message.includes("network request failed") ||
+    message.includes("failed to fetch")
+  );
+}
+
 function isFallbackSessionTitle(title: string, sessionId: string): boolean {
   const normalized = title.trim();
   return normalized === `会话 ${sessionId.slice(-6)}`;
@@ -297,6 +306,10 @@ export function createGenerationActions({
           artifactHistoryByTool: groupArtifactsByTool([]),
           currentSessionArtifacts: [],
         });
+        if (isTransientNetworkFailure(error)) {
+          console.warn("Artifact history fetch failed transiently:", message);
+          return;
+        }
         toast({
           title: "获取成果历史失败",
           description: message,
