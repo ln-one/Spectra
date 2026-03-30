@@ -53,9 +53,47 @@ def _ensure_slide_modify_result_is_safe(
 
 
 def _split_modified_parts(modified_raw: str) -> list[str]:
+    slides = parse_marp_slides(modified_raw)
+    if slides:
+        return [
+            str(slide.get("content") or "").strip()
+            for slide in slides
+            if str(slide.get("content") or "").strip()
+        ]
     return [
         part.strip() for part in re.split(r"\n---\s*\n", modified_raw) if part.strip()
     ]
+
+
+def _coerce_partial_modify_parts(
+    *,
+    modified_raw: str,
+    all_slides: list[dict],
+    target_indices: list[int],
+) -> list[str]:
+    parts = _split_modified_parts(modified_raw)
+    if len(parts) == len(target_indices):
+        return parts
+
+    parsed_slides = parse_marp_slides(modified_raw)
+    if parsed_slides and len(parsed_slides) == len(all_slides):
+        extracted = [
+            parsed_slides[index]["content"]
+            for index in target_indices
+            if 0 <= index < len(parsed_slides)
+        ]
+        if len(extracted) == len(target_indices):
+            logger.warning(
+                (
+                    "modify_courseware: LLM returned the full deck (%d slides) "
+                    "for %d targets; extracting target slide content."
+                ),
+                len(parsed_slides),
+                len(target_indices),
+            )
+            return extracted
+
+    return parts
 
 
 async def modify_courseware(
@@ -111,7 +149,11 @@ async def modify_courseware(
                 max_tokens=3000,
             )
             modified_raw = strip_outer_code_fence(response["content"])
-            return _split_modified_parts(modified_raw)
+            return _coerce_partial_modify_parts(
+                modified_raw=modified_raw,
+                all_slides=all_slides,
+                target_indices=target_indices,
+            )
 
         modified_parts = await _run_partial_modify(instruction)
 
