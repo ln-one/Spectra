@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { Edit3, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
@@ -159,9 +159,13 @@ function SlideChart({ data }: { data: ChartDatum[] }) {
 export function SlideCard({
   slide,
   isActive,
+  onModify,
+  isRegenerating = false,
 }: {
   slide: Slide;
   isActive: boolean;
+  onModify?: (slide: Slide) => void;
+  isRegenerating?: boolean;
 }) {
   const hasRenderedPreview = Boolean(slide.thumbnail_url);
   const table = useMemo(
@@ -219,8 +223,26 @@ export function SlideCard({
         >
           {hasRenderedPreview ? (
             <div className="relative min-h-0 overflow-hidden rounded-xl border bg-zinc-100">
-              <div className="absolute left-3 top-3 z-10 rounded-full bg-white/92 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 shadow-sm">
-                Slide {slide.index + 1}
+              <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
+                <div className="rounded-full bg-white/92 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 shadow-sm">
+                  Slide {slide.index + 1}
+                </div>
+                {isActive && onModify ? (
+                  <button
+                    type="button"
+                    onClick={() => onModify(slide)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white/95 px-3 py-1 text-[11px] font-medium text-zinc-700 shadow-sm transition hover:bg-white hover:text-zinc-900"
+                    disabled={isRegenerating}
+                    title={`修改第 ${slide.index + 1} 页`}
+                  >
+                    {isRegenerating ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Edit3 className="h-3.5 w-3.5" />
+                    )}
+                    <span>{isRegenerating ? "修改中..." : "修改当前页"}</span>
+                  </button>
+                ) : null}
               </div>
               <img
                 src={slide.thumbnail_url ?? undefined}

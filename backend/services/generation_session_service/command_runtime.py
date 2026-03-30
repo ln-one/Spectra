@@ -307,6 +307,7 @@ async def handle_regenerate_slide(
 
     run = None
     run_trace_payload = {}
+    session_state_mutated = False
     try:
         if expected_render_version and session.renderVersion != expected_render_version:
             raise conflict_error_cls(
@@ -342,6 +343,7 @@ async def handle_regenerate_slide(
             where={"id": session.id},
             data={"state": new_state, "renderVersion": {"increment": 1}},
         )
+        session_state_mutated = True
 
         rag_source_ids = _extract_rag_source_ids(session=session, task=latest_task)
         rag_context = None
@@ -505,6 +507,19 @@ async def handle_regenerate_slide(
                 db=db,
                 run_id=run.id,
                 status="failed",
+            )
+        if session_state_mutated:
+            await db.generationsession.update(
+                where={"id": session.id},
+                data={
+                    "state": GenerationState.SUCCESS.value,
+                    "stateReason": TaskFailureStateReason.COMPLETED.value,
+                    "progress": 100,
+                    "errorCode": None,
+                    "errorMessage": None,
+                    "errorRetryable": False,
+                    "resumable": True,
+                },
             )
         await append_event(
             session_id=session.id,

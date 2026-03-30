@@ -367,6 +367,13 @@ export default function GeneratePreviewPage() {
                       <SlideCard
                         slide={slide}
                         isActive={activeSlideIndex === slide.index}
+                        onModify={(target) => {
+                          void handleRegenerateSlide(target);
+                        }}
+                        isRegenerating={
+                          regeneratingSlideId ===
+                          (slide.id || `slide-${slide.index}`)
+                        }
                       />
                     </motion.div>
                   ))}
@@ -382,16 +389,6 @@ export default function GeneratePreviewPage() {
             slides={slides}
             activeSlideIndex={activeSlideIndex}
             onScrollToSlide={scrollToSlide}
-            onRegenerateSlide={(slide) => {
-              const target = slides.find(
-                (item) =>
-                  (item.id && item.id === slide.id) ||
-                  item.index === slide.index
-              );
-              if (!target) return;
-              void handleRegenerateSlide(target);
-            }}
-            regeneratingSlideId={regeneratingSlideId}
           />
         ) : null}
       </div>
