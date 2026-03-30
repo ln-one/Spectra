@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Loader2, Sparkles } from "lucide-react";
+import { ArrowUp, Bot, Loader2, Sparkles, Mic } from "lucide-react";
+import { toast } from "sonner";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SUGGESTIONS } from "./constants";
 import { MessageBubble } from "./components/MessageBubble";
+import { ThinkingBubble } from "./components/ThinkingBubble";
+import { SelectedSourceScopeBadge } from "@/components/project/features/sources/components/SelectedSourceScopeBadge";
 import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "./types";
 
@@ -26,7 +29,7 @@ interface ChatPanelProps {
 }
 
 const CHAT_DESCRIPTION = "AI 助手对话";
-const THINKING_LABEL = "思考中";
+const THINKING_LABEL = "Spectra 正在构思...";
 const EMPTY_TITLE = "开始对话";
 const EMPTY_DESCRIPTION = "向 AI 助手提问关于项目的内容";
 const INPUT_PLACEHOLDER = "输入消息...";
@@ -70,6 +73,8 @@ export function ChatPanel({
   );
 
   const [input, setInput] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
   const [isSessionTransitioning, setIsSessionTransitioning] = useState(true);
@@ -120,7 +125,8 @@ export function ChatPanel({
       ? TOOL_COLORS[studioChatContext.toolType]
       : undefined;
   const refineToolLabel = studioChatContext?.toolLabel ?? "工具卡片";
-  const showThinkingIndicator = isSending && !isStudioRefineMode;
+  const isAIGenerating = isSending || isStudioRefining;
+  const showHeaderThinkingIndicator = isSending && !isStudioRefineMode;
 
   useEffect(() => {
     hydrateStudioLocalState(projectId);
@@ -277,6 +283,16 @@ export function ChatPanel({
     await sendMessage(projectId, content);
   };
 
+  const handleVoiceInput = () => {
+    if (isRecording) {
+      setIsRecording(false);
+      toast.success("语音输入已结束");
+    } else {
+      setIsRecording(true);
+      toast.info("正在听取语音输入...");
+    }
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing) {
       return;
@@ -325,20 +341,32 @@ export function ChatPanel({
           style={{ height: "52px" }}
         >
           <div className="min-w-0 flex-1 flex-col justify-center">
-            <CardTitle className="text-sm font-semibold leading-tight">
-              Chat
+            <CardTitle className="truncate text-lg font-bold leading-tight">
+              <span className="truncate whitespace-nowrap">智能助手</span>
             </CardTitle>
-            <CardDescription className="text-xs leading-tight text-[var(--project-text-muted)]">
+            <CardDescription className="mt-0.5 text-xs font-medium leading-tight text-[var(--project-text-muted)]">
               {CHAT_DESCRIPTION}
             </CardDescription>
           </div>
-          {showThinkingIndicator ? (
+          {showHeaderThinkingIndicator ? (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-1.5 text-xs text-[var(--project-text-muted)]"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              className="flex items-center gap-2 rounded-full border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--project-text-muted)] shadow-sm"
             >
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <motion.div
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.5, 1, 0.5],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                className="h-1.5 w-1.5 rounded-full bg-[var(--project-accent)]"
+              />
               <span>{THINKING_LABEL}</span>
             </motion.div>
           ) : null}
@@ -410,6 +438,7 @@ export function ChatPanel({
                       />
                     ))}
                   </AnimatePresence>
+                  {isAIGenerating && <ThinkingBubble toolColor={toolColors} />}
                   <div
                     ref={messagesEndRef}
                     style={{ scrollMarginBottom: `${composerClearance}px` }}
@@ -450,43 +479,54 @@ export function ChatPanel({
           </AnimatePresence>
 
           <div className="pointer-events-none absolute inset-x-4 bottom-3 z-20">
-            <div
+            <motion.div
               ref={composerShellRef}
+              initial={false}
+              animate={{
+                boxShadow: isFocused
+                  ? "0 0 0 2px color-mix(in srgb, var(--project-accent) 40%, transparent), 0 12px 32px -12px rgba(15,23,42,0.45)"
+                  : "0 8px 24px -18px rgba(15,23,42,0.35)",
+              }}
               className={cn(
-                "project-chat-input-shell pointer-events-auto rounded-[var(--project-input-radius)] border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.35)] backdrop-blur-xl transition-all duration-500",
+                "project-chat-input-shell pointer-events-auto rounded-[var(--project-input-radius)] border border-[var(--project-border)] bg-[var(--project-surface-elevated)] p-2 backdrop-blur-xl transition-all duration-300",
                 isStudioRefineMode && "border-transparent"
               )}
               style={
                 isStudioRefineMode && toolColors
                   ? {
                       background: `color-mix(in srgb, ${toolColors.primary} 6%, var(--project-surface-elevated))`,
-                      boxShadow: `0 0 0 1px ${toolColors.primary}, 0 8px 24px -18px color-mix(in srgb, ${toolColors.primary} 40%, rgba(15,23,42,0.38))`,
+                      boxShadow: isFocused
+                        ? `0 0 0 2px ${toolColors.primary}, 0 12px 32px -12px color-mix(in srgb, ${toolColors.primary} 50%, rgba(15,23,42,0.45))`
+                        : `0 0 0 1px ${toolColors.primary}, 0 8px 24px -18px color-mix(in srgb, ${toolColors.primary} 40%, rgba(15,23,42,0.38))`,
                     }
                   : undefined
               }
             >
-              {isStudioRefineMode && toolColors ? (
-                <div
-                  className="mb-1.5 flex items-center justify-between gap-2 rounded-[calc(var(--project-input-radius)-4px)] px-2 py-1 text-[11px] font-medium transition-colors"
-                  style={{
-                    backgroundColor: toolColors.soft,
-                    color: toolColors.primary,
-                    border: `1px solid ${toolColors.glow}`,
-                  }}
-                >
-                  <span className="truncate flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    正在微调：{refineToolLabel}
-                  </span>
-                  {isStudioRefining ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <span className="shrink-0 opacity-80">
-                      发送后会按顺序处理
+              <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                <SelectedSourceScopeBadge />
+                {isStudioRefineMode && toolColors ? (
+                  <div
+                    className="flex items-center justify-between gap-2 rounded-[calc(var(--project-input-radius)-4px)] px-2 py-1 text-[11px] font-medium transition-colors"
+                    style={{
+                      backgroundColor: toolColors.soft,
+                      color: toolColors.primary,
+                      border: `1px solid ${toolColors.glow}`,
+                    }}
+                  >
+                    <span className="truncate flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      正在微调：{refineToolLabel}
                     </span>
-                  )}
-                </div>
-              ) : null}
+                    {isStudioRefining ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <span className="shrink-0 opacity-80">
+                        发送后会按顺序处理
+                      </span>
+                    )}
+                  </div>
+                ) : null}
+              </div>
               <div className="flex w-full items-end gap-2">
                 <Textarea
                   ref={textareaRef}
@@ -501,24 +541,31 @@ export function ChatPanel({
                       : NO_SESSION_PLACEHOLDER
                   }
                   disabled={!activeSessionId}
-                  className="min-h-[44px] max-h-[176px] resize-none rounded-[var(--project-input-radius)] border-none bg-transparent px-2 py-1.5 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  className="min-h-[44px] max-h-[176px] resize-none rounded-[var(--project-input-radius)] border-none bg-transparent px-2 py-1.5 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors duration-200"
                   rows={1}
                 />
                 <Button
                   size="icon"
-                  onClick={() => void handleSend()}
+                  onClick={() => {
+                    if (input.trim()) {
+                      void handleSend();
+                    } else {
+                      handleVoiceInput();
+                    }
+                  }}
                   disabled={
-                    !input.trim() ||
                     !activeSessionId ||
-                    (!isStudioRefineMode && isSending)
+                    (!isStudioRefineMode && isSending && !!input.trim())
                   }
                   className={cn(
-                    "project-chat-send-btn h-10 w-10 shrink-0 rounded-[var(--project-input-radius)] transition-all duration-200",
-                    input.trim() && (isStudioRefineMode || !isSending)
-                      ? isStudioRefineMode
+                    "project-chat-send-btn relative h-10 w-10 shrink-0 rounded-[var(--project-input-radius)] overflow-hidden transition-all duration-300",
+                    input.trim() || isRecording
+                      ? input.trim() && isStudioRefineMode
                         ? "text-white shadow-sm hover:brightness-110 focus:ring-0"
-                        : "bg-[var(--project-accent)] text-[var(--project-accent-text)] hover:bg-[var(--project-accent-hover)]"
-                      : "bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] border border-transparent"
+                        : "bg-[var(--project-accent)] text-[var(--project-accent-text)] shadow-md hover:bg-[var(--project-accent-hover)] hover:shadow-lg"
+                      : "bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] border border-transparent hover:bg-[var(--project-surface)] hover:text-[var(--project-text-primary)]"
                   )}
                   style={
                     input.trim() && isStudioRefineMode && toolColors
@@ -526,17 +573,61 @@ export function ChatPanel({
                           background: `linear-gradient(135deg, ${toolColors.primary}, ${toolColors.secondary})`,
                           borderColor: toolColors.primary,
                         }
-                      : undefined
+                      : isRecording
+                        ? {
+                            boxShadow:
+                              "0 0 0 2px color-mix(in srgb, var(--project-accent) 20%, transparent)",
+                            color: "var(--project-accent)",
+                            backgroundColor:
+                              "color-mix(in srgb, var(--project-accent) 15%, transparent)",
+                          }
+                        : undefined
                   }
                 >
-                  {showThinkingIndicator ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ArrowUp className="h-4 w-4" />
-                  )}
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {isSending || isStudioRefining ? (
+                      <motion.div
+                        key="thinking"
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.5, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 flex items-center justify-center"
+                      >
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      </motion.div>
+                    ) : input.trim() ? (
+                      <motion.div
+                        key="send"
+                        initial={{ scale: 0.5, opacity: 0, y: 10 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.5, opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 flex items-center justify-center"
+                      >
+                        <ArrowUp className="h-5 w-5" />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="voice"
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.5, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 flex items-center justify-center"
+                      >
+                        <Mic
+                          className={cn(
+                            "h-4 w-4 transition-transform duration-300",
+                            isRecording && "animate-pulse scale-110"
+                          )}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </Button>
               </div>
-            </div>
+            </motion.div>
           </div>
         </CardContent>
       </Card>

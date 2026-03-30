@@ -146,7 +146,11 @@ async def execute_generation_task(
         )
 
         cache_started_at = time.perf_counter()
-        preview_payload = await cache_preview_content(task_id, courseware_content)
+        preview_payload = await cache_preview_content(
+            task_id,
+            courseware_content,
+            template_config=context.template_config,
+        )
         await persist_preview_payload(
             db_service,
             task_id=task_id,

@@ -375,6 +375,50 @@ class TestModifyCourseware:
             )
         assert result.title is not None
         assert result.markdown_content is not None
+        assert "Courseware is being prepared..." not in result.markdown_content
+        assert "# 总结" in result.markdown_content
+        assert result.lesson_plan_markdown == ""
+
+    @pytest.mark.asyncio
+    async def test_modify_with_target_slides_retries_strict_partial_contract(self):
+        ai = AIService()
+        with patch.object(
+            ai,
+            "generate",
+            new_callable=AsyncMock,
+            side_effect=[
+                {"content": "# 第一页\n\nA\n\n---\n\n# 第二页\n\nB"},
+                {"content": "# 新标题\n\n新内容"},
+            ],
+        ) as mock_generate:
+            result = await ai.modify_courseware(
+                current_content=SAMPLE_MARP,
+                instruction="把第1页标题改成新标题",
+                target_slides=[1],
+            )
+
+        assert mock_generate.await_count == 2
+        assert "重要：只返回目标页" in mock_generate.await_args_list[1].kwargs["prompt"]
+        assert "# 总结" in result.markdown_content
+        assert "# 新标题" in result.markdown_content
+
+    @pytest.mark.asyncio
+    async def test_modify_with_target_slides_rejects_placeholder_fallback(self):
+        ai = AIService()
+        with patch.object(
+            ai,
+            "generate",
+            new_callable=AsyncMock,
+            side_effect=[{"content": ""}, {"content": ""}],
+        ):
+            with pytest.raises(
+                ValueError, match="placeholder|fewer slides|returned 0 sections"
+            ):
+                await ai.modify_courseware(
+                    current_content=SAMPLE_MARP,
+                    instruction="详细一点",
+                    target_slides=[1],
+                )
 
     @pytest.mark.asyncio
     async def test_modify_full_content(self):

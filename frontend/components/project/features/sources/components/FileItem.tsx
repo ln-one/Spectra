@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Sparkles, Trash2 } from "lucide-react";
+import { Check, ChevronUp, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FILE_TYPE_CONFIG, STATUS_CONFIG } from "../constants";
@@ -137,22 +137,6 @@ export function FileItem({
           {file.filename}
         </p>
 
-        {isExpanded ? (
-          <div className="mt-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(event) => {
-                event.stopPropagation();
-                onCollapse();
-              }}
-              className="h-5 rounded-md bg-[var(--project-surface-muted)] px-2 text-[10px] text-[var(--project-text-muted)] hover:brightness-95"
-            >
-              收起
-            </Button>
-          </div>
-        ) : null}
-
         <p className="mt-0.5 truncate text-[10px] text-[var(--project-text-muted)]">
           {getFileStatusText(file)}
         </p>
@@ -212,11 +196,28 @@ export function FileItem({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
-            className="col-span-3 mt-2 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-2.5 text-[11px] leading-relaxed text-[var(--project-text-primary)] shadow-inner"
+            className="col-span-3 mt-2 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-2.5 text-[11px] leading-relaxed text-[var(--project-text-primary)] shadow-inner relative group/expanded"
           >
-            <div className="flex items-center gap-2 text-[10px] text-[var(--project-text-muted)]">
-              <Sparkles className="h-3 w-3" />
-              <span>文件解析摘要</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-[10px] text-[var(--project-text-muted)]">
+                <Sparkles className="h-3 w-3" />
+                <span>文件解析摘要</span>
+              </div>
+
+              {!(isFocused && focusDetail?.content) && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCollapse();
+                  }}
+                  className="h-5 gap-1 rounded-full bg-white/80 backdrop-blur-sm px-2 text-[9px] font-black uppercase tracking-wider text-zinc-500 shadow-sm border border-zinc-200/50 hover:bg-white hover:text-zinc-900 transition-all active:scale-95"
+                >
+                  <ChevronUp className="h-2.5 w-2.5" />
+                  收起
+                </Button>
+              )}
             </div>
             <div className="mt-1 text-[var(--project-text-primary)]">
               {getFileStatusText(file)}
@@ -233,10 +234,24 @@ export function FileItem({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
-            className="col-span-3 mt-2 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-2.5 text-[11px] leading-relaxed text-[var(--project-text-primary)] shadow-inner"
+            className="col-span-3 mt-2 rounded-xl border border-[var(--project-border)] bg-[var(--project-surface-muted)] p-2.5 text-[11px] leading-relaxed text-[var(--project-text-primary)] shadow-inner relative group/expanded"
           >
             <div className="mb-1 flex items-center justify-between text-[10px] text-[var(--project-text-muted)]">
-              <span>引用片段</span>
+              <div className="flex items-center gap-2">
+                <span>引用片段</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCollapse();
+                  }}
+                  className="h-5 gap-1 rounded-full bg-white/80 backdrop-blur-sm px-2 text-[9px] font-black uppercase tracking-wider text-zinc-500 shadow-sm border border-zinc-200/50 hover:bg-white hover:text-zinc-900 transition-all active:scale-95"
+                >
+                  <ChevronUp className="h-2.5 w-2.5" />
+                  收起内容
+                </Button>
+              </div>
               <div className="flex items-center gap-1.5">
                 {focusDetail.source?.source_type ? (
                   <span>

@@ -33,6 +33,7 @@ import {
 import { useProjectDetailController } from "./useProjectDetailController";
 
 export default function ProjectDetailPage() {
+  const PAGE_ZOOM = 1.25;
   const {
     router,
     project,
@@ -129,7 +130,13 @@ export default function ProjectDetailPage() {
       {...pageThemeAttributes}
       {...pageToolAuraAttributes}
       className="project-theme-root h-screen flex flex-col bg-[var(--project-bg-base)] overflow-hidden relative"
-      style={{ ...pageThemeStyle, ...pageToolAuraStyle }}
+      style={{
+        ...pageThemeStyle,
+        ...pageToolAuraStyle,
+        width: `calc(100vw / ${PAGE_ZOOM})`,
+        height: `calc(100vh / ${PAGE_ZOOM})`,
+        zoom: PAGE_ZOOM,
+      }}
     >
       <div
         className="absolute inset-0 pointer-events-none"

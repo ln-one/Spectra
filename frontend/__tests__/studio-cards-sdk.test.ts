@@ -124,7 +124,10 @@ describe("studio cards sdk", () => {
       config: { selected_script_segment: "slide-3:transition" },
     });
 
-    expect(result.data.execution_result.artifact.id).toBe("a-2");
+    const artifact = result.data.execution_result.artifact as {
+      id?: string;
+    };
+    expect(artifact.id).toBe("a-2");
     const request = fetchMock.mock.calls[0]?.[0] as Request;
     expect(request.url).toContain(
       "/api/v1/generate/studio-cards/speaker_notes/refine"

@@ -53,31 +53,35 @@ describe("sdk query passthrough", () => {
     });
   });
 
-  it("passes artifact_id to getSessionPreview", async () => {
+  it("passes artifact_id and run_id to getSessionPreview", async () => {
     mockedGet.mockResolvedValue({
       data: { success: true, data: { session_id: "sess_1", slides: [] } },
     });
 
-    await previewApi.getSessionPreview("sess_1", { artifact_id: "art_1" });
+    await previewApi.getSessionPreview("sess_1", {
+      artifact_id: "art_1",
+      run_id: "run_1",
+    });
 
     expect(mockedGet).toHaveBeenCalledWith(
       "/api/v1/generate/sessions/{session_id}/preview",
       {
         params: {
           path: { session_id: "sess_1" },
-          query: { artifact_id: "art_1" },
+          query: { artifact_id: "art_1", run_id: "run_1" },
         },
       }
     );
   });
 
-  it("passes artifact_id to getSessionSlideDetail", async () => {
+  it("passes artifact_id and run_id to getSessionSlideDetail", async () => {
     mockedGet.mockResolvedValue({
       data: { success: true, data: { slide: null } },
     });
 
     await previewApi.getSessionSlideDetail("sess_1", "slide_2", {
       artifact_id: "art_2",
+      run_id: "run_2",
     });
 
     expect(mockedGet).toHaveBeenCalledWith(
@@ -85,7 +89,78 @@ describe("sdk query passthrough", () => {
       {
         params: {
           path: { session_id: "sess_1", slide_id: "slide_2" },
-          query: { artifact_id: "art_2" },
+          query: { artifact_id: "art_2", run_id: "run_2" },
+        },
+      }
+    );
+  });
+
+  it("passes modify request body by contract", async () => {
+    mockedPost.mockResolvedValue({
+      data: { success: true, data: { session_id: "sess_1" } },
+    });
+
+    await previewApi.modifySessionPreview("sess_1", {
+      artifact_id: "art_3",
+      run_id: "run_3",
+      instruction: "调整当前页标题",
+      slide_id: "slide_3",
+      slide_index: 3,
+      scope: "current_slide_only",
+      preserve_style: true,
+      preserve_layout: true,
+      preserve_deck_consistency: true,
+      patch: {
+        schema_version: 1,
+        operations: [{ op: "replace_text", path: "/title" }],
+      },
+    });
+
+    expect(mockedPost).toHaveBeenCalledWith(
+      "/api/v1/generate/sessions/{session_id}/preview/modify",
+      {
+        params: { path: { session_id: "sess_1" } },
+        body: {
+          artifact_id: "art_3",
+          run_id: "run_3",
+          instruction: "调整当前页标题",
+          slide_id: "slide_3",
+          slide_index: 3,
+          scope: "current_slide_only",
+          preserve_style: true,
+          preserve_layout: true,
+          preserve_deck_consistency: true,
+          patch: {
+            schema_version: 1,
+            operations: [{ op: "replace_text", path: "/title" }],
+          },
+        },
+        headers: {},
+      }
+    );
+  });
+
+  it("passes export request body by contract", async () => {
+    mockedPost.mockResolvedValue({
+      data: { success: true, data: { content: "# Demo" } },
+    });
+
+    await previewApi.exportSessionPreview("sess_1", {
+      artifact_id: "art_4",
+      run_id: "run_4",
+      format: "html",
+      include_sources: false,
+    });
+
+    expect(mockedPost).toHaveBeenCalledWith(
+      "/api/v1/generate/sessions/{session_id}/preview/export",
+      {
+        params: { path: { session_id: "sess_1" } },
+        body: {
+          artifact_id: "art_4",
+          run_id: "run_4",
+          format: "html",
+          include_sources: false,
         },
       }
     );

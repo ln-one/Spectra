@@ -26,6 +26,13 @@ type ChatActionKeys =
   | "pushStudioHintMessage"
   | "focusChatComposer";
 
+const STRUCTURED_REFINE_CARD_IDS = new Set<string>([
+  "knowledge_mindmap",
+  "interactive_quick_quiz",
+  "interactive_games",
+  "speaker_notes",
+]);
+
 function hasProjectLocalState(
   map: Record<string, unknown>,
   projectId: string
@@ -263,6 +270,31 @@ export function createChatActions({
           set({ activeSessionId: response.data.session_id });
         }
 
+        const responseData = (response?.data ?? {}) as Record<
+          string,
+          unknown
+        > & {
+          session_id?: string;
+        };
+        const sessionTitleUpdated = responseData.session_title_updated === true;
+        const sessionTitle =
+          typeof responseData.session_title === "string"
+            ? responseData.session_title.trim()
+            : "";
+        if (
+          sessionTitleUpdated &&
+          sessionTitle &&
+          typeof responseData.session_id === "string"
+        ) {
+          set((state) => ({
+            generationHistory: state.generationHistory.map((item) =>
+              item.id === responseData.session_id
+                ? { ...item, title: sessionTitle }
+                : item
+            ),
+          }));
+        }
+
         await get().fetchGenerationHistory(projectId);
 
         if (response?.data?.message) {
@@ -344,23 +376,74 @@ export function createChatActions({
       );
 
       const selectedFileIds = get().selectedFileIds;
+      const latestArtifact =
+        get().artifactHistoryByTool[context.toolType]?.[0] ?? null;
+      const targetArtifactId =
+        latestArtifact?.artifactId || context.sourceArtifactId || undefined;
+      const shouldUseStructuredRefine =
+        STRUCTURED_REFINE_CARD_IDS.has(context.cardId) &&
+        typeof targetArtifactId === "string" &&
+        targetArtifactId.trim().length > 0;
 
       await enqueueRefineTask(async () => {
         try {
-          const response = await studioCardsApi.refine(context.cardId, {
-            project_id: projectId,
-            session_id: effectiveSessionId,
-            message: normalizedContent,
-            source_artifact_id: context.sourceArtifactId || undefined,
-            config: context.configSnapshot,
-            rag_source_ids:
-              selectedFileIds.length > 0 ? selectedFileIds : undefined,
-          });
+          let refinedSessionId = effectiveSessionId;
+          let refinedRunId: string | null = null;
 
-          const refinedSessionId =
-            response?.data?.session_id || effectiveSessionId;
+          if (shouldUseStructuredRefine && targetArtifactId) {
+            const response = await studioCardsApi.refineArtifact(
+              context.cardId,
+              {
+                project_id: projectId,
+                artifact_id: targetArtifactId,
+                session_id: effectiveSessionId,
+                message: normalizedContent,
+                source_artifact_id: context.sourceArtifactId || undefined,
+                config: context.configSnapshot,
+                rag_source_ids:
+                  selectedFileIds.length > 0 ? selectedFileIds : undefined,
+              }
+            );
+            const executionResult =
+              (response?.data?.execution_result as Record<string, unknown>) ??
+              {};
+            const session =
+              typeof executionResult.session === "object" &&
+              executionResult.session !== null
+                ? (executionResult.session as Record<string, unknown>)
+                : null;
+            const run =
+              typeof executionResult.run === "object" &&
+              executionResult.run !== null
+                ? (executionResult.run as Record<string, unknown>)
+                : null;
+            const sessionIdFromExecution =
+              (typeof session?.session_id === "string" && session.session_id) ||
+              (typeof session?.id === "string" && session.id) ||
+              null;
+            refinedSessionId = sessionIdFromExecution || effectiveSessionId;
+            refinedRunId =
+              (typeof run?.run_id === "string" && run.run_id) ||
+              (typeof run?.id === "string" && run.id) ||
+              null;
+          } else {
+            const response = await studioCardsApi.refine(context.cardId, {
+              project_id: projectId,
+              session_id: effectiveSessionId,
+              message: normalizedContent,
+              source_artifact_id: context.sourceArtifactId || undefined,
+              config: context.configSnapshot,
+              rag_source_ids:
+                selectedFileIds.length > 0 ? selectedFileIds : undefined,
+            });
+            refinedSessionId = response?.data?.session_id || effectiveSessionId;
+          }
+
           if (refinedSessionId !== get().activeSessionId) {
             set({ activeSessionId: refinedSessionId });
+          }
+          if (refinedRunId && refinedRunId !== get().activeRunId) {
+            set({ activeRunId: refinedRunId });
           }
 
           await get().fetchArtifactHistory(projectId, refinedSessionId);

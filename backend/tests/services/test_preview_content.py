@@ -299,6 +299,14 @@ async def test_load_preview_material_fallbacks_when_task_select_not_supported(
             model_dump=lambda: {"summary": "ok", "steps": []}
         ),
     )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.build_rendered_preview_payload",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.save_preview_content",
+        AsyncMock(),
+    )
 
     task, slides, lesson_plan, content = await load_preview_material(
         session_id="session-001",

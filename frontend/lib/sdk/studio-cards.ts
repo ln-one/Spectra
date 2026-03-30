@@ -1,6 +1,7 @@
 import { apiFetch, toApiError } from "./client";
 
 export type StudioCardId =
+  | "courseware_ppt"
   | "word_document"
   | "interactive_quick_quiz"
   | "interactive_games"

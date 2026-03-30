@@ -9,6 +9,7 @@ export * from "./rag";
 export * from "./health";
 export * from "./project-space";
 export * from "./studio-cards";
+export * from "./system-settings";
 
 export { authApi } from "./auth";
 export { projectsApi } from "./projects";
@@ -20,3 +21,4 @@ export { ragApi } from "./rag";
 export { healthApi } from "./health";
 export { projectSpaceApi } from "./project-space";
 export { studioCardsApi } from "./studio-cards";
+export { systemSettingsApi } from "./system-settings";

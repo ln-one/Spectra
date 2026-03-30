@@ -69,6 +69,7 @@ export function useOutlineEditorController({
 
   useEffect(() => {
     let frame = 0;
+    const isDraftingOutline = sessionState === "DRAFTING_OUTLINE";
 
     if (!sessionId) {
       frame = requestAnimationFrame(() => {
@@ -82,7 +83,7 @@ export function useOutlineEditorController({
     const ready = expectedPages <= 0 || initialNodes.length >= expectedPages;
     if (initialNodes.length === 0) {
       frame = requestAnimationFrame(() => {
-        setIsOutlineHydrating(!ready);
+        setIsOutlineHydrating(isDraftingOutline || !ready);
         setSlides([]);
         setActiveSlideId("");
       });
@@ -98,7 +99,7 @@ export function useOutlineEditorController({
     }));
 
     frame = requestAnimationFrame(() => {
-      setIsOutlineHydrating(!ready);
+      setIsOutlineHydrating(isDraftingOutline || !ready);
       setActiveSlideId((prev) =>
         prev && mappedSlides.some((slide) => slide.id === prev)
           ? prev
@@ -108,7 +109,7 @@ export function useOutlineEditorController({
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [expectedPages, initialNodes, isBootstrapping, sessionId]);
+  }, [expectedPages, initialNodes, isBootstrapping, sessionId, sessionState]);
 
   const handleAddSlide = useCallback(() => {
     if (isGenerating || isOutlineHydrating || isBootstrapping || !sessionId)

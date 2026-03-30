@@ -1,27 +1,23 @@
 import { motion } from "framer-motion";
-import { Loader2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SlideItem = {
   id?: string;
   index: number;
   title?: string;
+  thumbnail_url?: string;
 };
 
 interface PreviewSlideStripProps {
   slides: SlideItem[];
   activeSlideIndex: number;
   onScrollToSlide: (index: number) => void;
-  onRegenerateSlide: (slide: SlideItem) => void;
-  regeneratingSlideId?: string | null;
 }
 
 export function PreviewSlideStrip({
   slides,
   activeSlideIndex,
   onScrollToSlide,
-  onRegenerateSlide,
-  regeneratingSlideId,
 }: PreviewSlideStripProps) {
   return (
     <motion.div
@@ -33,8 +29,6 @@ export function PreviewSlideStrip({
       <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide py-3 px-4 max-w-full">
         {slides.map((slide) => {
           const isActive = activeSlideIndex === slide.index;
-          const slideKey = slide.id || `slide-${slide.index}`;
-          const isRegenerating = regeneratingSlideId === slideKey;
           return (
             <div
               key={`thumb-${slide.id || slide.index}`}
@@ -54,6 +48,14 @@ export function PreviewSlideStrip({
                   : "w-20 border-border/50 bg-muted/50 hover:border-primary/40 hover:bg-muted"
               )}
             >
+              {slide.thumbnail_url ? (
+                <img
+                  src={slide.thumbnail_url}
+                  alt={slide.title || `第 ${slide.index + 1} 页`}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : null}
               <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent pointer-events-none" />
               <span
                 className={cn(
@@ -63,7 +65,7 @@ export function PreviewSlideStrip({
                     : "text-muted-foreground group-hover:text-foreground"
                 )}
               >
-                {slide.index}
+                {slide.index + 1}
               </span>
               {isActive ? (
                 <motion.span
@@ -71,25 +73,9 @@ export function PreviewSlideStrip({
                   animate={{ opacity: 1, y: 0 }}
                   className="text-xs font-semibold z-10 truncate text-foreground leading-tight mt-auto block drop-shadow-sm"
                 >
-                  {slide.title || `第 ${slide.index} 页`}
+                  {slide.title || `第 ${slide.index + 1} 页`}
                 </motion.span>
               ) : null}
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onRegenerateSlide(slide);
-                }}
-                className="absolute right-1.5 top-1.5 z-10 rounded-md bg-background/70 p-1 text-muted-foreground hover:text-foreground"
-                title={`重绘第 ${slide.index} 页`}
-                disabled={isRegenerating}
-              >
-                {isRegenerating ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <RotateCcw className="h-3 w-3" />
-                )}
-              </button>
             </div>
           );
         })}

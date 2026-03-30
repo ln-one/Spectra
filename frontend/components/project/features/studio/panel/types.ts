@@ -1,3 +1,4 @@
+import type { HTMLAttributes } from "react";
 import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
 import type {
   StudioCardCapability,
@@ -7,7 +8,7 @@ import type { CapabilityResolution } from "../tools/capability-resolver";
 import type { StudioTool } from "../constants";
 import type { StudioToolKey, ToolDraftState } from "../tools";
 
-export interface StudioPanelProps {
+export interface StudioPanelProps extends HTMLAttributes<HTMLDivElement> {
   onToolClick?: (tool: StudioTool) => void;
 }
 

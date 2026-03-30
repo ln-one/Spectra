@@ -101,21 +101,21 @@ def parse_preview_content_from_input_data(raw_input_data: object) -> Optional[di
     title = preview_content.get("title")
     markdown_content = preview_content.get("markdown_content")
     lesson_plan_markdown = preview_content.get("lesson_plan_markdown")
-    image_metadata = preview_content.get("_image_metadata")
     if not isinstance(title, str):
         return None
     if not isinstance(markdown_content, str):
         return None
     if not isinstance(lesson_plan_markdown, str):
         return None
-    result = {
+    rendered_preview = preview_content.get("rendered_preview")
+    normalized = {
         "title": title,
         "markdown_content": markdown_content,
         "lesson_plan_markdown": lesson_plan_markdown,
     }
-    if isinstance(image_metadata, dict):
-        result["_image_metadata"] = image_metadata
-    return result
+    if isinstance(rendered_preview, dict):
+        normalized["rendered_preview"] = rendered_preview
+    return normalized
 
 
 def parse_task_input_data(raw_input_data: object) -> dict:
@@ -264,8 +264,5 @@ async def get_or_generate_content(
         "markdown_content": courseware.markdown_content,
         "lesson_plan_markdown": courseware.lesson_plan_markdown,
     }
-    image_metadata = getattr(courseware, "_image_metadata", None)
-    if isinstance(image_metadata, dict):
-        data["_image_metadata"] = image_metadata
     await save_preview_content_fn(task.id, data)
     return data

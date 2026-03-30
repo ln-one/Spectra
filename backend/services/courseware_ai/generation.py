@@ -19,6 +19,7 @@ from services.courseware_ai.parsing import (
     extract_frontmatter,
     parse_marp_slides,
     reassemble_marp,
+    sanitize_ppt_markdown,
     strip_outer_code_fence,
 )
 
@@ -26,6 +27,35 @@ logger = logging.getLogger(__name__)
 ALLOW_COURSEWARE_FALLBACK = (
     os.getenv("ALLOW_COURSEWARE_FALLBACK", "false").lower() == "true"
 )
+_PLACEHOLDER_MARKER = "Courseware is being prepared..."
+
+
+def _ensure_slide_modify_result_is_safe(
+    *,
+    original_content: str,
+    modified_content: CoursewareContent,
+    target_slides: Optional[list[int]],
+) -> None:
+    if not target_slides:
+        return
+
+    original_slides = parse_marp_slides(original_content)
+    modified_slides = parse_marp_slides(modified_content.markdown_content)
+
+    if (
+        _PLACEHOLDER_MARKER in str(modified_content.markdown_content or "")
+        or not modified_slides
+    ):
+        raise ValueError("slide modify returned placeholder preview content")
+
+    if original_slides and len(modified_slides) < len(original_slides):
+        raise ValueError("slide modify returned fewer slides than the current deck")
+
+
+def _split_modified_parts(modified_raw: str) -> list[str]:
+    return [
+        part.strip() for part in re.split(r"\n---\s*\n", modified_raw) if part.strip()
+    ]
 
 
 async def modify_courseware(
@@ -65,27 +95,12 @@ async def modify_courseware(
             rag_context=rag_context,
             strict_source_mode=strict_source_mode,
         )
-        response = await ai_service.generate(
-            prompt=prompt,
-            route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
-            has_rag_context=bool(rag_context),
-            max_tokens=3000,
-        )
-        modified_raw = strip_outer_code_fence(response["content"])
-        modified_parts = re.split(r"\n---\s*\n", modified_raw)
 
-        if len(modified_parts) != len(target_indices):
-            logger.warning(
-                (
-                    "modify_courseware: LLM returned %d sections for %d targets, "
-                    "falling back to full-document regeneration."
-                ),
-                len(modified_parts),
-                len(target_indices),
-            )
+        async def _run_partial_modify(modify_instruction: str) -> list[str]:
             prompt = prompt_service.build_modify_prompt(
-                current_content=current_content,
-                instruction=instruction,
+                current_content=target_content,
+                instruction=modify_instruction,
+                target_slides=target_labels,
                 rag_context=rag_context,
                 strict_source_mode=strict_source_mode,
             )
@@ -93,14 +108,52 @@ async def modify_courseware(
                 prompt=prompt,
                 route_task=ModelRouteTask.PREVIEW_MODIFICATION.value,
                 has_rag_context=bool(rag_context),
-                max_tokens=4000,
+                max_tokens=3000,
             )
-            new_markdown = strip_outer_code_fence(response["content"])
-        else:
-            slide_contents = [slide["content"] for slide in all_slides]
-            for target_index, new_part in zip(target_indices, modified_parts):
-                slide_contents[target_index] = new_part.strip()
-            new_markdown = reassemble_marp(frontmatter, slide_contents)
+            modified_raw = strip_outer_code_fence(response["content"])
+            return _split_modified_parts(modified_raw)
+
+        modified_parts = await _run_partial_modify(instruction)
+
+        if len(modified_parts) != len(target_indices):
+            logger.warning(
+                (
+                    "modify_courseware: LLM returned %d sections for %d targets, "
+                    "retrying with stricter single-slide contract."
+                ),
+                len(modified_parts),
+                len(target_indices),
+            )
+            retry_instruction = (
+                f"{instruction}\n\n"
+                "重要：只返回目标页，不要返回整份课件，不要新增页，不要减少页。"
+            )
+            modified_parts = await _run_partial_modify(retry_instruction)
+
+        if len(modified_parts) != len(target_indices):
+            raise ValueError(
+                (
+                    "slide modify returned "
+                    f"{len(modified_parts)} sections for {len(target_indices)} targets"
+                )
+            )
+
+        slide_contents = [slide["content"] for slide in all_slides]
+        for target_index, new_part in zip(target_indices, modified_parts):
+            slide_contents[target_index] = new_part.strip()
+        new_markdown = reassemble_marp(frontmatter, slide_contents)
+        sanitized_markdown = sanitize_ppt_markdown(new_markdown)
+        parsed_slides = parse_marp_slides(sanitized_markdown)
+        title = (
+            str(parsed_slides[0].get("title") or "").strip()
+            if parsed_slides
+            else instruction[:50]
+        )
+        parsed = CoursewareContent(
+            title=title or instruction[:50],
+            markdown_content=sanitized_markdown,
+            lesson_plan_markdown="",
+        )
     else:
         prompt = prompt_service.build_modify_prompt(
             current_content=current_content,
@@ -115,8 +168,13 @@ async def modify_courseware(
             max_tokens=4000,
         )
         new_markdown = strip_outer_code_fence(response["content"])
-
-    return ai_service._parse_courseware_response(new_markdown, instruction[:50])
+        parsed = ai_service._parse_courseware_response(new_markdown, instruction[:50])
+    _ensure_slide_modify_result_is_safe(
+        original_content=current_content,
+        modified_content=parsed,
+        target_slides=target_slides,
+    )
+    return parsed
 
 
 async def extract_structured_content(

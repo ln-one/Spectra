@@ -144,6 +144,84 @@
       '404':
         $ref: '../components/responses.yaml#/NotFound'
 
+/api/v1/generate/sessions/{session_id}/runs:
+  get:
+    summary: 获取会话运行列表
+    operationId: getGenerateSessionRuns
+    description: 返回当前生成会话的运行历史，支持分页。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-session-requests-target.yaml#/GenerationSessionRunListResponseTarget'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
+/api/v1/generate/sessions/{session_id}/runs/{run_id}:
+  get:
+    summary: 获取会话运行详情
+    operationId: getGenerateSessionRunDetail
+    description: 返回某次运行的结构化详情。
+    tags: [Generate]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '../components/parameters.yaml#/ContractVersion'
+    responses:
+      '200':
+        description: 成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/generate-session-requests-target.yaml#/GenerationSessionRunDetailResponseTarget'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+
 /api/v1/generate/sessions/{session_id}/resume:
   post:
     summary: 恢复中断会话

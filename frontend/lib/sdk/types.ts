@@ -208,13 +208,13 @@ export interface paths {
     };
     /**
      * 获取生成会话列表
-     * @description 返回项目内生成会话列表（按更新时间倒序）
+     * @description 返回项目内生成会话列表（按更新时间倒序），包含展示标题字段。
      */
     get: operations["getGenerateSessions"];
     put?: never;
     /**
      * 创建生成会话
-     * @description 创建可中断、可恢复的课件生成会话（契约优先主入口）
+     * @description 创建可中断、可恢复的课件生成会话，并初始化会话展示标题。
      */
     post: operations["postGenerateSessions"];
     delete?: never;
@@ -250,7 +250,7 @@ export interface paths {
     /**
      * 获取生成事件流（SSE）
      * @description 默认返回 text/event-stream。当客户端无法使用 SSE 时，可通过 `accept=application/json`
-     *     返回短轮询事件列表。
+     *     返回短轮询事件列表。目标契约中事件 payload 需要支持 run 追踪、大纲逐条输出、PPT 逐页输出与单页局部修改进展。
      */
     get: operations["getGenerateSessionsBySessionIdEvents"];
     put?: never;
@@ -294,7 +294,7 @@ export interface paths {
     /**
      * 执行会话命令（唯一写入口）
      * @description 所有会引起状态变化或内容变化的操作统一通过 Command 接口执行。
-     *     服务层必须通过统一状态转换校验器（StateTransitionGuard）决定是否允许执行。
+     *     目标契约中补充支持会话手动改名，以及带明确需求的单页局部修改。
      */
     post: operations["postGenerateSessionsBySessionIdCommands"];
     delete?: never;
@@ -318,6 +318,24 @@ export interface paths {
      * @description 兼容别名，等价于 command_type=CONFIRM_OUTLINE
      */
     post: operations["postGenerateSessionsBySessionIdConfirm"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/sessions/{session_id}/candidate-change": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 获取当前会话的候选变更列表 */
+    get: operations["getGenerateSessionsBySessionIdCandidateChange"];
+    put?: never;
+    /** 为当前会话提交候选变更 */
+    post: operations["postGenerateSessionsBySessionIdCandidateChange"];
     delete?: never;
     options?: never;
     head?: never;
@@ -376,9 +394,10 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * 局部重绘单页
+     * 提交单页局部修改
      * @deprecated
-     * @description 兼容别名，等价于 command_type=REGENERATE_SLIDE
+     * @description 兼容别名，等价于 command_type=REGENERATE_SLIDE。
+     *     目标契约中，这个能力的产品语义是“按用户明确需求只修改当前页”，而不是无条件重绘。
      */
     post: operations["postGenerateSessionsBySessionIdSlidesBySlideIdRegenerate"];
     delete?: never;
@@ -399,6 +418,166 @@ export interface paths {
      * @description 返回服务端当前支持的契约版本、特性开关与弃用信息。
      */
     get: operations["getGenerateCapabilities"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取 Studio 卡片协议目录
+     * @description 返回 Studio 卡片目录、成熟度、配置字段与上下文协议。
+     */
+    get: operations["getGenerateStudioCards"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取单张 Studio 卡片协议
+     * @description 返回单张 Studio 卡片的后端协议细节。
+     */
+    get: operations["getGenerateStudioCardById"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/execution-plan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取单张 Studio 卡片执行协议
+     * @description 返回单张 Studio 卡片当前可落地的后端执行绑定、缺口与结果字段。
+     */
+    get: operations["getGenerateStudioCardExecutionPlan"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/execution-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 获取单张 Studio 卡片执行预览
+     * @description 根据卡片配置返回当前可以直接调用的后端请求预览。
+     */
+    post: operations["postGenerateStudioCardExecutionPreview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/execute": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 执行单张 Studio 卡片
+     * @description 对已达到 foundation-ready 的卡片直接执行初始动作，返回实际落地的 session 或 artifact。
+     */
+    post: operations["postGenerateStudioCardExecute"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/refine": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 执行单张 Studio 卡片 refine
+     * @description 通过统一 chat 通道执行已暴露 refine 协议的卡片局部改写。
+     */
+    post: operations["postGenerateStudioCardRefine"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/classroom_qa_simulator/turn": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 推进课堂问答模拟轮次
+     * @description 基于已有 classroom_qa_simulator artifact 追加或替换一轮问答模拟。
+     */
+    post: operations["postGenerateStudioCardSimulatorTurn"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/generate/studio-cards/{card_id}/sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取 Studio 卡片可绑定源成果
+     * @description 返回当前卡片可选的源成果列表，优先用于 source-artifact 驱动的组合型卡片。
+     */
+    get: operations["getGenerateStudioCardSources"];
     put?: never;
     post?: never;
     delete?: never;
@@ -718,6 +897,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/health/ready": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 服务就绪检查 */
+    get: operations["getHealthReady"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/health/live": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 服务存活检查 */
+    get: operations["getHealthLive"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/health/capabilities": {
     parameters: {
       query?: never;
@@ -736,6 +949,32 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/api/v1/system-settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取系统级业务配置
+     * @description 返回全局生效的业务运行配置，主要用于开发调试和前后端联调。
+     */
+    get: operations["getSystemSettings"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * 更新系统级业务配置
+     * @description 仅修改系统级业务配置，不涉及数据库连接、JWT、API Key、Redis、存储路径等部署级敏感配置。
+     *     当前实现主要面向开发调试和单进程联调场景：配置修改后会影响当前进程中的后续新请求，
+     *     但不会替代持久化配置中心，也不保证跨进程、跨 worker 或重启后继续生效。
+     */
+    patch: operations["patchSystemSettings"];
     trace?: never;
   };
   "/api/v1/projects": {
@@ -937,6 +1176,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/projects/{project_id}/artifacts/{artifact_id}/download": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 下载成果文件 */
+    get: operations["getProjectsByProjectIdArtifactsByArtifactIdDownload"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/projects/{project_id}/candidate-changes": {
     parameters: {
       query?: never;
@@ -1000,7 +1256,8 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    delete?: never;
+    /** Delete project member */
+    delete: operations["deleteProjectsByProjectIdMembersByMemberId"];
     options?: never;
     head?: never;
     /** 更新项目成员权限 */
@@ -1095,7 +1352,7 @@ export interface components {
        * @description 来源类型
        * @enum {string}
        */
-      source_type: "document" | "video" | "audio" | "ai_generated";
+      source_type: "document" | "web" | "video" | "audio" | "ai_generated";
       /** @description 源文件名 */
       filename: string;
       /** @description 页码（文档场景） */
@@ -1121,7 +1378,7 @@ export interface components {
       /** Format: date-time */
       timestamp: string;
       /** @description Structured source citations for assistant responses */
-      citations?: components["schemas"]["common_SourceReference"][];
+      citations?: components["schemas"]["SourceReference"][];
     };
     GetMessagesResponse: {
       success: boolean;
@@ -1140,6 +1397,10 @@ export interface components {
       /** @description Optional session scope id for project-scoped context isolation */
       session_id?: string;
       content: string;
+      /** @description Optional context metadata for card refine, selection anchors, or source bindings */
+      metadata?: {
+        [key: string]: unknown;
+      };
       history?: components["schemas"]["Message"][];
       /** @description Optional file ids to constrain RAG retrieval scope */
       rag_source_ids?: string[];
@@ -1172,8 +1433,20 @@ export interface components {
         rag_hit?: boolean;
         observability?: components["schemas"]["ChatObservability"];
         suggestions?: string[];
+        session_title_updated?: boolean;
+        session_title?: string;
+        /** @enum {string} */
+        session_title_source?: "default" | "first_message" | "manual";
       };
       message: string;
+    };
+    SendMessageResponseTarget: components["schemas"]["SendMessageResponse"] & {
+      data?: {
+        session_title_updated?: boolean;
+        session_title?: string;
+        /** @enum {string} */
+        session_title_source?: "default" | "first_message" | "manual";
+      };
     };
     /** @description 能力执行状态与降级信息（统一字段，适用于解析/视频/语音） */
     CapabilityStatus: {
@@ -1232,38 +1505,15 @@ export interface components {
         duration?: number;
         /** @description Auto-created assistant message */
         message?: components["schemas"]["Message"];
+        /** @description Voice flow currently does not run RAG retrieval; returns false explicitly. */
+        rag_hit?: boolean;
         /** @description Speech recognition capability status with degradation semantics */
         capability_status?: components["schemas"]["CapabilityStatus"];
+        observability?: components["schemas"]["ChatObservability"];
         /** @description Follow-up suggestions */
         suggestions?: string[];
       };
       message: string;
-    };
-    /** @description 内容来源引用（用于溯源） */
-    common_SourceReference: {
-      /** @description 片段唯一标识 */
-      chunk_id: string;
-      /**
-       * @description 来源类型
-       * @enum {string}
-       */
-      source_type: "document" | "web" | "video" | "audio" | "ai_generated";
-      /** @description 源文件名 */
-      filename: string;
-      /** @description 页码（文档场景） */
-      page_number?: number;
-      /**
-       * Format: float
-       * @description 时间戳（视频/音频场景，单位秒）
-       */
-      timestamp?: number;
-      /**
-       * Format: float
-       * @description 检索或重排得分（可选）
-       */
-      score?: number;
-      /** @description 内容预览片段 */
-      content_preview?: string;
     };
     UploadedFile: {
       id: string;
@@ -1367,6 +1617,8 @@ export interface components {
       | "RENDERING"
       | "SUCCESS"
       | "FAILED";
+    /** @enum {string} */
+    SessionTitleSource: "default" | "first_message" | "manual";
     GenerationSessionListItem: {
       session_id: string;
       project_id: string;
@@ -1376,11 +1628,21 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       updated_at: string;
+      display_title?: string;
+      display_title_source?: components["schemas"]["SessionTitleSource"];
+      /** Format: date-time */
+      display_title_updated_at?: string;
     };
-    GenerationSessionListResponse: {
+    GenerationSessionListItemTarget: components["schemas"]["GenerationSessionListItem"] & {
+      display_title?: string;
+      display_title_source?: components["schemas"]["SessionTitleSource"];
+      /** Format: date-time */
+      display_title_updated_at?: string;
+    };
+    GenerationSessionListResponseTarget: {
       success: boolean;
       data: {
-        sessions: components["schemas"]["GenerationSessionListItem"][];
+        sessions: components["schemas"]["GenerationSessionListItemTarget"][];
         total: number;
         page: number;
         limit: number;
@@ -1447,7 +1709,8 @@ export interface components {
       output_type: components["schemas"]["GenerationSessionMode"];
       options?: components["schemas"]["GenerationOptions"];
       client_session_id?: string;
-      bootstrap_only?: boolean;
+      /** @default false */
+      bootstrap_only: boolean;
     };
     /** @enum {string} */
     GenerateTaskStatus: "pending" | "processing" | "completed" | "failed";
@@ -1468,11 +1731,21 @@ export interface components {
       resumable?: boolean;
       /** Format: date-time */
       updated_at?: string;
+      display_title?: string;
+      display_title_source?: components["schemas"]["SessionTitleSource"];
+      /** Format: date-time */
+      display_title_updated_at?: string;
     };
-    CreateGenerationSessionResponse: {
+    SessionRefTarget: components["schemas"]["SessionRef"] & {
+      display_title?: string;
+      display_title_source?: components["schemas"]["SessionTitleSource"];
+      /** Format: date-time */
+      display_title_updated_at?: string;
+    };
+    CreateGenerationSessionResponseTarget: {
       success: boolean;
       data: {
-        session: components["schemas"]["SessionRef"];
+        session: components["schemas"]["SessionRefTarget"];
       };
       message: string;
     };
@@ -1540,17 +1813,45 @@ export interface components {
       /** @description 可直接展示给用户的降级提示语 */
       user_message?: string;
     };
-    SessionStatePayload: {
-      session: components["schemas"]["SessionRef"];
+    /** @enum {string} */
+    RunTitleSource: "pending" | "auto" | "manual" | "fallback";
+    /** @enum {string} */
+    RunStatus: "pending" | "processing" | "completed" | "failed";
+    /** @enum {string} */
+    RunStep:
+      | "config"
+      | "outline"
+      | "generate"
+      | "preview"
+      | "modify_slide"
+      | "completed";
+    SessionRun: {
+      run_id: string;
+      session_id?: string | null;
+      project_id: string;
+      tool_type: string;
+      run_no: number;
+      run_title: string;
+      run_title_source: components["schemas"]["RunTitleSource"];
+      /** Format: date-time */
+      run_title_updated_at?: string;
+      run_status: components["schemas"]["RunStatus"];
+      run_step: components["schemas"]["RunStep"];
+      artifact_id?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    SessionStatePayloadTarget: {
+      session: components["schemas"]["SessionRefTarget"];
       options?: components["schemas"]["GenerationOptions"];
       outline?: components["schemas"]["OutlineDocument"];
       context_snapshot?: components["schemas"]["SessionContextSnapshot"];
-      /** @description 服务端能力声明（状态、供应商、可用操作） */
       capabilities?: components["schemas"]["CapabilityDeclaration"][];
-      /** @description 当前会话发生过的能力降级记录（按时间追加） */
       fallbacks?: components["schemas"]["ExternalFallbackInfo"][];
-      /** @description 当前状态下允许的下一步动作（防止前后端状态错配） */
       allowed_actions?: string[];
+      current_run?: components["schemas"]["SessionRun"];
       result?: {
         ppt_url?: string;
         word_url?: string;
@@ -1560,21 +1861,15 @@ export interface components {
         code?: string;
         message?: string;
         retryable?: boolean;
-        fallback?: components["schemas"]["ExternalFallbackInfo"];
-        /**
-         * @description 状态转换校验器名称
-         * @example StateTransitionGuard
-         */
-        transition_guard?: string;
       };
     };
-    GenerationSessionResponse: {
+    GenerationSessionResponseTarget: {
       success: boolean;
-      data: components["schemas"]["SessionStatePayload"];
+      data: components["schemas"]["SessionStatePayloadTarget"];
       message: string;
     };
     /** @enum {string} */
-    GenerationEventType:
+    GenerationEventTypeTarget:
       | "state.changed"
       | "progress.updated"
       | "outline.ready"
@@ -1582,12 +1877,56 @@ export interface components {
       | "slide.updated"
       | "task.completed"
       | "task.failed"
-      | "session.recovered";
-    GenerationEvent: {
+      | "session.recovered"
+      | "outline.started"
+      | "outline.section.generated"
+      | "outline.completed"
+      | "slides.started"
+      | "slide.generating"
+      | "slide.generated"
+      | "slides.completed"
+      | "generation.completed"
+      | "generation.failed"
+      | "slide.modify.started"
+      | "slide.modify.processing"
+      | "slide.modify.failed";
+    RunTracePayload: {
+      run_id?: string;
+      run_no?: number;
+      tool_type?: string;
+      run_title?: string;
+      run_title_source?: components["schemas"]["RunTitleSource"];
+      /** Format: date-time */
+      run_title_updated_at?: string;
+      run_status?: components["schemas"]["RunStatus"];
+      run_step?: components["schemas"]["RunStep"];
+      progress_message?: string;
+      partial?: boolean;
+      final?: boolean;
+      section_index?: number;
+      section_title?: string;
+      section_payload?: {
+        [key: string]: unknown;
+      };
+      slide_id?: string;
+      slide_index?: number;
+      slide_payload?: {
+        [key: string]: unknown;
+      };
+      command_id?: string;
+      accepted?: boolean;
+      error?:
+        | string
+        | {
+            code?: string;
+            message?: string;
+          };
+    };
+    GenerationEventTarget: {
       event_id: string;
       /** @default 1 */
       event_schema_version: number;
-      event_type: components["schemas"]["GenerationEventType"];
+      event_type: components["schemas"]["GenerationEventTypeTarget"];
       state: components["schemas"]["GenerationState"];
       state_reason?: string;
       progress?: number;
@@ -1595,13 +1934,12 @@ export interface components {
       timestamp: string;
       /** @description 增量消费游标 */
       cursor: string;
-      /** @description 事件附带的业务数据 */
-      payload?: Record<string, never>;
+      payload?: components["schemas"]["RunTracePayload"];
     };
-    GenerationEventListResponse: {
+    GenerationEventListResponseTarget: {
       success: boolean;
       data: {
-        events?: components["schemas"]["GenerationEvent"][];
+        events?: components["schemas"]["GenerationEventTarget"][];
       };
       message: string;
     };
@@ -1649,6 +1987,8 @@ export interface components {
       expected_state?: components["schemas"]["GenerationState"];
     };
     /** @enum {string} */
+    SlideModifyScope: "current_slide_only";
+    /** @enum {string} */
     StructuredPatchOperationType:
       | "replace_text"
       | "insert_block"
@@ -1672,15 +2012,24 @@ export interface components {
       schema_version: number;
       operations: components["schemas"]["StructuredSlidePatchOperation"][];
     };
-    RegenerateSlideCommand: {
+    RegenerateSlideCommandTarget: {
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
        */
-      command_type: "RegenerateSlideCommand";
+      command_type: "RegenerateSlideCommandTarget";
       slide_id: string;
-      patch: components["schemas"]["StructuredSlidePatch"];
+      /** @description 用户对当前页的明确修改需求 */
+      instruction: string;
       expected_render_version?: number;
+      /** @default true */
+      preserve_style: boolean;
+      /** @default true */
+      preserve_layout: boolean;
+      /** @default true */
+      preserve_deck_consistency: boolean;
+      scope?: components["schemas"]["SlideModifyScope"];
+      patch?: components["schemas"]["StructuredSlidePatch"];
     };
     ResumeSessionCommand: {
       /**
@@ -1691,40 +2040,60 @@ export interface components {
       cursor?: string;
       last_known_state?: components["schemas"]["GenerationState"];
     };
-    GenerationCommandEnvelope:
+    SetSessionTitleCommandTarget: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      command_type: "SetSessionTitleCommandTarget";
+      display_title: string;
+    };
+    GenerationCommandEnvelopeTarget:
       | components["schemas"]["UpdateOutlineCommand"]
       | components["schemas"]["RedraftOutlineCommand"]
       | components["schemas"]["ConfirmOutlineCommand"]
-      | components["schemas"]["RegenerateSlideCommand"]
-      | components["schemas"]["ResumeSessionCommand"];
-    GenerationSessionCommandRequest: {
-      command: components["schemas"]["GenerationCommandEnvelope"];
+      | components["schemas"]["RegenerateSlideCommandTarget"]
+      | components["schemas"]["ResumeSessionCommand"]
+      | components["schemas"]["SetSessionTitleCommandTarget"];
+    GenerationSessionCommandRequestTarget: {
+      command: components["schemas"]["GenerationCommandEnvelopeTarget"];
     };
     /** @enum {string} */
-    GenerationCommandType:
+    GenerationCommandTypeTarget:
       | "UPDATE_OUTLINE"
       | "REDRAFT_OUTLINE"
       | "CONFIRM_OUTLINE"
       | "REGENERATE_SLIDE"
-      | "RESUME_SESSION";
-    AppliedTransition: {
-      command_type: components["schemas"]["GenerationCommandType"];
+      | "RESUME_SESSION"
+      | "SET_SESSION_TITLE";
+    AppliedTransitionTarget: {
+      command_type: components["schemas"]["GenerationCommandTypeTarget"];
       from_state: components["schemas"]["GenerationState"];
       to_state: components["schemas"]["GenerationState"];
       /** @example StateTransitionGuard */
       validated_by: string;
     };
-    GenerationSessionCommandResponse: {
+    GenerationSessionCommandResponseTarget: {
       success: boolean;
       data: {
         command_id: string;
         /** @default true */
         accepted: boolean;
-        transition?: components["schemas"]["AppliedTransition"];
-        session: components["schemas"]["SessionRef"];
+        transition?: components["schemas"]["AppliedTransitionTarget"];
+        session: components["schemas"]["SessionRefTarget"];
+        run?: components["schemas"]["SessionRun"];
         warnings?: string[];
       };
       message: string;
+    };
+    CandidateChangeRequest: {
+      session_id?: string | null;
+      base_version_id?: string | null;
+      title: string;
+      summary?: string;
+      payload?: {
+        [key: string]: unknown;
+      };
     };
     ConfirmOutlineRequest: {
       /**
@@ -1734,11 +2103,47 @@ export interface components {
       continue_from_retrieval: boolean;
       /** @description 乐观并发控制，默认应为 AWAITING_OUTLINE_CONFIRM */
       expected_state?: components["schemas"]["GenerationState"];
+      candidate_change?: components["schemas"]["CandidateChangeRequest"];
+    };
+    CandidateChange: {
+      id: string;
+      project_id: string;
+      session_id?: string | null;
+      base_version_id?: string | null;
+      title: string;
+      summary: string;
+      payload?: {
+        [key: string]: unknown;
+      };
+      /** @enum {string} */
+      status: "pending" | "accepted" | "rejected";
+      review_comment?: string | null;
+      accepted_version_id?: string | null;
+      proposer_user_id: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at?: string;
     };
     ConfirmOutlineResponse: {
       success: boolean;
       data: {
         session?: components["schemas"]["SessionRef"];
+        candidate_change?: components["schemas"]["CandidateChange"];
+      };
+      message: string;
+    };
+    CandidateChangesResponse: {
+      success: boolean;
+      data: {
+        changes?: components["schemas"]["CandidateChange"][];
+      };
+      message: string;
+    };
+    CandidateChangeResponse: {
+      success: boolean;
+      data: {
+        change: components["schemas"]["CandidateChange"];
       };
       message: string;
     };
@@ -1760,45 +2165,95 @@ export interface components {
       cursor?: string;
       last_known_state?: components["schemas"]["GenerationState"];
     };
-    ResumeSessionResponse: {
+    ResumeSessionResponseTarget: {
       success: boolean;
       data: {
-        session?: components["schemas"]["SessionRef"];
-        latest_event?: components["schemas"]["GenerationEvent"];
+        session?: components["schemas"]["SessionRefTarget"];
+        latest_event?: components["schemas"]["GenerationEventTarget"];
       };
       message: string;
     };
-    RegenerateSlideRequest: {
-      /** @description 可选自然语言补充说明，最终以结构化 patch 为准 */
-      instruction?: string;
+    LocalModifySlideRequestTarget: {
+      /** @description 用户对当前页的明确修改需求 */
+      instruction: string;
       slide_index?: number;
-      patch: components["schemas"]["StructuredSlidePatch"];
-      /** @description 防止并发覆盖的版本控制字段 */
       expected_render_version?: number;
+      /** @default true */
+      preserve_style: boolean;
+      /** @default true */
+      preserve_layout: boolean;
+      /** @default true */
+      preserve_deck_consistency: boolean;
+      scope?: components["schemas"]["SlideModifyScope"];
+      patch?: components["schemas"]["StructuredSlidePatch"];
     };
-    preview_SourceReference: {
-      /** @description 来源片段唯一标识，可用于查询来源详情 */
-      chunk_id: string;
-      /** @enum {string} */
-      source_type: "video" | "document" | "ai_generated";
-      filename: string;
-      page_number?: number;
-      timestamp?: string;
-      preview_text?: string;
-    };
-    RegenerateSlideResponse: {
+    LocalModifySlideResponseTarget: {
       success: boolean;
       data: {
-        session?: components["schemas"]["SessionRef"];
-        updated_slide?: {
-          slide_id?: string;
-          slide_index?: number;
-          content_markdown?: string;
-          sources?: components["schemas"]["preview_SourceReference"][];
-          render_version?: number;
-        };
+        /** @default true */
+        accepted: boolean;
+        command_id?: string;
+        session?: components["schemas"]["SessionRefTarget"];
+        run?: components["schemas"]["SessionRun"];
+        slide_id?: string;
       };
       message: string;
+    };
+    /** @enum {string} */
+    GenerationCommandType:
+      | "UPDATE_OUTLINE"
+      | "REDRAFT_OUTLINE"
+      | "CONFIRM_OUTLINE"
+      | "REGENERATE_SLIDE"
+      | "RESUME_SESSION"
+      | "SET_SESSION_TITLE";
+    StudioCardConfigOption: {
+      value: string;
+      label: string;
+      description?: string;
+    };
+    StudioCardConfigField: {
+      key: string;
+      label: string;
+      /** @enum {string} */
+      type:
+        | "select"
+        | "multiselect"
+        | "boolean"
+        | "integer"
+        | "text"
+        | "reference";
+      required: boolean;
+      options?: components["schemas"]["StudioCardConfigOption"][];
+      placeholder?: string;
+      default_value?: string | number | boolean;
+      notes?: string;
+    };
+    StudioCardAction: {
+      type: string;
+      label: string;
+      notes?: string;
+    };
+    StudioCardCapability: {
+      id: string;
+      title: string;
+      /** @enum {string} */
+      readiness: "ready" | "foundation_ready" | "protocol_pending";
+      /** @enum {string} */
+      context_mode: "session" | "artifact" | "hybrid";
+      /** @enum {string} */
+      execution_mode: "session_command" | "artifact_create" | "composite";
+      primary_capabilities: string[];
+      related_capabilities: string[];
+      artifact_types: string[];
+      /** @enum {string} */
+      session_output_type?: "ppt" | "word" | "both";
+      requires_source_artifact: boolean;
+      supports_chat_refine: boolean;
+      supports_selection_context: boolean;
+      config_fields: components["schemas"]["StudioCardConfigField"][];
+      actions: components["schemas"]["StudioCardAction"][];
+      notes?: string;
     };
     StateTransitionRule: {
       command_type: components["schemas"]["GenerationCommandType"];
@@ -1821,6 +2276,7 @@ export interface components {
           supported_commands: components["schemas"]["GenerationCommandType"][];
         };
         capabilities: components["schemas"]["CapabilityDeclaration"][];
+        studio_cards: components["schemas"]["StudioCardCapability"][];
         state_machine: components["schemas"]["StateMachineDeclaration"];
         deprecations?: {
           api?: string;
@@ -1830,6 +2286,202 @@ export interface components {
         }[];
       };
       message: string;
+    };
+    StudioCardsCatalogResponse: {
+      success: boolean;
+      data: {
+        studio_cards: components["schemas"]["StudioCardCapability"][];
+      };
+      message: string;
+    };
+    StudioCardDetailResponse: {
+      success: boolean;
+      data: {
+        studio_card: components["schemas"]["StudioCardCapability"];
+      };
+      message: string;
+    };
+    StudioCardExecutionBinding: {
+      /** @enum {string} */
+      transport:
+        | "session_create"
+        | "artifact_create"
+        | "chat_message"
+        | "artifact_reference";
+      /** @enum {string} */
+      status: "ready" | "partial" | "pending";
+      method: string;
+      endpoint: string;
+      required_fields: string[];
+      bound_config_keys: string[];
+      pending_config_keys: string[];
+      result_fields: string[];
+      notes?: string;
+    };
+    StudioCardExecutionPlan: {
+      card_id: string;
+      /** @enum {string} */
+      readiness: "ready" | "foundation_ready" | "protocol_pending";
+      initial_binding: components["schemas"]["StudioCardExecutionBinding"];
+      refine_binding?: components["schemas"]["StudioCardExecutionBinding"];
+      source_binding?: components["schemas"]["StudioCardExecutionBinding"];
+    };
+    StudioCardExecutionPlanResponse: {
+      success: boolean;
+      data: {
+        execution_plan: components["schemas"]["StudioCardExecutionPlan"];
+      };
+      message: string;
+    };
+    StudioCardExecutionPreviewRequest: {
+      project_id: string;
+      config?: {
+        [key: string]: unknown;
+      };
+      /** @enum {string} */
+      visibility?: "private" | "project-visible" | "shared";
+      source_artifact_id?: string;
+      rag_source_ids?: string[];
+      client_session_id?: string;
+    };
+    StudioCardResolvedRequest: {
+      method: string;
+      endpoint: string;
+      payload: {
+        [key: string]: unknown;
+      };
+      notes?: string;
+    };
+    StudioCardExecutionPreview: {
+      card_id: string;
+      /** @enum {string} */
+      readiness: "ready" | "foundation_ready" | "protocol_pending";
+      initial_request: components["schemas"]["StudioCardResolvedRequest"];
+      refine_request?: components["schemas"]["StudioCardResolvedRequest"];
+      source_request?: components["schemas"]["StudioCardResolvedRequest"];
+    };
+    StudioCardExecutionPreviewResponse: {
+      success: boolean;
+      data: {
+        execution_preview: components["schemas"]["StudioCardExecutionPreview"];
+      };
+      message: string;
+    };
+    StudioCardExecutionResult: {
+      card_id: string;
+      /** @enum {string} */
+      readiness: "ready" | "foundation_ready" | "protocol_pending";
+      /** @enum {string} */
+      transport:
+        | "session_create"
+        | "artifact_create"
+        | "chat_message"
+        | "artifact_reference";
+      /** @enum {string} */
+      resource_kind: "session" | "artifact";
+      session?: {
+        [key: string]: unknown;
+      };
+      artifact?: {
+        [key: string]: unknown;
+      };
+      run?: components["schemas"]["SessionRun"];
+      request_preview: components["schemas"]["StudioCardResolvedRequest"];
+    };
+    StudioCardExecutionResponse: {
+      success: boolean;
+      data: {
+        execution_result: components["schemas"]["StudioCardExecutionResult"];
+      };
+      message: string;
+    };
+    StudioCardRefineRequest: {
+      project_id: string;
+      artifact_id?: string;
+      session_id?: string;
+      message: string;
+      config?: {
+        [key: string]: unknown;
+      };
+      /** @enum {string} */
+      visibility?: "private" | "project-visible" | "shared";
+      source_artifact_id?: string;
+      rag_source_ids?: string[];
+    };
+    StudioCardRefineResponse: {
+      success: boolean;
+      data: {
+        card_id: string;
+        session_id?: string;
+        message: components["schemas"]["Message"];
+        rag_hit?: boolean;
+        suggestions?: string[];
+        observability?: components["schemas"]["ChatObservability"];
+        refine_request: components["schemas"]["StudioCardResolvedRequest"];
+      };
+      message: string;
+    };
+    StudioCardTurnRequest: {
+      project_id: string;
+      artifact_id: string;
+      teacher_answer: string;
+      turn_anchor?: string;
+      config?: {
+        [key: string]: unknown;
+      };
+      rag_source_ids?: string[];
+    };
+    StudioCardTurnResult: {
+      turn_anchor: string;
+      student_profile: string;
+      student_question: string;
+      teacher_answer: string;
+      feedback: string;
+      score: number;
+      next_focus?: string;
+    };
+    StudioCardTurnResponse: {
+      success: boolean;
+      data: {
+        artifact: {
+          [key: string]: unknown;
+        };
+        turn_result: components["schemas"]["StudioCardTurnResult"];
+      };
+      message: string;
+    };
+    StudioCardSourceArtifact: {
+      id: string;
+      type: string;
+      title?: string;
+      visibility?: string;
+      based_on_version_id?: string;
+      session_id?: string;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    StudioCardSourceOptionsResponse: {
+      success: boolean;
+      data: {
+        sources: components["schemas"]["StudioCardSourceArtifact"][];
+      };
+      message: string;
+    };
+    ArtifactAnchor: {
+      session_id?: string | null;
+      artifact_id?: string | null;
+      based_on_version_id?: string | null;
+      run_id?: string | null;
+    };
+    preview_SourceReference: {
+      /** @description 来源片段唯一标识，可用于查询来源详情 */
+      chunk_id: string;
+      /** @enum {string} */
+      source_type: "video" | "document" | "ai_generated";
+      filename: string;
+      page_number?: number;
+      timestamp?: string;
+      preview_text?: string;
     };
     Slide: {
       id: string;
@@ -1847,6 +2499,18 @@ export interface components {
       suggested_duration?: number;
       material_sources?: components["schemas"]["preview_SourceReference"][];
     };
+    RenderedPreviewPage: {
+      index: number;
+      slide_id: string;
+      image_url: string;
+      width?: number;
+      height?: number;
+    };
+    RenderedPreview: {
+      format?: string;
+      page_count?: number;
+      pages?: components["schemas"]["RenderedPreviewPage"][];
+    };
     LessonPlan: {
       teaching_objectives?: string[];
       slides_plan?: components["schemas"]["SlidePlan"][];
@@ -1854,7 +2518,7 @@ export interface components {
     PreviewResponse: {
       success: boolean;
       data: {
-        /** @description 会话级预览上下文 ID（session-first 流程） */
+        /** @description 会话级预览上下文 ID（session-first） */
         session_id?: string;
         /** @description 兼容旧任务流的执行 ID */
         task_id?: string | null;
@@ -1862,21 +2526,45 @@ export interface components {
         artifact_id?: string | null;
         /** @description 当前预览基于的正式版本 ID */
         based_on_version_id?: string | null;
+        /** @description 当前项目正式版本 ID */
+        current_version_id?: string | null;
+        /** @description 预览基于的上游版本是否与当前项目版本一致 */
+        upstream_updated?: boolean;
         /** @description 当前可预览渲染版本 */
         render_version?: number;
+        artifact_anchor?: components["schemas"]["ArtifactAnchor"];
         slides?: components["schemas"]["Slide"][];
         lesson_plan?: components["schemas"]["LessonPlan"];
+        rendered_preview?: components["schemas"]["RenderedPreview"];
       };
       message: string;
     };
     ModifySessionRequest: {
       /** @description 指定要修改的成果 ID（可选） */
       artifact_id?: string;
+      /** @description 指定运行 ID（可选） */
+      run_id?: string;
       instruction: string;
       target_slides?: string[];
-      context?: Record<string, never>;
+      context?: {
+        [key: string]: unknown;
+      };
       /** @description 并发控制版本（防止覆盖更新） */
       base_render_version?: number;
+      /** @description 指定要修改的 slide ID（可选） */
+      slide_id?: string;
+      /** @description 指定要修改的页码（从 1 开始） */
+      slide_index?: number;
+      /** @description 修改作用范围 */
+      scope?: string;
+      /** @default true */
+      preserve_style: boolean;
+      /** @default true */
+      preserve_layout: boolean;
+      /** @default true */
+      preserve_deck_consistency: boolean;
+      patch?: components["schemas"]["StructuredSlidePatch"];
+      candidate_change?: components["schemas"]["CandidateChangeRequest"];
     };
     ModifyResponse: {
       success: boolean;
@@ -1892,6 +2580,15 @@ export interface components {
         artifact_id?: string | null;
         /** @description 修改任务基于的正式版本 ID */
         based_on_version_id?: string | null;
+        /** @description 当前项目正式版本 ID */
+        current_version_id?: string | null;
+        /** @description 修改基于的上游版本是否与当前项目版本一致 */
+        upstream_updated?: boolean;
+        artifact_anchor?: components["schemas"]["ArtifactAnchor"];
+        slide_id?: string;
+        slide_index?: number;
+        scope?: string;
+        candidate_change?: components["schemas"]["CandidateChange"];
       };
       message: string;
     };
@@ -1900,9 +2597,19 @@ export interface components {
       data: {
         /** @description 当前幻灯片详情所属会话 */
         session_id?: string;
+        /** @description 当前预览对应的成果 ID */
+        artifact_id?: string | null;
+        /** @description 当前预览基于的正式版本 ID */
+        based_on_version_id?: string | null;
+        /** @description 当前项目正式版本 ID */
+        current_version_id?: string | null;
+        /** @description 预览基于的上游版本是否与当前项目版本一致 */
+        upstream_updated?: boolean;
         slide?: components["schemas"]["Slide"];
         /** @description 该幻灯片对应的教学计划 */
         teaching_plan?: components["schemas"]["SlidePlan"];
+        artifact_anchor?: components["schemas"]["ArtifactAnchor"];
+        rendered_page?: components["schemas"]["RenderedPreviewPage"];
         /** @description 相关幻灯片 */
         related_slides?: {
           slide_id?: string;
@@ -1916,6 +2623,8 @@ export interface components {
     ExportRequest: {
       /** @description 指定要导出的成果 ID（可选） */
       artifact_id?: string;
+      /** @description 指定运行 ID（可选） */
+      run_id?: string;
       /**
        * @description 导出格式
        * @enum {string}
@@ -1928,6 +2637,7 @@ export interface components {
       include_sources: boolean;
       /** @description 可选并发保护版本，仅对 session 级导出接口生效（冲突可返回 409）。 */
       expected_render_version?: number;
+      candidate_change?: components["schemas"]["CandidateChangeRequest"];
     };
     ExportResponse: {
       success: boolean;
@@ -1940,10 +2650,16 @@ export interface components {
         artifact_id?: string | null;
         /** @description 导出基于的正式版本 ID */
         based_on_version_id?: string | null;
+        /** @description 当前项目正式版本 ID */
+        current_version_id?: string | null;
+        /** @description 导出基于的上游版本是否与当前项目版本一致 */
+        upstream_updated?: boolean;
+        artifact_anchor?: components["schemas"]["ArtifactAnchor"];
         /** @description 导出的内容 */
         content?: string;
         format?: string;
         render_version?: number;
+        candidate_change?: components["schemas"]["CandidateChange"];
       };
       message: string;
     };
@@ -1962,7 +2678,7 @@ export interface components {
       content: string;
       /** Format: float */
       score: number;
-      source: components["schemas"]["common_SourceReference"];
+      source: components["schemas"]["SourceReference"];
       metadata?: Record<string, never>;
     };
     RAGSearchResponse: {
@@ -1978,7 +2694,7 @@ export interface components {
       data: {
         chunk_id?: string;
         content?: string;
-        source?: components["schemas"]["common_SourceReference"];
+        source?: components["schemas"]["SourceReference"];
         context?: {
           previous_chunk?: string;
           next_chunk?: string;
@@ -1995,7 +2711,7 @@ export interface components {
       metadata: {
         [key: string]: unknown;
       };
-      citation?: components["schemas"]["common_SourceReference"];
+      citation?: components["schemas"]["SourceReference"];
     };
     WebSearchResponse: {
       success: boolean;
@@ -2043,6 +2759,31 @@ export interface components {
       redis: "connected" | "disconnected";
       db_required: boolean;
       redis_required: boolean;
+      generation_tools: {
+        /** @enum {string} */
+        marp: "available" | "unavailable" | "unknown";
+        /** @enum {string} */
+        pandoc: "available" | "unavailable" | "unknown";
+        required: boolean;
+        healthy: boolean;
+        timed_out: boolean;
+      };
+      /** Format: float */
+      dependency_timeout_seconds: number;
+      /** Format: float */
+      tool_timeout_seconds: number;
+      latency_ms: {
+        /** Format: float */
+        database: number;
+        /** Format: float */
+        redis: number;
+        /** Format: float */
+        generation_tools: number;
+      };
+    };
+    HealthLivenessResponse: {
+      /** @enum {string} */
+      status: "alive";
     };
     CapabilitiesHealthResponse: {
       success: boolean;
@@ -2052,6 +2793,44 @@ export interface components {
         speech_recognition?: components["schemas"]["CapabilityStatus"];
       };
       message: string;
+    };
+    SystemSettingsModels: {
+      default_model?: string;
+      large_model?: string;
+      small_model?: string;
+    };
+    SystemSettingsGenerationDefaults: {
+      default_output_type?: components["schemas"]["GenerationSessionMode"];
+      default_page_count?: number;
+      default_outline_style?: string;
+    };
+    SystemSettingsFeatureFlags: {
+      enable_ai_generation?: boolean;
+      enable_file_upload?: boolean;
+      feature_flags?: {
+        [key: string]: unknown;
+      };
+    };
+    SystemSettingsExperience: {
+      chat_timeout_seconds?: number;
+      ai_request_timeout_seconds?: number;
+    };
+    SystemSettings: {
+      models?: components["schemas"]["SystemSettingsModels"];
+      generation_defaults?: components["schemas"]["SystemSettingsGenerationDefaults"];
+      feature_flags?: components["schemas"]["SystemSettingsFeatureFlags"];
+      experience?: components["schemas"]["SystemSettingsExperience"];
+    };
+    SystemSettingsResponse: {
+      success: boolean;
+      data: components["schemas"]["SystemSettings"];
+      message: string;
+    };
+    UpdateSystemSettingsRequest: {
+      models?: components["schemas"]["SystemSettingsModels"];
+      generation_defaults?: components["schemas"]["SystemSettingsGenerationDefaults"];
+      feature_flags?: components["schemas"]["SystemSettingsFeatureFlags"];
+      experience?: components["schemas"]["SystemSettingsExperience"];
     };
     Project: {
       id: string;
@@ -2265,57 +3044,27 @@ export interface components {
       session_id?: string | null;
       based_on_version_id?: string | null;
       /** @enum {string} */
-      type: "mindmap" | "summary" | "exercise" | "html" | "gif" | "mp4";
+      type:
+        | "pptx"
+        | "docx"
+        | "mindmap"
+        | "summary"
+        | "exercise"
+        | "html"
+        | "gif"
+        | "mp4";
       /** @enum {string} */
       visibility?: "private" | "project-visible" | "shared";
       /** @enum {string} */
       mode?: "create" | "replace";
+      content?: {
+        [key: string]: unknown;
+      };
     };
     ArtifactResponse: {
       success: boolean;
       data: {
         artifact: components["schemas"]["Artifact"];
-      };
-      message: string;
-    };
-    CandidateChange: {
-      id: string;
-      project_id: string;
-      session_id?: string | null;
-      base_version_id?: string | null;
-      title: string;
-      summary: string;
-      payload?: {
-        [key: string]: unknown;
-      };
-      /** @enum {string} */
-      status: "pending" | "accepted" | "rejected";
-      proposer_user_id: string;
-      /** Format: date-time */
-      created_at: string;
-      /** Format: date-time */
-      updated_at?: string;
-    };
-    CandidateChangesResponse: {
-      success: boolean;
-      data: {
-        changes?: components["schemas"]["CandidateChange"][];
-      };
-      message: string;
-    };
-    CandidateChangeRequest: {
-      session_id?: string | null;
-      base_version_id?: string | null;
-      title: string;
-      summary?: string;
-      payload?: {
-        [key: string]: unknown;
-      };
-    };
-    CandidateChangeResponse: {
-      success: boolean;
-      data: {
-        change: components["schemas"]["CandidateChange"];
       };
       message: string;
     };
@@ -2627,7 +3376,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["SendMessageResponse"];
+          "application/json": components["schemas"]["SendMessageResponseTarget"];
         };
       };
       400: components["responses"]["BadRequest"];
@@ -2854,7 +3603,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["GenerationSessionListResponse"];
+          "application/json": components["schemas"]["GenerationSessionListResponseTarget"];
         };
       };
       401: components["responses"]["Unauthorized"];
@@ -2885,7 +3634,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["CreateGenerationSessionResponse"];
+          "application/json": components["schemas"]["CreateGenerationSessionResponseTarget"];
         };
       };
       400: components["responses"]["BadRequest"];
@@ -2913,7 +3662,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["GenerationSessionResponse"];
+          "application/json": components["schemas"]["GenerationSessionResponseTarget"];
         };
       };
       401: components["responses"]["Unauthorized"];
@@ -2924,7 +3673,6 @@ export interface operations {
   getGenerateSessionsBySessionIdEvents: {
     parameters: {
       query?: {
-        /** @description 事件游标（用于断线续传） */
         cursor?: string;
         accept?: "text/event-stream" | "application/json";
       };
@@ -2946,7 +3694,7 @@ export interface operations {
         };
         content: {
           "text/event-stream": string;
-          "application/json": components["schemas"]["GenerationEventListResponse"];
+          "application/json": components["schemas"]["GenerationEventListResponseTarget"];
         };
       };
       401: components["responses"]["Unauthorized"];
@@ -3006,7 +3754,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["GenerationSessionCommandRequest"];
+        "application/json": components["schemas"]["GenerationSessionCommandRequestTarget"];
       };
     };
     responses: {
@@ -3016,7 +3764,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["GenerationSessionCommandResponse"];
+          "application/json": components["schemas"]["GenerationSessionCommandResponseTarget"];
         };
       };
       400: components["responses"]["BadRequest"];
@@ -3053,6 +3801,73 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ConfirmOutlineResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  getGenerateSessionsBySessionIdCandidateChange: {
+    parameters: {
+      query?: {
+        status?: "pending" | "accepted" | "rejected";
+        proposer_user_id?: string;
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 候选变更列表 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CandidateChangesResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postGenerateSessionsBySessionIdCandidateChange: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        session_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["CandidateChangeRequest"];
+      };
+    };
+    responses: {
+      /** @description 候选变更提交成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CandidateChangeResponse"];
         };
       };
       400: components["responses"]["BadRequest"];
@@ -3122,7 +3937,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ResumeSessionResponse"];
+          "application/json": components["schemas"]["ResumeSessionResponseTarget"];
         };
       };
       401: components["responses"]["Unauthorized"];
@@ -3148,17 +3963,17 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["RegenerateSlideRequest"];
+        "application/json": components["schemas"]["LocalModifySlideRequestTarget"];
       };
     };
     responses: {
-      /** @description 局部重绘成功 */
+      /** @description 单页局部修改已接受 */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RegenerateSlideResponse"];
+          "application/json": components["schemas"]["LocalModifySlideResponseTarget"];
         };
       };
       400: components["responses"]["BadRequest"];
@@ -3193,11 +4008,257 @@ export interface operations {
       403: components["responses"]["Forbidden"];
     };
   };
+  getGenerateStudioCards: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardsCatalogResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getGenerateStudioCardById: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardDetailResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getGenerateStudioCardExecutionPlan: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardExecutionPlanResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postGenerateStudioCardExecutionPreview: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StudioCardExecutionPreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardExecutionPreviewResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  postGenerateStudioCardExecute: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StudioCardExecutionPreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardExecutionResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  postGenerateStudioCardRefine: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StudioCardRefineRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardRefineResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  postGenerateStudioCardSimulatorTurn: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StudioCardTurnRequest"];
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardTurnResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  getGenerateStudioCardSources: {
+    parameters: {
+      query: {
+        project_id: string;
+      };
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path: {
+        card_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudioCardSourceOptionsResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      409: components["responses"]["Conflict"];
+    };
+  };
   getGenerateSessionsBySessionIdPreview: {
     parameters: {
       query?: {
         /** @description 指定预览的成果 ID（可选） */
         artifact_id?: string;
+        /** @description 鎸囧畾杩愯 ID锛堝彲閫夛級 */
+        run_id?: string;
       };
       header?: {
         /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
@@ -3226,7 +4287,10 @@ export interface operations {
   };
   postGenerateSessionsBySessionIdPreviewModify: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description 鎸囧畾杩愯 ID锛堝彲閫夛級 */
+        run_id?: string;
+      };
       header?: {
         /** @description 幂等性密钥，用于防止重复请求。 */
         "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
@@ -3294,7 +4358,10 @@ export interface operations {
   };
   postGenerateSessionsBySessionIdPreviewExport: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description 鎸囧畾杩愯 ID锛堝彲閫夛級 */
+        run_id?: string;
+      };
       header?: {
         /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
         "X-Contract-Version"?: components["parameters"]["ContractVersion"];
@@ -3484,6 +4551,47 @@ export interface operations {
       503: components["responses"]["ServiceUnavailable"];
     };
   };
+  getHealthReady: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthCheckResponse"];
+        };
+      };
+      503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  getHealthLive: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthLivenessResponse"];
+        };
+      };
+    };
+  };
   getHealthCapabilities: {
     parameters: {
       query?: never;
@@ -3503,6 +4611,63 @@ export interface operations {
         };
       };
       400: components["responses"]["BadRequest"];
+    };
+  };
+  getSystemSettings: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SystemSettingsResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  patchSystemSettings: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description 幂等性密钥，用于防止重复请求。 */
+        "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+        /** @description 客户端期望的契约版本；服务端可据此做兼容降级与告警。 */
+        "X-Contract-Version"?: components["parameters"]["ContractVersion"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateSystemSettingsRequest"];
+      };
+    };
+    responses: {
+      /** @description 更新成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SystemSettingsResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
     };
   };
   getProjects: {
@@ -3975,6 +5140,38 @@ export interface operations {
       404: components["responses"]["NotFound"];
     };
   };
+  getProjectsByProjectIdArtifactsByArtifactIdDownload: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        artifact_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 文件流 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+          "application/json": Record<string, never>;
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation": string;
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
+          "text/html": string;
+          "image/gif": string;
+          "video/mp4": string;
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
   getProjectsByProjectIdCandidateChanges: {
     parameters: {
       query?: {
@@ -4120,6 +5317,32 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
       409: components["responses"]["Conflict"];
+    };
+  };
+  deleteProjectsByProjectIdMembersByMemberId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        member_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Delete success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SimpleSuccessResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
     };
   };
   patchProjectsByProjectIdMembersByMemberId: {

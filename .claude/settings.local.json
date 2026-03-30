@@ -30,7 +30,8 @@
       "Bash(do wc -l \"$f\")",
       "Bash(done)",
       "Bash(netstat:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(claude:*)"
     ]
   }
 }
