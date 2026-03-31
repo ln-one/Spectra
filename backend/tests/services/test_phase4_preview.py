@@ -403,6 +403,32 @@ class TestModifyCourseware:
         assert "# 新标题" in result.markdown_content
 
     @pytest.mark.asyncio
+    async def test_modify_with_target_slides_accepts_full_deck_response(self):
+        ai = AIService()
+        full_deck = (
+            "---\nmarp: true\ntheme: default\npaginate: true\n---\n\n"
+            "# 新标题\n\n新内容\n\n---\n\n"
+            "# 学习目标\n\n- 目标1\n- 目标2\n\n---\n\n"
+            "# 核心内容\n\n详细内容...\n\n---\n\n"
+            "# 总结\n\n回顾"
+        )
+        with patch.object(
+            ai,
+            "generate",
+            new_callable=AsyncMock,
+            return_value={"content": full_deck},
+        ):
+            result = await ai.modify_courseware(
+                current_content=SAMPLE_MARP,
+                instruction="把第1页标题改成新标题",
+                target_slides=[1],
+            )
+
+        assert "# 新标题" in result.markdown_content
+        assert "# 总结" in result.markdown_content
+        assert "Courseware is being prepared..." not in result.markdown_content
+
+    @pytest.mark.asyncio
     async def test_modify_with_target_slides_rejects_placeholder_fallback(self):
         ai = AIService()
         with patch.object(

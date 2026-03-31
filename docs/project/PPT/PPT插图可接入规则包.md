@@ -21,7 +21,7 @@
 
 本规则包的组织方式参考以下资料中的共同原则：
 
-1. [提示词工程参考资料清单.md](./提示词工程参考资料清单.md)
+1. [提示词工程参考资料清单.md](提示词工程参考资料清单.md)
 2. OpenAI Prompt Engineering Guide
 3. Anthropic Prompt Templates and Variables
 4. Paper2Poster
