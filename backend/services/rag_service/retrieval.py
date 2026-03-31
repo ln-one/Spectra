@@ -20,7 +20,27 @@ logger = logging.getLogger(__name__)
 
 _NORMALIZE_RE = re.compile(r"[^\w\u4e00-\u9fff]+", re.UNICODE)
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_+#\-.]{2,}|[\u4e00-\u9fff]{2,}", re.UNICODE)
-_STOP_TOKENS = {"这个", "我们", "你们", "他们", "以及", "进行", "需要", "支持", "要求", "系统", "项目", "内容", "资料", "the", "and", "for", "with", "that", "this"}
+_STOP_TOKENS = {
+    "这个",
+    "我们",
+    "你们",
+    "他们",
+    "以及",
+    "进行",
+    "需要",
+    "支持",
+    "要求",
+    "系统",
+    "项目",
+    "内容",
+    "资料",
+    "the",
+    "and",
+    "for",
+    "with",
+    "that",
+    "this",
+}
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -91,7 +111,9 @@ def _same_document(item_a: RAGResult, item_b: RAGResult) -> bool:
     return bool(filename_a and filename_a == filename_b)
 
 
-def _are_near_duplicates(item_a: RAGResult, item_b: RAGResult, threshold: float) -> bool:
+def _are_near_duplicates(
+    item_a: RAGResult, item_b: RAGResult, threshold: float
+) -> bool:
     if item_a.chunk_id == item_b.chunk_id:
         return True
     fp_a = _fingerprint_text(item_a.content)
@@ -109,7 +131,11 @@ def _are_near_duplicates(item_a: RAGResult, item_b: RAGResult, threshold: float)
         meta_b = item_b.metadata or {}
         idx_a = meta_a.get("chunk_index")
         idx_b = meta_b.get("chunk_index")
-        if isinstance(idx_a, int) and isinstance(idx_b, int) and abs(idx_a - idx_b) <= 1:
+        if (
+            isinstance(idx_a, int)
+            and isinstance(idx_b, int)
+            and abs(idx_a - idx_b) <= 1
+        ):
             if max(jaccard, string_sim) >= max(0.72, threshold - 0.1):
                 return True
     return False
@@ -124,7 +150,9 @@ def _chunk_quality(item: RAGResult, query_terms: set[str]) -> float:
     return (overlap * 2.5) + (exact_hits * 1.2) + (item.score * 3.0) + unique_ratio
 
 
-def _query_aware_rerank(results: list[RAGResult], query: str, boost_factor: float = 0.15) -> list[RAGResult]:
+def _query_aware_rerank(
+    results: list[RAGResult], query: str, boost_factor: float = 0.15
+) -> list[RAGResult]:
     """Boost chunks with higher query term overlap"""
     if len(results) <= 1:
         return results
@@ -138,7 +166,9 @@ def _query_aware_rerank(results: list[RAGResult], query: str, boost_factor: floa
         content_tokens = set(_tokenize(item.content))
         overlap = len(content_tokens & query_terms)
         normalized_content = _normalize_text(item.content)
-        exact_hits = sum(1 for term in query_terms if term and term in normalized_content)
+        exact_hits = sum(
+            1 for term in query_terms if term and term in normalized_content
+        )
 
         # Boost score based on query relevance
         boost = (overlap * 0.02) + (exact_hits * 0.03)
@@ -188,6 +218,7 @@ async def search(
 ) -> list[RAGResult]:
     # Query rewriting for better retrieval
     from services.rag_service.query_rewriter import rewrite_query
+
     rewritten_query = await rewrite_query(query)
 
     collection = service._vector.get_collection_if_exists(project_id)
@@ -287,6 +318,7 @@ async def search(
     enable_cross_rerank = _env_bool("RAG_ENABLE_CROSS_RERANK", True)
     if enable_cross_rerank and len(rag_results) > 1:
         from services.rag_service.reranker import get_reranker
+
         try:
             reranker = get_reranker()
             documents = [r.content for r in rag_results]

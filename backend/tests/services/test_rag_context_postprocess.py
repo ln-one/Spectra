@@ -90,7 +90,10 @@ async def test_postprocess_compresses_chunk_to_query_relevant_sentences():
     assert "功能单一" in processed[0]["content"]
     assert "操作割裂" in processed[0]["content"]
     assert "本文档来自比赛原始需求" not in processed[0]["content"]
-    assert diagnostics.compression_stats[0].compressed_length < diagnostics.compression_stats[0].original_length
+    assert (
+        diagnostics.compression_stats[0].compressed_length
+        < diagnostics.compression_stats[0].original_length
+    )
 
 
 @pytest.mark.asyncio

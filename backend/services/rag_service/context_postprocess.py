@@ -149,13 +149,17 @@ def resolve_context_processing_config() -> ContextProcessingConfig:
     except Exception:
         runtime_flags = {}
 
-    compression_mode = str(
-        runtime_flags.get(
-            "compression_mode",
-            os.getenv("RAG_CONTEXT_COMPRESSION_MODE", _DEFAULT_COMPRESSION_MODE),
+    compression_mode = (
+        str(
+            runtime_flags.get(
+                "compression_mode",
+                os.getenv("RAG_CONTEXT_COMPRESSION_MODE", _DEFAULT_COMPRESSION_MODE),
+            )
+            or _DEFAULT_COMPRESSION_MODE
         )
-        or _DEFAULT_COMPRESSION_MODE
-    ).strip().lower()
+        .strip()
+        .lower()
+    )
     if compression_mode not in {"rule", "llm", "hybrid"}:
         compression_mode = _DEFAULT_COMPRESSION_MODE
 
@@ -324,7 +328,9 @@ def _chunk_query_relevance(item: dict[str, Any], query_terms: set[str]) -> float
     score = float(item.get("score", 0.0) or 0.0)
     content_tokens = set(_tokenize(content))
     overlap = len(content_tokens & query_terms)
-    exact_hits = sum(1 for term in query_terms if term and term in _normalize_text(content))
+    exact_hits = sum(
+        1 for term in query_terms if term and term in _normalize_text(content)
+    )
     return (overlap * 2.5) + (exact_hits * 1.2) + (score * 3.0)
 
 
@@ -382,7 +388,9 @@ def _are_near_duplicates(
     tokens_b = set(_tokenize(content_b))
     jaccard = _jaccard_similarity(tokens_a, tokens_b)
     containment = _containment_similarity(tokens_a, tokens_b)
-    similarity = max(jaccard, containment, _string_similarity(fingerprint_a, fingerprint_b))
+    similarity = max(
+        jaccard, containment, _string_similarity(fingerprint_a, fingerprint_b)
+    )
     if similarity >= threshold:
         return True, "high_overlap"
 
@@ -421,7 +429,9 @@ def _split_sentences(text: str) -> list[str]:
     sentences: list[str] = []
     for part in parts:
         if len(part) > 160 and "。" not in part and ". " in part:
-            segments = [item.strip() for item in re.split(r"(?<=\.)\s+", part) if item.strip()]
+            segments = [
+                item.strip() for item in re.split(r"(?<=\.)\s+", part) if item.strip()
+            ]
             sentences.extend(segments)
         else:
             sentences.append(part)
@@ -640,9 +650,7 @@ async def postprocess_rag_context(
                 if isinstance(updated.get("metadata"), dict)
                 else {}
             )
-            context_processing = dict(
-                metadata.get("context_processing") or {}
-            )
+            context_processing = dict(metadata.get("context_processing") or {})
             context_processing.update(
                 {
                     "compressed": True,

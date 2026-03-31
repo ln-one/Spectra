@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from sentence_transformers import CrossEncoder
+
     CROSS_ENCODER_AVAILABLE = True
 except ImportError:
     CROSS_ENCODER_AVAILABLE = False
@@ -40,7 +41,9 @@ class Reranker:
                 logger.error(f"重排序模型加载失败: {e}")
                 self._model = None
 
-    def rerank(self, query: str, documents: list[str], top_k: int = 5) -> list[tuple[int, float]]:
+    def rerank(
+        self, query: str, documents: list[str], top_k: int = 5
+    ) -> list[tuple[int, float]]:
         """
         对文档进行重排序
 

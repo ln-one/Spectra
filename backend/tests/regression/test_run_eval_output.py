@@ -29,4 +29,3 @@ def test_build_case_output_records_includes_retrieved_contents_and_final_answer(
     assert output_cases[0]["retrieved_contents"] == ["第一段命中文本", "第二段命中文本"]
     assert output_cases[0]["final_answer"] == "这是最终答案"
     assert output_cases[0]["retrieved_chunk_ids"] == ["chunk-1", "chunk-2"]
-
