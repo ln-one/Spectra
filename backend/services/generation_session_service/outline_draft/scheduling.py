@@ -22,6 +22,28 @@ from services.task_queue.status_constants import (
 logger = logging.getLogger(__name__)
 
 
+async def _load_session_state_reason(db, session_id: str) -> Optional[str]:
+    session_model = getattr(db, "generationsession", None)
+    if session_model is None or not hasattr(session_model, "find_unique"):
+        return None
+    try:
+        session = await session_model.find_unique(where={"id": session_id})
+    except Exception as exc:  # pragma: no cover - observability safeguard
+        logger.debug(
+            "Failed to load session stateReason for dispatch event: session=%s error=%s",
+            session_id,
+            exc,
+        )
+        return None
+    if not session:
+        return None
+    reason = session.get("stateReason") if isinstance(session, dict) else session.stateReason
+    if reason is None:
+        return None
+    text = str(reason).strip()
+    return text or None
+
+
 async def _safe_append_dispatch_event(
     append_event: Callable[..., Awaitable[None]],
     **kwargs,
@@ -42,6 +64,7 @@ async def schedule_outline_draft_task(
     append_event: Callable[..., Awaitable[None]],
     execute_outline_draft_local: Callable[..., Awaitable[None]],
 ) -> None:
+    session_state_reason = await _load_session_state_reason(db, session_id)
     availability = await _resolve_queue_worker_availability(task_queue_service)
     dispatch_payload = {
         "dispatch": DispatchMode.LOCAL_ASYNC.value,
@@ -70,6 +93,7 @@ async def schedule_outline_draft_task(
                 session_id=session_id,
                 event_type=GenerationEventType.STATE_CHANGED.value,
                 state=GenerationState.DRAFTING_OUTLINE.value,
+                state_reason=session_state_reason,
                 payload={
                     "dispatch": "rq",
                     "rq_job_id": job.id,
@@ -124,7 +148,7 @@ async def schedule_outline_draft_task(
             session_id=session_id,
             event_type=GenerationEventType.STATE_CHANGED.value,
             state=GenerationState.DRAFTING_OUTLINE.value,
-            state_reason=fallback_reason,
+            state_reason=session_state_reason,
             payload={**dispatch_payload, "reason": fallback_reason},
         )
     else:
@@ -134,7 +158,7 @@ async def schedule_outline_draft_task(
             session_id=session_id,
             event_type=GenerationEventType.STATE_CHANGED.value,
             state=GenerationState.DRAFTING_OUTLINE.value,
-            state_reason=fallback_reason,
+            state_reason=session_state_reason,
             payload={**dispatch_payload, "reason": fallback_reason},
         )
 

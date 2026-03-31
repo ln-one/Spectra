@@ -57,6 +57,11 @@ async def execute_studio_card_artifact_request(
         card_id=card_id,
         source_artifact_id=body.source_artifact_id,
     )
+    await _promote_requested_run_to_generating(
+        card_id=card_id,
+        body=body,
+        session_id=execution_session_id,
+    )
     artifact_content = dict(payload.get("content") or {})
     generated_content = await build_studio_tool_artifact_content(
         card_id=card_id,
@@ -212,6 +217,7 @@ async def _create_artifact_run(
 ):
     from services.generation_session_service.session_history import (
         RUN_STATUS_COMPLETED,
+        RUN_STATUS_PENDING,
         RUN_STATUS_PROCESSING,
         RUN_STEP_COMPLETED,
         RUN_STEP_OUTLINE,
@@ -223,14 +229,23 @@ async def _create_artifact_run(
         update_session_run,
     )
 
-    run = await create_session_run(
-        db=project_space_service.db.db,
-        session_id=getattr(artifact, "sessionId", None) or session_id,
-        project_id=body.project_id,
-        tool_type=f"studio_card:{card_id}",
-        step=RUN_STEP_OUTLINE,
-        status=RUN_STATUS_PROCESSING,
-    )
+    requested_run_id = str(getattr(body, "run_id", None) or "").strip()
+    if requested_run_id:
+        run = await _load_valid_studio_card_run(
+            card_id=card_id,
+            run_id=requested_run_id,
+            project_id=body.project_id,
+            expected_session_id=getattr(artifact, "sessionId", None) or session_id,
+        )
+    else:
+        run = await create_session_run(
+            db=project_space_service.db.db,
+            session_id=getattr(artifact, "sessionId", None) or session_id,
+            project_id=body.project_id,
+            tool_type=f"studio_card:{card_id}",
+            step=RUN_STEP_OUTLINE,
+            status=RUN_STATUS_PENDING,
+        )
     run_for_response = run
     if run:
         generating_run = await update_session_run(
@@ -292,6 +307,66 @@ async def _create_artifact_run(
         run=run_for_response,
     )
     return serialize_session_run(run_for_response)
+
+
+async def _load_valid_studio_card_run(
+    *,
+    card_id: str,
+    run_id: str,
+    project_id: str,
+    expected_session_id: str | None,
+):
+    run_model = getattr(project_space_service.db.db, "sessionrun", None)
+    existing_run = (
+        await run_model.find_unique(where={"id": run_id})
+        if run_model is not None and hasattr(run_model, "find_unique")
+        else None
+    )
+    if (
+        not existing_run
+        or getattr(existing_run, "projectId", None) != project_id
+        or getattr(existing_run, "toolType", None) != f"studio_card:{card_id}"
+        or (
+            expected_session_id
+            and getattr(existing_run, "sessionId", None) != expected_session_id
+        )
+    ):
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="run_id 无效或不属于当前会话，请重新创建草稿。",
+        )
+    return existing_run
+
+
+async def _promote_requested_run_to_generating(
+    *,
+    card_id: str,
+    body: StudioCardExecutionPreviewRequest,
+    session_id: str | None,
+) -> None:
+    from services.generation_session_service.session_history import (
+        RUN_STATUS_PROCESSING,
+        RUN_STEP_GENERATE,
+        update_session_run,
+    )
+
+    requested_run_id = str(getattr(body, "run_id", None) or "").strip()
+    if not requested_run_id:
+        return
+
+    run = await _load_valid_studio_card_run(
+        card_id=card_id,
+        run_id=requested_run_id,
+        project_id=body.project_id,
+        expected_session_id=session_id,
+    )
+    await update_session_run(
+        db=project_space_service.db.db,
+        run_id=run.id,
+        status=RUN_STATUS_PROCESSING,
+        step=RUN_STEP_GENERATE,
+    )
 
 
 async def _resolve_execution_session_id(

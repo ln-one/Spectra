@@ -12,6 +12,7 @@ from services.generation_session_service.card_execution_preview import (
     build_studio_card_execution_preview,
 )
 from services.generation_session_service.card_execution_runtime import (
+    execute_studio_card_draft_request,
     execute_classroom_simulator_turn,
     execute_studio_card_initial_request,
     execute_studio_card_refine_request,
@@ -144,6 +145,26 @@ async def execute_studio_card(
     return success_response(
         data={"execution_result": result.model_dump(mode="json")},
         message="Studio 卡片执行成功",
+    )
+
+
+@router.post("/studio-cards/{card_id}/draft")
+async def draft_studio_card(
+    card_id: str,
+    body: dict,
+    user_id: str = Depends(get_current_user),
+):
+    """为 Studio 卡片创建草稿 run（不触发最终生成）。"""
+    project_id = require_project_id(body)
+    result = await execute_studio_card_draft_request(
+        card_id=card_id,
+        body=build_execution_request(project_id=project_id, body=body),
+        user_id=user_id,
+        session_service=get_session_service(),
+    )
+    return success_response(
+        data={"execution_result": result.model_dump(mode="json")},
+        message="Studio 卡片草稿已创建",
     )
 
 

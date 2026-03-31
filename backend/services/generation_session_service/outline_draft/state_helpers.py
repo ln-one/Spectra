@@ -3,13 +3,10 @@ from __future__ import annotations
 import logging
 from typing import Awaitable, Callable, Optional
 
-from services.courseware_ai.outline import get_fallback_outline
 from services.generation_session_service.constants import (
+    OutlineGenerationErrorCode,
     OutlineChangeReason,
     OutlineGenerationStateReason,
-)
-from services.generation_session_service.outline_helpers import (
-    _courseware_outline_to_document,
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
@@ -169,45 +166,22 @@ async def persist_outline_failure_fallback(
     *,
     db,
     session_id: str,
-    project_id: str,
-    options: Optional[dict],
+    error_code: str,
+    error_message: str,
     failure_state_reason: str,
-    outline_version: int,
 ) -> None:
-    outline_title = "课堂教学大纲"
-    project_model = getattr(db, "project", None)
-    if project_model is not None and hasattr(project_model, "find_unique"):
-        try:
-            project = await project_model.find_unique(where={"id": project_id})
-            if project:
-                outline_title = (
-                    project.get("name")
-                    if isinstance(project, dict)
-                    else getattr(project, "name", None)
-                ) or outline_title
-        except Exception as exc:  # pragma: no cover
-            logger.debug("Fallback outline project lookup failed: %s", exc)
-
-    fallback_outline = get_fallback_outline(str(outline_title or "课堂教学大纲"))
-    fallback_outline_doc = _courseware_outline_to_document(
-        fallback_outline,
-        target_pages=(options or {}).get("pages"),
-    )
-    fallback_outline_doc["version"] = outline_version
-
-    await persist_outline_version(
-        db=db,
-        session_id=session_id,
-        outline_version=outline_version,
-        outline_doc=fallback_outline_doc,
-        change_reason=OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
-    )
+    retryable = error_code in {
+        OutlineGenerationErrorCode.TIMEOUT.value,
+        OutlineGenerationErrorCode.FAILED.value,
+    }
     await db.generationsession.update(
         where={"id": session_id},
         data={
-            "state": GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+            "state": GenerationState.FAILED.value,
             "stateReason": failure_state_reason,
-            "currentOutlineVersion": outline_version,
+            "errorCode": error_code,
+            "errorMessage": error_message,
+            "errorRetryable": retryable,
         },
     )
 
@@ -218,26 +192,13 @@ async def emit_outline_failure_state(
     session_id: str,
     trace_id: str,
     failure_state_reason: str,
-    outline_version: int,
     run_id: Optional[str] = None,
     traceability_payload: Optional[dict] = None,
 ) -> None:
     await append_event(
         session_id=session_id,
-        event_type=GenerationEventType.OUTLINE_UPDATED.value,
-        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
-        payload={
-            "version": outline_version,
-            "change_reason": OutlineChangeReason.DRAFT_FAILED_FALLBACK_EMPTY.value,
-            "trace_id": trace_id,
-            "run_id": run_id,
-            **(traceability_payload or {}),
-        },
-    )
-    await append_event(
-        session_id=session_id,
         event_type=GenerationEventType.STATE_CHANGED.value,
-        state=GenerationState.AWAITING_OUTLINE_CONFIRM.value,
+        state=GenerationState.FAILED.value,
         state_reason=failure_state_reason,
         payload={
             "trace_id": trace_id,

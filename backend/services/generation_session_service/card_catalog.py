@@ -66,11 +66,10 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         title="Word 教案与文档",
         readiness=StudioCardReadiness.FOUNDATION_READY,
         context_mode=StudioCardContextMode.HYBRID,
-        execution_mode=StudioCardExecutionMode.COMPOSITE,
+        execution_mode=StudioCardExecutionMode.ARTIFACT_CREATE,
         primary_capabilities=["word", "handout"],
         related_capabilities=["outline", "summary", "quiz"],
         artifact_types=["docx", "summary", "exercise"],
-        session_output_type=SessionOutputType.WORD.value,
         supports_chat_refine=True,
         config_fields=[
             StudioCardConfigField(

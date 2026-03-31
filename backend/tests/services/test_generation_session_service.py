@@ -1055,6 +1055,41 @@ async def test_create_session_reuses_existing_success_session():
 
 
 @pytest.mark.anyio
+async def test_create_session_disallows_creation_when_allow_create_false():
+    db = SimpleNamespace(
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="p-001",
+                    currentVersionId="ver-current-002",
+                )
+            )
+        ),
+        generationsession=SimpleNamespace(
+            find_first=AsyncMock(return_value=None),
+            create=AsyncMock(),
+            update=AsyncMock(),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+    service = GenerationSessionService(db=db)
+
+    with pytest.raises(LookupError):
+        await service.create_session(
+            project_id="p-001",
+            user_id="u-001",
+            output_type=SessionOutputType.PPT.value,
+            client_session_id="s-missing",
+            options={"pages": 10},
+            allow_create=False,
+            task_queue_service=None,
+        )
+
+    db.generationsession.create.assert_not_awaited()
+    db.generationsession.update.assert_not_awaited()
+
+
+@pytest.mark.anyio
 async def test_get_session_runtime_state_fallbacks_when_select_not_supported():
     calls: list[dict] = []
 

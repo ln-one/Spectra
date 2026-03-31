@@ -925,7 +925,7 @@ async def test_get_capabilities_includes_studio_card_readiness(app, _as_user):
     assert studio_cards["classroom_qa_simulator"]["readiness"] == "foundation_ready"
     assert studio_cards["classroom_qa_simulator"]["context_mode"] == "hybrid"
     assert studio_cards["speaker_notes"]["requires_source_artifact"] is True
-    assert studio_cards["word_document"]["session_output_type"] == "word"
+    assert studio_cards["word_document"]["execution_mode"] == "artifact_create"
     assert studio_cards["courseware_ppt"]["session_output_type"] == "ppt"
     assert studio_cards["knowledge_mindmap"]["supports_selection_context"] is True
 
@@ -941,7 +941,7 @@ async def test_get_studio_cards_returns_card_protocol_catalog(app, _as_user):
     cards = {card["id"]: card for card in data["studio_cards"]}
 
     assert cards["courseware_ppt"]["execution_mode"] == "composite"
-    assert cards["word_document"]["execution_mode"] == "composite"
+    assert cards["word_document"]["execution_mode"] == "artifact_create"
     assert (
         cards["interactive_quick_quiz"]["config_fields"][0]["key"] == "question_count"
     )
@@ -957,7 +957,7 @@ async def test_get_studio_card_returns_protocol_detail(app, _as_user):
     assert response.status_code == 200
     card = response.json()["data"]["studio_card"]
     assert card["id"] == "word_document"
-    assert card["session_output_type"] == "word"
+    assert card.get("session_output_type") is None
     assert card["supports_chat_refine"] is True
 
 
@@ -981,9 +981,11 @@ async def test_get_studio_card_execution_plan_returns_protocol_bindings(app, _as
     assert response.status_code == 200
     plan = response.json()["data"]["execution_plan"]
     assert plan["card_id"] == "word_document"
-    assert plan["initial_binding"]["transport"] == "session_create"
+    assert plan["initial_binding"]["transport"] == "artifact_create"
     assert plan["initial_binding"]["status"] == "ready"
-    assert plan["initial_binding"]["endpoint"] == "/api/v1/generate/sessions"
+    assert (
+        plan["initial_binding"]["endpoint"] == "/api/v1/projects/{project_id}/artifacts"
+    )
     assert "document_variant" in plan["initial_binding"]["bound_config_keys"]
     assert plan["refine_binding"]["transport"] == "chat_message"
 
@@ -1105,10 +1107,10 @@ async def test_preview_studio_card_execution_returns_bound_word_payload(app, _as
 
     assert response.status_code == 200
     preview = response.json()["data"]["execution_preview"]
-    assert preview["initial_request"]["endpoint"] == "/api/v1/generate/sessions"
-    assert preview["initial_request"]["payload"]["output_type"] == "word"
+    assert preview["initial_request"]["endpoint"] == "/api/v1/projects/p-001/artifacts"
+    assert preview["initial_request"]["payload"]["type"] == "docx"
     assert (
-        preview["initial_request"]["payload"]["options"]["document_variant"]
+        preview["initial_request"]["payload"]["content"]["document_variant"]
         == "student_handout"
     )
 
@@ -1278,11 +1280,11 @@ async def test_preview_studio_card_execution_requires_project_id(app, _as_user):
 
 
 @pytest.mark.anyio
-async def test_execute_studio_card_creates_courseware_session(app, _as_user):
+async def test_execute_studio_card_reuses_bound_courseware_session(app, _as_user):
     client = TestClient(app)
     existing_session = SimpleNamespace(id="client-card-ppt-001")
     session_ref = {
-        "session_id": "s-card-ppt-001",
+        "session_id": "client-card-ppt-001",
         "project_id": "p-001",
         "output_type": "ppt",
         "state": GenerationState.DRAFTING_OUTLINE.value,
@@ -1326,52 +1328,51 @@ async def test_execute_studio_card_creates_courseware_session(app, _as_user):
     assert response.status_code == 200
     result = response.json()["data"]["execution_result"]
     assert result["resource_kind"] == "session"
-    assert result["session"]["session_id"] == "s-card-ppt-001"
+    assert result["session"]["session_id"] == "client-card-ppt-001"
     assert result["request_preview"]["payload"]["options"]["template"] == "gaia"
     create_session_mock.assert_awaited_once()
     kwargs = create_session_mock.await_args.kwargs
     assert kwargs["output_type"] == "ppt"
     assert kwargs["client_session_id"] == "client-card-ppt-001"
+    assert kwargs["allow_create"] is False
     assert kwargs["options"]["pages"] == 16
     assert kwargs["options"]["rag_source_ids"] == ["file-2"]
 
 
 @pytest.mark.anyio
-async def test_execute_studio_card_creates_word_session(app, _as_user):
+async def test_execute_studio_card_creates_word_artifact(app, _as_user):
     client = TestClient(app)
-    existing_session = SimpleNamespace(id="client-card-001")
-    session_ref = {
-        "session_id": "s-card-001",
-        "project_id": "p-001",
-        "output_type": "word",
-        "state": GenerationState.DRAFTING_OUTLINE.value,
-    }
+    artifact = SimpleNamespace(
+        id="a-word-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="docx",
+        visibility="private",
+        storagePath="uploads/artifacts/a-word-001.docx",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
 
     with (
         patch(
-            "services.generation_session_service.GenerationSessionService.create_session",
-            AsyncMock(return_value=session_ref),
-        ) as create_session_mock,
-        patch(
-            "services.generation_session_service.card_execution_runtime.get_owned_project",
-            AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
         ),
-        patch.object(
-            db_service,
-            "db",
-            SimpleNamespace(
-                generationsession=SimpleNamespace(
-                    find_first=AsyncMock(return_value=existing_session)
-                ),
-                sessionevent=SimpleNamespace(create=AsyncMock()),
-            ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ) as create_artifact_mock,
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
         ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/word_document/execute",
             json={
                 "project_id": "p-001",
-                "client_session_id": "client-card-001",
                 "config": {
                     "document_variant": "student_handout",
                     "teaching_model": "scaffolded",
@@ -1382,40 +1383,70 @@ async def test_execute_studio_card_creates_word_session(app, _as_user):
 
     assert response.status_code == 200
     result = response.json()["data"]["execution_result"]
-    assert result["resource_kind"] == "session"
-    assert result["session"]["session_id"] == "s-card-001"
-    assert result["request_preview"]["payload"]["options"]["document_variant"] == (
+    assert result["resource_kind"] == "artifact"
+    assert result["artifact"]["id"] == "a-word-001"
+    assert result["artifact"]["type"] == "docx"
+    assert result["request_preview"]["payload"]["content"]["document_variant"] == (
         "student_handout"
     )
-    create_session_mock.assert_awaited_once()
-    kwargs = create_session_mock.await_args.kwargs
-    assert kwargs["output_type"] == "word"
-    assert kwargs["client_session_id"] == "client-card-001"
-    assert kwargs["options"]["document_variant"] == "student_handout"
+    create_artifact_mock.assert_awaited_once()
+    kwargs = create_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_type"] == "docx"
+    assert kwargs["content"]["document_variant"] == "student_handout"
 
 
 @pytest.mark.anyio
-async def test_execute_studio_card_requires_bound_session(app, _as_user):
+async def test_execute_studio_card_rejects_invalid_client_session_id(app, _as_user):
     client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-word-invalid-session",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="docx",
+        visibility="private",
+        storagePath="uploads/artifacts/a-word-invalid-session.docx",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
 
-    with patch(
-        "services.generation_session_service.card_execution_runtime.get_owned_project",
-        AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+        patch.object(
+            db_service,
+            "db",
+            SimpleNamespace(
+                generationsession=SimpleNamespace(find_first=AsyncMock(return_value=None))
+            ),
+        ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/word_document/execute",
             json={
                 "project_id": "p-001",
+                "client_session_id": "missing-session",
                 "config": {
                     "document_variant": "student_handout",
                 },
             },
         )
 
-    assert response.status_code == 409
+    assert response.status_code == 400
     payload = response.json()
     detail = payload.get("detail") or {}
-    assert detail.get("code") == "RESOURCE_CONFLICT"
+    assert detail.get("code") == "INVALID_INPUT"
 
 
 @pytest.mark.anyio
@@ -2098,7 +2129,7 @@ async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
             json={
                 "project_id": "p-001",
                 "artifact_id": "a-map-001",
-                "message": "琛ュ厖鍙楀姏鍒嗘瀽鍒嗘敮",
+                "message": "add force-analysis branch",
                 "config": {"selected_node_path": "root"},
             },
         )
@@ -2208,7 +2239,7 @@ async def test_refine_studio_card_replaces_game_artifact(app, _as_user):
     )
     current_content = {
         "kind": "interactive_game",
-        "html": "<html><body><main><h1>娓告垙</h1></main></body></html>",
+        "html": "<html><body><main><h1>Game</h1></main></body></html>",
     }
 
     with (
@@ -2281,7 +2312,7 @@ async def test_refine_studio_card_replaces_speaker_notes_artifact(app, _as_user)
                 "page": 3,
                 "title": "过渡页",
                 "script": "旧讲稿",
-                "transition_line": "鏃ц繃娓¤",
+                "transition_line": "旧过渡语",
             }
         ],
     }

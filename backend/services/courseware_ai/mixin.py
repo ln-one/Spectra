@@ -11,7 +11,8 @@ from services.courseware_ai.generation import (
     merge_requirements_with_outline,
     modify_courseware,
 )
-from services.courseware_ai.outline import generate_outline, get_fallback_outline
+from services.courseware_ai.outline import generate_outline
+from services.courseware_ai.outline_fallbacks import get_fallback_outline
 from services.courseware_ai.parsing import (
     enforce_outline_structure,
     extract_block,

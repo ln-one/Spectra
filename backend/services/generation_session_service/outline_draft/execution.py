@@ -77,12 +77,12 @@ def _classify_outline_failure(exc: Exception) -> tuple[str, str, str]:
         return (
             OutlineGenerationErrorCode.TIMEOUT.value,
             "大纲生成超时，请稍后重试。",
-            OutlineGenerationStateReason.TIMED_OUT_FALLBACK_EMPTY.value,
+            OutlineGenerationStateReason.TIMED_OUT.value,
         )
     return (
         OutlineGenerationErrorCode.FAILED.value,
         "大纲生成失败，请稍后重试。",
-        OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY.value,
+        OutlineGenerationStateReason.FAILED.value,
     )
 
 
@@ -323,17 +323,15 @@ async def execute_outline_draft_local(
         await persist_outline_failure_fallback(
             db=db,
             session_id=session_id,
-            project_id=project_id,
-            options=options,
+            error_code=error_code,
+            error_message=error_message,
             failure_state_reason=failure_state_reason,
-            outline_version=next_outline_version,
         )
         await emit_outline_failure_state(
             append_event,
             session_id=session_id,
             trace_id=trace_id,
             failure_state_reason=failure_state_reason,
-            outline_version=next_outline_version,
             run_id=run_id,
             traceability_payload=traceability_payload,
         )

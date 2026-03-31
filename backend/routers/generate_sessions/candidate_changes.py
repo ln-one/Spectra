@@ -66,12 +66,12 @@ async def resolve_session_artifact_binding(
         artifact = await db_service.get_artifact(artifact_id)
         if not artifact or artifact.projectId != project_id:
             raise NotFoundException(
-                message=f"鎴愭灉涓嶅瓨鍦? {artifact_id}",
+                message=f"成果不存在: {artifact_id}",
                 error_code=ErrorCode.NOT_FOUND,
             )
         if artifact.sessionId and artifact.sessionId != session_id:
             raise NotFoundException(
-                message=f"鎴愭灉 {artifact_id} 涓嶅睘浜庝細璇?{session_id}",
+                message=f"成果 {artifact_id} 不属于会话 {session_id}",
                 error_code=ErrorCode.NOT_FOUND,
             )
         return artifact

@@ -10,6 +10,8 @@ class OutlineGenerationErrorCode(str, Enum):
 
 class OutlineGenerationStateReason(str, Enum):
     DRAFTED_ASYNC = "outline_drafted_async"
+    FAILED = "outline_draft_failed"
+    TIMED_OUT = "outline_draft_timed_out"
     FAILED_FALLBACK_EMPTY = "outline_draft_failed_fallback_empty"
     TIMED_OUT_FALLBACK_EMPTY = "outline_draft_timed_out_fallback_empty"
 

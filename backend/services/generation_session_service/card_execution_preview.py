@@ -78,11 +78,12 @@ def build_studio_card_execution_preview(
             readiness=StudioCardReadiness.FOUNDATION_READY,
             initial_request=StudioCardResolvedRequest(
                 method="POST",
-                endpoint="/api/v1/generate/sessions",
+                endpoint=f"/api/v1/projects/{project_id}/artifacts",
                 payload={
-                    "project_id": project_id,
-                    "output_type": SessionOutputType.WORD.value,
-                    "options": {
+                    "type": ArtifactType.DOCX.value,
+                    "visibility": artifact_visibility,
+                    "rag_source_ids": rag_source_ids or [],
+                    "content": {
                         "card_id": card_id,
                         "document_variant": cfg.get(
                             "document_variant", "layered_lesson_plan"
@@ -92,12 +93,12 @@ def build_studio_card_execution_preview(
                         "topic": cfg.get("topic"),
                         "learning_goal": cfg.get("learning_goal"),
                         "difficulty_layer": cfg.get("difficulty_layer"),
-                        "source_artifact_id": source_artifact_id
-                        or cfg.get("source_artifact_id"),
-                        "rag_source_ids": rag_source_ids or [],
+                        "source_artifact_id": (
+                            source_artifact_id or cfg.get("source_artifact_id")
+                        ),
                     },
                 },
-                notes="当前文档卡片通过 create-session 主路径落地，细分配置写入 options。",
+                notes="文档卡片通过 artifact create 路径落地，配置写入 content。",
             ),
             refine_request=StudioCardResolvedRequest(
                 method="POST",
