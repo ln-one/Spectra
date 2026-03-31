@@ -39,6 +39,14 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_str(name: str, default: str) -> str:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    return value or default
+
+
 class SystemSettingsService:
     """Development-friendly system settings facade.
 
@@ -121,6 +129,22 @@ class SystemSettingsService:
                 "feature_flags": {
                     "allow_ai_stub": _env_bool("ALLOW_AI_STUB", False),
                     "sync_rag_indexing": _env_bool("SYNC_RAG_INDEXING", False),
+                    "enable_context_dedup": _env_bool("ENABLE_CONTEXT_DEDUP", True),
+                    "enable_context_compression": _env_bool(
+                        "ENABLE_CONTEXT_COMPRESSION", True
+                    ),
+                    "compression_mode": _env_str(
+                        "RAG_CONTEXT_COMPRESSION_MODE", "rule"
+                    ),
+                    "max_evidence_chunks": _env_int(
+                        "RAG_CONTEXT_MAX_EVIDENCE_CHUNKS", 5
+                    ),
+                    "max_sentences_per_chunk": _env_int(
+                        "RAG_CONTEXT_MAX_SENTENCES_PER_CHUNK", 3
+                    ),
+                    "similarity_threshold": _env_float(
+                        "RAG_CONTEXT_SIMILARITY_THRESHOLD", 0.82
+                    ),
                 },
             },
             "experience": {

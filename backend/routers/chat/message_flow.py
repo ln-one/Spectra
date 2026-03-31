@@ -1,12 +1,17 @@
 import asyncio
+import time
 from collections.abc import Iterable
 
 from schemas.common import (
     build_source_reference_payload,
-    extract_source_reference_payload,
 )
 from services.database import db_service
 from services.database.prisma_compat import find_many_with_select_fallback
+from services.rag_service.context_postprocess import (
+    log_context_processing,
+    postprocess_rag_context,
+    serialize_rag_results,
+)
 from services.system_settings_service import system_settings_service
 from utils.upstream_failures import classify_upstream_failure
 
@@ -54,11 +59,16 @@ async def _search_rag_with_timeout(
         session_id=session_id,
         filters=rag_filters,
     )
+    started_at = time.perf_counter()
     if timeout_seconds <= 0:
-        return await search_coro, None
+        return await search_coro, None, (time.perf_counter() - started_at) * 1000
 
     try:
-        return await asyncio.wait_for(search_coro, timeout=timeout_seconds), None
+        return (
+            await asyncio.wait_for(search_coro, timeout=timeout_seconds),
+            None,
+            (time.perf_counter() - started_at) * 1000,
+        )
     except asyncio.TimeoutError:
         logger.warning(
             (
@@ -68,7 +78,7 @@ async def _search_rag_with_timeout(
             timeout_seconds,
             project_id,
         )
-        return [], "rag_timeout"
+        return [], "rag_timeout", (time.perf_counter() - started_at) * 1000
 
 
 async def load_rag_context(
@@ -81,6 +91,7 @@ async def load_rag_context(
     selected_files_hint = ""
     rag_payload = None
     rag_failure_reason = None
+    retrieval_latency_ms = 0.0
 
     try:
         from services.rag_service import rag_service as _rag
@@ -117,7 +128,7 @@ async def load_rag_context(
             )
             if isinstance(rag_results_result, Exception):
                 raise rag_results_result
-            rag_results, rag_failure_reason = rag_results_result
+            rag_results, rag_failure_reason, retrieval_latency_ms = rag_results_result
 
             if isinstance(selected_uploads_result, Exception):
                 logger.warning(
@@ -135,7 +146,9 @@ async def load_rag_context(
             elif requested_source_ids and not rag_failure_reason:
                 rag_failure_reason = "source_not_found"
         else:
-            rag_results, rag_failure_reason = await rag_search_task
+            rag_results, rag_failure_reason, retrieval_latency_ms = (
+                await rag_search_task
+            )
 
         if selected_uploads and not rag_failure_reason:
             found_source_ids: set[str] = set()
@@ -171,35 +184,38 @@ async def load_rag_context(
                 )
 
         rag_results = rerank_by_chapter(query, rag_results)
-        if rag_results:
+        serialized_results = serialize_rag_results(rag_results)
+        processed_rag_payload, diagnostics = await postprocess_rag_context(
+            query=query,
+            rag_results=serialized_results,
+        )
+        log_context_processing(
+            request_logger=logger,
+            retrieval_latency_ms=retrieval_latency_ms,
+            diagnostics=diagnostics,
+            project_id=project_id,
+            query=query,
+            session_id=session_id,
+            caller="chat_message_flow",
+        )
+        effective_rag_payload = processed_rag_payload or serialized_results
+        if effective_rag_payload:
+            rag_payload = effective_rag_payload
             rag_hit = True
             citations = [
                 build_source_reference_payload(
-                    chunk_id=result.source.chunk_id,
-                    source_type=result.source.source_type,
-                    filename=result.source.filename,
-                    page_number=result.source.page_number,
-                    timestamp=getattr(result.source, "timestamp", None),
-                    score=result.score,
+                    chunk_id=(item.get("source") or {}).get("chunk_id", ""),
+                    source_type=(item.get("source") or {}).get("source_type"),
+                    filename=(item.get("source") or {}).get("filename", ""),
+                    page_number=(item.get("source") or {}).get("page_number"),
+                    timestamp=(item.get("source") or {}).get("timestamp"),
+                    score=item.get("score"),
+                    content_preview=item.get("content"),
                 )
-                for result in rag_results
+                for item in effective_rag_payload
             ]
-            rag_payload = []
-            for item in rag_results:
-                source_obj = getattr(item, "source", None)
-                source = (
-                    extract_source_reference_payload(source_obj)
-                    if source_obj is not None
-                    else {}
-                )
-                rag_payload.append(
-                    {
-                        "content": getattr(item, "content", ""),
-                        "score": getattr(item, "score", 0.0),
-                        "source": source,
-                    }
-                )
         elif not rag_failure_reason:
+            rag_payload = None
             rag_failure_reason = "rag_no_match"
     except Exception as rag_exc:
         logger.warning("RAG search failed, continuing without context: %s", rag_exc)
