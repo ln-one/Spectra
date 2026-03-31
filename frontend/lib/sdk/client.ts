@@ -1,8 +1,7 @@
 import createClient, { type FetchOptions } from "openapi-fetch";
 import { TokenStorage } from "../auth";
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
 export const API_VERSION = "/api/v1";
 export const DEFAULT_CONTRACT_VERSION = "2026-03";
 
@@ -38,7 +37,7 @@ export class ApiError extends Error {
 
 function normalizePath(input: string): string {
   try {
-    return new URL(input, API_BASE_URL).pathname;
+    return new URL(input, API_BASE_URL || "http://localhost").pathname;
   } catch {
     return input;
   }
