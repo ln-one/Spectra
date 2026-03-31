@@ -4,8 +4,8 @@ import logging
 import os
 import re
 import time
-from difflib import SequenceMatcher
 from dataclasses import asdict, dataclass, field
+from difflib import SequenceMatcher
 from typing import Any, Awaitable, Callable, Iterable, Optional
 
 logger = logging.getLogger(__name__)

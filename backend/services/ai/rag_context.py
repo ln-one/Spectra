@@ -2,11 +2,11 @@ import logging
 import time
 from typing import Optional
 
-from utils.upstream_failures import classify_upstream_failure
 from services.rag_service.context_postprocess import (
     log_context_processing,
     postprocess_rag_context,
 )
+from utils.upstream_failures import classify_upstream_failure
 
 logger = logging.getLogger(__name__)
 

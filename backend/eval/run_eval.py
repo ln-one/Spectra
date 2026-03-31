@@ -34,9 +34,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import httpx  # noqa: E402
 
 from eval.metrics import EvalResult, compute_metrics  # noqa: E402
-from eval.relevant_chunk_resolver import (
+from eval.relevant_chunk_resolver import (  # noqa: E402
     resolve_dataset_relevant_chunk_ids,
-)  # noqa: E402
+)
 
 
 def _sha256_file(path: Path) -> str:

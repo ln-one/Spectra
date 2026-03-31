@@ -5,13 +5,13 @@ from collections.abc import Iterable
 from schemas.common import (
     build_source_reference_payload,
 )
+from services.database import db_service
+from services.database.prisma_compat import find_many_with_select_fallback
 from services.rag_service.context_postprocess import (
     log_context_processing,
     postprocess_rag_context,
     serialize_rag_results,
 )
-from services.database import db_service
-from services.database.prisma_compat import find_many_with_select_fallback
 from services.system_settings_service import system_settings_service
 from utils.upstream_failures import classify_upstream_failure
 

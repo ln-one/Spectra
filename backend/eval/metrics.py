@@ -18,8 +18,7 @@ RAG 评测指标计算模块
 """
 
 from dataclasses import dataclass, field
-from math import ceil
-from math import log2
+from math import ceil, log2
 from typing import Optional
 
 
