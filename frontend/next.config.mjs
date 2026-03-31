@@ -5,7 +5,9 @@ const nextConfig = {
   outputFileTracingRoot: path.join(process.cwd(), ".."),
   async rewrites() {
     const backendBaseUrl =
-      process.env.BACKEND_INTERNAL_URL?.trim() || "http://backend:8000";
+      process.env.BACKEND_INTERNAL_URL?.trim() ||
+      process.env.NEXT_PUBLIC_API_URL?.trim() ||
+      "http://localhost:8000";
     return [
       {
         source: "/api/:path*",
