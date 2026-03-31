@@ -69,6 +69,8 @@ class LlamaParseProvider(BaseParseProvider):
                 text = "\n\n".join(doc.text for doc in documents)
                 details["text_length"] = len(text)
                 details["pages_extracted"] = len(documents)
+                details["provider_error"] = None
+                details["provider_error_type"] = None
                 logger.info(
                     "LlamaParse 成功解析文件 %s，提取 %d 页，%d 字符",
                     filename,
@@ -77,10 +79,18 @@ class LlamaParseProvider(BaseParseProvider):
                 )
                 return text, details
             else:
+                details["provider_error"] = "empty_output"
+                details["provider_error_type"] = "empty_output"
                 logger.warning("LlamaParse 解析文件 %s 返回空内容", filename)
                 return "", details
 
         except Exception as exc:
+            raw_error = str(exc).strip()
+            details["provider_error"] = (
+                raw_error if raw_error else "llamaparse_exception_without_message"
+            )
+            details["provider_error_type"] = "upstream_exception"
+            details["provider_raw_error"] = raw_error
             logger.error(
                 "LlamaParse 解析文件 %s 失败: %s", filename, exc, exc_info=True
             )
