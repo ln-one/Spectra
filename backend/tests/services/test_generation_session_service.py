@@ -1,4 +1,4 @@
-"""Unit tests for GenerationSessionService."""
+﻿"""Unit tests for GenerationSessionService."""
 
 import json
 from datetime import datetime, timedelta, timezone
@@ -1041,11 +1041,13 @@ async def test_create_session_reuses_existing_success_session():
 
     assert session_ref["session_id"] == "s-success"
     db.generationsession.create.assert_not_awaited()
-    db.generationsession.update.assert_awaited_once()
-    update_payload = db.generationsession.update.await_args.kwargs["data"]
+    assert db.generationsession.update.await_count == 2
+    update_payload = db.generationsession.update.await_args_list[0].kwargs["data"]
     assert update_payload["outputType"] == SessionOutputType.PPT.value
     assert update_payload["clientSessionId"] == "s-success"
     assert update_payload["state"] == GenerationState.DRAFTING_OUTLINE.value
+    last_cursor_payload = db.generationsession.update.await_args_list[1].kwargs["data"]
+    assert set(last_cursor_payload.keys()) == {"lastCursor"}
     event_data = db.sessionevent.create.await_args.kwargs["data"]
     assert event_data["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert (
@@ -1560,13 +1562,7 @@ async def test_execute_outline_draft_local_failure_path():
     assert failed_payload["policy_version"] == "prompt-policy-v2026-03-28"
     assert failed_payload["baseline_id"] == "prompt-baseline-v1"
 
-    db.outlineversion.create.assert_called_once()
-    outline_data = db.outlineversion.create.await_args.kwargs["data"]
-    assert outline_data["version"] == 1
-    assert outline_data["changeReason"] == "draft_failed_fallback_empty"
-    outline_doc = json.loads(outline_data["outlineData"])
-    assert len(outline_doc["nodes"]) == 10
-    assert all(str(node.get("title", "")).strip() for node in outline_doc["nodes"])
+    db.outlineversion.create.assert_not_awaited()
 
     state_updates = [
         call.kwargs["data"]
@@ -1574,9 +1570,10 @@ async def test_execute_outline_draft_local_failure_path():
         if "state" in (call.kwargs.get("data") or {})
     ]
     assert any(
-        update.get("state") == GenerationState.AWAITING_OUTLINE_CONFIRM.value
-        and update.get("stateReason")
-        == OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY.value
+        update.get("state") == GenerationState.FAILED.value
+        and update.get("stateReason") == OutlineGenerationStateReason.FAILED.value
+        and update.get("errorCode") == OutlineGenerationErrorCode.FAILED.value
+        and update.get("errorRetryable") is True
         for update in state_updates
     )
 
@@ -1660,9 +1657,10 @@ async def test_outline_timeout_emits_stable_timeout_reason():
         if "state" in (call.kwargs.get("data") or {})
     ]
     assert any(
-        update.get("state") == GenerationState.AWAITING_OUTLINE_CONFIRM.value
-        and update.get("stateReason")
-        == OutlineGenerationStateReason.TIMED_OUT_FALLBACK_EMPTY.value
+        update.get("state") == GenerationState.FAILED.value
+        and update.get("stateReason") == OutlineGenerationStateReason.TIMED_OUT.value
+        and update.get("errorCode") == OutlineGenerationErrorCode.TIMEOUT.value
+        and update.get("errorRetryable") is True
         for update in state_updates
     )
 
@@ -1780,3 +1778,4 @@ async def test_execute_outline_draft_local_skips_when_session_already_drafted():
 
     db.outlineversion.create.assert_not_called()
     db.sessionevent.create.assert_not_called()
+

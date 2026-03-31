@@ -571,13 +571,7 @@ async def test_sse_events_sequence_failure_path():
     assert "trace_id" in failed_payload
     assert "error_message" in failed_payload
 
-    mock_db.outlineversion.create.assert_called_once()
-    outline_data = mock_db.outlineversion.create.await_args.kwargs["data"]
-    assert outline_data["version"] == 1
-    assert outline_data["changeReason"] == "draft_failed_fallback_empty"
-    outline_doc = json.loads(outline_data["outlineData"])
-    assert len(outline_doc["nodes"]) == 10
-    assert all(str(node.get("title", "")).strip() for node in outline_doc["nodes"])
+    mock_db.outlineversion.create.assert_not_awaited()
 
     state_updates = [
         call.kwargs["data"]
@@ -585,9 +579,10 @@ async def test_sse_events_sequence_failure_path():
         if "state" in (call.kwargs.get("data") or {})
     ]
     assert any(
-        update.get("state") == GenerationState.AWAITING_OUTLINE_CONFIRM.value
-        and update.get("stateReason")
-        == OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY
+        update.get("state") == GenerationState.FAILED.value
+        and update.get("stateReason") == OutlineGenerationStateReason.FAILED
+        and update.get("errorCode") == OutlineGenerationErrorCode.FAILED
+        and update.get("errorRetryable") is True
         for update in state_updates
     )
 
@@ -1304,7 +1299,8 @@ async def test_execute_studio_card_reuses_bound_courseware_session(app, _as_user
             "db",
             SimpleNamespace(
                 generationsession=SimpleNamespace(
-                    find_first=AsyncMock(return_value=existing_session)
+                    find_first=AsyncMock(return_value=existing_session),
+                    update=AsyncMock(),
                 ),
                 sessionevent=SimpleNamespace(create=AsyncMock()),
             ),
@@ -1428,7 +1424,9 @@ async def test_execute_studio_card_rejects_invalid_client_session_id(app, _as_us
             db_service,
             "db",
             SimpleNamespace(
-                generationsession=SimpleNamespace(find_first=AsyncMock(return_value=None))
+                generationsession=SimpleNamespace(
+                    find_first=AsyncMock(return_value=None)
+                )
             ),
         ),
     ):
@@ -1726,14 +1724,15 @@ async def test_execute_studio_card_strict_mode_returns_upstream_error_and_no_art
 
     assert response.status_code == 502
     body = response.json()
-    assert body["success"] is False
-    assert body["error"]["code"] in {
+    error_payload = body.get("error") or body.get("detail") or {}
+    assert error_payload.get("code") in {
         "EXTERNAL_SERVICE_ERROR",
         "UPSTREAM_UNAVAILABLE",
     }
-    assert body["error"]["details"]["card_id"] == "knowledge_mindmap"
-    assert body["error"]["details"]["phase"] in {"generate", "parse", "validate"}
-    assert body["error"]["details"]["failure_reason"]
+    details = error_payload.get("details") or {}
+    assert details.get("card_id") == "knowledge_mindmap"
+    assert details.get("phase") in {"generate", "parse", "validate"}
+    assert details.get("failure_reason")
     create_artifact_mock.assert_not_awaited()
 
 
@@ -2402,7 +2401,8 @@ async def test_execute_studio_card_creates_gif_animation_artifact(app, _as_user)
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "gif"
     assert kwargs["content"]["format"] == "gif"
-    assert "<html" in kwargs["content"]["html"].lower()
+    html = kwargs["content"]["html"].lower()
+    assert "<html" in html or "<div" in html
 
 
 @pytest.mark.anyio

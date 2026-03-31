@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import json
@@ -81,20 +81,20 @@ def serialize_session_run(run: Any | None) -> Optional[dict]:
     if not run:
         return None
     return {
-        "run_id": run.id,
+        "run_id": getattr(run, "id", None),
         "session_id": getattr(run, "sessionId", None),
-        "project_id": run.projectId,
-        "tool_type": run.toolType,
-        "run_no": run.runNo,
-        "run_title": run.title,
-        "run_title_source": run.titleSource,
+        "project_id": getattr(run, "projectId", None),
+        "tool_type": getattr(run, "toolType", None),
+        "run_no": getattr(run, "runNo", None),
+        "run_title": getattr(run, "title", None),
+        "run_title_source": getattr(run, "titleSource", None),
         "run_title_updated_at": (
-            run.titleUpdatedAt.isoformat()
+            getattr(run, "titleUpdatedAt").isoformat()
             if getattr(run, "titleUpdatedAt", None)
             else None
         ),
-        "run_status": run.status,
-        "run_step": run.step,
+        "run_status": getattr(run, "status", None),
+        "run_step": getattr(run, "step", None),
         "artifact_id": getattr(run, "artifactId", None),
         "created_at": (
             run.createdAt.isoformat() if getattr(run, "createdAt", None) else None
@@ -435,3 +435,4 @@ def spawn_background_task(coro, *, label: str) -> None:
             )
 
     task.add_done_callback(_consume_result)
+

@@ -205,18 +205,41 @@ async def get_session_snapshot(
 
     async def _load_latest_state_event():
         event_model = getattr(db, "sessionevent", None)
-        if event_model is None or not hasattr(event_model, "find_first"):
+        if event_model is None:
             return None
-        # Session.state is a session-level source of truth.
-        # Even for run-scoped snapshot queries, consistency check should compare
-        # against the latest session-level state event, not a run-filtered event.
-        return await event_model.find_first(
+        if hasattr(event_model, "find_first"):
+            # Session.state is a session-level source of truth.
+            # Even for run-scoped snapshot queries, consistency check should compare
+            # against the latest session-level state event when it exists.
+            latest = await event_model.find_first(
+                where={
+                    "sessionId": session.id,
+                    "eventType": GenerationEventType.STATE_CHANGED.value,
+                },
+                order={"createdAt": "desc"},
+            )
+            if latest is not None:
+                return latest
+
+        if not run_id or not hasattr(event_model, "find_many"):
+            return None
+
+        scoped_events = await event_model.find_many(
             where={
                 "sessionId": session.id,
                 "eventType": GenerationEventType.STATE_CHANGED.value,
             },
             order={"createdAt": "desc"},
+            take=100,
         )
+        for event in scoped_events:
+            payload = _parse_json_object(getattr(event, "payload", None)) or {}
+            event_run_id = str(payload.get("run_id") or "").strip()
+            # Backward compatibility: state events without run_id are session-wide.
+            if event_run_id and event_run_id != run_id:
+                continue
+            return event
+        return None
 
     (
         outline,

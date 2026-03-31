@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import logging
@@ -356,3 +356,4 @@ async def _emit_outline_progress(
             **(traceability_payload or {}),
         },
     )
+

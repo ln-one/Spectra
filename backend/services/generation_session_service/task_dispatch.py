@@ -35,14 +35,19 @@ async def _load_session_state_reason(db, session_id: str) -> Optional[str]:
         session = await session_model.find_unique(where={"id": session_id})
     except Exception as exc:  # pragma: no cover - observability safeguard
         logger.debug(
-            "Failed to load session stateReason for local dispatch event: session=%s error=%s",
+            (
+                "Failed to load session stateReason for local dispatch event: "
+                "session=%s error=%s"
+            ),
             session_id,
             exc,
         )
         return None
     if not session:
         return None
-    reason = session.get("stateReason") if isinstance(session, dict) else session.stateReason
+    reason = (
+        session.get("stateReason") if isinstance(session, dict) else session.stateReason
+    )
     if reason is None:
         return None
     text = str(reason).strip()

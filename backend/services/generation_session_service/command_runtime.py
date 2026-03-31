@@ -344,19 +344,6 @@ async def handle_regenerate_slide(
             data={"state": new_state, "renderVersion": {"increment": 1}},
         )
         session_state_mutated = True
-        await append_event(
-            session_id=session.id,
-            event_type=GenerationEventType.STATE_CHANGED.value,
-            state=new_state,
-            state_reason=getattr(session, "stateReason", None),
-            payload=build_run_trace_payload(
-                run,
-                slide_id=slide_id,
-                slide_index=target_slide_index,
-                instruction=instruction,
-                scope=scope,
-            ),
-        )
 
         rag_source_ids = _extract_rag_source_ids(session=session, task=latest_task)
         rag_context = None
@@ -533,14 +520,6 @@ async def handle_regenerate_slide(
                     "errorRetryable": False,
                     "resumable": True,
                 },
-            )
-            await append_event(
-                session_id=session.id,
-                event_type=GenerationEventType.STATE_CHANGED.value,
-                state=GenerationState.SUCCESS.value,
-                state_reason=TaskFailureStateReason.COMPLETED.value,
-                progress=100,
-                payload=failure_payload,
             )
         await append_event(
             session_id=session.id,

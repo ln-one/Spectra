@@ -13,6 +13,7 @@ from schemas.studio_cards import (
     StudioCardTurnResult,
 )
 from services.application.access import get_owned_project
+from services.generation_session_service.constants import SessionLifecycleReason
 from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
     RUN_STEP_OUTLINE,
@@ -22,7 +23,6 @@ from services.generation_session_service.session_history import (
     spawn_background_task,
     update_session_run,
 )
-from services.generation_session_service.constants import SessionLifecycleReason
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 from utils.exceptions import APIException, ErrorCode
@@ -79,12 +79,9 @@ async def execute_studio_card_draft_request(
         )
 
     await get_owned_project(body.project_id, user_id)
-    draft_source_artifact_id = (
-        body.source_artifact_id
-        or (preview.initial_request.payload.get("options") or {}).get(
-            "source_artifact_id"
-        )
-    )
+    draft_source_artifact_id = body.source_artifact_id or (
+        preview.initial_request.payload.get("options") or {}
+    ).get("source_artifact_id")
     await validate_source_artifact(
         project_id=body.project_id,
         card_id=card_id,

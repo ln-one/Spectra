@@ -199,12 +199,34 @@ async def execute_classroom_simulator_turn_artifact(
         content=updated_content,
     )
     current_version_id = await get_current_version_id(body.project_id)
+    normalized_turn_result = dict(turn_result or {})
+    if not normalized_turn_result.get("student_profile"):
+        normalized_turn_result["student_profile"] = str(
+            normalized_turn_result.get("student_intent")
+            or (body.config or {}).get("profile")
+            or "detail_oriented"
+        )
+    if not normalized_turn_result.get("feedback"):
+        normalized_turn_result["feedback"] = str(
+            normalized_turn_result.get("assistant_feedback")
+            or normalized_turn_result.get("analysis")
+            or "建议继续追问边界条件与关键步骤。"
+        )
+    if not normalized_turn_result.get("teacher_answer"):
+        normalized_turn_result["teacher_answer"] = body.teacher_answer
+    if "score" not in normalized_turn_result:
+        raw_score = normalized_turn_result.get("quality_score")
+        try:
+            normalized_turn_result["score"] = int(raw_score)
+        except (TypeError, ValueError):
+            normalized_turn_result["score"] = 80
+
     return (
         artifact_result_payload(
             new_artifact,
             current_version_id=current_version_id,
         ),
-        StudioCardTurnResult(**turn_result),
+        StudioCardTurnResult(**normalized_turn_result),
     )
 
 
@@ -220,8 +242,8 @@ async def _create_artifact_run(
         RUN_STATUS_PENDING,
         RUN_STATUS_PROCESSING,
         RUN_STEP_COMPLETED,
-        RUN_STEP_OUTLINE,
         RUN_STEP_GENERATE,
+        RUN_STEP_OUTLINE,
         create_session_run,
         generate_semantic_run_title,
         serialize_session_run,

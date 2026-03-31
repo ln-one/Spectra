@@ -33,8 +33,8 @@ def build_shadow_env_overlay(
         or env.get("DATABASE_URL")
         or DEFAULT_SHADOW_DATABASE_URL
     ).strip()
-    backup_dir = str(base_dir / "backups")
-    restore_dir = str(base_dir / "restore-staging")
+    backup_dir = (base_dir / "backups").as_posix()
+    restore_dir = (base_dir / "restore-staging").as_posix()
 
     overlay = {
         "DATABASE_URL": shadow_database_url,

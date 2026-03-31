@@ -4,8 +4,8 @@ import logging
 from typing import Awaitable, Callable, Optional
 
 from services.generation_session_service.constants import (
-    OutlineGenerationErrorCode,
     OutlineChangeReason,
+    OutlineGenerationErrorCode,
     OutlineGenerationStateReason,
 )
 from services.platform.generation_event_constants import GenerationEventType

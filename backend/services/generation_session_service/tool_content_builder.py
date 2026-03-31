@@ -527,7 +527,10 @@ async def build_studio_simulator_turn_update(
         _raise_generation_error(
             status_code=503,
             error_code=ErrorCode.UPSTREAM_UNAVAILABLE,
-            message="Studio simulator turn generation is disabled by runtime configuration.",
+            message=(
+                "Studio simulator turn generation is disabled by runtime "
+                "configuration."
+            ),
             card_id="classroom_qa_simulator",
             model=None,
             phase="generate",
@@ -545,7 +548,8 @@ async def build_studio_simulator_turn_update(
         f"RAG snippets: {json.dumps(rag_snippets, ensure_ascii=False)}\n"
         "Constraints:\n"
         "- updated_content must be a complete artifact payload.\n"
-        "- turn_result must include turn_anchor, student_profile, student_question, feedback.\n"
+        "- turn_result must include turn_anchor, student_profile, "
+        "student_question, feedback.\n"
         "- Do not output empty strings for required fields.\n"
     )
 

@@ -34,10 +34,7 @@ def ensure_exportable_state(
 ) -> None:
     session_state = snapshot["session"]["state"]
     has_exportable_artifact = bool(snapshot.get("artifact_id"))
-    if (
-        session_state != GenerationState.SUCCESS.value
-        and not has_exportable_artifact
-    ):
+    if session_state != GenerationState.SUCCESS.value and not has_exportable_artifact:
         raise ValueError("当前会话暂无可导出的产物")
 
     if expected_render_version is None:
