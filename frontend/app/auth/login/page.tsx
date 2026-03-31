@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useNotification } from "@/hooks/use-notification";
 import { Loader2 } from "lucide-react";
@@ -46,9 +46,10 @@ function normalizeRedirectPath(input: string | null | undefined): string {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, isLoading } = useAuthStore();
+  const { login } = useAuthStore();
   const { success, error } = useNotification();
   const prefersReducedMotion = useReducedMotion() ?? false;
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const redirect = normalizeRedirectPath(searchParams?.get("redirect"));
 
@@ -61,6 +62,7 @@ function LoginForm() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    setIsSubmitting(true);
     try {
       await login(data.email, data.password);
       success("登录成功", "欢迎回来！");
@@ -68,6 +70,8 @@ function LoginForm() {
     } catch (err) {
       console.error("[Login] Error:", err);
       error("登录失败", err instanceof Error ? err.message : "请稍后重试");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -142,7 +146,7 @@ function LoginForm() {
                           <Input
                             placeholder="your@email.com"
                             type="email"
-                            disabled={isLoading}
+                            disabled={isSubmitting}
                             {...field}
                           />
                         </FormControl>
@@ -168,7 +172,7 @@ function LoginForm() {
                           <Input
                             placeholder="••••••••"
                             type="password"
-                            disabled={isLoading}
+                            disabled={isSubmitting}
                             {...field}
                           />
                         </FormControl>
@@ -184,8 +188,12 @@ function LoginForm() {
                   animate="visible"
                   transition={{ delay: prefersReducedMotion ? 0 : 0.4 }}
                 >
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         登录中...

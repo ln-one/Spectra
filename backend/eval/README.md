@@ -1,17 +1,37 @@
 # RAG 评测系统
 
+## 语义边界
+
+`backend/eval` 中的数据集字段、评测指标、基线门禁，属于评测工具层语义。
+
+它们用于回答：
+- RAG 是否检到
+- 排序是否稳定
+- 结果是否足够支撑回答或生成
+
+它们不属于 `project-space` 运行时领域模型，不应被解释为 `Project / Session / Artifact / Reference / Version / CandidateChange` 的产品语义扩展，也不应反向推导为运行时 API 合同字段。
+
 ## 目录结构
+
+当前目录保持兼容性的扁平布局，但按逻辑可分为以下几组：
 
 ```
 eval/
-├── dataset.json        # 评测数据集（10 条教育场景用例）
-├── metrics.py          # 指标计算：hit_rate, MRR, keyword_hit_rate, latency, failure_rate
-├── run_eval.py         # 评测脚本入口
-├── baseline_manager.py # 基线冻结/回归校验工具
+├── dataset.json        # 通用 RAG 评测数据集
+├── dataset_d51_real_project_space.json
+├── dataset_d51_real_project_space_expanded.json
+├── metrics.py          # RAG 指标计算
+├── run_eval.py         # RAG 评测脚本入口
+├── baseline_manager.py # RAG 基线冻结/回归校验工具
+├── relevant_chunk_resolver.py # relevant_chunk_ids 自动解析
 ├── baselines/          # 提交到仓库的基线快照
 ├── results/            # 评测结果输出（gitignore）
 └── README.md
 ```
+
+目录逻辑分组说明见：
+
+- [EVAL_DIRECTORY_STRUCTURE.md](d:/Code/Spectra/backend/eval/EVAL_DIRECTORY_STRUCTURE.md)
 
 ## 快速使用
 
@@ -82,19 +102,54 @@ cd backend
 - `keyword_hit_rate` 最多下降 `3%`
 - `failure_rate` 最多上升 `5%`
 - `avg_latency_ms` 最多上升到 `1.5x`
+- `p95_latency_ms` 最多上升到 `1.75x`
+- `fact_coverage_rate` 最多下降 `3%`
+- `usable_top1_rate` 最多下降 `5%`
+- `usable_top3_rate` 最多下降 `3%`
+- `distractor_intrusion_rate` 最多上升 `5%`
 - `explainability_rate` 最多下降 `2%`
 - `continuity_rate` 最多下降 `2%`
 - `fallback_hit_rate` 最多下降 `5%`
 - hard floor: `explainability_rate >= 95%`、`continuity_rate >= 95%`
+
+## RAG 强指标说明
+
+当前 RAG 评测建议优先看以下指标：
+
+| 指标 | 含义 | 作用 |
+|------|------|------|
+| `rankable_case_coverage_rate` | 可参与排序评测的样本覆盖率 | 判断 TopK 排序指标是否有统计意义 |
+| `keyword_hit_rate` | 检索结果中命中至少一个期望关键词的比例 | 反映基础召回是否有效 |
+| `keyword_coverage_rate` | 每条用例期望关键词的平均覆盖比例 | 比 `keyword_hit_rate` 更严格 |
+| `fact_coverage_rate` | Top3 结果对必备事实点的平均覆盖比例 | 判断结果是否足够回答问题 |
+| `usable_top1_rate` | Top1 是否已是可直接使用的证据块 | 判断第一条结果是否真正可用 |
+| `usable_top3_rate` | Top3 中是否存在可直接使用的证据块 | 判断下游聚合 Top3 后的可用性 |
+| `distractor_intrusion_rate` | Top1 被噪声挤占、但 Top3 内仍有可用证据的比例 | 判断排序污染程度 |
+| `hit_rate@1` | Top1 命中率 | 反映第一条结果是否可靠 |
+| `hit_rate@3` | Top3 命中率 | 反映前 3 条结果的可用性 |
+| `hit_rate@5` | Top5 命中率 | 反映前 5 条结果的覆盖能力 |
+| `mrr@k` | 第一条相关结果的排名质量 | 反映正确结果排得是否靠前 |
+| `ndcg@k` | 归一化排序质量指标 | 比单纯命中率更适合展示排序质量 |
+| `avg_latency_ms` | 平均检索延迟 | 反映线上响应成本 |
+| `p95_latency_ms` | P95 检索延迟 | 反映尾部慢请求风险 |
+| `failure_rate` | 检索失败率 | 反映基础稳定性 |
 
 ## 指标说明
 
 | 指标 | 说明 |
 |------|------|
 | `keyword_hit_rate` | 结果内容包含期望关键词的用例比例（主要指标，无需 ground-truth） |
+| `keyword_coverage_rate` | 期望关键词平均覆盖比例，比 `keyword_hit_rate` 更严格 |
+| `fact_coverage_rate` | Top3 结果对 `required_facts` 的平均覆盖比例，强调“够不够回答” |
+| `usable_top1_rate` | Top1 同时命中 `usable_chunk_ids` 且满足事实覆盖阈值的比例 |
+| `usable_top3_rate` | Top3 中存在“可用证据块”的比例 |
+| `distractor_intrusion_rate` | Top1 不可用、但 rank2/rank3 存在可用证据时记为一次干扰侵入 |
 | `hit_rate@k` | 前 k 个结果命中相关 chunk 的比例（需标注 relevant_chunk_ids） |
 | `mrr@k` | Mean Reciprocal Rank（需标注 relevant_chunk_ids） |
+| `ndcg@k` | 排序质量指标（需标注 relevant_chunk_ids） |
+| `rankable_case_coverage_rate` | 有 ground truth 的样本比例，反映排序指标是否有统计意义 |
 | `avg_latency_ms` | 平均检索延迟（毫秒） |
+| `p95_latency_ms` | P95 检索延迟（毫秒），反映尾延迟风险 |
 | `failure_rate` | 检索失败（异常/空结果）比例 |
 
 ## 扩展数据集
@@ -113,6 +168,44 @@ cd backend
 ```
 
 如果有已知的相关 chunk ID，填入 `relevant_chunk_ids` 可启用 hit_rate 和 MRR 计算。
+
+也可以使用以下可选字段，让脚本在当前项目中自动解析 `relevant_chunk_ids`：
+
+```json
+{
+  "id": "real-011",
+  "query": "项目的核心目标是什么",
+  "expected_keywords": ["教学智能体", "课件共创系统"],
+  "relevant_chunk_ids": [],
+  "relevant_source_contains": ["开发一个多模态AI互动式教学智能体"],
+  "min_keyword_hits": 1,
+  "category": "goal",
+  "difficulty": "easy"
+}
+```
+
+说明：
+- `relevant_source_contains`：来源文本中的锚点短语。`run_eval.py` 会在当前项目已索引的分块中做包含匹配，并自动补全 `relevant_chunk_ids`。
+- `min_keyword_hits`：如果未配置来源锚点，脚本会退回到 `expected_keywords` 命中策略；该字段用于控制最少关键词命中数。
+
+如果要启用更严格的“可用性评测”，建议继续补以下字段：
+
+```json
+{
+  "required_facts": ["教学目标", "教学过程", "教学方法"],
+  "usable_chunk_ids": [],
+  "usable_source_contains": ["生成与PPT配套的详细教案，包括教学目标、教学过程、教学方法"],
+  "usable_min_fact_coverage": 0.5,
+  "fact_top_k": 3
+}
+```
+
+说明：
+- `required_facts`：这条 query 真正必须覆盖的事实点。优先于 `expected_keywords`。
+- `usable_chunk_ids`：不仅相关，而且可直接回答问题的 chunk。
+- `usable_source_contains`：可用证据块的来源锚点短语，可自动解析为 `usable_chunk_ids`。
+- `usable_min_fact_coverage`：单个 chunk 至少覆盖多少事实，才算“可用”。
+- `fact_top_k`：计算事实覆盖率时，最多看前多少条结果。
 
 ## D4 来源质量抽样评测（先行版）
 
