@@ -103,5 +103,3 @@ export const ragApi = {
     return payload;
   },
 };
-
-

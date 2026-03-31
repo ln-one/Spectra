@@ -54,9 +54,13 @@ function hasOutlineChanges(
     if (!slide) return true;
 
     const nodeEstimatedMinutes =
-      typeof node.estimated_minutes === "number" ? node.estimated_minutes : null;
+      typeof node.estimated_minutes === "number"
+        ? node.estimated_minutes
+        : null;
     const slideEstimatedMinutes =
-      typeof slide.estimatedMinutes === "number" ? slide.estimatedMinutes : null;
+      typeof slide.estimatedMinutes === "number"
+        ? slide.estimatedMinutes
+        : null;
 
     if (
       node.id !== slide.id ||
@@ -174,7 +178,9 @@ export function useOutlineEditorController({
     frame = requestAnimationFrame(() => {
       // Lock only while outline is still incomplete. Once target pages are ready,
       // keep editor writable even if backend state propagation lags briefly.
-      setIsOutlineHydrating(isBootstrapping || (!ready && isOutlinePendingState));
+      setIsOutlineHydrating(
+        isBootstrapping || (!ready && isOutlinePendingState)
+      );
       setActiveSlideId((prev) =>
         prev && mappedSlides.some((slide) => slide.id === prev)
           ? prev

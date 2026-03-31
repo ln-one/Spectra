@@ -58,7 +58,9 @@ export function GenerateStep({
         </div>
 
         {sourcePreviewError ? (
-          <p className="mt-2 text-[11px] text-amber-700">{sourcePreviewError}</p>
+          <p className="mt-2 text-[11px] text-amber-700">
+            {sourcePreviewError}
+          </p>
         ) : null}
 
         {sourceSlides.length > 0 ? (

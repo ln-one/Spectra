@@ -480,7 +480,8 @@ export function createGenerationActions({
         const redraftRunId = extractRunId(
           (redraftResponse as { data?: { run?: unknown } }).data?.run
         );
-        const preferredRunId = currentRunId || redraftRunId || get().activeRunId;
+        const preferredRunId =
+          currentRunId || redraftRunId || get().activeRunId;
         const sessionResponse = await generateApi.getSessionSnapshot(
           sessionId,
           {

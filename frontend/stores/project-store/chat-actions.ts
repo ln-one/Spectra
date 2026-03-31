@@ -111,10 +111,14 @@ export function createChatActions({
     const projectMessages = state.localToolMessages[projectId] ?? {};
     const projectHints = state.studioHintDedupeByProject[projectId] ?? {};
     const sessionMessages = projectMessages[sessionId] ?? [];
-    const messageIndex = sessionMessages.findIndex((msg) => msg.id === messageId);
+    const messageIndex = sessionMessages.findIndex(
+      (msg) => msg.id === messageId
+    );
     if (messageIndex < 0) return;
     const nextSessionMessages = [...sessionMessages];
-    nextSessionMessages[messageIndex] = updater(nextSessionMessages[messageIndex]);
+    nextSessionMessages[messageIndex] = updater(
+      nextSessionMessages[messageIndex]
+    );
     const nextProjectMessages = {
       ...projectMessages,
       [sessionId]: nextSessionMessages.slice(-120),
@@ -415,16 +419,8 @@ export function createChatActions({
         }
       );
 
-      appendLocalMessage(
-        projectId,
-        effectiveSessionId,
-        userRefineMessage
-      );
-      appendLocalMessage(
-        projectId,
-        effectiveSessionId,
-        refineStatusMessage
-      );
+      appendLocalMessage(projectId, effectiveSessionId, userRefineMessage);
+      appendLocalMessage(projectId, effectiveSessionId, refineStatusMessage);
 
       const selectedFileIds = get().selectedFileIds;
 
@@ -497,7 +493,10 @@ export function createChatActions({
             refineStatusMessage.id,
             (message) => ({
               ...message,
-              content: buildRefineSuccessMessage(context.toolType, context.toolLabel),
+              content: buildRefineSuccessMessage(
+                context.toolType,
+                context.toolLabel
+              ),
               localMeta: {
                 ...message.localMeta,
                 kind: "studio_refine_status",
@@ -518,7 +517,10 @@ export function createChatActions({
             refineStatusMessage.id,
             (prevMessage) => ({
               ...prevMessage,
-              content: buildRefineFailureMessage(context.toolType, context.toolLabel),
+              content: buildRefineFailureMessage(
+                context.toolType,
+                context.toolLabel
+              ),
               localMeta: {
                 ...prevMessage.localMeta,
                 kind: "studio_refine_status",

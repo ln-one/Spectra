@@ -101,7 +101,12 @@ export function useStudioCapabilityState({
     return merged.filter(
       (item) => (item.runId?.trim() || null) === normalizedRunId
     );
-  }, [activeRunId, artifactHistoryByTool, expandedToolKey, runtimeArtifactsByTool]);
+  }, [
+    activeRunId,
+    artifactHistoryByTool,
+    expandedToolKey,
+    runtimeArtifactsByTool,
+  ]);
 
   const completedPptHistorySources = useMemo<StudioSourceOption[]>(() => {
     if (expandedToolKey !== "summary") return [];

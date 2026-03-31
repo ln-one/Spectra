@@ -232,7 +232,9 @@ export function useProjectDetailController() {
     async (sessionId: string, runId?: string | null) => {
       const normalizedRunId = String(runId || "").trim();
       const response = normalizedRunId
-        ? await generateApi.getSessionByRun(sessionId, { run_id: normalizedRunId })
+        ? await generateApi.getSessionByRun(sessionId, {
+            run_id: normalizedRunId,
+          })
         : await generateApi.getSession(sessionId);
       const snapshot = response?.data ?? null;
       return {
@@ -240,7 +242,9 @@ export function useProjectDetailController() {
         runId:
           extractCurrentRunId(
             snapshot as { current_run?: { run_id?: string } } | null
-          ) || (normalizedRunId || null),
+          ) ||
+          normalizedRunId ||
+          null,
       };
     },
     []
@@ -344,10 +348,10 @@ export function useProjectDetailController() {
       void fetchArtifactHistory(projectId, nextSessionId);
       void (async () => {
         try {
-            const { snapshot, runId } = await loadSessionSnapshot(
-              nextSessionId,
-              queryRunId
-            );
+          const { snapshot, runId } = await loadSessionSnapshot(
+            nextSessionId,
+            queryRunId
+          );
           if (cancelled) return;
           useProjectStore.setState({
             generationSession: snapshot,
@@ -355,7 +359,10 @@ export function useProjectDetailController() {
           });
         } catch {
           if (cancelled) return;
-          useProjectStore.setState({ generationSession: null, activeRunId: null });
+          useProjectStore.setState({
+            generationSession: null,
+            activeRunId: null,
+          });
         }
       })();
     }
@@ -433,7 +440,10 @@ export function useProjectDetailController() {
           ),
         });
       } else {
-        useProjectStore.setState({ generationSession: null, activeRunId: null });
+        useProjectStore.setState({
+          generationSession: null,
+          activeRunId: null,
+        });
       }
       void messagesResult;
       void artifactsResult;
@@ -509,8 +519,9 @@ export function useProjectDetailController() {
           useProjectStore.setState({
             generationSession: snapshot?.data ?? null,
             activeRunId: extractCurrentRunId(
-              (snapshot?.data as { current_run?: { run_id?: string } } | null) ??
-                null
+              (snapshot?.data as {
+                current_run?: { run_id?: string };
+              } | null) ?? null
             ),
           });
         }
@@ -526,12 +537,7 @@ export function useProjectDetailController() {
         });
       }
     },
-    [
-      activeSessionId,
-      fetchGenerationHistory,
-      generationHistory,
-      projectId,
-    ]
+    [activeSessionId, fetchGenerationHistory, generationHistory, projectId]
   );
 
   const handleDeleteSession = useCallback(
@@ -605,4 +611,3 @@ export function useProjectDetailController() {
     handleToggleExpandedSources: panelLayout.handleToggleExpandedSources,
   };
 }
-

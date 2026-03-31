@@ -35,10 +35,12 @@ type BrowserSpeechRecognition = {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
-  onresult: ((event: {
-    resultIndex: number;
-    results: SpeechRecognitionResultList;
-  }) => void) | null;
+  onresult:
+    | ((event: {
+        resultIndex: number;
+        results: SpeechRecognitionResultList;
+      }) => void)
+    | null;
   onerror: ((event: Event) => void) | null;
   onend: (() => void) | null;
   start: () => void;
@@ -229,8 +231,7 @@ export function ChatPanel({
         message.content.includes("Spectra 正在构思")
     );
   const showGlobalThinkingBubble =
-    isAIGenerating &&
-    !(isStudioRefineMode && hasInlineRefineThinkingMessage);
+    isAIGenerating && !(isStudioRefineMode && hasInlineRefineThinkingMessage);
 
   useEffect(() => {
     hydrateStudioLocalState(projectId);
@@ -933,7 +934,11 @@ export function ChatPanel({
                 <Button
                   size="icon"
                   aria-label={
-                    isVoiceListening ? "结束语音输入" : canSend ? "发送消息" : "语音输入"
+                    isVoiceListening
+                      ? "结束语音输入"
+                      : canSend
+                        ? "发送消息"
+                        : "语音输入"
                   }
                   onClick={(event) => {
                     event.preventDefault();
@@ -945,7 +950,11 @@ export function ChatPanel({
                       void handleSend();
                       return;
                     }
-                    if (!activeSessionId || isAIGenerating || isVoiceTranscribing) {
+                    if (
+                      !activeSessionId ||
+                      isAIGenerating ||
+                      isVoiceTranscribing
+                    ) {
                       return;
                     }
                     void startVoiceCapture();
@@ -1014,11 +1023,11 @@ export function ChatPanel({
                         className="absolute inset-0 flex items-center justify-center"
                       >
                         <Mic
-                            className={cn(
-                              "h-4 w-4 transition-transform duration-300",
-                              isVoiceListening && "animate-pulse scale-110"
-                            )}
-                          />
+                          className={cn(
+                            "h-4 w-4 transition-transform duration-300",
+                            isVoiceListening && "animate-pulse scale-110"
+                          )}
+                        />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1031,9 +1040,3 @@ export function ChatPanel({
     </div>
   );
 }
-
-
-
-
-
-

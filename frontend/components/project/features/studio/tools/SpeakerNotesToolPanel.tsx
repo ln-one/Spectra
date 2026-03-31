@@ -164,7 +164,8 @@ export function SpeakerNotesToolPanel({
               page: slide.index + 1,
               title,
               summary,
-              thumbnailUrl: matchedPage?.image_url ?? slide.thumbnail_url ?? undefined,
+              thumbnailUrl:
+                matchedPage?.image_url ?? slide.thumbnail_url ?? undefined,
               imageUrl: matchedPage?.image_url ?? undefined,
               slideId: slide.id,
             };
@@ -190,13 +191,11 @@ export function SpeakerNotesToolPanel({
   }, [selectedDeckId, selectedSourceOption?.sessionId]);
 
   useEffect(() => {
-    const sourceSlideContext = sourceSlides
-      .slice(0, 60)
-      .map((item) => ({
-        page: item.page,
-        title: item.title,
-        summary: (item.summary || "").slice(0, 600),
-      }));
+    const sourceSlideContext = sourceSlides.slice(0, 60).map((item) => ({
+      page: item.page,
+      title: item.title,
+      summary: (item.summary || "").slice(0, 600),
+    }));
 
     onDraftChange?.({
       source_artifact_id: selectedDeckId,

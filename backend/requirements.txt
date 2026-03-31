@@ -1,4 +1,4 @@
-# Build tools (must be first to avoid conflicts)
+﻿# Build tools (must be first to avoid conflicts)
 setuptools>=65.0.0
 
 # Core Framework

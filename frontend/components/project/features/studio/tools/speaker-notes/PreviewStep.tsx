@@ -8,7 +8,7 @@ interface PreviewStepProps {
   activePage: number;
   lastGeneratedAt: string | null;
   highlightTransition: boolean;
-  sourceSlides: SourcePptSlidePreview[];
+  sourceSlides?: SourcePptSlidePreview[];
   flowContext?: ToolFlowContext;
   onSelectPage: (page: number) => void;
 }
@@ -98,7 +98,7 @@ export function PreviewStep({
   activePage,
   lastGeneratedAt,
   highlightTransition,
-  sourceSlides,
+  sourceSlides = [],
   flowContext,
   onSelectPage,
 }: PreviewStepProps) {
@@ -113,7 +113,9 @@ export function PreviewStep({
     backendScripts.find((item) => item.page === activePage) ??
     backendScripts[0] ??
     null;
-  const sourceSlideByPage = new Map(sourceSlides.map((item) => [item.page, item]));
+  const sourceSlideByPage = new Map(
+    sourceSlides.map((item) => [item.page, item])
+  );
 
   return (
     <div className="space-y-4">

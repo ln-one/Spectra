@@ -52,7 +52,9 @@ export function readStudioLocalPayload(
     const messagesBySession = Object.fromEntries(
       Object.entries(messagesBySessionRaw).map(([sessionId, items]) => {
         const safeItems = Array.isArray(items)
-          ? (items as Message[]).filter((message) => !isLegacyPreviewHintMessage(message))
+          ? (items as Message[]).filter(
+              (message) => !isLegacyPreviewHintMessage(message)
+            )
           : [];
         return [sessionId, safeItems];
       })

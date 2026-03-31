@@ -82,4 +82,3 @@ describe("ragApi.transcribeAudio", () => {
     await expect(ragApi.transcribeAudio(file)).rejects.toThrow();
   });
 });
-

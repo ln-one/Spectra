@@ -113,4 +113,3 @@ export function ThinkingBubble({ toolColor }: ThinkingBubbleProps) {
     </motion.div>
   );
 }
-

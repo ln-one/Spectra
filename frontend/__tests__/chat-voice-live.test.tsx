@@ -21,13 +21,19 @@ jest.mock("sonner", () => ({
   },
 }));
 
-jest.mock("@/components/project/features/chat/components/MessageBubble", () => ({
-  MessageBubble: () => null,
-}));
+jest.mock(
+  "@/components/project/features/chat/components/MessageBubble",
+  () => ({
+    MessageBubble: () => null,
+  })
+);
 
-jest.mock("@/components/project/features/chat/components/ThinkingBubble", () => ({
-  ThinkingBubble: () => null,
-}));
+jest.mock(
+  "@/components/project/features/chat/components/ThinkingBubble",
+  () => ({
+    ThinkingBubble: () => null,
+  })
+);
 
 jest.mock(
   "@/components/project/features/sources/components/SelectedSourceScopeBadge",
@@ -47,18 +53,23 @@ class ResizeObserverMock {
 
 type RecognitionResultLike = { isFinal: boolean; 0: { transcript: string } };
 
-let activeRecognition: MockSpeechRecognition | null = null;
-
 class MockSpeechRecognition {
+  static activeInstance: MockSpeechRecognition | null = null;
+
   lang = "";
   continuous = false;
   interimResults = false;
-  onresult: ((event: { resultIndex: number; results: RecognitionResultLike[] }) => void) | null = null;
+  onresult:
+    | ((event: {
+        resultIndex: number;
+        results: RecognitionResultLike[];
+      }) => void)
+    | null = null;
   onerror: ((event: Event) => void) | null = null;
   onend: (() => void) | null = null;
 
   constructor() {
-    activeRecognition = this;
+    MockSpeechRecognition.activeInstance = this;
   }
 
   start() {
@@ -185,9 +196,9 @@ describe("ChatPanel voice live transcript", () => {
     await waitFor(() => {
       expect(textarea).toBeDisabled();
     });
-    expect(activeRecognition).not.toBeNull();
+    expect(MockSpeechRecognition.activeInstance).not.toBeNull();
 
-    activeRecognition?.emit([
+    MockSpeechRecognition.activeInstance?.emit([
       { isFinal: false, 0: { transcript: "你好" } },
     ]);
 
@@ -195,7 +206,7 @@ describe("ChatPanel voice live transcript", () => {
       expect(textarea.value).toBe("你好");
     });
 
-    activeRecognition?.emit([
+    MockSpeechRecognition.activeInstance?.emit([
       { isFinal: true, 0: { transcript: "你好 同学" } },
     ]);
 
@@ -222,10 +233,14 @@ describe("ChatPanel voice live transcript", () => {
     fireEvent.click(voiceButton);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "结束语音输入" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "结束语音输入" })
+      ).toBeInTheDocument();
     });
 
-    activeRecognition?.emit([{ isFinal: false, 0: { transcript: "追加" } }]);
+    MockSpeechRecognition.activeInstance?.emit([
+      { isFinal: false, 0: { transcript: "追加" } },
+    ]);
 
     await waitFor(() => {
       expect(textarea.value).toBe("追加");
@@ -247,12 +262,14 @@ describe("ChatPanel voice live transcript", () => {
   it("falls back to recorder-only flow when browser speech recognition is unavailable", async () => {
     const originalSpeech = (window as Window & { SpeechRecognition?: unknown })
       .SpeechRecognition;
-    const originalWebkit = (window as Window & { webkitSpeechRecognition?: unknown })
-      .webkitSpeechRecognition;
+    const originalWebkit = (
+      window as Window & { webkitSpeechRecognition?: unknown }
+    ).webkitSpeechRecognition;
     (window as Window & { SpeechRecognition?: unknown }).SpeechRecognition =
       undefined;
-    (window as Window & { webkitSpeechRecognition?: unknown })
-      .webkitSpeechRecognition = undefined;
+    (
+      window as Window & { webkitSpeechRecognition?: unknown }
+    ).webkitSpeechRecognition = undefined;
 
     render(<ChatPanel projectId="proj_1" />);
 
@@ -262,7 +279,9 @@ describe("ChatPanel voice live transcript", () => {
     fireEvent.click(voiceButton);
     await waitFor(() => {
       expect(textarea).toBeDisabled();
-      expect(screen.getByRole("button", { name: "结束语音输入" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "结束语音输入" })
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "结束语音输入" }));
@@ -275,7 +294,8 @@ describe("ChatPanel voice live transcript", () => {
 
     (window as Window & { SpeechRecognition?: unknown }).SpeechRecognition =
       originalSpeech;
-    (window as Window & { webkitSpeechRecognition?: unknown })
-      .webkitSpeechRecognition = originalWebkit;
+    (
+      window as Window & { webkitSpeechRecognition?: unknown }
+    ).webkitSpeechRecognition = originalWebkit;
   });
 });

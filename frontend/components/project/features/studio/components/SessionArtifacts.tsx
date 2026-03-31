@@ -255,4 +255,3 @@ export function SessionArtifacts({
     </motion.div>
   );
 }
-

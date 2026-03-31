@@ -152,7 +152,9 @@ export function StudioPanelContainer({
   const [isArchiveHistoryPanelOpen, setIsArchiveHistoryPanelOpen] =
     useState(false);
   const [managedToolRunSeedByType, setManagedToolRunSeedByType] = useState<
-    Partial<Record<StudioToolKey, { runId: string | null; sessionId: string | null }>>
+    Partial<
+      Record<StudioToolKey, { runId: string | null; sessionId: string | null }>
+    >
   >({});
 
   const isExpanded = layoutMode === "expanded";
@@ -175,7 +177,8 @@ export function StudioPanelContainer({
   const hasHistory = groupedHistory.length > 0;
   const seededRunIdForManagedTool = useMemo(() => {
     if (!expandedTool || expandedTool === "ppt") return null;
-    const explicitSeed = managedToolRunSeedByType[expandedTool as StudioToolKey];
+    const explicitSeed =
+      managedToolRunSeedByType[expandedTool as StudioToolKey];
     if (
       explicitSeed?.sessionId === activeSessionId &&
       typeof explicitSeed.runId === "string" &&
@@ -721,7 +724,9 @@ export function StudioPanelContainer({
                 let runId: string | null = null;
                 const liveStoreState = useProjectStore.getState();
                 const liveSessionId =
-                  liveStoreState.activeSessionId ?? activeSessionId ?? undefined;
+                  liveStoreState.activeSessionId ??
+                  activeSessionId ??
+                  undefined;
                 const liveRunId = liveStoreState.activeRunId ?? undefined;
                 const executeResponse = await studioCardsApi.execute(
                   "courseware_ppt",
@@ -730,9 +735,7 @@ export function StudioPanelContainer({
                     client_session_id: liveSessionId,
                     run_id: liveRunId,
                     rag_source_ids:
-                      selectedFileIds.length > 0
-                        ? selectedFileIds
-                        : undefined,
+                      selectedFileIds.length > 0 ? selectedFileIds : undefined,
                     config: {
                       template: "default",
                       pages: Number(config.pageCount) || 15,
@@ -752,11 +755,14 @@ export function StudioPanelContainer({
                     string,
                     unknown
                   >) ?? {};
-                sessionId = extractSessionIdFromExecutionResult(executionResult);
+                sessionId =
+                  extractSessionIdFromExecutionResult(executionResult);
                 runId = extractRunIdFromExecutionResult(executionResult);
 
                 if (!sessionId) {
-                  throw new Error("Missing session_id in courseware execution result");
+                  throw new Error(
+                    "Missing session_id in courseware execution result"
+                  );
                 }
 
                 if (sessionId) {

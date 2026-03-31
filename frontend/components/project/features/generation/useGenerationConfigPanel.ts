@@ -30,9 +30,7 @@ function extractKeywords(input: string): string[] {
 }
 
 function uniqueNonEmpty(items: string[]): string[] {
-  return Array.from(
-    new Set(items.map((item) => item.trim()).filter(Boolean))
-  );
+  return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
 }
 
 function pickOne<T>(items: T[], fallback: T): T {
@@ -125,10 +123,7 @@ export function useGenerationConfigPanel({
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
-  const {
-    error: notifyError,
-    info: notifyInfo,
-  } = useNotification();
+  const { error: notifyError, info: notifyInfo } = useNotification();
 
   const {
     project,
@@ -399,7 +394,8 @@ export function useGenerationConfigPanel({
             if (state === "FAILED") {
               notifyError(
                 "Outline generation failed",
-                latestSession?.session?.state_reason || "Please try again later."
+                latestSession?.session?.state_reason ||
+                  "Please try again later."
               );
               break;
             }

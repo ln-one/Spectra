@@ -111,8 +111,7 @@ export function WordToolPanel({
     if (flowContext?.capabilityStatus !== "backend_ready") return;
     const latestArtifact = flowContext?.latestArtifacts?.[0];
     const previewArtifactId =
-      flowContext?.resolvedArtifact?.artifactId ??
-      latestArtifact?.artifactId;
+      flowContext?.resolvedArtifact?.artifactId ?? latestArtifact?.artifactId;
     const previewRunId = latestArtifact?.runId ?? null;
     if (!previewArtifactId) return;
 

@@ -41,7 +41,10 @@ function formatStudioTurnError(error: unknown): string {
       typeof details.failure_reason === "string"
         ? String(details.failure_reason)
         : null;
-    const hints = [phase ? `phase=${phase}` : "", reason ? `reason=${reason}` : ""]
+    const hints = [
+      phase ? `phase=${phase}` : "",
+      reason ? `reason=${reason}` : "",
+    ]
       .filter(Boolean)
       .join(", ");
     return hints ? `[${code}] ${message} (${hints})` : `[${code}] ${message}`;
