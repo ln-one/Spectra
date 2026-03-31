@@ -159,9 +159,7 @@ def freeze_baseline(
             ),
             "explainability_rate_min_delta": guardrails.explainability_rate_min_delta,
             "continuity_rate_min_delta": guardrails.continuity_rate_min_delta,
-            "fallback_hit_rate_min_delta": (
-                guardrails.fallback_hit_rate_min_delta
-            ),
+            "fallback_hit_rate_min_delta": (guardrails.fallback_hit_rate_min_delta),
             "explainability_rate_hard_floor": (
                 guardrails.explainability_rate_hard_floor
             ),
@@ -671,15 +669,9 @@ def main() -> int:
             ),
             explainability_rate_min_delta=args.explainability_rate_min_delta,
             continuity_rate_min_delta=args.continuity_rate_min_delta,
-            fallback_hit_rate_min_delta=(
-                args.fallback_hit_rate_min_delta
-            ),
-            explainability_rate_hard_floor=(
-                args.explainability_rate_hard_floor
-            ),
-            continuity_rate_hard_floor=(
-                args.continuity_rate_hard_floor
-            ),
+            fallback_hit_rate_min_delta=(args.fallback_hit_rate_min_delta),
+            explainability_rate_hard_floor=(args.explainability_rate_hard_floor),
+            continuity_rate_hard_floor=(args.continuity_rate_hard_floor),
         )
         payload = freeze_baseline(
             result_path=Path(args.result),
@@ -817,23 +809,17 @@ def main() -> int:
                 fallback_hit_rate_min_delta=(
                     args.fallback_hit_rate_min_delta
                     if args.fallback_hit_rate_min_delta is not None
-                    else baseline_guardrails.get(
-                        "fallback_hit_rate_min_delta", -0.05
-                    )
+                    else baseline_guardrails.get("fallback_hit_rate_min_delta", -0.05)
                 ),
                 explainability_rate_hard_floor=(
                     args.explainability_rate_hard_floor
                     if args.explainability_rate_hard_floor is not None
-                    else baseline_guardrails.get(
-                        "explainability_rate_hard_floor", 0.95
-                    )
+                    else baseline_guardrails.get("explainability_rate_hard_floor", 0.95)
                 ),
                 continuity_rate_hard_floor=(
                     args.continuity_rate_hard_floor
                     if args.continuity_rate_hard_floor is not None
-                    else baseline_guardrails.get(
-                        "continuity_rate_hard_floor", 0.95
-                    )
+                    else baseline_guardrails.get("continuity_rate_hard_floor", 0.95)
                 ),
             )
 
