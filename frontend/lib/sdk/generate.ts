@@ -35,10 +35,16 @@ export type GenerationSessionResponse =
 export type GenerationEvent = components["schemas"]["GenerationEventTarget"];
 export type ConfirmOutlineRequest =
   components["schemas"]["ConfirmOutlineRequest"];
+export type ConfirmOutlineRequestInput = ConfirmOutlineRequest & {
+  run_id?: string;
+};
 export type ConfirmOutlineResponse =
   components["schemas"]["ConfirmOutlineResponse"];
 export type RedraftOutlineRequest =
   components["schemas"]["RedraftOutlineRequest"];
+export type RedraftOutlineRequestInput = RedraftOutlineRequest & {
+  run_id?: string | null;
+};
 export type RedraftOutlineResponse =
   components["schemas"]["RedraftOutlineResponse"];
 export type UpdateOutlineRequest =
@@ -296,7 +302,7 @@ export const generateApi = {
 
   async confirmOutline(
     sessionId: string,
-    data?: ConfirmOutlineRequest
+    data?: ConfirmOutlineRequestInput
   ): Promise<ConfirmOutlineResponse> {
     const headers = withIdempotency({}, true);
     const result = await sdkClient.POST(
@@ -312,7 +318,7 @@ export const generateApi = {
 
   async redraftOutline(
     sessionId: string,
-    data: RedraftOutlineRequest
+    data: RedraftOutlineRequestInput
   ): Promise<RedraftOutlineResponse> {
     const headers = withIdempotency({}, true);
     const result = await sdkClient.POST(

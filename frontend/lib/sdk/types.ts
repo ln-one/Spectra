@@ -4257,7 +4257,7 @@ export interface operations {
       query?: {
         /** @description 指定预览的成果 ID（可选） */
         artifact_id?: string;
-        /** @description 鎸囧畾杩愯 ID锛堝彲閫夛級 */
+        /** @description 指定运行 ID（可选） */
         run_id?: string;
       };
       header?: {
@@ -4288,7 +4288,7 @@ export interface operations {
   postGenerateSessionsBySessionIdPreviewModify: {
     parameters: {
       query?: {
-        /** @description 鎸囧畾杩愯 ID锛堝彲閫夛級 */
+        /** @description 指定运行 ID（可选） */
         run_id?: string;
       };
       header?: {
@@ -4359,7 +4359,7 @@ export interface operations {
   postGenerateSessionsBySessionIdPreviewExport: {
     parameters: {
       query?: {
-        /** @description 鎸囧畾杩愯 ID锛堝彲閫夛級 */
+        /** @description 指定运行 ID（可选） */
         run_id?: string;
       };
       header?: {

@@ -63,6 +63,7 @@ export interface StudioCardExecutionPreviewRequest {
   source_artifact_id?: string;
   rag_source_ids?: string[];
   client_session_id?: string;
+  run_id?: string;
 }
 
 export interface StudioCardRefineRequest {
@@ -193,6 +194,23 @@ export const studioCardsApi = {
     return parseResponse<
       ApiEnvelope<{ execution_result: Record<string, unknown> }>
     >(response, "执行 Studio 卡片失败");
+  },
+
+  async createDraft(
+    cardId: string,
+    body: StudioCardExecutionPreviewRequest
+  ): Promise<ApiEnvelope<{ execution_result: Record<string, unknown> }>> {
+    const response = await apiFetch(
+      `/api/v1/generate/studio-cards/${encodeURIComponent(cardId)}/draft`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    return parseResponse<
+      ApiEnvelope<{ execution_result: Record<string, unknown> }>
+    >(response, "创建 Studio 卡片草稿失败");
   },
 
   async refine(

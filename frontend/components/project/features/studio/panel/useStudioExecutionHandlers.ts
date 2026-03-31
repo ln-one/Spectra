@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { generateApi, studioCardsApi } from "@/lib/sdk";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import { ApiError } from "@/lib/sdk/client";
 import type {
@@ -15,6 +15,7 @@ interface UseStudioExecutionHandlersArgs {
   project: { id: string } | null;
   expandedTool: GenerationToolType | null;
   currentCardId: string | null;
+  seedRunId: string | null;
   currentToolDraft: ToolDraftState;
   selectedSourceId: string | null;
   selectedFileIds: string[];
@@ -27,7 +28,6 @@ interface UseStudioExecutionHandlersArgs {
   hasSourceBinding: boolean;
   canRefine: boolean;
   setActiveSessionId: (sessionId: string | null) => void;
-  setActiveRunId: (runId: string | null) => void;
   fetchArtifactHistory: (
     projectId: string,
     sessionId: string | null
@@ -99,6 +99,7 @@ export function useStudioExecutionHandlers({
   project,
   expandedTool,
   currentCardId,
+  seedRunId,
   currentToolDraft,
   selectedSourceId,
   selectedFileIds,
@@ -111,15 +112,41 @@ export function useStudioExecutionHandlers({
   hasSourceBinding,
   canRefine,
   setActiveSessionId,
-  setActiveRunId,
   fetchArtifactHistory,
   focusChatComposer,
   syncStudioChatContextByStep,
   upsertCurrentCardSources,
   appendRuntimeArtifact,
 }: UseStudioExecutionHandlersArgs) {
-  const [isStudioActionRunning, setIsStudioActionRunning] = useState(false);
+  const [runningActionsByCardId, setRunningActionsByCardId] = useState<
+    Record<string, number>
+  >({});
   const artifactRefreshTimersRef = useRef<number[]>([]);
+  const draftRunIdRef = useRef<string | null>(null);
+  const startCardAction = useCallback((cardId: string) => {
+    setRunningActionsByCardId((prev) => ({
+      ...prev,
+      [cardId]: (prev[cardId] ?? 0) + 1,
+    }));
+  }, []);
+  const endCardAction = useCallback((cardId: string) => {
+    setRunningActionsByCardId((prev) => {
+      const current = prev[cardId] ?? 0;
+      if (current <= 1) {
+        const next = { ...prev };
+        delete next[cardId];
+        return next;
+      }
+      return {
+        ...prev,
+        [cardId]: current - 1,
+      };
+    });
+  }, []);
+  const isStudioActionRunning = useMemo(() => {
+    if (!currentCardId) return false;
+    return (runningActionsByCardId[currentCardId] ?? 0) > 0;
+  }, [currentCardId, runningActionsByCardId]);
 
   const scheduleArtifactRefresh = useCallback(
     (projectId: string, sessionId: string | null) => {
@@ -147,6 +174,10 @@ export function useStudioExecutionHandlers({
       artifactRefreshTimersRef.current = [];
     };
   }, []);
+
+  useEffect(() => {
+    draftRunIdRef.current = seedRunId ?? null;
+  }, [activeSessionId, currentCardId, project?.id, seedRunId]);
 
   const buildStudioExecutionRequest = useCallback(() => {
     if (!project || !currentCardId) return null;
@@ -181,13 +212,11 @@ export function useStudioExecutionHandlers({
   }, [activeSessionId]);
 
   const handleStudioLoadSources = useCallback(async () => {
-    if (!project || !currentCardId || isStudioActionRunning) return;
+    const cardId = currentCardId;
+    if (!project || !cardId || isStudioActionRunning) return;
     try {
-      setIsStudioActionRunning(true);
-      const response = await studioCardsApi.getSources(
-        currentCardId,
-        project.id
-      );
+      startCardAction(cardId);
+      const response = await studioCardsApi.getSources(cardId, project.id);
       const sources = (response?.data?.sources ?? []).map((item) => ({
         id: item.id,
         title: item.title,
@@ -206,12 +235,20 @@ export function useStudioExecutionHandlers({
         variant: "destructive",
       });
     } finally {
-      setIsStudioActionRunning(false);
+      endCardAction(cardId);
     }
-  }, [currentCardId, isStudioActionRunning, project, upsertCurrentCardSources]);
+  }, [
+    currentCardId,
+    endCardAction,
+    isStudioActionRunning,
+    project,
+    startCardAction,
+    upsertCurrentCardSources,
+  ]);
 
   const handleStudioPreviewExecution = useCallback(async () => {
-    if (!currentCardId || isStudioActionRunning) return;
+    const cardId = currentCardId;
+    if (!cardId || isStudioActionRunning) return;
     const requestBody = buildStudioExecutionRequest();
     if (!requestBody) return;
     if (
@@ -226,9 +263,9 @@ export function useStudioExecutionHandlers({
       return;
     }
     try {
-      setIsStudioActionRunning(true);
+      startCardAction(cardId);
       const response = await studioCardsApi.getExecutionPreview(
-        currentCardId,
+        cardId,
         requestBody
       );
       if (response?.data?.execution_preview) {
@@ -259,13 +296,15 @@ export function useStudioExecutionHandlers({
         variant: "destructive",
       });
     } finally {
-      setIsStudioActionRunning(false);
+      endCardAction(cardId);
     }
   }, [
     buildStudioExecutionRequest,
     currentCardId,
     currentToolDraft,
+    endCardAction,
     isStudioActionRunning,
+    startCardAction,
   ]);
 
   const resolvePptRunId = useCallback(
@@ -281,9 +320,147 @@ export function useStudioExecutionHandlers({
     [activeRunId, generationSession]
   );
 
+  const handleStudioPrepareDraft =
+    useCallback(async (): Promise<StudioExecutionResult> => {
+      if (!project || !currentCardId) {
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      if (!ensureActiveSession()) {
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      if (isProtocolPending) {
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      if (requiresSourceArtifact && !hasSourceBinding) {
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      const requestBody = buildStudioExecutionRequest();
+      if (!requestBody) {
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      if (
+        isRestrictedRagModeEnabled(currentToolDraft) &&
+        requestBody.rag_source_ids.length === 0
+      ) {
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      }
+      try {
+        startCardAction(currentCardId);
+        const response = await studioCardsApi.createDraft(
+          currentCardId,
+          requestBody
+        );
+        const executionResult = response?.data?.execution_result ?? {};
+        const resourceKind =
+          typeof executionResult.resource_kind === "string"
+            ? executionResult.resource_kind
+            : null;
+        const session =
+          typeof executionResult.session === "object" &&
+          executionResult.session !== null
+            ? (executionResult.session as Record<string, unknown>)
+            : null;
+        const sessionId =
+          (session?.session_id as string | undefined) ||
+          (session?.id as string | undefined) ||
+          null;
+        const run =
+          typeof executionResult.run === "object" &&
+          executionResult.run !== null
+            ? (executionResult.run as Record<string, unknown>)
+            : null;
+        const runId =
+          (run?.run_id as string | undefined) ||
+          (run?.id as string | undefined) ||
+          null;
+        const runNo = resolveExecutionRunNo(run);
+        if (sessionId) setActiveSessionId(sessionId);
+        draftRunIdRef.current = runId ?? null;
+        return {
+          ok: true,
+          sessionId,
+          effectiveSessionId: sessionId ?? activeSessionId ?? null,
+          resourceKind,
+          runId,
+          runNo,
+        };
+      } catch (error) {
+        toast({
+          title: "Create draft failed",
+          description: formatStudioExecutionError(error),
+          variant: "destructive",
+        });
+        return {
+          ok: false,
+          sessionId: null,
+          effectiveSessionId: activeSessionId ?? null,
+          resourceKind: null,
+          runId: null,
+          runNo: null,
+        };
+      } finally {
+        endCardAction(currentCardId);
+      }
+    }, [
+      activeSessionId,
+      buildStudioExecutionRequest,
+      currentCardId,
+      currentToolDraft,
+      endCardAction,
+      ensureActiveSession,
+      hasSourceBinding,
+      isProtocolPending,
+      project,
+      requiresSourceArtifact,
+      setActiveSessionId,
+      startCardAction,
+    ]);
+
   const handleStudioExecute =
     useCallback(async (): Promise<StudioExecutionResult> => {
-      if (!project || !currentCardId || isStudioActionRunning) {
+      if (!project || !currentCardId) {
         return {
           ok: false,
           sessionId: null,
@@ -365,11 +542,16 @@ export function useStudioExecutionHandlers({
         };
       }
 
+      const requestRunId = draftRunIdRef.current ?? null;
       try {
-        setIsStudioActionRunning(true);
+        startCardAction(currentCardId);
+        const requestPayload = {
+          ...requestBody,
+          run_id: requestRunId ?? undefined,
+        };
         const response = await studioCardsApi.execute(
           currentCardId,
-          requestBody
+          requestPayload
         );
         const executionResult = response?.data?.execution_result ?? {};
         const resourceKind =
@@ -405,7 +587,9 @@ export function useStudioExecutionHandlers({
         }
 
         if (sessionId) setActiveSessionId(sessionId);
-        if (runId) setActiveRunId(runId);
+        if (runId && (requestRunId === null || draftRunIdRef.current === requestRunId)) {
+          draftRunIdRef.current = runId;
+        }
 
         const effectiveSessionId = sessionId ?? activeSessionId;
 
@@ -456,42 +640,6 @@ export function useStudioExecutionHandlers({
         await fetchArtifactHistory(project.id, effectiveSessionId);
         scheduleArtifactRefresh(project.id, effectiveSessionId);
 
-        if (expandedTool === "word" && sessionId) {
-          void (async () => {
-            let hasConfirmedOutline = false;
-            for (let index = 0; index < 28; index += 1) {
-              try {
-                const sessionPayload = await generateApi.getSession(sessionId);
-                const sessionState = (
-                  (sessionPayload?.data as { session?: { state?: string } })
-                    ?.session?.state ??
-                  (sessionPayload?.data as { state?: string })?.state ??
-                  ""
-                ).toUpperCase();
-                if (
-                  !hasConfirmedOutline &&
-                  sessionState === "AWAITING_OUTLINE_CONFIRM"
-                ) {
-                  await generateApi.confirmOutline(sessionId, {
-                    continue_from_retrieval: false,
-                  });
-                  hasConfirmedOutline = true;
-                  continue;
-                }
-                if (sessionState === "SUCCESS" || sessionState === "FAILED") {
-                  break;
-                }
-              } catch {
-                // Ignore transient polling failures and keep retrying.
-              }
-              await new Promise<void>((resolve) => {
-                window.setTimeout(resolve, 1800);
-              });
-            }
-            await fetchArtifactHistory(project.id, sessionId);
-          })();
-        }
-
         toast({
           title: "Studio execution succeeded",
           description:
@@ -516,34 +664,36 @@ export function useStudioExecutionHandlers({
           description: formatStudioExecutionError(error),
           variant: "destructive",
         });
+        const fallbackRunId = requestRunId ?? activeRunId ?? null;
         return {
           ok: false,
           sessionId: null,
           effectiveSessionId: activeSessionId ?? null,
           resourceKind: null,
-          runId: null,
+          runId: fallbackRunId,
           runNo: null,
         };
       } finally {
-        setIsStudioActionRunning(false);
+        endCardAction(currentCardId);
       }
     }, [
       activeSessionId,
+      activeRunId,
       appendRuntimeArtifact,
       buildStudioExecutionRequest,
       currentCardId,
       currentToolDraft,
+      endCardAction,
       ensureActiveSession,
       expandedTool,
       fetchArtifactHistory,
       hasSourceBinding,
       isProtocolPending,
-      isStudioActionRunning,
       project,
       requiresSourceArtifact,
       scheduleArtifactRefresh,
-      setActiveRunId,
       setActiveSessionId,
+      startCardAction,
     ]);
 
   const handleOpenChatRefine = useCallback(() => {
@@ -592,6 +742,7 @@ export function useStudioExecutionHandlers({
     isStudioActionRunning,
     handleStudioLoadSources,
     handleStudioPreviewExecution,
+    handleStudioPrepareDraft,
     handleStudioExecute,
     handleOpenChatRefine,
     openPptPreviewPage,

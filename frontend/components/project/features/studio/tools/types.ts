@@ -50,6 +50,8 @@ export interface ToolArtifactPreviewItem {
   title: string;
   status: "completed" | "failed" | "processing" | "pending";
   createdAt: string;
+  runId?: string | null;
+  runNo?: number | null;
 }
 
 export interface ToolFlowContext {
@@ -73,6 +75,7 @@ export interface ToolFlowContext {
   onSelectedSourceChange?: (sourceId: string | null) => void;
   onLoadSources?: () => Promise<void> | void;
   onPreviewExecution?: () => Promise<void> | void;
+  onPrepareGenerate?: () => Promise<boolean> | boolean;
   onExecute?: () => Promise<boolean> | boolean;
   onRefine?: () => Promise<void> | void;
   onExportArtifact?: (artifactId: string) => Promise<void> | void;

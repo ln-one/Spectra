@@ -5,7 +5,6 @@ import { LayoutGroup } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Card, CardContent } from "@/components/ui/card";
-import { ApiError } from "@/lib/sdk/client";
 import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
@@ -47,32 +46,53 @@ function extractSessionIdFromExecutionResult(
 function extractRunIdFromExecutionResult(
   executionResult: Record<string, unknown>
 ): string | null {
+  const directRunId = executionResult.run_id;
+  if (typeof directRunId === "string" && directRunId.trim()) {
+    return directRunId;
+  }
+
   const run =
     typeof executionResult.run === "object" && executionResult.run !== null
       ? (executionResult.run as Record<string, unknown>)
       : null;
-  return (
+  const runRunId =
     (typeof run?.run_id === "string" && run.run_id) ||
     (typeof run?.id === "string" && run.id) ||
-    null
-  );
-}
+    null;
+  if (runRunId && runRunId.trim()) {
+    return runRunId;
+  }
 
-function shouldFallbackToLegacyPptStart(error: unknown): boolean {
-  if (error instanceof ApiError && error.status === 404) {
-    return true;
+  const currentRun =
+    typeof executionResult.current_run === "object" &&
+    executionResult.current_run !== null
+      ? (executionResult.current_run as Record<string, unknown>)
+      : null;
+  const currentRunId =
+    (typeof currentRun?.run_id === "string" && currentRun.run_id) ||
+    (typeof currentRun?.id === "string" && currentRun.id) ||
+    null;
+  if (currentRunId && currentRunId.trim()) {
+    return currentRunId;
   }
-  if (!(error instanceof ApiError)) {
-    return false;
-  }
-  const code = String(error.code || "");
-  const message = String(error.message || "");
-  const reason =
-    typeof error.details?.reason === "string" ? error.details.reason : "";
-  const readiness =
-    typeof error.details?.readiness === "string" ? error.details.readiness : "";
-  const signal = `${code} ${message} ${reason} ${readiness}`.toLowerCase();
-  return signal.includes("protocol_pending");
+
+  const session =
+    typeof executionResult.session === "object" &&
+    executionResult.session !== null
+      ? (executionResult.session as Record<string, unknown>)
+      : null;
+  const sessionCurrentRun =
+    typeof session?.current_run === "object" && session.current_run !== null
+      ? (session.current_run as Record<string, unknown>)
+      : null;
+  const sessionCurrentRunId =
+    (typeof sessionCurrentRun?.run_id === "string" &&
+      sessionCurrentRun.run_id) ||
+    (typeof sessionCurrentRun?.id === "string" && sessionCurrentRun.id) ||
+    null;
+  return sessionCurrentRunId && sessionCurrentRunId.trim()
+    ? sessionCurrentRunId
+    : null;
 }
 
 export function StudioPanelContainer({
@@ -96,7 +116,6 @@ export function StudioPanelContainer({
     exportArtifact,
     setLayoutMode,
     setExpandedTool,
-    startGeneration,
     setStudioChatContext,
     pushStudioHintMessage,
     focusChatComposer,
@@ -116,7 +135,6 @@ export function StudioPanelContainer({
       exportArtifact: state.exportArtifact,
       setLayoutMode: state.setLayoutMode,
       setExpandedTool: state.setExpandedTool,
-      startGeneration: state.startGeneration,
       setStudioChatContext: state.setStudioChatContext,
       pushStudioHintMessage: state.pushStudioHintMessage,
       focusChatComposer: state.focusChatComposer,
@@ -133,6 +151,9 @@ export function StudioPanelContainer({
   const [pptResumeSignal, setPptResumeSignal] = useState(0);
   const [isArchiveHistoryPanelOpen, setIsArchiveHistoryPanelOpen] =
     useState(false);
+  const [managedToolRunSeedByType, setManagedToolRunSeedByType] = useState<
+    Partial<Record<StudioToolKey, { runId: string | null; sessionId: string | null }>>
+  >({});
 
   const isExpanded = layoutMode === "expanded";
   const {
@@ -152,6 +173,20 @@ export function StudioPanelContainer({
     project?.id ?? null
   );
   const hasHistory = groupedHistory.length > 0;
+  const seededRunIdForManagedTool = useMemo(() => {
+    if (!expandedTool || expandedTool === "ppt") return null;
+    const explicitSeed = managedToolRunSeedByType[expandedTool as StudioToolKey];
+    if (
+      explicitSeed?.sessionId === activeSessionId &&
+      typeof explicitSeed.runId === "string" &&
+      explicitSeed.runId.trim()
+    ) {
+      return explicitSeed.runId;
+    }
+    return null;
+  }, [activeSessionId, expandedTool, managedToolRunSeedByType]);
+  const managedActiveRunId =
+    expandedTool && expandedTool !== "ppt" ? seededRunIdForManagedTool : null;
 
   useEffect(() => {
     if (!expandedTool) return;
@@ -204,6 +239,7 @@ export function StudioPanelContainer({
   const capability = useStudioCapabilityState({
     projectId: project?.id ?? null,
     activeSessionId,
+    activeRunId: managedActiveRunId,
     expandedTool: (expandedTool as GenerationToolType | null) ?? null,
     artifactHistoryByTool,
     draftSourceArtifactId,
@@ -271,6 +307,7 @@ export function StudioPanelContainer({
     project: project ? { id: project.id } : null,
     expandedTool: (expandedTool as GenerationToolType | null) ?? null,
     currentCardId: capability.currentCardId,
+    seedRunId: seededRunIdForManagedTool,
     currentToolDraft,
     selectedSourceId: capability.selectedSourceId,
     selectedFileIds,
@@ -283,7 +320,6 @@ export function StudioPanelContainer({
     hasSourceBinding: capability.hasSourceBinding,
     canRefine: canRefineBase,
     setActiveSessionId,
-    setActiveRunId,
     fetchArtifactHistory,
     focusChatComposer,
     syncStudioChatContextByStep,
@@ -293,10 +329,9 @@ export function StudioPanelContainer({
 
   const canExecute =
     Boolean(capability.currentCardId) &&
-    !execution.isStudioActionRunning &&
     !capability.isProtocolPending &&
     (!capability.requiresSourceArtifact || capability.hasSourceBinding);
-  const canRefine = canRefineBase && !execution.isStudioActionRunning;
+  const canRefine = canRefineBase;
 
   const requestedHistoryStep = expandedTool
     ? (requestedStepByTool[expandedTool as GenerationToolType] ?? null)
@@ -328,7 +363,6 @@ export function StudioPanelContainer({
     isExpanded,
     expandedTool: (expandedTool as GenerationToolType | null) ?? null,
     activeSessionId,
-    currentToolDraft,
     resolvePptRunId: execution.resolvePptRunId,
     openPptPreviewPage: execution.openPptPreviewPage,
     setLayoutMode,
@@ -339,6 +373,15 @@ export function StudioPanelContainer({
     bumpPptResumeSignal: () => setPptResumeSignal((prev) => prev + 1),
     setHoveredToolId,
     setStudioChatContext,
+    setManagedToolRunSeed: (tool, runId, sessionId) => {
+      setManagedToolRunSeedByType((prev) => ({
+        ...prev,
+        [tool]: {
+          runId,
+          sessionId: sessionId ?? activeSessionId ?? null,
+        },
+      }));
+    },
     onToolClick,
     trackStep,
     requestStep,
@@ -461,6 +504,8 @@ export function StudioPanelContainer({
       title: item.title,
       status: item.status,
       createdAt: item.createdAt,
+      runId: item.runId ?? null,
+      runNo: item.runNo ?? null,
     })),
     onStepChange: historyHandlers.handleManagedToolStepChange,
     onSelectedSourceChange: (sourceId) => {
@@ -468,21 +513,57 @@ export function StudioPanelContainer({
     },
     onLoadSources: () => execution.handleStudioLoadSources(),
     onPreviewExecution: () => execution.handleStudioPreviewExecution(),
+    onPrepareGenerate: async () => {
+      if (!expandedTool || expandedTool === "ppt") return false;
+      const toolType = expandedTool as GenerationToolType;
+      const contextSessionId = activeSessionId ?? null;
+      const result = await execution.handleStudioPrepareDraft();
+      if (!result.ok) return false;
+      const resolvedSessionId = result.effectiveSessionId ?? contextSessionId;
+      if (!resolvedSessionId) return false;
+
+      recordWorkflowEntry({
+        toolType,
+        title: TOOL_LABELS[toolType] + " - Draft",
+        status: "draft",
+        step: "generate",
+        sessionId: resolvedSessionId,
+        runId: result.runId ?? undefined,
+        runNo: result.runNo ?? undefined,
+        titleSource: JSON.stringify(currentToolDraft),
+        toolLabel: TOOL_LABELS[toolType],
+      });
+      setManagedToolRunSeedByType((prev) => ({
+        ...prev,
+        [toolType as StudioToolKey]: {
+          runId: result.runId ?? null,
+          sessionId: resolvedSessionId,
+        },
+      }));
+      syncStudioChatContextByStep(toolType, "generate", resolvedSessionId);
+      return true;
+    },
     onExecute: async () => {
       if (!expandedTool || expandedTool === "ppt") return false;
       const toolType = expandedTool as GenerationToolType;
       const contextSessionId = activeSessionId ?? null;
-      recordWorkflowEntry({
-        toolType,
-        title: TOOL_LABELS[toolType] + " - Generating",
-        status: "processing",
-        step: "generate",
-        sessionId: contextSessionId,
-        titleSource: JSON.stringify(currentToolDraft),
-        toolLabel: TOOL_LABELS[toolType],
-      });
-      pushStudioStageHint(toolType, "generate", contextSessionId);
+      const seededRun =
+        managedToolRunSeedByType[toolType as StudioToolKey] ?? null;
+      const seededRunId =
+        seededRun?.sessionId === contextSessionId ? seededRun.runId : null;
       syncStudioChatContextByStep(toolType, "generate", contextSessionId);
+      if (contextSessionId) {
+        recordWorkflowEntry({
+          toolType,
+          title: TOOL_LABELS[toolType] + " - Generating",
+          status: "processing",
+          step: "preview",
+          sessionId: contextSessionId,
+          runId: seededRunId ?? undefined,
+          titleSource: JSON.stringify(currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
+        });
+      }
       const result = await execution.handleStudioExecute();
       if (result.ok) {
         const resolvedSessionId = result.effectiveSessionId ?? contextSessionId;
@@ -493,15 +574,40 @@ export function StudioPanelContainer({
             status: "previewing",
             step: "preview",
             sessionId: resolvedSessionId,
-            runId: result.runId ?? undefined,
+            runId: result.runId ?? seededRunId ?? undefined,
             runNo: result.runNo ?? undefined,
             titleSource: JSON.stringify(currentToolDraft),
             toolLabel: TOOL_LABELS[toolType],
           });
+          setManagedToolRunSeedByType((prev) => ({
+            ...prev,
+            [toolType as StudioToolKey]: {
+              runId: result.runId ?? null,
+              sessionId: resolvedSessionId,
+            },
+          }));
           syncStudioChatContextByStep(toolType, "preview", resolvedSessionId);
           pushStudioStageHint(toolType, "preview", resolvedSessionId);
         }
         return true;
+      }
+      const fallbackRunId = result.runId ?? seededRunId ?? null;
+      if (contextSessionId && fallbackRunId) {
+        syncStudioChatContextByStep(toolType, "preview", contextSessionId);
+        pushStudioStageHint(toolType, "preview", contextSessionId);
+        return true;
+      }
+      if (contextSessionId) {
+        recordWorkflowEntry({
+          toolType,
+          title: TOOL_LABELS[toolType] + " - Failed",
+          status: "failed",
+          step: "generate",
+          sessionId: contextSessionId,
+          runId: seededRunId ?? undefined,
+          titleSource: JSON.stringify(currentToolDraft),
+          toolLabel: TOOL_LABELS[toolType],
+        });
       }
       return false;
     },
@@ -547,15 +653,14 @@ export function StudioPanelContainer({
               onPptWorkflowStageChange={(stage, payload) => {
                 if (stage === "config") {
                   trackStep("ppt", "config");
-                  acknowledgeStep("ppt", "config");
+                  acknowledgeStep("ppt");
                   return;
                 }
                 if (stage === "generating_outline") {
                   const resolvedSessionId =
                     payload?.sessionId ?? activeSessionId ?? null;
                   if (!resolvedSessionId) return;
-                  const runId =
-                    payload?.runId || execution.resolvePptRunId() || undefined;
+                  const runId = payload?.runId || undefined;
                   trackStep("ppt", "outline");
                   acknowledgeStep("ppt", "outline");
                   recordWorkflowEntry({
@@ -577,7 +682,10 @@ export function StudioPanelContainer({
                   trackStep("ppt", "preview");
                   acknowledgeStep("ppt", "preview");
                   const runId =
-                    payload?.runId || execution.resolvePptRunId() || undefined;
+                    payload?.runId ||
+                    useProjectStore.getState().activeRunId ||
+                    execution.resolvePptRunId() ||
+                    undefined;
                   recordWorkflowEntry({
                     toolType: "ppt",
                     title: "PPT Generating",
@@ -591,8 +699,7 @@ export function StudioPanelContainer({
                 }
                 trackStep("ppt", "outline");
                 acknowledgeStep("ppt", "outline");
-                const runId =
-                  payload?.runId || execution.resolvePptRunId() || undefined;
+                const runId = payload?.runId || undefined;
                 recordWorkflowEntry({
                   toolType: "ppt",
                   title: "PPT Outline Draft",
@@ -610,66 +717,46 @@ export function StudioPanelContainer({
                 );
                 if (!project || !tool) return null;
 
-                const startLegacyGeneration = async () =>
-                  startGeneration(project.id, tool, {
-                    template: "default",
-                    show_page_number: true,
-                    include_animations: false,
-                    include_games: false,
-                    use_text_to_image: false,
-                    pages: Number(config.pageCount) || 15,
-                    audience: "intermediate",
-                    system_prompt_tone: [
-                      `[outline_style=${config.outlineStyle}]`,
-                      config.prompt,
-                      "Keep a clear teaching structure and slide pacing.",
-                    ].join("\n"),
-                  });
-
                 let sessionId: string | null = null;
                 let runId: string | null = null;
-                try {
-                  const executeResponse = await studioCardsApi.execute(
-                    "courseware_ppt",
-                    {
-                      project_id: project.id,
-                      client_session_id: activeSessionId ?? undefined,
-                      rag_source_ids:
-                        selectedFileIds.length > 0
-                          ? selectedFileIds
-                          : undefined,
-                      config: {
-                        template: "default",
-                        pages: Number(config.pageCount) || 15,
-                        audience: "intermediate",
-                        include_animations: false,
-                        include_games: false,
-                        system_prompt_tone: [
-                          `[outline_style=${config.outlineStyle}]`,
-                          config.prompt,
-                          "Keep a clear teaching structure and slide pacing.",
-                        ].join("\n"),
-                      },
-                    }
-                  );
-                  const executionResult =
-                    (executeResponse?.data?.execution_result as Record<
-                      string,
-                      unknown
-                    >) ?? {};
-                  sessionId =
-                    extractSessionIdFromExecutionResult(executionResult);
-                  runId = extractRunIdFromExecutionResult(executionResult);
+                const liveStoreState = useProjectStore.getState();
+                const liveSessionId =
+                  liveStoreState.activeSessionId ?? activeSessionId ?? undefined;
+                const liveRunId = liveStoreState.activeRunId ?? undefined;
+                const executeResponse = await studioCardsApi.execute(
+                  "courseware_ppt",
+                  {
+                    project_id: project.id,
+                    client_session_id: liveSessionId,
+                    run_id: liveRunId,
+                    rag_source_ids:
+                      selectedFileIds.length > 0
+                        ? selectedFileIds
+                        : undefined,
+                    config: {
+                      template: "default",
+                      pages: Number(config.pageCount) || 15,
+                      audience: "intermediate",
+                      include_animations: false,
+                      include_games: false,
+                      system_prompt_tone: [
+                        `[outline_style=${config.outlineStyle}]`,
+                        config.prompt,
+                        "Keep a clear teaching structure and slide pacing.",
+                      ].join("\n"),
+                    },
+                  }
+                );
+                const executionResult =
+                  (executeResponse?.data?.execution_result as Record<
+                    string,
+                    unknown
+                  >) ?? {};
+                sessionId = extractSessionIdFromExecutionResult(executionResult);
+                runId = extractRunIdFromExecutionResult(executionResult);
 
-                  if (!sessionId) {
-                    sessionId = await startLegacyGeneration();
-                  }
-                } catch (error) {
-                  if (shouldFallbackToLegacyPptStart(error)) {
-                    sessionId = await startLegacyGeneration();
-                  } else {
-                    throw error;
-                  }
+                if (!sessionId) {
+                  throw new Error("Missing session_id in courseware execution result");
                 }
 
                 if (sessionId) {

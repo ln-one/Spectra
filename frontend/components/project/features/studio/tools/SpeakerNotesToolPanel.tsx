@@ -241,6 +241,16 @@ export function SpeakerNotesToolPanel({
     }
   };
 
+  const handlePrepareGenerate = async () => {
+    if (!flowContext?.onPrepareGenerate) {
+      setActiveStep("generate");
+      return;
+    }
+    const prepared = await flowContext.onPrepareGenerate();
+    if (!prepared) return;
+    setActiveStep("generate");
+  };
+
   const colors = TOOL_COLORS.summary;
 
   return (
@@ -334,7 +344,9 @@ export function SpeakerNotesToolPanel({
                     Boolean(flowContext?.isLoadingProtocol) ||
                     Boolean(flowContext?.isActionRunning)
                   }
-                  onNext={() => setActiveStep("generate")}
+                  onNext={() => {
+                    void handlePrepareGenerate();
+                  }}
                 />
               ) : null}
 

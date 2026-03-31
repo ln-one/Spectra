@@ -100,6 +100,16 @@ export function AnimationToolPanel({
     }
   };
 
+  const handlePrepareGenerate = async () => {
+    if (!flowContext?.onPrepareGenerate) {
+      setActiveStep("generate");
+      return;
+    }
+    const prepared = await flowContext.onPrepareGenerate();
+    if (!prepared) return;
+    setActiveStep("generate");
+  };
+
   const colors = TOOL_COLORS.animation;
 
   return (
@@ -176,7 +186,9 @@ export function AnimationToolPanel({
                   onSpeedChange={setSpeed}
                   onShowTrailChange={setShowTrail}
                   onSplitViewChange={setSplitView}
-                  onNext={() => setActiveStep("generate")}
+                  onNext={() => {
+                    void handlePrepareGenerate();
+                  }}
                 />
               ) : null}
 

@@ -202,7 +202,7 @@ export const GENERATION_TOOLS: GenerationTool[] = [
   },
   {
     id: "word",
-    name: "教案讲义",
+    name: "教学文档",
     description: "输出教案、讲稿与课堂文档资料",
     icon: "📝",
     type: "word",

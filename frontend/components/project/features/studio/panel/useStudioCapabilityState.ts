@@ -30,6 +30,7 @@ import { buildRuntimeArtifactStorageKey, mergeToolArtifacts } from "./utils";
 interface UseStudioCapabilityStateArgs {
   projectId: string | null;
   activeSessionId: string | null;
+  activeRunId: string | null;
   expandedTool: GenerationToolType | null;
   artifactHistoryByTool: ArtifactHistoryByTool;
   draftSourceArtifactId: string | null;
@@ -38,6 +39,7 @@ interface UseStudioCapabilityStateArgs {
 export function useStudioCapabilityState({
   projectId,
   activeSessionId,
+  activeRunId,
   expandedTool,
   artifactHistoryByTool,
   draftSourceArtifactId,
@@ -87,12 +89,19 @@ export function useStudioCapabilityState({
   const currentToolArtifacts = useMemo(() => {
     if (!expandedToolKey) return [];
     const fromStore = artifactHistoryByTool[expandedToolKey] ?? [];
-    return mergeToolArtifacts(
+    const merged = mergeToolArtifacts(
       expandedToolKey,
       fromStore,
       runtimeArtifactsByTool
     );
-  }, [artifactHistoryByTool, expandedToolKey, runtimeArtifactsByTool]);
+    const normalizedRunId = activeRunId?.trim() || null;
+    if (!normalizedRunId) {
+      return merged;
+    }
+    return merged.filter(
+      (item) => (item.runId?.trim() || null) === normalizedRunId
+    );
+  }, [activeRunId, artifactHistoryByTool, expandedToolKey, runtimeArtifactsByTool]);
 
   const completedPptHistorySources = useMemo<StudioSourceOption[]>(() => {
     if (expandedToolKey !== "summary") return [];

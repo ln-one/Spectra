@@ -164,6 +164,16 @@ export function SimulationToolPanel({
     }
   };
 
+  const handlePrepareGenerate = async () => {
+    if (!flowContext?.onPrepareGenerate) {
+      setActiveStep("generate");
+      return;
+    }
+    const prepared = await flowContext.onPrepareGenerate();
+    if (!prepared) return;
+    setActiveStep("generate");
+  };
+
   const handleSubmitAnswer = async () => {
     const latestArtifactId = flowContext?.latestArtifacts?.[0]?.artifactId;
     const canUseBackendTurn =
@@ -290,7 +300,9 @@ export function SimulationToolPanel({
                   onIntensityChange={setIntensity}
                   onProfileChange={setProfile}
                   onTeacherStrategyChange={setTeacherStrategy}
-                  onNext={() => setActiveStep("generate")}
+                  onNext={() => {
+                    void handlePrepareGenerate();
+                  }}
                 />
               ) : null}
 
