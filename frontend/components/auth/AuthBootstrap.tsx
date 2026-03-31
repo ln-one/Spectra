@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { AUTH_STATE_CHANGE_EVENT, authService, TokenStorage } from "@/lib/auth";
 
 export function AuthBootstrap() {
+  const pathname = usePathname();
   const { user, isLoading, checkAuth, setUser } = useAuthStore();
+  const isAuthRoute = pathname?.startsWith("/auth/");
 
   useEffect(() => {
     let cancelled = false;
-    if (user || isLoading) return;
+    if (isAuthRoute || user || isLoading) return;
 
     const bootstrap = async () => {
       let token = TokenStorage.getAccessToken();
@@ -27,9 +30,13 @@ export function AuthBootstrap() {
     return () => {
       cancelled = true;
     };
-  }, [checkAuth, isLoading, user]);
+  }, [checkAuth, isAuthRoute, isLoading, user]);
 
   useEffect(() => {
+    if (isAuthRoute) {
+      return;
+    }
+
     const syncAuthState = () => {
       const sync = async () => {
         let token = TokenStorage.getAccessToken();
@@ -58,7 +65,7 @@ export function AuthBootstrap() {
       window.removeEventListener(AUTH_STATE_CHANGE_EVENT, syncAuthState);
       window.removeEventListener("storage", syncAuthState);
     };
-  }, [checkAuth, isLoading, setUser, user]);
+  }, [checkAuth, isAuthRoute, isLoading, setUser, user]);
 
   return null;
 }

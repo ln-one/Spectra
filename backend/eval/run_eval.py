@@ -34,6 +34,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import httpx  # noqa: E402
 
 from eval.metrics import EvalResult, compute_metrics  # noqa: E402
+from eval.relevant_chunk_resolver import (  # noqa: E402
+    resolve_dataset_relevant_chunk_ids,
+)
 
 
 def _sha256_file(path: Path) -> str:
@@ -200,6 +203,14 @@ async def run_single_case_via_api(
         payload = _parse_json_safely(resp)
         data = payload.get("data", {}) if isinstance(payload, dict) else {}
         raw_results = data.get("results", []) if isinstance(data, dict) else []
+        final_answer = None
+        if isinstance(data, dict):
+            answer = data.get("answer")
+            fallback_answer = data.get("final_answer")
+            if isinstance(answer, str) and answer.strip():
+                final_answer = answer
+            elif isinstance(fallback_answer, str) and fallback_answer.strip():
+                final_answer = fallback_answer
 
         chunk_ids: list[str] = []
         contents: list[str] = []
@@ -219,6 +230,7 @@ async def run_single_case_via_api(
             retrieved_chunk_ids=chunk_ids,
             retrieved_contents=contents,
             latency_ms=latency_ms,
+            final_answer=final_answer,
         )
     except Exception as e:
         latency_ms = (time.monotonic() - start) * 1000
@@ -230,6 +242,36 @@ async def run_single_case_via_api(
             latency_ms=latency_ms,
             error=str(e),
         )
+
+
+def build_case_output_records(
+    eval_results: list[EvalResult],
+    cases: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    case_map = {case["id"]: case for case in cases}
+    output_cases: list[dict[str, Any]] = []
+
+    for result in eval_results:
+        case = case_map.get(result.case_id, {})
+        output_cases.append(
+            {
+                "id": result.case_id,
+                "query": result.query,
+                "latency_ms": round(result.latency_ms, 2),
+                "retrieved_count": len(result.retrieved_chunk_ids),
+                "retrieved_chunk_ids": result.retrieved_chunk_ids,
+                "retrieved_contents": result.retrieved_contents,
+                "final_answer": result.final_answer,
+                "error": result.error,
+                "required_facts": case.get(
+                    "required_facts", case.get("expected_keywords", [])
+                ),
+                "relevant_chunk_ids": case.get("relevant_chunk_ids", []),
+                "usable_chunk_ids": case.get("usable_chunk_ids", []),
+            }
+        )
+
+    return output_cases
 
 
 async def run_eval(
@@ -252,7 +294,33 @@ async def run_eval(
     for case in cases:
         case.setdefault("project_id", project_id)
 
+    cases, resolution_stats = await resolve_dataset_relevant_chunk_ids(
+        project_id, cases
+    )
+    unresolved_case_ids = [
+        case["id"] for case in cases if not case.get("relevant_chunk_ids")
+    ]
+    unresolved_usable_case_ids = [
+        case["id"] for case in cases if not case.get("usable_chunk_ids")
+    ]
+
     print(f"开始评测：{len(cases)} 条用例，top_k={top_k}")
+    if resolution_stats["resolved_case_count"] > 0:
+        print(
+            "已自动解析 relevant_chunk_ids："
+            f"{resolution_stats['resolved_case_count']} 条用例 / "
+            f"{resolution_stats['resolved_chunk_count']} 个分块"
+        )
+    if resolution_stats.get("resolved_usable_case_count", 0) > 0:
+        print(
+            "已自动解析 usable_chunk_ids："
+            f"{resolution_stats['resolved_usable_case_count']} 条用例 / "
+            f"{resolution_stats['resolved_usable_chunk_count']} 个分块"
+        )
+    if unresolved_case_ids:
+        print(f"仍无 relevant_chunk_ids 的样本：{len(unresolved_case_ids)} 条")
+    if unresolved_usable_case_ids:
+        print(f"仍无 usable_chunk_ids 的样本：{len(unresolved_usable_case_ids)} 条")
     print("-" * 50)
 
     eval_results: list[EvalResult] = []
@@ -310,7 +378,7 @@ async def run_eval(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output = {
         "timestamp": datetime.now().isoformat(),
-        "tool_version": "rag-eval-v1",
+        "tool_version": "rag-eval-v2",
         "project_id": project_id,
         "python_version": sys.version.split()[0],
         "dataset_version": dataset.get("version", "unknown"),
@@ -319,23 +387,33 @@ async def run_eval(
         "top_k": top_k,
         "run_tag": run_tag,
         "metrics": {
+            "rankable_case_count": metrics.rankable_case_count,
+            "rankable_case_coverage_rate": metrics.rankable_case_coverage_rate,
             "keyword_hit_rate": metrics.keyword_hit_rate,
+            "keyword_coverage_rate": metrics.keyword_coverage_rate,
+            "fact_coverage_rate": metrics.fact_coverage_rate,
+            "usable_top1_rate": metrics.usable_top1_rate,
+            "usable_top3_rate": metrics.usable_top3_rate,
+            "distractor_intrusion_rate": metrics.distractor_intrusion_rate,
             "hit_rate_at_k": metrics.hit_rate_at_k,
             "mrr_at_k": metrics.mrr_at_k,
+            "ndcg_at_k": metrics.ndcg_at_k,
             "avg_latency_ms": metrics.avg_latency_ms,
+            "p95_latency_ms": metrics.p95_latency_ms,
             "failure_rate": metrics.failure_rate,
             "failed_case_ids": metrics.failed_case_ids,
+            "resolved_relevant_case_count": resolution_stats["resolved_case_count"],
+            "resolved_relevant_chunk_count": resolution_stats["resolved_chunk_count"],
+            "resolved_usable_case_count": resolution_stats.get(
+                "resolved_usable_case_count", 0
+            ),
+            "resolved_usable_chunk_count": resolution_stats.get(
+                "resolved_usable_chunk_count", 0
+            ),
+            "unresolved_relevant_case_ids": unresolved_case_ids,
+            "unresolved_usable_case_ids": unresolved_usable_case_ids,
         },
-        "cases": [
-            {
-                "id": r.case_id,
-                "query": r.query,
-                "latency_ms": round(r.latency_ms, 2),
-                "retrieved_count": len(r.retrieved_chunk_ids),
-                "error": r.error,
-            }
-            for r in eval_results
-        ],
+        "cases": build_case_output_records(eval_results, cases),
     }
     output_path.write_text(
         json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"

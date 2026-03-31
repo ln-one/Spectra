@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -42,8 +42,9 @@ function normalizeRedirectPath(input: string | null | undefined): string {
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { register: registerUser, isLoading } = useAuthStore();
+  const { register: registerUser } = useAuthStore();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const redirect = normalizeRedirectPath(searchParams?.get("redirect"));
 
@@ -56,6 +57,7 @@ function RegisterForm() {
   });
 
   const onSubmit = async (data: RegisterFormData) => {
+    setIsSubmitting(true);
     try {
       await registerUser(
         data.email,
@@ -74,6 +76,8 @@ function RegisterForm() {
         description: error instanceof Error ? error.message : "请稍后重试",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -94,7 +98,7 @@ function RegisterForm() {
               type="email"
               placeholder="your@email.com"
               {...register("email")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.email && (
@@ -111,7 +115,7 @@ function RegisterForm() {
               type="text"
               placeholder="username"
               {...register("username")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.username && (
@@ -128,7 +132,7 @@ function RegisterForm() {
               type="text"
               placeholder="您的全名"
               {...register("fullName")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.fullName && (
@@ -145,7 +149,7 @@ function RegisterForm() {
               type="password"
               placeholder="••••••••"
               {...register("password")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.password && (
@@ -162,7 +166,7 @@ function RegisterForm() {
               type="password"
               placeholder="••••••••"
               {...register("confirmPassword")}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full px-3 py-2 border rounded-md text-sm"
             />
             {errors.confirmPassword && (
@@ -174,10 +178,10 @@ function RegisterForm() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isSubmitting}
             className="w-full py-2 bg-black text-white rounded-md text-sm disabled:opacity-50"
           >
-            {isLoading ? "注册中..." : "注册"}
+            {isSubmitting ? "注册中..." : "注册"}
           </button>
 
           <div className="text-center text-sm">
