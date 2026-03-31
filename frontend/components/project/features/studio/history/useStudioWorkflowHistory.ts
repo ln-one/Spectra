@@ -70,14 +70,15 @@ function makeWorkflowId(input: WorkflowEntryInput): string {
   if (normalizedRunId) {
     return `workflow:${input.toolType}:${normalizedRunId}`;
   }
-  if (input.sessionId) {
-    return `workflow:${input.toolType}:${input.sessionId}`;
-  }
   const localToken = (input.artifactId || input.title || "local")
     .toLowerCase()
     .replace(/\s+/g, "-")
     .slice(0, 48);
-  return `workflow:${input.toolType}:local:${localToken}`;
+  const nonce = Date.now().toString(36);
+  if (input.sessionId) {
+    return `workflow:${input.toolType}:${input.sessionId}:pending:${localToken}:${nonce}`;
+  }
+  return `workflow:${input.toolType}:local:${localToken}:${nonce}`;
 }
 
 function isTransientRunId(runId: string | null | undefined): boolean {
@@ -265,22 +266,7 @@ export function useStudioWorkflowHistory(
         const sameRunItem = sameSessionItems.find(
           (item) => normalizeRunId(item.runId) === normalizedInputRunId
         );
-        const unresolvedRunItem = sameSessionItems.find(
-          (item) => !normalizeRunId(item.runId)
-        );
-        resolvedItemId =
-          sameRunItem?.id ?? unresolvedRunItem?.id ?? resolvedItemId;
-      } else if (!input.runId && input.sessionId) {
-        const sameSessionItem = sameSessionItems.find(
-          (item) =>
-            !normalizeRunId(item.runId) ||
-            item.step === input.step ||
-            item.status === "draft" ||
-            item.status === "processing"
-        );
-        if (sameSessionItem) {
-          resolvedItemId = sameSessionItem.id;
-        }
+        resolvedItemId = sameRunItem?.id ?? resolvedItemId;
       }
       const index = prev.findIndex((item) => item.id === resolvedItemId);
       const itemWithResolvedId: StudioHistoryItem =
@@ -352,9 +338,10 @@ export function useStudioWorkflowHistory(
   );
 
   const acknowledgeStep = useCallback(
-    (toolType: GenerationToolType, step: StudioHistoryStep) => {
+    (toolType: GenerationToolType, step?: StudioHistoryStep) => {
       setRequestedStepByTool((prev) => {
-        if (!prev[toolType] || prev[toolType] !== step) return prev;
+        if (!prev[toolType]) return prev;
+        if (step && prev[toolType] !== step) return prev;
         const next = { ...prev };
         delete next[toolType];
         return next;
@@ -414,7 +401,6 @@ export function useStudioWorkflowHistory(
     });
 
     const artifactByRun = new Map<string, StudioHistoryItem>();
-    const latestArtifactByToolSession = new Map<string, StudioHistoryItem>();
     for (const item of sessionScopedArtifacts) {
       if (!item.sessionId) continue;
       if (item.runId) {
@@ -422,20 +408,6 @@ export function useStudioWorkflowHistory(
           `${item.toolType}:${item.sessionId}:${item.runId}`,
           item
         );
-      }
-      const key = `${item.toolType}:${item.sessionId}`;
-      const existing = latestArtifactByToolSession.get(key);
-      if (!existing) {
-        latestArtifactByToolSession.set(key, item);
-        continue;
-      }
-      const existingTime = new Date(existing.createdAt).getTime();
-      const incomingTime = new Date(item.createdAt).getTime();
-      if (
-        Number.isFinite(incomingTime) &&
-        (!Number.isFinite(existingTime) || incomingTime > existingTime)
-      ) {
-        latestArtifactByToolSession.set(key, item);
       }
     }
 
@@ -468,9 +440,11 @@ export function useStudioWorkflowHistory(
           ? artifactByRun.get(
               `${item.toolType}:${item.sessionId}:${normalizedRunId}`
             )
-          : latestArtifactByToolSession.get(
-              `${item.toolType}:${item.sessionId}`
-            );
+          : item.artifactId
+            ? sessionScopedArtifacts.find(
+                (artifact) => artifact.artifactId === item.artifactId
+              )
+            : undefined;
         if (!shouldPromoteWorkflowStatus(item, matchedArtifact)) {
           return item;
         }

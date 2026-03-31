@@ -9,12 +9,75 @@ import { useShallow } from "zustand/react/shallow";
 import { ASPECT_RATIO_OPTIONS } from "./constants";
 import type { OutlineEditorPanelProps, SlideCard } from "./types";
 
+type OutlineNodeLike = {
+  id: string;
+  order: number;
+  title: string;
+  key_points?: string[] | null;
+  estimated_minutes?: number | null;
+};
+
 function extractRunIdFromSessionPayload(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const currentRun = (payload as { current_run?: { run_id?: unknown } })
     .current_run;
   const runId = currentRun?.run_id;
   return typeof runId === "string" && runId.trim() ? runId : null;
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeKeyPoints(points: unknown): string[] {
+  if (!Array.isArray(points)) return [];
+  return points.map((point) => normalizeText(point)).filter(Boolean);
+}
+
+function areArraysEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+function hasOutlineChanges(
+  initialNodes: OutlineNodeLike[],
+  slides: SlideCard[]
+): boolean {
+  if (initialNodes.length !== slides.length) return true;
+
+  for (let index = 0; index < initialNodes.length; index += 1) {
+    const node = initialNodes[index];
+    const slide = slides[index];
+    if (!slide) return true;
+
+    const nodeEstimatedMinutes =
+      typeof node.estimated_minutes === "number" ? node.estimated_minutes : null;
+    const slideEstimatedMinutes =
+      typeof slide.estimatedMinutes === "number" ? slide.estimatedMinutes : null;
+
+    if (
+      node.id !== slide.id ||
+      node.order !== slide.order ||
+      normalizeText(node.title) !== normalizeText(slide.title) ||
+      nodeEstimatedMinutes !== slideEstimatedMinutes
+    ) {
+      return true;
+    }
+
+    if (
+      !areArraysEqual(
+        normalizeKeyPoints(node.key_points),
+        normalizeKeyPoints(slide.keyPoints)
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function useOutlineEditorController({
@@ -33,8 +96,8 @@ export function useOutlineEditorController({
     );
 
   const sessionId = generationSession?.session?.session_id || "";
-  const initialNodes = useMemo(
-    () => generationSession?.outline?.nodes || [],
+  const initialNodes = useMemo<OutlineNodeLike[]>(
+    () => (generationSession?.outline?.nodes || []) as OutlineNodeLike[],
     [generationSession?.outline?.nodes]
   );
   const expectedPages = Number(generationSession?.options?.pages || 0);
@@ -69,7 +132,12 @@ export function useOutlineEditorController({
 
   useEffect(() => {
     let frame = 0;
-    const isDraftingOutline = sessionState === "DRAFTING_OUTLINE";
+    const isOutlinePendingState =
+      sessionState === "IDLE" ||
+      sessionState === "CONFIGURING" ||
+      sessionState === "ANALYZING" ||
+      sessionState === "DRAFTING_OUTLINE" ||
+      sessionState === "AWAITING_OUTLINE_CONFIRM";
 
     if (!sessionId) {
       frame = requestAnimationFrame(() => {
@@ -83,7 +151,9 @@ export function useOutlineEditorController({
     const ready = expectedPages <= 0 || initialNodes.length >= expectedPages;
     if (initialNodes.length === 0) {
       frame = requestAnimationFrame(() => {
-        setIsOutlineHydrating(isDraftingOutline || !ready);
+        setIsOutlineHydrating(
+          isBootstrapping || isOutlinePendingState || !sessionState || !ready
+        );
         setSlides([]);
         setActiveSlideId("");
       });
@@ -95,11 +165,16 @@ export function useOutlineEditorController({
       order: node.order,
       title: node.title,
       keyPoints: node.key_points || [],
-      estimatedMinutes: node.estimated_minutes,
+      estimatedMinutes:
+        typeof node.estimated_minutes === "number"
+          ? node.estimated_minutes
+          : undefined,
     }));
 
     frame = requestAnimationFrame(() => {
-      setIsOutlineHydrating(isDraftingOutline || !ready);
+      // Lock only while outline is still incomplete. Once target pages are ready,
+      // keep editor writable even if backend state propagation lags briefly.
+      setIsOutlineHydrating(isBootstrapping || (!ready && isOutlinePendingState));
       setActiveSlideId((prev) =>
         prev && mappedSlides.some((slide) => slide.id === prev)
           ? prev
@@ -218,21 +293,37 @@ export function useOutlineEditorController({
     setGenerationFailed(null);
 
     try {
-      await updateOutline(sessionId, {
-        version: generationSession?.outline?.version || 1,
-        nodes: slides.map((s) => ({
-          id: s.id,
-          order: s.order,
-          title: s.title,
-          key_points: s.keyPoints,
-          estimated_minutes: s.estimatedMinutes,
-        })),
-        summary: `aspect_ratio=${aspectRatio}; detail_level=${detailLevel}; image_style=${imageStyle}`,
-      });
+      let outlineUpdateFailedMessage: string | null = null;
+      const outlineModified = hasOutlineChanges(initialNodes, slides);
+      if (outlineModified) {
+        try {
+          await updateOutline(sessionId, {
+            version: generationSession?.outline?.version || 1,
+            nodes: slides.map((s) => ({
+              id: s.id,
+              order: s.order,
+              title: s.title,
+              key_points: s.keyPoints,
+              estimated_minutes: s.estimatedMinutes,
+            })),
+            summary: `aspect_ratio=${aspectRatio}; detail_level=${detailLevel}; image_style=${imageStyle}`,
+          });
+        } catch (error) {
+          outlineUpdateFailedMessage =
+            error instanceof Error ? error.message : "更新大纲失败";
+        }
+      }
+
       await confirmOutline(sessionId);
       setProgress(15);
       setProgressText("任务已启动，可进入生成页查看实时进度");
       setIsGenerating(false);
+      if (outlineUpdateFailedMessage) {
+        toast({
+          title: "大纲未成功保存",
+          description: "已按最近一次已保存的大纲启动生成任务",
+        });
+      }
       onPreview?.();
     } catch (error) {
       console.error("Failed to confirm outline:", error);

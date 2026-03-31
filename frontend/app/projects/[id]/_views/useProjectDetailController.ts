@@ -57,6 +57,14 @@ function formatRunSummaryLine(run: {
   const runStep = run.run_step || "-";
   return `${runNo} · ${runTitle} · ${mappedStatus}/${runStep}`;
 }
+
+function extractCurrentRunId(
+  payload: { current_run?: { run_id?: string } } | null | undefined
+): string | null {
+  const runId = payload?.current_run?.run_id;
+  return typeof runId === "string" && runId.trim() ? runId : null;
+}
+
 export function useProjectDetailController() {
   const params = useParams();
   const router = useRouter();
@@ -76,7 +84,6 @@ export function useProjectDetailController() {
     fetchGenerationHistory,
     fetchArtifactHistory,
     setActiveSessionId,
-    setActiveRunId,
     generationHistory,
     activeSessionId,
     activeRunId,
@@ -93,7 +100,6 @@ export function useProjectDetailController() {
       fetchGenerationHistory: state.fetchGenerationHistory,
       fetchArtifactHistory: state.fetchArtifactHistory,
       setActiveSessionId: state.setActiveSessionId,
-      setActiveRunId: state.setActiveRunId,
       generationHistory: state.generationHistory,
       activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
@@ -204,16 +210,40 @@ export function useProjectDetailController() {
   }, [hiddenSessionIds, projectId]);
 
   const updateSessionInUrl = useCallback(
-    (sessionId: string) => {
+    (sessionId: string, runId?: string | null) => {
       const nextSearch = new URLSearchParams(
         typeof window !== "undefined" ? window.location.search : ""
       );
       nextSearch.set("session", sessionId);
+      const normalizedRunId = String(runId || "").trim();
+      if (normalizedRunId) {
+        nextSearch.set("run", normalizedRunId);
+      } else {
+        nextSearch.delete("run");
+      }
       router.replace(`/projects/${projectId}?${nextSearch.toString()}`, {
         scroll: false,
       });
     },
     [projectId, router]
+  );
+
+  const loadSessionSnapshot = useCallback(
+    async (sessionId: string, runId?: string | null) => {
+      const normalizedRunId = String(runId || "").trim();
+      const response = normalizedRunId
+        ? await generateApi.getSessionByRun(sessionId, { run_id: normalizedRunId })
+        : await generateApi.getSession(sessionId);
+      const snapshot = response?.data ?? null;
+      return {
+        snapshot,
+        runId:
+          extractCurrentRunId(
+            snapshot as { current_run?: { run_id?: string } } | null
+          ) || (normalizedRunId || null),
+      };
+    },
+    []
   );
 
   useEffect(() => {
@@ -290,6 +320,7 @@ export function useProjectDetailController() {
   ]);
 
   useEffect(() => {
+    let cancelled = false;
     const preferredSessionId = resolvePreferredSessionId(
       querySessionId,
       visibleGenerationHistory,
@@ -307,29 +338,26 @@ export function useProjectDetailController() {
     }
 
     const nextSessionId = preferredSessionId;
-    if (queryRunId && queryRunId !== activeRunId) {
-      setActiveRunId(queryRunId);
-    }
 
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
-      void generateApi
-        .getSessionSnapshot(nextSessionId, { run_id: queryRunId })
-        .then((response) => {
-          const nextRunId =
-            queryRunId ||
-            ((response?.data as { current_run?: { run_id?: string } } | null)
-              ?.current_run?.run_id ??
-              null);
+      void (async () => {
+        try {
+            const { snapshot, runId } = await loadSessionSnapshot(
+              nextSessionId,
+              queryRunId
+            );
+          if (cancelled) return;
           useProjectStore.setState({
-            generationSession: response?.data ?? null,
-            activeRunId: nextRunId,
+            generationSession: snapshot,
+            activeRunId: runId,
           });
-        })
-        .catch(() => {
-          useProjectStore.setState({ generationSession: null });
-        });
+        } catch {
+          if (cancelled) return;
+          useProjectStore.setState({ generationSession: null, activeRunId: null });
+        }
+      })();
     }
 
     if (nextSessionId) {
@@ -342,22 +370,30 @@ export function useProjectDetailController() {
       queryRunId &&
       queryRunId !== activeRunId
     ) {
-      void generateApi
-        .getSessionSnapshot(nextSessionId, { run_id: queryRunId })
-        .then((response) => {
+      void (async () => {
+        try {
+          const { snapshot, runId } = await loadSessionSnapshot(
+            nextSessionId,
+            queryRunId
+          );
+          if (cancelled) return;
           useProjectStore.setState({
-            generationSession: response?.data ?? null,
-            activeRunId: queryRunId,
+            generationSession: snapshot,
+            activeRunId: runId,
           });
-        })
-        .catch(() => {
+        } catch {
           // keep current snapshot when run-scoped sync fails
-        });
+        }
+      })();
     }
 
     if (nextSessionId && querySessionId !== nextSessionId) {
-      updateSessionInUrl(nextSessionId);
+      updateSessionInUrl(nextSessionId, null);
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     visibleGenerationHistory,
     querySessionId,
@@ -366,8 +402,8 @@ export function useProjectDetailController() {
     activeRunId,
     fetchArtifactHistory,
     fetchMessages,
+    loadSessionSnapshot,
     projectId,
-    setActiveRunId,
     setActiveSessionId,
     updateSessionInUrl,
   ]);
@@ -380,7 +416,7 @@ export function useProjectDetailController() {
     async (sessionId: string) => {
       if (!sessionId || sessionId === "empty") return;
       setActiveSessionId(sessionId);
-      updateSessionInUrl(sessionId);
+      updateSessionInUrl(sessionId, null);
       const [messagesResult, artifactsResult, sessionResult] =
         await Promise.allSettled([
           fetchMessages(projectId, sessionId),
@@ -388,11 +424,16 @@ export function useProjectDetailController() {
           generateApi.getSession(sessionId),
         ]);
       if (sessionResult.status === "fulfilled") {
+        const sessionSnapshot = sessionResult.value?.data ?? null;
         useProjectStore.setState({
-          generationSession: sessionResult.value?.data ?? null,
+          generationSession: sessionSnapshot,
+          activeRunId: extractCurrentRunId(
+            (sessionSnapshot as { current_run?: { run_id?: string } } | null) ??
+              null
+          ),
         });
       } else {
-        useProjectStore.setState({ generationSession: null });
+        useProjectStore.setState({ generationSession: null, activeRunId: null });
       }
       void messagesResult;
       void artifactsResult;
@@ -464,11 +505,13 @@ export function useProjectDetailController() {
 
         await fetchGenerationHistory(projectId);
         if (activeSessionId === sessionId) {
-          const snapshot = await generateApi.getSessionSnapshot(sessionId, {
-            run_id: activeRunId ?? undefined,
-          });
+          const snapshot = await generateApi.getSession(sessionId);
           useProjectStore.setState({
             generationSession: snapshot?.data ?? null,
+            activeRunId: extractCurrentRunId(
+              (snapshot?.data as { current_run?: { run_id?: string } } | null) ??
+                null
+            ),
           });
         }
 
@@ -484,7 +527,6 @@ export function useProjectDetailController() {
       }
     },
     [
-      activeRunId,
       activeSessionId,
       fetchGenerationHistory,
       generationHistory,

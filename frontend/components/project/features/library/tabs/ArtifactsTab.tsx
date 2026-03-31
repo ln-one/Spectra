@@ -137,8 +137,8 @@ export function ArtifactsTab({
             <RowCard
               key={item.id}
               icon={FileText}
-              title={`${item.type} 路 ${item.id.slice(0, 8)}`}
-              subtitle={`session=${item.session_id ?? "-"} 路 version=${item.based_on_version_id ?? "-"} 路 ${item.visibility}`}
+              title={`${item.type} · ${item.id.slice(0, 8)}`}
+              subtitle={`session=${item.session_id ?? "-"} · version=${item.based_on_version_id ?? "-"} · ${item.visibility}`}
               action={
                 <Button
                   variant="ghost"
