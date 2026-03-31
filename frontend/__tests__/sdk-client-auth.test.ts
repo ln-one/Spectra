@@ -1,4 +1,4 @@
-import { apiFetch, shouldSkipAuth } from "@/lib/sdk/client";
+import { API_BASE_URL, apiFetch, shouldSkipAuth } from "@/lib/sdk/client";
 import { TokenStorage } from "@/lib/auth";
 
 const originalFetch = global.fetch;
@@ -21,6 +21,10 @@ describe("sdk client auth skipping", () => {
     expect(shouldSkipAuth("/api/v1/auth/login")).toBe(true);
     expect(shouldSkipAuth("/api/v1/auth/register")).toBe(true);
     expect(shouldSkipAuth("/api/v1/auth/refresh")).toBe(true);
+  });
+
+  test("resolves a valid API base URL when env is not set", () => {
+    expect(API_BASE_URL).toMatch(/^https?:\/\//);
   });
 
   test("refreshes access token before protected request when only refresh token exists", async () => {

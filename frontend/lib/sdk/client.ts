@@ -1,7 +1,19 @@
 import createClient, { type FetchOptions } from "openapi-fetch";
 import { TokenStorage } from "../auth";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim() || "";
+const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim();
+
+function resolveApiBaseUrl(): string {
+  if (RAW_API_BASE_URL) {
+    return RAW_API_BASE_URL;
+  }
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return "http://localhost:8000";
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 export const API_VERSION = "/api/v1";
 export const DEFAULT_CONTRACT_VERSION = "2026-03";
 

@@ -4,10 +4,11 @@ import path from "node:path";
 const nextConfig = {
   outputFileTracingRoot: path.join(process.cwd(), ".."),
   async rewrites() {
+    const isProd = process.env.NODE_ENV === "production";
     const backendBaseUrl =
       process.env.BACKEND_INTERNAL_URL?.trim() ||
       process.env.NEXT_PUBLIC_API_URL?.trim() ||
-      "http://localhost:8000";
+      (isProd ? "http://backend:8000" : "http://localhost:8000");
     return [
       {
         source: "/api/:path*",
