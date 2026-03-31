@@ -2,6 +2,9 @@
 
 _PLAIN_TEXT_EXTENSIONS = {".txt", ".md", ".csv"}
 
+AUTO_PARSER_MODE = "auto"
+SUPPORTED_PARSER_MODES = {"local", "mineru", "llamaparse", AUTO_PARSER_MODE}
+
 _DEGRADATION_MESSAGES = {
     "mineru_to_llamaparse": "MinerU 解析暂不可用，已切换到 LlamaParse 云端解析。",
     "mineru_to_local": "高级解析暂不可用，已切换基础解析，版面结构与公式识别可能不完整。",

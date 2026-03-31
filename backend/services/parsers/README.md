@@ -21,6 +21,11 @@ file_parser.py  ─→  get_parser()  ─→  BaseParseProvider
 在 `.env` 中设置：
 
 ```bash
+# 自动路由（推荐）
+# pdf -> mineru -> llamaparse -> local
+# word/ppt -> llamaparse -> local
+DOCUMENT_PARSER=auto
+
 # 本地轻量解析（默认，无需额外依赖）
 DOCUMENT_PARSER=local
 

@@ -17,6 +17,15 @@ from .constants import _DEGRADATION_MESSAGES, _FALLBACK_CHAIN
 logger = logging.getLogger(__name__)
 
 
+def _append_provider_attempted(details: dict[str, Any], provider_name: str) -> None:
+    attempted = details.get("provider_attempted")
+    if not isinstance(attempted, list):
+        attempted = []
+    if provider_name not in attempted:
+        attempted.append(provider_name)
+    details["provider_attempted"] = attempted
+
+
 def resolve_fallback_chain(primary_provider_name: str | None) -> list[str]:
     """Return fallback providers for the configured primary provider."""
     primary = (primary_provider_name or "local").strip().lower()
@@ -106,12 +115,14 @@ def extract_with_fallback(
     )
 
     fallback_providers = resolve_fallback_chain(primary_provider_name)
+    details["fallback_chain"] = list(fallback_providers)
     last_empty_details: dict[str, Any] | None = None
     last_empty_provider: str | None = None
 
     for fallback_name in fallback_providers:
         try:
             logger.info("尝试 fallback 到 %s", fallback_name)
+            _append_provider_attempted(details, fallback_name)
             fallback_parser = get_parser(fallback_name)
 
             if fallback_parser.name != fallback_name and fallback_name != "local":
@@ -135,6 +146,7 @@ def extract_with_fallback(
             )
             if text and len(text.strip()) > 0:
                 details.update(parse_details)
+                details["provider_used"] = fallback_name
                 details["capability_status"] = build_degraded_status(
                     primary_provider_name=primary_provider_name,
                     fallback_name=fallback_name,
@@ -161,6 +173,7 @@ def extract_with_fallback(
     logger.error("所有解析器都失败，文件 %s", filename, exc_info=exc)
     if last_empty_details:
         details.update(last_empty_details)
+    details["provider_used"] = last_empty_provider
     details["capability_status"] = build_unavailable_status(
         filename=filename,
         trace_id=trace_id,

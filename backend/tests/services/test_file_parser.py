@@ -318,3 +318,77 @@ def test_extract_text_for_rag_unknown_provider_falls_back_to_local(
     assert details["capability_status"]["fallback_target"] == "local"
     assert calls["unknown"] == 1
     assert calls["local"] == 1
+
+
+def test_extract_text_for_rag_auto_routes_pdf_to_mineru(tmp_path: Path, monkeypatch):
+    import services.file_parser as file_parser_module
+
+    class _FakeMineruProvider:
+        name = "mineru"
+
+        def supports(self, _file_type: str) -> bool:
+            return True
+
+        def extract_text(self, _filepath: str, _filename: str, _file_type: str):
+            return "mineru parsed content", {"pages_extracted": 1, "text_length": 21}
+
+    calls: list[str] = []
+
+    def _fake_get_parser(provider_name=None):
+        calls.append(str(provider_name))
+        if provider_name == "mineru":
+            return _FakeMineruProvider()
+        raise AssertionError(f"unexpected provider request: {provider_name}")
+
+    pdf_path = tmp_path / "sample.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n")
+
+    monkeypatch.setenv("DOCUMENT_PARSER", "auto")
+    monkeypatch.setattr(file_parser_module, "get_parser", _fake_get_parser)
+
+    text, details = extract_text_for_rag(str(pdf_path), "sample.pdf", "pdf")
+
+    assert text == "mineru parsed content"
+    assert details["provider_used"] == "mineru"
+    assert details["parser_routing"]["mode"] == "auto"
+    assert details["parser_routing"]["primary_provider"] == "mineru"
+    assert details["provider_attempted"] == ["mineru"]
+    assert calls == ["mineru"]
+
+
+def test_extract_text_for_rag_auto_routes_word_to_llamaparse(
+    tmp_path: Path, monkeypatch
+):
+    import services.file_parser as file_parser_module
+
+    class _FakeLlamaProvider:
+        name = "llamaparse"
+
+        def supports(self, _file_type: str) -> bool:
+            return True
+
+        def extract_text(self, _filepath: str, _filename: str, _file_type: str):
+            return "llamaparse content", {"pages_extracted": 1, "text_length": 17}
+
+    calls: list[str] = []
+
+    def _fake_get_parser(provider_name=None):
+        calls.append(str(provider_name))
+        if provider_name == "llamaparse":
+            return _FakeLlamaProvider()
+        raise AssertionError(f"unexpected provider request: {provider_name}")
+
+    docx_path = tmp_path / "sample.docx"
+    docx_path.write_bytes(b"fake-docx-content")
+
+    monkeypatch.setenv("DOCUMENT_PARSER", "auto")
+    monkeypatch.setattr(file_parser_module, "get_parser", _fake_get_parser)
+
+    text, details = extract_text_for_rag(str(docx_path), "sample.docx", "word")
+
+    assert text == "llamaparse content"
+    assert details["provider_used"] == "llamaparse"
+    assert details["parser_routing"]["mode"] == "auto"
+    assert details["parser_routing"]["primary_provider"] == "llamaparse"
+    assert details["provider_attempted"] == ["llamaparse"]
+    assert calls == ["llamaparse"]

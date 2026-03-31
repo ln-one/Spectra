@@ -180,3 +180,38 @@ async def test_index_upload_file_for_rag_reindex_deletes_old_data(monkeypatch):
     assert result["chunk_count"] == 1
     delete_index_mock.assert_awaited_once_with(project_id="p-001", upload_id="u-001")
     delete_chunks_mock.assert_awaited_once_with("u-001")
+
+
+@pytest.mark.asyncio
+async def test_index_upload_file_for_rag_sanitizes_nul_bytes(monkeypatch):
+    upload = _fake_upload(filename="bad.pdf", fileType="pdf")
+    monkeypatch.setattr(
+        rag_indexing_service,
+        "extract_text_for_rag",
+        lambda filepath, filename, file_type: (
+            "valid\x00content\x00line",
+            {"text_length": 18},
+        ),
+    )
+    monkeypatch.setattr(
+        rag_indexing_service,
+        "split_text",
+        lambda text, chunk_size, chunk_overlap: [text],
+    )
+    create_chunks_mock = AsyncMock(return_value=[SimpleNamespace(id="chunk-1")])
+    monkeypatch.setattr(
+        rag_indexing_service.db_service,
+        "create_parsed_chunks",
+        create_chunks_mock,
+    )
+    monkeypatch.setattr(
+        rag_indexing_service.rag_service,
+        "index_chunks",
+        AsyncMock(return_value=1),
+    )
+
+    result = await rag_indexing_service.index_upload_file_for_rag(upload, "p-001")
+
+    assert result["chunk_count"] == 1
+    chunks_arg = create_chunks_mock.await_args.kwargs["chunks"]
+    assert "\x00" not in chunks_arg[0]["content"]

@@ -96,6 +96,20 @@ def test_document_parser_health_resolved_to_local_is_degraded(monkeypatch) -> No
     assert status.provider == "local"
 
 
+def test_document_parser_health_auto_mode_available(monkeypatch) -> None:
+    """Auto parser mode should be treated as available routing mode."""
+    monkeypatch.setenv("DOCUMENT_PARSER", "auto")
+    _clear_cache()
+
+    from services.capability_health import check_document_parser_health
+
+    status = check_document_parser_health()
+
+    assert status.status.value == "available"
+    assert status.provider == "auto"
+    assert status.fallback_used is False
+
+
 # ---------------------------------------------------------------------------
 # check_video_understanding_health
 # ---------------------------------------------------------------------------

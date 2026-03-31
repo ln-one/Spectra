@@ -17,6 +17,11 @@ from services.rag_service import ParsedChunkData, rag_service
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_text_for_postgres(value: str) -> str:
+    # PostgreSQL text/varchar cannot store NUL bytes.
+    return str(value or "").replace("\x00", "")
+
+
 async def index_upload_file_for_rag(
     upload: Any,
     project_id: str,
@@ -69,16 +74,19 @@ async def index_upload_file_for_rag(
         capability_status.get("fallback_chain")
     )
 
+    text = _sanitize_text_for_postgres(text)
     if not text.strip():
         logger.info(
             "empty_text_fallback: upload_id=%s filename=%s",
             upload.id,
             upload.filename,
         )
-        text = (
-            f"资料名称：{upload.filename}\n"
-            f"资料类型：{upload.fileType}\n"
-            "该资料可作为课堂讲解与课件生成的参考来源。"
+        text = _sanitize_text_for_postgres(
+            (
+                f"资料名称：{upload.filename}\n"
+                f"资料类型：{upload.fileType}\n"
+                "该资料可作为课堂讲解与课件生成的参考来源。"
+            )
         )
         parse_details["text_length"] = len(text)
         parse_details["fallback"] = True
@@ -86,6 +94,8 @@ async def index_upload_file_for_rag(
 
     chunk_started_at = time.perf_counter()
     chunks = split_text(text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    chunks = [_sanitize_text_for_postgres(chunk) for chunk in chunks]
+    chunks = [chunk for chunk in chunks if chunk.strip()]
     if not chunks:
         chunks = [text]
     stage_timings_ms["chunk_ms"] = round(

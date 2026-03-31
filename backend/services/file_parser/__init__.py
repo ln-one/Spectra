@@ -16,6 +16,7 @@ from typing import Any
 from services.file_upload_service.access import FileType, normalize_file_type
 from services.parsers import get_parser
 
+from .constants import AUTO_PARSER_MODE
 from .direct_extractors import (
     extract_image_placeholder,
     extract_plain_text,
@@ -24,6 +25,23 @@ from .direct_extractors import (
 from .fallback import build_available_status, extract_with_fallback
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_configured_parser_mode() -> str:
+    configured = os.getenv("DOCUMENT_PARSER", "local").strip().lower()
+    return configured or "local"
+
+
+def _resolve_primary_provider(parser_mode: str, file_type: FileType) -> str:
+    """Resolve runtime provider from parser mode and normalized file type."""
+    if parser_mode != AUTO_PARSER_MODE:
+        return parser_mode
+
+    if file_type == FileType.PDF:
+        return "mineru"
+    if file_type in {FileType.WORD, FileType.PPT}:
+        return "llamaparse"
+    return "local"
 
 
 def extract_text_for_rag(
@@ -47,7 +65,16 @@ def extract_text_for_rag(
     primary_provider_name = None
 
     try:
-        primary_provider_name = os.getenv("DOCUMENT_PARSER", "local").strip().lower()
+        parser_mode = _resolve_configured_parser_mode()
+        primary_provider_name = _resolve_primary_provider(
+            parser_mode, normalized_file_type
+        )
+        details["parser_routing"] = {
+            "mode": parser_mode,
+            "primary_provider": primary_provider_name,
+            "file_type": normalized_file_type.value,
+        }
+        details["provider_attempted"] = [primary_provider_name]
         parser = get_parser(primary_provider_name)
 
         if parser.name != primary_provider_name and primary_provider_name != "local":
@@ -64,13 +91,14 @@ def extract_text_for_rag(
         text, parse_details = parser.extract_text(
             filepath, filename, normalized_file_type.value
         )
+        details.update(parse_details)
         if text and len(text.strip()) > 0:
-            details.update(parse_details)
+            details["provider_used"] = parser.name
             details["capability_status"] = build_available_status(parser.name, trace_id)
             return text, details
 
         if parser.name == "local":
-            details.update(parse_details)
+            details["provider_used"] = "local"
             details["capability_status"] = build_available_status("local", trace_id)
             return "", details
 

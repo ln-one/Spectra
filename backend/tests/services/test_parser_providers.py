@@ -155,6 +155,10 @@ class TestRegistry:
         parser = get_parser("local")
         assert parser.name == "local"
 
+    def test_explicit_auto_uses_local_fallback_provider(self):
+        parser = get_parser("auto")
+        assert parser.name == "local"
+
     def test_env_var_selects_provider(self, monkeypatch):
         monkeypatch.setenv("DOCUMENT_PARSER", "local")
         parser = get_parser()

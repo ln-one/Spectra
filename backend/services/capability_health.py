@@ -43,6 +43,18 @@ def check_document_parser_health() -> CapabilityStatus:
     try:
         from services.parsers import get_parser
 
+        if parser_name == "auto":
+            # auto 为路由模式，不是单一 provider。只要 local 可用，即可保证可运行。
+            get_parser("local")
+            status = CapabilityStatus(
+                capability=CapabilityType.DOCUMENT_PARSER,
+                provider="auto",
+                status=CapabilityStatusEnum.AVAILABLE,
+                fallback_used=False,
+            )
+            _health_cache[cache_key] = (status, datetime.now())
+            return status
+
         parser = get_parser(parser_name)
 
         # registry 可能将不可用 provider 自动回退到 local。

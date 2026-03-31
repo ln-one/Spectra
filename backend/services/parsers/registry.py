@@ -7,6 +7,7 @@ Parser Provider 注册表与工厂函数。
   - ``local``      — 本地轻量解析（默认）
   - ``mineru``     — MinerU (Magic-PDF)
   - ``llamaparse`` — LlamaParse 云端 API
+  - ``auto``       — 自动路由（由 file_parser 按文件类型选择 provider）
 
 Fallback 策略（精准边界）：
   仅在 **provider 不可用 / 未安装 / 未配置** 时回退到 ``local``。
@@ -46,9 +47,15 @@ def _register_builtin_providers() -> None:
 
         return LlamaParseProvider()
 
+    def _make_auto() -> BaseParseProvider:
+        # auto 模式的路由策略在 services/file_parser/__init__.py 中实现，
+        # registry 层仅提供兼容兜底，避免被识别为 unknown provider。
+        return _make_local()
+
     _PROVIDER_FACTORIES["local"] = _make_local
     _PROVIDER_FACTORIES["mineru"] = _make_mineru
     _PROVIDER_FACTORIES["llamaparse"] = _make_llamaparse
+    _PROVIDER_FACTORIES["auto"] = _make_auto
 
 
 # 模块加载时注册
