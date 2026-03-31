@@ -225,13 +225,38 @@ def serialize_rag_results(rag_results: Iterable[Any]) -> list[dict[str, Any]]:
         if callable(model_dump):
             serialized.append(dict(model_dump()))
             continue
+
+        source = getattr(item, "source", None)
+        if isinstance(source, dict):
+            serialized_source = dict(source)
+        elif source is None:
+            serialized_source = {}
+        else:
+            source_dump = getattr(source, "model_dump", None)
+            if callable(source_dump):
+                serialized_source = dict(source_dump())
+            else:
+                serialized_source = dict(vars(source))
+
+        metadata = getattr(item, "metadata", None)
+        if isinstance(metadata, dict):
+            serialized_metadata = dict(metadata)
+        elif metadata is None:
+            serialized_metadata = {}
+        else:
+            metadata_dump = getattr(metadata, "model_dump", None)
+            if callable(metadata_dump):
+                serialized_metadata = dict(metadata_dump())
+            else:
+                serialized_metadata = dict(vars(metadata))
+
         serialized.append(
             {
                 "chunk_id": str(getattr(item, "chunk_id", "") or ""),
                 "content": str(getattr(item, "content", "") or ""),
                 "score": float(getattr(item, "score", 0.0) or 0.0),
-                "source": dict(getattr(item, "source", {}) or {}),
-                "metadata": dict(getattr(item, "metadata", {}) or {}),
+                "source": serialized_source,
+                "metadata": serialized_metadata,
             }
         )
     return serialized

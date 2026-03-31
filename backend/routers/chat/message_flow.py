@@ -185,7 +185,7 @@ async def load_rag_context(
 
         rag_results = rerank_by_chapter(query, rag_results)
         serialized_results = serialize_rag_results(rag_results)
-        rag_payload, diagnostics = await postprocess_rag_context(
+        processed_rag_payload, diagnostics = await postprocess_rag_context(
             query=query,
             rag_results=serialized_results,
         )
@@ -198,8 +198,10 @@ async def load_rag_context(
             session_id=session_id,
             caller="chat_message_flow",
         )
-        if rag_payload:
-            rag_hit = bool(rag_payload)
+        effective_rag_payload = processed_rag_payload or serialized_results
+        if effective_rag_payload:
+            rag_payload = effective_rag_payload
+            rag_hit = True
             citations = [
                 build_source_reference_payload(
                     chunk_id=(item.get("source") or {}).get("chunk_id", ""),
@@ -210,9 +212,10 @@ async def load_rag_context(
                     score=item.get("score"),
                     content_preview=item.get("content"),
                 )
-                for item in rag_payload
+                for item in effective_rag_payload
             ]
         elif not rag_failure_reason:
+            rag_payload = None
             rag_failure_reason = "rag_no_match"
     except Exception as rag_exc:
         logger.warning("RAG search failed, continuing without context: %s", rag_exc)
