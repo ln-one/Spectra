@@ -1778,4 +1778,3 @@ async def test_execute_outline_draft_local_skips_when_session_already_drafted():
 
     db.outlineversion.create.assert_not_called()
     db.sessionevent.create.assert_not_called()
-

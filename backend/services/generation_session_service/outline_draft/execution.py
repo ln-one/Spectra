@@ -356,4 +356,3 @@ async def _emit_outline_progress(
             **(traceability_payload or {}),
         },
     )
-

@@ -435,4 +435,3 @@ def spawn_background_task(coro, *, label: str) -> None:
             )
 
     task.add_done_callback(_consume_result)
-
