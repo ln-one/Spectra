@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+﻿import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { generateApi } from "@/lib/sdk";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
@@ -104,7 +104,7 @@ export function useStudioHistoryHandlers({
 
       if (
         item.toolType === "ppt" &&
-        item.step === "outline" &&
+        (item.step === "outline" || item.step === "preview") &&
         sessionId &&
         item.runId
       ) {
@@ -125,11 +125,29 @@ export function useStudioHistoryHandlers({
             });
           }
           const latestState = latestSession?.session?.state;
-          const isPreviewState =
+          const latestCurrentRun = (latestSession as any)?.current_run ?? null;
+          const latestCurrentRunId = latestCurrentRun?.run_id ?? null;
+          const latestCurrentRunStep = String(
+            latestCurrentRun?.run_step ?? ""
+          ).toLowerCase();
+          const latestCurrentRunStatus = String(
+            latestCurrentRun?.run_status ?? ""
+          ).toLowerCase();
+          const isSameRun =
+            Boolean(item.runId) &&
+            Boolean(latestCurrentRunId) &&
+            item.runId === latestCurrentRunId;
+          const isSessionPreviewState =
             latestState === "GENERATING_CONTENT" ||
             latestState === "RENDERING" ||
             latestState === "SUCCESS";
-          if (isPreviewState) {
+          const isRunPreviewState =
+            latestCurrentRunStep === "generate" ||
+            latestCurrentRunStep === "preview" ||
+            latestCurrentRunStep === "completed" ||
+            latestCurrentRunStatus === "processing" ||
+            latestCurrentRunStatus === "completed";
+          if (isSessionPreviewState && isRunPreviewState && isSameRun) {
             trackStep("ppt", "preview");
             acknowledgeStep("ppt", "preview");
             const runId =
@@ -158,7 +176,14 @@ export function useStudioHistoryHandlers({
       }
 
       if (item.toolType === "ppt") {
-        if (item.origin === "artifact" || item.step === "preview") {
+        const canOpenPreviewDirectly =
+          Boolean(item.artifactId) ||
+          item.status === "previewing" ||
+          item.status === "completed";
+        if (
+          (item.origin === "artifact" || item.step === "preview") &&
+          canOpenPreviewDirectly
+        ) {
           const runId = item.runId || resolvePptRunId() || undefined;
           const previewHref = openPptPreviewPage(
             sessionId,
@@ -170,8 +195,8 @@ export function useStudioHistoryHandlers({
         }
         const shouldOpenOutlineStage =
           item.step === "outline" ||
-          item.status === "processing" ||
-          item.status === "draft";
+          item.status === "draft" ||
+          item.status === "pending";
         setLayoutMode("expanded");
         setExpandedTool("ppt");
         setPptResumeStage(shouldOpenOutlineStage ? "outline" : "config");
@@ -310,3 +335,4 @@ export function useStudioHistoryHandlers({
     handleClose,
   };
 }
+
