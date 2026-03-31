@@ -63,7 +63,9 @@ class EvalMetrics:
     def summary(self) -> str:
         lines = [
             f"总用例数: {self.total_cases}",
-            f"可评估排序样本数: {self.rankable_case_count}  ({self.rankable_case_coverage_rate:.1%})",
+            "可评估排序样本数: "
+            f"{self.rankable_case_count}  "
+            f"({self.rankable_case_coverage_rate:.1%})",
             f"失败率: {self.failure_rate:.1%}  ({len(self.failed_case_ids)} 条)",
             f"平均延迟: {self.avg_latency_ms:.1f} ms",
             f"P95 延迟: {self.p95_latency_ms:.1f} ms",

@@ -697,7 +697,11 @@ def log_context_processing(
     caller: str = "rag_context",
 ) -> None:
     request_logger.info(
-        "rag_context_postprocess caller=%s project=%s session=%s retrieval_ms=%.2f dedup_ms=%.2f compression_ms=%.2f raw_ids=%s deduped_ids=%s removed=%s compression=%s evidence=%s",
+        (
+            "rag_context_postprocess caller=%s project=%s session=%s "
+            "retrieval_ms=%.2f dedup_ms=%.2f compression_ms=%.2f "
+            "raw_ids=%s deduped_ids=%s removed=%s compression=%s evidence=%s"
+        ),
         caller,
         project_id,
         session_id,

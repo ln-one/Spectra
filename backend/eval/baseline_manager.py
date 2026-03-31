@@ -139,22 +139,32 @@ def freeze_baseline(
         "metrics": result["metrics"],
         "guardrails": {
             "keyword_hit_rate_min_delta": guardrails.keyword_hit_rate_min_delta,
-            "keyword_coverage_rate_min_delta": guardrails.keyword_coverage_rate_min_delta,
+            "keyword_coverage_rate_min_delta": (
+                guardrails.keyword_coverage_rate_min_delta
+            ),
             "fact_coverage_rate_min_delta": guardrails.fact_coverage_rate_min_delta,
             "usable_top1_rate_min_delta": guardrails.usable_top1_rate_min_delta,
             "usable_top3_rate_min_delta": guardrails.usable_top3_rate_min_delta,
-            "distractor_intrusion_rate_max_delta": guardrails.distractor_intrusion_rate_max_delta,
+            "distractor_intrusion_rate_max_delta": (
+                guardrails.distractor_intrusion_rate_max_delta
+            ),
             "failure_rate_max_delta": guardrails.failure_rate_max_delta,
             "avg_latency_ms_max_ratio": guardrails.avg_latency_ms_max_ratio,
             "p95_latency_ms_max_ratio": guardrails.p95_latency_ms_max_ratio,
             "hit_rate_at_1_min_delta": guardrails.hit_rate_at_1_min_delta,
             "hit_rate_at_3_min_delta": guardrails.hit_rate_at_3_min_delta,
             "ndcg_at_5_min_delta": guardrails.ndcg_at_5_min_delta,
-            "rankable_case_coverage_rate_hard_floor": guardrails.rankable_case_coverage_rate_hard_floor,
+            "rankable_case_coverage_rate_hard_floor": (
+                guardrails.rankable_case_coverage_rate_hard_floor
+            ),
             "explainability_rate_min_delta": guardrails.explainability_rate_min_delta,
             "continuity_rate_min_delta": guardrails.continuity_rate_min_delta,
-            "fallback_hit_rate_min_delta": guardrails.fallback_hit_rate_min_delta,
-            "explainability_rate_hard_floor": guardrails.explainability_rate_hard_floor,
+            "fallback_hit_rate_min_delta": (
+                guardrails.fallback_hit_rate_min_delta
+            ),
+            "explainability_rate_hard_floor": (
+                guardrails.explainability_rate_hard_floor
+            ),
             "continuity_rate_hard_floor": guardrails.continuity_rate_hard_floor,
         },
     }
@@ -647,19 +657,29 @@ def main() -> int:
             fact_coverage_rate_min_delta=args.fact_coverage_rate_min_delta,
             usable_top1_rate_min_delta=args.usable_top1_rate_min_delta,
             usable_top3_rate_min_delta=args.usable_top3_rate_min_delta,
-            distractor_intrusion_rate_max_delta=args.distractor_intrusion_rate_max_delta,
+            distractor_intrusion_rate_max_delta=(
+                args.distractor_intrusion_rate_max_delta
+            ),
             failure_rate_max_delta=args.failure_rate_max_delta,
             avg_latency_ms_max_ratio=args.avg_latency_ms_max_ratio,
             p95_latency_ms_max_ratio=args.p95_latency_ms_max_ratio,
             hit_rate_at_1_min_delta=args.hit_rate_at_1_min_delta,
             hit_rate_at_3_min_delta=args.hit_rate_at_3_min_delta,
             ndcg_at_5_min_delta=args.ndcg_at_5_min_delta,
-            rankable_case_coverage_rate_hard_floor=args.rankable_case_coverage_rate_hard_floor,
+            rankable_case_coverage_rate_hard_floor=(
+                args.rankable_case_coverage_rate_hard_floor
+            ),
             explainability_rate_min_delta=args.explainability_rate_min_delta,
             continuity_rate_min_delta=args.continuity_rate_min_delta,
-            fallback_hit_rate_min_delta=args.fallback_hit_rate_min_delta,
-            explainability_rate_hard_floor=args.explainability_rate_hard_floor,
-            continuity_rate_hard_floor=args.continuity_rate_hard_floor,
+            fallback_hit_rate_min_delta=(
+                args.fallback_hit_rate_min_delta
+            ),
+            explainability_rate_hard_floor=(
+                args.explainability_rate_hard_floor
+            ),
+            continuity_rate_hard_floor=(
+                args.continuity_rate_hard_floor
+            ),
         )
         payload = freeze_baseline(
             result_path=Path(args.result),
@@ -671,11 +691,16 @@ def main() -> int:
         print(
             "指标快照: "
             f"keyword_hit_rate={payload['metrics']['keyword_hit_rate']:.2%}, "
-            f"keyword_coverage_rate={payload['metrics'].get('keyword_coverage_rate', 0.0):.2%}, "
-            f"fact_coverage_rate={payload['metrics'].get('fact_coverage_rate', 0.0):.2%}, "
-            f"usable_top1_rate={payload['metrics'].get('usable_top1_rate', 0.0):.2%}, "
-            f"usable_top3_rate={payload['metrics'].get('usable_top3_rate', 0.0):.2%}, "
-            f"distractor_intrusion_rate={payload['metrics'].get('distractor_intrusion_rate', 0.0):.2%}, "
+            "keyword_coverage_rate="
+            f"{payload['metrics'].get('keyword_coverage_rate', 0.0):.2%}, "
+            "fact_coverage_rate="
+            f"{payload['metrics'].get('fact_coverage_rate', 0.0):.2%}, "
+            "usable_top1_rate="
+            f"{payload['metrics'].get('usable_top1_rate', 0.0):.2%}, "
+            "usable_top3_rate="
+            f"{payload['metrics'].get('usable_top3_rate', 0.0):.2%}, "
+            "distractor_intrusion_rate="
+            f"{payload['metrics'].get('distractor_intrusion_rate', 0.0):.2%}, "
             f"failure_rate={payload['metrics']['failure_rate']:.2%}, "
             f"avg_latency_ms={payload['metrics']['avg_latency_ms']:.2f}, "
             f"p95_latency_ms={payload['metrics'].get('p95_latency_ms', 0.0):.2f}"
@@ -792,17 +817,23 @@ def main() -> int:
                 fallback_hit_rate_min_delta=(
                     args.fallback_hit_rate_min_delta
                     if args.fallback_hit_rate_min_delta is not None
-                    else baseline_guardrails.get("fallback_hit_rate_min_delta", -0.05)
+                    else baseline_guardrails.get(
+                        "fallback_hit_rate_min_delta", -0.05
+                    )
                 ),
                 explainability_rate_hard_floor=(
                     args.explainability_rate_hard_floor
                     if args.explainability_rate_hard_floor is not None
-                    else baseline_guardrails.get("explainability_rate_hard_floor", 0.95)
+                    else baseline_guardrails.get(
+                        "explainability_rate_hard_floor", 0.95
+                    )
                 ),
                 continuity_rate_hard_floor=(
                     args.continuity_rate_hard_floor
                     if args.continuity_rate_hard_floor is not None
-                    else baseline_guardrails.get("continuity_rate_hard_floor", 0.95)
+                    else baseline_guardrails.get(
+                        "continuity_rate_hard_floor", 0.95
+                    )
                 ),
             )
 
