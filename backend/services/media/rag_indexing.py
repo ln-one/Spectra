@@ -30,6 +30,9 @@ async def index_upload_file_for_rag(
     chunk_overlap: int = 50,
     reindex: bool = False,
     db=None,
+    preparsed_text: Optional[str] = None,
+    preparsed_details: Optional[dict[str, Any]] = None,
+    provider_override: Optional[str] = None,
 ) -> dict:
     """
     解析并索引单个上传文件，返回索引摘要。
@@ -45,31 +48,44 @@ async def index_upload_file_for_rag(
     provider = "unknown"
     fallback_used = False
 
-    try:
-        parse_started_at = time.perf_counter()
-        text, parse_details = extract_text_for_rag(
-            filepath=upload.filepath,
-            filename=upload.filename,
-            file_type=upload.fileType,
-        )
-        stage_timings_ms["parse_ms"] = round(
-            (time.perf_counter() - parse_started_at) * 1000,
-            2,
-        )
-    except Exception as exc:
-        logger.warning(
-            "file_parse_failed: upload_id=%s filename=%s error=%s",
-            upload.id,
-            upload.filename,
-            exc,
-            exc_info=True,
-        )
-        text = ""
-        parse_details = {"error": str(exc)}
+    if preparsed_text is not None:
+        text = str(preparsed_text)
+        parse_details = dict(preparsed_details or {})
+        if provider_override:
+            parse_details["provider_used"] = provider_override
+        parse_details["parse_mode"] = "remote_preparsed"
         stage_timings_ms["parse_ms"] = 0.0
+    else:
+        try:
+            parse_started_at = time.perf_counter()
+            text, parse_details = extract_text_for_rag(
+                filepath=upload.filepath,
+                filename=upload.filename,
+                file_type=upload.fileType,
+            )
+            stage_timings_ms["parse_ms"] = round(
+                (time.perf_counter() - parse_started_at) * 1000,
+                2,
+            )
+        except Exception as exc:
+            logger.warning(
+                "file_parse_failed: upload_id=%s filename=%s error=%s",
+                upload.id,
+                upload.filename,
+                exc,
+                exc_info=True,
+            )
+            text = ""
+            parse_details = {"error": str(exc)}
+            stage_timings_ms["parse_ms"] = 0.0
 
     capability_status = parse_details.get("capability_status") or {}
-    provider = str(capability_status.get("provider") or "unknown")
+    provider = str(
+        provider_override
+        or parse_details.get("provider_used")
+        or capability_status.get("provider")
+        or "unknown"
+    )
     fallback_used = bool(parse_details.get("fallback")) or bool(
         capability_status.get("fallback_chain")
     )

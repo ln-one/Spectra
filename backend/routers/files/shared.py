@@ -1,6 +1,6 @@
 import logging
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from utils.file_utils import cleanup_file
 
@@ -17,8 +17,20 @@ class BatchDeleteRequest(BaseModel):
     file_ids: list[str]
 
 
+class MineruParseResultRequest(BaseModel):
+    parsed_text: str
+    parse_details: dict = Field(default_factory=dict)
+    session_id: str | None = None
+
+
+class TriggerFallbackParseRequest(BaseModel):
+    session_id: str | None = None
+
+
 __all__ = [
     "BatchDeleteRequest",
+    "MineruParseResultRequest",
+    "TriggerFallbackParseRequest",
     "UpdateFileIntentRequest",
     "cleanup_file",
     "logger",
