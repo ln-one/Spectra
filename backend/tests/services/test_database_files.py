@@ -14,7 +14,8 @@ class _FileDb(FileMixin):
                 update=AsyncMock(return_value={}),
                 find_many=AsyncMock(return_value=[]),
                 count=AsyncMock(return_value=0),
-            )
+            ),
+            parsedchunk=SimpleNamespace(delete_many=AsyncMock(return_value=0)),
         )
 
 
@@ -55,3 +56,23 @@ async def test_update_upload_status_can_explicitly_clear_error_message():
     assert data["status"] == "ready"
     assert data["parseResult"] == '{"chunk_count": 1}'
     assert data["errorMessage"] is None
+
+
+@pytest.mark.asyncio
+async def test_delete_parsed_chunks_supports_int_result():
+    db = _FileDb()
+    db.db.parsedchunk.delete_many = AsyncMock(return_value=3)
+
+    deleted = await db.delete_parsed_chunks("f-001")
+
+    assert deleted == 3
+
+
+@pytest.mark.asyncio
+async def test_delete_parsed_chunks_supports_count_attr_result():
+    db = _FileDb()
+    db.db.parsedchunk.delete_many = AsyncMock(return_value=SimpleNamespace(count=5))
+
+    deleted = await db.delete_parsed_chunks("f-001")
+
+    assert deleted == 5

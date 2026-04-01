@@ -192,7 +192,9 @@ async def test_upload_file_response_idempotency_hit_skips_prepare(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_apply_mineru_parse_result_response_reindexes_with_remote_text(monkeypatch):
+async def test_apply_mineru_parse_result_response_reindexes_with_remote_text(
+    monkeypatch,
+):
     upload = SimpleNamespace(id="f-001", projectId="p-001", filename="lesson.pdf")
     latest = SimpleNamespace(
         id="f-001",
@@ -208,7 +210,9 @@ async def test_apply_mineru_parse_result_response_reindexes_with_remote_text(mon
         updatedAt=None,
     )
     get_file = AsyncMock(side_effect=[upload, latest])
-    monkeypatch.setattr("services.file_upload_service.workflow.db_service.get_file", get_file)
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.db_service.get_file", get_file
+    )
     monkeypatch.setattr(
         "services.file_upload_service.workflow.verify_project_access",
         AsyncMock(return_value=None),
@@ -286,3 +290,56 @@ async def test_trigger_fallback_parse_response_dispatches_indexing(monkeypatch):
 
     assert response["message"] == "已触发后端降级解析"
     dispatch.assert_called_once()
+    assert dispatch.call_args.kwargs["parse_provider_override"] == "local"
+    assert dispatch.call_args.kwargs["fallback_triggered"] is True
+
+
+@pytest.mark.asyncio
+async def test_trigger_fallback_parse_response_sync_forces_local(monkeypatch):
+    upload = SimpleNamespace(id="f-001", projectId="p-001", filename="lesson.pdf")
+    latest = SimpleNamespace(
+        id="f-001",
+        filename="lesson.pdf",
+        fileType="pdf",
+        mimeType="application/pdf",
+        size=12,
+        status="parsing",
+        parseResult=None,
+        errorMessage=None,
+        usageIntent=None,
+        createdAt=None,
+        updatedAt=None,
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.db_service.get_file",
+        AsyncMock(side_effect=[upload, latest]),
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.verify_project_access",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.db_service.update_upload_status",
+        AsyncMock(return_value=None),
+    )
+    index_mock = AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow.index_upload_for_rag",
+        index_mock,
+    )
+    monkeypatch.setattr(
+        "services.file_upload_service.workflow._SYNC_RAG_INDEXING",
+        True,
+    )
+
+    response = await trigger_fallback_parse_response(
+        request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace())),
+        background_tasks=SimpleNamespace(add_task=lambda *args, **kwargs: None),
+        file_id="f-001",
+        user_id="u-001",
+        session_id="s-001",
+    )
+
+    assert response["success"] is True
+    assert index_mock.await_args.kwargs["parse_provider_override"] == "local"
+    assert index_mock.await_args.kwargs["fallback_triggered"] is True
