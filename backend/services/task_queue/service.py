@@ -54,6 +54,8 @@ class TaskQueueService:
         file_id: str,
         project_id: str,
         session_id=None,
+        parse_provider_override=None,
+        fallback_triggered: bool = False,
         priority: str = "default",
         timeout: int = 1800,
     ):
@@ -62,6 +64,8 @@ class TaskQueueService:
             file_id=file_id,
             project_id=project_id,
             session_id=session_id,
+            parse_provider_override=parse_provider_override,
+            fallback_triggered=fallback_triggered,
             priority=priority,
             timeout=timeout,
         )
