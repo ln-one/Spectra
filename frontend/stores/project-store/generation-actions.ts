@@ -459,14 +459,29 @@ export function createGenerationActions({
     },
 
     redraftOutline: async (sessionId: string, instruction: string) => {
-      const session = get().generationSession;
-      const baseVersion = resolveOutlineBaseVersion(session);
+      const currentRunId = get().activeRunId;
       try {
-        await generateApi.redraftOutline(sessionId, {
+        const latestBeforeRedraft = await generateApi.getSessionSnapshot(
+          sessionId,
+          {
+            run_id: currentRunId || undefined,
+          }
+        );
+        const latestBeforePayload = latestBeforeRedraft?.data ?? null;
+        const preflightBaseVersion =
+          resolveOutlineBaseVersion(
+            latestBeforePayload as SessionStatePayload | null
+          ) || 1;
+        const redraftResponse = await generateApi.redraftOutline(sessionId, {
           instruction,
-          base_version: baseVersion,
+          base_version: preflightBaseVersion,
+          run_id: currentRunId || undefined,
         });
-        const preferredRunId = get().activeRunId;
+        const redraftRunId = extractRunId(
+          (redraftResponse as { data?: { run?: unknown } }).data?.run
+        );
+        const preferredRunId =
+          currentRunId || redraftRunId || get().activeRunId;
         const sessionResponse = await generateApi.getSessionSnapshot(
           sessionId,
           {
@@ -477,7 +492,9 @@ export function createGenerationActions({
         set({
           generationSession: latestSessionPayload,
           activeRunId:
-            extractCurrentRunId(latestSessionPayload) || preferredRunId,
+            extractCurrentRunId(latestSessionPayload) ||
+            preferredRunId ||
+            redraftRunId,
         });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -495,8 +512,10 @@ export function createGenerationActions({
 
     confirmOutline: async (sessionId: string) => {
       try {
+        const requestedRunId = get().activeRunId ?? undefined;
         const confirmResponse = await generateApi.confirmOutline(sessionId, {
           continue_from_retrieval: true,
+          run_id: requestedRunId,
         });
         const confirmedRunId = extractRunId(
           (confirmResponse as { data?: { run?: unknown } }).data?.run

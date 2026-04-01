@@ -8,7 +8,19 @@ import type { ApiErrorShape } from "@/lib/sdk/errors";
 
 export type Project = sdkComponents["schemas"]["Project"];
 export type UploadedFile = sdkComponents["schemas"]["UploadedFile"];
-export type Message = sdkComponents["schemas"]["Message"];
+export type RefineStatus = "processing" | "completed" | "failed";
+export interface MessageLocalMeta {
+  kind?: "studio_refine_user" | "studio_refine_status";
+  refineStatus?: RefineStatus;
+  refineToolType?: StudioManagedTool;
+  refineToolLabel?: string;
+  runId?: string | null;
+  sessionId?: string | null;
+  artifactId?: string | null;
+}
+export type Message = sdkComponents["schemas"]["Message"] & {
+  localMeta?: MessageLocalMeta;
+};
 export type OutlineDocument = sdkComponents["schemas"]["OutlineDocument"];
 export type GenerationOptions = sdkComponents["schemas"]["GenerationOptions"];
 export type SessionStatePayload =
@@ -56,6 +68,8 @@ export interface StudioChatContext {
   step: StudioChatWorkflowStep;
   canRefine: boolean;
   isRefineMode: boolean;
+  targetArtifactId?: string | null;
+  targetRunId?: string | null;
   sourceArtifactId?: string | null;
   configSnapshot?: Record<string, unknown>;
 }
@@ -181,14 +195,14 @@ export interface ProjectState {
 export const GENERATION_TOOLS: GenerationTool[] = [
   {
     id: "ppt",
-    name: "课件生成",
+    name: "智能课件",
     description: "自动生成结构化课件页面与讲解节奏",
     icon: "📳",
     type: "ppt",
   },
   {
     id: "word",
-    name: "文档生成",
+    name: "教学文档",
     description: "输出教案、讲稿与课堂文档资料",
     icon: "📝",
     type: "word",

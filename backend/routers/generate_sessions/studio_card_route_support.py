@@ -66,6 +66,7 @@ def build_execution_request(
         source_artifact_id=body.get("source_artifact_id"),
         rag_source_ids=_resolve_request_rag_source_ids(body),
         client_session_id=body.get("client_session_id"),
+        run_id=body.get("run_id"),
     )
 
 

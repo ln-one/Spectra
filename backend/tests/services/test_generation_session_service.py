@@ -1,4 +1,4 @@
-"""Unit tests for GenerationSessionService."""
+﻿"""Unit tests for GenerationSessionService."""
 
 import json
 from datetime import datetime, timedelta, timezone
@@ -977,7 +977,7 @@ async def test_get_session_runtime_state_uses_lightweight_select():
 
 
 @pytest.mark.anyio
-async def test_create_session_creates_new_session_when_existing_success_is_terminal():
+async def test_create_session_reuses_existing_success_session():
     existing_session = SimpleNamespace(
         id="s-success",
         projectId="p-001",
@@ -994,13 +994,13 @@ async def test_create_session_creates_new_session_when_existing_success_is_termi
         updatedAt=datetime.now(timezone.utc),
         progress=100,
     )
-    created_session = SimpleNamespace(
-        id="s-new",
+    updated_session = SimpleNamespace(
+        id="s-success",
         projectId="p-001",
         userId="u-001",
         baseVersionId="ver-current-002",
         state=GenerationState.DRAFTING_OUTLINE.value,
-        stateReason=SessionLifecycleReason.SESSION_CREATED.value,
+        stateReason=SessionLifecycleReason.SESSION_REUSED.value,
         outputType=SessionOutputType.PPT.value,
         options='{"pages": 12}',
         clientSessionId="s-success",
@@ -1021,8 +1021,8 @@ async def test_create_session_creates_new_session_when_existing_success_is_termi
         ),
         generationsession=SimpleNamespace(
             find_first=AsyncMock(return_value=existing_session),
-            create=AsyncMock(return_value=created_session),
-            update=AsyncMock(),
+            create=AsyncMock(),
+            update=AsyncMock(return_value=updated_session),
         ),
         sessionevent=SimpleNamespace(create=AsyncMock()),
     )
@@ -1039,17 +1039,56 @@ async def test_create_session_creates_new_session_when_existing_success_is_termi
         task_queue_service=None,
     )
 
-    assert session_ref["session_id"] == "s-new"
-    db.generationsession.create.assert_awaited_once()
-    create_payload = db.generationsession.create.await_args.kwargs["data"]
-    assert create_payload["projectId"] == "p-001"
-    assert create_payload["clientSessionId"] == "s-success"
+    assert session_ref["session_id"] == "s-success"
+    db.generationsession.create.assert_not_awaited()
+    assert db.generationsession.update.await_count == 2
+    update_payload = db.generationsession.update.await_args_list[0].kwargs["data"]
+    assert update_payload["outputType"] == SessionOutputType.PPT.value
+    assert update_payload["clientSessionId"] == "s-success"
+    assert update_payload["state"] == GenerationState.DRAFTING_OUTLINE.value
+    last_cursor_payload = db.generationsession.update.await_args_list[1].kwargs["data"]
+    assert set(last_cursor_payload.keys()) == {"lastCursor"}
     event_data = db.sessionevent.create.await_args.kwargs["data"]
     assert event_data["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert (
         json.loads(event_data["payload"]).get("reason")
-        == SessionLifecycleReason.SESSION_CREATED.value
+        == SessionLifecycleReason.SESSION_REUSED.value
     )
+
+
+@pytest.mark.anyio
+async def test_create_session_disallows_creation_when_allow_create_false():
+    db = SimpleNamespace(
+        project=SimpleNamespace(
+            find_unique=AsyncMock(
+                return_value=SimpleNamespace(
+                    id="p-001",
+                    currentVersionId="ver-current-002",
+                )
+            )
+        ),
+        generationsession=SimpleNamespace(
+            find_first=AsyncMock(return_value=None),
+            create=AsyncMock(),
+            update=AsyncMock(),
+        ),
+        sessionevent=SimpleNamespace(create=AsyncMock()),
+    )
+    service = GenerationSessionService(db=db)
+
+    with pytest.raises(LookupError):
+        await service.create_session(
+            project_id="p-001",
+            user_id="u-001",
+            output_type=SessionOutputType.PPT.value,
+            client_session_id="s-missing",
+            options={"pages": 10},
+            allow_create=False,
+            task_queue_service=None,
+        )
+
+    db.generationsession.create.assert_not_awaited()
+    db.generationsession.update.assert_not_awaited()
 
 
 @pytest.mark.anyio
@@ -1523,13 +1562,7 @@ async def test_execute_outline_draft_local_failure_path():
     assert failed_payload["policy_version"] == "prompt-policy-v2026-03-28"
     assert failed_payload["baseline_id"] == "prompt-baseline-v1"
 
-    db.outlineversion.create.assert_called_once()
-    outline_data = db.outlineversion.create.await_args.kwargs["data"]
-    assert outline_data["version"] == 1
-    assert outline_data["changeReason"] == "draft_failed_fallback_empty"
-    outline_doc = json.loads(outline_data["outlineData"])
-    assert len(outline_doc["nodes"]) == 10
-    assert all(str(node.get("title", "")).strip() for node in outline_doc["nodes"])
+    db.outlineversion.create.assert_not_awaited()
 
     state_updates = [
         call.kwargs["data"]
@@ -1537,9 +1570,10 @@ async def test_execute_outline_draft_local_failure_path():
         if "state" in (call.kwargs.get("data") or {})
     ]
     assert any(
-        update.get("state") == GenerationState.AWAITING_OUTLINE_CONFIRM.value
-        and update.get("stateReason")
-        == OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY.value
+        update.get("state") == GenerationState.FAILED.value
+        and update.get("stateReason") == OutlineGenerationStateReason.FAILED.value
+        and update.get("errorCode") == OutlineGenerationErrorCode.FAILED.value
+        and update.get("errorRetryable") is True
         for update in state_updates
     )
 
@@ -1623,9 +1657,10 @@ async def test_outline_timeout_emits_stable_timeout_reason():
         if "state" in (call.kwargs.get("data") or {})
     ]
     assert any(
-        update.get("state") == GenerationState.AWAITING_OUTLINE_CONFIRM.value
-        and update.get("stateReason")
-        == OutlineGenerationStateReason.TIMED_OUT_FALLBACK_EMPTY.value
+        update.get("state") == GenerationState.FAILED.value
+        and update.get("stateReason") == OutlineGenerationStateReason.TIMED_OUT.value
+        and update.get("errorCode") == OutlineGenerationErrorCode.TIMEOUT.value
+        and update.get("errorRetryable") is True
         for update in state_updates
     )
 

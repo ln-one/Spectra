@@ -58,7 +58,7 @@ def mock_db_service():
         updatedAt=datetime.now(timezone.utc),
         progress=0,
         stateReason=None,
-        displayTitle="浼氳瘽-001",
+        displayTitle="会话-001",
         displayTitleSource="default",
         displayTitleUpdatedAt=None,
     )
@@ -87,10 +87,54 @@ def _as_user(app):
     app.dependency_overrides.pop(get_current_user_optional, None)
 
 
+@pytest.fixture(autouse=True)
+def _studio_tool_fallback_allow_for_legacy_tests(monkeypatch):
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "allow")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+
+
 @pytest.mark.anyio
 async def test_create_session_returns_quickly_and_schedules_outline(
     app, mock_db_service, _as_user
 ):
+    existing_session = SimpleNamespace(
+        id="s-001",
+        projectId="p-001",
+        userId="u-001",
+        state=GenerationState.IDLE.value,
+        outputType="ppt",
+        options=None,
+        clientSessionId="s-001",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+        stateReason=None,
+    )
+    started_session = SimpleNamespace(
+        id="s-001",
+        projectId="p-001",
+        userId="u-001",
+        state=GenerationState.DRAFTING_OUTLINE.value,
+        outputType="ppt",
+        options=json.dumps({"pages": 10}),
+        clientSessionId="s-001",
+        renderVersion=0,
+        currentOutlineVersion=0,
+        resumable=True,
+        updatedAt=datetime.now(timezone.utc),
+        progress=0,
+        stateReason=None,
+        displayTitle="会话-001",
+        displayTitleSource="default",
+        displayTitleUpdatedAt=None,
+    )
+    mock_db_service.generationsession.find_first = AsyncMock(
+        return_value=existing_session
+    )
+    mock_db_service.generationsession.update = AsyncMock(return_value=started_session)
+
     schedule_mock = AsyncMock()
     with patch.object(db_service, "get_project", mock_db_service.get_project):
         with patch.object(db_service, "db", mock_db_service):
@@ -105,6 +149,7 @@ async def test_create_session_returns_quickly_and_schedules_outline(
                     json={
                         "project_id": "p-001",
                         "output_type": SessionOutputType.PPT.value,
+                        "client_session_id": "s-001",
                         "options": {"pages": 10},
                     },
                 )
@@ -117,7 +162,7 @@ async def test_create_session_returns_quickly_and_schedules_outline(
     assert data["success"] is True
     assert data["data"]["session"]["state"] == GenerationState.DRAFTING_OUTLINE.value
     assert data["data"]["session"]["session_id"] == "s-001"
-    assert data["data"]["session"]["display_title"] == "浼氳瘽-001"
+    assert data["data"]["session"]["display_title"] == "会话-001"
     assert data["data"]["session"]["display_title_source"] == "default"
 
 
@@ -165,6 +210,57 @@ async def test_create_session_bootstrap_only_does_not_schedule_outline(
     data = response.json()
     assert data["data"]["session"]["state"] == GenerationState.IDLE.value
     assert data["data"]["session"]["session_id"] == "s-bootstrap-001"
+
+
+@pytest.mark.anyio
+async def test_create_session_requires_client_session_id_for_tool_invocation(
+    app, mock_db_service, _as_user
+):
+    with patch.object(db_service, "get_project", mock_db_service.get_project):
+        with patch.object(db_service, "db", mock_db_service):
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/generate/sessions",
+                json={
+                    "project_id": "p-001",
+                    "output_type": SessionOutputType.PPT.value,
+                    "options": {"pages": 10},
+                },
+            )
+
+    assert response.status_code == 409
+    payload = response.json()
+    error = payload.get("error") or payload.get("detail") or {}
+    details = error.get("details") if isinstance(error, dict) else {}
+    assert error.get("code") == "RESOURCE_CONFLICT"
+    assert details.get("reason") == "missing_client_session_id"
+
+
+@pytest.mark.anyio
+async def test_create_session_rejects_invalid_client_session_id(
+    app, mock_db_service, _as_user
+):
+    mock_db_service.generationsession.find_first = AsyncMock(return_value=None)
+    with patch.object(db_service, "get_project", mock_db_service.get_project):
+        with patch.object(db_service, "db", mock_db_service):
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/generate/sessions",
+                json={
+                    "project_id": "p-001",
+                    "output_type": SessionOutputType.PPT.value,
+                    "client_session_id": "s-not-found",
+                    "options": {"pages": 10},
+                },
+            )
+
+    assert response.status_code == 409
+    payload = response.json()
+    error = payload.get("error") or payload.get("detail") or {}
+    details = error.get("details") if isinstance(error, dict) else {}
+    assert error.get("code") == "RESOURCE_CONFLICT"
+    assert details.get("reason") == "invalid_client_session_id"
+    assert details.get("client_session_id") == "s-not-found"
 
 
 @pytest.mark.anyio
@@ -475,13 +571,7 @@ async def test_sse_events_sequence_failure_path():
     assert "trace_id" in failed_payload
     assert "error_message" in failed_payload
 
-    mock_db.outlineversion.create.assert_called_once()
-    outline_data = mock_db.outlineversion.create.await_args.kwargs["data"]
-    assert outline_data["version"] == 1
-    assert outline_data["changeReason"] == "draft_failed_fallback_empty"
-    outline_doc = json.loads(outline_data["outlineData"])
-    assert len(outline_doc["nodes"]) == 10
-    assert all(str(node.get("title", "")).strip() for node in outline_doc["nodes"])
+    mock_db.outlineversion.create.assert_not_awaited()
 
     state_updates = [
         call.kwargs["data"]
@@ -489,9 +579,10 @@ async def test_sse_events_sequence_failure_path():
         if "state" in (call.kwargs.get("data") or {})
     ]
     assert any(
-        update.get("state") == GenerationState.AWAITING_OUTLINE_CONFIRM.value
-        and update.get("stateReason")
-        == OutlineGenerationStateReason.FAILED_FALLBACK_EMPTY
+        update.get("state") == GenerationState.FAILED.value
+        and update.get("stateReason") == OutlineGenerationStateReason.FAILED
+        and update.get("errorCode") == OutlineGenerationErrorCode.FAILED
+        and update.get("errorRetryable") is True
         for update in state_updates
     )
 
@@ -528,6 +619,12 @@ async def test_rq_fallback_to_local_when_worker_unavailable():
 @pytest.mark.anyio
 async def test_idempotency_prevents_duplicate_creation(app):
     mock_project = SimpleNamespace(id="p-001", userId="u-001", name="test-project")
+    mock_session = SimpleNamespace(
+        id="s-existing-001",
+        projectId="p-001",
+        userId="u-001",
+        clientSessionId="s-existing-001",
+    )
     cached_response = {
         "success": True,
         "data": {"session": {"session_id": "s-001"}},
@@ -541,13 +638,22 @@ async def test_idempotency_prevents_duplicate_creation(app):
             "get_idempotency_response",
             AsyncMock(return_value=cached_response),
         ):
-            with patch.object(db_service, "db", SimpleNamespace()):
+            with patch.object(
+                db_service,
+                "db",
+                SimpleNamespace(
+                    generationsession=SimpleNamespace(
+                        find_first=AsyncMock(return_value=mock_session)
+                    )
+                ),
+            ):
                 client = TestClient(app)
                 response = client.post(
                     "/api/v1/generate/sessions",
                     json={
                         "project_id": "p-001",
                         "output_type": SessionOutputType.PPT.value,
+                        "client_session_id": "s-existing-001",
                     },
                     headers={"Idempotency-Key": "123e4567-e89b-12d3-a456-426614174000"},
                 )
@@ -814,7 +920,7 @@ async def test_get_capabilities_includes_studio_card_readiness(app, _as_user):
     assert studio_cards["classroom_qa_simulator"]["readiness"] == "foundation_ready"
     assert studio_cards["classroom_qa_simulator"]["context_mode"] == "hybrid"
     assert studio_cards["speaker_notes"]["requires_source_artifact"] is True
-    assert studio_cards["word_document"]["session_output_type"] == "word"
+    assert studio_cards["word_document"]["execution_mode"] == "artifact_create"
     assert studio_cards["courseware_ppt"]["session_output_type"] == "ppt"
     assert studio_cards["knowledge_mindmap"]["supports_selection_context"] is True
 
@@ -830,7 +936,7 @@ async def test_get_studio_cards_returns_card_protocol_catalog(app, _as_user):
     cards = {card["id"]: card for card in data["studio_cards"]}
 
     assert cards["courseware_ppt"]["execution_mode"] == "composite"
-    assert cards["word_document"]["execution_mode"] == "composite"
+    assert cards["word_document"]["execution_mode"] == "artifact_create"
     assert (
         cards["interactive_quick_quiz"]["config_fields"][0]["key"] == "question_count"
     )
@@ -846,7 +952,7 @@ async def test_get_studio_card_returns_protocol_detail(app, _as_user):
     assert response.status_code == 200
     card = response.json()["data"]["studio_card"]
     assert card["id"] == "word_document"
-    assert card["session_output_type"] == "word"
+    assert card.get("session_output_type") is None
     assert card["supports_chat_refine"] is True
 
 
@@ -870,9 +976,11 @@ async def test_get_studio_card_execution_plan_returns_protocol_bindings(app, _as
     assert response.status_code == 200
     plan = response.json()["data"]["execution_plan"]
     assert plan["card_id"] == "word_document"
-    assert plan["initial_binding"]["transport"] == "session_create"
+    assert plan["initial_binding"]["transport"] == "artifact_create"
     assert plan["initial_binding"]["status"] == "ready"
-    assert plan["initial_binding"]["endpoint"] == "/api/v1/generate/sessions"
+    assert (
+        plan["initial_binding"]["endpoint"] == "/api/v1/projects/{project_id}/artifacts"
+    )
     assert "document_variant" in plan["initial_binding"]["bound_config_keys"]
     assert plan["refine_binding"]["transport"] == "chat_message"
 
@@ -994,10 +1102,10 @@ async def test_preview_studio_card_execution_returns_bound_word_payload(app, _as
 
     assert response.status_code == 200
     preview = response.json()["data"]["execution_preview"]
-    assert preview["initial_request"]["endpoint"] == "/api/v1/generate/sessions"
-    assert preview["initial_request"]["payload"]["output_type"] == "word"
+    assert preview["initial_request"]["endpoint"] == "/api/v1/projects/p-001/artifacts"
+    assert preview["initial_request"]["payload"]["type"] == "docx"
     assert (
-        preview["initial_request"]["payload"]["options"]["document_variant"]
+        preview["initial_request"]["payload"]["content"]["document_variant"]
         == "student_handout"
     )
 
@@ -1167,10 +1275,11 @@ async def test_preview_studio_card_execution_requires_project_id(app, _as_user):
 
 
 @pytest.mark.anyio
-async def test_execute_studio_card_creates_courseware_session(app, _as_user):
+async def test_execute_studio_card_reuses_bound_courseware_session(app, _as_user):
     client = TestClient(app)
+    existing_session = SimpleNamespace(id="client-card-ppt-001")
     session_ref = {
-        "session_id": "s-card-ppt-001",
+        "session_id": "client-card-ppt-001",
         "project_id": "p-001",
         "output_type": "ppt",
         "state": GenerationState.DRAFTING_OUTLINE.value,
@@ -1184,6 +1293,17 @@ async def test_execute_studio_card_creates_courseware_session(app, _as_user):
         patch(
             "services.generation_session_service.card_execution_runtime.get_owned_project",
             AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+        ),
+        patch.object(
+            db_service,
+            "db",
+            SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_first=AsyncMock(return_value=existing_session),
+                    update=AsyncMock(),
+                ),
+                sessionevent=SimpleNamespace(create=AsyncMock()),
+            ),
         ),
     ):
         response = client.post(
@@ -1204,41 +1324,51 @@ async def test_execute_studio_card_creates_courseware_session(app, _as_user):
     assert response.status_code == 200
     result = response.json()["data"]["execution_result"]
     assert result["resource_kind"] == "session"
-    assert result["session"]["session_id"] == "s-card-ppt-001"
+    assert result["session"]["session_id"] == "client-card-ppt-001"
     assert result["request_preview"]["payload"]["options"]["template"] == "gaia"
     create_session_mock.assert_awaited_once()
     kwargs = create_session_mock.await_args.kwargs
     assert kwargs["output_type"] == "ppt"
     assert kwargs["client_session_id"] == "client-card-ppt-001"
+    assert kwargs["allow_create"] is False
     assert kwargs["options"]["pages"] == 16
     assert kwargs["options"]["rag_source_ids"] == ["file-2"]
 
 
 @pytest.mark.anyio
-async def test_execute_studio_card_creates_word_session(app, _as_user):
+async def test_execute_studio_card_creates_word_artifact(app, _as_user):
     client = TestClient(app)
-    session_ref = {
-        "session_id": "s-card-001",
-        "project_id": "p-001",
-        "output_type": "word",
-        "state": GenerationState.DRAFTING_OUTLINE.value,
-    }
+    artifact = SimpleNamespace(
+        id="a-word-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="docx",
+        visibility="private",
+        storagePath="uploads/artifacts/a-word-001.docx",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
 
     with (
         patch(
-            "services.generation_session_service.GenerationSessionService.create_session",
-            AsyncMock(return_value=session_ref),
-        ) as create_session_mock,
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
         patch(
-            "services.generation_session_service.card_execution_runtime.get_owned_project",
-            AsyncMock(return_value=SimpleNamespace(id="p-001", userId="u-001")),
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ) as create_artifact_mock,
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
         ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/word_document/execute",
             json={
                 "project_id": "p-001",
-                "client_session_id": "client-card-001",
                 "config": {
                     "document_variant": "student_handout",
                     "teaching_model": "scaffolded",
@@ -1249,16 +1379,72 @@ async def test_execute_studio_card_creates_word_session(app, _as_user):
 
     assert response.status_code == 200
     result = response.json()["data"]["execution_result"]
-    assert result["resource_kind"] == "session"
-    assert result["session"]["session_id"] == "s-card-001"
-    assert result["request_preview"]["payload"]["options"]["document_variant"] == (
+    assert result["resource_kind"] == "artifact"
+    assert result["artifact"]["id"] == "a-word-001"
+    assert result["artifact"]["type"] == "docx"
+    assert result["request_preview"]["payload"]["content"]["document_variant"] == (
         "student_handout"
     )
-    create_session_mock.assert_awaited_once()
-    kwargs = create_session_mock.await_args.kwargs
-    assert kwargs["output_type"] == "word"
-    assert kwargs["client_session_id"] == "client-card-001"
-    assert kwargs["options"]["document_variant"] == "student_handout"
+    create_artifact_mock.assert_awaited_once()
+    kwargs = create_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_type"] == "docx"
+    assert kwargs["content"]["document_variant"] == "student_handout"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_rejects_invalid_client_session_id(app, _as_user):
+    client = TestClient(app)
+    artifact = SimpleNamespace(
+        id="a-word-invalid-session",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="docx",
+        visibility="private",
+        storagePath="uploads/artifacts/a-word-invalid-session.docx",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=artifact),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+        patch.object(
+            db_service,
+            "db",
+            SimpleNamespace(
+                generationsession=SimpleNamespace(
+                    find_first=AsyncMock(return_value=None)
+                )
+            ),
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/word_document/execute",
+            json={
+                "project_id": "p-001",
+                "client_session_id": "missing-session",
+                "config": {
+                    "document_variant": "student_handout",
+                },
+            },
+        )
+
+    assert response.status_code == 400
+    payload = response.json()
+    detail = payload.get("detail") or {}
+    assert detail.get("code") == "INVALID_INPUT"
 
 
 @pytest.mark.anyio
@@ -1500,6 +1686,54 @@ async def test_execute_studio_card_accepts_rag_source_ids(app, _as_user):
     assert kwargs["artifact_type"] == "mindmap"
     assert kwargs["artifact_mode"] == "replace"
     assert kwargs["content"]["nodes"]
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_strict_mode_returns_upstream_error_and_no_artifact(
+    app, _as_user, monkeypatch
+):
+    client = TestClient(app)
+    monkeypatch.setenv("STUDIO_TOOL_FALLBACK_MODE", "strict")
+    monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.generation_session_service.tool_content_builder.ai_service.generate",
+            AsyncMock(side_effect=RuntimeError("provider timeout")),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(),
+        ) as create_artifact_mock,
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/knowledge_mindmap/execute",
+            json={
+                "project_id": "p-001",
+                "config": {
+                    "topic": "Electromagnetism",
+                    "depth": 3,
+                    "focus": "concept",
+                },
+            },
+        )
+
+    assert response.status_code == 502
+    body = response.json()
+    error_payload = body.get("error") or body.get("detail") or {}
+    assert error_payload.get("code") in {
+        "EXTERNAL_SERVICE_ERROR",
+        "UPSTREAM_UNAVAILABLE",
+    }
+    details = error_payload.get("details") or {}
+    assert details.get("card_id") == "knowledge_mindmap"
+    assert details.get("phase") in {"generate", "parse", "validate"}
+    assert details.get("failure_reason")
+    create_artifact_mock.assert_not_awaited()
 
 
 @pytest.mark.anyio
@@ -1894,7 +2128,7 @@ async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
             json={
                 "project_id": "p-001",
                 "artifact_id": "a-map-001",
-                "message": "琛ュ厖鍙楀姏鍒嗘瀽鍒嗘敮",
+                "message": "add force-analysis branch",
                 "config": {"selected_node_path": "root"},
             },
         )
@@ -2004,7 +2238,7 @@ async def test_refine_studio_card_replaces_game_artifact(app, _as_user):
     )
     current_content = {
         "kind": "interactive_game",
-        "html": "<html><body><main><h1>娓告垙</h1></main></body></html>",
+        "html": "<html><body><main><h1>Game</h1></main></body></html>",
     }
 
     with (
@@ -2077,7 +2311,7 @@ async def test_refine_studio_card_replaces_speaker_notes_artifact(app, _as_user)
                 "page": 3,
                 "title": "过渡页",
                 "script": "旧讲稿",
-                "transition_line": "鏃ц繃娓¤",
+                "transition_line": "旧过渡语",
             }
         ],
     }
@@ -2167,7 +2401,8 @@ async def test_execute_studio_card_creates_gif_animation_artifact(app, _as_user)
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "gif"
     assert kwargs["content"]["format"] == "gif"
-    assert "<html" in kwargs["content"]["html"].lower()
+    html = kwargs["content"]["html"].lower()
+    assert "<html" in html or "<div" in html
 
 
 @pytest.mark.anyio

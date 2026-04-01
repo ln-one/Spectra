@@ -2,16 +2,19 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { CheckCircle2, CircleX, Loader2 } from "lucide-react";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
 import { toCitationViewModels } from "@/lib/chat/citation-view-model";
+import { TOOL_COLORS } from "@/components/project/features/studio/constants";
 import type { ChatMessage } from "../types";
 import { CitationBadge } from "./CitationBadge";
 import { MarkdownContent } from "./MarkdownContent";
+import { ThinkingBubble } from "./ThinkingBubble";
 
 function splitContentAndSources(content: string): { body: string } {
-  const markers = ["\n\n\u6765\u6e90\uff1a", "\n\n\u6765\u6e90:"];
+  const markers = ["\n\n来源：", "\n\n来源:"];
   const idx = markers
     .map((marker) => content.indexOf(marker))
     .find((value) => value >= 0);
@@ -21,16 +24,54 @@ function splitContentAndSources(content: string): { body: string } {
   return { body: content.slice(0, idx).trim() };
 }
 
+function dispatchOpenHistoryItem(message: ChatMessage): void {
+  const localMeta = message.localMeta;
+  if (!localMeta) return;
+  const runId = localMeta.runId ?? null;
+  const sessionId = localMeta.sessionId ?? null;
+  const toolType = localMeta.refineToolType;
+  if (!sessionId || !toolType) return;
+  window.dispatchEvent(
+    new CustomEvent("spectra:open-history-item", {
+      detail: {
+        origin: "workflow",
+        toolType,
+        step: "preview",
+        status: "completed",
+        sessionId,
+        runId,
+        artifactId: localMeta.artifactId ?? null,
+      },
+    })
+  );
+}
+
 export function MessageBubble({
   message,
   index,
   projectId,
+  toolColor,
 }: {
   message: ChatMessage;
   index: number;
   projectId: string;
+  toolColor?: {
+    primary: string;
+    secondary: string;
+    glow: string;
+    soft: string;
+  };
 }) {
   const isUser = message.role === "user";
+  const localMeta = message.localMeta;
+  const isRefineStatus = localMeta?.kind === "studio_refine_status";
+  const isRefineUser = localMeta?.kind === "studio_refine_user";
+  const messageToolColor =
+    localMeta?.refineToolType && TOOL_COLORS[localMeta.refineToolType]
+      ? TOOL_COLORS[localMeta.refineToolType]
+      : toolColor;
+  const isInlineThinkingMessage =
+    isRefineStatus && localMeta?.refineStatus === "processing";
   const { focusSourceByChunk } = useProjectStore(
     useShallow((state) => ({
       focusSourceByChunk: state.focusSourceByChunk,
@@ -41,6 +82,56 @@ export function MessageBubble({
     () => toCitationViewModels(message.citations),
     [message.citations]
   );
+
+  if (isInlineThinkingMessage) {
+    return <ThinkingBubble toolColor={messageToolColor} />;
+  }
+
+  if (isRefineStatus) {
+    const isDone = localMeta?.refineStatus === "completed";
+    const isFailed = localMeta?.refineStatus === "failed";
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex justify-start"
+      >
+        <button
+          type="button"
+          onClick={() => {
+            if (isDone) dispatchOpenHistoryItem(message);
+          }}
+          disabled={!isDone}
+          className={cn(
+            "flex max-w-[82%] items-center gap-2 rounded-2xl rounded-tl-sm border px-3 py-2 text-left text-sm transition-colors",
+            isDone
+              ? "cursor-pointer hover:brightness-95"
+              : "cursor-default opacity-95",
+            isFailed
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-[var(--project-border)] bg-[var(--project-surface-elevated)] text-[var(--project-text-primary)]"
+          )}
+          style={
+            !isFailed && messageToolColor
+              ? {
+                  borderColor: messageToolColor.primary,
+                  backgroundColor: `color-mix(in srgb, ${messageToolColor.primary} 6%, var(--project-surface-elevated))`,
+                }
+              : undefined
+          }
+        >
+          {isDone ? (
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+          ) : isFailed ? (
+            <CircleX className="h-4 w-4 shrink-0" />
+          ) : (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          )}
+          <span className="whitespace-pre-wrap">{message.content}</span>
+        </button>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -70,6 +161,14 @@ export function MessageBubble({
               ? "rounded-2xl rounded-tr-sm bg-[linear-gradient(135deg,var(--project-accent),var(--project-accent-hover))] text-[var(--project-accent-text)]"
               : "rounded-2xl rounded-tl-sm border border-[var(--project-border)] bg-[var(--project-surface-elevated)] text-[var(--project-text-primary)]"
           )}
+          style={
+            isUser && isRefineUser && messageToolColor
+              ? {
+                  background: `linear-gradient(135deg, ${messageToolColor.primary}, ${messageToolColor.secondary})`,
+                  color: "#fff",
+                }
+              : undefined
+          }
         >
           {isUser ? (
             <span className="whitespace-pre-wrap">{message.content}</span>
@@ -85,7 +184,7 @@ export function MessageBubble({
                         focusSourceByChunk(citation.chunkId, projectId)
                       }
                       className="text-[10px] leading-none text-[var(--project-text-muted)] transition-colors hover:text-[var(--project-text-primary)]"
-                      aria-label={`\u5f15\u7528 ${i + 1}`}
+                      aria-label={`引用 ${i + 1}`}
                     >
                       <sup className="rounded border border-[var(--project-border)] bg-[var(--project-surface-muted)] px-1 py-0.5">
                         {i + 1}

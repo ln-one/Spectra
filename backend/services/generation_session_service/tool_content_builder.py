@@ -14,15 +14,47 @@ from services.generation_session_service.tool_content_builder_fallbacks import (
     fallback_content,
     fallback_simulator_turn_result,
 )
+from services.generation_session_service.tool_content_builder_support import (
+    build_error_details as _build_error_details,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    build_schema_hint as _build_schema_hint,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    parse_ai_object_payload as _parse_ai_object_payload,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    raise_generation_error as _raise_generation_error,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    validate_card_payload as _validate_card_payload,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    validate_simulator_turn_payload as _validate_simulator_turn_payload,
+)
 from services.project_space_service import project_space_service
 from services.system_settings_service import system_settings_service
+from utils.exceptions import APIException, ErrorCode
 
 logger = logging.getLogger(__name__)
 
+_FALLBACK_MODE_ENV = "STUDIO_TOOL_FALLBACK_MODE"
+_FALLBACK_MODE_STRICT = "strict"
+_FALLBACK_MODE_ALLOW = "allow"
+
+
+def _resolve_fallback_mode() -> str:
+    raw = str(os.getenv(_FALLBACK_MODE_ENV, _FALLBACK_MODE_STRICT)).strip().lower()
+    if raw in {_FALLBACK_MODE_STRICT, _FALLBACK_MODE_ALLOW}:
+        return raw
+    return _FALLBACK_MODE_STRICT
+
+
+def _allow_fallback() -> bool:
+    return _resolve_fallback_mode() == _FALLBACK_MODE_ALLOW
+
 
 def _should_attempt_ai_generation() -> bool:
-    if os.getenv("PYTEST_CURRENT_TEST"):
-        return False
     raw = os.getenv("STUDIO_TOOL_ENABLE_AI_GENERATION")
     if raw is None:
         return True
@@ -53,7 +85,7 @@ async def _load_rag_snippets(
         )
     except Exception as exc:
         logger.warning(
-            "studio tool rag loading failed for project=%s: %s",
+            "studio tool rag loading failed for project=%s error=%s",
             project_id,
             exc,
         )
@@ -94,67 +126,52 @@ async def _load_source_artifact_hint(
     return f"{artifact.type}:{artifact.id}"
 
 
-def _strip_json_fence(text: str) -> str:
-    candidate = (text or "").strip()
-    if candidate.startswith("```"):
-        lines = candidate.splitlines()
-        if len(lines) >= 3:
-            candidate = "\n".join(lines[1:-1]).strip()
-    return candidate
-
-
 async def _generate_structured_content(
     *,
     card_id: str,
     config: dict[str, Any],
     rag_snippets: list[str],
     source_hint: str | None,
-) -> dict[str, Any] | None:
+) -> dict[str, Any]:
     if not _should_attempt_ai_generation():
-        return None
-    schema_hint = {
-        "courseware_ppt": (
-            '{"title":"", "summary":"", "pages":12, "template":"default"}'
-        ),
-        "word_document": (
-            '{"title":"", "summary":"", "document_variant":"layered_lesson_plan"}'
-        ),
-        "knowledge_mindmap": (
-            '{"title":"",'
-            ' "nodes":[{"id":"","parent_id":null,"title":"","summary":""}]}'
-        ),
-        "interactive_quick_quiz": (
-            '{"title":"",'
-            ' "questions":[{"id":"","question":"","options":[""],'
-            '"answer":"","explanation":""}]}'
-        ),
-        "interactive_games": '{"title":"", "html":""}',
-        "classroom_qa_simulator": (
-            '{"title":"", "summary":"", "key_points":[""], '
-            '"turns":[{"student":"","question":"","teacher_hint":"",'
-            '"feedback":""}]}'
-        ),
-        "demonstration_animations": (
-            '{"title":"", "html":"", "summary":"", '
-            '"scenes":[{"title":"","description":""}]}'
-        ),
-        "speaker_notes": (
-            '{"title":"", "summary":"", '
-            '"slides":[{"page":1,"title":"","script":"",'
-            '"action_hint":"","transition_line":""}]}'
-        ),
-    }.get(card_id)
+        _raise_generation_error(
+            status_code=503,
+            error_code=ErrorCode.UPSTREAM_UNAVAILABLE,
+            message="Studio AI generation is disabled by runtime configuration.",
+            card_id=card_id,
+            model=None,
+            phase="generate",
+            failure_reason="ai_generation_disabled",
+            retryable=False,
+        )
+
+    schema_hint = _build_schema_hint(card_id)
     if not schema_hint:
-        return None
+        _raise_generation_error(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="Unsupported studio card for structured generation.",
+            card_id=card_id,
+            model=None,
+            phase="preflight",
+            failure_reason="unsupported_card",
+            retryable=False,
+        )
+
     prompt = (
-        "你是教学工具内容生成器。请严格只返回 JSON，不要加 markdown 代码块。\n"
-        f"卡片类型: {card_id}\n"
-        f"配置: {json.dumps(config, ensure_ascii=False)}\n"
-        f"源成果提示: {source_hint or '无'}\n"
-        f"RAG 摘要: {json.dumps(rag_snippets, ensure_ascii=False)}\n"
-        "要求：产物必须可直接落盘使用，内容不能为空，避免占位符。\n"
-        f"输出 JSON 结构示例: {schema_hint}"
+        "You are a teaching tool content generator.\n"
+        "Return ONLY a JSON object. Do not include markdown fences.\n"
+        f"Card type: {card_id}\n"
+        f"Config: {json.dumps(config, ensure_ascii=False)}\n"
+        f"Source artifact hint: {source_hint or 'none'}\n"
+        f"RAG snippets: {json.dumps(rag_snippets, ensure_ascii=False)}\n"
+        "Requirements:\n"
+        "- Output must be directly usable for artifact persistence.\n"
+        "- Avoid placeholders, empty strings, and empty arrays.\n"
+        "- Keep semantics educational and concrete.\n"
+        f"Expected JSON shape example: {schema_hint}\n"
     )
+
     try:
         response = await ai_service.generate(
             prompt=prompt,
@@ -162,15 +179,64 @@ async def _generate_structured_content(
             has_rag_context=bool(rag_snippets),
             max_tokens=1600,
         )
-        payload = json.loads(_strip_json_fence(str(response.get("content") or "")))
-        return payload if isinstance(payload, dict) else None
-    except Exception as exc:
-        logger.warning(
-            "studio tool AI content generation failed for %s: %s",
-            card_id,
-            exc,
+    except APIException as exc:
+        details = dict(exc.details or {})
+        model_name = str(
+            details.get("resolved_model")
+            or details.get("requested_model")
+            or ai_service.large_model
+            or ""
         )
-        return None
+        details.update(
+            _build_error_details(
+                card_id=card_id,
+                model=model_name,
+                phase="generate",
+                failure_reason=str(details.get("failure_type") or "upstream_error"),
+                retryable=bool(exc.retryable),
+            )
+        )
+        raise APIException(
+            status_code=exc.status_code,
+            error_code=exc.error_code,
+            message=exc.message,
+            details=details,
+            retryable=exc.retryable,
+        ) from exc
+    except Exception as exc:
+        _raise_generation_error(
+            status_code=502,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+            message="AI generation failed with an unexpected runtime error.",
+            card_id=card_id,
+            model=ai_service.large_model,
+            phase="generate",
+            failure_reason="unexpected_runtime_error",
+            retryable=True,
+            extra={"raw_error": str(exc)[:300]},
+        )
+
+    model_name = str(response.get("model") or ai_service.large_model or "")
+    payload = _parse_ai_object_payload(
+        card_id=card_id,
+        ai_raw=str(response.get("content") or ""),
+        model=model_name,
+        phase="parse",
+    )
+    try:
+        _validate_card_payload(card_id, payload)
+    except ValueError as exc:
+        _raise_generation_error(
+            status_code=400,
+            error_code=ErrorCode.INVALID_INPUT,
+            message="AI payload failed studio card schema validation.",
+            card_id=card_id,
+            model=model_name,
+            phase="validate",
+            failure_reason=str(exc),
+            retryable=False,
+        )
+    return payload
 
 
 async def build_studio_tool_artifact_content(
@@ -193,12 +259,35 @@ async def build_studio_tool_artifact_content(
         ),
         _load_source_artifact_hint(source_artifact_id=source_artifact_id),
     )
-    ai_payload = await _generate_structured_content(
-        card_id=card_id,
-        config=cfg,
-        rag_snippets=rag_snippets,
-        source_hint=source_hint,
+    allow_fallback = _allow_fallback()
+    logger.info(
+        "studio tool generation mode card_id=%s fallback_mode=%s",
+        card_id,
+        _resolve_fallback_mode(),
     )
+    if not allow_fallback:
+        return await _generate_structured_content(
+            card_id=card_id,
+            config=cfg,
+            rag_snippets=rag_snippets,
+            source_hint=source_hint,
+        )
+
+    ai_payload = None
+    try:
+        ai_payload = await _generate_structured_content(
+            card_id=card_id,
+            config=cfg,
+            rag_snippets=rag_snippets,
+            source_hint=source_hint,
+        )
+    except Exception as exc:
+        logger.warning(
+            "studio tool fallback mode activated card_id=%s reason=%s",
+            card_id,
+            exc,
+        )
+
     fallback_payload = fallback_content(
         card_id=card_id,
         config=cfg,
@@ -229,23 +318,53 @@ async def build_studio_simulator_turn_update(
         cfg.get("topic")
         or current_content.get("question_focus")
         or current_content.get("title")
-        or "课堂问答推进"
+        or "classroom qa simulation"
     )
     rag_snippets = await _load_rag_snippets(
         project_id=project_id,
         query=query,
         rag_source_ids=rag_source_ids,
     )
-    if _should_attempt_ai_generation():
-        prompt = (
-            "你是课堂问答模拟器。请严格只返回 JSON，不要加 markdown 代码块。\n"
-            f"当前脚本: {json.dumps(current_content, ensure_ascii=False)}\n"
-            f"教师回答: {teacher_answer}\n"
-            f"配置: {json.dumps(cfg, ensure_ascii=False)}\n"
-            f"RAG 摘要: {json.dumps(rag_snippets, ensure_ascii=False)}\n"
-            '请返回 {"turn_result": {...}, "updated_content": {...}}，'
-            "其中 updated_content 必须是完整 artifact content。"
+
+    if not _should_attempt_ai_generation():
+        if _allow_fallback():
+            return fallback_simulator_turn_result(
+                current_content=current_content,
+                teacher_answer=teacher_answer,
+                config=cfg,
+                turn_anchor=turn_anchor,
+                rag_snippets=rag_snippets,
+            )
+        _raise_generation_error(
+            status_code=503,
+            error_code=ErrorCode.UPSTREAM_UNAVAILABLE,
+            message=(
+                "Studio simulator turn generation is disabled by runtime "
+                "configuration."
+            ),
+            card_id="classroom_qa_simulator",
+            model=None,
+            phase="generate",
+            failure_reason="ai_generation_disabled",
+            retryable=False,
         )
+
+    prompt = (
+        "You are a classroom QA simulator generator.\n"
+        "Return ONLY a JSON object with keys: turn_result, updated_content.\n"
+        "Do not include markdown fences.\n"
+        f"Current artifact content: {json.dumps(current_content, ensure_ascii=False)}\n"
+        f"Teacher answer: {teacher_answer}\n"
+        f"Config: {json.dumps(cfg, ensure_ascii=False)}\n"
+        f"RAG snippets: {json.dumps(rag_snippets, ensure_ascii=False)}\n"
+        "Constraints:\n"
+        "- updated_content must be a complete artifact payload.\n"
+        "- turn_result must include turn_anchor, student_profile, "
+        "student_question, feedback.\n"
+        "- Do not output empty strings for required fields.\n"
+    )
+
+    if not _allow_fallback():
         try:
             response = await ai_service.generate(
                 prompt=prompt,
@@ -253,19 +372,74 @@ async def build_studio_simulator_turn_update(
                 has_rag_context=bool(rag_snippets),
                 max_tokens=1800,
             )
-            payload = json.loads(_strip_json_fence(str(response.get("content") or "")))
-            if isinstance(payload, dict):
-                updated = payload.get("updated_content")
-                turn_result = payload.get("turn_result")
-                if isinstance(updated, dict) and isinstance(turn_result, dict):
-                    return updated, turn_result
-        except Exception as exc:
-            logger.warning("simulator turn AI generation failed: %s", exc)
+        except APIException as exc:
+            details = dict(exc.details or {})
+            model_name = str(
+                details.get("resolved_model")
+                or details.get("requested_model")
+                or ai_service.large_model
+                or ""
+            )
+            details.update(
+                _build_error_details(
+                    card_id="classroom_qa_simulator",
+                    model=model_name,
+                    phase="generate_turn",
+                    failure_reason=str(details.get("failure_type") or "upstream_error"),
+                    retryable=bool(exc.retryable),
+                )
+            )
+            raise APIException(
+                status_code=exc.status_code,
+                error_code=exc.error_code,
+                message=exc.message,
+                details=details,
+                retryable=exc.retryable,
+            ) from exc
 
-    return fallback_simulator_turn_result(
-        current_content=current_content,
-        teacher_answer=teacher_answer,
-        config=cfg,
-        turn_anchor=turn_anchor,
-        rag_snippets=rag_snippets,
-    )
+        model_name = str(response.get("model") or ai_service.large_model or "")
+        payload = _parse_ai_object_payload(
+            card_id="classroom_qa_simulator",
+            ai_raw=str(response.get("content") or ""),
+            model=model_name,
+            phase="parse_turn",
+        )
+        try:
+            _validate_simulator_turn_payload(payload)
+        except ValueError as exc:
+            _raise_generation_error(
+                status_code=400,
+                error_code=ErrorCode.INVALID_INPUT,
+                message="AI payload failed simulator turn schema validation.",
+                card_id="classroom_qa_simulator",
+                model=model_name,
+                phase="validate_turn",
+                failure_reason=str(exc),
+                retryable=False,
+            )
+        return payload["updated_content"], payload["turn_result"]
+
+    try:
+        response = await ai_service.generate(
+            prompt=prompt,
+            route_task=ModelRouteTask.LESSON_PLAN_REASONING,
+            has_rag_context=bool(rag_snippets),
+            max_tokens=1800,
+        )
+        payload = _parse_ai_object_payload(
+            card_id="classroom_qa_simulator",
+            ai_raw=str(response.get("content") or ""),
+            model=str(response.get("model") or ai_service.large_model or ""),
+            phase="parse_turn",
+        )
+        _validate_simulator_turn_payload(payload)
+        return payload["updated_content"], payload["turn_result"]
+    except Exception as exc:
+        logger.warning("simulator turn fallback mode activated reason=%s", exc)
+        return fallback_simulator_turn_result(
+            current_content=current_content,
+            teacher_answer=teacher_answer,
+            config=cfg,
+            turn_anchor=turn_anchor,
+            rag_snippets=rag_snippets,
+        )

@@ -9,10 +9,6 @@ import re
 from schemas.outline import CoursewareOutline, OutlineSection
 from services.ai.model_router import ModelRouteTask
 from services.courseware_ai.generation_support import retrieve_rag_context
-from services.courseware_ai.outline_fallbacks import (
-    build_deterministic_outline,
-    get_fallback_outline,
-)
 from services.courseware_ai.outline_support import (
     align_slide_count_with_target,
     enrich_sparse_outline,
@@ -146,18 +142,11 @@ async def generate_outline(
             logger.warning("Outline generation returned sparse structure, enriching")
             outline = enrich_sparse_outline(outline)
         if looks_low_quality_outline(outline):
-            logger.warning(
-                "Outline generation returned low-quality placeholders, rebuilding"
-            )
-            outline = build_deterministic_outline(user_requirements, target_pages)
+            raise ValueError("LLM outline quality is too low")
         outline = reduce_outline_repetition(outline)
         outline = inject_focus_anchors(outline)
         outline = align_slide_count_with_target(outline, target_pages)
         return outline
     except Exception as exc:
-        logger.warning("Outline generation failed: %s, using fallback", exc)
-        fallback = get_fallback_outline(user_requirements)
-        fallback = reduce_outline_repetition(fallback)
-        fallback = inject_focus_anchors(fallback)
-        fallback = align_slide_count_with_target(fallback, target_pages)
-        return fallback
+        logger.exception("Outline generation failed: %s", exc)
+        return ai_service._get_fallback_outline(user_requirements)

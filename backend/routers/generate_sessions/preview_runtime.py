@@ -277,7 +277,7 @@ async def modify_session_preview_response(
         payload=payload,
         attach_auto_candidate_change=attach_auto_candidate_change,
     )
-    return success_response(data=payload, message="棰勮淇敼璇锋眰宸叉帴鍙?")
+    return success_response(data=payload, message="预览修改请求已接收")
 
 
 async def get_session_slide_preview_response(
@@ -414,7 +414,7 @@ async def export_session_response(
         payload=payload,
         attach_auto_candidate_change=attach_auto_candidate_change,
     )
-    response = success_response(data=payload, message="瀵煎嚭鎴愬姛")
+    response = success_response(data=payload, message="导出成功")
     duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
     logger.info(
         (

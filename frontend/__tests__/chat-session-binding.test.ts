@@ -1,5 +1,6 @@
 import { chatApi } from "@/lib/sdk";
 import { createChatActions } from "@/stores/project-store/chat-actions";
+import type { ProjectState } from "@/stores/project-store/types";
 
 jest.mock("@/lib/sdk", () => ({
   chatApi: {
@@ -15,9 +16,12 @@ describe("chat session binding", () => {
 
   it("does not fetch project-level messages when no active session exists", async () => {
     const set = jest.fn();
-    const get = jest.fn(() => ({
-      activeSessionId: null,
-    }));
+    const get = jest.fn(
+      () =>
+        ({
+          activeSessionId: null,
+        }) as unknown as ProjectState
+    );
     const actions = createChatActions({ set, get });
 
     await actions.fetchMessages("p-001");
@@ -34,7 +38,7 @@ describe("chat session binding", () => {
       selectedFileIds: [],
       fetchGenerationHistory: jest.fn().mockResolvedValue(undefined),
     };
-    const get = jest.fn(() => state);
+    const get = jest.fn(() => state as unknown as ProjectState);
     const actions = createChatActions({ set, get });
 
     await actions.sendMessage("p-001", "hello");
@@ -44,40 +48,54 @@ describe("chat session binding", () => {
 
   it("ignores stale fetchMessages responses when switching sessions quickly", async () => {
     const set = jest.fn();
-    const get = jest.fn();
+    const get = jest.fn(
+      () =>
+        ({
+          activeSessionId: null,
+        }) as unknown as ProjectState
+    );
     const actions = createChatActions({ set, get });
 
-    let resolveS1: ((value: unknown) => void) | null = null;
-    let resolveS2: ((value: unknown) => void) | null = null;
+    const deferred: {
+      s1: ((value: unknown) => void) | null;
+      s2: ((value: unknown) => void) | null;
+    } = {
+      s1: null,
+      s2: null,
+    };
 
     (chatApi.getMessages as jest.Mock).mockImplementation(
       ({ session_id }: { session_id: string }) =>
         new Promise((resolve) => {
-          if (session_id === "s-1") resolveS1 = resolve;
-          if (session_id === "s-2") resolveS2 = resolve;
+          if (session_id === "s-1") deferred.s1 = resolve;
+          if (session_id === "s-2") deferred.s2 = resolve;
         })
     );
 
-    get.mockReturnValue({ activeSessionId: "s-1" });
+    get.mockReturnValue({ activeSessionId: "s-1" } as unknown as ProjectState);
     const p1 = actions.fetchMessages("p-001", "s-1");
 
-    get.mockReturnValue({ activeSessionId: "s-2" });
+    get.mockReturnValue({ activeSessionId: "s-2" } as unknown as ProjectState);
     const p2 = actions.fetchMessages("p-001", "s-2");
 
-    resolveS2?.({
-      data: {
-        messages: [
-          { id: "m-2", role: "assistant", content: "new", timestamp: "now" },
-        ],
-      },
-    });
-    resolveS1?.({
-      data: {
-        messages: [
-          { id: "m-1", role: "assistant", content: "old", timestamp: "now" },
-        ],
-      },
-    });
+    if (deferred.s2) {
+      deferred.s2({
+        data: {
+          messages: [
+            { id: "m-2", role: "assistant", content: "new", timestamp: "now" },
+          ],
+        },
+      });
+    }
+    if (deferred.s1) {
+      deferred.s1({
+        data: {
+          messages: [
+            { id: "m-1", role: "assistant", content: "old", timestamp: "now" },
+          ],
+        },
+      });
+    }
 
     await Promise.all([p1, p2]);
 

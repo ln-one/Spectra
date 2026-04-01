@@ -27,6 +27,33 @@ from services.task_executor.constants import (
 logger = logging.getLogger(__name__)
 
 
+async def _load_session_state_reason(db, session_id: str) -> Optional[str]:
+    session_model = getattr(db, "generationsession", None)
+    if session_model is None or not hasattr(session_model, "find_unique"):
+        return None
+    try:
+        session = await session_model.find_unique(where={"id": session_id})
+    except Exception as exc:  # pragma: no cover - observability safeguard
+        logger.debug(
+            (
+                "Failed to load session stateReason for local dispatch event: "
+                "session=%s error=%s"
+            ),
+            session_id,
+            exc,
+        )
+        return None
+    if not session:
+        return None
+    reason = (
+        session.get("stateReason") if isinstance(session, dict) else session.stateReason
+    )
+    if reason is None:
+        return None
+    text = str(reason).strip()
+    return text or None
+
+
 async def _load_task_run_payload(db, task_id: str) -> dict | None:
     task_actions = getattr(db, "generationtask", None)
     if task_actions is None:
@@ -148,6 +175,7 @@ async def schedule_local_execution(
             task_id,
             fallback_reason,
         )
+        session_state_reason = await _load_session_state_reason(db, session_id)
         try:
             if run_payload and run_payload.get("run_id"):
                 await update_session_run(
@@ -160,7 +188,7 @@ async def schedule_local_execution(
                 session_id=session_id,
                 event_type=GenerationEventType.STATE_CHANGED.value,
                 state=GenerationState.GENERATING_CONTENT.value,
-                state_reason=fallback_reason,
+                state_reason=session_state_reason,
                 payload=build_run_trace_payload(
                     run_payload,
                     task_id=task_id,

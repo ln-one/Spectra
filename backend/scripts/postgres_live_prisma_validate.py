@@ -71,10 +71,11 @@ def build_live_prisma_commands(
     schema_path: Path = MAIN_SCHEMA,
     prisma_bin: str = "prisma",
 ) -> list[list[str]]:
+    schema_arg = schema_path.as_posix()
     return [
-        [prisma_bin, "validate", f"--schema={schema_path}"],
-        [prisma_bin, "migrate", "deploy", f"--schema={schema_path}"],
-        [prisma_bin, "generate", f"--schema={schema_path}"],
+        [prisma_bin, "validate", f"--schema={schema_arg}"],
+        [prisma_bin, "migrate", "deploy", f"--schema={schema_arg}"],
+        [prisma_bin, "generate", f"--schema={schema_arg}"],
     ]
 
 

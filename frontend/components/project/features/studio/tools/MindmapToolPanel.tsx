@@ -213,6 +213,16 @@ export function MindmapToolPanel({
     }
   };
 
+  const handlePrepareGenerate = async () => {
+    if (!flowContext?.onPrepareGenerate) {
+      setActiveStep("generate");
+      return;
+    }
+    const prepared = await flowContext.onPrepareGenerate();
+    if (!prepared) return;
+    setActiveStep("generate");
+  };
+
   const colors = TOOL_COLORS.mindmap;
 
   return (
@@ -294,7 +304,9 @@ export function MindmapToolPanel({
                   onDepthChange={setDepth}
                   onFocusChange={setFocus}
                   onTargetAudienceChange={setTargetAudience}
-                  onNext={() => setActiveStep("generate")}
+                  onNext={() => {
+                    void handlePrepareGenerate();
+                  }}
                 />
               ) : null}
 

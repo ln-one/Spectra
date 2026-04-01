@@ -56,12 +56,17 @@ def evaluate_recovery_drill(
 
     backup_path = backup_script.build_backup_path(env, now=now)
     backup_command = backup_script.build_backup_command(env, output_path=backup_path)
-    messages.append(f"[drill] PASS backup artifact would be created at `{backup_path}`")
+    messages.append(
+        "[drill] PASS backup artifact would be created at "
+        f"`{backup_path.as_posix()}`"
+    )
     messages.append(f"[drill] PASS backup command prepared: {' '.join(backup_command)}")
 
     staged_path = restore_script.stage_restore_input(backup_path, env)
     restore_command = restore_script.build_restore_command(env, backup_path=backup_path)
-    messages.append(f"[drill] PASS restore staging path resolves to `{staged_path}`")
+    messages.append(
+        f"[drill] PASS restore staging path resolves to `{staged_path.as_posix()}`"
+    )
     messages.append(
         f"[drill] PASS restore command prepared: {' '.join(restore_command)}"
     )

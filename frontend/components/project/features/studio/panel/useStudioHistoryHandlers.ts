@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+﻿import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { generateApi } from "@/lib/sdk";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
@@ -6,7 +6,7 @@ import { useProjectStore } from "@/stores/projectStore";
 import type { StudioChatContext } from "@/stores/project-store/types";
 import { TOOL_LABELS, type StudioTool } from "../constants";
 import type { StudioHistoryItem, StudioHistoryStep } from "../history/types";
-import type { StudioToolKey, ToolDraftState } from "../tools";
+import type { StudioToolKey } from "../tools";
 import { normalizeHistoryStep } from "./utils";
 
 interface UseStudioHistoryHandlersArgs {
@@ -14,7 +14,6 @@ interface UseStudioHistoryHandlersArgs {
   isExpanded: boolean;
   expandedTool: GenerationToolType | null;
   activeSessionId: string | null;
-  currentToolDraft: ToolDraftState;
   resolvePptRunId: (fallback?: string | null) => string | null;
   openPptPreviewPage: (
     sessionId?: string | null,
@@ -29,10 +28,15 @@ interface UseStudioHistoryHandlersArgs {
   bumpPptResumeSignal: () => void;
   setHoveredToolId: (toolId: string | null) => void;
   setStudioChatContext: (context: StudioChatContext | null) => void;
+  setManagedToolRunSeed: (
+    tool: StudioToolKey,
+    runId: string | null,
+    sessionId: string | null
+  ) => void;
   onToolClick?: (tool: StudioTool) => void;
   trackStep: (tool: GenerationToolType, step: StudioHistoryStep) => void;
   requestStep: (tool: GenerationToolType, step: StudioHistoryStep) => void;
-  acknowledgeStep: (tool: GenerationToolType, step: StudioHistoryStep) => void;
+  acknowledgeStep: (tool: GenerationToolType, step?: StudioHistoryStep) => void;
   recordWorkflowEntry: (payload: {
     toolType: GenerationToolType;
     title: string;
@@ -67,7 +71,6 @@ export function useStudioHistoryHandlers({
   isExpanded,
   expandedTool,
   activeSessionId,
-  currentToolDraft,
   resolvePptRunId,
   openPptPreviewPage,
   setLayoutMode,
@@ -78,6 +81,7 @@ export function useStudioHistoryHandlers({
   bumpPptResumeSignal,
   setHoveredToolId,
   setStudioChatContext,
+  setManagedToolRunSeed,
   onToolClick,
   trackStep,
   requestStep,
@@ -93,16 +97,21 @@ export function useStudioHistoryHandlers({
       if (!projectId) return;
 
       if (item.sessionId) setActiveSessionId(item.sessionId);
-      if (item.runId) setActiveRunId(item.runId);
+      if (item.toolType === "ppt" && item.runId) {
+        setActiveRunId(item.runId);
+      }
       const sessionId = item.sessionId ?? null;
 
-      if (item.toolType === "ppt" && item.step === "outline" && sessionId) {
+      if (
+        item.toolType === "ppt" &&
+        (item.step === "outline" || item.step === "preview") &&
+        sessionId &&
+        item.runId
+      ) {
         try {
-          const sessionResponse = item.runId
-            ? await generateApi.getSessionByRun(sessionId, {
-                run_id: item.runId,
-              })
-            : await generateApi.getSession(sessionId);
+          const sessionResponse = await generateApi.getSessionByRun(sessionId, {
+            run_id: item.runId,
+          });
           const latestSession = sessionResponse?.data ?? null;
           let latestRunId: string | null = null;
           if (latestSession) {
@@ -116,11 +125,29 @@ export function useStudioHistoryHandlers({
             });
           }
           const latestState = latestSession?.session?.state;
-          const isPreviewState =
+          const latestCurrentRun = (latestSession as any)?.current_run ?? null;
+          const latestCurrentRunId = latestCurrentRun?.run_id ?? null;
+          const latestCurrentRunStep = String(
+            latestCurrentRun?.run_step ?? ""
+          ).toLowerCase();
+          const latestCurrentRunStatus = String(
+            latestCurrentRun?.run_status ?? ""
+          ).toLowerCase();
+          const isSameRun =
+            Boolean(item.runId) &&
+            Boolean(latestCurrentRunId) &&
+            item.runId === latestCurrentRunId;
+          const isSessionPreviewState =
             latestState === "GENERATING_CONTENT" ||
             latestState === "RENDERING" ||
             latestState === "SUCCESS";
-          if (isPreviewState) {
+          const isRunPreviewState =
+            latestCurrentRunStep === "generate" ||
+            latestCurrentRunStep === "preview" ||
+            latestCurrentRunStep === "completed" ||
+            latestCurrentRunStatus === "processing" ||
+            latestCurrentRunStatus === "completed";
+          if (isSessionPreviewState && isRunPreviewState && isSameRun) {
             trackStep("ppt", "preview");
             acknowledgeStep("ppt", "preview");
             const runId =
@@ -149,7 +176,14 @@ export function useStudioHistoryHandlers({
       }
 
       if (item.toolType === "ppt") {
-        if (item.origin === "artifact" || item.step === "preview") {
+        const canOpenPreviewDirectly =
+          Boolean(item.artifactId) ||
+          item.status === "previewing" ||
+          item.status === "completed";
+        if (
+          (item.origin === "artifact" || item.step === "preview") &&
+          canOpenPreviewDirectly
+        ) {
           const runId = item.runId || resolvePptRunId() || undefined;
           const previewHref = openPptPreviewPage(
             sessionId,
@@ -160,7 +194,9 @@ export function useStudioHistoryHandlers({
           return;
         }
         const shouldOpenOutlineStage =
-          item.step === "outline" || item.status === "processing";
+          item.step === "outline" ||
+          item.status === "draft" ||
+          item.status === "pending";
         setLayoutMode("expanded");
         setExpandedTool("ppt");
         setPptResumeStage(shouldOpenOutlineStage ? "outline" : "config");
@@ -171,20 +207,24 @@ export function useStudioHistoryHandlers({
 
       setLayoutMode("expanded");
       setExpandedTool(item.toolType as StudioToolKey);
+      setManagedToolRunSeed(
+        item.toolType as StudioToolKey,
+        item.runId ?? null,
+        item.sessionId ?? null
+      );
       const targetStep: StudioHistoryStep =
-        item.status === "failed"
+        item.status === "failed" ||
+        item.status === "draft" ||
+        item.status === "pending"
           ? "generate"
           : item.status === "processing" ||
               item.status === "previewing" ||
-              item.status === "draft" ||
+              item.status === "completed" ||
               item.origin === "artifact" ||
               item.step === "preview"
             ? "preview"
             : normalizeHistoryStep(item.step);
-      requestStep(
-        item.toolType,
-        item.step === "outline" ? "preview" : targetStep
-      );
+      requestStep(item.toolType, targetStep);
     },
     [
       acknowledgeStep,
@@ -199,6 +239,7 @@ export function useStudioHistoryHandlers({
       setActiveSessionId,
       setExpandedTool,
       setLayoutMode,
+      setManagedToolRunSeed,
       setPptResumeStage,
       trackStep,
     ]
@@ -217,31 +258,18 @@ export function useStudioHistoryHandlers({
             : "config";
 
       trackStep(toolType, step);
-      acknowledgeStep(toolType, step);
+      acknowledgeStep(toolType);
       syncStudioChatContextByStep(toolType, normalizedStep, activeSessionId);
 
       if (normalizedStep === "preview") {
         pushStudioStageHint(toolType, "preview", activeSessionId);
       }
-      if (step !== "generate" || !activeSessionId) return;
-
-      recordWorkflowEntry({
-        toolType,
-        title: TOOL_LABELS[toolType] + " - Draft",
-        status: "draft",
-        step: "generate",
-        sessionId: activeSessionId,
-        titleSource: JSON.stringify(currentToolDraft),
-        toolLabel: TOOL_LABELS[toolType],
-      });
     },
     [
       acknowledgeStep,
       activeSessionId,
-      currentToolDraft,
       expandedTool,
       pushStudioStageHint,
-      recordWorkflowEntry,
       syncStudioChatContextByStep,
       trackStep,
     ]
@@ -251,10 +279,33 @@ export function useStudioHistoryHandlers({
     (tool: StudioTool) => {
       setLayoutMode("expanded");
       setExpandedTool(tool.type);
+      requestStep(tool.type as GenerationToolType, "config");
+      if (tool.type !== "ppt") {
+        setManagedToolRunSeed(
+          tool.type as StudioToolKey,
+          null,
+          activeSessionId ?? null
+        );
+      } else {
+        setActiveRunId(null);
+        setPptResumeStage("config");
+        bumpPptResumeSignal();
+      }
       trackStep(tool.type as GenerationToolType, "config");
       onToolClick?.(tool);
     },
-    [onToolClick, setExpandedTool, setLayoutMode, trackStep]
+    [
+      activeSessionId,
+      onToolClick,
+      requestStep,
+      setExpandedTool,
+      setLayoutMode,
+      setActiveRunId,
+      setManagedToolRunSeed,
+      setPptResumeStage,
+      bumpPptResumeSignal,
+      trackStep,
+    ]
   );
 
   const handleClose = useCallback(() => {

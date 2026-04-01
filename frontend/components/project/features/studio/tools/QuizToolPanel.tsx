@@ -106,6 +106,16 @@ export function QuizToolPanel({
     }
   };
 
+  const handlePrepareGenerate = async () => {
+    if (!flowContext?.onPrepareGenerate) {
+      setActiveStep("generate");
+      return;
+    }
+    const prepared = await flowContext.onPrepareGenerate();
+    if (!prepared) return;
+    setActiveStep("generate");
+  };
+
   const colors = TOOL_COLORS.quiz;
 
   return (
@@ -183,7 +193,9 @@ export function QuizToolPanel({
                   onDifficultyChange={setDifficulty}
                   onQuestionTypeChange={setQuestionType}
                   onToggleTag={handleToggleTag}
-                  onNext={() => setActiveStep("generate")}
+                  onNext={() => {
+                    void handlePrepareGenerate();
+                  }}
                 />
               ) : null}
 

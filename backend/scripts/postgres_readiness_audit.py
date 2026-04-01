@@ -82,7 +82,7 @@ def parse_schema() -> tuple[str | None, dict[str, ModelRisk]]:
     current: ModelRisk | None = None
     in_datasource = False
 
-    for raw_line in SCHEMA.read_text().splitlines():
+    for raw_line in SCHEMA.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if line.startswith("datasource db"):
             in_datasource = True

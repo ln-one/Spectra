@@ -128,6 +128,7 @@ async def confirm_outline(
         "command_type": GenerationCommandType.CONFIRM_OUTLINE.value,
         "continue_from_retrieval": body.get("continue_from_retrieval", True),
         "expected_state": body.get("expected_state"),
+        "run_id": body.get("run_id"),
     }
 
     svc = _get_session_service()
@@ -187,6 +188,7 @@ async def redraft_outline(
             "command_type": GenerationCommandType.REDRAFT_OUTLINE.value,
             "instruction": instruction,
             "base_version": base_version,
+            "run_id": body.get("run_id"),
         },
         idempotency_key=parse_idempotency_key(idempotency_key),
         task_queue_service=get_task_queue_service(request),

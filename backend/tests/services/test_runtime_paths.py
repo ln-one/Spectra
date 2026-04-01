@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from services.runtime_paths import (
     DEFAULT_ARTIFACT_STORAGE_DIR,
     DEFAULT_CHROMA_PERSIST_DIR,
@@ -16,10 +18,10 @@ def test_runtime_paths_default_to_local_dirs(monkeypatch):
     monkeypatch.delenv("GENERATED_DIR", raising=False)
     monkeypatch.delenv("CHROMA_PERSIST_DIR", raising=False)
 
-    assert str(get_upload_dir()) == DEFAULT_UPLOAD_DIR
-    assert str(get_artifact_storage_dir()) == DEFAULT_ARTIFACT_STORAGE_DIR
-    assert str(get_generated_dir()) == DEFAULT_GENERATED_DIR
-    assert str(get_chroma_persist_dir()) == DEFAULT_CHROMA_PERSIST_DIR
+    assert get_upload_dir() == Path(DEFAULT_UPLOAD_DIR)
+    assert get_artifact_storage_dir() == Path(DEFAULT_ARTIFACT_STORAGE_DIR)
+    assert get_generated_dir() == Path(DEFAULT_GENERATED_DIR)
+    assert get_chroma_persist_dir() == Path(DEFAULT_CHROMA_PERSIST_DIR)
 
 
 def test_runtime_paths_prefer_explicit_env(monkeypatch):
@@ -28,7 +30,7 @@ def test_runtime_paths_prefer_explicit_env(monkeypatch):
     monkeypatch.setenv("GENERATED_DIR", "/var/lib/spectra/generated")
     monkeypatch.setenv("CHROMA_PERSIST_DIR", "/var/lib/spectra/chroma")
 
-    assert str(get_upload_dir()) == "/var/lib/spectra/uploads"
-    assert str(get_artifact_storage_dir()) == "/var/lib/spectra/artifacts"
-    assert str(get_generated_dir()) == "/var/lib/spectra/generated"
-    assert str(get_chroma_persist_dir()) == "/var/lib/spectra/chroma"
+    assert get_upload_dir() == Path("/var/lib/spectra/uploads")
+    assert get_artifact_storage_dir() == Path("/var/lib/spectra/artifacts")
+    assert get_generated_dir() == Path("/var/lib/spectra/generated")
+    assert get_chroma_persist_dir() == Path("/var/lib/spectra/chroma")

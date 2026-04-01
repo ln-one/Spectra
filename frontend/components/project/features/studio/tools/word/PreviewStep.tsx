@@ -25,8 +25,15 @@ export function PreviewStep({
     flowContext?.capabilityStatus ?? "backend_placeholder";
   const capabilityReason =
     flowContext?.capabilityReason ?? "正在等待后端文档产物返回。";
+  const latestArtifact =
+    flowContext?.latestArtifacts?.[0] ?? flowContext?.resolvedArtifact ?? null;
+  const exportArtifactId =
+    (latestArtifact as { artifactId?: string | null } | null)?.artifactId ?? "";
+  const hasMarkdownContent = markdown.trim().length > 0;
+  const hasBackendArtifact = Boolean(exportArtifactId);
   const hasContent =
-    capabilityStatus === "backend_ready" && markdown.trim().length > 0;
+    capabilityStatus === "backend_ready" &&
+    (hasMarkdownContent || hasBackendArtifact);
 
   return (
     <div className="space-y-4">
@@ -42,14 +49,12 @@ export function PreviewStep({
                 : "这里只展示后端返回的真实文档预览。"}
             </p>
           </div>
-          {flowContext?.latestArtifacts?.[0] ? (
+          {hasBackendArtifact ? (
             <button
               type="button"
               className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 hover:bg-zinc-50"
               onClick={() =>
-                void flowContext.onExportArtifact?.(
-                  flowContext.latestArtifacts?.[0]?.artifactId || ""
-                )
+                void flowContext?.onExportArtifact?.(exportArtifactId)
               }
             >
               下载正式文档
@@ -72,11 +77,17 @@ export function PreviewStep({
 
         {hasContent ? (
           <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
-            <article className="prose prose-zinc max-w-none text-sm leading-6 prose-headings:mb-2 prose-headings:mt-4 prose-p:my-1">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {markdown}
-              </ReactMarkdown>
-            </article>
+            {hasMarkdownContent ? (
+              <article className="prose prose-zinc max-w-none text-sm leading-6 prose-headings:mb-2 prose-headings:mt-4 prose-p:my-1">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {markdown}
+                </ReactMarkdown>
+              </article>
+            ) : (
+              <p className="text-sm text-zinc-700">
+                文档已由后端生成完成，可直接下载正式文档。
+              </p>
+            )}
           </div>
         ) : (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center">

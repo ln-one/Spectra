@@ -27,6 +27,7 @@ async def test_call_marp_cli_uses_editable_pptx_and_browser_path(tmp_path):
         return _DummyProcess()
 
     with (
+        patch.dict("os.environ", {"CHROME_PATH": "/tmp/chrome"}),
         patch(
             "services.generation.marp_generator.check_marp_installed",
             return_value=True,

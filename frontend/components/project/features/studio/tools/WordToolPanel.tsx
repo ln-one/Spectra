@@ -109,9 +109,10 @@ export function WordToolPanel({
     if (activeStep !== "preview") return;
     if (!activeSessionId) return;
     if (flowContext?.capabilityStatus !== "backend_ready") return;
+    const latestArtifact = flowContext?.latestArtifacts?.[0];
     const previewArtifactId =
-      flowContext?.resolvedArtifact?.artifactId ??
-      flowContext?.latestArtifacts?.[0]?.artifactId;
+      flowContext?.resolvedArtifact?.artifactId ?? latestArtifact?.artifactId;
+    const previewRunId = latestArtifact?.runId ?? null;
     if (!previewArtifactId) return;
 
     let cancelled = false;
@@ -123,6 +124,7 @@ export function WordToolPanel({
           activeSessionId,
           {
             artifact_id: previewArtifactId,
+            run_id: previewRunId ?? undefined,
             format: "markdown",
             include_sources: true,
           }
@@ -148,8 +150,8 @@ export function WordToolPanel({
     activeSessionId,
     activeStep,
     flowContext?.capabilityStatus,
-    flowContext?.resolvedArtifact?.artifactId,
     flowContext?.latestArtifacts,
+    flowContext?.resolvedArtifact?.artifactId,
   ]);
 
   const handleGenerate = async () => {
@@ -173,6 +175,16 @@ export function WordToolPanel({
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handlePrepareGenerate = async () => {
+    if (!flowContext?.onPrepareGenerate) {
+      setActiveStep("generate");
+      return;
+    }
+    const prepared = await flowContext.onPrepareGenerate();
+    if (!prepared) return;
+    setActiveStep("generate");
   };
 
   const colors = TOOL_COLORS.word;
@@ -261,7 +273,9 @@ export function WordToolPanel({
                   onTeachingContextChange={setTeachingContext}
                   onStudentNeedsChange={setStudentNeeds}
                   onOutputRequirementsChange={setOutputRequirements}
-                  onNext={() => setActiveStep("generate")}
+                  onNext={() => {
+                    void handlePrepareGenerate();
+                  }}
                 />
               ) : null}
 
