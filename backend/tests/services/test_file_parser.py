@@ -229,7 +229,7 @@ def test_extract_text_for_rag_fallback_to_local_when_provider_unsupported(
     assert calls["local"] == 1
 
 
-def test_extract_text_for_rag_fallback_to_llamaparse_when_mineru_unavailable(
+def test_extract_text_for_rag_fallback_to_local_when_mineru_unavailable(
     tmp_path: Path, monkeypatch
 ):
     import services.file_parser as file_parser_module
@@ -243,28 +243,25 @@ def test_extract_text_for_rag_fallback_to_llamaparse_when_mineru_unavailable(
         def extract_text(self, _filepath: str, _filename: str, _file_type: str):
             return "", {"text_length": 0}
 
-    class _FakeLlamaProvider:
-        name = "llamaparse"
+    class _FakeLocalProvider:
+        name = "local"
 
         def supports(self, _file_type: str) -> bool:
             return True
 
         def extract_text(self, _filepath: str, _filename: str, _file_type: str):
-            return "llama parse content", {"pages_extracted": 1, "text_length": 19}
+            return "local fallback content", {"pages_extracted": 1, "text_length": 22}
 
-    calls = {"mineru": 0, "llamaparse": 0, "local": 0}
+    calls = {"mineru": 0, "local": 0}
 
     def _fake_get_parser(provider_name=None):
         if provider_name == "mineru":
             calls["mineru"] += 1
             return _FakeUnavailableProvider()
-        if provider_name == "llamaparse":
-            calls["llamaparse"] += 1
-            return _FakeLlamaProvider()
-        calls["local"] += 1
-        from services.parsers.local_provider import LocalProvider
-
-        return LocalProvider()
+        if provider_name == "local":
+            calls["local"] += 1
+            return _FakeLocalProvider()
+        raise AssertionError(f"unexpected provider request: {provider_name}")
 
     monkeypatch.setattr(file_parser_module, "get_parser", _fake_get_parser)
     monkeypatch.setenv("DOCUMENT_PARSER", "mineru")
@@ -278,12 +275,12 @@ def test_extract_text_for_rag_fallback_to_llamaparse_when_mineru_unavailable(
 
     text, details = extract_text_for_rag(str(docx_path), "notes.docx", "word")
 
-    assert text == "llama parse content"
+    assert text == "local fallback content"
     assert details["capability_status"]["status"] == "degraded"
-    assert details["capability_status"]["provider"] == "llamaparse"
-    assert details["capability_status"]["fallback_target"] == "llamaparse"
+    assert details["capability_status"]["provider"] == "local"
+    assert details["capability_status"]["fallback_target"] == "local"
     assert calls["mineru"] == 1
-    assert calls["llamaparse"] == 1
+    assert calls["local"] == 1
 
 
 def test_extract_text_for_rag_unknown_provider_falls_back_to_local(
@@ -367,26 +364,26 @@ def test_extract_text_for_rag_auto_routes_pdf_to_mineru_cloud(
     assert calls == ["mineru_cloud"]
 
 
-def test_extract_text_for_rag_auto_routes_word_to_llamaparse(
+def test_extract_text_for_rag_auto_routes_word_to_local(
     tmp_path: Path, monkeypatch
 ):
     import services.file_parser as file_parser_module
 
-    class _FakeLlamaProvider:
-        name = "llamaparse"
+    class _FakeLocalProvider:
+        name = "local"
 
         def supports(self, _file_type: str) -> bool:
             return True
 
         def extract_text(self, _filepath: str, _filename: str, _file_type: str):
-            return "llamaparse content", {"pages_extracted": 1, "text_length": 17}
+            return "local content", {"pages_extracted": 1, "text_length": 13}
 
     calls: list[str] = []
 
     def _fake_get_parser(provider_name=None):
         calls.append(str(provider_name))
-        if provider_name == "llamaparse":
-            return _FakeLlamaProvider()
+        if provider_name == "local":
+            return _FakeLocalProvider()
         raise AssertionError(f"unexpected provider request: {provider_name}")
 
     docx_path = tmp_path / "sample.docx"
@@ -397,9 +394,9 @@ def test_extract_text_for_rag_auto_routes_word_to_llamaparse(
 
     text, details = extract_text_for_rag(str(docx_path), "sample.docx", "word")
 
-    assert text == "llamaparse content"
-    assert details["provider_used"] == "llamaparse"
+    assert text == "local content"
+    assert details["provider_used"] == "local"
     assert details["parser_routing"]["mode"] == "auto"
-    assert details["parser_routing"]["primary_provider"] == "llamaparse"
-    assert details["provider_attempted"] == ["llamaparse"]
-    assert calls == ["llamaparse"]
+    assert details["parser_routing"]["primary_provider"] == "local"
+    assert details["provider_attempted"] == ["local"]
+    assert calls == ["local"]
