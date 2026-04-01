@@ -100,10 +100,19 @@ class FileMixin:
 
     async def delete_parsed_chunks(self, upload_id: str) -> int:
         result = await self.db.parsedchunk.delete_many(where={"uploadId": upload_id})
+        if isinstance(result, int):
+            return result
         if hasattr(result, "count"):
-            return int(result.count)
+            count_value = getattr(result, "count")
+            try:
+                return int(count_value)
+            except (TypeError, ValueError):
+                pass
         if isinstance(result, dict) and "count" in result:
-            return int(result["count"])
+            try:
+                return int(result["count"])
+            except (TypeError, ValueError):
+                pass
         raise TypeError("Unexpected result type from delete_many: cannot extract count")
 
     async def get_idempotency_response(self, key: str):
