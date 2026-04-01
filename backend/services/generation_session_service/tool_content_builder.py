@@ -14,6 +14,24 @@ from services.generation_session_service.tool_content_builder_fallbacks import (
     fallback_content,
     fallback_simulator_turn_result,
 )
+from services.generation_session_service.tool_content_builder_support import (
+    build_error_details as _build_error_details,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    build_schema_hint as _build_schema_hint,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    parse_ai_object_payload as _parse_ai_object_payload,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    raise_generation_error as _raise_generation_error,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    validate_card_payload as _validate_card_payload,
+)
+from services.generation_session_service.tool_content_builder_support import (
+    validate_simulator_turn_payload as _validate_simulator_turn_payload,
+)
 from services.project_space_service import project_space_service
 from services.system_settings_service import system_settings_service
 from utils.exceptions import APIException, ErrorCode
@@ -23,17 +41,6 @@ logger = logging.getLogger(__name__)
 _FALLBACK_MODE_ENV = "STUDIO_TOOL_FALLBACK_MODE"
 _FALLBACK_MODE_STRICT = "strict"
 _FALLBACK_MODE_ALLOW = "allow"
-
-_PAYLOAD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
-    "courseware_ppt": ("title", "summary"),
-    "word_document": ("title", "summary"),
-    "knowledge_mindmap": ("title", "nodes"),
-    "interactive_quick_quiz": ("title", "questions"),
-    "interactive_games": ("title", "html"),
-    "classroom_qa_simulator": ("title", "turns"),
-    "demonstration_animations": ("title", "html"),
-    "speaker_notes": ("title", "slides"),
-}
 
 
 def _resolve_fallback_mode() -> str:
@@ -52,167 +59,6 @@ def _should_attempt_ai_generation() -> bool:
     if raw is None:
         return True
     return raw.strip().lower() not in {"0", "false", "no"}
-
-
-def _infer_provider(model_name: str | None) -> str:
-    model = str(model_name or "").strip()
-    if not model:
-        return "unknown"
-    return model.split("/", 1)[0]
-
-
-def _build_error_details(
-    *,
-    card_id: str,
-    model: str | None,
-    phase: str,
-    failure_reason: str,
-    retryable: bool,
-    extra: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    payload = {
-        "card_id": card_id,
-        "provider": _infer_provider(model),
-        "model": model or "unknown",
-        "phase": phase,
-        "failure_reason": failure_reason,
-        "retryable": retryable,
-    }
-    if extra:
-        payload.update(extra)
-    return payload
-
-
-def _raise_generation_error(
-    *,
-    status_code: int,
-    error_code: ErrorCode,
-    message: str,
-    card_id: str,
-    model: str | None,
-    phase: str,
-    failure_reason: str,
-    retryable: bool,
-    extra: dict[str, Any] | None = None,
-) -> None:
-    raise APIException(
-        status_code=status_code,
-        error_code=error_code,
-        message=message,
-        details=_build_error_details(
-            card_id=card_id,
-            model=model,
-            phase=phase,
-            failure_reason=failure_reason,
-            retryable=retryable,
-            extra=extra,
-        ),
-        retryable=retryable,
-    )
-
-
-def _strip_json_fence(text: str) -> str:
-    candidate = (text or "").strip()
-    if candidate.startswith("```"):
-        lines = candidate.splitlines()
-        if len(lines) >= 3:
-            candidate = "\n".join(lines[1:-1]).strip()
-    return candidate
-
-
-def _require_non_empty_str(payload: dict[str, Any], key: str) -> None:
-    value = payload.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"field_{key}_empty")
-
-
-def _require_non_empty_list(payload: dict[str, Any], key: str) -> None:
-    value = payload.get(key)
-    if not isinstance(value, list) or not value:
-        raise ValueError(f"field_{key}_empty")
-
-
-def _validate_card_payload(card_id: str, payload: dict[str, Any]) -> None:
-    required_keys = _PAYLOAD_REQUIREMENTS.get(card_id, ())
-    for key in required_keys:
-        if key not in payload:
-            raise ValueError(f"missing_field_{key}")
-    if card_id == "knowledge_mindmap":
-        _require_non_empty_str(payload, "title")
-        _require_non_empty_list(payload, "nodes")
-    elif card_id == "interactive_quick_quiz":
-        _require_non_empty_str(payload, "title")
-        _require_non_empty_list(payload, "questions")
-    elif card_id == "interactive_games":
-        _require_non_empty_str(payload, "title")
-        _require_non_empty_str(payload, "html")
-    elif card_id == "classroom_qa_simulator":
-        _require_non_empty_str(payload, "title")
-        _require_non_empty_list(payload, "turns")
-    elif card_id == "demonstration_animations":
-        _require_non_empty_str(payload, "title")
-        _require_non_empty_str(payload, "html")
-    elif card_id == "speaker_notes":
-        _require_non_empty_str(payload, "title")
-        _require_non_empty_list(payload, "slides")
-    elif card_id in {"courseware_ppt", "word_document"}:
-        _require_non_empty_str(payload, "title")
-        _require_non_empty_str(payload, "summary")
-
-
-def _validate_simulator_turn_payload(payload: dict[str, Any]) -> None:
-    updated = payload.get("updated_content")
-    turn_result = payload.get("turn_result")
-    if not isinstance(updated, dict):
-        raise ValueError("missing_updated_content")
-    if not isinstance(turn_result, dict):
-        raise ValueError("missing_turn_result")
-    _validate_card_payload("classroom_qa_simulator", updated)
-    for required in (
-        "turn_anchor",
-        "student_profile",
-        "student_question",
-        "feedback",
-    ):
-        value = turn_result.get(required)
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"missing_turn_result_{required}")
-
-
-def _parse_ai_object_payload(
-    *,
-    card_id: str,
-    ai_raw: str,
-    model: str | None,
-    phase: str,
-) -> dict[str, Any]:
-    normalized = _strip_json_fence(ai_raw)
-    try:
-        parsed = json.loads(normalized)
-    except Exception as exc:
-        _raise_generation_error(
-            status_code=502,
-            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            message="AI returned non-JSON content for studio card generation.",
-            card_id=card_id,
-            model=model,
-            phase=phase,
-            failure_reason="parse_json_failed",
-            retryable=True,
-            extra={"raw_error": str(exc)[:300]},
-        )
-    if not isinstance(parsed, dict):
-        _raise_generation_error(
-            status_code=502,
-            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            message="AI returned a non-object payload for studio card generation.",
-            card_id=card_id,
-            model=model,
-            phase=phase,
-            failure_reason="payload_not_object",
-            retryable=True,
-        )
-    return parsed
 
 
 async def _load_rag_snippets(
@@ -278,41 +124,6 @@ async def _load_source_artifact_hint(
         if title:
             return f"{title} ({artifact.type})"
     return f"{artifact.type}:{artifact.id}"
-
-
-def _build_schema_hint(card_id: str) -> str | None:
-    return {
-        "courseware_ppt": (
-            '{"title":"", "summary":"", "pages":12, "template":"default"}'
-        ),
-        "word_document": (
-            '{"title":"", "summary":"", "document_variant":"layered_lesson_plan"}'
-        ),
-        "knowledge_mindmap": (
-            '{"title":"",'
-            ' "nodes":[{"id":"root","parent_id":null,"title":"","summary":""}]}'
-        ),
-        "interactive_quick_quiz": (
-            '{"title":"",'
-            ' "questions":[{"id":"","question":"","options":[""],'
-            '"answer":"","explanation":""}]}'
-        ),
-        "interactive_games": '{"title":"", "html":""}',
-        "classroom_qa_simulator": (
-            '{"title":"", "summary":"", "key_points":[""], '
-            '"turns":[{"student":"","question":"","teacher_hint":"",'
-            '"feedback":""}]}'
-        ),
-        "demonstration_animations": (
-            '{"title":"", "html":"", "summary":"", '
-            '"scenes":[{"title":"","description":""}]}'
-        ),
-        "speaker_notes": (
-            '{"title":"", "summary":"", '
-            '"slides":[{"page":1,"title":"","script":"",'
-            '"action_hint":"","transition_line":""}]}'
-        ),
-    }.get(card_id)
 
 
 async def _generate_structured_content(
