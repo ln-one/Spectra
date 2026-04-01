@@ -100,6 +100,7 @@ These are not optional.
 5. Surface behavior and backend semantics must use the same language.
 6. Small, explicit modules are preferred over clever abstractions.
 7. Local fixes must not create hidden semantic forks.
+8. Root-cause fixes are preferred over stacking fallback behavior.
 
 ## 5. Current End-to-End Pipelines
 
@@ -210,6 +211,29 @@ Avoid:
 - duplicate artifact persistence semantics
 
 If a concept already has a helper or canonical module, use it.
+
+### 6.4 Do not hide problems behind layered fallbacks
+
+Fallbacks and degradation paths are allowed only when they preserve the main workflow
+without obscuring the real problem.
+
+Avoid the following pattern:
+
+- a bug appears
+- instead of fixing the semantic or runtime cause, another fallback is added
+- later layers compensate again
+- the system becomes harder to reason about and harder to debug
+
+Therefore:
+
+- first ask whether the root cause can be fixed directly
+- prefer removing semantic drift over patching around it
+- do not choose the easiest local escape hatch if it increases future diagnosis cost
+- every new fallback should have a clear scope, trigger condition, and reason to exist
+- if a fallback is added for safety, it should not silently redefine the canonical behavior
+
+When a fallback becomes the main reason the system “works”, the real task is usually to
+repair the primary path, not add yet another compensating layer.
 
 ## 7. State, Contract, and Output Rules
 
@@ -444,6 +468,7 @@ Use best practices only when they improve Spectra's actual system:
 - observable pipelines
 - small coherent commits
 - tests and docs aligned with behavior
+- fixing causes instead of accumulating compensating behavior
 
 When a common best practice conflicts with the current system shape:
 

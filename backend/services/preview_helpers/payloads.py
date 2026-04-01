@@ -32,8 +32,10 @@ def ensure_previewable_state(snapshot: dict) -> None:
 def ensure_exportable_state(
     snapshot: dict, expected_render_version: Optional[int]
 ) -> None:
-    if snapshot["session"]["state"] != GenerationState.SUCCESS.value:
-        raise ValueError("只有状态为 SUCCESS 的会话才能导出")
+    session_state = snapshot["session"]["state"]
+    has_exportable_artifact = bool(snapshot.get("artifact_id"))
+    if session_state != GenerationState.SUCCESS.value and not has_exportable_artifact:
+        raise ValueError("当前会话暂无可导出的产物")
 
     if expected_render_version is None:
         return

@@ -176,10 +176,21 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   );
   const artifactKind = readArtifactKind(artifact) ?? undefined;
   const metadataTitle = readMetadataField(artifact.metadata, "title");
+  const runTitle = readMetadataField(artifact.metadata, "run_title");
+  const runTitleSource = readMetadataField(
+    artifact.metadata,
+    "run_title_source"
+  );
+  const canUseRunTitle =
+    typeof runTitle === "string" &&
+    runTitle.trim().length > 0 &&
+    (runTitleSource === "auto" || runTitleSource === "manual");
   const title =
     typeof metadataTitle === "string" && metadataTitle.trim()
       ? metadataTitle.trim()
-      : `${titlePrefix} ${artifact.id.slice(0, 8)}`;
+      : canUseRunTitle
+        ? runTitle.trim()
+        : `${titlePrefix} ${artifact.id.slice(0, 8)}`;
 
   return {
     artifactId: artifact.id,

@@ -104,7 +104,7 @@ async def list_session_runs(
     runs, total = await asyncio.gather(
         db.sessionrun.find_many(
             where={"sessionId": session_id},
-            order={"updatedAt": "desc"},
+            order={"createdAt": "desc"},
             skip=skip,
             take=limit,
         ),

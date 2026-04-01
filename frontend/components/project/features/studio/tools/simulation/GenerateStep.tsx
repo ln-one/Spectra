@@ -62,14 +62,13 @@ export function GenerateStep({
           className="h-9 rounded-lg bg-blue-600 text-xs hover:bg-blue-500"
           disabled={
             isGenerating ||
-            Boolean(flowContext?.isActionRunning) ||
             Boolean(flowContext?.isLoadingProtocol) ||
             flowContext?.canExecute === false ||
             !topic.trim()
           }
           onClick={onGenerate}
         >
-          {isGenerating || flowContext?.isActionRunning ? (
+          {isGenerating ? (
             <>
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               正在生成预演...

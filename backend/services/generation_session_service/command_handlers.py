@@ -21,6 +21,8 @@ from services.generation_session_service.outline_versions import (
 from services.generation_session_service.run_queries import (
     get_latest_active_session_run,
     get_latest_active_session_run_by_tool,
+    get_session_run,
+    resolve_output_tool_type,
 )
 from services.generation_session_service.session_history import (
     RUN_STATUS_PENDING,
@@ -153,7 +155,7 @@ async def handle_update_outline(
                 )
             return
         raise conflict_error_cls(
-            f"澶х翰鐗堟湰鍐茬獊锛氭湡鏈?{base_version}锛屽綋鍓?{effective_version}"
+            f"大纲版本冲突：期望 {base_version}，当前 {effective_version}"
         )
 
     new_version = effective_version + 1
@@ -191,21 +193,39 @@ async def handle_redraft_outline(
 ) -> dict:
     instruction = command.get("instruction", "")
     base_version = int(command.get("base_version", 0) or 0)
+    requested_run_id = str(command.get("run_id") or "").strip() or None
     effective_version = await get_effective_outline_version(db, session)
 
     if effective_version != base_version:
         raise conflict_error_cls(
-            f"澶х翰鐗堟湰鍐茬獊锛氭湡鏈?{base_version}锛屽綋鍓?{effective_version}"
+            f"大纲版本冲突：期望 {base_version}，当前 {effective_version}"
         )
 
-    run = await create_session_run(
+    tool_type = resolve_output_tool_type(str(getattr(session, "outputType", "") or ""))
+    run = None
+    if requested_run_id:
+        run = await get_session_run(db, session.id, requested_run_id)
+        if not run:
+            raise conflict_error_cls("run_id 无效或不属于当前会话")
+        if str(getattr(run, "toolType", "") or "") != tool_type:
+            raise conflict_error_cls("run_id 与当前课件任务类型不匹配")
+    if run is None:
+        run = await get_latest_active_session_run_by_tool(
+            db,
+            session.id,
+            tool_type,
+        )
+    if run is None:
+        raise conflict_error_cls(
+            "当前会话没有可复用的课件 run，请返回第一步重新创建任务"
+        )
+    updated_run = await update_session_run(
         db=db,
-        session_id=session.id,
-        project_id=session.projectId,
-        tool_type="outline_redraft",
+        run_id=run.id,
         step=RUN_STEP_OUTLINE,
         status=RUN_STATUS_PROCESSING,
     )
+    run = updated_run or run
     await db.generationsession.update(
         where={"id": session.id},
         data={"state": new_state, "renderVersion": {"increment": 1}},
@@ -214,6 +234,7 @@ async def handle_redraft_outline(
         session_id=session.id,
         event_type=GenerationEventType.STATE_CHANGED.value,
         state=new_state,
+        state_reason=getattr(session, "stateReason", None),
         payload=build_run_trace_payload(
             run,
             instruction=instruction,
@@ -233,6 +254,7 @@ async def handle_confirm_outline(
     conflict_error_cls,
 ) -> dict:
     expected_state = command.get("expected_state")
+    requested_run_id = str(command.get("run_id") or "").strip() or None
     if expected_state and session.state != expected_state:
         raise conflict_error_cls(
             f"Session state mismatch: expected {expected_state}, got {session.state}"
@@ -265,22 +287,41 @@ async def handle_confirm_outline(
         "word": "word_generate",
         "both": "both_generate",
     }.get(str(session.outputType or "").strip().lower(), "both_generate")
+    studio_tool_type = {
+        "ppt": "studio_card:courseware_ppt",
+        "word": "studio_card:word_document",
+    }.get(str(session.outputType or "").strip().lower())
 
     run = None
-    active_session_run = await get_latest_active_session_run(db, session.id)
-    if active_session_run and getattr(active_session_run, "step", None) in {
-        RUN_STEP_CONFIG,
-        RUN_STEP_OUTLINE,
-    }:
-        active_tool_type = str(getattr(active_session_run, "toolType", "") or "")
-        if active_tool_type == tool_type or active_tool_type.startswith("studio_card:"):
-            run = await update_session_run(
-                db=db,
-                run_id=active_session_run.id,
-                step=RUN_STEP_GENERATE,
-                status=RUN_STATUS_PENDING,
-            )
-            run = run or active_session_run
+    if requested_run_id:
+        run = await get_session_run(db, session.id, requested_run_id)
+        if not run:
+            raise conflict_error_cls("run_id 无效或不属于当前会话")
+        run_tool_type = str(getattr(run, "toolType", "") or "")
+        if run_tool_type not in {tool_type, studio_tool_type}:
+            raise conflict_error_cls("run_id 与当前课件任务类型不匹配")
+        updated_run = await update_session_run(
+            db=db,
+            run_id=run.id,
+            step=RUN_STEP_GENERATE,
+            status=RUN_STATUS_PENDING,
+        )
+        run = updated_run or run
+    else:
+        active_session_run = await get_latest_active_session_run(db, session.id)
+        if active_session_run and getattr(active_session_run, "step", None) in {
+            RUN_STEP_CONFIG,
+            RUN_STEP_OUTLINE,
+        }:
+            active_tool_type = str(getattr(active_session_run, "toolType", "") or "")
+            if active_tool_type in {tool_type, studio_tool_type}:
+                run = await update_session_run(
+                    db=db,
+                    run_id=active_session_run.id,
+                    step=RUN_STEP_GENERATE,
+                    status=RUN_STATUS_PENDING,
+                )
+                run = run or active_session_run
 
     if run is None:
         active_outline_run = await get_latest_active_session_run_by_tool(

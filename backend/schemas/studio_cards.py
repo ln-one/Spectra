@@ -114,6 +114,7 @@ class StudioCardExecutionPreviewRequest(BaseModel):
     source_artifact_id: Optional[str] = None
     rag_source_ids: Optional[List[str]] = None
     client_session_id: Optional[str] = None
+    run_id: Optional[str] = None
 
 
 class StudioCardResolvedRequest(BaseModel):

@@ -3,15 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { generateApi, ragApi } from "@/lib/sdk";
-import { getErrorMessage } from "@/lib/sdk/errors";
-import {
-  isSessionRunActive,
-  parseActiveRunConflict,
-} from "@/lib/project/generation-run-conflict";
 import { useNotification } from "@/hooks/use-notification";
 import { useProjectStore } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
-import { OUTLINE_STYLES } from "./constants";
 
 function pickRandom<T>(arr: T[], count: number): T[] {
   const copy = [...arr];
@@ -33,6 +27,68 @@ function extractKeywords(input: string): string[] {
     .split(/\s+/)
     .filter((w) => w.length >= 2 && w.length <= 12)
     .slice(0, 8);
+}
+
+function uniqueNonEmpty(items: string[]): string[] {
+  return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
+}
+
+function pickOne<T>(items: T[], fallback: T): T {
+  if (!items.length) return fallback;
+  const index = Math.floor(Math.random() * items.length);
+  return items[index];
+}
+
+function buildRagGuidedSuggestions(args: {
+  seed: string;
+  prompt: string;
+  keywords: string[];
+  mergedText: string;
+}): string[] {
+  const { seed, prompt, keywords, mergedText } = args;
+  const refinedKeywords = uniqueNonEmpty(keywords).slice(0, 8);
+  const focusA = refinedKeywords.slice(0, 2).join(", ") || "core concepts";
+  const focusB = refinedKeywords.slice(2, 5).join(", ") || focusA;
+  const evidenceSignals = uniqueNonEmpty(
+    mergedText
+      .split(/[.!?;\n]/)
+      .map((line) => line.trim())
+      .filter((line) => line.length >= 10)
+      .flatMap((line) => extractKeywords(line).slice(0, 2))
+  ).slice(0, 4);
+  const evidenceHint = evidenceSignals.join(", ") || focusA;
+
+  const starters = [
+    `Build an outline for "${seed}" with clear concept progression.`,
+    `Design a lesson deck around "${seed}" for classroom delivery.`,
+    `Create a teachable slide outline for "${seed}".`,
+  ];
+  const structures = [
+    "Use this structure: concept intro -> worked example -> guided practice -> recap.",
+    "Use this structure: question hook -> explanation -> activity -> quick check.",
+    "Use this structure: foundations -> key difficulties -> transfer application -> summary.",
+  ];
+  const constraints = [
+    `Prioritize: ${focusA}.`,
+    `Also cover: ${focusB}.`,
+    `Reference evidence from materials: ${evidenceHint}.`,
+  ];
+
+  const dynamic = Array.from({ length: 6 }, () => {
+    const start = pickOne(starters, starters[0]);
+    const structure = pickOne(structures, structures[0]);
+    return `${start} ${structure} ${constraints.join(" ")}`;
+  });
+
+  const focused = [
+    `Split "${seed}" into 4-6 modules, each with objective, key point, and check question.`,
+    `Output slide-ready section titles and one-line teaching intent for each section.`,
+    prompt.trim()
+      ? `Incorporate this user request as first priority: ${prompt.trim()}.`
+      : `Keep the outline practical, concise, and classroom-ready.`,
+  ];
+
+  return uniqueNonEmpty([...dynamic, ...focused]);
 }
 
 const wait = (ms: number) =>
@@ -67,12 +123,7 @@ export function useGenerationConfigPanel({
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
-  const {
-    success: notifySuccess,
-    error: notifyError,
-    warning: notifyWarning,
-    info: notifyInfo,
-  } = useNotification();
+  const { error: notifyError, info: notifyInfo } = useNotification();
 
   const {
     project,
@@ -80,8 +131,6 @@ export function useGenerationConfigPanel({
     selectedFileIds,
     generationSession,
     activeSessionId,
-    activeRunId,
-    redraftOutline,
   } = useProjectStore(
     useShallow((state) => ({
       project: state.project,
@@ -89,8 +138,6 @@ export function useGenerationConfigPanel({
       selectedFileIds: state.selectedFileIds,
       generationSession: state.generationSession,
       activeSessionId: state.activeSessionId,
-      activeRunId: state.activeRunId,
-      redraftOutline: state.redraftOutline,
     }))
   );
 
@@ -102,13 +149,10 @@ export function useGenerationConfigPanel({
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [showOutlineEditor, setShowOutlineEditor] = useState(false);
+  const [showRegenerateHint, setShowRegenerateHint] = useState(false);
 
   const sessionId =
     activeSessionId || generationSession?.session?.session_id || "";
-  const hasInProgressRun =
-    Boolean(
-      activeRunId || extractRunIdFromSessionPayload(generationSession || null)
-    ) && isSessionRunActive(generationSession?.session?.state || null);
   const suggestionRequestIdRef = useRef(0);
   const outlinePollRequestIdRef = useRef(0);
   const workflowStageChangeRef = useRef(onWorkflowStageChange);
@@ -119,7 +163,12 @@ export function useGenerationConfigPanel({
 
   useEffect(() => {
     if (!resumeStage) return;
-    setShowOutlineEditor(resumeStage === "outline");
+    if (resumeStage === "outline") {
+      setShowOutlineEditor(true);
+      return;
+    }
+    setShowOutlineEditor(false);
+    setShowRegenerateHint(false);
   }, [resumeSignal, resumeStage]);
 
   useEffect(() => {
@@ -138,23 +187,11 @@ export function useGenerationConfigPanel({
     });
   }, [isCreatingSession, sessionId, showOutlineEditor]);
 
-  const styleMeta = useMemo(() => {
-    const matched = OUTLINE_STYLES.find((item) => item.id === outlineStyle);
-    return (
-      matched ?? {
-        id: outlineStyle,
-        name: outlineStyle,
-        desc: "结构清晰、课堂可落地",
-        tone: "清晰、准确、可讲授",
-      }
-    );
-  }, [outlineStyle]);
-
   const pageLabel = useMemo(() => {
-    if (pageCount <= 10) return "精简";
-    if (pageCount <= 16) return "均衡";
-    if (pageCount <= 20) return "深入";
-    return "完整";
+    if (pageCount <= 10) return "Concise";
+    if (pageCount <= 16) return "Balanced";
+    if (pageCount <= 20) return "Detailed";
+    return "Full";
   }, [pageCount]);
 
   const generateSuggestionBatch = useCallback(async () => {
@@ -173,33 +210,23 @@ export function useGenerationConfigPanel({
             ? { file_ids: readyFiles }
             : undefined;
 
-      const seed = prompt.trim() || project?.name || "课堂教学";
+      const seed = prompt.trim() || project?.name || "classroom lesson";
       const ragResponse = await ragApi.search({
         project_id: projectId,
-        query: `${seed} 课程目标 核心知识点 教学活动 课堂互动`,
+        query: `${seed} learning goals core concepts teaching activities classroom interaction`,
         top_k: 5,
         filters,
       });
 
       const chunks = ragResponse?.data?.results || [];
-      const sourceHints = chunks
-        .map((item) => item.source?.filename)
-        .filter(Boolean)
-        .slice(0, 3)
-        .join("、");
       const mergedText = chunks.map((item) => item.content).join(" ");
       const keywords = extractKeywords(mergedText);
-      const topic =
-        keywords.slice(0, 3).join(" / ") ||
-        (prompt.trim() ? prompt.trim().slice(0, 20) : "课程主题");
-
-      const candidates = [
-        `围绕“${seed}”生成 ${pageCount} 页 16:9 课堂 PPT，突出教学目标、关键概念、案例演示与课堂互动，重点覆盖：${topic}。`,
-        `请基于资料${sourceHints ? `（参考：${sourceHints}）` : ""}设计 ${pageCount} 页课件，结构包含导入、讲授、练习和总结，并给出每页讲解要点。`,
-        `我需要一份 ${pageCount} 页的教学课件：先讲清核心概念，再用真实案例解释，最后加入课堂讨论与即时练习。`,
-        `请输出逻辑清晰、节奏适中的课程 PPT（${pageCount} 页），每页都要有明确标题、核心内容和教师讲解提示。`,
-        `做一份面向学生的教学演示（${pageCount} 页），要求视觉简洁、重点突出、知识点可复习，并包含课堂提问设计。`,
-      ];
+      const candidates = buildRagGuidedSuggestions({
+        seed,
+        prompt,
+        keywords,
+        mergedText,
+      });
 
       setSuggestions((prev) => {
         const next = pickRandom(candidates, 4);
@@ -212,12 +239,12 @@ export function useGenerationConfigPanel({
         return next;
       });
     } catch {
-      const seed = prompt.trim() || project?.name || "课程主题";
+      const seed = prompt.trim() || project?.name || "lesson topic";
       const fallback = [
-        `请围绕“${seed}”生成一份结构化教学课件，包含导入、知识讲解、案例和课堂练习。`,
-        `我要做一份 ${pageCount} 页课程 PPT，请按“背景-核心知识-应用-总结”组织内容。`,
-        "请生成面向课堂教学的课件，每页都标注讲解重点与互动建议。",
-        "请给出一套可直接授课的课件内容，兼顾逻辑性与学生理解难度。",
+        `Clarify teaching direction for "${seed}", then split core knowledge modules and learning goals.`,
+        `Organize "${seed}" as: foundation -> difficult points -> application -> recap.`,
+        "Generate outline prompts that include modules, classroom activities, and quick checks.",
+        "Plan progression as learn first, practice second, evaluate mastery last.",
       ];
       setSuggestions((prev) => {
         if (
@@ -231,7 +258,7 @@ export function useGenerationConfigPanel({
     } finally {
       setLoadingSuggestions(false);
     }
-  }, [files, pageCount, project?.name, projectId, prompt, selectedFileIds]);
+  }, [files, project?.name, projectId, prompt, selectedFileIds]);
 
   useEffect(() => {
     const requestId = ++suggestionRequestIdRef.current;
@@ -245,129 +272,22 @@ export function useGenerationConfigPanel({
     };
   }, [generateSuggestionBatch]);
 
-  const redraftOutlineFromConfig = useCallback(async () => {
-    const latestState = useProjectStore.getState();
-    const targetSessionId =
-      latestState.activeSessionId ||
-      latestState.generationSession?.session?.session_id ||
-      null;
-    if (!targetSessionId) return { ok: false as const, reason: "NO_SESSION" };
-
-    const state = String(latestState.generationSession?.session?.state || "");
-    const allowRedraft =
-      state === "DRAFTING_OUTLINE" || state === "AWAITING_OUTLINE_CONFIRM";
-    if (!allowRedraft) {
-      return { ok: false as const, reason: "STATE_NOT_SUPPORTED", state };
-    }
-
-    const instruction = [
-      "请忽略此前草案与旧配置，以本次配置为唯一依据重新生成整套大纲：",
-      `- 最新用户需求（必须优先满足）：${prompt.trim()}`,
-      `- 目标页数：${pageCount} 页`,
-      `- 大纲风格：${styleMeta.name}（${styleMeta.id}）`,
-      `- 风格说明：${styleMeta.desc}`,
-      `- 表达语气：${styleMeta.tone}`,
-      "- 质量要求：每页主题要和“最新用户需求”强相关，不得偏题；结构要完整，页间衔接自然。",
-    ].join("\n");
-
-    try {
-      await redraftOutline(targetSessionId, instruction);
-      const refreshed = useProjectStore.getState();
-      const latestRunId =
-        refreshed.activeRunId ||
-        extractRunIdFromSessionPayload(refreshed.generationSession) ||
-        null;
-
-      setShowOutlineEditor(true);
-      workflowStageChangeRef.current?.("generating_outline", {
-        sessionId: targetSessionId,
-        runId: latestRunId,
-      });
-      notifySuccess(
-        "已按新配置重新生成大纲",
-        "正在重新生成中，你可以在大纲页继续观察并编辑。"
-      );
-      return { ok: true as const };
-    } catch {
-      return { ok: false as const, reason: "REDRAFT_FAILED" };
-    }
-  }, [notifySuccess, pageCount, prompt, redraftOutline, styleMeta]);
-
-  const resumeExistingRun = useCallback(
-    async (input?: { sessionId?: string | null; runId?: string | null }) => {
-      const latestState = useProjectStore.getState();
-      const targetSessionId =
-        input?.sessionId ||
-        latestState.activeSessionId ||
-        latestState.generationSession?.session?.session_id ||
-        null;
-      if (!targetSessionId) return false;
-
-      const hintedRunId = input?.runId || null;
-      const fallbackRunId =
-        latestState.activeRunId ||
-        extractRunIdFromSessionPayload(latestState.generationSession) ||
-        null;
-      const targetRunId = hintedRunId || fallbackRunId;
-
-      try {
-        const sessionResponse = await generateApi.getSessionSnapshot(
-          targetSessionId,
-          { run_id: targetRunId }
-        );
-        const latestSession = sessionResponse?.data ?? null;
-        const latestRunId =
-          extractRunIdFromSessionPayload(latestSession) || targetRunId;
-
-        useProjectStore.setState({
-          activeSessionId: targetSessionId,
-          activeRunId: latestRunId,
-          generationSession: latestSession,
-        });
-        setShowOutlineEditor(true);
-        workflowStageChangeRef.current?.("outline", {
-          sessionId: targetSessionId,
-          runId: latestRunId,
-        });
-        notifyInfo(
-          "已回到当前运行中的大纲",
-          "当前会话已有进行中的大纲任务，需要改配置时可点击“按新配置重生成”。"
-        );
-        return true;
-      } catch (syncError) {
-        notifyError("同步运行状态失败", getErrorMessage(syncError));
-        return false;
-      }
-    },
-    [notifyError, notifyInfo]
-  );
-
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
-
-    if (hasInProgressRun) {
-      setIsCreatingSession(true);
-      try {
-        const redraftResult = await redraftOutlineFromConfig();
-        if (redraftResult.ok) return;
-
-        const resumed = await resumeExistingRun();
-        if (!resumed && redraftResult.reason === "STATE_NOT_SUPPORTED") {
-          notifyWarning(
-            "当前阶段暂不支持重开",
-            "任务已进入内容生成或渲染阶段，后端暂不支持中断后按新配置重开，已为你保持当前任务。"
-          );
-        }
-      } finally {
-        setIsCreatingSession(false);
-      }
-      return;
-    }
 
     const requestId = ++outlinePollRequestIdRef.current;
     setIsCreatingSession(true);
 
     try {
+      const shouldReuseExistingRun = showRegenerateHint;
+      if (!shouldReuseExistingRun) {
+        // Card entry should always start a fresh run chain.
+        // Keep existing snapshot until new run binding is confirmed,
+        // to avoid blanking other history entries in the same session.
+        useProjectStore.setState({
+          activeRunId: null,
+        });
+      }
       const creationResult = await onGenerate?.({
         prompt: prompt.trim(),
         pageCount,
@@ -381,11 +301,14 @@ export function useGenerationConfigPanel({
       }
 
       const sessionIdFromStore = sessionIdFromCallback;
+      const latestStoreState = useProjectStore.getState();
       const initialRunId =
-        useProjectStore.getState().activeRunId ||
-        extractRunIdFromSessionPayload(
-          useProjectStore.getState().generationSession
-        );
+        latestStoreState.activeRunId ||
+        extractRunIdFromSessionPayload(latestStoreState.generationSession);
+
+      useProjectStore.setState({
+        activeRunId: initialRunId || null,
+      });
 
       setShowOutlineEditor(true);
       workflowStageChangeRef.current?.("outline", {
@@ -399,18 +322,41 @@ export function useGenerationConfigPanel({
         let outlineReady = false;
         let outlineIncomplete = false;
         let lastSessionState: string | undefined;
+        let transientPollErrorCount = 0;
 
         try {
           for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
             if (outlinePollRequestIdRef.current !== requestId) return;
 
             const targetRunId =
-              initialRunId || useProjectStore.getState().activeRunId || null;
-            const sessionResponse = await generateApi.getSessionSnapshot(
-              sessionIdFromStore,
-              { run_id: targetRunId }
-            );
-            const latestSession = sessionResponse?.data ?? null;
+              useProjectStore.getState().activeRunId || initialRunId || null;
+            let latestSession: any = null;
+            try {
+              const sessionResponse = await generateApi.getSessionSnapshot(
+                sessionIdFromStore,
+                { run_id: targetRunId }
+              );
+              latestSession = sessionResponse?.data ?? null;
+            } catch (snapshotError) {
+              const snapshotMessage =
+                snapshotError instanceof Error
+                  ? snapshotError.message
+                  : String(snapshotError || "");
+              const lowerSnapshotMessage = snapshotMessage.toLowerCase();
+              const isTransientSnapshotRace =
+                lowerSnapshotMessage.includes("state_reason_event_mismatch") ||
+                lowerSnapshotMessage.includes("state_event_mismatch") ||
+                (lowerSnapshotMessage.includes("state_reason") &&
+                  lowerSnapshotMessage.includes("latest") &&
+                  lowerSnapshotMessage.includes("event"));
+              if (isTransientSnapshotRace && transientPollErrorCount < 8) {
+                transientPollErrorCount += 1;
+                await wait(intervalMs);
+                continue;
+              }
+              throw snapshotError;
+            }
+            transientPollErrorCount = 0;
             const state = latestSession?.session?.state;
             const currentPages = latestSession?.outline?.nodes?.length || 0;
             const targetPages = Number(
@@ -447,8 +393,9 @@ export function useGenerationConfigPanel({
 
             if (state === "FAILED") {
               notifyError(
-                "大纲生成失败",
-                latestSession?.session?.state_reason || "请稍后重试。"
+                "Outline generation failed",
+                latestSession?.session?.state_reason ||
+                  "Please try again later."
               );
               break;
             }
@@ -462,15 +409,15 @@ export function useGenerationConfigPanel({
             lastSessionState !== "FAILED"
           ) {
             notifyInfo(
-              "大纲仍在生成中",
-              `当前状态：${lastSessionState}，可继续在大纲编辑页等待。`
+              "Outline is still generating",
+              `Current state: ${lastSessionState}. You can keep waiting on the outline editor.`
             );
           }
 
           if (outlineIncomplete) {
             notifyInfo(
-              "大纲正在补齐页数",
-              "可留在大纲页继续编辑，剩余页面会继续生成。"
+              "Outline pages are still filling",
+              "You can keep editing while remaining pages continue generating."
             );
           }
         } catch (error) {
@@ -479,7 +426,7 @@ export function useGenerationConfigPanel({
             error instanceof Error
               ? error.message
               : "Failed to sync outline state.";
-          notifyError("大纲状态同步失败", message);
+          notifyError("Failed to sync outline state", message);
         } finally {
           if (outlinePollRequestIdRef.current === requestId) {
             setIsCreatingSession(false);
@@ -487,43 +434,28 @@ export function useGenerationConfigPanel({
         }
       })();
     } catch (error) {
-      const conflict = parseActiveRunConflict(error);
-      if (conflict) {
-        const redraftResult = await redraftOutlineFromConfig();
-        if (!redraftResult.ok) {
-          const resumed = await resumeExistingRun({
-            sessionId: conflict.sessionId,
-            runId: conflict.runId,
-          });
-          if (resumed) {
-            setIsCreatingSession(false);
-            return;
-          }
-        } else {
-          setIsCreatingSession(false);
-          return;
-        }
-      }
       const message =
         error instanceof Error
           ? error.message
           : "Failed to create generation session.";
-      notifyError("启动生成失败", message);
+      notifyError("Failed to start generation", message);
       setShowOutlineEditor(false);
       setIsCreatingSession(false);
     }
   }, [
-    hasInProgressRun,
     notifyError,
     notifyInfo,
-    notifyWarning,
     onGenerate,
     outlineStyle,
     pageCount,
     prompt,
-    redraftOutlineFromConfig,
-    resumeExistingRun,
+    showRegenerateHint,
   ]);
+
+  const handleBackToConfigFromOutline = useCallback(() => {
+    setShowOutlineEditor(false);
+    setShowRegenerateHint(true);
+  }, []);
 
   const handleGoToPreview = useCallback(() => {
     if (!projectId || !sessionId) return;
@@ -554,9 +486,10 @@ export function useGenerationConfigPanel({
     suggestions,
     loadingSuggestions,
     isCreatingSession,
-    hasInProgressRun,
+    showRegenerateHint,
     showOutlineEditor,
     setShowOutlineEditor,
+    handleBackToConfigFromOutline,
     sessionId,
     pageLabel,
     generateSuggestionBatch,

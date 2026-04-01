@@ -30,6 +30,7 @@ import { buildRuntimeArtifactStorageKey, mergeToolArtifacts } from "./utils";
 interface UseStudioCapabilityStateArgs {
   projectId: string | null;
   activeSessionId: string | null;
+  activeRunId: string | null;
   expandedTool: GenerationToolType | null;
   artifactHistoryByTool: ArtifactHistoryByTool;
   draftSourceArtifactId: string | null;
@@ -38,6 +39,7 @@ interface UseStudioCapabilityStateArgs {
 export function useStudioCapabilityState({
   projectId,
   activeSessionId,
+  activeRunId,
   expandedTool,
   artifactHistoryByTool,
   draftSourceArtifactId,
@@ -87,12 +89,43 @@ export function useStudioCapabilityState({
   const currentToolArtifacts = useMemo(() => {
     if (!expandedToolKey) return [];
     const fromStore = artifactHistoryByTool[expandedToolKey] ?? [];
-    return mergeToolArtifacts(
+    const merged = mergeToolArtifacts(
       expandedToolKey,
       fromStore,
       runtimeArtifactsByTool
     );
-  }, [artifactHistoryByTool, expandedToolKey, runtimeArtifactsByTool]);
+    const normalizedRunId = activeRunId?.trim() || null;
+    if (!normalizedRunId) {
+      return merged;
+    }
+    return merged.filter(
+      (item) => (item.runId?.trim() || null) === normalizedRunId
+    );
+  }, [
+    activeRunId,
+    artifactHistoryByTool,
+    expandedToolKey,
+    runtimeArtifactsByTool,
+  ]);
+
+  const completedPptHistorySources = useMemo<StudioSourceOption[]>(() => {
+    if (expandedToolKey !== "summary") return [];
+    const pptHistory = artifactHistoryByTool.ppt ?? [];
+    const seen = new Set<string>();
+    const normalized: StudioSourceOption[] = [];
+    for (const item of pptHistory) {
+      if (item.status !== "completed") continue;
+      if (!item.artifactId || seen.has(item.artifactId)) continue;
+      seen.add(item.artifactId);
+      normalized.push({
+        id: item.artifactId,
+        title: item.title,
+        type: item.artifactType,
+        sessionId: item.sessionId ?? null,
+      });
+    }
+    return normalized;
+  }, [artifactHistoryByTool.ppt, expandedToolKey]);
 
   const currentCapabilityState = currentCardId
     ? capabilityStateByCardId[currentCardId]
@@ -271,9 +304,30 @@ export function useStudioCapabilityState({
     };
   }, [currentCardId, currentToolArtifacts, expandedToolKey, projectId]);
 
-  const sourceOptions = currentCardId
-    ? (sourceOptionsByCard[currentCardId] ?? [])
-    : [];
+  const sourceOptions = useMemo(() => {
+    if (!currentCardId) return [];
+    const fromCapability = sourceOptionsByCard[currentCardId] ?? [];
+    if (completedPptHistorySources.length === 0) return fromCapability;
+
+    const merged = [...fromCapability];
+    const existingIds = new Set(fromCapability.map((item) => item.id));
+    for (const item of completedPptHistorySources) {
+      if (!existingIds.has(item.id)) {
+        merged.push(item);
+      }
+    }
+    return merged;
+  }, [completedPptHistorySources, currentCardId, sourceOptionsByCard]);
+
+  useEffect(() => {
+    if (!currentCardId) return;
+    if (selectedSourceId) return;
+    if (sourceOptions.length === 0) return;
+    setSelectedSourceByCard((prev) => ({
+      ...prev,
+      [currentCardId]: sourceOptions[0]?.id ?? null,
+    }));
+  }, [currentCardId, selectedSourceId, sourceOptions]);
 
   const upsertCurrentCardSources = (sources: StudioSourceOption[]) => {
     if (!currentCardId) return;

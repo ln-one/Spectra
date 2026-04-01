@@ -31,6 +31,7 @@ async def create_session(
     options: Optional[dict],
     client_session_id: Optional[str],
     bootstrap_only: bool,
+    allow_create: bool,
     task_queue_service,
     contract_version: str,
     schema_version: int,
@@ -53,10 +54,6 @@ async def create_session(
                 ],
             }
         )
-
-    if existing_session:
-        if existing_session.state == GenerationState.SUCCESS.value:
-            existing_session = None
 
     if existing_session:
         update_data = {
@@ -86,9 +83,16 @@ async def create_session(
             update_data.update(
                 {
                     "state": GenerationState.DRAFTING_OUTLINE.value,
+                    "stateReason": SessionLifecycleReason.SESSION_REUSED.value,
+                    "progress": 0,
                     "renderVersion": 0,
                     "currentOutlineVersion": 0,
                     "resumable": True,
+                    "pptUrl": None,
+                    "wordUrl": None,
+                    "errorCode": None,
+                    "errorMessage": None,
+                    "errorRetryable": False,
                 }
             )
             session = await db.generationsession.update(
@@ -99,6 +103,7 @@ async def create_session(
                 session_id=session.id,
                 event_type=GenerationEventType.STATE_CHANGED.value,
                 state=GenerationState.DRAFTING_OUTLINE.value,
+                state_reason=SessionLifecycleReason.SESSION_REUSED.value,
                 progress=0,
                 payload={"reason": SessionLifecycleReason.SESSION_REUSED.value},
             )
@@ -115,6 +120,11 @@ async def create_session(
             data=update_data,
         )
         return _to_session_ref(session, contract_version, schema_version)
+
+    if not allow_create:
+        raise LookupError(
+            "Existing generation session is required when allow_create is False"
+        )
 
     initial_state = (
         GenerationState.IDLE.value

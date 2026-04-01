@@ -27,8 +27,11 @@ beforeAll(() => {
       return undefined;
     }
   }
-  // @ts-expect-error jsdom runtime polyfill
-  global.ResizeObserver = ResizeObserverMock;
+  Object.defineProperty(globalThis, "ResizeObserver", {
+    writable: true,
+    configurable: true,
+    value: ResizeObserverMock,
+  });
 });
 
 const { PreviewStep: WordPreviewStep } =

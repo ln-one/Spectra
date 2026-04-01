@@ -1,4 +1,4 @@
-import { sdkClient, unwrap } from "./client";
+import { apiFetch, sdkClient, unwrap } from "./client";
 import type { components, paths } from "./types";
 
 export type RAGSearchRequest = components["schemas"]["RAGSearchRequest"];
@@ -6,6 +6,8 @@ export type RAGSearchResponse = components["schemas"]["RAGSearchResponse"];
 export type SourceDetailResponse =
   components["schemas"]["SourceDetailResponse"];
 export type WebSearchResponse = components["schemas"]["WebSearchResponse"];
+export type AudioTranscribeResponse =
+  components["schemas"]["AudioTranscribeResponse"];
 export type RAGIndexResponse =
   paths["/api/v1/rag/index"]["post"]["responses"][200]["content"]["application/json"];
 
@@ -62,5 +64,42 @@ export const ragApi = {
       params: { query: params },
     });
     return unwrap<WebSearchResponse>(result);
+  },
+
+  async transcribeAudio(
+    file: File,
+    params?: { project_id?: string; auto_index?: boolean; language?: string }
+  ): Promise<AudioTranscribeResponse> {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (params?.project_id) {
+      formData.append("project_id", params.project_id);
+    }
+    formData.append("auto_index", String(params?.auto_index ?? false));
+    formData.append("language", params?.language ?? "zh");
+
+    const response = await apiFetch("/api/v1/rag/audio-transcribe", {
+      method: "POST",
+      body: formData,
+    });
+
+    let payload: AudioTranscribeResponse | null = null;
+    try {
+      payload = (await response.json()) as AudioTranscribeResponse;
+    } catch {
+      throw new Error("音频转写失败：响应解析异常");
+    }
+
+    if (!response.ok) {
+      const fallbackMessage = "音频转写失败";
+      const message =
+        (payload as { error?: { message?: string }; message?: string } | null)
+          ?.error?.message ||
+        (payload as { message?: string } | null)?.message ||
+        fallbackMessage;
+      throw new Error(message);
+    }
+
+    return payload;
   },
 };

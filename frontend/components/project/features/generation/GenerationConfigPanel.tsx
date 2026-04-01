@@ -68,9 +68,9 @@ export function GenerationConfigPanel({
     suggestions,
     loadingSuggestions,
     isCreatingSession,
-    hasInProgressRun,
+    showRegenerateHint,
     showOutlineEditor,
-    setShowOutlineEditor,
+    handleBackToConfigFromOutline,
     pageLabel,
     generateSuggestionBatch,
     handleGenerate,
@@ -129,7 +129,7 @@ export function GenerationConfigPanel({
                   variant="default"
                   topic={prompt}
                   isBootstrapping={isCreatingSession}
-                  onBack={() => setShowOutlineEditor(false)}
+                  onBack={handleBackToConfigFromOutline}
                   onConfirm={() => {}}
                   onPreview={handleGoToPreview}
                 />
@@ -364,7 +364,7 @@ export function GenerationConfigPanel({
                         <p className="mt-1 text-xs leading-5 text-zinc-500">
                           下一步将进入大纲编辑页，你可以继续微调每一页。
                         </p>
-                        {hasInProgressRun ? (
+                        {showRegenerateHint ? (
                           <p className="mt-1 text-xs leading-5 text-amber-600">
                             当前会话已有进行中的
                             Run，点击右侧按钮会按新配置重新生成大纲。
@@ -384,7 +384,7 @@ export function GenerationConfigPanel({
                             <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                             正在创建...
                           </>
-                        ) : hasInProgressRun ? (
+                        ) : showRegenerateHint ? (
                           <>
                             <RefreshCw className="mr-2 h-4 w-4" />
                             按新配置重生成

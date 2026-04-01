@@ -57,6 +57,11 @@ async def execute_studio_card_artifact_request(
         card_id=card_id,
         source_artifact_id=body.source_artifact_id,
     )
+    await _promote_requested_run_to_generating(
+        card_id=card_id,
+        body=body,
+        session_id=execution_session_id,
+    )
     artifact_content = dict(payload.get("content") or {})
     generated_content = await build_studio_tool_artifact_content(
         card_id=card_id,
@@ -137,16 +142,28 @@ async def execute_studio_card_structured_refine(
         user_id=user_id,
         content=updated_content,
     )
+    run = await _create_artifact_run(
+        card_id=card_id,
+        body=body,
+        artifact=new_artifact,
+        session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
+    )
     current_version_id = await get_current_version_id(body.project_id)
     return StudioCardExecutionResult(
         card_id=card_id,
         readiness=preview.readiness,
         transport=StudioCardTransport.ARTIFACT_CREATE,
         resource_kind=StudioCardExecutionResultKind.ARTIFACT,
+        session=(
+            {"session_id": getattr(new_artifact, "sessionId", None) or body.session_id}
+            if (getattr(new_artifact, "sessionId", None) or body.session_id)
+            else None
+        ),
         artifact=artifact_result_payload(
             new_artifact,
             current_version_id=current_version_id,
         ),
+        run=run,
         request_preview=preview.refine_request,
     )
 
@@ -182,12 +199,34 @@ async def execute_classroom_simulator_turn_artifact(
         content=updated_content,
     )
     current_version_id = await get_current_version_id(body.project_id)
+    normalized_turn_result = dict(turn_result or {})
+    if not normalized_turn_result.get("student_profile"):
+        normalized_turn_result["student_profile"] = str(
+            normalized_turn_result.get("student_intent")
+            or (body.config or {}).get("profile")
+            or "detail_oriented"
+        )
+    if not normalized_turn_result.get("feedback"):
+        normalized_turn_result["feedback"] = str(
+            normalized_turn_result.get("assistant_feedback")
+            or normalized_turn_result.get("analysis")
+            or "建议继续追问边界条件与关键步骤。"
+        )
+    if not normalized_turn_result.get("teacher_answer"):
+        normalized_turn_result["teacher_answer"] = body.teacher_answer
+    if "score" not in normalized_turn_result:
+        raw_score = normalized_turn_result.get("quality_score")
+        try:
+            normalized_turn_result["score"] = int(raw_score)
+        except (TypeError, ValueError):
+            normalized_turn_result["score"] = 80
+
     return (
         artifact_result_payload(
             new_artifact,
             current_version_id=current_version_id,
         ),
-        StudioCardTurnResult(**turn_result),
+        StudioCardTurnResult(**normalized_turn_result),
     )
 
 
@@ -200,9 +239,11 @@ async def _create_artifact_run(
 ):
     from services.generation_session_service.session_history import (
         RUN_STATUS_COMPLETED,
+        RUN_STATUS_PENDING,
         RUN_STATUS_PROCESSING,
         RUN_STEP_COMPLETED,
         RUN_STEP_GENERATE,
+        RUN_STEP_OUTLINE,
         create_session_run,
         generate_semantic_run_title,
         serialize_session_run,
@@ -210,17 +251,33 @@ async def _create_artifact_run(
         update_session_run,
     )
 
-    run = await create_session_run(
-        db=project_space_service.db.db,
-        session_id=getattr(artifact, "sessionId", None) or session_id,
-        project_id=body.project_id,
-        tool_type=f"studio_card:{card_id}",
-        step=RUN_STEP_GENERATE,
-        status=RUN_STATUS_PROCESSING,
-        artifact_id=artifact.id,
-    )
+    requested_run_id = str(getattr(body, "run_id", None) or "").strip()
+    if requested_run_id:
+        run = await _load_valid_studio_card_run(
+            card_id=card_id,
+            run_id=requested_run_id,
+            project_id=body.project_id,
+            expected_session_id=getattr(artifact, "sessionId", None) or session_id,
+        )
+    else:
+        run = await create_session_run(
+            db=project_space_service.db.db,
+            session_id=getattr(artifact, "sessionId", None) or session_id,
+            project_id=body.project_id,
+            tool_type=f"studio_card:{card_id}",
+            step=RUN_STEP_OUTLINE,
+            status=RUN_STATUS_PENDING,
+        )
     run_for_response = run
     if run:
+        generating_run = await update_session_run(
+            db=project_space_service.db.db,
+            run_id=run.id,
+            status=RUN_STATUS_PROCESSING,
+            step=RUN_STEP_GENERATE,
+        )
+        if generating_run:
+            run_for_response = generating_run
         finalized_run = await update_session_run(
             db=project_space_service.db.db,
             run_id=run.id,
@@ -272,6 +329,66 @@ async def _create_artifact_run(
         run=run_for_response,
     )
     return serialize_session_run(run_for_response)
+
+
+async def _load_valid_studio_card_run(
+    *,
+    card_id: str,
+    run_id: str,
+    project_id: str,
+    expected_session_id: str | None,
+):
+    run_model = getattr(project_space_service.db.db, "sessionrun", None)
+    existing_run = (
+        await run_model.find_unique(where={"id": run_id})
+        if run_model is not None and hasattr(run_model, "find_unique")
+        else None
+    )
+    if (
+        not existing_run
+        or getattr(existing_run, "projectId", None) != project_id
+        or getattr(existing_run, "toolType", None) != f"studio_card:{card_id}"
+        or (
+            expected_session_id
+            and getattr(existing_run, "sessionId", None) != expected_session_id
+        )
+    ):
+        raise APIException(
+            status_code=409,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            message="run_id 无效或不属于当前会话，请重新创建草稿。",
+        )
+    return existing_run
+
+
+async def _promote_requested_run_to_generating(
+    *,
+    card_id: str,
+    body: StudioCardExecutionPreviewRequest,
+    session_id: str | None,
+) -> None:
+    from services.generation_session_service.session_history import (
+        RUN_STATUS_PROCESSING,
+        RUN_STEP_GENERATE,
+        update_session_run,
+    )
+
+    requested_run_id = str(getattr(body, "run_id", None) or "").strip()
+    if not requested_run_id:
+        return
+
+    run = await _load_valid_studio_card_run(
+        card_id=card_id,
+        run_id=requested_run_id,
+        project_id=body.project_id,
+        expected_session_id=session_id,
+    )
+    await update_session_run(
+        db=project_space_service.db.db,
+        run_id=run.id,
+        status=RUN_STATUS_PROCESSING,
+        step=RUN_STEP_GENERATE,
+    )
 
 
 async def _resolve_execution_session_id(

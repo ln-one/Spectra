@@ -33,6 +33,38 @@ function readRecordFromStorage<T extends Record<string, unknown>>(
   return {} as T;
 }
 
+function mapRunStatusLabel(runStatus?: string, runStep?: string): string {
+  if (runStatus === "completed" && runStep === "completed") return "已完成";
+  if (
+    runStatus === "processing" &&
+    (runStep === "outline" || runStep === "generate")
+  ) {
+    return "进行中";
+  }
+  if (runStatus === "failed") return "失败";
+  return runStatus || "processing";
+}
+
+function formatRunSummaryLine(run: {
+  run_no?: number;
+  run_title?: string;
+  run_status?: string;
+  run_step?: string;
+}): string {
+  const runNo = typeof run.run_no === "number" ? `#${run.run_no}` : "Run";
+  const runTitle = run.run_title?.trim() || "pending";
+  const mappedStatus = mapRunStatusLabel(run.run_status, run.run_step);
+  const runStep = run.run_step || "-";
+  return `${runNo} · ${runTitle} · ${mappedStatus}/${runStep}`;
+}
+
+function extractCurrentRunId(
+  payload: { current_run?: { run_id?: string } } | null | undefined
+): string | null {
+  const runId = payload?.current_run?.run_id;
+  return typeof runId === "string" && runId.trim() ? runId : null;
+}
+
 export function useProjectDetailController() {
   const params = useParams();
   const router = useRouter();
@@ -52,7 +84,6 @@ export function useProjectDetailController() {
     fetchGenerationHistory,
     fetchArtifactHistory,
     setActiveSessionId,
-    setActiveRunId,
     generationHistory,
     activeSessionId,
     activeRunId,
@@ -69,7 +100,6 @@ export function useProjectDetailController() {
       fetchGenerationHistory: state.fetchGenerationHistory,
       fetchArtifactHistory: state.fetchArtifactHistory,
       setActiveSessionId: state.setActiveSessionId,
-      setActiveRunId: state.setActiveRunId,
       generationHistory: state.generationHistory,
       activeSessionId: state.activeSessionId,
       activeRunId: state.activeRunId,
@@ -120,28 +150,23 @@ export function useProjectDetailController() {
       const entries = await Promise.all(
         visibleGenerationHistory.map(async (item) => {
           try {
-            const response = await generateApi.listRuns(item.id, { limit: 1 });
-            const latestRun = response?.data?.runs?.[0];
+            const response = await generateApi.listRuns(item.id, { limit: 2 });
+            const runs = response?.data?.runs ?? [];
+            const latestRun = runs[0];
             if (!latestRun) return [item.id, null] as const;
-            const runNo =
-              typeof latestRun.run_no === "number"
-                ? `#${latestRun.run_no}`
-                : "Run";
-            const runTitle = latestRun.run_title?.trim() || "pending";
-            const runStatus = latestRun.run_status || "processing";
-            const runStep = latestRun.run_step || "-";
-            const mappedStatus =
-              runStatus === "completed" && runStep === "completed"
-                ? "已完成"
-                : runStatus === "processing" &&
-                    (runStep === "outline" || runStep === "generate")
-                  ? "进行中"
-                  : runStatus;
+            const previousRun = runs[1];
+            const latestSummary = formatRunSummaryLine(latestRun);
+            const previousSummary = previousRun
+              ? `上次 ${formatRunSummaryLine(previousRun)}`
+              : "";
             return [
               item.id,
               {
-                summary: `${runNo} · ${runTitle} · ${mappedStatus}/${runStep}`,
-                artifactId: latestRun.artifact_id ?? null,
+                summary: previousSummary
+                  ? `${latestSummary} | ${previousSummary}`
+                  : latestSummary,
+                artifactId:
+                  latestRun.artifact_id ?? previousRun?.artifact_id ?? null,
               },
             ] as const;
           } catch {
@@ -185,16 +210,44 @@ export function useProjectDetailController() {
   }, [hiddenSessionIds, projectId]);
 
   const updateSessionInUrl = useCallback(
-    (sessionId: string) => {
+    (sessionId: string, runId?: string | null) => {
       const nextSearch = new URLSearchParams(
         typeof window !== "undefined" ? window.location.search : ""
       );
       nextSearch.set("session", sessionId);
+      const normalizedRunId = String(runId || "").trim();
+      if (normalizedRunId) {
+        nextSearch.set("run", normalizedRunId);
+      } else {
+        nextSearch.delete("run");
+      }
       router.replace(`/projects/${projectId}?${nextSearch.toString()}`, {
         scroll: false,
       });
     },
     [projectId, router]
+  );
+
+  const loadSessionSnapshot = useCallback(
+    async (sessionId: string, runId?: string | null) => {
+      const normalizedRunId = String(runId || "").trim();
+      const response = normalizedRunId
+        ? await generateApi.getSessionByRun(sessionId, {
+            run_id: normalizedRunId,
+          })
+        : await generateApi.getSession(sessionId);
+      const snapshot = response?.data ?? null;
+      return {
+        snapshot,
+        runId:
+          extractCurrentRunId(
+            snapshot as { current_run?: { run_id?: string } } | null
+          ) ||
+          normalizedRunId ||
+          null,
+      };
+    },
+    []
   );
 
   useEffect(() => {
@@ -271,6 +324,7 @@ export function useProjectDetailController() {
   ]);
 
   useEffect(() => {
+    let cancelled = false;
     const preferredSessionId = resolvePreferredSessionId(
       querySessionId,
       visibleGenerationHistory,
@@ -288,29 +342,29 @@ export function useProjectDetailController() {
     }
 
     const nextSessionId = preferredSessionId;
-    if (queryRunId && queryRunId !== activeRunId) {
-      setActiveRunId(queryRunId);
-    }
 
     if (nextSessionId && nextSessionId !== activeSessionId) {
       setActiveSessionId(nextSessionId);
       void fetchArtifactHistory(projectId, nextSessionId);
-      void generateApi
-        .getSessionSnapshot(nextSessionId, { run_id: queryRunId })
-        .then((response) => {
-          const nextRunId =
-            queryRunId ||
-            ((response?.data as { current_run?: { run_id?: string } } | null)
-              ?.current_run?.run_id ??
-              null);
+      void (async () => {
+        try {
+          const { snapshot, runId } = await loadSessionSnapshot(
+            nextSessionId,
+            queryRunId
+          );
+          if (cancelled) return;
           useProjectStore.setState({
-            generationSession: response?.data ?? null,
-            activeRunId: nextRunId,
+            generationSession: snapshot,
+            activeRunId: runId,
           });
-        })
-        .catch(() => {
-          useProjectStore.setState({ generationSession: null });
-        });
+        } catch {
+          if (cancelled) return;
+          useProjectStore.setState({
+            generationSession: null,
+            activeRunId: null,
+          });
+        }
+      })();
     }
 
     if (nextSessionId) {
@@ -323,22 +377,30 @@ export function useProjectDetailController() {
       queryRunId &&
       queryRunId !== activeRunId
     ) {
-      void generateApi
-        .getSessionSnapshot(nextSessionId, { run_id: queryRunId })
-        .then((response) => {
+      void (async () => {
+        try {
+          const { snapshot, runId } = await loadSessionSnapshot(
+            nextSessionId,
+            queryRunId
+          );
+          if (cancelled) return;
           useProjectStore.setState({
-            generationSession: response?.data ?? null,
-            activeRunId: queryRunId,
+            generationSession: snapshot,
+            activeRunId: runId,
           });
-        })
-        .catch(() => {
+        } catch {
           // keep current snapshot when run-scoped sync fails
-        });
+        }
+      })();
     }
 
     if (nextSessionId && querySessionId !== nextSessionId) {
-      updateSessionInUrl(nextSessionId);
+      updateSessionInUrl(nextSessionId, null);
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     visibleGenerationHistory,
     querySessionId,
@@ -347,8 +409,8 @@ export function useProjectDetailController() {
     activeRunId,
     fetchArtifactHistory,
     fetchMessages,
+    loadSessionSnapshot,
     projectId,
-    setActiveRunId,
     setActiveSessionId,
     updateSessionInUrl,
   ]);
@@ -361,7 +423,7 @@ export function useProjectDetailController() {
     async (sessionId: string) => {
       if (!sessionId || sessionId === "empty") return;
       setActiveSessionId(sessionId);
-      updateSessionInUrl(sessionId);
+      updateSessionInUrl(sessionId, null);
       const [messagesResult, artifactsResult, sessionResult] =
         await Promise.allSettled([
           fetchMessages(projectId, sessionId),
@@ -369,11 +431,19 @@ export function useProjectDetailController() {
           generateApi.getSession(sessionId),
         ]);
       if (sessionResult.status === "fulfilled") {
+        const sessionSnapshot = sessionResult.value?.data ?? null;
         useProjectStore.setState({
-          generationSession: sessionResult.value?.data ?? null,
+          generationSession: sessionSnapshot,
+          activeRunId: extractCurrentRunId(
+            (sessionSnapshot as { current_run?: { run_id?: string } } | null) ??
+              null
+          ),
         });
       } else {
-        useProjectStore.setState({ generationSession: null });
+        useProjectStore.setState({
+          generationSession: null,
+          activeRunId: null,
+        });
       }
       void messagesResult;
       void artifactsResult;
@@ -445,11 +515,14 @@ export function useProjectDetailController() {
 
         await fetchGenerationHistory(projectId);
         if (activeSessionId === sessionId) {
-          const snapshot = await generateApi.getSessionSnapshot(sessionId, {
-            run_id: activeRunId ?? undefined,
-          });
+          const snapshot = await generateApi.getSession(sessionId);
           useProjectStore.setState({
             generationSession: snapshot?.data ?? null,
+            activeRunId: extractCurrentRunId(
+              (snapshot?.data as {
+                current_run?: { run_id?: string };
+              } | null) ?? null
+            ),
           });
         }
 
@@ -464,13 +537,7 @@ export function useProjectDetailController() {
         });
       }
     },
-    [
-      activeRunId,
-      activeSessionId,
-      fetchGenerationHistory,
-      generationHistory,
-      projectId,
-    ]
+    [activeSessionId, fetchGenerationHistory, generationHistory, projectId]
   );
 
   const handleDeleteSession = useCallback(

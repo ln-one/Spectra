@@ -5,6 +5,9 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export const API_VERSION = "/api/v1";
 export const DEFAULT_CONTRACT_VERSION = "2026-03";
+const REQUEST_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 30000
+);
 
 function generateUuidFallback(): string {
   const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
@@ -33,6 +36,96 @@ export class ApiError extends Error {
   ) {
     super(message);
     this.name = "ApiError";
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  if (error instanceof DOMException) {
+    return error.name === "AbortError";
+  }
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function createTimedSignal(
+  sourceSignal?: AbortSignal,
+  timeoutMs = REQUEST_TIMEOUT_MS
+): {
+  signal: AbortSignal | undefined;
+  didTimeout: () => boolean;
+  cleanup: () => void;
+} {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return {
+      signal: sourceSignal,
+      didTimeout: () => false,
+      cleanup: () => {},
+    };
+  }
+
+  const controller = new AbortController();
+  let timedOut = false;
+  let sourceAbortHandler: (() => void) | null = null;
+
+  if (sourceSignal) {
+    if (sourceSignal.aborted) {
+      controller.abort();
+    } else {
+      sourceAbortHandler = () => controller.abort();
+      sourceSignal.addEventListener("abort", sourceAbortHandler, {
+        once: true,
+      });
+    }
+  }
+
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      clearTimeout(timer);
+      if (sourceSignal && sourceAbortHandler) {
+        sourceSignal.removeEventListener("abort", sourceAbortHandler);
+      }
+    },
+  };
+}
+
+async function timedFetch(
+  request: Request,
+  timeoutMs = REQUEST_TIMEOUT_MS
+): Promise<Response> {
+  const { signal, didTimeout, cleanup } = createTimedSignal(
+    request.signal,
+    timeoutMs
+  );
+  const timedRequest = signal
+    ? new Request(request, {
+        signal,
+      })
+    : request;
+  try {
+    return await fetch(timedRequest);
+  } catch (error) {
+    if (didTimeout() && isAbortError(error)) {
+      throw new ApiError(
+        "NETWORK_TIMEOUT",
+        `Network request timeout after ${timeoutMs}ms: ${timedRequest.method} ${timedRequest.url}`,
+        undefined,
+        {
+          url: timedRequest.url,
+          method: timedRequest.method,
+          timeout_ms: timeoutMs,
+        },
+        true
+      );
+    }
+    throw error;
+  } finally {
+    cleanup();
   }
 }
 
@@ -81,7 +174,7 @@ async function refreshAccessToken(): Promise<boolean> {
   let refreshSuccess = false;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+    const refreshRequest = new Request(`${API_BASE_URL}/api/v1/auth/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -89,6 +182,7 @@ async function refreshAccessToken(): Promise<boolean> {
       },
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
+    const response = await timedFetch(refreshRequest);
     if (!response.ok) {
       return false;
     }
@@ -151,8 +245,11 @@ async function fetchWithAuth(
   const authedRequest = new Request(baseRequest, { headers });
   let response: Response;
   try {
-    response = await fetch(authedRequest);
+    response = await timedFetch(authedRequest);
   } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
     const errorMessage =
       error instanceof Error ? error.message : "Unknown network error";
     throw new ApiError(
@@ -177,7 +274,7 @@ async function fetchWithAuth(
         retryHeaders.set("Authorization", `Bearer ${newToken}`);
       }
       const retryRequest = new Request(baseRequest, { headers: retryHeaders });
-      return fetch(retryRequest);
+      return timedFetch(retryRequest);
     }
   }
   return response;
