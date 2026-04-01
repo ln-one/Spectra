@@ -1,19 +1,4 @@
-"""
-Parser Provider 注册表与工厂函数。
-
-通过环境变量 ``DOCUMENT_PARSER`` 选择解析器 provider（与 ADR-005 一致）。
-
-合法值：
-  - ``local``      — 本地轻量解析（默认）
-  - ``mineru``     — MinerU (Magic-PDF)
-  - ``llamaparse`` — LlamaParse 云端 API
-  - ``auto``       — 自动路由（由 file_parser 按文件类型选择 provider）
-
-Fallback 策略（精准边界）：
-  仅在 **provider 不可用 / 未安装 / 未配置** 时回退到 ``local``。
-  解析执行失败（文件损坏等）由 provider 自身返回空文本 + 详情，
-  上层 ``rag_indexing_service`` 负责统一占位 fallback。
-"""
+﻿"""Parser provider registry and factory helpers."""
 
 from __future__ import annotations
 
@@ -25,12 +10,11 @@ from .base import BaseParseProvider, ProviderNotAvailableError
 
 logger = logging.getLogger(__name__)
 
-# 延迟导入 provider，避免在模块加载时触发依赖检查
 _PROVIDER_FACTORIES: dict[str, Callable[[], BaseParseProvider]] = {}
 
 
 def _register_builtin_providers() -> None:
-    """注册内置 provider 工厂函数（延迟导入）。"""
+    """Register built-in providers via lazy factories."""
 
     def _make_local() -> BaseParseProvider:
         from .local_provider import LocalProvider
@@ -47,50 +31,46 @@ def _register_builtin_providers() -> None:
 
         return LlamaParseProvider()
 
+    def _make_mineru_api() -> BaseParseProvider:
+        from .mineru_api_provider import MineruApiProvider
+
+        return MineruApiProvider()
+
+    def _make_mineru_cloud() -> BaseParseProvider:
+        from .mineru_cloud_provider import MineruCloudProvider
+
+        return MineruCloudProvider()
+
     def _make_auto() -> BaseParseProvider:
-        # auto 模式的路由策略在 services/file_parser/__init__.py 中实现，
-        # registry 层仅提供兼容兜底，避免被识别为 unknown provider。
         return _make_local()
 
     _PROVIDER_FACTORIES["local"] = _make_local
     _PROVIDER_FACTORIES["mineru"] = _make_mineru
+    _PROVIDER_FACTORIES["mineru_api"] = _make_mineru_api
+    _PROVIDER_FACTORIES["mineru_cloud"] = _make_mineru_cloud
     _PROVIDER_FACTORIES["llamaparse"] = _make_llamaparse
     _PROVIDER_FACTORIES["auto"] = _make_auto
 
 
-# 模块加载时注册
 _register_builtin_providers()
 
 
 def register_provider(name: str, factory: Callable[[], BaseParseProvider]) -> None:
-    """
-    注册自定义 provider 工厂。
-
-    用于扩展：第三方可调用此函数注入新 provider，无需修改 registry 内部代码。
-    """
+    """Register a custom provider factory."""
     _PROVIDER_FACTORIES[name] = factory
 
 
 def get_parser(provider_name: str | None = None) -> BaseParseProvider:
-    """
-    获取解析器 provider 实例。
-
-    Args:
-        provider_name: 显式指定 provider 名称。
-                       为 ``None`` 时读取环境变量 ``DOCUMENT_PARSER``，默认 ``"local"``。
-
-    Returns:
-        可用的 provider 实例。若指定 provider 不可用则自动回退到 ``local``。
-    """
+    """Return a parser provider, falling back to local if unavailable."""
     name = provider_name or os.getenv("DOCUMENT_PARSER", "local")
 
     factory = _PROVIDER_FACTORIES.get(name)
     if factory is None:
-        logger.warning("未知的 DOCUMENT_PARSER=%s，回退到 local", name)
+        logger.warning("Unknown DOCUMENT_PARSER=%s, falling back to local", name)
         return _PROVIDER_FACTORIES["local"]()
 
     try:
         return factory()
     except ProviderNotAvailableError as exc:
-        logger.warning("Provider %s 不可用（%s），回退到 local", name, exc)
+        logger.warning("Provider %s unavailable (%s), falling back to local", name, exc)
         return _PROVIDER_FACTORIES["local"]()

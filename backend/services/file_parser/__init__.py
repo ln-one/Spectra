@@ -38,7 +38,7 @@ def _resolve_primary_provider(parser_mode: str, file_type: FileType) -> str:
         return parser_mode
 
     if file_type == FileType.PDF:
-        return "mineru"
+        return "mineru_cloud"
     if file_type in {FileType.WORD, FileType.PPT}:
         return "llamaparse"
     return "local"

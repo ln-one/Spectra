@@ -91,8 +91,10 @@ def test_extract_text_for_rag_pdf(tmp_path: Path):
     assert "text_length" in details
 
 
-def test_extract_text_for_rag_pdf_corrupted(tmp_path: Path):
+def test_extract_text_for_rag_pdf_corrupted(tmp_path: Path, monkeypatch):
     """损坏 PDF 应返回空文本，不抛异常。"""
+    monkeypatch.setenv("DOCUMENT_PARSER", "local")
+
     pdf_path = tmp_path / "bad.pdf"
     pdf_path.write_bytes(b"not a pdf content at all")
 
@@ -123,8 +125,10 @@ def test_extract_text_for_rag_docx(tmp_path: Path):
     assert details["text_length"] > 0
 
 
-def test_extract_text_for_rag_docx_corrupted(tmp_path: Path):
+def test_extract_text_for_rag_docx_corrupted(tmp_path: Path, monkeypatch):
     """损坏 DOCX 应返回空文本，不抛异常。"""
+    monkeypatch.setenv("DOCUMENT_PARSER", "local")
+
     docx_path = tmp_path / "bad.docx"
     docx_path.write_bytes(b"not a docx")
 
@@ -158,8 +162,10 @@ def test_extract_text_for_rag_pptx(tmp_path: Path):
     assert details["text_length"] > 0
 
 
-def test_extract_text_for_rag_pptx_corrupted(tmp_path: Path):
+def test_extract_text_for_rag_pptx_corrupted(tmp_path: Path, monkeypatch):
     """损坏 PPTX 应返回空文本，不抛异常。"""
+    monkeypatch.setenv("DOCUMENT_PARSER", "local")
+
     pptx_path = tmp_path / "bad.pptx"
     pptx_path.write_bytes(b"not a pptx")
 
@@ -320,24 +326,29 @@ def test_extract_text_for_rag_unknown_provider_falls_back_to_local(
     assert calls["local"] == 1
 
 
-def test_extract_text_for_rag_auto_routes_pdf_to_mineru(tmp_path: Path, monkeypatch):
+def test_extract_text_for_rag_auto_routes_pdf_to_mineru_cloud(
+    tmp_path: Path, monkeypatch
+):
     import services.file_parser as file_parser_module
 
-    class _FakeMineruProvider:
-        name = "mineru"
+    class _FakeMineruCloudProvider:
+        name = "mineru_cloud"
 
         def supports(self, _file_type: str) -> bool:
             return True
 
         def extract_text(self, _filepath: str, _filename: str, _file_type: str):
-            return "mineru parsed content", {"pages_extracted": 1, "text_length": 21}
+            return "mineru cloud parsed content", {
+                "pages_extracted": 1,
+                "text_length": 27,
+            }
 
     calls: list[str] = []
 
     def _fake_get_parser(provider_name=None):
         calls.append(str(provider_name))
-        if provider_name == "mineru":
-            return _FakeMineruProvider()
+        if provider_name == "mineru_cloud":
+            return _FakeMineruCloudProvider()
         raise AssertionError(f"unexpected provider request: {provider_name}")
 
     pdf_path = tmp_path / "sample.pdf"
@@ -348,12 +359,12 @@ def test_extract_text_for_rag_auto_routes_pdf_to_mineru(tmp_path: Path, monkeypa
 
     text, details = extract_text_for_rag(str(pdf_path), "sample.pdf", "pdf")
 
-    assert text == "mineru parsed content"
-    assert details["provider_used"] == "mineru"
+    assert text == "mineru cloud parsed content"
+    assert details["provider_used"] == "mineru_cloud"
     assert details["parser_routing"]["mode"] == "auto"
-    assert details["parser_routing"]["primary_provider"] == "mineru"
-    assert details["provider_attempted"] == ["mineru"]
-    assert calls == ["mineru"]
+    assert details["parser_routing"]["primary_provider"] == "mineru_cloud"
+    assert details["provider_attempted"] == ["mineru_cloud"]
+    assert calls == ["mineru_cloud"]
 
 
 def test_extract_text_for_rag_auto_routes_word_to_llamaparse(
