@@ -110,7 +110,7 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
             logger.info(
                 "Image insertion completed: mode=%s, count=%d",
                 image_metadata.get("retrieval_mode"),
-                image_metadata.get("image_count", 0)
+                image_metadata.get("image_count", 0),
             )
             setattr(courseware_content, "_image_metadata", image_metadata)
     return courseware_content

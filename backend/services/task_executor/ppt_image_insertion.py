@@ -16,13 +16,18 @@ logger = logging.getLogger(__name__)
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 _PRIORITY_IMAGE_PAGES = {
-    "process", "structure", "experiment", "comparison", "procedure",
-    "mechanism", "workflow", "diagram", "illustration"
+    "process",
+    "structure",
+    "experiment",
+    "comparison",
+    "procedure",
+    "mechanism",
+    "workflow",
+    "diagram",
+    "illustration",
 }
 
-_SKIP_IMAGE_PAGES = {
-    "definition", "conclusion", "summary", "abstract", "title"
-}
+_SKIP_IMAGE_PAGES = {"definition", "conclusion", "summary", "abstract", "title"}
 
 
 def _is_image_filename(filename: str | None) -> bool:
@@ -39,7 +44,7 @@ def _classify_page_semantic(title: str, content: str) -> tuple[str, dict]:
         "page_semantic_fit": 0.0,
         "keyword_coverage": 0.0,
         "teaching_dependency": 0.0,
-        "layout_capacity": 0.0
+        "layout_capacity": 0.0,
     }
 
     priority_match = sum(1 for kw in _PRIORITY_IMAGE_PAGES if kw in text)
@@ -61,7 +66,11 @@ def _classify_page_semantic(title: str, content: str) -> tuple[str, dict]:
 
 def _assess_layout_risk(content: str, scores: dict) -> str:
     """评估版式风险"""
-    lines = [l.strip() for l in content.split("\n") if l.strip() and not l.strip().startswith("#")]
+    lines = [
+        line_text.strip()
+        for line_text in content.split("\n")
+        if line_text.strip() and not line_text.strip().startswith("#")
+    ]
     text_density = len(lines)
 
     if text_density > 8:
@@ -132,14 +141,16 @@ def _inject_image_blocks(
         layout_risk = _assess_layout_risk(current_content, scores)
 
         if semantic_type == "skip" or layout_risk == "high":
-            metadata_list.append({
-                "slide_index": target_index,
-                "image_insertion_decision": "skip",
-                "page_semantic_type": semantic_type,
-                "layout_risk_level": layout_risk,
-                "skip_reason": f"semantic={semantic_type}, risk={layout_risk}",
-                "scores": scores
-            })
+            metadata_list.append(
+                {
+                    "slide_index": target_index,
+                    "image_insertion_decision": "skip",
+                    "page_semantic_type": semantic_type,
+                    "layout_risk_level": layout_risk,
+                    "skip_reason": f"semantic={semantic_type}, risk={layout_risk}",
+                    "scores": scores,
+                }
+            )
             target_pointer += 1
             continue
 
@@ -159,16 +170,18 @@ def _inject_image_blocks(
             f"> 配图来源：{filename}"
         ).strip()
 
-        metadata_list.append({
-            "slide_index": target_index,
-            "image_insertion_decision": "insert",
-            "page_semantic_type": semantic_type,
-            "layout_risk_level": layout_risk,
-            "image_count": 1,
-            "image_slot": "bottom_panel",
-            "image_match_reason": f"RAG matched: {filename}",
-            "scores": scores
-        })
+        metadata_list.append(
+            {
+                "slide_index": target_index,
+                "image_insertion_decision": "insert",
+                "page_semantic_type": semantic_type,
+                "layout_risk_level": layout_risk,
+                "image_count": 1,
+                "image_slot": "bottom_panel",
+                "image_match_reason": f"RAG matched: {filename}",
+                "scores": scores,
+            }
+        )
         target_pointer += 1
 
     return reassemble_marp(frontmatter, patched_contents), metadata_list
@@ -205,7 +218,11 @@ async def inject_rag_images_into_courseware_content(
 
     image_upload_ids = _extract_rag_image_upload_ids(rag_context)
     if not image_upload_ids:
-        return {"retrieval_mode": retrieval_mode, "image_count": 0, "skip_reason": "no_rag_images"}
+        return {
+            "retrieval_mode": retrieval_mode,
+            "image_count": 0,
+            "skip_reason": "no_rag_images",
+        }
 
     upload_rows = await find_many_with_select_fallback(
         model=db_service.db.upload,
@@ -218,18 +235,35 @@ async def inject_rag_images_into_courseware_content(
         select={"id": True, "filename": True, "filepath": True},
     )
     if not upload_rows:
-        return {"retrieval_mode": retrieval_mode, "image_count": 0, "skip_reason": "no_ready_uploads"}
+        return {
+            "retrieval_mode": retrieval_mode,
+            "image_count": 0,
+            "skip_reason": "no_ready_uploads",
+        }
 
     upload_by_id: dict[str, dict[str, str]] = {}
     for row in upload_rows:
-        row_id = str(row.get("id") if isinstance(row, dict) else getattr(row, "id", "") or "").strip()
+        row_id = str(
+            row.get("id") if isinstance(row, dict) else getattr(row, "id", "") or ""
+        ).strip()
         if not row_id:
             continue
-        filename = str(row.get("filename") if isinstance(row, dict) else getattr(row, "filename", "") or "").strip()
-        filepath = str(row.get("filepath") if isinstance(row, dict) else getattr(row, "filepath", "") or "").strip()
+        filename = str(
+            row.get("filename")
+            if isinstance(row, dict)
+            else getattr(row, "filename", "") or ""
+        ).strip()
+        filepath = str(
+            row.get("filepath")
+            if isinstance(row, dict)
+            else getattr(row, "filepath", "") or ""
+        ).strip()
         if not filepath:
             continue
-        upload_by_id[row_id] = {"filename": filename or "图片素材", "filepath": filepath}
+        upload_by_id[row_id] = {
+            "filename": filename or "图片素材",
+            "filepath": filepath,
+        }
 
     ordered_uploads: list[dict[str, str]] = []
     for upload_id in image_upload_ids:
@@ -239,16 +273,24 @@ async def inject_rag_images_into_courseware_content(
         if len(ordered_uploads) >= max(1, max_images):
             break
     if not ordered_uploads:
-        return {"retrieval_mode": retrieval_mode, "image_count": 0, "skip_reason": "no_matched_uploads"}
+        return {
+            "retrieval_mode": retrieval_mode,
+            "image_count": 0,
+            "skip_reason": "no_matched_uploads",
+        }
 
     markdown_content = str(getattr(courseware_content, "markdown_content", "") or "")
-    updated_markdown, metadata_list = _inject_image_blocks(markdown_content, ordered_uploads)
+    updated_markdown, metadata_list = _inject_image_blocks(
+        markdown_content, ordered_uploads
+    )
 
     if updated_markdown != markdown_content:
         setattr(courseware_content, "markdown_content", updated_markdown)
 
     return {
         "retrieval_mode": retrieval_mode,
-        "image_count": len([m for m in metadata_list if m.get("image_insertion_decision") == "insert"]),
-        "slides_metadata": metadata_list
+        "image_count": len(
+            [m for m in metadata_list if m.get("image_insertion_decision") == "insert"]
+        ),
+        "slides_metadata": metadata_list,
     }

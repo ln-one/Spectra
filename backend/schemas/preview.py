@@ -32,12 +32,20 @@ class SourceReference(BaseModel):
 class ImageInsertionMetadata(BaseModel):
     """插图决策元数据"""
 
-    retrieval_mode: Optional[str] = Field(None, description="检索模式: default_library 或 strict_sources")
+    retrieval_mode: Optional[str] = Field(
+        None, description="检索模式: default_library 或 strict_sources"
+    )
     page_semantic_type: Optional[str] = Field(None, description="页面语义类型")
-    image_insertion_decision: Optional[str] = Field(None, description="插图决策: insert 或 skip")
+    image_insertion_decision: Optional[str] = Field(
+        None, description="插图决策: insert 或 skip"
+    )
     image_count: Optional[int] = Field(None, ge=0, description="插图数量")
-    image_slot: Optional[str] = Field(None, description="图位: left_split/right_split/bottom_panel")
-    layout_risk_level: Optional[str] = Field(None, description="版式风险等级: low/medium/high")
+    image_slot: Optional[str] = Field(
+        None, description="图位: left_split/right_split/bottom_panel"
+    )
+    layout_risk_level: Optional[str] = Field(
+        None, description="版式风险等级: low/medium/high"
+    )
     image_match_reason: Optional[str] = Field(None, description="插图匹配原因")
     skip_reason: Optional[str] = Field(None, description="跳过插图原因")
 
@@ -51,7 +59,9 @@ class Slide(BaseModel):
     content: str
     sources: list[SourceReference] = Field(default_factory=list)
     thumbnail_url: Optional[str] = None
-    image_metadata: Optional[ImageInsertionMetadata] = Field(None, description="插图决策元数据")
+    image_metadata: Optional[ImageInsertionMetadata] = Field(
+        None, description="插图决策元数据"
+    )
 
 
 class RenderedPreviewPage(BaseModel):

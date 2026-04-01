@@ -52,8 +52,12 @@ async def cache_preview_content(
         "rendered_preview": rendered_preview,
     }
     if hasattr(courseware_content, "_image_metadata"):
-        preview_payload["_image_metadata"] = getattr(courseware_content, "_image_metadata")
-    elif isinstance(courseware_content, dict) and "_image_metadata" in courseware_content:
+        preview_payload["_image_metadata"] = getattr(
+            courseware_content, "_image_metadata"
+        )
+    elif (
+        isinstance(courseware_content, dict) and "_image_metadata" in courseware_content
+    ):
         preview_payload["_image_metadata"] = courseware_content["_image_metadata"]
 
     try:

@@ -107,8 +107,9 @@ def test_extract_text_for_rag_pdf_corrupted(tmp_path: Path, monkeypatch):
 # ---- DOCX 动态生成 ----
 
 
-def test_extract_text_for_rag_docx(tmp_path: Path):
+def test_extract_text_for_rag_docx(tmp_path: Path, monkeypatch):
     """动态生成最小 DOCX 并验证解析。"""
+    monkeypatch.setenv("DOCUMENT_PARSER", "local")
     from docx import Document
 
     doc = Document()
@@ -142,8 +143,9 @@ def test_extract_text_for_rag_docx_corrupted(tmp_path: Path, monkeypatch):
 # ---- PPTX 动态生成 ----
 
 
-def test_extract_text_for_rag_pptx(tmp_path: Path):
+def test_extract_text_for_rag_pptx(tmp_path: Path, monkeypatch):
     """动态生成最小 PPTX 并验证解析。"""
+    monkeypatch.setenv("DOCUMENT_PARSER", "local")
     from pptx import Presentation
     from pptx.util import Inches
 
@@ -184,7 +186,8 @@ def test_extract_text_for_rag_signature():
 
     sig = inspect.signature(extract_text_for_rag)
     params = list(sig.parameters.keys())
-    assert params == ["filepath", "filename", "file_type"]
+    assert params[:3] == ["filepath", "filename", "file_type"]
+    assert "parser_override" in sig.parameters
 
 
 def test_extract_text_for_rag_fallback_to_local_when_provider_unsupported(
@@ -364,9 +367,7 @@ def test_extract_text_for_rag_auto_routes_pdf_to_mineru_cloud(
     assert calls == ["mineru_cloud"]
 
 
-def test_extract_text_for_rag_auto_routes_word_to_local(
-    tmp_path: Path, monkeypatch
-):
+def test_extract_text_for_rag_auto_routes_word_to_local(tmp_path: Path, monkeypatch):
     import services.file_parser as file_parser_module
 
     class _FakeLocalProvider:

@@ -294,7 +294,10 @@ def test_apply_mineru_parse_result_success(client, monkeypatch, _as_user):
 
     resp = client.post(
         f"/api/v1/files/{_FILE_ID}/parse/mineru",
-        json={"parsed_text": "parsed by mineru", "parse_details": {"pages_extracted": 2}},
+        json={
+            "parsed_text": "parsed by mineru",
+            "parse_details": {"pages_extracted": 2},
+        },
     )
 
     assert resp.status_code == 200

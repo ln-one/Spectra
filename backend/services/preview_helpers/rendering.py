@@ -1,6 +1,13 @@
 import re
 
-from schemas.preview import ImageInsertionMetadata, LessonPlan, Slide, SlidePlan, SourceReference, SourceType
+from schemas.preview import (
+    ImageInsertionMetadata,
+    LessonPlan,
+    Slide,
+    SlidePlan,
+    SourceReference,
+    SourceType,
+)
 
 
 def _parse_marp_slides(markdown_content: str) -> list[dict]:
@@ -21,10 +28,16 @@ def _parse_marp_slides(markdown_content: str) -> list[dict]:
     return slides
 
 
-def build_slides(task_id: str, markdown_content: str, image_metadata: dict | None = None) -> list[Slide]:
+def build_slides(
+    task_id: str, markdown_content: str, image_metadata: dict | None = None
+) -> list[Slide]:
     raw_slides = _parse_marp_slides(markdown_content)
-    slides_meta = (image_metadata or {}).get("slides_metadata", []) if image_metadata else []
-    meta_by_index = {m.get("slide_index"): m for m in slides_meta if isinstance(m, dict)}
+    slides_meta = (
+        (image_metadata or {}).get("slides_metadata", []) if image_metadata else []
+    )
+    meta_by_index = {
+        m.get("slide_index"): m for m in slides_meta if isinstance(m, dict)
+    }
 
     slides = []
     for slide in raw_slides:
@@ -33,14 +46,16 @@ def build_slides(task_id: str, markdown_content: str, image_metadata: dict | Non
         img_meta = None
         if slide_meta:
             img_meta = ImageInsertionMetadata(
-                retrieval_mode=image_metadata.get("retrieval_mode") if image_metadata else None,
+                retrieval_mode=(
+                    image_metadata.get("retrieval_mode") if image_metadata else None
+                ),
                 page_semantic_type=slide_meta.get("page_semantic_type"),
                 image_insertion_decision=slide_meta.get("image_insertion_decision"),
                 image_count=slide_meta.get("image_count"),
                 image_slot=slide_meta.get("image_slot"),
                 layout_risk_level=slide_meta.get("layout_risk_level"),
                 image_match_reason=slide_meta.get("image_match_reason"),
-                skip_reason=slide_meta.get("skip_reason")
+                skip_reason=slide_meta.get("skip_reason"),
             )
         slides.append(
             Slide(
@@ -55,7 +70,7 @@ def build_slides(task_id: str, markdown_content: str, image_metadata: dict | Non
                         filename="ai_generated",
                     )
                 ],
-                image_metadata=img_meta
+                image_metadata=img_meta,
             )
         )
     return slides

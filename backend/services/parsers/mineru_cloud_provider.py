@@ -53,14 +53,16 @@ class MineruCloudProvider(BaseParseProvider):
     def __init__(self) -> None:
         self.api_token = os.getenv("MINERU_CLOUD_API_TOKEN", "").strip()
         if not self.api_token:
-            raise ProviderNotAvailableError(
-                "MINERU_CLOUD_API_TOKEN is not configured."
-            )
+            raise ProviderNotAvailableError("MINERU_CLOUD_API_TOKEN is not configured.")
 
         self.base_url = (
-            os.getenv("MINERU_CLOUD_API_BASE_URL", "https://mineru.net").strip().rstrip("/")
+            os.getenv("MINERU_CLOUD_API_BASE_URL", "https://mineru.net")
+            .strip()
+            .rstrip("/")
         )
-        self.model_version = os.getenv("MINERU_CLOUD_MODEL_VERSION", "vlm").strip() or "vlm"
+        self.model_version = (
+            os.getenv("MINERU_CLOUD_MODEL_VERSION", "vlm").strip() or "vlm"
+        )
         self.language = os.getenv("MINERU_CLOUD_LANGUAGE", "ch").strip() or "ch"
         self.enable_formula = _get_bool_env("MINERU_CLOUD_ENABLE_FORMULA", True)
         self.enable_table = _get_bool_env("MINERU_CLOUD_ENABLE_TABLE", True)
@@ -68,15 +70,15 @@ class MineruCloudProvider(BaseParseProvider):
         self.poll_interval_seconds = float(
             os.getenv("MINERU_CLOUD_POLL_INTERVAL_SECONDS", "3")
         )
-        self.timeout_seconds = float(
-            os.getenv("MINERU_CLOUD_TIMEOUT_SECONDS", "600")
-        )
+        self.timeout_seconds = float(os.getenv("MINERU_CLOUD_TIMEOUT_SECONDS", "600"))
 
     @property
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.api_token}"}
 
-    def _request_upload_url(self, client: httpx.Client, filename: str) -> tuple[str, str]:
+    def _request_upload_url(
+        self, client: httpx.Client, filename: str
+    ) -> tuple[str, str]:
         response = client.post(
             urljoin(self.base_url + "/", "api/v4/file-urls/batch"),
             headers={**self._headers, "Content-Type": "application/json"},
@@ -107,7 +109,9 @@ class MineruCloudProvider(BaseParseProvider):
             raise RuntimeError("mineru_cloud_batch_prepare_missing_upload_url")
         return batch_id, str(file_urls[0])
 
-    def _upload_file(self, client: httpx.Client, upload_url: str, filepath: str) -> None:
+    def _upload_file(
+        self, client: httpx.Client, upload_url: str, filepath: str
+    ) -> None:
         with open(filepath, "rb") as stream:
             response = client.put(upload_url, content=stream.read())
         response.raise_for_status()
@@ -118,7 +122,9 @@ class MineruCloudProvider(BaseParseProvider):
 
         while time.monotonic() < deadline:
             response = client.get(
-                urljoin(self.base_url + "/", f"api/v4/extract-results/batch/{batch_id}"),
+                urljoin(
+                    self.base_url + "/", f"api/v4/extract-results/batch/{batch_id}"
+                ),
                 headers=self._headers,
             )
             response.raise_for_status()
