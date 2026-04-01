@@ -26,6 +26,8 @@ def run_rag_indexing_task(
     file_id: str,
     project_id: str,
     session_id: Optional[str] = None,
+    parse_provider_override: Optional[str] = None,
+    fallback_triggered: bool = False,
 ):
     """Sync wrapper for RQ workers to execute RAG indexing."""
     run_async_entrypoint(
@@ -33,6 +35,8 @@ def run_rag_indexing_task(
             file_id=file_id,
             project_id=project_id,
             session_id=session_id,
+            parse_provider_override=parse_provider_override,
+            fallback_triggered=fallback_triggered,
         )
     )
 
@@ -41,6 +45,8 @@ async def execute_rag_indexing_task(
     file_id: str,
     project_id: str,
     session_id: Optional[str] = None,
+    parse_provider_override: Optional[str] = None,
+    fallback_triggered: bool = False,
 ):
     from services.database import DatabaseService
     from services.file_upload_service.constants import UploadStatus
@@ -66,6 +72,8 @@ async def execute_rag_indexing_task(
             chunk_overlap=50,
             reindex=False,
             db=db,
+            parse_provider_override=parse_provider_override,
+            fallback_triggered=fallback_triggered,
         )
         await db.update_upload_status(
             upload.id,

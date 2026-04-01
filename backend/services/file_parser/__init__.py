@@ -32,8 +32,14 @@ def _resolve_configured_parser_mode() -> str:
     return configured or "local"
 
 
-def _resolve_primary_provider(parser_mode: str, file_type: FileType) -> str:
+def _resolve_primary_provider(
+    parser_mode: str, file_type: FileType, parser_override: str | None = None
+) -> str:
     """Resolve runtime provider from parser mode and normalized file type."""
+    override = (parser_override or "").strip().lower()
+    if override:
+        return override
+
     if parser_mode != AUTO_PARSER_MODE:
         return parser_mode
 
@@ -43,7 +49,10 @@ def _resolve_primary_provider(parser_mode: str, file_type: FileType) -> str:
 
 
 def extract_text_for_rag(
-    filepath: str, filename: str, file_type: str
+    filepath: str,
+    filename: str,
+    file_type: str,
+    parser_override: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """从文件中提取可用于 RAG 的文本及解析详情。"""
     normalized_file_type = normalize_file_type(file_type)
@@ -65,7 +74,7 @@ def extract_text_for_rag(
     try:
         parser_mode = _resolve_configured_parser_mode()
         primary_provider_name = _resolve_primary_provider(
-            parser_mode, normalized_file_type
+            parser_mode, normalized_file_type, parser_override=parser_override
         )
         details["parser_routing"] = {
             "mode": parser_mode,

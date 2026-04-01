@@ -69,6 +69,8 @@ def enqueue_rag_indexing_task(
     file_id: str,
     project_id: str,
     session_id: Optional[str] = None,
+    parse_provider_override: Optional[str] = None,
+    fallback_triggered: bool = False,
     priority: str = "default",
     timeout: int = DEFAULT_RAG_INDEX_TIMEOUT,
 ) -> Job:
@@ -84,6 +86,8 @@ def enqueue_rag_indexing_task(
         file_id=file_id,
         project_id=project_id,
         session_id=session_id,
+        parse_provider_override=parse_provider_override,
+        fallback_triggered=fallback_triggered,
         job_timeout=timeout,
         retry=Retry(max=2, interval=[30, 120]),
         result_ttl=RESULT_TTL,

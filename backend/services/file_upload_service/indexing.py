@@ -30,6 +30,8 @@ async def index_upload_for_rag(
     upload,
     project_id: str,
     session_id: Optional[str] = None,
+    parse_provider_override: Optional[str] = None,
+    fallback_triggered: bool = False,
 ):
     try:
         from services.media.rag_indexing import (
@@ -44,6 +46,8 @@ async def index_upload_for_rag(
             chunk_overlap=50,
             reindex=False,
             db=db_service,
+            parse_provider_override=parse_provider_override,
+            fallback_triggered=fallback_triggered,
         )
         await db_service.update_upload_status(
             upload.id,
@@ -73,6 +77,8 @@ def dispatch_rag_indexing(
     upload,
     project_id: str,
     session_id: Optional[str],
+    parse_provider_override: Optional[str] = None,
+    fallback_triggered: bool = False,
 ) -> None:
     task_queue_service = getattr(request.app.state, "task_queue_service", None)
     if task_queue_service is not None:
@@ -93,6 +99,8 @@ def dispatch_rag_indexing(
                     file_id=upload.id,
                     project_id=project_id,
                     session_id=session_id,
+                    parse_provider_override=parse_provider_override,
+                    fallback_triggered=fallback_triggered,
                 )
                 return
         except Exception as enqueue_err:
@@ -102,4 +110,11 @@ def dispatch_rag_indexing(
                 upload.id,
                 enqueue_err,
             )
-    background_tasks.add_task(index_upload_for_rag, upload, project_id, session_id)
+    background_tasks.add_task(
+        index_upload_for_rag,
+        upload,
+        project_id,
+        session_id,
+        parse_provider_override,
+        fallback_triggered,
+    )

@@ -5,8 +5,8 @@ from fastapi.encoders import jsonable_encoder
 
 from services.database import db_service
 from services.file import file_service
-from utils.responses import success_response
 from utils.exceptions import NotFoundException, ValidationException
+from utils.responses import success_response
 
 from .access import (
     MAX_FILE_SIZE,
@@ -313,7 +313,13 @@ async def trigger_fallback_parse_response(
         error_message=None,
     )
     if _SYNC_RAG_INDEXING:
-        await index_upload_for_rag(upload, upload.projectId, session_id)
+        await index_upload_for_rag(
+            upload,
+            upload.projectId,
+            session_id,
+            parse_provider_override="local",
+            fallback_triggered=True,
+        )
     else:
         dispatch_rag_indexing(
             request=request,
@@ -321,6 +327,8 @@ async def trigger_fallback_parse_response(
             upload=upload,
             project_id=upload.projectId,
             session_id=session_id,
+            parse_provider_override="local",
+            fallback_triggered=True,
         )
 
     latest = await db_service.get_file(file_id)

@@ -33,6 +33,8 @@ async def index_upload_file_for_rag(
     preparsed_text: Optional[str] = None,
     preparsed_details: Optional[dict[str, Any]] = None,
     provider_override: Optional[str] = None,
+    parse_provider_override: Optional[str] = None,
+    fallback_triggered: bool = False,
 ) -> dict:
     """
     解析并索引单个上传文件，返回索引摘要。
@@ -62,6 +64,7 @@ async def index_upload_file_for_rag(
                 filepath=upload.filepath,
                 filename=upload.filename,
                 file_type=upload.fileType,
+                parser_override=parse_provider_override,
             )
             stage_timings_ms["parse_ms"] = round(
                 (time.perf_counter() - parse_started_at) * 1000,
@@ -86,9 +89,31 @@ async def index_upload_file_for_rag(
         or capability_status.get("provider")
         or "unknown"
     )
-    fallback_used = bool(parse_details.get("fallback")) or bool(
-        capability_status.get("fallback_chain")
+    fallback_used = (
+        bool(parse_details.get("fallback"))
+        or bool(capability_status.get("fallback_used"))
+        or bool(capability_status.get("fallback_chain"))
+        or bool(capability_status.get("fallback_target"))
     )
+    if fallback_triggered:
+        fallback_used = True
+        parse_details["fallback"] = True
+        merged_capability_status = dict(capability_status)
+        merged_capability_status["provider"] = (
+            str(merged_capability_status.get("provider") or provider or "local")
+            if str(provider or "").strip()
+            else "local"
+        )
+        merged_capability_status["status"] = "degraded"
+        merged_capability_status["fallback_used"] = True
+        merged_capability_status["fallback_target"] = "local"
+        merged_capability_status.setdefault("capability", "document_parser")
+        merged_capability_status.setdefault("reason_code", "REMOTE_PARSE_FAILED")
+        merged_capability_status.setdefault(
+            "user_message", "远端解析失败，已切换到 local。"
+        )
+        parse_details["capability_status"] = merged_capability_status
+        capability_status = merged_capability_status
 
     text = _sanitize_text_for_postgres(text)
     if not text.strip():
