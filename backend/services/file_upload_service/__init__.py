@@ -5,6 +5,10 @@ from .access import (
     validate_upload_file,
     verify_project_access,
 )
+from .dualweave_bridge import (
+    build_dualweave_parse_result,
+    extract_dualweave_result_url,
+)
 from .indexing import _SYNC_RAG_INDEXING, dispatch_rag_indexing, index_upload_for_rag
 from .serialization import serialize_upload
 from .workflow import (
@@ -19,7 +23,9 @@ __all__ = [
     "_SYNC_RAG_INDEXING",
     "apply_mineru_parse_result_response",
     "batch_upload_files_response",
+    "build_dualweave_parse_result",
     "dispatch_rag_indexing",
+    "extract_dualweave_result_url",
     "FileType",
     "index_upload_for_rag",
     "normalize_file_type",

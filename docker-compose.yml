@@ -1,4 +1,16 @@
 services:
+  dualweave:
+    image: ghcr.io/ln-one/dualweave-service:latest
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - dualweave_data:/var/lib/dualweave/uploads
+    environment:
+      - DUALWEAVE_ADDR=:8080
+      - DUALWEAVE_LOCAL_DIR=/var/lib/dualweave/uploads
+
   postgres:
     image: postgres:16-alpine
     ports:
@@ -41,6 +53,8 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_TIMEOUT_MS=30000
+      - NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
     command: npm run dev
     depends_on:
       - backend
@@ -82,6 +96,8 @@ services:
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
       - POSTGRES_BACKUP_PREFIX=spectra-dev
+      - DUALWEAVE_ENABLED=true
+      - DUALWEAVE_BASE_URL=http://dualweave:8080
       - DB_REQUIRED=true
       - REDIS_REQUIRED=false
       - UVICORN_RELOAD=false
@@ -93,6 +109,8 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+      dualweave:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -140,6 +158,8 @@ services:
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
       - POSTGRES_BACKUP_PREFIX=spectra-dev
+      - DUALWEAVE_ENABLED=true
+      - DUALWEAVE_BASE_URL=http://dualweave:8080
       - WORKER_NAME=worker-1
       - WORKER_RECOVERY_SCAN=true
       - RQ_WORKER_HEARTBEAT_FRESHNESS_SECONDS=420
@@ -151,6 +171,8 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+      dualweave:
+        condition: service_started
 
   chromadb:
     image: chromadb/chroma:0.5.2
@@ -169,6 +191,7 @@ services:
       retries: 3
 
 volumes:
+  dualweave_data:
   postgres_data:
   redis_data:
   chroma_data:

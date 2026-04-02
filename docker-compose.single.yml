@@ -129,6 +129,8 @@ services:
       dockerfile: Dockerfile.deploy
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://47.98.17.72:8000}
+        NEXT_PUBLIC_API_TIMEOUT_MS: ${NEXT_PUBLIC_API_TIMEOUT_MS:-30000}
+        NEXT_PUBLIC_CHAT_TIMEOUT_MS: ${NEXT_PUBLIC_CHAT_TIMEOUT_MS:-90000}
     restart: unless-stopped
     environment:
       NODE_ENV: production

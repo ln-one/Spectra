@@ -99,6 +99,91 @@
       '404':
         $ref: '../components/responses.yaml#/NotFound'
 
+/api/v1/files/{file_id}/parse/mineru:
+  post:
+    summary: 同步 MinerU 解析结果
+    operationId: postFilesByFileIdParseMineru
+    tags: [Files]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [parsed_text]
+            properties:
+              parsed_text:
+                type: string
+              parse_details:
+                type: object
+              session_id:
+                type: string
+    responses:
+      '200':
+        description: 解析结果同步成功
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/SimpleSuccessResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '500':
+        $ref: '../components/responses.yaml#/InternalServerError'
+
+/api/v1/files/{file_id}/parse/fallback:
+  post:
+    summary: 触发降级解析
+    operationId: postFilesByFileIdParseFallback
+    tags: [Files]
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              session_id:
+                type: string
+    responses:
+      '200':
+        description: 已触发降级解析
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/common.yaml#/SimpleSuccessResponse'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthorized'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+      '500':
+        $ref: '../components/responses.yaml#/InternalServerError'
+
 /api/v1/files/batch:
   post:
     summary: 批量上传文件

@@ -37,6 +37,10 @@ paths:
     $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}'
   /api/v1/files/{file_id}/intent:
     $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}~1intent'
+  /api/v1/files/{file_id}/parse/mineru:
+    $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}~1parse~1mineru'
+  /api/v1/files/{file_id}/parse/fallback:
+    $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1{file_id}~1parse~1fallback'
   /api/v1/files/batch:
     $ref: './openapi/paths/files.yaml#/~1api~1v1~1files~1batch'
 
@@ -75,6 +79,8 @@ paths:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1execution-plan'
   /api/v1/generate/studio-cards/{card_id}/execution-preview:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1execution-preview'
+  /api/v1/generate/studio-cards/{card_id}/draft:
+    $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1draft'
   /api/v1/generate/studio-cards/{card_id}/execute:
     $ref: './openapi/paths/generate-session.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1execute'
   /api/v1/generate/studio-cards/{card_id}/refine:

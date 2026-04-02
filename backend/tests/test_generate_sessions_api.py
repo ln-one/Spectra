@@ -93,6 +93,9 @@ def _studio_tool_fallback_allow_for_legacy_tests(monkeypatch):
     monkeypatch.setenv("STUDIO_TOOL_ENABLE_AI_GENERATION", "true")
 
 
+slow_studio_card = pytest.mark.slow
+
+
 @pytest.mark.anyio
 async def test_create_session_returns_quickly_and_schedules_outline(
     app, mock_db_service, _as_user
@@ -1274,6 +1277,7 @@ async def test_preview_studio_card_execution_requires_project_id(app, _as_user):
     assert payload["detail"]["code"] == "INVALID_INPUT"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_reuses_bound_courseware_session(app, _as_user):
     client = TestClient(app)
@@ -1335,6 +1339,7 @@ async def test_execute_studio_card_reuses_bound_courseware_session(app, _as_user
     assert kwargs["options"]["rag_source_ids"] == ["file-2"]
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_word_artifact(app, _as_user):
     client = TestClient(app)
@@ -1391,6 +1396,7 @@ async def test_execute_studio_card_creates_word_artifact(app, _as_user):
     assert kwargs["content"]["document_variant"] == "student_handout"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_rejects_invalid_client_session_id(app, _as_user):
     client = TestClient(app)
@@ -1447,6 +1453,7 @@ async def test_execute_studio_card_rejects_invalid_client_session_id(app, _as_us
     assert detail.get("code") == "INVALID_INPUT"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_quiz_artifact(app, _as_user):
     client = TestClient(app)
@@ -1507,6 +1514,7 @@ async def test_execute_studio_card_creates_quiz_artifact(app, _as_user):
     assert kwargs["content"]["questions"][0]["question"]
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_rejects_protocol_pending_card(app, _as_user):
     client = TestClient(app)
@@ -1521,6 +1529,7 @@ async def test_execute_studio_card_rejects_protocol_pending_card(app, _as_user):
     assert payload["detail"]["code"] == "NOT_FOUND"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_interactive_game_artifact(app, _as_user):
     client = TestClient(app)
@@ -1579,6 +1588,7 @@ async def test_execute_studio_card_creates_interactive_game_artifact(app, _as_us
     assert "<html" in kwargs["content"]["html"].lower()
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_classroom_simulator_artifact(app, _as_user):
     client = TestClient(app)
@@ -1638,6 +1648,7 @@ async def test_execute_studio_card_creates_classroom_simulator_artifact(app, _as
     assert kwargs["content"]["turns"]
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_accepts_rag_source_ids(app, _as_user):
     client = TestClient(app)
@@ -1688,6 +1699,7 @@ async def test_execute_studio_card_accepts_rag_source_ids(app, _as_user):
     assert kwargs["content"]["nodes"]
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_strict_mode_returns_upstream_error_and_no_artifact(
     app, _as_user, monkeypatch
@@ -1736,6 +1748,7 @@ async def test_execute_studio_card_strict_mode_returns_upstream_error_and_no_art
     create_artifact_mock.assert_not_awaited()
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_accepts_selected_file_ids_fallback(app, _as_user):
     client = TestClient(app)
@@ -1940,6 +1953,7 @@ async def test_get_studio_card_sources_rejects_cards_without_source_binding(
     assert payload["detail"]["code"] == "RESOURCE_CONFLICT"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_speaker_notes_artifact(app, _as_user):
     client = TestClient(app)
@@ -2001,6 +2015,7 @@ async def test_execute_studio_card_creates_speaker_notes_artifact(app, _as_user)
     assert kwargs["content"]["source_artifact_id"] == "a-ppt-001"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_requires_source_artifact_for_speaker_notes(
     app, _as_user
@@ -2021,6 +2036,7 @@ async def test_execute_studio_card_requires_source_artifact_for_speaker_notes(
     assert payload["detail"]["code"] == "INVALID_INPUT"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_refine_studio_card_routes_through_chat_metadata(app, _as_user):
     client = TestClient(app)
@@ -2069,6 +2085,7 @@ async def test_refine_studio_card_routes_through_chat_metadata(app, _as_user):
     assert chat_body.metadata["selected_script_segment"] == "slide-3:transition"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
     client = TestClient(app)
@@ -2139,6 +2156,7 @@ async def test_refine_studio_card_replaces_mindmap_artifact(app, _as_user):
     assert len(kwargs["content"]["nodes"]) == 2
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_refine_studio_card_replaces_quiz_question(app, _as_user):
     client = TestClient(app)
@@ -2210,6 +2228,7 @@ async def test_refine_studio_card_replaces_quiz_question(app, _as_user):
     assert kwargs["content"]["questions"][0]["question"] != "旧题目"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_refine_studio_card_replaces_game_artifact(app, _as_user):
     client = TestClient(app)
@@ -2278,6 +2297,7 @@ async def test_refine_studio_card_replaces_game_artifact(app, _as_user):
     assert 'data-refine="sandbox-patch"' in kwargs["content"]["html"]
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_refine_studio_card_replaces_speaker_notes_artifact(app, _as_user):
     client = TestClient(app)
@@ -2356,6 +2376,7 @@ async def test_refine_studio_card_replaces_speaker_notes_artifact(app, _as_user)
     )
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_gif_animation_artifact(app, _as_user):
     client = TestClient(app)
@@ -2405,6 +2426,7 @@ async def test_execute_studio_card_creates_gif_animation_artifact(app, _as_user)
     assert "<html" in html or "<div" in html
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_html_animation_artifact(app, _as_user):
     client = TestClient(app)
@@ -2455,6 +2477,7 @@ async def test_execute_studio_card_creates_html_animation_artifact(app, _as_user
     assert "<html" in kwargs["content"]["html"].lower()
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_mp4_animation_artifact(app, _as_user):
     client = TestClient(app)
@@ -2503,6 +2526,7 @@ async def test_execute_studio_card_creates_mp4_animation_artifact(app, _as_user)
     assert kwargs["content"]["format"] == "mp4"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_classroom_simulator_turn_returns_turn_result_and_artifact(app, _as_user):
     client = TestClient(app)
@@ -2582,6 +2606,7 @@ async def test_classroom_simulator_turn_returns_turn_result_and_artifact(app, _a
     assert kwargs["content"]["kind"] == "classroom_qa_simulator"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_classroom_simulator_turn_rejects_non_simulator_artifact(app, _as_user):
     client = TestClient(app)
@@ -2616,6 +2641,7 @@ async def test_classroom_simulator_turn_rejects_non_simulator_artifact(app, _as_
     assert response.json()["detail"]["code"] == "INVALID_INPUT"
 
 
+@slow_studio_card
 @pytest.mark.anyio
 async def test_refine_studio_card_rejects_cards_without_refine_protocol(app, _as_user):
     client = TestClient(app)

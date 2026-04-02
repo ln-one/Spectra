@@ -53,3 +53,10 @@ GatewayTimeout:
     application/json:
       schema:
         $ref: '../schemas/common.yaml#/ErrorResponse'
+
+InternalServerError:
+  description: 服务端内部错误
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ErrorResponse'
