@@ -178,6 +178,8 @@ LOG_FORMAT="json"
 ```bash
 # API Configuration
 NEXT_PUBLIC_API_URL="http://localhost:8000"
+NEXT_PUBLIC_API_TIMEOUT_MS=30000
+NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
 
 # App Configuration
 NEXT_PUBLIC_APP_NAME="Spectra"
@@ -199,6 +201,8 @@ NEXT_PUBLIC_DEBUG="true"
 ```bash
 # API Configuration
 NEXT_PUBLIC_API_URL="https://api.spectra.com"
+NEXT_PUBLIC_API_TIMEOUT_MS=30000
+NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
 
 # App Configuration
 NEXT_PUBLIC_APP_NAME="Spectra"
@@ -211,6 +215,10 @@ NEXT_PUBLIC_CDN_URL="https://cdn.spectra.com"
 # Debug
 NEXT_PUBLIC_DEBUG="false"
 ```
+
+`NEXT_PUBLIC_CHAT_TIMEOUT_MS` is intentionally separate from
+`NEXT_PUBLIC_API_TIMEOUT_MS` so chat sends can wait longer for retrieval and
+model work without stretching every frontend API call.
 
 ## 安全注意事项
 

@@ -52,6 +52,30 @@ docker-compose up --build
 For more detail, see `/Users/ln1/Projects/Spectra/docs/guides/docker-setup.md`.
 Runtime configuration should come from `/Users/ln1/Projects/Spectra/backend/.env`, using `/Users/ln1/Projects/Spectra/backend/.env.example` as the template.
 
+Dualweave is consumed as a Docker service in two modes:
+
+- default/team mode: `/Users/ln1/Projects/Spectra/docker-compose.yml` pulls `ghcr.io/ln-one/dualweave-service:latest`
+- local Dualweave iteration: add `/Users/ln1/Projects/Spectra/docker-compose.dev.yml` so Spectra builds from your sibling checkout
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+If Dualweave is used as an external upload orchestration service, configure the
+backend with:
+
+- `DUALWEAVE_ENABLED=true`
+- `DUALWEAVE_BASE_URL=http://dualweave:8080`
+- `DOCUMENT_PARSER=mineru_cloud` for full MinerU-through-Dualweave routing, or
+  `DOCUMENT_PARSER=auto` to keep the existing auto-routing and only send PDFs
+  through the Dualweave-backed MinerU path.
+
+The current integration shape is intentionally service-first: Spectra calls
+Dualweave over HTTP rather than embedding the Go runtime directly. Dualweave
+returns a standard upload result plus `processing_artifact.result_url`; Spectra
+still owns downloading that artifact and extracting markdown for indexing, so
+the boundary stays at the artifact reference layer.
+
 ### Backend
 
 ```bash

@@ -59,6 +59,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ```bash
 # API Configuration
 NEXT_PUBLIC_API_URL="http://localhost:8000"
+NEXT_PUBLIC_API_TIMEOUT_MS=30000
+NEXT_PUBLIC_CHAT_TIMEOUT_MS=90000
 
 # App Configuration
 NEXT_PUBLIC_APP_NAME="Spectra"
@@ -144,6 +146,11 @@ The frontend communicates with the backend API at `/api/v1`:
 - Generation (Session-First): `/api/v1/generate/sessions*`
 - Preview (Session-First): `/api/v1/generate/sessions/{session_id}/preview*`
 - Chat: `/api/v1/chat/*`
+
+Chat requests can legitimately take longer than ordinary CRUD requests because
+the backend may wait for retrieval, model inference, and persistence before
+responding. Use `NEXT_PUBLIC_CHAT_TIMEOUT_MS` to give `/api/v1/chat/messages`
+more headroom without increasing the timeout for every API call.
 
 See `lib/api.ts` for the complete API client implementation.
 

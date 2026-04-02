@@ -8,6 +8,9 @@ export const DEFAULT_CONTRACT_VERSION = "2026-03";
 const REQUEST_TIMEOUT_MS = Number(
   process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 30000
 );
+const CHAT_REQUEST_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_CHAT_TIMEOUT_MS ?? 90000
+);
 
 function generateUuidFallback(): string {
   const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
@@ -129,6 +132,14 @@ async function timedFetch(
   }
 }
 
+function resolveTimeoutMs(request: Request): number {
+  const pathname = normalizePath(request.url);
+  if (request.method === "POST" && pathname === "/api/v1/chat/messages") {
+    return CHAT_REQUEST_TIMEOUT_MS;
+  }
+  return REQUEST_TIMEOUT_MS;
+}
+
 function normalizePath(input: string): string {
   try {
     return new URL(input, API_BASE_URL).pathname;
@@ -243,9 +254,10 @@ async function fetchWithAuth(
   }
 
   const authedRequest = new Request(baseRequest, { headers });
+  const timeoutMs = resolveTimeoutMs(authedRequest);
   let response: Response;
   try {
-    response = await timedFetch(authedRequest);
+    response = await timedFetch(authedRequest, timeoutMs);
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
@@ -274,7 +286,7 @@ async function fetchWithAuth(
         retryHeaders.set("Authorization", `Bearer ${newToken}`);
       }
       const retryRequest = new Request(baseRequest, { headers: retryHeaders });
-      return timedFetch(retryRequest);
+      return timedFetch(retryRequest, resolveTimeoutMs(retryRequest));
     }
   }
   return response;

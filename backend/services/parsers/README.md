@@ -29,8 +29,9 @@ DOCUMENT_PARSER=auto
 # 本地轻量解析（默认，无需额外依赖）
 DOCUMENT_PARSER=local
 
-# MinerU — 需安装 magic-pdf
-DOCUMENT_PARSER=mineru
+# MinerU Cloud — 可直接走官方云端，
+# 也可在开启 DUALWEAVE_ENABLED 时通过 Dualweave 服务编排上传
+DOCUMENT_PARSER=mineru_cloud
 
 # LlamaParse — 需安装 llama-parse + 设置 LLAMAPARSE_API_KEY
 DOCUMENT_PARSER=llamaparse
@@ -108,5 +109,6 @@ DOCUMENT_PARSER=llamaparse
 | `registry.py` | Provider 注册表、工厂函数 `get_parser()`、环境变量读取 |
 | `local_provider.py` | 本地轻量解析（pypdf / python-docx / python-pptx） |
 | `mineru_provider.py` | MinerU (Magic-PDF) 预留骨架 |
+| `mineru_cloud_provider.py` | MinerU Cloud provider，可选通过 Dualweave 编排上传 |
 | `llamaparse_provider.py` | LlamaParse 云端 API 预留骨架 |
 | `__init__.py` | 包导出：`get_parser`, `register_provider`, `BaseParseProvider`, `ProviderNotAvailableError` |
