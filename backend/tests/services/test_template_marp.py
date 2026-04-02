@@ -148,8 +148,9 @@ class TestWrapMarkdownWithTemplate:
         config = TemplateConfig()
         result = template_service.wrap_markdown_with_template(markdown, config, "测试")
 
-        # 验证页面分隔符保留
-        assert markdown in result
+        # 验证页面分隔符保留（现在会注入 class 注释）
+        assert "第一页" in result
+        assert "第二页" in result
         assert result.count("---") >= 3  # frontmatter 的 --- + 内容中的 ---
 
     def test_wrap_with_all_options(self, template_service):

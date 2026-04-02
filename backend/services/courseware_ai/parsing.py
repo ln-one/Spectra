@@ -1,11 +1,59 @@
 """课件内容解析、清洗与结构修正工具。"""
 
+import json
 import logging
 import re
 
 from schemas.generation import CoursewareContent
 
 logger = logging.getLogger(__name__)
+
+
+def parse_style_generation_response(content: str) -> dict:
+    """解析样式生成阶段的 JSON 响应"""
+    try:
+        # 尝试提取 JSON
+        json_match = re.search(r"\{[\s\S]*\}", content)
+        if not json_match:
+            raise ValueError("No JSON found in response")
+
+        data = json.loads(json_match.group(0))
+
+        # 验证必需字段
+        if "style_manifest" not in data or "page_class_plan" not in data:
+            raise ValueError("Missing required fields in style response")
+
+        # 清洗 extra_css
+        extra_css = data.get("extra_css", "")
+        if extra_css:
+            extra_css = _sanitize_extra_css(extra_css)
+            data["extra_css"] = extra_css
+
+        return data
+
+    except Exception as e:
+        logger.warning(f"Failed to parse style response: {e}")
+        return {}
+
+
+def _sanitize_extra_css(css: str) -> str:
+    """清洗 extra_css，移除危险模式"""
+    if not css:
+        return ""
+
+    css_lower = css.lower()
+    forbidden = ["@import", "@font-face", "url(http"]
+    for pattern in forbidden:
+        if pattern in css_lower:
+            logger.warning(f"Forbidden CSS pattern detected: {pattern}, discarding")
+            return ""
+
+    # 长度限制
+    if len(css) > 5000:
+        logger.warning("extra_css too long, truncating")
+        css = css[:5000]
+
+    return css
 
 
 def parse_marp_slides(markdown_content: str) -> list[dict]:

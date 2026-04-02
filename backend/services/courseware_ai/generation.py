@@ -18,6 +18,7 @@ from services.courseware_ai.generation_support import (
 from services.courseware_ai.parsing import (
     extract_frontmatter,
     parse_marp_slides,
+    parse_style_generation_response,
     reassemble_marp,
     sanitize_ppt_markdown,
     strip_outer_code_fence,
@@ -28,6 +29,41 @@ ALLOW_COURSEWARE_FALLBACK = (
     os.getenv("ALLOW_COURSEWARE_FALLBACK", "false").lower() == "true"
 )
 _PLACEHOLDER_MARKER = "Courseware is being prepared..."
+
+
+async def _generate_courseware_style(
+    ai_service,
+    markdown_content: str,
+    outline_document: Optional[dict] = None,
+) -> Optional[dict]:
+    """样式生成阶段：基于最终正文生成样式契约"""
+    from services.prompt_service import prompt_service
+
+    slides = parse_marp_slides(markdown_content)
+    slide_count = len(slides)
+
+    outline_summary = None
+    if outline_document and outline_document.get("sections"):
+        sections = outline_document["sections"]
+        outline_summary = "\n".join(
+            f"- {s.get('title', '')}: {', '.join(s.get('key_points', []))}"
+            for s in sections
+        )
+
+    prompt = prompt_service.build_courseware_style_prompt(
+        markdown_content=markdown_content,
+        slide_count=slide_count,
+        outline_summary=outline_summary,
+    )
+
+    response = await ai_service.generate(
+        prompt=prompt,
+        route_task=ModelRouteTask.LESSON_PLAN_REASONING.value,
+        has_rag_context=False,
+        max_tokens=2000,
+    )
+
+    return parse_style_generation_response(response["content"])
 
 
 def _ensure_slide_modify_result_is_safe(
@@ -349,6 +385,23 @@ async def generate_courseware_content(
             courseware.markdown_content = ai_service._enforce_outline_structure(
                 courseware.markdown_content,
                 outline_document=outline_document or {},
+            )
+
+        # 样式生成阶段
+        try:
+            style_data = await _generate_courseware_style(
+                ai_service,
+                courseware.markdown_content,
+                outline_document,
+            )
+            if style_data:
+                courseware.style_manifest = style_data.get("style_manifest")
+                courseware.extra_css = style_data.get("extra_css")
+                courseware.page_class_plan = style_data.get("page_class_plan")
+        except Exception as style_exc:
+            logger.warning(
+                f"Style generation failed, using fallback: {style_exc}",
+                extra={"project_id": project_id},
             )
 
         logger.info(

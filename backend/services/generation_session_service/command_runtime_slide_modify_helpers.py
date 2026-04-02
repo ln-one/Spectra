@@ -94,6 +94,9 @@ async def refresh_rendered_preview(
         slide_ids=[
             slide_identity(slide, index) for index, slide in enumerate(slide_models)
         ],
+        style_manifest=preview_payload.get("style_manifest"),
+        extra_css=preview_payload.get("extra_css"),
+        page_class_plan=preview_payload.get("page_class_plan"),
     )
     next_payload = dict(preview_payload)
     next_payload["rendered_preview"] = rendered_preview

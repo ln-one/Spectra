@@ -42,6 +42,9 @@ async def build_rendered_preview_payload(
     markdown_content: str,
     template_config: Optional[dict] = None,
     slide_ids: Optional[list[str]] = None,
+    style_manifest: Optional[dict] = None,
+    extra_css: Optional[str] = None,
+    page_class_plan: Optional[list[dict]] = None,
 ) -> Optional[dict]:
     if not str(markdown_content or "").strip():
         return None
@@ -55,6 +58,17 @@ async def build_rendered_preview_payload(
                     "title": title or "课件预览",
                     "markdown_content": markdown_content,
                     "lesson_plan_markdown": "",
+                    "style_manifest": (
+                        type("StyleManifest", (), style_manifest)()
+                        if style_manifest
+                        else None
+                    ),
+                    "extra_css": extra_css,
+                    "page_class_plan": (
+                        [type("PageClassItem", (), item)() for item in page_class_plan]
+                        if page_class_plan
+                        else None
+                    ),
                 },
             )(),
             task_id,

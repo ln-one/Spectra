@@ -91,7 +91,18 @@ class GenerationService:
             f"{template_config.style}"
         )
         full_markdown = self.template_service.wrap_markdown_with_template(
-            content.markdown_content, template_config, content.title
+            markdown_content=content.markdown_content,
+            config=template_config,
+            title=content.title,
+            style_manifest=(
+                content.style_manifest.dict() if content.style_manifest else None
+            ),
+            extra_css=content.extra_css,
+            page_class_plan=(
+                [item.dict() for item in content.page_class_plan]
+                if content.page_class_plan
+                else None
+            ),
         )
 
         # 调用生成器
@@ -107,7 +118,18 @@ class GenerationService:
             template_config = TemplateConfig()
 
         full_markdown = self.template_service.wrap_markdown_with_template(
-            content.markdown_content, template_config, content.title
+            markdown_content=content.markdown_content,
+            config=template_config,
+            title=content.title,
+            style_manifest=(
+                content.style_manifest.dict() if content.style_manifest else None
+            ),
+            extra_css=content.extra_css,
+            page_class_plan=(
+                [item.dict() for item in content.page_class_plan]
+                if content.page_class_plan
+                else None
+            ),
         )
         return await _generate_slide_images(task_id, self.output_dir, full_markdown)
 
