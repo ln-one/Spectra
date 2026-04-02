@@ -9,7 +9,9 @@ jest.mock("react-markdown", () => ({
     components,
   }: {
     children: string;
-    components?: { img?: (props: { src?: string; alt?: string }) => JSX.Element };
+    components?: {
+      img?: (props: { src?: string; alt?: string }) => JSX.Element;
+    };
   }) => {
     const text = String(children || "");
     const match = /!\[([^\]]*)\]\(([^)]+)\)/.exec(text);
@@ -32,8 +34,10 @@ jest.mock("@/lib/sdk", () => ({
 }));
 
 describe("FileItem markdown image rendering", () => {
-  const mockedFetchSourceImageBlob = ragApi
-    .fetchSourceImageBlob as jest.MockedFunction<typeof ragApi.fetchSourceImageBlob>;
+  const mockedFetchSourceImageBlob =
+    ragApi.fetchSourceImageBlob as jest.MockedFunction<
+      typeof ragApi.fetchSourceImageBlob
+    >;
 
   beforeEach(() => {
     mockedFetchSourceImageBlob.mockReset();

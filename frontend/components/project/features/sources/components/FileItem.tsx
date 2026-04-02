@@ -22,7 +22,11 @@ function normalizeRelativeImagePath(src: string | undefined): string | null {
     return null;
   }
   const normalized = src.trim().replace(/\\/g, "/").replace(/^\.\//, "");
-  if (!normalized || normalized.startsWith("http://") || normalized.startsWith("https://")) {
+  if (
+    !normalized ||
+    normalized.startsWith("http://") ||
+    normalized.startsWith("https://")
+  ) {
     return null;
   }
   return normalized.startsWith("images/") ? normalized : null;
@@ -65,8 +69,7 @@ function SourceChunkImage({
         if (!active) {
           return;
         }
-        const message =
-          error instanceof Error ? error.message : "图片加载失败";
+        const message = error instanceof Error ? error.message : "图片加载失败";
         setLoadError(message);
       });
 

@@ -1,7 +1,13 @@
 import logging
 from typing import Optional
 
-from prisma.errors import ClientNotConnectedError
+try:
+    from prisma.errors import ClientNotConnectedError
+except Exception:  # pragma: no cover - prisma may be unavailable in some test envs
+
+    class ClientNotConnectedError(Exception):
+        pass
+
 
 from schemas.rag import RAGResult
 from services.database import db_service

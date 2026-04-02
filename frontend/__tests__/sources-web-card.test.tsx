@@ -1,6 +1,17 @@
+import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
 import { SourcesPanel } from "@/components/project/features/sources/SourcesPanel";
 import { useProjectStore } from "@/stores/projectStore";
+
+jest.mock("react-markdown", () => ({
+  __esModule: true,
+  default: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+jest.mock("remark-gfm", () => ({
+  __esModule: true,
+  default: () => undefined,
+}));
 
 jest.mock("@/stores/projectStore", () => ({
   ...jest.requireActual("@/stores/projectStore"),
