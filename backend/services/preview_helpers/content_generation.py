@@ -113,6 +113,20 @@ def parse_preview_content_from_input_data(raw_input_data: object) -> Optional[di
         "markdown_content": markdown_content,
         "lesson_plan_markdown": lesson_plan_markdown,
     }
+    render_markdown = preview_content.get("render_markdown")
+    if isinstance(render_markdown, str) and render_markdown.strip():
+        normalized["render_markdown"] = render_markdown
+    style_manifest = preview_content.get("style_manifest")
+    if isinstance(style_manifest, dict):
+        normalized["style_manifest"] = style_manifest
+    extra_css = preview_content.get("extra_css")
+    if isinstance(extra_css, str) and extra_css.strip():
+        normalized["extra_css"] = extra_css
+    page_class_plan = preview_content.get("page_class_plan")
+    if isinstance(page_class_plan, list) and all(
+        isinstance(item, dict) for item in page_class_plan
+    ):
+        normalized["page_class_plan"] = page_class_plan
     image_metadata = preview_content.get("_image_metadata")
     if isinstance(image_metadata, dict):
         normalized["_image_metadata"] = image_metadata

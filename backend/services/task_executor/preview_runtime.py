@@ -28,6 +28,36 @@ def extract_courseware_value(courseware_content, key: str) -> str:
     return value if isinstance(value, str) else ""
 
 
+def extract_courseware_object(courseware_content, key: str):
+    if isinstance(courseware_content, dict):
+        return courseware_content.get(key)
+    return getattr(courseware_content, key, None)
+
+
+def _serialize_style_manifest(courseware_content) -> dict | None:
+    value = extract_courseware_object(courseware_content, "style_manifest")
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    return None
+
+
+def _serialize_page_class_plan(courseware_content) -> list[dict] | None:
+    value = extract_courseware_object(courseware_content, "page_class_plan")
+    if not value or not isinstance(value, list):
+        return None
+    serialized: list[dict] = []
+    for item in value:
+        if isinstance(item, dict):
+            serialized.append(item)
+        elif hasattr(item, "model_dump"):
+            serialized.append(item.model_dump())
+    return serialized or None
+
+
 async def cache_preview_content(
     task_id: str, courseware_content, template_config: dict | None = None
 ) -> dict:
@@ -41,6 +71,10 @@ async def cache_preview_content(
         slide_ids=[
             _slide_identity(slide, index) for index, slide in enumerate(slide_models)
         ],
+        render_markdown=extract_courseware_value(courseware_content, "render_markdown"),
+        style_manifest=_serialize_style_manifest(courseware_content),
+        extra_css=extract_courseware_value(courseware_content, "extra_css"),
+        page_class_plan=_serialize_page_class_plan(courseware_content),
     )
     preview_payload = {
         "title": extract_courseware_value(courseware_content, "title"),
@@ -51,6 +85,18 @@ async def cache_preview_content(
         ),
         "rendered_preview": rendered_preview,
     }
+    render_markdown = extract_courseware_value(courseware_content, "render_markdown")
+    if render_markdown:
+        preview_payload["render_markdown"] = render_markdown
+    style_manifest = _serialize_style_manifest(courseware_content)
+    if style_manifest:
+        preview_payload["style_manifest"] = style_manifest
+    extra_css = extract_courseware_value(courseware_content, "extra_css")
+    if extra_css:
+        preview_payload["extra_css"] = extra_css
+    page_class_plan = _serialize_page_class_plan(courseware_content)
+    if page_class_plan:
+        preview_payload["page_class_plan"] = page_class_plan
     if hasattr(courseware_content, "_image_metadata"):
         preview_payload["_image_metadata"] = getattr(
             courseware_content, "_image_metadata"
