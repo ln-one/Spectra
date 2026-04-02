@@ -28,7 +28,7 @@ ALLOW_COURSEWARE_FALLBACK = (
     os.getenv("ALLOW_COURSEWARE_FALLBACK", "false").lower() == "true"
 )
 ALLOW_RAG_GROUNDED_FALLBACK = (
-    os.getenv("ALLOW_RAG_GROUNDED_FALLBACK", "false").lower() == "true"
+    os.getenv("ALLOW_RAG_GROUNDED_FALLBACK", "true").lower() == "true"
 )
 _PLACEHOLDER_MARKER = "Courseware is being prepared..."
 

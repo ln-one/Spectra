@@ -27,7 +27,10 @@ _REUSABLE_SESSION_STATES = {
 
 
 async def _resolve_next_default_session_title(db, project_id: str) -> str:
-    existing_count = await db.generationsession.count(where={"projectId": project_id})
+    count_fn = getattr(getattr(db, "generationsession", None), "count", None)
+    if count_fn is None:
+        return build_numbered_default_session_title(1)
+    existing_count = await count_fn(where={"projectId": project_id})
     return build_numbered_default_session_title(int(existing_count) + 1)
 
 
