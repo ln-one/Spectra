@@ -27,6 +27,9 @@
 /api/v1/generate/studio-cards/{card_id}/execution-preview:
   $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1execution-preview'
 
+/api/v1/generate/studio-cards/{card_id}/draft:
+  $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1draft'
+
 /api/v1/generate/studio-cards/{card_id}/execute:
   $ref: './generate-session-core.yaml#/~1api~1v1~1generate~1studio-cards~1{card_id}~1execute'
 

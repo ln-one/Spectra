@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -106,11 +107,14 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
             ),
             courseware_content=courseware_content,
         )
-        if image_metadata:
+        if isinstance(image_metadata, Mapping):
             logger.info(
                 "Image insertion completed: mode=%s, count=%d",
                 image_metadata.get("retrieval_mode"),
                 image_metadata.get("image_count", 0),
             )
-            setattr(courseware_content, "_image_metadata", image_metadata)
+            if isinstance(courseware_content, dict):
+                courseware_content["_image_metadata"] = dict(image_metadata)
+            else:
+                setattr(courseware_content, "_image_metadata", dict(image_metadata))
     return courseware_content

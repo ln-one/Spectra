@@ -113,6 +113,9 @@ def parse_preview_content_from_input_data(raw_input_data: object) -> Optional[di
         "markdown_content": markdown_content,
         "lesson_plan_markdown": lesson_plan_markdown,
     }
+    image_metadata = preview_content.get("_image_metadata")
+    if isinstance(image_metadata, dict):
+        normalized["_image_metadata"] = image_metadata
     if isinstance(rendered_preview, dict):
         normalized["rendered_preview"] = rendered_preview
     return normalized
