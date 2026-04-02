@@ -60,10 +60,12 @@ async def _generate_courseware_render_rewrite(
                 images = chunk.get("metadata", {}).get("images", [])
                 for img in images[:3]:  # 每个 chunk 最多 3 张
                     if img.get("url") and img.get("caption"):
-                        image_references.append({
-                            "url": img["url"],
-                            "caption": img["caption"],
-                        })
+                        image_references.append(
+                            {
+                                "url": img["url"],
+                                "caption": img["caption"],
+                            }
+                        )
 
     prompt = prompt_service.build_courseware_render_rewrite_prompt(
         markdown_content=markdown_content,

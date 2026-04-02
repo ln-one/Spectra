@@ -104,9 +104,7 @@ def wrap_markdown_with_template(
 
     # 注入页面 class
     if page_class_plan:
-        normalized_markdown = _inject_page_classes(
-            normalized_markdown, page_class_plan
-        )
+        normalized_markdown = _inject_page_classes(normalized_markdown, page_class_plan)
     else:
         # 回退：生成默认 page_class_plan
         slides = _split_slides(normalized_markdown)

@@ -286,9 +286,7 @@ async def inject_rag_images_into_courseware_content(
 
     if updated_markdown != markdown_content:
         setattr(courseware_content, "markdown_content", updated_markdown)
-        render_markdown = str(
-            getattr(courseware_content, "render_markdown", "") or ""
-        )
+        render_markdown = str(getattr(courseware_content, "render_markdown", "") or "")
         if render_markdown.strip():
             updated_render_markdown, _ = _inject_image_blocks(
                 render_markdown, ordered_uploads

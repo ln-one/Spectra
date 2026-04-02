@@ -96,7 +96,9 @@ class GenerationService:
                 config=template_config,
                 title=content.title,
                 style_manifest=(
-                    content.style_manifest.model_dump() if content.style_manifest else None
+                    content.style_manifest.model_dump()
+                    if content.style_manifest
+                    else None
                 ),
                 extra_css=content.extra_css,
                 page_class_plan=(
@@ -127,7 +129,9 @@ class GenerationService:
                 config=template_config,
                 title=content.title,
                 style_manifest=(
-                    content.style_manifest.model_dump() if content.style_manifest else None
+                    content.style_manifest.model_dump()
+                    if content.style_manifest
+                    else None
                 ),
                 extra_css=content.extra_css,
                 page_class_plan=(

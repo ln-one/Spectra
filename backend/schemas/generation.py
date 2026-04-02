@@ -226,7 +226,9 @@ class CoursewareContent(BaseModel):
     style_manifest: Optional[StyleManifest] = Field(
         None, description="样式清单；样式生成阶段输出（fallback 用）"
     )
-    extra_css: Optional[str] = Field(None, description="额外 CSS；受控补充样式（fallback 用）")
+    extra_css: Optional[str] = Field(
+        None, description="额外 CSS；受控补充样式（fallback 用）"
+    )
     page_class_plan: Optional[List[PageClassItem]] = Field(
         None, description="页面 class 计划；每页的类型、密度与 class（fallback 用）"
     )

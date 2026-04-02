@@ -90,7 +90,9 @@ def test_contract_compatibility():
 
 def test_mermaid_support():
     """测试 Mermaid 图表支持"""
-    from services.prompt_service.render_rewrite import build_courseware_render_rewrite_prompt
+    from services.prompt_service.render_rewrite import (
+        build_courseware_render_rewrite_prompt,
+    )
 
     prompt = build_courseware_render_rewrite_prompt(
         markdown_content="# 测试\n\n内容",
@@ -107,7 +109,9 @@ def test_mermaid_support():
 
 def test_page_structure_examples():
     """测试页面结构示例"""
-    from services.prompt_service.render_rewrite import build_courseware_render_rewrite_prompt
+    from services.prompt_service.render_rewrite import (
+        build_courseware_render_rewrite_prompt,
+    )
 
     prompt = build_courseware_render_rewrite_prompt(
         markdown_content="# 测试",
@@ -123,7 +127,9 @@ def test_page_structure_examples():
 
 def test_css_reference_inclusion():
     """测试 CSS 参考包含"""
-    from services.prompt_service.render_rewrite import build_courseware_render_rewrite_prompt
+    from services.prompt_service.render_rewrite import (
+        build_courseware_render_rewrite_prompt,
+    )
 
     # 包含 CSS 参考
     prompt_with_css = build_courseware_render_rewrite_prompt(
@@ -153,7 +159,9 @@ def test_css_reference_inclusion():
 
 def test_layout_diversity_requirements():
     """测试版式多样性要求"""
-    from services.prompt_service.render_rewrite import build_courseware_render_rewrite_prompt
+    from services.prompt_service.render_rewrite import (
+        build_courseware_render_rewrite_prompt,
+    )
 
     prompt = build_courseware_render_rewrite_prompt(
         markdown_content="# 测试",
@@ -188,4 +196,3 @@ if __name__ == "__main__":
     test_layout_diversity_requirements()
     test_mermaid_css_styles()
     print("\n[OK] All tests passed")
-

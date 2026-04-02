@@ -62,8 +62,7 @@ def build_courseware_render_rewrite_prompt(
     image_info = ""
     if image_references:
         image_list = "\n".join(
-            f"- ![{img['caption']}]({img['url']})"
-            for img in image_references[:10]
+            f"- ![{img['caption']}]({img['url']})" for img in image_references[:10]
         )
         image_info = f"""
 <available_images>

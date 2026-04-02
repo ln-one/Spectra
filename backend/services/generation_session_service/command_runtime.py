@@ -179,7 +179,9 @@ async def handle_regenerate_slide(
         # 修改后触发完整 render rewrite
         new_render_markdown = None
         try:
-            from services.courseware_ai.generation import _generate_courseware_render_rewrite
+            from services.courseware_ai.generation import (
+                _generate_courseware_render_rewrite,
+            )
 
             new_render_markdown = await _generate_courseware_render_rewrite(
                 ai_service,
@@ -204,7 +206,8 @@ async def handle_regenerate_slide(
                 or preview_content.get("lesson_plan_markdown")
                 or ""
             ),
-            "render_markdown": new_render_markdown or preview_content.get("render_markdown"),
+            "render_markdown": new_render_markdown
+            or preview_content.get("render_markdown"),
             "style_manifest": preview_content.get("style_manifest"),
             "extra_css": preview_content.get("extra_css"),
             "page_class_plan": preview_content.get("page_class_plan"),

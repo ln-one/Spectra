@@ -57,16 +57,41 @@ def test_style_markdown():
             palette={"primary": "#000000", "secondary": "#666666"},
             typography={"heading": "48px", "body": "28px"},
             page_variants=["cover", "toc", "content"],
-            density_rules={"sparse": "<=3", "medium": "4-5", "dense": ">=6"}
+            density_rules={"sparse": "<=3", "medium": "4-5", "dense": ">=6"},
         ),
         extra_css=".custom-highlight { background: #ffeb3b; padding: 5px; }",
         page_class_plan=[
-            PageClassItem(slide_index=1, page_type="cover", density="sparse", class_name="cover density-sparse"),
-            PageClassItem(slide_index=2, page_type="toc", density="medium", class_name="toc density-medium"),
-            PageClassItem(slide_index=3, page_type="content", density="medium", class_name="content density-medium"),
-            PageClassItem(slide_index=4, page_type="content", density="medium", class_name="content density-medium"),
-            PageClassItem(slide_index=5, page_type="content", density="dense", class_name="content density-dense"),
-        ]
+            PageClassItem(
+                slide_index=1,
+                page_type="cover",
+                density="sparse",
+                class_name="cover density-sparse",
+            ),
+            PageClassItem(
+                slide_index=2,
+                page_type="toc",
+                density="medium",
+                class_name="toc density-medium",
+            ),
+            PageClassItem(
+                slide_index=3,
+                page_type="content",
+                density="medium",
+                class_name="content density-medium",
+            ),
+            PageClassItem(
+                slide_index=4,
+                page_type="content",
+                density="medium",
+                class_name="content density-medium",
+            ),
+            PageClassItem(
+                slide_index=5,
+                page_type="content",
+                density="dense",
+                class_name="content density-dense",
+            ),
+        ],
     )
 
     # 2. 生成完整 Markdown
@@ -75,9 +100,15 @@ def test_style_markdown():
         markdown_content=content.markdown_content,
         config=TemplateConfig(),
         title=content.title,
-        style_manifest=content.style_manifest.model_dump() if content.style_manifest else None,
+        style_manifest=(
+            content.style_manifest.model_dump() if content.style_manifest else None
+        ),
         extra_css=content.extra_css,
-        page_class_plan=[item.model_dump() for item in content.page_class_plan] if content.page_class_plan else None,
+        page_class_plan=(
+            [item.model_dump() for item in content.page_class_plan]
+            if content.page_class_plan
+            else None
+        ),
     )
 
     # 3. 保存到文件
@@ -98,7 +129,10 @@ def test_style_markdown():
         ("Content class", "<!-- _class: content density-medium -->" in full_markdown),
         ("Dense class", "<!-- _class: content density-dense -->" in full_markdown),
         ("Extra CSS", ".custom-highlight" in full_markdown),
-        ("Manifest CSS", "--color-primary" in full_markdown or "section {" in full_markdown),
+        (
+            "Manifest CSS",
+            "--color-primary" in full_markdown or "section {" in full_markdown,
+        ),
     ]
 
     print("\n[Validation]")

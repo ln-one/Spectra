@@ -253,9 +253,7 @@ def main():
     if os.name == "nt":
         # Windows 没有 SIGALRM，RQ 默认的 UnixSignalDeathPenalty 会在执行前崩溃。
         worker_cls.death_penalty_class = TimerDeathPenalty
-        logger.info(
-            "Using TimerDeathPenalty for RQ worker on Windows"
-        )
+        logger.info("Using TimerDeathPenalty for RQ worker on Windows")
 
     # 创建并启动 Worker
     worker_instance = worker_cls(
