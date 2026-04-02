@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -46,7 +46,7 @@ def test_list_sessions_falls_back_to_default_display_title(monkeypatch):
     resp = client.get("/api/v1/generate/sessions?project_id=p-001")
     assert resp.status_code == 200
     item = resp.json()["data"]["sessions"][0]
-    assert item["display_title"] == "会话-123456"
+    assert item["display_title"] == "新建会话"
     assert item["display_title_source"] == "default"
 
 
@@ -66,7 +66,7 @@ def test_get_session_runs_returns_run_contract_fields(monkeypatch):
                         "project_id": "p-001",
                         "tool_type": "ppt_generate",
                         "run_no": 1,
-                        "run_title": "第1次PPT生成",
+                        "run_title": "绗?娆PT鐢熸垚",
                         "run_title_source": "pending",
                         "run_status": "processing",
                         "run_step": "outline",

@@ -22,11 +22,17 @@ def build_studio_card_execution_preview(
     card_id: str,
     project_id: str,
     config: dict | None = None,
+    template_config: dict | None = None,
     visibility: str | None = None,
     source_artifact_id: str | None = None,
     rag_source_ids: list[str] | None = None,
 ) -> StudioCardExecutionPreview | None:
     cfg = dict(config or {})
+    template_cfg = (
+        dict(template_config)
+        if isinstance(template_config, dict)
+        else {}
+    )
     artifact_visibility = _normalize_visibility(visibility)
 
     if card_id == "courseware_ppt":
@@ -49,6 +55,7 @@ def build_studio_card_execution_preview(
                             cfg.get("include_animations", False)
                         ),
                         "include_games": bool(cfg.get("include_games", False)),
+                        "template_config": template_cfg or None,
                         "source_artifact_id": source_artifact_id
                         or cfg.get("source_artifact_id"),
                         "rag_source_ids": rag_source_ids or [],

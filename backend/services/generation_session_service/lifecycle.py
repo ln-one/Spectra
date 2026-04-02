@@ -5,9 +5,13 @@ from typing import Optional
 from uuid import uuid4
 
 from services.generation_session_service.constants import SessionLifecycleReason
+from services.generation_session_service.public_library_inputs import (
+    apply_public_library_inputs,
+)
 from services.generation_session_service.session_history import (
     SESSION_TITLE_SOURCE_DEFAULT,
     build_default_session_title,
+    build_numbered_default_session_title,
 )
 from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
@@ -21,6 +25,11 @@ _REUSABLE_SESSION_STATES = {
     GenerationState.FAILED.value,
     GenerationState.SUCCESS.value,
 }
+
+
+async def _resolve_next_default_session_title(db, project_id: str) -> str:
+    existing_count = await db.generationsession.count(where={"projectId": project_id})
+    return build_numbered_default_session_title(int(existing_count) + 1)
 
 
 async def create_session(
@@ -38,6 +47,12 @@ async def create_session(
     append_event,
     schedule_outline_draft_task,
 ) -> dict:
+    resolved_options = await apply_public_library_inputs(
+        db=db,
+        project_id=project_id,
+        user_id=user_id,
+        options=options,
+    )
     project = await db.project.find_unique(where={"id": project_id})
     project_base_version_id = (
         getattr(project, "currentVersionId", None) if project is not None else None
@@ -58,13 +73,11 @@ async def create_session(
     if existing_session:
         update_data = {
             "outputType": output_type,
-            "options": json.dumps(options) if options else None,
+            "options": json.dumps(resolved_options) if resolved_options else None,
             "clientSessionId": client_session_id,
         }
         if not getattr(existing_session, "displayTitle", None):
-            update_data["displayTitle"] = build_default_session_title(
-                existing_session.id
-            )
+            update_data["displayTitle"] = build_default_session_title()
             update_data["displayTitleSource"] = SESSION_TITLE_SOURCE_DEFAULT
         if (
             getattr(existing_session, "baseVersionId", None) is None
@@ -110,7 +123,7 @@ async def create_session(
             await schedule_outline_draft_task(
                 session_id=session.id,
                 project_id=project_id,
-                options=options,
+                options=resolved_options,
                 task_queue_service=task_queue_service,
             )
             return _to_session_ref(session, contract_version, schema_version)
@@ -132,6 +145,7 @@ async def create_session(
         else GenerationState.DRAFTING_OUTLINE.value
     )
     session_id = str(uuid4())
+    default_display_title = await _resolve_next_default_session_title(db, project_id)
     session = await db.generationsession.create(
         data={
             "id": session_id,
@@ -139,13 +153,13 @@ async def create_session(
             "userId": user_id,
             "baseVersionId": project_base_version_id,
             "outputType": output_type,
-            "options": json.dumps(options) if options else None,
+            "options": json.dumps(resolved_options) if resolved_options else None,
             "clientSessionId": client_session_id,
             "state": initial_state,
             "renderVersion": 0,
             "currentOutlineVersion": 0,
             "resumable": True,
-            "displayTitle": build_default_session_title(session_id),
+            "displayTitle": default_display_title,
             "displayTitleSource": SESSION_TITLE_SOURCE_DEFAULT,
         }
     )
@@ -162,7 +176,7 @@ async def create_session(
         await schedule_outline_draft_task(
             session_id=session.id,
             project_id=project_id,
-            options=options,
+            options=resolved_options,
             task_queue_service=task_queue_service,
         )
 
