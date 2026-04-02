@@ -6,10 +6,10 @@ from typing import Optional
 def _get_css_reference() -> str:
     """获取 3 套设计家族的完整 CSS 参考"""
     from services.template.css_generator import (
-        _EDITORIAL_BOLD_CSS,
         _ACADEMIC_MODERN_CSS,
-        _VISUAL_CARDS_CSS,
+        _EDITORIAL_BOLD_CSS,
         _MERMAID_STYLES,
+        _VISUAL_CARDS_CSS,
     )
 
     return f"""
