@@ -5,6 +5,7 @@ from .access import (
 )
 from .core import (
     find_similar_response,
+    get_source_image_response,
     get_source_detail_response,
     index_file_response,
     search_knowledge_base_response,
@@ -19,6 +20,7 @@ __all__ = [
     "analyze_video_response",
     "ensure_project_access",
     "find_similar_response",
+    "get_source_image_response",
     "get_source_detail_response",
     "index_file_response",
     "load_chunk_upload_info",

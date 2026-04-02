@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronUp, Sparkles, Trash2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { ragApi } from "@/lib/sdk";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FILE_TYPE_CONFIG, STATUS_CONFIG } from "../constants";
@@ -12,6 +16,110 @@ import {
   getSourceTypeLabel,
   toSeconds,
 } from "../utils";
+
+function normalizeRelativeImagePath(src: string | undefined): string | null {
+  if (!src) {
+    return null;
+  }
+  const normalized = src.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!normalized || normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    return null;
+  }
+  return normalized.startsWith("images/") ? normalized : null;
+}
+
+function SourceChunkImage({
+  src,
+  alt,
+  chunkId,
+}: {
+  src?: string;
+  alt?: string;
+  chunkId?: string;
+}) {
+  const relativePath = useMemo(() => normalizeRelativeImagePath(src), [src]);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const isAbsoluteUrl = Boolean(
+    src?.startsWith("http://") || src?.startsWith("https://")
+  );
+  const shouldFetch = Boolean(!isAbsoluteUrl && chunkId && relativePath);
+
+  useEffect(() => {
+    if (!shouldFetch || !chunkId || !relativePath) {
+      return;
+    }
+    let revokedUrl: string | null = null;
+    let active = true;
+
+    ragApi
+      .fetchSourceImageBlob(chunkId, relativePath)
+      .then((blob) => {
+        if (!active) {
+          return;
+        }
+        revokedUrl = URL.createObjectURL(blob);
+        setObjectUrl(revokedUrl);
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        const message =
+          error instanceof Error ? error.message : "图片加载失败";
+        setLoadError(message);
+      });
+
+    return () => {
+      active = false;
+      if (revokedUrl) {
+        URL.revokeObjectURL(revokedUrl);
+      }
+    };
+  }, [chunkId, relativePath, shouldFetch]);
+
+  if (isAbsoluteUrl) {
+    return (
+      <img
+        src={src}
+        alt={alt || "引用图片"}
+        className="my-2 max-w-full rounded-md border border-[var(--project-border)]"
+      />
+    );
+  }
+
+  if (!chunkId || !relativePath) {
+    return (
+      <span className="my-2 block text-[10px] text-[var(--project-text-muted)]">
+        图片路径不支持
+      </span>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <span className="my-2 block text-[10px] text-[var(--project-text-muted)]">
+        {loadError}
+      </span>
+    );
+  }
+
+  if (!objectUrl) {
+    return (
+      <span className="my-2 block text-[10px] text-[var(--project-text-muted)]">
+        图片加载中...
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={objectUrl}
+      alt={alt || "引用图片"}
+      className="my-2 max-w-full rounded-md border border-[var(--project-border)]"
+    />
+  );
+}
 
 interface FileItemProps {
   file: UploadedFile;
@@ -266,8 +374,22 @@ export function FileItem({
                 ) : null}
               </div>
             </div>
-            <div className="whitespace-pre-wrap text-[var(--project-text-primary)]">
-              {focusDetail.content}
+            <div className="text-[var(--project-text-primary)]">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  img: ({ src, alt }) => (
+                    <SourceChunkImage
+                      key={`${focusDetail.chunk_id || "chunk"}:${src || ""}`}
+                      src={src}
+                      alt={alt}
+                      chunkId={focusDetail.chunk_id}
+                    />
+                  ),
+                }}
+              >
+                {focusDetail.content}
+              </ReactMarkdown>
             </div>
             {focusDetail.context?.previous_chunk ||
             focusDetail.context?.next_chunk ? (

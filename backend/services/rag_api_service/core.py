@@ -13,6 +13,7 @@ from .access import (
     load_chunk_upload_info,
     resolve_chunk_project_and_upload,
 )
+from .source_images import load_source_image_payload
 
 
 async def search_knowledge_base_response(request: RAGSearchRequest):
@@ -53,6 +54,27 @@ async def get_source_detail_response(chunk_id: str, project_id: Optional[str]):
     if file_info:
         payload["file_info"] = file_info
     return success_response(data=payload, message="获取来源详情成功")
+
+
+async def get_source_image_response(
+    *,
+    chunk_id: str,
+    image_path: str,
+    user_id: str,
+    project_id: Optional[str] = None,
+):
+    resolved_project_id = project_id
+    parsed = None
+    if not resolved_project_id:
+        resolved_project_id, parsed = await resolve_chunk_project_and_upload(chunk_id)
+    if not resolved_project_id:
+        raise NotFoundException(message=f"分块不存在: {chunk_id}")
+    await ensure_project_access(resolved_project_id, user_id)
+    return await load_source_image_payload(
+        chunk_id=chunk_id,
+        image_path=image_path,
+        parsed=parsed,
+    )
 
 
 async def index_file_response(request: RAGIndexRequest, user_id: str):
