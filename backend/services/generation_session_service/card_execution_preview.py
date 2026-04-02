@@ -28,11 +28,7 @@ def build_studio_card_execution_preview(
     rag_source_ids: list[str] | None = None,
 ) -> StudioCardExecutionPreview | None:
     cfg = dict(config or {})
-    template_cfg = (
-        dict(template_config)
-        if isinstance(template_config, dict)
-        else {}
-    )
+    template_cfg = dict(template_config) if isinstance(template_config, dict) else {}
     artifact_visibility = _normalize_visibility(visibility)
 
     if card_id == "courseware_ppt":

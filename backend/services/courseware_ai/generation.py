@@ -376,7 +376,10 @@ async def generate_courseware_content(
                 )
                 if rag_grounded_fallback is not None:
                     logger.warning(
-                        "Using RAG-grounded fallback courseware due to generation failure",
+                        (
+                            "Using RAG-grounded fallback courseware "
+                            "due to generation failure"
+                        ),
                         extra={
                             "project_id": project_id,
                             "outline_node_count": len(outline_nodes),
@@ -386,7 +389,10 @@ async def generate_courseware_content(
                     return rag_grounded_fallback
             else:
                 logger.warning(
-                    "Skip RAG-grounded fallback because ALLOW_RAG_GROUNDED_FALLBACK=false",
+                    (
+                        "Skip RAG-grounded fallback because "
+                        "ALLOW_RAG_GROUNDED_FALLBACK=false"
+                    ),
                     extra={
                         "project_id": project_id,
                         "outline_node_count": len(outline_nodes),
