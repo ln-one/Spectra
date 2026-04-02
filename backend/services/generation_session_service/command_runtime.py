@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Awaitable, Callable
 
@@ -36,6 +37,8 @@ from services.preview_helpers.content_generation import (
     parse_preview_content_from_input_data,
 )
 from services.task_executor.constants import TaskFailureStateReason
+
+logger = logging.getLogger(__name__)
 
 
 async def _load_latest_session_task(db, session_id: str):

@@ -81,13 +81,32 @@ def build_courseware_style_prompt(
     "palette": {{"primary": "#667eea", "secondary": "#764ba2", "text": "#2c2c2c"}},
     "typography": {{"heading": "48px", "body": "28px"}},
     "page_variants": ["cover", "toc", "content"],
-    "density_rules": {{"sparse": "<=3 bullets", "medium": "4-5 bullets", "dense": ">=6 bullets"}}
+    "density_rules": {{
+      "sparse": "<=3 bullets",
+      "medium": "4-5 bullets",
+      "dense": ">=6 bullets"
+    }}
   }},
   "extra_css": "/* 可选补充 CSS，不允许 @import/@font-face/url(http */",
   "page_class_plan": [
-    {{"slide_index": 1, "page_type": "cover", "density": "sparse", "class_name": "cover density-sparse"}},
-    {{"slide_index": 2, "page_type": "toc", "density": "medium", "class_name": "toc density-medium"}},
-    {{"slide_index": 3, "page_type": "content", "density": "medium", "class_name": "content density-medium"}}
+    {{
+      "slide_index": 1,
+      "page_type": "cover",
+      "density": "sparse",
+      "class_name": "cover density-sparse"
+    }},
+    {{
+      "slide_index": 2,
+      "page_type": "toc",
+      "density": "medium",
+      "class_name": "toc density-medium"
+    }},
+    {{
+      "slide_index": 3,
+      "page_type": "content",
+      "density": "medium",
+      "class_name": "content density-medium"
+    }}
   ]
 }}
 </output_contract>

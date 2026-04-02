@@ -152,7 +152,8 @@ graph LR
 <mermaid_guidelines>
 ## Mermaid 图表使用规则（必须生成）
 
-**重要**：你必须在课件中生成至少 {min_chart_count} 个 Mermaid 图表来辅助说明。
+**重要**：
+你必须在课件中生成至少 {min_chart_count} 个 Mermaid 图表来辅助说明。
 
 1. **图表类型与使用场景**：
 
@@ -383,7 +384,8 @@ footer: 'Spectra 智能课件'
 
 <!-- 启用 Mermaid 支持 -->
 <script type="module">
-  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  import mermaid from
+    'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
   mermaid.initialize({{ startOnLoad: true }});
 </script>
 
