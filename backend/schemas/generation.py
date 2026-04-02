@@ -170,6 +170,41 @@ class GenerateStatusResponse(BaseModel):
     updated_at: datetime = Field(..., description="更新时间")
 
 
+class PageType(str, Enum):
+    """页面类型枚举"""
+
+    COVER = "cover"
+    TOC = "toc"
+    CONTENT = "content"
+
+
+class ContentDensity(str, Enum):
+    """内容密度枚举"""
+
+    SPARSE = "sparse"
+    MEDIUM = "medium"
+    DENSE = "dense"
+
+
+class PageClassItem(BaseModel):
+    """单页 class 计划项"""
+
+    slide_index: int = Field(..., description="幻灯片索引（从 1 开始）")
+    page_type: PageType = Field(..., description="页面类型")
+    density: ContentDensity = Field(..., description="内容密度")
+    class_name: str = Field(..., description="完整 class 名称")
+
+
+class StyleManifest(BaseModel):
+    """样式清单"""
+
+    design_name: str = Field(..., description="设计家族名称")
+    palette: Dict[str, str] = Field(..., description="调色板")
+    typography: Dict[str, str] = Field(..., description="字体配置")
+    page_variants: List[str] = Field(..., description="支持的页面变体")
+    density_rules: Dict[str, str] = Field(..., description="密度规则说明")
+
+
 class CoursewareContent(BaseModel):
     """
     课件内容 - GenerationService 与 AI Service 的接口契约
@@ -180,9 +215,23 @@ class CoursewareContent(BaseModel):
 
     title: str = Field(..., description="课件标题")
     markdown_content: str = Field(
-        ..., description="PPT 的 Markdown 内容（包含 Marp frontmatter）"
+        ...,
+        description="PPT 的正文级 Markdown 内容；Marp frontmatter 与模板样式在渲染前注入",
     )
     lesson_plan_markdown: str = Field(..., description="教案的 Markdown 内容")
+    render_markdown: Optional[str] = Field(
+        None,
+        description="最终可渲染的完整 Marp 文档（含 frontmatter + style + slides）；优先用于渲染，无则回退模板包装",
+    )
+    style_manifest: Optional[StyleManifest] = Field(
+        None, description="样式清单；样式生成阶段输出（fallback 用）"
+    )
+    extra_css: Optional[str] = Field(
+        None, description="额外 CSS；受控补充样式（fallback 用）"
+    )
+    page_class_plan: Optional[List[PageClassItem]] = Field(
+        None, description="页面 class 计划；每页的类型、密度与 class（fallback 用）"
+    )
 
     @field_validator("title")
     @classmethod
@@ -211,6 +260,20 @@ class CoursewareContent(BaseModel):
         for pattern in dangerous_patterns:
             if pattern in v_lower:
                 raise ValueError(f"Potentially dangerous content detected: {pattern}")
+        return v
+
+    @field_validator("extra_css")
+    @classmethod
+    def validate_extra_css(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if len(v) > 50_000:
+            raise ValueError("extra_css too large (max 50KB)")
+        v_lower = v.lower()
+        forbidden = ["@import", "@font-face", "url(http"]
+        for pattern in forbidden:
+            if pattern in v_lower:
+                raise ValueError(f"Forbidden CSS pattern: {pattern}")
         return v
 
 

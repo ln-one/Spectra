@@ -4,6 +4,7 @@
 
 import logging
 import os
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -71,6 +72,16 @@ def clear_tool_check_cache() -> None:
     _TOOL_CHECK_CACHE.clear()
 
 
+def resolve_marp_command() -> str:
+    """Resolve the Marp executable name/path for the current platform."""
+    candidates = ["marp.cmd", "marp"] if os.name == "nt" else ["marp"]
+    for candidate in candidates:
+        resolved = shutil.which(candidate)
+        if resolved:
+            return resolved
+    raise FileNotFoundError("marp executable not found")
+
+
 def check_marp_installed() -> bool:
     """
     检查 Marp CLI 是否安装
@@ -91,8 +102,9 @@ def check_marp_installed() -> bool:
 
     install_hint = "npm install -g @marp-team/marp-cli"
     try:
+        marp_cmd = resolve_marp_command()
         result = subprocess.run(
-            ["marp", "--version"], capture_output=True, text=True, timeout=5
+            [marp_cmd, "--version"], capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             logger.debug("Marp CLI detected: %s", result.stdout.strip())

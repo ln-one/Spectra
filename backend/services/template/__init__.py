@@ -73,7 +73,13 @@ class TemplateService:
         return _get_pandoc_path(config, self.templates_dir)
 
     def wrap_markdown_with_template(
-        self, markdown_content: str, config: TemplateConfig, title: str
+        self,
+        markdown_content: str,
+        config: TemplateConfig,
+        title: str,
+        style_manifest=None,
+        extra_css=None,
+        page_class_plan=None,
     ) -> str:
         """
         将 Markdown 内容包装为完整的 Marp 文档
@@ -82,11 +88,21 @@ class TemplateService:
             markdown_content: 原始 Markdown 内容
             config: 模板配置
             title: 课件标题
+            style_manifest: 样式清单（可选）
+            extra_css: 额外 CSS（可选）
+            page_class_plan: 页面 class 计划（可选）
 
         Returns:
             str: 包含 frontmatter 和样式的完整 Markdown
         """
-        return _wrap_markdown(markdown_content, config, title)
+        return _wrap_markdown(
+            markdown_content,
+            config,
+            title,
+            style_manifest,
+            extra_css,
+            page_class_plan,
+        )
 
 
 # 全局服务实例

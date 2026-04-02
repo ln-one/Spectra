@@ -22,13 +22,16 @@ try:
         ToolExecutionError,
         ToolNotFoundError,
     )
-    from .tool_checker import check_marp_installed
+    from .tool_checker import check_marp_installed, resolve_marp_command
     from .types import CoursewareContent
 except ImportError:
     import sys
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from services.generation.tool_checker import check_marp_installed
+    from services.generation.tool_checker import (
+        check_marp_installed,
+        resolve_marp_command,
+    )
     from services.generation.types import CoursewareContent
     from utils.file_utils import (
         cleanup_file,
@@ -93,10 +96,11 @@ async def call_marp_cli(
         check_marp_installed()
     except ToolNotFoundError:
         raise
+    marp_cmd = resolve_marp_command()
 
     chrome_path = _resolve_browser_path()
     cmd = [
-        "marp",
+        marp_cmd,
         str(input_file),
         "--pptx",
         "--pptx-editable",
@@ -276,8 +280,9 @@ async def generate_slide_images(
             cleanup_file(Path(stale_path))
 
         chrome_path = _resolve_browser_path()
+        marp_cmd = resolve_marp_command()
         cmd = [
-            "marp",
+            marp_cmd,
             str(markdown_file),
             "--images",
             image_format,
