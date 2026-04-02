@@ -418,6 +418,45 @@ section.content .mermaid {
   border-radius: 8px;
   border: 1px solid #e0e0e0;
 }
+
+/* 版式变体 */
+.two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+.left-image-right-text {
+  display: grid;
+  grid-template-columns: 45% 55%;
+  gap: 30px;
+  align-items: center;
+}
+
+.top-image-bottom-text {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.top-image-bottom-text img,
+.top-image-bottom-text .mermaid {
+  margin: 0 auto;
+  max-width: 80%;
+}
+
+.comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.comparison > div {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
 """
 
 

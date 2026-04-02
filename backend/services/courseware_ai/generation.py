@@ -36,6 +36,7 @@ async def _generate_courseware_render_rewrite(
     markdown_content: str,
     title: str,
     outline_document: Optional[dict] = None,
+    rag_context: Optional[list[dict]] = None,
 ) -> Optional[str]:
     """Render rewrite 阶段：LLM 整套重写最终 Marp 文档"""
     from services.prompt_service import prompt_service
@@ -51,11 +52,25 @@ async def _generate_courseware_render_rewrite(
             for s in sections
         )
 
+    # 从 RAG 上下文提取图片引用
+    image_references = []
+    if rag_context:
+        for chunk in rag_context[:10]:  # 限制前 10 个
+            if chunk.get("metadata", {}).get("has_images"):
+                images = chunk.get("metadata", {}).get("images", [])
+                for img in images[:3]:  # 每个 chunk 最多 3 张
+                    if img.get("url") and img.get("caption"):
+                        image_references.append({
+                            "url": img["url"],
+                            "caption": img["caption"],
+                        })
+
     prompt = prompt_service.build_courseware_render_rewrite_prompt(
         markdown_content=markdown_content,
         title=title,
         slide_count=slide_count,
         outline_summary=outline_summary,
+        image_references=image_references if image_references else None,
     )
 
     response = await ai_service.generate(
@@ -433,6 +448,7 @@ async def generate_courseware_content(
                 courseware.markdown_content,
                 courseware.title,
                 outline_document,
+                rag_context,
             )
             if render_markdown:
                 courseware.render_markdown = render_markdown
