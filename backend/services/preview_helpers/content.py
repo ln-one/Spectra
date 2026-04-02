@@ -60,6 +60,7 @@ async def load_preview_material(
                         _slide_identity(slide, index)
                         for index, slide in enumerate(slide_models)
                     ],
+                    render_markdown=content.get("render_markdown"),
                     style_manifest=content.get("style_manifest"),
                     extra_css=content.get("extra_css"),
                     page_class_plan=content.get("page_class_plan"),

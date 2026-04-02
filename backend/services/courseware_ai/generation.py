@@ -31,12 +31,51 @@ ALLOW_COURSEWARE_FALLBACK = (
 _PLACEHOLDER_MARKER = "Courseware is being prepared..."
 
 
+async def _generate_courseware_render_rewrite(
+    ai_service,
+    markdown_content: str,
+    title: str,
+    outline_document: Optional[dict] = None,
+) -> Optional[str]:
+    """Render rewrite 阶段：LLM 整套重写最终 Marp 文档"""
+    from services.prompt_service import prompt_service
+
+    slides = parse_marp_slides(markdown_content)
+    slide_count = len(slides)
+
+    outline_summary = None
+    if outline_document and outline_document.get("sections"):
+        sections = outline_document["sections"]
+        outline_summary = "\n".join(
+            f"- {s.get('title', '')}: {', '.join(s.get('key_points', []))}"
+            for s in sections
+        )
+
+    prompt = prompt_service.build_courseware_render_rewrite_prompt(
+        markdown_content=markdown_content,
+        title=title,
+        slide_count=slide_count,
+        outline_summary=outline_summary,
+    )
+
+    response = await ai_service.generate(
+        prompt=prompt,
+        route_task=ModelRouteTask.LESSON_PLAN_REASONING.value,
+        has_rag_context=False,
+        max_tokens=4000,
+    )
+
+    from services.courseware_ai.parsing import parse_render_rewrite_response
+
+    return parse_render_rewrite_response(response["content"])
+
+
 async def _generate_courseware_style(
     ai_service,
     markdown_content: str,
     outline_document: Optional[dict] = None,
 ) -> Optional[dict]:
-    """样式生成阶段：基于最终正文生成样式契约"""
+    """样式生成阶段：基于最终正文生成样式契约（fallback 用）"""
     from services.prompt_service import prompt_service
 
     slides = parse_marp_slides(markdown_content)
@@ -387,22 +426,41 @@ async def generate_courseware_content(
                 outline_document=outline_document or {},
             )
 
-        # 样式生成阶段
+        # Render rewrite 阶段（主路径）
         try:
-            style_data = await _generate_courseware_style(
+            render_markdown = await _generate_courseware_render_rewrite(
                 ai_service,
                 courseware.markdown_content,
+                courseware.title,
                 outline_document,
             )
-            if style_data:
-                courseware.style_manifest = style_data.get("style_manifest")
-                courseware.extra_css = style_data.get("extra_css")
-                courseware.page_class_plan = style_data.get("page_class_plan")
-        except Exception as style_exc:
+            if render_markdown:
+                courseware.render_markdown = render_markdown
+                logger.info(
+                    "Render rewrite succeeded",
+                    extra={"project_id": project_id},
+                )
+        except Exception as rewrite_exc:
             logger.warning(
-                f"Style generation failed, using fallback: {style_exc}",
+                f"Render rewrite failed, will use template fallback: {rewrite_exc}",
                 extra={"project_id": project_id},
             )
+            # 回退到样式生成
+            try:
+                style_data = await _generate_courseware_style(
+                    ai_service,
+                    courseware.markdown_content,
+                    outline_document,
+                )
+                if style_data:
+                    courseware.style_manifest = style_data.get("style_manifest")
+                    courseware.extra_css = style_data.get("extra_css")
+                    courseware.page_class_plan = style_data.get("page_class_plan")
+            except Exception as style_exc:
+                logger.warning(
+                    f"Style generation also failed: {style_exc}",
+                    extra={"project_id": project_id},
+                )
 
         logger.info(
             "Courseware content generated successfully",

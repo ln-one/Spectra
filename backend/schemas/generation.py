@@ -219,12 +219,16 @@ class CoursewareContent(BaseModel):
         description="PPT 的正文级 Markdown 内容；Marp frontmatter 与模板样式在渲染前注入",
     )
     lesson_plan_markdown: str = Field(..., description="教案的 Markdown 内容")
-    style_manifest: Optional[StyleManifest] = Field(
-        None, description="样式清单；样式生成阶段输出"
+    render_markdown: Optional[str] = Field(
+        None,
+        description="最终可渲染的完整 Marp 文档（含 frontmatter + style + slides）；优先用于渲染，无则回退模板包装",
     )
-    extra_css: Optional[str] = Field(None, description="额外 CSS；受控补充样式")
+    style_manifest: Optional[StyleManifest] = Field(
+        None, description="样式清单；样式生成阶段输出（fallback 用）"
+    )
+    extra_css: Optional[str] = Field(None, description="额外 CSS；受控补充样式（fallback 用）")
     page_class_plan: Optional[List[PageClassItem]] = Field(
-        None, description="页面 class 计划；每页的类型、密度与 class"
+        None, description="页面 class 计划；每页的类型、密度与 class（fallback 用）"
     )
 
     @field_validator("title")

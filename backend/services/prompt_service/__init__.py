@@ -12,6 +12,7 @@ from .courseware import build_courseware_prompt, build_modify_prompt
 from .escaping import escape_prompt_text
 from .intent import build_intent_prompt
 from .rag import format_rag_context as _format_rag_context
+from .render_rewrite import build_courseware_render_rewrite_prompt
 from .semantics import (
     PROMPT_OUTPUT_MARKERS,
     PromptCitationStyle,
@@ -85,6 +86,20 @@ class PromptService:
             session_id=session_id,
             rag_context=rag_context,
             conversation_history=conversation_history,
+        )
+
+    def build_courseware_render_rewrite_prompt(
+        self,
+        markdown_content: str,
+        title: str,
+        slide_count: int,
+        outline_summary: Optional[str] = None,
+    ) -> str:
+        return build_courseware_render_rewrite_prompt(
+            markdown_content=markdown_content,
+            title=title,
+            slide_count=slide_count,
+            outline_summary=outline_summary,
         )
 
 

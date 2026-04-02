@@ -42,6 +42,7 @@ async def build_rendered_preview_payload(
     markdown_content: str,
     template_config: Optional[dict] = None,
     slide_ids: Optional[list[str]] = None,
+    render_markdown: Optional[str] = None,
     style_manifest: Optional[dict] = None,
     extra_css: Optional[str] = None,
     page_class_plan: Optional[list[dict]] = None,
@@ -58,6 +59,7 @@ async def build_rendered_preview_payload(
                     "title": title or "课件预览",
                     "markdown_content": markdown_content,
                     "lesson_plan_markdown": "",
+                    "render_markdown": render_markdown,
                     "style_manifest": (
                         type("StyleManifest", (), style_manifest)()
                         if style_manifest

@@ -37,6 +37,7 @@ class CoursewareContent(BaseModel):
     title: str
     markdown_content: str  # PPT 正文级 Markdown；不要求预先包含 Marp frontmatter
     lesson_plan_markdown: str  # 教案的 Markdown 内容
+    render_markdown: Optional[str] = None  # 最终可渲染的完整 Marp 文档；优先用于渲染
     style_manifest: Optional[StyleManifest] = None
     extra_css: Optional[str] = None
     page_class_plan: Optional[List[PageClassItem]] = None

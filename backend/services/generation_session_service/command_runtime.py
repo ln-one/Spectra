@@ -175,6 +175,21 @@ async def handle_regenerate_slide(
             rag_context=rag_context,
             strict_source_mode=bool(rag_context),
         )
+
+        # 修改后触发完整 render rewrite
+        new_render_markdown = None
+        try:
+            from services.courseware_ai.generation import _generate_courseware_render_rewrite
+
+            new_render_markdown = await _generate_courseware_render_rewrite(
+                ai_service,
+                modified.markdown_content,
+                modified.title or preview_content.get("title", ""),
+                outline_document=None,
+            )
+        except Exception as rewrite_exc:
+            logger.warning(f"Render rewrite after modify failed: {rewrite_exc}")
+
         template_config = _extract_template_config(session=session, task=latest_task)
         next_render_version = int(getattr(session, "renderVersion", 0) or 0) + 1
         updated_preview = {
@@ -189,6 +204,7 @@ async def handle_regenerate_slide(
                 or preview_content.get("lesson_plan_markdown")
                 or ""
             ),
+            "render_markdown": new_render_markdown or preview_content.get("render_markdown"),
             "style_manifest": preview_content.get("style_manifest"),
             "extra_css": preview_content.get("extra_css"),
             "page_class_plan": preview_content.get("page_class_plan"),
