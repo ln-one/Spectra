@@ -56,6 +56,15 @@ python3 scripts/architecture_guard.py
 uvicorn main:app --reload
 ```
 
+## Stable Test Entry (Windows)
+
+To avoid accidentally using system/Anaconda Python, run pytest via the repo venv wrapper:
+
+```powershell
+cd backend
+.\scripts\run_pytest.ps1 -m "not integration and not slow"
+```
+
 ## Development Constraints
 
 - routers should not accumulate complex business orchestration
