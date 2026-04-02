@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from enum import Enum
 
@@ -239,7 +240,46 @@ def resolve_capability_from_artifact(
 
 
 def build_artifact_download_filename(
-    artifact_type: ArtifactType | str, artifact_id: str
+    artifact_type: ArtifactType | str,
+    artifact_id: str,
+    *,
+    metadata: dict | str | None = None,
 ) -> str:
     normalized = normalize_artifact_type(artifact_type)
-    return f"{normalized}_{artifact_id}.{get_artifact_extension(normalized)}"
+    extension = get_artifact_extension(normalized)
+    title = _extract_artifact_title(metadata)
+    if title:
+        safe_title = _sanitize_download_basename(title)
+        if safe_title:
+            return f"{safe_title}.{extension}"
+    return f"{normalized}_{artifact_id}.{extension}"
+
+
+def _extract_artifact_title(metadata: dict | str | None) -> str:
+    parsed: dict = {}
+    if isinstance(metadata, dict):
+        parsed = metadata
+    elif isinstance(metadata, str) and metadata.strip():
+        try:
+            loaded = json.loads(metadata)
+        except (TypeError, json.JSONDecodeError):
+            loaded = {}
+        if isinstance(loaded, dict):
+            parsed = loaded
+    title = str(parsed.get("title") or "").strip()
+    return title[:120]
+
+
+def _sanitize_download_basename(value: str) -> str:
+    # Windows reserved characters and control chars are replaced with underscores.
+    blocked = '<>:"/\\|?*'
+    sanitized_chars = []
+    for ch in str(value or "").strip():
+        if ord(ch) < 32 or ch in blocked:
+            sanitized_chars.append("_")
+            continue
+        sanitized_chars.append(ch)
+    sanitized = "".join(sanitized_chars).strip(" .")
+    if not sanitized:
+        return ""
+    return sanitized[:80]

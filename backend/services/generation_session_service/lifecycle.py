@@ -10,7 +10,6 @@ from services.generation_session_service.public_library_inputs import (
 )
 from services.generation_session_service.session_history import (
     SESSION_TITLE_SOURCE_DEFAULT,
-    build_default_session_title,
     build_numbered_default_session_title,
 )
 from services.platform.generation_event_constants import GenerationEventType
@@ -77,7 +76,9 @@ async def create_session(
             "clientSessionId": client_session_id,
         }
         if not getattr(existing_session, "displayTitle", None):
-            update_data["displayTitle"] = build_default_session_title()
+            update_data["displayTitle"] = await _resolve_next_default_session_title(
+                db, project_id
+            )
             update_data["displayTitleSource"] = SESSION_TITLE_SOURCE_DEFAULT
         if (
             getattr(existing_session, "baseVersionId", None) is None
