@@ -82,6 +82,9 @@ class GenerationService:
             FileSystemError: 文件系统错误
             GenerationTimeoutError: 执行超时
         """
+        if template_config is None:
+            template_config = TemplateConfig()
+
         # 优先使用 render_markdown，无则回退模板包装
         if content.render_markdown:
             logger.debug(f"[Task: {task_id}] Using render_markdown directly")
