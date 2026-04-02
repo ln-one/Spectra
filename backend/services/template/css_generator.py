@@ -23,7 +23,8 @@ def generate_design_family_css(design_name: str) -> str:
         "academic_modern": _ACADEMIC_MODERN_CSS,
         "visual_cards": _VISUAL_CARDS_CSS,
     }
-    return designs.get(design_name, _ACADEMIC_MODERN_CSS)
+    base_css = designs.get(design_name, _ACADEMIC_MODERN_CSS)
+    return base_css + "\n" + _MERMAID_STYLES
 
 
 def compile_manifest_css(manifest: dict) -> str:
@@ -393,6 +394,29 @@ section.density-dense li {
   border-radius: 8px;
   margin: 25px 0;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+"""
+
+_MERMAID_STYLES = """
+/* Mermaid 图表样式 */
+.mermaid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 30px 0;
+  padding: 20px;
+}
+
+.mermaid svg {
+  max-width: 90%;
+  max-height: 400px;
+  height: auto;
+}
+
+section.content .mermaid {
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
 }
 """
 
