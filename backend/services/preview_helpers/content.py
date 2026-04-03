@@ -49,7 +49,12 @@ async def load_preview_material(
             if not project:
                 raise ValueError("project not found for preview")
             content = await get_or_generate_content(task, project)
-            slide_models = build_slides(task.id, content.get("markdown_content", ""))
+            slide_models = build_slides(
+                task.id,
+                content.get("markdown_content", ""),
+                image_metadata=content.get("image_metadata"),
+                render_markdown=content.get("render_markdown"),
+            )
             rendered_preview = content.get("rendered_preview")
             if not isinstance(rendered_preview, dict):
                 rendered_preview = await build_rendered_preview_payload(

@@ -29,9 +29,14 @@ def _parse_marp_slides(markdown_content: str) -> list[dict]:
 
 
 def build_slides(
-    task_id: str, markdown_content: str, image_metadata: dict | None = None
+    task_id: str,
+    markdown_content: str,
+    image_metadata: dict | None = None,
+    render_markdown: str | None = None,
 ) -> list[Slide]:
-    raw_slides = _parse_marp_slides(markdown_content)
+    # 优先使用 render_markdown
+    source = render_markdown if render_markdown else markdown_content
+    raw_slides = _parse_marp_slides(source)
     slides_meta = (
         (image_metadata or {}).get("slides_metadata", []) if image_metadata else []
     )
