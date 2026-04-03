@@ -2,39 +2,28 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Layers, X } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { panelVariants, overlayVariants } from "./motion";
 import { useLibraryDrawerData } from "./useLibraryDrawerData";
-import { ArtifactsTab } from "./tabs/ArtifactsTab";
-import { ChangesTab } from "./tabs/ChangesTab";
-import { MembersTab } from "./tabs/MembersTab";
 import { ReferencesTab } from "./tabs/ReferencesTab";
-import { VersionsTab } from "./tabs/VersionsTab";
 
 interface LibraryDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
+  onReferencesChanged?: () => void;
 }
 
 export function LibraryDrawer({
   open,
   onOpenChange,
   projectId,
+  onReferencesChanged,
 }: LibraryDrawerProps) {
   const {
-    activeTab,
-    setActiveTab,
     references,
-    versions,
-    artifacts,
-    members,
-    changes,
     referencesState,
-    versionsState,
-    artifactsState,
-    membersState,
-    changesState,
+    librariesState,
+    availableLibraries,
     newReferenceTarget,
     setNewReferenceTarget,
     newReferenceRelationType,
@@ -45,48 +34,19 @@ export function LibraryDrawer({
     setNewReferencePinnedVersion,
     newReferencePriority,
     setNewReferencePriority,
-
-    newArtifactType,
-    setNewArtifactType,
-    newArtifactVisibility,
-    setNewArtifactVisibility,
-    newArtifactMode,
-    setNewArtifactMode,
-    newArtifactSessionId,
-    setNewArtifactSessionId,
-    newArtifactBasedVersionId,
-    setNewArtifactBasedVersionId,
-
-    newMemberUserId,
-    setNewMemberUserId,
-    newMemberRole,
-    setNewMemberRole,
-
-    newChangeTitle,
-    setNewChangeTitle,
-    newChangeSummary,
-    setNewChangeSummary,
-    reviewComment,
-    setReviewComment,
-
     loadReferences,
-    loadVersions,
-    loadArtifacts,
-    loadMembers,
-    loadChanges,
+    loadAvailableLibraries,
     handleAddReference,
     handleDeleteReference,
     handleToggleReferenceStatus,
     handleUpdateReferencePriority,
-    handleCreateArtifact,
-    handleDownloadArtifact,
-    handleAddMember,
-    handleUpdateMemberRole,
-    handleToggleMemberStatus,
-    handleDeleteMember,
-    handleCreateCandidateChange,
-    handleReviewCandidateChange,
+    handleQuickAddReference,
   } = useLibraryDrawerData(projectId, open);
+
+  const handleReferenceChanged = async (task: () => Promise<void>) => {
+    await task();
+    onReferencesChanged?.();
+  };
 
   return (
     <AnimatePresence>
@@ -109,7 +69,7 @@ export function LibraryDrawer({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="project-library-drawer fixed z-50 right-5 top-[76px] bottom-5 w-[480px] rounded-3xl backdrop-blur-2xl border border-white/50 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.03)] flex flex-col overflow-hidden"
+            className="project-library-drawer fixed z-50 bottom-5 right-5 top-[76px] flex w-[460px] flex-col overflow-hidden rounded-3xl border border-white/50 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.03)] backdrop-blur-2xl"
             style={{ willChange: "transform, opacity" }}
           >
             <div className="project-library-header px-6 py-5 border-b border-[var(--project-control-border)] bg-[var(--project-control-bg)] relative overflow-hidden shrink-0">
@@ -124,7 +84,7 @@ export function LibraryDrawer({
                       Library
                     </h2>
                     <p className="text-[12px] text-[var(--project-control-muted)] mt-0.5 leading-snug">
-                      资源 路 版本 路 工件 路 成员 路 变更
+                      引用库管理
                     </p>
                   </div>
                 </div>
@@ -140,115 +100,51 @@ export function LibraryDrawer({
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-hidden px-5 py-4 flex flex-col">
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className="flex-1 min-h-0 flex flex-col"
-              >
-                <TabsList className="project-library-tabs grid grid-cols-5 w-full backdrop-blur-md border border-[var(--project-control-border)] rounded-[var(--project-chip-radius)] p-1 gap-1 h-auto shrink-0">
-                  <TabsTrigger
-                    value="references"
-                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
-                  >
-                    引用
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="versions"
-                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
-                  >
-                    版本
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="artifacts"
-                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
-                  >
-                    工件
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="members"
-                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
-                  >
-                    成员
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="changes"
-                    className="project-library-tab-trigger text-[13px] font-semibold py-1.5 rounded-[var(--project-chip-radius)] data-[state=active]:bg-[var(--project-surface-elevated)] data-[state=active]:shadow-sm data-[state=active]:text-[var(--project-control-text)] transition-all text-[var(--project-control-muted)]"
-                  >
-                    变更
-                  </TabsTrigger>
-                </TabsList>
-
-                <div className="flex-1 min-h-0 mt-4 overflow-auto scrollbar-hide pb-6">
-                  <ReferencesTab
-                    references={references}
-                    state={referencesState}
-                    newReferenceTarget={newReferenceTarget}
-                    setNewReferenceTarget={setNewReferenceTarget}
-                    newReferenceRelationType={newReferenceRelationType}
-                    setNewReferenceRelationType={setNewReferenceRelationType}
-                    newReferenceMode={newReferenceMode}
-                    setNewReferenceMode={setNewReferenceMode}
-                    newReferencePinnedVersion={newReferencePinnedVersion}
-                    setNewReferencePinnedVersion={setNewReferencePinnedVersion}
-                    newReferencePriority={newReferencePriority}
-                    setNewReferencePriority={setNewReferencePriority}
-                    onAddReference={handleAddReference}
-                    onDeleteReference={handleDeleteReference}
-                    onToggleReferenceStatus={handleToggleReferenceStatus}
-                    onUpdateReferencePriority={handleUpdateReferencePriority}
-                    onReload={loadReferences}
-                  />
-                  <VersionsTab
-                    versions={versions}
-                    state={versionsState}
-                    onReload={loadVersions}
-                  />
-                  <ArtifactsTab
-                    artifacts={artifacts}
-                    state={artifactsState}
-                    newArtifactType={newArtifactType}
-                    setNewArtifactType={setNewArtifactType}
-                    newArtifactVisibility={newArtifactVisibility}
-                    setNewArtifactVisibility={setNewArtifactVisibility}
-                    newArtifactMode={newArtifactMode}
-                    setNewArtifactMode={setNewArtifactMode}
-                    newArtifactSessionId={newArtifactSessionId}
-                    setNewArtifactSessionId={setNewArtifactSessionId}
-                    newArtifactBasedVersionId={newArtifactBasedVersionId}
-                    setNewArtifactBasedVersionId={setNewArtifactBasedVersionId}
-                    onCreateArtifact={handleCreateArtifact}
-                    onDownloadArtifact={handleDownloadArtifact}
-                    onReload={loadArtifacts}
-                  />
-                  <MembersTab
-                    members={members}
-                    state={membersState}
-                    newMemberUserId={newMemberUserId}
-                    setNewMemberUserId={setNewMemberUserId}
-                    newMemberRole={newMemberRole}
-                    setNewMemberRole={setNewMemberRole}
-                    onAddMember={handleAddMember}
-                    onUpdateMemberRole={handleUpdateMemberRole}
-                    onToggleMemberStatus={handleToggleMemberStatus}
-                    onDeleteMember={handleDeleteMember}
-                    onReload={loadMembers}
-                  />
-                  <ChangesTab
-                    changes={changes}
-                    state={changesState}
-                    newChangeTitle={newChangeTitle}
-                    setNewChangeTitle={setNewChangeTitle}
-                    newChangeSummary={newChangeSummary}
-                    setNewChangeSummary={setNewChangeSummary}
-                    reviewComment={reviewComment}
-                    setReviewComment={setReviewComment}
-                    onCreateCandidateChange={handleCreateCandidateChange}
-                    onReviewCandidateChange={handleReviewCandidateChange}
-                    onReload={loadChanges}
-                  />
-                </div>
-              </Tabs>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4">
+              <div className="mt-1 min-h-0 flex-1 overflow-auto pb-6 scrollbar-hide">
+                <ReferencesTab
+                  projectId={projectId}
+                  references={references}
+                  state={referencesState}
+                  librariesState={librariesState}
+                  availableLibraries={availableLibraries}
+                  newReferenceTarget={newReferenceTarget}
+                  setNewReferenceTarget={setNewReferenceTarget}
+                  newReferenceRelationType={newReferenceRelationType}
+                  setNewReferenceRelationType={setNewReferenceRelationType}
+                  newReferenceMode={newReferenceMode}
+                  setNewReferenceMode={setNewReferenceMode}
+                  newReferencePinnedVersion={newReferencePinnedVersion}
+                  setNewReferencePinnedVersion={setNewReferencePinnedVersion}
+                  newReferencePriority={newReferencePriority}
+                  setNewReferencePriority={setNewReferencePriority}
+                  onAddReference={() =>
+                    handleReferenceChanged(handleAddReference)
+                  }
+                  onDeleteReference={(referenceId) =>
+                    handleReferenceChanged(() =>
+                      handleDeleteReference(referenceId)
+                    )
+                  }
+                  onToggleReferenceStatus={(referenceId, currentStatus) =>
+                    handleReferenceChanged(() =>
+                      handleToggleReferenceStatus(referenceId, currentStatus)
+                    )
+                  }
+                  onUpdateReferencePriority={(referenceId, priority) =>
+                    handleReferenceChanged(() =>
+                      handleUpdateReferencePriority(referenceId, priority)
+                    )
+                  }
+                  onQuickAddReference={(targetProjectId, options) =>
+                    handleReferenceChanged(() =>
+                      handleQuickAddReference(targetProjectId, options)
+                    )
+                  }
+                  onReload={loadReferences}
+                  onReloadLibraries={loadAvailableLibraries}
+                />
+              </div>
             </div>
           </motion.div>
         </>

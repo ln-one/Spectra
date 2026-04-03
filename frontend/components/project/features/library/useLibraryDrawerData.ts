@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { projectSpaceApi } from "@/lib/sdk";
+import { projectSpaceApi, projectsApi } from "@/lib/sdk";
 import { ApiError } from "@/lib/sdk/client";
 import type {
+  AvailableLibraryProject,
   Artifact,
   CandidateChange,
   ProjectMember,
@@ -26,6 +27,53 @@ function formatLibraryError(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeLibraryProject(raw: unknown): AvailableLibraryProject | null {
+  const project = asRecord(raw);
+  if (!project) return null;
+
+  const id = typeof project.id === "string" ? project.id : "";
+  if (!id) return null;
+
+  const name =
+    typeof project.name === "string" && project.name.trim()
+      ? project.name
+      : id;
+  const description =
+    typeof project.description === "string" ? project.description : "";
+  const status = typeof project.status === "string" ? project.status : "draft";
+  const visibilityRaw = project.visibility;
+  const visibility =
+    visibilityRaw === "shared" || visibilityRaw === "private"
+      ? visibilityRaw
+      : "unknown";
+  const isReferenceableRaw =
+    project.is_referenceable ?? project.isReferenceable;
+  const isReferenceable = isReferenceableRaw === true;
+  const currentVersionIdRaw =
+    project.current_version_id ?? project.currentVersionId;
+  const currentVersionId =
+    typeof currentVersionIdRaw === "string" && currentVersionIdRaw.trim()
+      ? currentVersionIdRaw
+      : null;
+
+  return {
+    id,
+    name,
+    description,
+    status,
+    visibility,
+    isReferenceable,
+    currentVersionId,
+  };
 }
 
 function parsePriority(value: string): number {
@@ -62,6 +110,10 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [changes, setChanges] = useState<CandidateChange[]>([]);
   const [referencesState, setReferencesState] = useState<TabState>({
+    loading: false,
+    error: null,
+  });
+  const [librariesState, setLibrariesState] = useState<TabState>({
     loading: false,
     error: null,
   });
@@ -114,6 +166,9 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
   const [newChangeTitle, setNewChangeTitle] = useState("");
   const [newChangeSummary, setNewChangeSummary] = useState("");
   const [reviewComment, setReviewComment] = useState("");
+  const [availableLibraries, setAvailableLibraries] = useState<
+    AvailableLibraryProject[]
+  >([]);
 
   const loadReferences = useCallback(async () => {
     setReferencesState({ loading: true, error: null });
@@ -125,6 +180,33 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       setReferencesState({
         loading: false,
         error: formatLibraryError(error, "加载引用失败"),
+      });
+    }
+  }, [projectId]);
+
+  const loadAvailableLibraries = useCallback(async () => {
+    setLibrariesState({ loading: true, error: null });
+    try {
+      const response = await projectsApi.getProjects({ page: 1, limit: 100 });
+      const normalized = (response.data.projects ?? [])
+        .map((project) => normalizeLibraryProject(project))
+        .filter((project): project is AvailableLibraryProject => !!project)
+        .filter((project) => project.id !== projectId)
+        .sort((a, b) => {
+          if (a.isReferenceable !== b.isReferenceable) {
+            return a.isReferenceable ? -1 : 1;
+          }
+          if (a.visibility !== b.visibility) {
+            return a.visibility === "shared" ? -1 : 1;
+          }
+          return a.name.localeCompare(b.name, "zh-CN");
+        });
+      setAvailableLibraries(normalized);
+      setLibrariesState({ loading: false, error: null });
+    } catch (error) {
+      setLibrariesState({
+        loading: false,
+        error: formatLibraryError(error, "加载库列表失败"),
       });
     }
   }, [projectId]);
@@ -188,37 +270,43 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
   useEffect(() => {
     if (!open) return;
     queueMicrotask(() => {
-      void Promise.all([
-        loadReferences(),
-        loadVersions(),
-        loadArtifacts(),
-        loadMembers(),
-        loadChanges(),
-      ]);
+      void Promise.all([loadReferences(), loadAvailableLibraries()]);
     });
-  }, [
-    loadArtifacts,
-    loadChanges,
-    loadMembers,
-    loadReferences,
-    loadVersions,
-    open,
-  ]);
+  }, [loadAvailableLibraries, loadReferences, open]);
+
+  const createReferenceByTarget = useCallback(
+    async (
+      targetProjectId: string,
+      options?: { pinnedVersionId?: string | null }
+    ) => {
+      const normalizedTargetId = targetProjectId.trim();
+      if (!normalizedTargetId) return;
+      const pinnedVersionId = options?.pinnedVersionId || null;
+      await projectSpaceApi.createReference(projectId, {
+        target_project_id: normalizedTargetId,
+        relation_type: newReferenceRelationType,
+        mode: newReferenceMode,
+        pinned_version_id:
+          newReferenceMode === "pinned"
+            ? pinnedVersionId || newReferencePinnedVersion.trim() || null
+            : null,
+        priority: parsePriority(newReferencePriority),
+      });
+    },
+    [
+      newReferenceMode,
+      newReferencePinnedVersion,
+      newReferencePriority,
+      newReferenceRelationType,
+      projectId,
+    ]
+  );
 
   const handleAddReference = async () => {
     const targetId = newReferenceTarget.trim();
     if (!targetId) return;
     try {
-      await projectSpaceApi.createReference(projectId, {
-        target_project_id: targetId,
-        relation_type: newReferenceRelationType,
-        mode: newReferenceMode,
-        pinned_version_id:
-          newReferenceMode === "pinned"
-            ? newReferencePinnedVersion.trim() || null
-            : null,
-        priority: parsePriority(newReferencePriority),
-      });
+      await createReferenceByTarget(targetId);
       setReferencesState({ loading: false, error: null });
       setNewReferenceTarget("");
       setNewReferencePinnedVersion("");
@@ -227,6 +315,24 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       setReferencesState({
         loading: false,
         error: formatLibraryError(error, "新增引用失败"),
+      });
+    }
+  };
+
+  const handleQuickAddReference = async (
+    targetProjectId: string,
+    options?: { pinnedVersionId?: string | null }
+  ) => {
+    try {
+      await createReferenceByTarget(targetProjectId, options);
+      setReferencesState({ loading: false, error: null });
+      setNewReferenceTarget("");
+      setNewReferencePinnedVersion("");
+      await loadReferences();
+    } catch (error) {
+      setReferencesState({
+        loading: false,
+        error: formatLibraryError(error, "引入库失败"),
       });
     }
   };
@@ -440,6 +546,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     members,
     changes,
     referencesState,
+    librariesState,
     versionsState,
     artifactsState,
     membersState,
@@ -478,8 +585,10 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     setNewChangeSummary,
     reviewComment,
     setReviewComment,
+    availableLibraries,
 
     loadReferences,
+    loadAvailableLibraries,
     loadVersions,
     loadArtifacts,
     loadMembers,
@@ -489,6 +598,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     handleDeleteReference,
     handleToggleReferenceStatus,
     handleUpdateReferencePriority,
+    handleQuickAddReference,
 
     handleCreateArtifact,
     handleDownloadArtifact,

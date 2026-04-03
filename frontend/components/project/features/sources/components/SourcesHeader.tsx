@@ -3,7 +3,6 @@
 import {
   ChevronsDown,
   ChevronsUp,
-  Database,
   PanelRightClose,
   PanelRightOpen,
   Upload,
@@ -19,6 +18,7 @@ interface SourcesHeaderProps {
   isExpandedContentCollapsed: boolean;
   uploadingTasksCount: number;
   fileCount: number;
+  libraryCount: number;
   selectedCount: number;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   headerActionsRef: React.RefObject<HTMLDivElement | null>;
@@ -34,6 +34,7 @@ export function SourcesHeader({
   isExpandedContentCollapsed,
   uploadingTasksCount,
   fileCount,
+  libraryCount,
   selectedCount,
   fileInputRef,
   headerActionsRef,
@@ -87,7 +88,9 @@ export function SourcesHeader({
                 <span className="truncate whitespace-nowrap">教学资料</span>
               </CardTitle>
               <CardDescription className="mt-0.5 truncate text-xs font-medium leading-tight text-[var(--project-text-muted)]">
-                {`${fileCount} 个文件 · ${selectedCount} 已选${
+                {`${fileCount} 个文件${
+                  libraryCount > 0 ? ` · ${libraryCount} 个引用库` : ""
+                } · ${selectedCount} 已选${
                   uploadingTasksCount > 0
                     ? ` · 上传中 ${uploadingTasksCount} 个`
                     : ""

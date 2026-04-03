@@ -17,12 +17,14 @@ interface FileItemProps {
   file: UploadedFile;
   isSelected: boolean;
   onToggle: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   isCompact: boolean;
   isFocused: boolean;
   focusDetail?: SourceFocusDetail | null;
   isExpanded: boolean;
   onCollapse: () => void;
+  statusText?: string;
+  hideDeleteAction?: boolean;
 }
 
 export function FileItem({
@@ -35,15 +37,18 @@ export function FileItem({
   focusDetail,
   isExpanded,
   onCollapse,
+  statusText,
+  hideDeleteAction = false,
 }: FileItemProps) {
   const fileType = getFileTypeFromExtension(file.filename);
   const config = FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
   const statusConfig = STATUS_CONFIG[file.status] || STATUS_CONFIG.uploading;
+  const resolvedStatusText = statusText || getFileStatusText(file);
   const Icon = config.icon;
   const focusTimestampSeconds = toSeconds(focusDetail?.source?.timestamp);
 
   if (isCompact) {
-    const compactHint = `${file.filename}\n${getFileStatusText(file)}`;
+    const compactHint = `${file.filename}\n${resolvedStatusText}`;
     return (
       <motion.div
         layout
@@ -138,7 +143,7 @@ export function FileItem({
         </p>
 
         <p className="mt-0.5 truncate text-[10px] text-[var(--project-text-muted)]">
-          {getFileStatusText(file)}
+          {resolvedStatusText}
         </p>
 
         {file.status === "parsing" && file.parse_progress !== undefined ? (
@@ -164,17 +169,19 @@ export function FileItem({
           )}
         />
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete();
-          }}
-          className="h-6 w-6 shrink-0 rounded-md bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] transition-colors hover:bg-red-50 hover:text-red-500"
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
+        {!hideDeleteAction ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete?.();
+            }}
+            className="h-6 w-6 shrink-0 rounded-md bg-[var(--project-surface-muted)] text-[var(--project-text-muted)] transition-colors hover:bg-red-50 hover:text-red-500"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        ) : null}
       </div>
 
       {isSelected ? (
@@ -220,7 +227,7 @@ export function FileItem({
               )}
             </div>
             <div className="mt-1 text-[var(--project-text-primary)]">
-              {getFileStatusText(file)}
+              {resolvedStatusText}
             </div>
           </motion.div>
         ) : null}

@@ -47,6 +47,8 @@ export default function ProjectDetailPage() {
     isCreatingSession,
     isLibraryOpen,
     setIsLibraryOpen,
+    activeReferences,
+    handleReferencesChanged,
     selectedThemePreset,
     setSelectedThemePreset,
     panelAreaRef,
@@ -301,6 +303,7 @@ export default function ProjectDetailPage() {
           >
             <SourcesPanel
               projectId={projectId}
+              referencedLibraries={activeReferences}
               isCollapsed={isSourcesCollapsedByWidth}
               onToggleCollapsed={toggleSourcesCollapsed}
               isStudioExpanded={isExpanded}
@@ -322,6 +325,7 @@ export default function ProjectDetailPage() {
         open={isLibraryOpen}
         onOpenChange={setIsLibraryOpen}
         projectId={projectId}
+        onReferencesChanged={handleReferencesChanged}
       />
 
       <OnboardingTour projectId={projectId} />

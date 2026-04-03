@@ -1,19 +1,23 @@
 "use client";
 
+import { useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { File } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { ProjectReference } from "../library/types";
 import { WEB_SOURCE_CARD_ID } from "./constants";
 import { FileItem } from "./components/FileItem";
 import { SourcesHeader } from "./components/SourcesHeader";
 import { WebSourceCard } from "./components/WebSourceCard";
+import type { UploadedFile } from "./types";
 import { useSourcesPanelController } from "./useSourcesPanelController";
 
 interface SourcesPanelProps {
   projectId: string;
+  referencedLibraries?: ProjectReference[];
   isCollapsed?: boolean;
   onToggleCollapsed?: (action?: "collapse" | "expand" | "toggle") => void;
   isStudioExpanded?: boolean;
@@ -23,6 +27,7 @@ interface SourcesPanelProps {
 
 export function SourcesPanel({
   projectId,
+  referencedLibraries = [],
   isCollapsed = false,
   onToggleCollapsed,
   isStudioExpanded = false,
@@ -55,7 +60,46 @@ export function SourcesPanel({
     isStudioExpanded,
     isExpandedContentCollapsed,
   });
-  const shouldAnimateList = files.length <= 12;
+  const activeReferencedLibraries = useMemo(
+    () =>
+      [...referencedLibraries]
+        .filter((reference) => reference.status === "active")
+        .sort((a, b) => {
+          if (a.relation_type !== b.relation_type) {
+            return a.relation_type === "base" ? -1 : 1;
+          }
+          return (a.priority ?? 999) - (b.priority ?? 999);
+        }),
+    [referencedLibraries]
+  );
+  const referencedLibraryCards = useMemo(
+    () =>
+      activeReferencedLibraries.map((reference) => {
+        const relationLabel =
+          reference.relation_type === "base" ? "主基底" : "辅助";
+        const modeLabel =
+          reference.mode === "follow" ? "跟随更新" : "固定版本";
+        const statusText = `引用库 · ${relationLabel} · ${modeLabel}`;
+        const syntheticFile: UploadedFile = {
+          id: `reference-${reference.id}`,
+          filename: `${reference.target_project_id}.library`,
+          file_type: "pdf",
+          file_size: 0,
+          status: "ready",
+          created_at: reference.created_at,
+          updated_at: reference.updated_at,
+        };
+        return {
+          id: reference.id,
+          file: syntheticFile,
+          statusText,
+        };
+      }),
+    [activeReferencedLibraries]
+  );
+  const shouldAnimateList = files.length + referencedLibraryCards.length <= 12;
+  const hasAnyMaterialSources =
+    files.length > 0 || referencedLibraryCards.length > 0;
 
   return (
     <div
@@ -72,6 +116,7 @@ export function SourcesPanel({
           isExpandedContentCollapsed={isExpandedContentCollapsed}
           uploadingTasksCount={uploadingTasksCount}
           fileCount={files.length}
+          libraryCount={referencedLibraryCards.length}
           selectedCount={selectedFileIds.length}
           fileInputRef={fileInputRef}
           headerActionsRef={headerActionsRef}
@@ -83,7 +128,7 @@ export function SourcesPanel({
         <CardContent className="h-[calc(100%-52px)] overflow-hidden p-0">
           {isHorizontalIconMode ? (
             <div className="h-full overflow-hidden px-3 py-1">
-              {files.length === 0 ? (
+              {!hasAnyMaterialSources ? (
                 <div className="flex h-full flex-col">
                   <div className="pb-2 pt-1">
                     <WebSourceCard isCompact={true} />
@@ -114,6 +159,31 @@ export function SourcesPanel({
                       }}
                     >
                       <div className="project-sources-horizontal-track flex min-w-max items-center gap-3 px-0.5 py-1">
+                        {referencedLibraryCards.map((referenceCard) => (
+                          <div
+                            key={referenceCard.id}
+                            ref={(element) =>
+                              registerFileRef(
+                                `ref-${referenceCard.id}`,
+                                element
+                              )
+                            }
+                            className="shrink-0"
+                          >
+                            <FileItem
+                              file={referenceCard.file}
+                              isSelected={true}
+                              onToggle={() => undefined}
+                              isCompact={true}
+                              isFocused={false}
+                              focusDetail={null}
+                              isExpanded={false}
+                              onCollapse={() => undefined}
+                              statusText={referenceCard.statusText}
+                              hideDeleteAction={true}
+                            />
+                          </div>
+                        ))}
                         <div
                           key={WEB_SOURCE_CARD_ID}
                           ref={(element) =>
@@ -160,7 +230,7 @@ export function SourcesPanel({
           ) : (
             <ScrollArea className="h-full w-full">
               <div className="min-h-full w-full max-w-full overflow-hidden px-3 py-3">
-                {files.length === 0 ? (
+                {!hasAnyMaterialSources ? (
                   <div className="flex h-full flex-col">
                     <div className="mb-2">
                       <WebSourceCard isCompact={isEffectiveCompact} />
@@ -186,6 +256,30 @@ export function SourcesPanel({
                   >
                     {shouldAnimateList ? (
                       <AnimatePresence mode="popLayout">
+                        {referencedLibraryCards.map((referenceCard) => (
+                          <div
+                            key={referenceCard.id}
+                            ref={(element) =>
+                              registerFileRef(
+                                `ref-${referenceCard.id}`,
+                                element
+                              )
+                            }
+                          >
+                            <FileItem
+                              file={referenceCard.file}
+                              isSelected={true}
+                              onToggle={() => undefined}
+                              isCompact={isEffectiveCompact}
+                              isFocused={false}
+                              focusDetail={null}
+                              isExpanded={false}
+                              onCollapse={() => undefined}
+                              statusText={referenceCard.statusText}
+                              hideDeleteAction={true}
+                            />
+                          </div>
+                        ))}
                         <div
                           key={WEB_SOURCE_CARD_ID}
                           ref={(element) =>
@@ -217,6 +311,30 @@ export function SourcesPanel({
                       </AnimatePresence>
                     ) : (
                       <>
+                        {referencedLibraryCards.map((referenceCard) => (
+                          <div
+                            key={referenceCard.id}
+                            ref={(element) =>
+                              registerFileRef(
+                                `ref-${referenceCard.id}`,
+                                element
+                              )
+                            }
+                          >
+                            <FileItem
+                              file={referenceCard.file}
+                              isSelected={true}
+                              onToggle={() => undefined}
+                              isCompact={isEffectiveCompact}
+                              isFocused={false}
+                              focusDetail={null}
+                              isExpanded={false}
+                              onCollapse={() => undefined}
+                              statusText={referenceCard.statusText}
+                              hideDeleteAction={true}
+                            />
+                          </div>
+                        ))}
                         <div
                           key={WEB_SOURCE_CARD_ID}
                           ref={(element) =>
