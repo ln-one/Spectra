@@ -80,6 +80,8 @@ export function SourcesPanel({
         const modeLabel =
           reference.mode === "follow" ? "跟随更新" : "固定版本";
         const statusText = `引用库 · ${relationLabel} · ${modeLabel}`;
+        const displayName =
+          reference.target_project_name?.trim() || reference.target_project_id;
         const syntheticFile: UploadedFile = {
           id: `reference-${reference.id}`,
           filename: `${reference.target_project_id}.library`,
@@ -92,6 +94,7 @@ export function SourcesPanel({
         return {
           id: reference.id,
           file: syntheticFile,
+          displayName,
           statusText,
         };
       }),
@@ -172,13 +175,15 @@ export function SourcesPanel({
                           >
                             <FileItem
                               file={referenceCard.file}
-                              isSelected={true}
+                              isSelected={false}
                               onToggle={() => undefined}
                               isCompact={true}
                               isFocused={false}
                               focusDetail={null}
                               isExpanded={false}
                               onCollapse={() => undefined}
+                              displayName={referenceCard.displayName}
+                              iconTypeOverride="library"
                               statusText={referenceCard.statusText}
                               hideDeleteAction={true}
                             />
@@ -268,13 +273,15 @@ export function SourcesPanel({
                           >
                             <FileItem
                               file={referenceCard.file}
-                              isSelected={true}
+                              isSelected={false}
                               onToggle={() => undefined}
                               isCompact={isEffectiveCompact}
                               isFocused={false}
                               focusDetail={null}
                               isExpanded={false}
                               onCollapse={() => undefined}
+                              displayName={referenceCard.displayName}
+                              iconTypeOverride="library"
                               statusText={referenceCard.statusText}
                               hideDeleteAction={true}
                             />
@@ -323,13 +330,15 @@ export function SourcesPanel({
                           >
                             <FileItem
                               file={referenceCard.file}
-                              isSelected={true}
+                              isSelected={false}
                               onToggle={() => undefined}
                               isCompact={isEffectiveCompact}
                               isFocused={false}
                               focusDetail={null}
                               isExpanded={false}
                               onCollapse={() => undefined}
+                              displayName={referenceCard.displayName}
+                              iconTypeOverride="library"
                               statusText={referenceCard.statusText}
                               hideDeleteAction={true}
                             />

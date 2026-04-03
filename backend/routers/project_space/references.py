@@ -1,5 +1,6 @@
 """Reference and candidate change routes for Project Space."""
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -32,6 +33,31 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+async def resolve_target_project_name_map(db_service, references) -> dict[str, str]:
+    target_ids = sorted(
+        {
+            str(getattr(reference, "targetProjectId", "")).strip()
+            for reference in references
+            if str(getattr(reference, "targetProjectId", "")).strip()
+        }
+    )
+    if not target_ids:
+        return {}
+
+    projects = await asyncio.gather(
+        *(db_service.get_project(target_id) for target_id in target_ids),
+        return_exceptions=True,
+    )
+    name_map: dict[str, str] = {}
+    for target_id, project in zip(target_ids, projects):
+        if isinstance(project, Exception) or project is None:
+            continue
+        name = str(getattr(project, "name", "")).strip()
+        if name:
+            name_map[target_id] = name
+    return name_map
+
+
 @router.post(
     "/{project_id}/references",
     response_model=ProjectReferenceResponse,
@@ -60,6 +86,9 @@ async def create_project_reference(
             db_service=project_space_service.db,
             references=[reference],
         )
+        target_name_map = await resolve_target_project_name_map(
+            project_space_service.db, [reference]
+        )
         return ProjectReferenceResponse(
             success=True,
             data={
@@ -68,6 +97,7 @@ async def create_project_reference(
                     upstream_current_version_id=version_map.get(
                         reference.targetProjectId
                     ),
+                    target_project_name=target_name_map.get(reference.targetProjectId),
                 )
             },
             message="创建引用成功",
@@ -93,6 +123,9 @@ async def get_project_references(
             db_service=project_space_service.db,
             references=references,
         )
+        target_name_map = await resolve_target_project_name_map(
+            project_space_service.db, references
+        )
         return ProjectReferencesResponse(
             success=True,
             data={
@@ -102,6 +135,7 @@ async def get_project_references(
                         upstream_current_version_id=version_map.get(
                             ref.targetProjectId
                         ),
+                        target_project_name=target_name_map.get(ref.targetProjectId),
                     )
                     for ref in references
                 ]
@@ -138,12 +172,18 @@ async def update_project_reference(
             db_service=project_space_service.db,
             references=[updated_ref],
         )
+        target_name_map = await resolve_target_project_name_map(
+            project_space_service.db, [updated_ref]
+        )
         return ProjectReferenceResponse(
             success=True,
             data={
                 "reference": to_project_reference_model(
                     updated_ref,
                     upstream_current_version_id=version_map.get(
+                        updated_ref.targetProjectId
+                    ),
+                    target_project_name=target_name_map.get(
                         updated_ref.targetProjectId
                     ),
                 )

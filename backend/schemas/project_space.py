@@ -212,6 +212,7 @@ class ProjectReference(ProjectReferenceBase):
 
     id: str
     project_id: str
+    target_project_name: Optional[str] = None
     status: ReferenceStatus = ReferenceStatus.ACTIVE
     effective_target_version_id: Optional[str] = None
     upstream_current_version_id: Optional[str] = None

@@ -1,6 +1,8 @@
 import type { components } from "@/lib/sdk/types";
 
-export type ProjectReference = components["schemas"]["ProjectReference"];
+export type ProjectReference = components["schemas"]["ProjectReference"] & {
+  target_project_name?: string | null;
+};
 export type ProjectVersion = components["schemas"]["ProjectVersion"];
 export type Artifact = components["schemas"]["Artifact"];
 export type ProjectMember = components["schemas"]["ProjectMember"];

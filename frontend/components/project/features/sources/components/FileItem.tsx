@@ -25,6 +25,8 @@ interface FileItemProps {
   onCollapse: () => void;
   statusText?: string;
   hideDeleteAction?: boolean;
+  displayName?: string;
+  iconTypeOverride?: string;
 }
 
 export function FileItem({
@@ -39,8 +41,11 @@ export function FileItem({
   onCollapse,
   statusText,
   hideDeleteAction = false,
+  displayName,
+  iconTypeOverride,
 }: FileItemProps) {
-  const fileType = getFileTypeFromExtension(file.filename);
+  const resolvedDisplayName = displayName?.trim() || file.filename;
+  const fileType = iconTypeOverride || getFileTypeFromExtension(file.filename);
   const config = FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
   const statusConfig = STATUS_CONFIG[file.status] || STATUS_CONFIG.uploading;
   const resolvedStatusText = statusText || getFileStatusText(file);
@@ -48,7 +53,7 @@ export function FileItem({
   const focusTimestampSeconds = toSeconds(focusDetail?.source?.timestamp);
 
   if (isCompact) {
-    const compactHint = `${file.filename}\n${resolvedStatusText}`;
+    const compactHint = `${resolvedDisplayName}\n${resolvedStatusText}`;
     return (
       <motion.div
         layout
@@ -137,9 +142,9 @@ export function FileItem({
       <div className="min-w-0 flex flex-col justify-center">
         <p
           className="truncate text-xs font-medium text-[var(--project-text-primary)] transition-colors"
-          title={file.filename}
+          title={resolvedDisplayName}
         >
-          {file.filename}
+          {resolvedDisplayName}
         </p>
 
         <p className="mt-0.5 truncate text-[10px] text-[var(--project-text-muted)]">

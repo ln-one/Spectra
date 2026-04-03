@@ -3,11 +3,11 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { authService, TokenStorage } from "@/lib/auth";
 import { generateApi, projectSpaceApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
-import type { components } from "@/lib/sdk/types";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore, type GenerationTool } from "@/stores/projectStore";
 import { useShallow } from "zustand/react/shallow";
 import type { SessionSwitcherItem, ThemePresetId } from "@/components/project";
+import type { ProjectReference } from "@/components/project/features/library/types";
 import { formatSessionTime } from "./constants";
 import {
   DEFAULT_PROJECT_THEME_PRESET,
@@ -65,8 +65,6 @@ function extractCurrentRunId(
   const runId = payload?.current_run?.run_id;
   return typeof runId === "string" && runId.trim() ? runId : null;
 }
-
-type ProjectReference = components["schemas"]["ProjectReference"];
 
 export function useProjectDetailController() {
   const params = useParams();
