@@ -11,8 +11,9 @@
 """
 
 import logging
+import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 try:
     from ..runtime_paths import get_generated_dir
@@ -37,6 +38,124 @@ except ImportError:
     from services.template import TemplateConfig, TemplateService
 
 logger = logging.getLogger(__name__)
+
+_MERMAID_IMAGE_FIT_CSS = """
+<style>
+/* Enforced Mermaid image fit rules (runtime guard) */
+section img[alt="Mermaid Diagram"] {
+  display: block;
+  margin: 12px auto;
+  max-width: min(88%, 920px);
+  max-height: min(30vh, 220px);
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain;
+}
+
+section.density-sparse img[alt="Mermaid Diagram"] {
+  max-height: min(42vh, 320px);
+}
+
+section.density-medium img[alt="Mermaid Diagram"] {
+  max-height: min(30vh, 220px);
+}
+
+section.density-dense img[alt="Mermaid Diagram"] {
+  max-height: min(22vh, 160px);
+}
+
+section.cover img[alt="Mermaid Diagram"],
+section.toc img[alt="Mermaid Diagram"] {
+  display: none !important;
+}
+</style>
+"""
+
+
+def _inject_mermaid_fit_css(markdown: str) -> str:
+    """
+    Ensure Mermaid image fit CSS is always present in final Marp document.
+
+    This is a runtime guard independent from prompt/model output.
+    """
+    if 'img[alt="Mermaid Diagram"]' in markdown:
+        return markdown
+
+    style_close = "</style>"
+    index = markdown.find(style_close)
+    if index != -1:
+        insert_pos = index + len(style_close)
+        return (
+            markdown[:insert_pos]
+            + "\n\n"
+            + _MERMAID_IMAGE_FIT_CSS.strip()
+            + "\n"
+            + markdown[insert_pos:]
+        )
+
+    frontmatter_match = re.match(r"^\s*---\s*\n[\s\S]*?\n---\s*\n?", markdown)
+    if frontmatter_match:
+        insert_pos = frontmatter_match.end()
+        return (
+            markdown[:insert_pos]
+            + "\n"
+            + _MERMAID_IMAGE_FIT_CSS.strip()
+            + "\n"
+            + markdown[insert_pos:]
+        )
+
+    return _MERMAID_IMAGE_FIT_CSS.strip() + "\n\n" + markdown
+
+
+def _serialize_model_like(value: Any) -> Optional[dict]:
+    """Serialize Pydantic model-like or dict payload to plain dict."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump()
+        return dumped if isinstance(dumped, dict) else None
+
+    to_dict = getattr(value, "dict", None)
+    if callable(to_dict):
+        dumped = to_dict()
+        return dumped if isinstance(dumped, dict) else None
+
+    if hasattr(value, "__dict__"):
+        return {
+            key: item
+            for key, item in vars(value).items()
+            if not str(key).startswith("_")
+        }
+
+    return None
+
+
+def _serialize_page_class_plan(page_class_plan: Any) -> Optional[list[dict]]:
+    if not page_class_plan:
+        return None
+    if not isinstance(page_class_plan, list):
+        logger.warning(
+            "Unexpected page_class_plan type: %s",
+            type(page_class_plan).__name__,
+        )
+        return None
+
+    serialized_items: list[dict] = []
+    for item in page_class_plan:
+        serialized = _serialize_model_like(item)
+        if serialized is None:
+            logger.warning(
+                "Skipping unsupported page_class_plan item type: %s",
+                type(item).__name__,
+            )
+            continue
+        serialized_items.append(serialized)
+
+    return serialized_items or None
 
 
 class GenerationService:
@@ -101,24 +220,22 @@ class GenerationService:
                 markdown_content=content.markdown_content,
                 config=template_config,
                 title=content.title,
-                style_manifest=(
-                    content.style_manifest.model_dump()
-                    if content.style_manifest and hasattr(content.style_manifest, 'model_dump')
-                    else content.style_manifest
-                ),
+                style_manifest=_serialize_model_like(content.style_manifest),
                 extra_css=content.extra_css,
-                page_class_plan=(
-                    [item.model_dump() for item in content.page_class_plan]
-                    if content.page_class_plan
-                    else None
-                ),
+                page_class_plan=_serialize_page_class_plan(content.page_class_plan),
             )
 
         # 预处理 Mermaid 代码块
         from services.mermaid_renderer import preprocess_mermaid_blocks
 
         logger.info(f"[Task: {task_id}] Preprocessing Mermaid blocks")
-        full_markdown = await preprocess_mermaid_blocks(full_markdown)
+        full_markdown = await preprocess_mermaid_blocks(
+            full_markdown,
+            fail_on_unrendered=True,
+            asset_dir=self.output_dir,
+            asset_prefix=f"{task_id}_mermaid",
+        )
+        full_markdown = _inject_mermaid_fit_css(full_markdown)
         logger.info(f"[Task: {task_id}] Mermaid preprocessing completed")
 
         # 调用生成器
@@ -144,24 +261,22 @@ class GenerationService:
                 markdown_content=content.markdown_content,
                 config=template_config,
                 title=content.title,
-                style_manifest=(
-                    content.style_manifest.model_dump()
-                    if content.style_manifest and hasattr(content.style_manifest, 'model_dump')
-                    else content.style_manifest
-                ),
+                style_manifest=_serialize_model_like(content.style_manifest),
                 extra_css=content.extra_css,
-                page_class_plan=(
-                    [item.model_dump() for item in content.page_class_plan]
-                    if content.page_class_plan
-                    else None
-                ),
+                page_class_plan=_serialize_page_class_plan(content.page_class_plan),
             )
 
         # 预处理 Mermaid 代码块
         from services.mermaid_renderer import preprocess_mermaid_blocks
 
         logger.info(f"[Task: {task_id}] Preprocessing Mermaid blocks")
-        full_markdown = await preprocess_mermaid_blocks(full_markdown)
+        full_markdown = await preprocess_mermaid_blocks(
+            full_markdown,
+            fail_on_unrendered=True,
+            asset_dir=self.output_dir,
+            asset_prefix=f"{task_id}_mermaid",
+        )
+        full_markdown = _inject_mermaid_fit_css(full_markdown)
         logger.info(f"[Task: {task_id}] Mermaid preprocessing completed")
 
         return await _generate_slide_images(task_id, self.output_dir, full_markdown)

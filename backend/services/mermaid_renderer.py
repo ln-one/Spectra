@@ -2,14 +2,87 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import html
 import logging
 import re
+from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 _MERMAID_BLOCK_PATTERN = re.compile(r"```mermaid\s*\n(.*?)\n```", re.DOTALL)
+_SVG_BLOCK_PATTERN = re.compile(r"<svg\b.*?</svg>", re.DOTALL | re.IGNORECASE)
+_EDGE_LABEL_PATTERN = re.compile(r"\|([^|\n]+)\|")
+
+
+class MermaidRenderError(RuntimeError):
+    """Raised when Mermaid blocks cannot be rendered safely."""
+
+
+def _svg_to_data_uri_markdown(svg_markup: str) -> str:
+    """Convert raw SVG markup into a Markdown image data URI."""
+    svg_bytes = svg_markup.encode("utf-8")
+    svg_b64 = base64.b64encode(svg_bytes).decode("ascii")
+    return "![Mermaid Diagram]" f"(data:image/svg+xml;base64,{svg_b64})"
+
+
+def _svg_to_file_markdown(
+    svg_markup: str,
+    *,
+    asset_dir: Path,
+    asset_prefix: str,
+) -> str:
+    """Persist SVG into local file and return Markdown image reference."""
+    digest = hashlib.sha1(svg_markup.encode("utf-8")).hexdigest()[:16]
+    filename = f"{asset_prefix}_{digest}.svg"
+    output_path = asset_dir / filename
+    output_path.write_text(svg_markup, encoding="utf-8")
+    return f"![Mermaid Diagram]({filename})"
+
+
+def _svg_to_markdown(
+    svg_markup: str,
+    *,
+    asset_dir: Optional[Path],
+    asset_prefix: str,
+) -> str:
+    """
+    Convert SVG to Markdown image.
+
+    Prefer local file reference when asset_dir is provided because Marp may treat
+    markdown data URI links as literal text in some pipelines.
+    """
+    if asset_dir is not None:
+        return _svg_to_file_markdown(
+            svg_markup,
+            asset_dir=asset_dir,
+            asset_prefix=asset_prefix,
+        )
+    return _svg_to_data_uri_markdown(svg_markup)
+
+
+def _repair_mermaid_code(mermaid_code: str) -> str:
+    """
+    Apply conservative Mermaid syntax repairs for common LLM mistakes.
+
+    Current fix:
+    - Edge labels like |P(empty)| can break parser in flowchart grammar.
+      Replace ASCII parentheses with full-width variants inside edge labels.
+    """
+    repaired_any = False
+
+    def _replace_edge_label(match: re.Match[str]) -> str:
+        nonlocal repaired_any
+        label = match.group(1)
+        repaired = label.replace("(", "（").replace(")", "）")
+        if repaired != label:
+            repaired_any = True
+        return f"|{repaired}|"
+
+    repaired_code = _EDGE_LABEL_PATTERN.sub(_replace_edge_label, mermaid_code)
+    return repaired_code if repaired_any else mermaid_code
 
 
 async def render_mermaid_to_svg(mermaid_code: str) -> Optional[str]:
@@ -91,28 +164,53 @@ async def render_mermaid_to_svg(mermaid_code: str) -> Optional[str]:
         return None
 
 
-async def preprocess_mermaid_blocks(markdown: str) -> str:
+async def preprocess_mermaid_blocks(
+    markdown: str,
+    *,
+    fail_on_unrendered: bool = True,
+    asset_dir: Optional[str | Path] = None,
+    asset_prefix: str = "mermaid",
+) -> str:
     """
     预处理 Markdown 中的 Mermaid 代码块，转换为 SVG。
 
     Args:
         markdown: 包含 Mermaid 代码块的 Markdown
+        fail_on_unrendered: Mermaid 块渲染失败时是否抛错（默认严格）
 
     Returns:
         替换后的 Markdown
     """
     rendered_markdown = markdown
+    normalized_asset_dir: Optional[Path] = None
+    if asset_dir is not None:
+        normalized_asset_dir = Path(asset_dir)
+        normalized_asset_dir.mkdir(parents=True, exist_ok=True)
+
     matches = list(_MERMAID_BLOCK_PATTERN.finditer(markdown))
 
     for match in reversed(matches):
         mermaid_code = match.group(1)
         svg = await render_mermaid_to_svg(mermaid_code)
+        if not svg:
+            repaired_code = _repair_mermaid_code(mermaid_code)
+            if repaired_code != mermaid_code:
+                logger.info(
+                    "Retrying Mermaid render with repaired edge-label syntax"
+                )
+                svg = await render_mermaid_to_svg(repaired_code)
         if svg:
-            replacement = f'<div class="mermaid-rendered">\n{svg}\n</div>'
-        else:
-            logger.warning(
-                "Mermaid rendering failed, keeping original code block"
+            replacement = _svg_to_markdown(
+                svg,
+                asset_dir=normalized_asset_dir,
+                asset_prefix=asset_prefix,
             )
+        else:
+            logger.warning("Mermaid rendering failed for one block")
+            if fail_on_unrendered:
+                raise MermaidRenderError(
+                    "Mermaid rendering failed: block could not be converted to image"
+                )
             replacement = match.group(0)
 
         rendered_markdown = (
@@ -120,5 +218,30 @@ async def preprocess_mermaid_blocks(markdown: str) -> str:
             + replacement
             + rendered_markdown[match.end() :]
         )
+
+    # Compatibility normalization:
+    # if upstream markdown already contains raw <svg> (e.g. historical behavior),
+    # force-convert it to a markdown image data URI to avoid source text in slides.
+    svg_matches = list(_SVG_BLOCK_PATTERN.finditer(rendered_markdown))
+    for match in reversed(svg_matches):
+        replacement = _svg_to_markdown(
+            match.group(0),
+            asset_dir=normalized_asset_dir,
+            asset_prefix=asset_prefix,
+        )
+        rendered_markdown = (
+            rendered_markdown[: match.start()]
+            + replacement
+            + rendered_markdown[match.end() :]
+        )
+
+    # Final guard: never allow raw Mermaid source to leak into output in strict mode.
+    if fail_on_unrendered:
+        if _MERMAID_BLOCK_PATTERN.search(rendered_markdown):
+            raise MermaidRenderError(
+                "Mermaid source block remained after preprocessing"
+            )
+        if _SVG_BLOCK_PATTERN.search(rendered_markdown):
+            raise MermaidRenderError("Raw SVG markup remained after preprocessing")
 
     return rendered_markdown

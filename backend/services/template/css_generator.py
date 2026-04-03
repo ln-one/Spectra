@@ -145,6 +145,46 @@ section.density-dense ul li {
 }
 """
 
+_MERMAID_STYLES = """
+/* Mermaid chart styles */
+.mermaid {
+  display: block;
+  margin: 20px auto;
+  max-width: 90%;
+  max-height: 400px;
+}
+
+/* Mermaid images converted by backend preprocessor */
+img[alt="Mermaid Diagram"] {
+  display: block;
+  margin: 12px auto;
+  max-width: min(88%, 920px);
+  max-height: min(30vh, 220px);
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain;
+}
+
+section.density-sparse img[alt="Mermaid Diagram"] {
+  max-height: min(42vh, 320px);
+}
+
+section.density-medium img[alt="Mermaid Diagram"] {
+  max-height: min(30vh, 220px);
+}
+
+section.density-dense img[alt="Mermaid Diagram"] {
+  max-height: min(22vh, 160px);
+}
+
+section.cover .mermaid,
+section.toc .mermaid,
+section.cover img[alt="Mermaid Diagram"],
+section.toc img[alt="Mermaid Diagram"] {
+  display: none;
+}
+"""
+
 
 def generate_custom_css(config: TemplateConfig) -> str:
     """
@@ -303,4 +343,3 @@ a:hover {{
 """
     logger.debug(f"Generated custom CSS with primary color: {config.primary_color}")
     return css
-
