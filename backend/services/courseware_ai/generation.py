@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 ALLOW_COURSEWARE_FALLBACK = (
     os.getenv("ALLOW_COURSEWARE_FALLBACK", "false").lower() == "true"
 )
+ALLOW_RAG_GROUNDED_FALLBACK = (
+    os.getenv("ALLOW_RAG_GROUNDED_FALLBACK", "true").lower() == "true"
+)
 _PLACEHOLDER_MARKER = "Courseware is being prepared..."
 
 
@@ -494,21 +497,37 @@ async def generate_courseware_content(
             exc_info=True,
         )
         if outline_nodes:
-            rag_grounded_fallback = build_rag_grounded_fallback_courseware(
-                user_requirements=user_requirements,
-                rag_context=rag_context,
-                outline_document=outline_document,
-            )
-            if rag_grounded_fallback is not None:
+            if ALLOW_RAG_GROUNDED_FALLBACK:
+                rag_grounded_fallback = build_rag_grounded_fallback_courseware(
+                    user_requirements=user_requirements,
+                    rag_context=rag_context,
+                    outline_document=outline_document,
+                )
+                if rag_grounded_fallback is not None:
+                    logger.warning(
+                        (
+                            "Using RAG-grounded fallback courseware "
+                            "due to generation failure"
+                        ),
+                        extra={
+                            "project_id": project_id,
+                            "outline_node_count": len(outline_nodes),
+                            "rag_chunk_count": len(rag_context or []),
+                        },
+                    )
+                    return rag_grounded_fallback
+            else:
                 logger.warning(
-                    "Using RAG-grounded fallback courseware due to generation failure",
+                    (
+                        "Skip RAG-grounded fallback because "
+                        "ALLOW_RAG_GROUNDED_FALLBACK=false"
+                    ),
                     extra={
                         "project_id": project_id,
                         "outline_node_count": len(outline_nodes),
                         "rag_chunk_count": len(rag_context or []),
                     },
                 )
-                return rag_grounded_fallback
             logger.warning(
                 "Using outline-based fallback courseware due to generation failure",
                 extra={

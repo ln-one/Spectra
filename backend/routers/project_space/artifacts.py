@@ -211,7 +211,11 @@ async def download_artifact(
             )
 
         media_type = get_artifact_media_type(artifact.type)
-        filename = build_artifact_download_filename(artifact.type, artifact.id)
+        filename = build_artifact_download_filename(
+            artifact.type,
+            artifact.id,
+            metadata=getattr(artifact, "metadata", None),
+        )
         duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
         logger.info(
             (
