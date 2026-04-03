@@ -57,8 +57,15 @@ def _supports_session_run(db: Any) -> bool:
     return hasattr(db, "sessionrun")
 
 
-def build_default_session_title(session_id: str) -> str:
-    return f"会话-{str(session_id)[-6:]}"
+def build_default_session_title(session_id: Optional[str] = None) -> str:
+    if session_id:
+        return f"会话-{str(session_id)[-6:]}"
+    return "新建会话"
+
+
+def build_numbered_default_session_title(sequence_no: int) -> str:
+    normalized = max(1, int(sequence_no or 1))
+    return f"新建会话{normalized}"
 
 
 def build_run_scope_key(*, session_id: Optional[str], project_id: str) -> str:

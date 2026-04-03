@@ -70,6 +70,7 @@ def mock_db_service():
             find_first=AsyncMock(return_value=None),
             find_unique=AsyncMock(return_value=mock_session),
             update=AsyncMock(),
+            count=AsyncMock(return_value=0),
         ),
         sessionevent=SimpleNamespace(
             create=AsyncMock(),
@@ -213,6 +214,31 @@ async def test_create_session_bootstrap_only_does_not_schedule_outline(
     data = response.json()
     assert data["data"]["session"]["state"] == GenerationState.IDLE.value
     assert data["data"]["session"]["session_id"] == "s-bootstrap-001"
+
+
+@pytest.mark.anyio
+async def test_create_session_uses_numbered_default_title(
+    app, mock_db_service, _as_user
+):
+    mock_db_service.generationsession.find_first = AsyncMock(return_value=None)
+    mock_db_service.generationsession.count = AsyncMock(return_value=2)
+
+    with patch.object(db_service, "get_project", mock_db_service.get_project):
+        with patch.object(db_service, "db", mock_db_service):
+            client = TestClient(app)
+            response = client.post(
+                "/api/v1/generate/sessions",
+                json={
+                    "project_id": "p-001",
+                    "output_type": SessionOutputType.BOTH.value,
+                    "bootstrap_only": True,
+                },
+            )
+
+    assert response.status_code == 200
+    create_data = mock_db_service.generationsession.create.await_args.kwargs["data"]
+    assert create_data["displayTitle"] == "新建会话3"
+    assert create_data["displayTitleSource"] == "default"
 
 
 @pytest.mark.anyio
@@ -1095,6 +1121,7 @@ async def test_preview_studio_card_execution_returns_bound_word_payload(app, _as
         "/api/v1/generate/studio-cards/word_document/execution-preview",
         json={
             "project_id": "p-001",
+            "source_artifact_id": "a-ppt-001",
             "config": {
                 "document_variant": "student_handout",
                 "teaching_model": "scaffolded",
@@ -1110,6 +1137,10 @@ async def test_preview_studio_card_execution_returns_bound_word_payload(app, _as
     assert (
         preview["initial_request"]["payload"]["content"]["document_variant"]
         == "student_handout"
+    )
+    assert (
+        preview["initial_request"]["payload"]["content"]["source_artifact_id"]
+        == "a-ppt-001"
     )
 
 
@@ -1343,6 +1374,7 @@ async def test_execute_studio_card_reuses_bound_courseware_session(app, _as_user
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_word_artifact(app, _as_user):
     client = TestClient(app)
+    source_artifact = SimpleNamespace(id="a-ppt-001", projectId="p-001", type="pptx")
     artifact = SimpleNamespace(
         id="a-word-001",
         projectId="p-001",
@@ -1362,6 +1394,10 @@ async def test_execute_studio_card_creates_word_artifact(app, _as_user):
             AsyncMock(),
         ),
         patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(return_value=source_artifact),
+        ),
+        patch(
             "services.project_space_service.project_space_service.create_artifact_with_file",
             AsyncMock(return_value=artifact),
         ) as create_artifact_mock,
@@ -1374,6 +1410,7 @@ async def test_execute_studio_card_creates_word_artifact(app, _as_user):
             "/api/v1/generate/studio-cards/word_document/execute",
             json={
                 "project_id": "p-001",
+                "source_artifact_id": "a-ppt-001",
                 "config": {
                     "document_variant": "student_handout",
                     "teaching_model": "scaffolded",
@@ -1394,12 +1431,14 @@ async def test_execute_studio_card_creates_word_artifact(app, _as_user):
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "docx"
     assert kwargs["content"]["document_variant"] == "student_handout"
+    assert kwargs["content"]["source_artifact_id"] == "a-ppt-001"
 
 
 @slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_rejects_invalid_client_session_id(app, _as_user):
     client = TestClient(app)
+    source_artifact = SimpleNamespace(id="a-ppt-001", projectId="p-001", type="pptx")
     artifact = SimpleNamespace(
         id="a-word-invalid-session",
         projectId="p-001",
@@ -1417,6 +1456,10 @@ async def test_execute_studio_card_rejects_invalid_client_session_id(app, _as_us
         patch(
             "services.project_space_service.project_space_service.check_project_permission",
             AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(return_value=source_artifact),
         ),
         patch(
             "services.project_space_service.project_space_service.create_artifact_with_file",
@@ -1440,6 +1483,7 @@ async def test_execute_studio_card_rejects_invalid_client_session_id(app, _as_us
             "/api/v1/generate/studio-cards/word_document/execute",
             json={
                 "project_id": "p-001",
+                "source_artifact_id": "a-ppt-001",
                 "client_session_id": "missing-session",
                 "config": {
                     "document_variant": "student_handout",
@@ -1939,18 +1983,40 @@ async def test_get_studio_card_sources_prioritizes_current_artifacts(app, _as_us
 
 
 @pytest.mark.anyio
-async def test_get_studio_card_sources_rejects_cards_without_source_binding(
-    app, _as_user
-):
+async def test_get_studio_card_sources_returns_word_document_ppt_sources(app, _as_user):
     client = TestClient(app)
-
-    response = client.get(
-        "/api/v1/generate/studio-cards/word_document/sources?project_id=p-001"
+    current_artifact = SimpleNamespace(
+        id="a-ppt-020",
+        type="pptx",
+        metadata={"title": "高中物理课件", "is_current": True},
+        visibility="project-visible",
+        basedOnVersionId="v-current",
+        sessionId="s-020",
+        updatedAt=datetime.now(timezone.utc),
     )
 
-    assert response.status_code == 409
-    payload = response.json()
-    assert payload["detail"]["code"] == "RESOURCE_CONFLICT"
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_project_artifacts",
+            AsyncMock(return_value=[current_artifact]),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+    ):
+        response = client.get(
+            "/api/v1/generate/studio-cards/word_document/sources?project_id=p-001"
+        )
+
+    assert response.status_code == 200
+    sources = response.json()["data"]["sources"]
+    assert sources[0]["id"] == "a-ppt-020"
+    assert sources[0]["type"] == "pptx"
 
 
 @slow_studio_card
@@ -2037,6 +2103,58 @@ async def test_execute_studio_card_requires_source_artifact_for_speaker_notes(
 
 
 @slow_studio_card
+@pytest.mark.anyio
+async def test_execute_studio_card_requires_source_artifact_for_word_document(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    with patch(
+        "services.project_space_service.project_space_service.check_project_permission",
+        AsyncMock(),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/word_document/execute",
+            json={"project_id": "p-001"},
+        )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["detail"]["code"] == "INVALID_INPUT"
+
+
+@pytest.mark.anyio
+async def test_execute_studio_card_rejects_non_ppt_source_for_word_document(
+    app, _as_user
+):
+    client = TestClient(app)
+    source_artifact = SimpleNamespace(
+        id="a-summary-001", projectId="p-001", type="summary"
+    )
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(return_value=source_artifact),
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/word_document/execute",
+            json={
+                "project_id": "p-001",
+                "source_artifact_id": "a-summary-001",
+            },
+        )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["detail"]["code"] == "INVALID_INPUT"
+
+
 @pytest.mark.anyio
 async def test_refine_studio_card_routes_through_chat_metadata(app, _as_user):
     client = TestClient(app)

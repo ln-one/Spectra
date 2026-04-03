@@ -50,9 +50,10 @@ CARD_EXECUTION_PLANS: dict[str, StudioCardExecutionPlan] = {
             status=StudioCardBindingStatus.READY,
             method="POST",
             endpoint="/api/v1/projects/{project_id}/artifacts",
-            required_fields=["project_id", "type", "visibility"],
+            required_fields=["project_id", "type", "visibility", "source_artifact_id"],
             bound_config_keys=[
                 "type",
+                "source_artifact_id",
                 "document_variant",
                 "teaching_model",
                 "grade_band",

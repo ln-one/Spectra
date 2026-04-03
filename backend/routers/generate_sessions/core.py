@@ -208,7 +208,7 @@ async def list_sessions(
                 "output_type": s.outputType,
                 "state": s.state,
                 "display_title": getattr(s, "displayTitle", None)
-                or build_default_session_title(s.id),
+                or build_default_session_title(),
                 "display_title_source": getattr(s, "displayTitleSource", None)
                 or SESSION_TITLE_SOURCE_DEFAULT,
                 "display_title_updated_at": (

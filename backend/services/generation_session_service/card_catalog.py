@@ -70,8 +70,16 @@ CARD_CAPABILITIES: tuple[StudioCardCapability, ...] = (
         primary_capabilities=["word", "handout"],
         related_capabilities=["outline", "summary", "quiz"],
         artifact_types=["docx", "summary", "exercise"],
+        requires_source_artifact=True,
         supports_chat_refine=True,
         config_fields=[
+            StudioCardConfigField(
+                key="source_artifact_id",
+                label="对应 PPT",
+                type=StudioCardFieldType.REFERENCE,
+                required=True,
+                notes="必须绑定一个已生成的 PPT artifact。",
+            ),
             StudioCardConfigField(
                 key="document_variant",
                 label="文档类型",

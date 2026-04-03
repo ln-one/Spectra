@@ -42,6 +42,7 @@ def build_preview_or_raise(card_id: str, body: dict):
         card_id=card_id,
         project_id=body.get("project_id"),
         config=body.get("config"),
+        template_config=body.get("template_config"),
         visibility=body.get("visibility"),
         source_artifact_id=body.get("source_artifact_id"),
         rag_source_ids=_resolve_request_rag_source_ids(body),
@@ -62,6 +63,7 @@ def build_execution_request(
     return StudioCardExecutionPreviewRequest(
         project_id=project_id,
         config=body.get("config") or {},
+        template_config=body.get("template_config"),
         visibility=body.get("visibility"),
         source_artifact_id=body.get("source_artifact_id"),
         rag_source_ids=_resolve_request_rag_source_ids(body),

@@ -110,6 +110,7 @@ class StudioCardExecutionPlan(BaseModel):
 class StudioCardExecutionPreviewRequest(BaseModel):
     project_id: str
     config: dict = Field(default_factory=dict)
+    template_config: Optional[dict] = None
     visibility: Optional[str] = None
     source_artifact_id: Optional[str] = None
     rag_source_ids: Optional[List[str]] = None
