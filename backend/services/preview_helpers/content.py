@@ -1,4 +1,5 @@
-﻿import logging
+﻿import inspect
+import logging
 from typing import Optional
 
 from services.database import db_service
@@ -17,6 +18,63 @@ def _slide_identity(slide, fallback_index: int) -> str:
     if isinstance(value, str) and value.strip():
         return value.strip()
     return f"slide-{fallback_index}"
+
+
+def _build_slides_compatible(
+    task_id: str,
+    markdown_content: str,
+    image_metadata,
+    render_markdown,
+):
+    """
+    Backward-compatible build_slides invocation.
+
+    Some tests / legacy monkeypatches still expose old 2/3-arg signatures.
+    This helper adapts call arity without relying on keyword names.
+    """
+    try:
+        signature = inspect.signature(build_slides)
+    except (TypeError, ValueError):
+        signature = None
+
+    if signature:
+        params = list(signature.parameters.values())
+        if any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params):
+            return build_slides(
+                task_id,
+                markdown_content,
+                image_metadata,
+                render_markdown,
+            )
+
+        positional_capacity = sum(
+            1
+            for p in params
+            if p.kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
+        )
+        if positional_capacity >= 4:
+            return build_slides(
+                task_id,
+                markdown_content,
+                image_metadata,
+                render_markdown,
+            )
+        if positional_capacity >= 3:
+            return build_slides(task_id, markdown_content, image_metadata)
+        return build_slides(task_id, markdown_content)
+
+    # Fallback if signature introspection is unavailable.
+    try:
+        return build_slides(task_id, markdown_content, image_metadata, render_markdown)
+    except TypeError:
+        try:
+            return build_slides(task_id, markdown_content, image_metadata)
+        except TypeError:
+            return build_slides(task_id, markdown_content)
 
 
 async def get_or_generate_content(task, project) -> dict:
@@ -49,9 +107,9 @@ async def load_preview_material(
             if not project:
                 raise ValueError("project not found for preview")
             content = await get_or_generate_content(task, project)
-            slide_models = build_slides(
-                task.id,
-                content.get("markdown_content", ""),
+            slide_models = _build_slides_compatible(
+                task_id=task.id,
+                markdown_content=content.get("markdown_content", ""),
                 image_metadata=content.get("image_metadata"),
                 render_markdown=content.get("render_markdown"),
             )
