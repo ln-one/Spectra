@@ -185,15 +185,17 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   const canUseRunTitle =
     typeof runTitle === "string" &&
     runTitle.trim().length > 0 &&
-    (runTitleSource === "auto" || runTitleSource === "manual");
+    (runTitleSource === undefined ||
+      runTitleSource === "auto" ||
+      runTitleSource === "manual");
   const title =
-    typeof metadataTitle === "string" && metadataTitle.trim()
-      ? metadataTitle.trim()
-      : typeof metadataName === "string" && metadataName.trim()
-        ? metadataName.trim()
-      : canUseRunTitle
-        ? runTitle.trim()
-        : `${titlePrefix} ${artifact.id.slice(0, 8)}`;
+    canUseRunTitle
+      ? runTitle.trim()
+      : typeof metadataTitle === "string" && metadataTitle.trim()
+        ? metadataTitle.trim()
+        : typeof metadataName === "string" && metadataName.trim()
+          ? metadataName.trim()
+          : `${titlePrefix} 生成记录`;
 
   return {
     artifactId: artifact.id,

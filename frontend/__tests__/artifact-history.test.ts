@@ -79,4 +79,37 @@ describe("artifact history mapper", () => {
     expect(grouped.summary[1].artifactId).toBe("art_a");
     expect(grouped.ppt).toHaveLength(0);
   });
+
+  it("prefers run_title over title and name for artifact history title", () => {
+    const artifacts: Artifact[] = [
+      {
+        ...baseArtifact,
+        id: "art_run_title",
+        type: "pptx",
+        metadata: {
+          run_title: "计算机网络",
+          run_title_source: "manual",
+          title: "PPTX · 12345678",
+          name: "旧名称",
+        },
+      },
+    ];
+
+    const grouped = groupArtifactsByTool(artifacts);
+    expect(grouped.ppt[0]?.title).toBe("计算机网络");
+  });
+
+  it("uses generic fallback title without exposing artifact id", () => {
+    const artifacts: Artifact[] = [
+      {
+        ...baseArtifact,
+        id: "art_no_title",
+        type: "mindmap",
+      },
+    ];
+
+    const grouped = groupArtifactsByTool(artifacts);
+    expect(grouped.mindmap[0]?.title).toBe("Mindmap 生成记录");
+  });
+
 });
