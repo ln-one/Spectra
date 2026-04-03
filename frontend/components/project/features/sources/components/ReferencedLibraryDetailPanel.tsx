@@ -5,6 +5,9 @@ import {
   AlertTriangle,
   ArrowDownNarrowWide,
   BookOpen,
+  Clock3,
+  Files,
+  FolderTree,
   Library,
   Link2,
   Pin,
@@ -92,6 +95,17 @@ export function ReferencedLibraryDetailPanel({
     reference?.upstream_current_version_id ||
     "-";
   const showUpstreamWarning = !!reference?.upstream_updated;
+  const totalHistoryCount = historyByTool.reduce(
+    (count, [, items]) => count + items.length,
+    0
+  );
+
+  const sectionClass =
+    "rounded-2xl border border-zinc-200/80 bg-white/88 p-4 shadow-[0_10px_24px_-22px_rgba(0,0,0,0.35)]";
+  const titleRowClass = "mb-2 flex items-center justify-between gap-2";
+  const titleClass = "flex items-center gap-1.5 text-xs font-semibold text-zinc-800";
+  const countBadgeClass =
+    "rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-500";
 
   return (
     <AnimatePresence>
@@ -102,7 +116,7 @@ export function ReferencedLibraryDetailPanel({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-[1.5px]"
+            className="fixed inset-0 z-[70] bg-white/10 backdrop-blur-[6px]"
             onClick={onClose}
           />
           <motion.aside
@@ -111,7 +125,7 @@ export function ReferencedLibraryDetailPanel({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 20, opacity: 0 }}
             transition={{ type: "spring", stiffness: 320, damping: 30 }}
-            className="fixed right-4 top-[84px] bottom-4 z-[71] flex w-[560px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-3xl border border-white/60 bg-[color:var(--project-surface-elevated)] shadow-[0_28px_90px_-24px_rgba(0,0,0,0.35)] backdrop-blur-2xl"
+            className="fixed right-3 top-[72px] z-[71] flex h-[min(860px,calc(100dvh-84px))] w-[min(620px,calc(100vw-24px))] flex-col overflow-hidden rounded-3xl border border-white/70 bg-[color:var(--project-surface-elevated)] shadow-[0_28px_90px_-24px_rgba(0,0,0,0.35)] backdrop-blur-2xl md:right-4 md:top-[84px] md:h-[min(900px,calc(100dvh-100px))]"
           >
             <div className="relative shrink-0 border-b border-zinc-200/70 px-6 py-5">
               <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-400/12 blur-3xl" />
@@ -174,7 +188,14 @@ export function ReferencedLibraryDetailPanel({
                   </div>
                 ) : null}
 
-                <section className="rounded-2xl border border-zinc-200/80 bg-white/85 p-4">
+                <section className={sectionClass}>
+                  <div className={titleRowClass}>
+                    <p className={titleClass}>
+                      <BookOpen className="h-3.5 w-3.5 text-zinc-500" />
+                      引用状态概览
+                    </p>
+                    <span className={countBadgeClass}>基础信息</span>
+                  </div>
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                     <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-blue-700">
                       <Link2 className="h-3 w-3" />
@@ -214,8 +235,14 @@ export function ReferencedLibraryDetailPanel({
                   ) : null}
                 </section>
 
-                <section className="rounded-2xl border border-zinc-200/80 bg-white/85 p-4">
-                  <p className="text-xs font-semibold text-zinc-800">会话列表</p>
+                <section className={sectionClass}>
+                  <div className={titleRowClass}>
+                    <p className={titleClass}>
+                      <Clock3 className="h-3.5 w-3.5 text-zinc-500" />
+                      会话列表
+                    </p>
+                    <span className={countBadgeClass}>{sessions.length}</span>
+                  </div>
                   <div className="mt-2 space-y-1.5">
                     {sessions.length === 0 ? (
                       <p className="text-[11px] text-zinc-500">暂无会话记录</p>
@@ -237,8 +264,14 @@ export function ReferencedLibraryDetailPanel({
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-zinc-200/80 bg-white/85 p-4">
-                  <p className="text-xs font-semibold text-zinc-800">库工具生成记录</p>
+                <section className={sectionClass}>
+                  <div className={titleRowClass}>
+                    <p className={titleClass}>
+                      <FolderTree className="h-3.5 w-3.5 text-zinc-500" />
+                      库工具生成记录
+                    </p>
+                    <span className={countBadgeClass}>{totalHistoryCount}</span>
+                  </div>
                   <div className="mt-2 space-y-2">
                     {historyByTool.length === 0 ? (
                       <p className="text-[11px] text-zinc-500">暂无生成记录</p>
@@ -267,14 +300,24 @@ export function ReferencedLibraryDetailPanel({
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-zinc-200/80 bg-white/85 p-4">
-                  <p className="flex items-center gap-1.5 text-xs font-semibold text-zinc-800">
-                    <BookOpen className="h-3.5 w-3.5 text-zinc-500" />
-                    来源面板内容
-                  </p>
-                  <div className="mt-2 space-y-2 text-[11px] text-zinc-600">
-                    <div>
-                      <p className="mb-1 text-zinc-800">该库的引用</p>
+                <section className={sectionClass}>
+                  <div className={titleRowClass}>
+                    <p className={titleClass}>
+                      <Files className="h-3.5 w-3.5 text-zinc-500" />
+                      来源面板内容
+                    </p>
+                    <span className={countBadgeClass}>
+                      {references.length + sourceFiles.length}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid gap-2 text-[11px] text-zinc-600 md:grid-cols-2">
+                    <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/70 p-2.5">
+                      <p className="mb-1 flex items-center justify-between gap-2 text-zinc-800">
+                        <span>该库的引用</span>
+                        <span className="text-[10px] text-zinc-500">
+                          {references.length}
+                        </span>
+                      </p>
                       {references.length === 0 ? (
                         <p className="text-zinc-500">无引用库</p>
                       ) : (
@@ -294,8 +337,13 @@ export function ReferencedLibraryDetailPanel({
                         </div>
                       )}
                     </div>
-                    <div>
-                      <p className="mb-1 text-zinc-800">该库文件</p>
+                    <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/70 p-2.5">
+                      <p className="mb-1 flex items-center justify-between gap-2 text-zinc-800">
+                        <span>该库文件</span>
+                        <span className="text-[10px] text-zinc-500">
+                          {sourceFiles.length}
+                        </span>
+                      </p>
                       {sourceFiles.length === 0 ? (
                         <p className="text-zinc-500">暂无文件或无权限查看</p>
                       ) : (
@@ -322,4 +370,3 @@ export function ReferencedLibraryDetailPanel({
     </AnimatePresence>
   );
 }
-
