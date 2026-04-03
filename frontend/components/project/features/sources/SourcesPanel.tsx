@@ -1,19 +1,69 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { File } from "lucide-react";
+import {
+  groupArtifactsByTool,
+  type ArtifactHistoryItem,
+} from "@/lib/project-space/artifact-history";
+import { generateApi, projectSpaceApi, projectsApi } from "@/lib/sdk";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ProjectReference } from "../library/types";
 import { WEB_SOURCE_CARD_ID } from "./constants";
 import { FileItem } from "./components/FileItem";
+import {
+  ReferencedLibraryDetailPanel,
+  type ReferencedLibrarySession,
+} from "./components/ReferencedLibraryDetailPanel";
 import { SourcesHeader } from "./components/SourcesHeader";
 import { WebSourceCard } from "./components/WebSourceCard";
 import type { UploadedFile } from "./types";
 import { useSourcesPanelController } from "./useSourcesPanelController";
+
+interface ReferencedLibraryCardData {
+  id: string;
+  displayName: string;
+  reference: ProjectReference;
+  file: UploadedFile;
+  statusText: string;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeLibrarySessions(rawSessions: unknown[]): ReferencedLibrarySession[] {
+  return rawSessions
+    .map((raw) => {
+      const session = asRecord(raw);
+      if (!session) return null;
+      const id = typeof session.session_id === "string" ? session.session_id : "";
+      if (!id) return null;
+      const titleRaw = session.display_title;
+      const title =
+        typeof titleRaw === "string" && titleRaw.trim()
+          ? titleRaw.trim()
+          : `会话 ${id.slice(-6)}`;
+      const state = typeof session.state === "string" ? session.state : "UNKNOWN";
+      const createdAt =
+        typeof session.created_at === "string"
+          ? session.created_at
+          : new Date().toISOString();
+      return { id, title, state, createdAt };
+    })
+    .filter((item): item is ReferencedLibrarySession => !!item)
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+}
 
 interface SourcesPanelProps {
   projectId: string;
@@ -72,7 +122,7 @@ export function SourcesPanel({
         }),
     [referencedLibraries]
   );
-  const referencedLibraryCards = useMemo(
+  const referencedLibraryCards = useMemo<ReferencedLibraryCardData[]>(
     () =>
       activeReferencedLibraries.map((reference) => {
         const relationLabel =
@@ -95,6 +145,7 @@ export function SourcesPanel({
           id: reference.id,
           file: syntheticFile,
           displayName,
+          reference,
           statusText,
         };
       }),
@@ -103,6 +154,119 @@ export function SourcesPanel({
   const shouldAnimateList = files.length + referencedLibraryCards.length <= 12;
   const hasAnyMaterialSources =
     files.length > 0 || referencedLibraryCards.length > 0;
+
+  const [selectedLibraryCard, setSelectedLibraryCard] =
+    useState<ReferencedLibraryCardData | null>(null);
+  const [isLibraryDetailOpen, setIsLibraryDetailOpen] = useState(false);
+  const [libraryDetailLoading, setLibraryDetailLoading] = useState(false);
+  const [libraryDetailError, setLibraryDetailError] = useState<string | null>(
+    null
+  );
+  const [libraryDetailSessions, setLibraryDetailSessions] = useState<
+    ReferencedLibrarySession[]
+  >([]);
+  const [libraryDetailHistoryByTool, setLibraryDetailHistoryByTool] = useState<
+    Array<[string, ArtifactHistoryItem[]]>
+  >([]);
+  const [libraryDetailReferences, setLibraryDetailReferences] = useState<
+    ProjectReference[]
+  >([]);
+  const [libraryDetailFiles, setLibraryDetailFiles] = useState<UploadedFile[]>(
+    []
+  );
+
+  const closeLibraryDetailPanel = useCallback(() => {
+    setIsLibraryDetailOpen(false);
+  }, []);
+
+  const openLibraryDetailPanel = useCallback((card: ReferencedLibraryCardData) => {
+    setSelectedLibraryCard(card);
+    setIsLibraryDetailOpen(true);
+  }, []);
+
+  const loadLibraryDetail = useCallback(
+    async (card: ReferencedLibraryCardData) => {
+      const targetProjectId = card.reference.target_project_id;
+      setLibraryDetailLoading(true);
+      setLibraryDetailError(null);
+      try {
+        const [sessionsResult, artifactsResult, referencesResult, filesResult] =
+          await Promise.allSettled([
+            generateApi.listSessions({
+              project_id: targetProjectId,
+              page: 1,
+              limit: 20,
+            }),
+            projectSpaceApi.getArtifacts(targetProjectId),
+            projectSpaceApi.getReferences(targetProjectId),
+            projectsApi.getProjectFiles(targetProjectId, { page: 1, limit: 20 }),
+          ]);
+
+        const errorMessages: string[] = [];
+
+        if (sessionsResult.status === "fulfilled") {
+          const sessionsRaw = Array.isArray(sessionsResult.value.data?.sessions)
+            ? (sessionsResult.value.data?.sessions as unknown[])
+            : [];
+          setLibraryDetailSessions(normalizeLibrarySessions(sessionsRaw));
+        } else {
+          setLibraryDetailSessions([]);
+          errorMessages.push("会话列表加载失败");
+        }
+
+        if (artifactsResult.status === "fulfilled") {
+          const artifacts = artifactsResult.value.data?.artifacts ?? [];
+          const grouped = groupArtifactsByTool(artifacts);
+          const groupedEntries = Object.entries(grouped).filter(
+            ([, items]) => items.length > 0
+          );
+          setLibraryDetailHistoryByTool(groupedEntries);
+        } else {
+          setLibraryDetailHistoryByTool([]);
+          errorMessages.push("生成记录加载失败");
+        }
+
+        if (referencesResult.status === "fulfilled") {
+          const references = (referencesResult.value.data?.references ?? []).sort(
+            (a, b) => {
+              if (a.relation_type !== b.relation_type) {
+                return a.relation_type === "base" ? -1 : 1;
+              }
+              return (a.priority ?? 999) - (b.priority ?? 999);
+            }
+          );
+          setLibraryDetailReferences(references);
+        } else {
+          setLibraryDetailReferences([]);
+          errorMessages.push("引用列表加载失败");
+        }
+
+        if (filesResult.status === "fulfilled") {
+          setLibraryDetailFiles(filesResult.value.data?.files ?? []);
+        } else {
+          setLibraryDetailFiles([]);
+          errorMessages.push("文件列表加载失败或无权限");
+        }
+
+        setLibraryDetailError(
+          errorMessages.length > 0 ? errorMessages.join("；") : null
+        );
+      } finally {
+        setLibraryDetailLoading(false);
+      }
+    },
+    []
+  );
+
+  const refreshLibraryDetail = useCallback(async () => {
+    if (!selectedLibraryCard) return;
+    await loadLibraryDetail(selectedLibraryCard);
+  }, [loadLibraryDetail, selectedLibraryCard]);
+
+  useEffect(() => {
+    if (!isLibraryDetailOpen || !selectedLibraryCard) return;
+    void loadLibraryDetail(selectedLibraryCard);
+  }, [isLibraryDetailOpen, loadLibraryDetail, selectedLibraryCard]);
 
   return (
     <div
@@ -162,6 +326,15 @@ export function SourcesPanel({
                       }}
                     >
                       <div className="project-sources-horizontal-track flex min-w-max items-center gap-3 px-0.5 py-1">
+                        <div
+                          key={WEB_SOURCE_CARD_ID}
+                          ref={(element) =>
+                            registerFileRef(WEB_SOURCE_CARD_ID, element)
+                          }
+                          className="shrink-0"
+                        >
+                          <WebSourceCard isCompact={true} />
+                        </div>
                         {referencedLibraryCards.map((referenceCard) => (
                           <div
                             key={referenceCard.id}
@@ -176,7 +349,9 @@ export function SourcesPanel({
                             <FileItem
                               file={referenceCard.file}
                               isSelected={false}
-                              onToggle={() => undefined}
+                              onToggle={() =>
+                                openLibraryDetailPanel(referenceCard)
+                              }
                               isCompact={true}
                               isFocused={false}
                               focusDetail={null}
@@ -189,15 +364,6 @@ export function SourcesPanel({
                             />
                           </div>
                         ))}
-                        <div
-                          key={WEB_SOURCE_CARD_ID}
-                          ref={(element) =>
-                            registerFileRef(WEB_SOURCE_CARD_ID, element)
-                          }
-                          className="shrink-0"
-                        >
-                          <WebSourceCard isCompact={true} />
-                        </div>
                         {files.map((file) => (
                           <div
                             key={file.id}
@@ -261,6 +427,14 @@ export function SourcesPanel({
                   >
                     {shouldAnimateList ? (
                       <AnimatePresence mode="popLayout">
+                        <div
+                          key={WEB_SOURCE_CARD_ID}
+                          ref={(element) =>
+                            registerFileRef(WEB_SOURCE_CARD_ID, element)
+                          }
+                        >
+                          <WebSourceCard isCompact={isEffectiveCompact} />
+                        </div>
                         {referencedLibraryCards.map((referenceCard) => (
                           <div
                             key={referenceCard.id}
@@ -274,7 +448,9 @@ export function SourcesPanel({
                             <FileItem
                               file={referenceCard.file}
                               isSelected={false}
-                              onToggle={() => undefined}
+                              onToggle={() =>
+                                openLibraryDetailPanel(referenceCard)
+                              }
                               isCompact={isEffectiveCompact}
                               isFocused={false}
                               focusDetail={null}
@@ -287,14 +463,6 @@ export function SourcesPanel({
                             />
                           </div>
                         ))}
-                        <div
-                          key={WEB_SOURCE_CARD_ID}
-                          ref={(element) =>
-                            registerFileRef(WEB_SOURCE_CARD_ID, element)
-                          }
-                        >
-                          <WebSourceCard isCompact={isEffectiveCompact} />
-                        </div>
                         {files.map((file) => (
                           <div
                             key={file.id}
@@ -318,6 +486,14 @@ export function SourcesPanel({
                       </AnimatePresence>
                     ) : (
                       <>
+                        <div
+                          key={WEB_SOURCE_CARD_ID}
+                          ref={(element) =>
+                            registerFileRef(WEB_SOURCE_CARD_ID, element)
+                          }
+                        >
+                          <WebSourceCard isCompact={isEffectiveCompact} />
+                        </div>
                         {referencedLibraryCards.map((referenceCard) => (
                           <div
                             key={referenceCard.id}
@@ -331,7 +507,9 @@ export function SourcesPanel({
                             <FileItem
                               file={referenceCard.file}
                               isSelected={false}
-                              onToggle={() => undefined}
+                              onToggle={() =>
+                                openLibraryDetailPanel(referenceCard)
+                              }
                               isCompact={isEffectiveCompact}
                               isFocused={false}
                               focusDetail={null}
@@ -344,14 +522,6 @@ export function SourcesPanel({
                             />
                           </div>
                         ))}
-                        <div
-                          key={WEB_SOURCE_CARD_ID}
-                          ref={(element) =>
-                            registerFileRef(WEB_SOURCE_CARD_ID, element)
-                          }
-                        >
-                          <WebSourceCard isCompact={isEffectiveCompact} />
-                        </div>
                         {files.map((file) => (
                           <div
                             key={file.id}
@@ -381,6 +551,19 @@ export function SourcesPanel({
           )}
         </CardContent>
       </Card>
+      <ReferencedLibraryDetailPanel
+        open={isLibraryDetailOpen}
+        loading={libraryDetailLoading}
+        error={libraryDetailError}
+        libraryDisplayName={selectedLibraryCard?.displayName ?? "未命名库"}
+        reference={selectedLibraryCard?.reference ?? null}
+        sessions={libraryDetailSessions}
+        historyByTool={libraryDetailHistoryByTool}
+        references={libraryDetailReferences}
+        sourceFiles={libraryDetailFiles}
+        onClose={closeLibraryDetailPanel}
+        onRefresh={refreshLibraryDetail}
+      />
     </div>
   );
 }
