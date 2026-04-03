@@ -228,10 +228,12 @@ export function ReferencesTab({
           <div className="space-y-2">
             {visibleLibraries.map((project) => {
               const isReferenced = referencedTargetIds.has(project.id);
+              const disableForNotReferenceable = !project.isReferenceable;
               const disableForPinnedMode =
                 newReferenceMode === "pinned" && !project.currentVersionId;
               const disabled =
                 isReferenced ||
+                disableForNotReferenceable ||
                 quickAddDisabledByBaseRule ||
                 disableForPinnedMode;
 
@@ -267,6 +269,11 @@ export function ReferencesTab({
                     <Button
                       size="sm"
                       disabled={disabled}
+                      title={
+                        disableForNotReferenceable
+                          ? "该库不可引用"
+                          : undefined
+                      }
                       onClick={() =>
                         onQuickAddReference(project.id, {
                           pinnedVersionId: project.currentVersionId,
@@ -279,6 +286,8 @@ export function ReferencesTab({
                           <Check className="mr-1 h-3.5 w-3.5" />
                           已引入
                         </>
+                      ) : disableForNotReferenceable ? (
+                        "引入"
                       ) : quickAddDisabledByBaseRule ? (
                         "已有主基底"
                       ) : disableForPinnedMode ? (

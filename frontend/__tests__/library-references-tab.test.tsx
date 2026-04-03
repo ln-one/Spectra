@@ -52,4 +52,52 @@ describe("ReferencesTab library candidates", () => {
       pinnedVersionId: "ver_1",
     });
   });
+
+  it("disables quick add when target library is not referenceable", () => {
+    const onQuickAddReference = jest.fn();
+
+    render(
+      <ReferencesTab
+        projectId="proj_current"
+        references={[]}
+        state={{ loading: false, error: null }}
+        librariesState={{ loading: false, error: null }}
+        availableLibraries={[
+          {
+            id: "proj_lib_private",
+            name: "私有库",
+            description: "不可引用示例",
+            status: "draft",
+            visibility: "private",
+            isReferenceable: false,
+            currentVersionId: null,
+          },
+        ]}
+        newReferenceTarget=""
+        setNewReferenceTarget={jest.fn()}
+        newReferenceRelationType="auxiliary"
+        setNewReferenceRelationType={jest.fn()}
+        newReferenceMode="follow"
+        setNewReferenceMode={jest.fn()}
+        newReferencePinnedVersion=""
+        setNewReferencePinnedVersion={jest.fn()}
+        newReferencePriority="10"
+        setNewReferencePriority={jest.fn()}
+        onAddReference={jest.fn()}
+        onDeleteReference={jest.fn()}
+        onToggleReferenceStatus={jest.fn()}
+        onUpdateReferencePriority={jest.fn()}
+        onQuickAddReference={onQuickAddReference}
+        onReload={jest.fn()}
+        onReloadLibraries={jest.fn()}
+      />
+    );
+
+    const importButtons = screen.getAllByRole("button", { name: "引入" });
+    const quickAddButton = importButtons[1];
+    expect(quickAddButton).toBeDisabled();
+
+    fireEvent.click(quickAddButton);
+    expect(onQuickAddReference).not.toHaveBeenCalled();
+  });
 });
