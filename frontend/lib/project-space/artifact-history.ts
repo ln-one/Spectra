@@ -176,6 +176,7 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   );
   const artifactKind = readArtifactKind(artifact) ?? undefined;
   const metadataTitle = readMetadataField(artifact.metadata, "title");
+  const metadataName = readMetadataField(artifact.metadata, "name");
   const runTitle = readMetadataField(artifact.metadata, "run_title");
   const runTitleSource = readMetadataField(
     artifact.metadata,
@@ -188,6 +189,8 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   const title =
     typeof metadataTitle === "string" && metadataTitle.trim()
       ? metadataTitle.trim()
+      : typeof metadataName === "string" && metadataName.trim()
+        ? metadataName.trim()
       : canUseRunTitle
         ? runTitle.trim()
         : `${titlePrefix} ${artifact.id.slice(0, 8)}`;
