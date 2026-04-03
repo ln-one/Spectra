@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   ArrowDownNarrowWide,
@@ -75,7 +76,13 @@ function statusLabel(value?: ProjectReference["status"]): string {
 function sessionStateLabel(value?: string): string | null {
   if (!value) return null;
   const upper = value.toUpperCase();
-  if (upper === "RENDERING") return null;
+  const hiddenStates = new Set([
+    "RENDERING",
+    "AWAITING_OUTLINE_CONFIRM",
+    "AWAITING_CONFIRM",
+    "AWAITING_CONFIRMATION",
+  ]);
+  if (hiddenStates.has(upper)) return null;
   if (upper === "COMPLETED" || upper === "SUCCEEDED") return "已完成";
   if (upper === "FAILED") return "失败";
   if (upper === "RUNNING") return "进行中";
@@ -87,15 +94,22 @@ function Section({
   icon: Icon,
   title,
   count,
+  className,
   children,
 }: {
   icon: LucideIcon;
   title: string;
   count?: string | number;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-zinc-200/85 bg-white/90 p-4 shadow-[0_10px_24px_-24px_rgba(0,0,0,0.55)]">
+    <section
+      className={cn(
+        "flex min-h-0 flex-col rounded-2xl border border-zinc-200/85 bg-white/90 p-4 shadow-[0_10px_24px_-24px_rgba(0,0,0,0.55)]",
+        className
+      )}
+    >
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-zinc-800">
           <Icon className="h-3.5 w-3.5 text-zinc-500" />
@@ -107,7 +121,7 @@ function Section({
           </span>
         ) : null}
       </div>
-      {children}
+      <div className="min-h-0">{children}</div>
     </section>
   );
 }
@@ -141,8 +155,10 @@ export function ReferencedLibraryDetailPanel({
     { label: "引用", value: references.length },
     { label: "文件", value: sourceFiles.length },
   ];
+  const portalTarget = typeof document !== "undefined" ? document.body : null;
+  if (!portalTarget) return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open ? (
         <>
@@ -151,7 +167,7 @@ export function ReferencedLibraryDetailPanel({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-transparent backdrop-blur-[5px]"
+            className="fixed inset-0 z-[70] bg-transparent backdrop-blur-[7px]"
             onClick={onClose}
           />
           <motion.aside
@@ -160,31 +176,27 @@ export function ReferencedLibraryDetailPanel({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 16, opacity: 0 }}
             transition={{ type: "spring", stiffness: 320, damping: 30 }}
-            className="fixed inset-y-3 left-3 right-3 z-[71] flex flex-col overflow-hidden rounded-3xl border border-white/75 bg-[color:var(--project-surface-elevated)] shadow-[0_28px_90px_-24px_rgba(0,0,0,0.4)] backdrop-blur-2xl md:bottom-4 md:left-auto md:right-4 md:top-4 md:w-[min(680px,calc(100vw-32px))]"
+            className="fixed inset-y-3 left-3 right-3 z-[71] flex flex-col overflow-hidden rounded-3xl border border-white/75 bg-[color:var(--project-surface-elevated)] shadow-[0_28px_90px_-24px_rgba(0,0,0,0.4)] backdrop-blur-2xl md:bottom-4 md:left-auto md:right-4 md:top-4 md:w-[min(760px,calc(100vw-32px))]"
           >
             <div className="relative shrink-0 border-b border-zinc-200/70 bg-gradient-to-br from-amber-50/65 via-white/95 to-white px-6 py-5">
               <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-400/12 blur-3xl" />
               <div className="relative z-10 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-amber-200/75 bg-amber-100/70 text-amber-700">
-                      <Library className="h-4.5 w-4.5" />
-                    </span>
-                    <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--project-text-primary)]">
-                      引用库详情
-                    </h3>
-                  </div>
+                  <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                    <Library className="h-3 w-3" />
+                    引用库详情
+                  </p>
                   <p
-                    className="mt-1.5 truncate text-sm font-semibold text-[var(--project-text-primary)]"
+                    className="mt-2 truncate text-2xl font-semibold tracking-tight text-[var(--project-text-primary)]"
                     title={libraryDisplayName}
                   >
                     {libraryDisplayName}
                   </p>
                   <p
-                    className="mt-0.5 truncate font-mono text-[11px] text-zinc-500"
+                    className="mt-1 truncate font-mono text-[10px] text-zinc-400"
                     title={reference?.target_project_id || "-"}
                   >
-                    {reference?.target_project_id || "-"}
+                    ID: {reference?.target_project_id || "-"}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -223,8 +235,8 @@ export function ReferencedLibraryDetailPanel({
               </div>
             </div>
 
-            <ScrollArea className="min-h-0 flex-1 px-6 py-5">
-              <div className="space-y-4 pb-8">
+            <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">
+              <div className="flex h-full min-h-0 flex-col gap-3">
                 {error ? (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
                     {error}
@@ -296,100 +308,106 @@ export function ReferencedLibraryDetailPanel({
                   ) : null}
                 </Section>
 
-                <Section icon={Clock3} title="会话列表" count={sessions.length}>
-                  <div className="mt-1 space-y-1.5">
-                    {sessions.length === 0 ? (
-                      <p className="text-[11px] text-zinc-500">暂无会话记录</p>
-                    ) : (
-                      sessions.slice(0, 12).map((session) => {
-                        const state = sessionStateLabel(session.state);
-                        return (
-                          <div
-                            key={session.id}
-                            className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
-                          >
-                            <p className="truncate text-[11px] font-semibold text-zinc-800">
-                              {session.title}
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-zinc-600">
-                              {state ? `${state} · ` : ""}
-                              {formatTime(session.createdAt)}
-                            </p>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </Section>
-
-                <Section
-                  icon={FolderTree}
-                  title="库工具生成记录"
-                  count={totalHistoryCount}
-                >
-                  <div className="mt-1 space-y-2">
-                    {historyByTool.length === 0 ? (
-                      <p className="text-[11px] text-zinc-500">暂无生成记录</p>
-                    ) : (
-                      historyByTool.map(([toolKey, items]) => {
-                        const toolLabel = TOOL_LABELS[toolKey] || toolKey;
-                        const toolColor = TOOL_COLORS[toolKey] || TOOL_COLORS.ppt;
-                        const ToolIcon = TOOL_ICONS[toolKey] || FolderTree;
-                        return (
-                          <div key={toolKey} className="space-y-1">
-                            <p
-                              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide"
-                              style={{
-                                color: toolColor.primary,
-                                borderColor: toolColor.glow,
-                                backgroundColor: toolColor.soft,
-                              }}
-                            >
-                              <ToolIcon className="h-3 w-3" />
-                              {toolLabel}
-                            </p>
-                            {items.slice(0, 3).map((item) => (
+                <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-2 xl:grid-rows-2">
+                  <Section
+                    icon={Clock3}
+                    title="会话列表"
+                    count={sessions.length}
+                    className="h-full"
+                  >
+                    <ScrollArea className="h-full pr-1">
+                      <div className="space-y-1.5 pb-1">
+                        {sessions.length === 0 ? (
+                          <p className="text-[11px] text-zinc-500">暂无会话记录</p>
+                        ) : (
+                          sessions.slice(0, 20).map((session) => {
+                            const state = sessionStateLabel(session.state);
+                            return (
                               <div
-                                key={item.artifactId}
+                                key={session.id}
                                 className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
-                                style={{
-                                  boxShadow: `inset 2px 0 0 ${toolColor.primary}`,
-                                }}
                               >
                                 <p className="truncate text-[11px] font-semibold text-zinc-800">
-                                  {item.title}
+                                  {session.title}
                                 </p>
                                 <p className="mt-0.5 text-[11px] text-zinc-600">
-                                  {item.status} · {formatTime(item.createdAt)}
+                                  {state ? `${state} · ` : ""}
+                                  {formatTime(session.createdAt)}
                                 </p>
                               </div>
-                            ))}
-                            <Separator className="mt-2 bg-zinc-200/70" />
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </Section>
+                            );
+                          })
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </Section>
 
-                <Section
-                  icon={Files}
-                  title="来源面板内容"
-                  count={references.length + sourceFiles.length}
-                >
-                  <div className="mt-1 grid gap-2 text-[11px] text-zinc-600 md:grid-cols-2">
-                    <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/70 p-2.5">
-                      <p className="mb-1 flex items-center justify-between gap-2 text-zinc-800">
-                        <span className="font-semibold">该库的引用</span>
-                        <span className="text-[10px] text-zinc-500">
-                          {references.length}
-                        </span>
-                      </p>
-                      {references.length === 0 ? (
-                        <p className="text-zinc-500">无引用库</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {references.slice(0, 8).map((item) => (
+                  <Section
+                    icon={FolderTree}
+                    title="库工具生成记录"
+                    count={totalHistoryCount}
+                    className="h-full"
+                  >
+                    <ScrollArea className="h-full pr-1">
+                      <div className="space-y-2 pb-1">
+                        {historyByTool.length === 0 ? (
+                          <p className="text-[11px] text-zinc-500">暂无生成记录</p>
+                        ) : (
+                          historyByTool.map(([toolKey, items]) => {
+                            const toolLabel = TOOL_LABELS[toolKey] || toolKey;
+                            const toolColor =
+                              TOOL_COLORS[toolKey] || TOOL_COLORS.ppt;
+                            const ToolIcon = TOOL_ICONS[toolKey] || FolderTree;
+                            return (
+                              <div key={toolKey} className="space-y-1">
+                                <p
+                                  className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide"
+                                  style={{
+                                    color: toolColor.primary,
+                                    borderColor: toolColor.glow,
+                                    backgroundColor: toolColor.soft,
+                                  }}
+                                >
+                                  <ToolIcon className="h-3 w-3" />
+                                  {toolLabel}
+                                </p>
+                                {items.slice(0, 4).map((item) => (
+                                  <div
+                                    key={item.artifactId}
+                                    className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
+                                    style={{
+                                      boxShadow: `inset 2px 0 0 ${toolColor.primary}`,
+                                    }}
+                                  >
+                                    <p className="truncate text-[11px] font-semibold text-zinc-800">
+                                      {item.title}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] text-zinc-600">
+                                      {item.status} · {formatTime(item.createdAt)}
+                                    </p>
+                                  </div>
+                                ))}
+                                <Separator className="mt-2 bg-zinc-200/70" />
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </Section>
+
+                  <Section
+                    icon={Link2}
+                    title="该库的引用"
+                    count={references.length}
+                    className="h-full"
+                  >
+                    <ScrollArea className="h-full pr-1">
+                      <div className="space-y-1 pb-1">
+                        {references.length === 0 ? (
+                          <p className="text-[11px] text-zinc-500">无引用库</p>
+                        ) : (
+                          references.slice(0, 20).map((item) => (
                             <div
                               key={item.id}
                               className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5 text-[11px]"
@@ -402,23 +420,29 @@ export function ReferencedLibraryDetailPanel({
                                 · {item.relation_type} · {item.mode}
                               </span>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/70 p-2.5">
-                      <p className="mb-1 flex items-center justify-between gap-2 text-zinc-800">
-                        <span className="font-semibold">该库文件</span>
-                        <span className="text-[10px] text-zinc-500">
-                          {sourceFiles.length}
-                        </span>
-                      </p>
-                      {sourceFiles.length === 0 ? (
-                        <p className="text-zinc-500">暂无文件或无权限查看</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {sourceFiles.slice(0, 8).map((file) => {
-                            const fileType = getFileTypeFromExtension(file.filename);
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </Section>
+
+                  <Section
+                    icon={Files}
+                    title="该库文件"
+                    count={sourceFiles.length}
+                    className="h-full"
+                  >
+                    <ScrollArea className="h-full pr-1">
+                      <div className="space-y-1 pb-1">
+                        {sourceFiles.length === 0 ? (
+                          <p className="text-[11px] text-zinc-500">
+                            暂无文件或无权限查看
+                          </p>
+                        ) : (
+                          sourceFiles.slice(0, 24).map((file) => {
+                            const fileType = getFileTypeFromExtension(
+                              file.filename
+                            );
                             const fileConfig =
                               FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
                             const FileIcon = fileConfig.icon;
@@ -435,7 +459,10 @@ export function ReferencedLibraryDetailPanel({
                                   )}
                                 >
                                   <FileIcon
-                                    className={cn("h-3.5 w-3.5", fileConfig.color)}
+                                    className={cn(
+                                      "h-3.5 w-3.5",
+                                      fileConfig.color
+                                    )}
                                   />
                                 </span>
                                 <span className="truncate text-[11px] font-medium text-zinc-700">
@@ -443,17 +470,18 @@ export function ReferencedLibraryDetailPanel({
                                 </span>
                               </div>
                             );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Section>
+                          })
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </Section>
+                </div>
               </div>
-            </ScrollArea>
+            </div>
           </motion.aside>
         </>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    portalTarget
   );
 }
