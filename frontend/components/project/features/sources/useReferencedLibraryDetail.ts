@@ -81,8 +81,15 @@ export function useReferencedLibraryDetail() {
     setLoading(true);
     setError(null);
     try {
-      const [sessionsResult, artifactsResult, referencesResult, filesResult] =
+      const [
+        projectResult,
+        sessionsResult,
+        artifactsResult,
+        referencesResult,
+        filesResult,
+      ] =
         await Promise.allSettled([
+          projectsApi.getProject(targetProjectId),
           generateApi.listSessions({
             project_id: targetProjectId,
             page: 1,
@@ -94,6 +101,20 @@ export function useReferencedLibraryDetail() {
         ]);
 
       const errors: string[] = [];
+
+      if (projectResult.status === "fulfilled") {
+        const projectName = projectResult.value.data?.project?.name?.trim();
+        if (projectName) {
+          setSelectedLibrary((current) => {
+            if (!current) return current;
+            if (current.reference.target_project_id !== targetProjectId) {
+              return current;
+            }
+            if (current.displayName === projectName) return current;
+            return { ...current, displayName: projectName };
+          });
+        }
+      }
 
       if (sessionsResult.status === "fulfilled") {
         const sessionsRaw = Array.isArray(sessionsResult.value.data?.sessions)

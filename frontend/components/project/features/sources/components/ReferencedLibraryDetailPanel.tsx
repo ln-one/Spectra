@@ -106,17 +106,17 @@ function Section({
   return (
     <section
       className={cn(
-        "flex min-h-0 flex-col rounded-2xl border border-zinc-200/85 bg-white/90 p-4 shadow-[0_10px_24px_-24px_rgba(0,0,0,0.55)]",
+        "flex min-h-0 flex-col rounded-2xl border border-zinc-200/85 bg-white/92 p-4 shadow-[0_10px_24px_-24px_rgba(0,0,0,0.55)]",
         className
       )}
     >
       <div className="mb-2.5 flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-zinc-800">
+        <p className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-zinc-800">
           <Icon className="h-3.5 w-3.5 text-zinc-500" />
           {title}
         </p>
         {typeof count !== "undefined" ? (
-          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
+          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-500">
             {count}
           </span>
         ) : null}
@@ -182,18 +182,18 @@ export function ReferencedLibraryDetailPanel({
               <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-400/12 blur-3xl" />
               <div className="relative z-10 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                  <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
                     <Library className="h-3 w-3" />
                     引用库详情
                   </p>
-                  <p
-                    className="mt-2 truncate text-2xl font-semibold tracking-tight text-[var(--project-text-primary)]"
+                  <h2
+                    className="mt-2 truncate text-[30px] font-semibold tracking-tight leading-tight text-[var(--project-text-primary)]"
                     title={libraryDisplayName}
                   >
                     {libraryDisplayName}
-                  </p>
+                  </h2>
                   <p
-                    className="mt-1 truncate font-mono text-[10px] text-zinc-400"
+                    className="mt-1 truncate font-mono text-xs text-zinc-400"
                     title={reference?.target_project_id || "-"}
                   >
                     ID: {reference?.target_project_id || "-"}
@@ -224,10 +224,10 @@ export function ReferencedLibraryDetailPanel({
                 {summaryStats.map((stat) => (
                   <div
                     key={stat.label}
-                    className="rounded-xl border border-zinc-200/80 bg-white/85 px-2.5 py-2 text-center"
+                    className="rounded-xl border border-zinc-200/80 bg-white/85 px-2.5 py-2.5 text-center"
                   >
-                    <p className="text-[10px] text-zinc-500">{stat.label}</p>
-                    <p className="mt-0.5 text-sm font-semibold text-zinc-800">
+                    <p className="text-xs text-zinc-500">{stat.label}</p>
+                    <p className="mt-0.5 text-base font-semibold text-zinc-800">
                       {stat.value}
                     </p>
                   </div>
@@ -235,8 +235,8 @@ export function ReferencedLibraryDetailPanel({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">
-              <div className="flex h-full min-h-0 flex-col gap-3">
+            <ScrollArea className="min-h-0 flex-1 px-6 py-4">
+              <div className="space-y-3 pb-6">
                 {error ? (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
                     {error}
@@ -249,7 +249,7 @@ export function ReferencedLibraryDetailPanel({
                 ) : null}
 
                 <Section icon={BookOpen} title="引用状态概览" count="基础信息">
-                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-1.5 text-sm">
                     <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-blue-700">
                       <Link2 className="h-3 w-3" />
                       {relationLabel(reference?.relation_type)}
@@ -264,18 +264,18 @@ export function ReferencedLibraryDetailPanel({
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2.5">
                     <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+                      <p className="text-xs uppercase tracking-wide text-zinc-500">
                         生效版本
                       </p>
                       <p
-                        className="mt-0.5 truncate font-mono text-[11px] text-zinc-700"
+                        className="mt-0.5 truncate font-mono text-sm text-zinc-700"
                         title={effectiveVersion}
                       >
                         {effectiveVersion}
                       </p>
                     </div>
                     <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+                      <p className="text-xs uppercase tracking-wide text-zinc-500">
                         优先级
                       </p>
                       <p className="mt-0.5 inline-flex items-center gap-1 text-[12px] font-semibold text-zinc-700">
@@ -284,41 +284,41 @@ export function ReferencedLibraryDetailPanel({
                       </p>
                     </div>
                     <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+                      <p className="text-xs uppercase tracking-wide text-zinc-500">
                         创建时间
                       </p>
-                      <p className="mt-0.5 text-[11px] font-medium text-zinc-700">
+                      <p className="mt-0.5 text-sm font-medium text-zinc-700">
                         {formatTime(reference?.created_at)}
                       </p>
                     </div>
                     <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+                      <p className="text-xs uppercase tracking-wide text-zinc-500">
                         最近同步
                       </p>
-                      <p className="mt-0.5 text-[11px] font-medium text-zinc-700">
+                      <p className="mt-0.5 text-sm font-medium text-zinc-700">
                         {formatTime(reference?.updated_at)}
                       </p>
                     </div>
                   </div>
                   {showUpstreamWarning ? (
-                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/85 px-3 py-2 text-[11px] text-amber-800">
+                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/85 px-3 py-2 text-sm text-amber-800">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <p>上游版本已变化，当前固定引用可能与最新内容不一致。</p>
                     </div>
                   ) : null}
                 </Section>
 
-                <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-2 xl:grid-rows-2">
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                   <Section
                     icon={Clock3}
                     title="会话列表"
                     count={sessions.length}
-                    className="h-full"
+                    className="min-h-[320px]"
                   >
-                    <ScrollArea className="h-full pr-1">
+                    <ScrollArea className="h-[250px] pr-1 xl:h-[270px]">
                       <div className="space-y-1.5 pb-1">
                         {sessions.length === 0 ? (
-                          <p className="text-[11px] text-zinc-500">暂无会话记录</p>
+                          <p className="text-sm text-zinc-500">暂无会话记录</p>
                         ) : (
                           sessions.slice(0, 20).map((session) => {
                             const state = sessionStateLabel(session.state);
@@ -327,10 +327,10 @@ export function ReferencedLibraryDetailPanel({
                                 key={session.id}
                                 className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
                               >
-                                <p className="truncate text-[11px] font-semibold text-zinc-800">
+                                <p className="truncate text-sm font-semibold text-zinc-800">
                                   {session.title}
                                 </p>
-                                <p className="mt-0.5 text-[11px] text-zinc-600">
+                                <p className="mt-0.5 text-sm text-zinc-600">
                                   {state ? `${state} · ` : ""}
                                   {formatTime(session.createdAt)}
                                 </p>
@@ -346,12 +346,12 @@ export function ReferencedLibraryDetailPanel({
                     icon={FolderTree}
                     title="库工具生成记录"
                     count={totalHistoryCount}
-                    className="h-full"
+                    className="min-h-[320px]"
                   >
-                    <ScrollArea className="h-full pr-1">
+                    <ScrollArea className="h-[250px] pr-1 xl:h-[270px]">
                       <div className="space-y-2 pb-1">
                         {historyByTool.length === 0 ? (
-                          <p className="text-[11px] text-zinc-500">暂无生成记录</p>
+                          <p className="text-sm text-zinc-500">暂无生成记录</p>
                         ) : (
                           historyByTool.map(([toolKey, items]) => {
                             const toolLabel = TOOL_LABELS[toolKey] || toolKey;
@@ -361,7 +361,7 @@ export function ReferencedLibraryDetailPanel({
                             return (
                               <div key={toolKey} className="space-y-1">
                                 <p
-                                  className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide"
+                                  className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide"
                                   style={{
                                     color: toolColor.primary,
                                     borderColor: toolColor.glow,
@@ -379,10 +379,10 @@ export function ReferencedLibraryDetailPanel({
                                       boxShadow: `inset 2px 0 0 ${toolColor.primary}`,
                                     }}
                                   >
-                                    <p className="truncate text-[11px] font-semibold text-zinc-800">
+                                    <p className="truncate text-sm font-semibold text-zinc-800">
                                       {item.title}
                                     </p>
-                                    <p className="mt-0.5 text-[11px] text-zinc-600">
+                                    <p className="mt-0.5 text-sm text-zinc-600">
                                       {item.status} · {formatTime(item.createdAt)}
                                     </p>
                                   </div>
@@ -400,17 +400,17 @@ export function ReferencedLibraryDetailPanel({
                     icon={Link2}
                     title="该库的引用"
                     count={references.length}
-                    className="h-full"
+                    className="min-h-[320px]"
                   >
-                    <ScrollArea className="h-full pr-1">
+                    <ScrollArea className="h-[250px] pr-1 xl:h-[270px]">
                       <div className="space-y-1 pb-1">
                         {references.length === 0 ? (
-                          <p className="text-[11px] text-zinc-500">无引用库</p>
+                          <p className="text-sm text-zinc-500">无引用库</p>
                         ) : (
                           references.slice(0, 20).map((item) => (
                             <div
                               key={item.id}
-                              className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5 text-[11px]"
+                              className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5 text-sm"
                             >
                               <span className="font-medium text-zinc-800">
                                 {item.target_project_name?.trim() ||
@@ -430,12 +430,12 @@ export function ReferencedLibraryDetailPanel({
                     icon={Files}
                     title="该库文件"
                     count={sourceFiles.length}
-                    className="h-full"
+                    className="min-h-[320px]"
                   >
-                    <ScrollArea className="h-full pr-1">
+                    <ScrollArea className="h-[250px] pr-1 xl:h-[270px]">
                       <div className="space-y-1 pb-1">
                         {sourceFiles.length === 0 ? (
-                          <p className="text-[11px] text-zinc-500">
+                          <p className="text-sm text-zinc-500">
                             暂无文件或无权限查看
                           </p>
                         ) : (
@@ -465,7 +465,7 @@ export function ReferencedLibraryDetailPanel({
                                     )}
                                   />
                                 </span>
-                                <span className="truncate text-[11px] font-medium text-zinc-700">
+                                <span className="truncate text-sm font-medium text-zinc-700">
                                   {file.filename}
                                 </span>
                               </div>
@@ -477,7 +477,7 @@ export function ReferencedLibraryDetailPanel({
                   </Section>
                 </div>
               </div>
-            </div>
+            </ScrollArea>
           </motion.aside>
         </>
       ) : null}
