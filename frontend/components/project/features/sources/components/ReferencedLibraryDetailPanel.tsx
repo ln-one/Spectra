@@ -1,261 +1,160 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, Library, RefreshCw, X } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  AlertTriangle,
+  ArrowDownNarrowWide,
+  Library,
+  Link2,
+  Pin,
+  RefreshCcw,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
 import type { ProjectReference } from "../../library/types";
-import type { UploadedFile } from "../types";
-
-export interface ReferencedLibrarySession {
-  id: string;
-  title: string;
-  state: string;
-  createdAt: string;
-}
 
 interface ReferencedLibraryDetailPanelProps {
-  open: boolean;
-  loading: boolean;
-  error: string | null;
-  libraryDisplayName: string;
-  reference: ProjectReference | null;
-  sessions: ReferencedLibrarySession[];
-  historyByTool: Array<[string, ArtifactHistoryItem[]]>;
-  references: ProjectReference[];
-  sourceFiles: UploadedFile[];
+  reference: ProjectReference;
+  displayName: string;
   onClose: () => void;
-  onRefresh: () => void;
 }
 
-const toolLabelMap: Record<string, string> = {
-  ppt: "PPT",
-  word: "Word",
-  mindmap: "脑图",
-  outline: "游戏",
-  quiz: "测验",
-  summary: "讲稿",
-  animation: "动画",
-  handout: "仿真",
-};
+function toDisplayTime(raw?: string): string {
+  if (!raw) return "-";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString("zh-CN", { hour12: false });
+}
 
-function formatTime(value?: string): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function resolveRelationLabel(value: ProjectReference["relation_type"]): string {
+  return value === "base" ? "主基底" : "辅助引用";
+}
+
+function resolveModeLabel(value: ProjectReference["mode"]): string {
+  return value === "follow" ? "跟随更新" : "固定版本";
+}
+
+function resolveStatusLabel(value: ProjectReference["status"]): string {
+  return value === "active" ? "已启用" : "已停用";
 }
 
 export function ReferencedLibraryDetailPanel({
-  open,
-  loading,
-  error,
-  libraryDisplayName,
   reference,
-  sessions,
-  historyByTool,
-  references,
-  sourceFiles,
+  displayName,
   onClose,
-  onRefresh,
 }: ReferencedLibraryDetailPanelProps) {
+  const effectiveVersion =
+    reference.effective_target_version_id ||
+    reference.pinned_version_id ||
+    reference.upstream_current_version_id ||
+    "-";
+
+  const statusToneClass =
+    reference.status === "active"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-zinc-200 bg-zinc-50 text-zinc-500";
+
   return (
-    <AnimatePresence>
-      {open ? (
-        <>
-          <motion.div
-            key="library-detail-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/15 backdrop-blur-[1px]"
-            onClick={onClose}
-          />
-          <motion.div
-            key="library-detail-panel"
-            initial={{ x: 24, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 24, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 320, damping: 30 }}
-            className="fixed right-6 top-[88px] bottom-6 z-[71] flex w-[460px] flex-col overflow-hidden rounded-3xl border border-white/50 bg-white/90 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.18)] backdrop-blur-xl"
+    <motion.div
+      key={`library-detail-${reference.id}`}
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 10, scale: 0.98 }}
+      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+      className="pointer-events-auto rounded-2xl border border-[var(--project-border-strong)] bg-[var(--project-surface-elevated)] p-4 shadow-[0_18px_48px_-24px_rgba(0,0,0,0.35)] backdrop-blur"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex items-start gap-3">
+          <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-50 to-yellow-100 text-amber-700 shadow-sm">
+            <Library className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] tracking-[0.08em] text-[var(--project-text-muted)]">
+              引用库详情
+            </p>
+            <p
+              className="truncate text-sm font-semibold text-[var(--project-text-primary)]"
+              title={displayName}
+            >
+              {displayName}
+            </p>
+            <p
+              className="mt-0.5 truncate text-[11px] text-[var(--project-text-muted)]"
+              title={reference.target_project_id}
+            >
+              {reference.target_project_id}
+            </p>
+          </div>
+        </div>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 rounded-lg text-[var(--project-text-muted)]"
+          onClick={onClose}
+          title="关闭详情"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-blue-700">
+          <Link2 className="h-3 w-3" />
+          {resolveRelationLabel(reference.relation_type)}
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-700">
+          <Pin className="h-3 w-3" />
+          {resolveModeLabel(reference.mode)}
+        </span>
+        <span
+          className={`inline-flex items-center rounded-full border px-2 py-0.5 ${statusToneClass}`}
+        >
+          {resolveStatusLabel(reference.status)}
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-zinc-200/70 bg-white/70 px-2.5 py-2">
+          <p className="text-[10px] text-zinc-500">生效版本</p>
+          <p
+            className="mt-0.5 truncate font-mono text-[11px] text-zinc-700"
+            title={effectiveVersion}
           >
-            <div className="shrink-0 border-b border-zinc-200/70 px-5 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700">
-                      <Library className="h-4 w-4" />
-                    </span>
-                    <h3 className="truncate text-sm font-semibold text-zinc-900">
-                      引用库详情
-                    </h3>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-zinc-600">
-                    {libraryDisplayName}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={onRefresh}
-                    className="h-8 w-8 rounded-xl border-zinc-200/70 bg-white/80"
-                    title="刷新"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5 text-zinc-500" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={onClose}
-                    className="h-8 w-8 rounded-xl text-zinc-500 hover:bg-zinc-100"
-                    title="关闭"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            {effectiveVersion}
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-200/70 bg-white/70 px-2.5 py-2">
+          <p className="text-[10px] text-zinc-500">优先级</p>
+          <p className="mt-0.5 inline-flex items-center gap-1 text-[12px] font-semibold text-zinc-700">
+            <ArrowDownNarrowWide className="h-3.5 w-3.5 text-zinc-500" />
+            {reference.priority ?? 0}
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-200/70 bg-white/70 px-2.5 py-2">
+          <p className="text-[10px] text-zinc-500">创建时间</p>
+          <p className="mt-0.5 text-[11px] text-zinc-700">
+            {toDisplayTime(reference.created_at)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-200/70 bg-white/70 px-2.5 py-2">
+          <p className="text-[10px] text-zinc-500">最近同步</p>
+          <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-zinc-700">
+            <RefreshCcw className="h-3 w-3 text-zinc-500" />
+            {toDisplayTime(reference.updated_at)}
+          </p>
+        </div>
+      </div>
 
-            <ScrollArea className="min-h-0 flex-1 px-5 py-4">
-              <div className="space-y-4 pb-6">
-                {error ? (
-                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                    {error}
-                  </div>
-                ) : null}
-                {loading ? (
-                  <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-                    正在加载库详情...
-                  </div>
-                ) : null}
-
-                <section className="rounded-xl border border-zinc-200/80 bg-white/80 p-3">
-                  <p className="text-xs font-semibold text-zinc-800">简单信息</p>
-                  <div className="mt-2 space-y-1.5 text-[11px] text-zinc-600">
-                    <p>项目ID: {reference?.target_project_id || "-"}</p>
-                    <p>
-                      引用关系: {reference?.relation_type || "-"} ·{" "}
-                      {reference?.mode || "-"}
-                    </p>
-                    <p>引用状态: {reference?.status || "-"}</p>
-                    <p>引用时间: {formatTime(reference?.created_at)}</p>
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-zinc-200/80 bg-white/80 p-3">
-                  <p className="text-xs font-semibold text-zinc-800">会话列表</p>
-                  <div className="mt-2 space-y-1.5">
-                    {sessions.length === 0 ? (
-                      <p className="text-[11px] text-zinc-500">暂无会话记录</p>
-                    ) : (
-                      sessions.slice(0, 12).map((session) => (
-                        <div
-                          key={session.id}
-                          className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2.5 py-2 text-[11px] text-zinc-600"
-                        >
-                          <p className="truncate font-medium text-zinc-800">
-                            {session.title}
-                          </p>
-                          <p className="mt-0.5">
-                            {session.state} · {formatTime(session.createdAt)}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-zinc-200/80 bg-white/80 p-3">
-                  <p className="text-xs font-semibold text-zinc-800">
-                    库工具生成记录
-                  </p>
-                  <div className="mt-2 space-y-2">
-                    {historyByTool.length === 0 ? (
-                      <p className="text-[11px] text-zinc-500">暂无生成记录</p>
-                    ) : (
-                      historyByTool.map(([toolKey, items]) => (
-                        <div key={toolKey} className="space-y-1">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                            {toolLabelMap[toolKey] || toolKey}
-                          </p>
-                          {items.slice(0, 3).map((item) => (
-                            <div
-                              key={item.artifactId}
-                              className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2.5 py-2 text-[11px] text-zinc-600"
-                            >
-                              <p className="truncate font-medium text-zinc-800">
-                                {item.title}
-                              </p>
-                              <p className="mt-0.5">
-                                {item.status} · {formatTime(item.createdAt)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-zinc-200/80 bg-white/80 p-3">
-                  <p className="flex items-center gap-1.5 text-xs font-semibold text-zinc-800">
-                    <BookOpen className="h-3.5 w-3.5 text-zinc-500" />
-                    来源面板内容
-                  </p>
-                  <div className="mt-2 space-y-2 text-[11px] text-zinc-600">
-                    <div>
-                      <p className="mb-1 text-zinc-800">该库的引用</p>
-                      {references.length === 0 ? (
-                        <p className="text-zinc-500">无引用库</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {references.slice(0, 8).map((item) => (
-                            <div
-                              key={item.id}
-                              className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5"
-                            >
-                              {item.target_project_name?.trim() ||
-                                item.target_project_id}
-                              <span className="ml-1 text-zinc-500">
-                                · {item.relation_type} · {item.mode}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="mb-1 text-zinc-800">该库文件</p>
-                      {sourceFiles.length === 0 ? (
-                        <p className="text-zinc-500">暂无文件或无权限查看</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {sourceFiles.slice(0, 8).map((file) => (
-                            <div
-                              key={file.id}
-                              className="truncate rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5"
-                              title={file.filename}
-                            >
-                              {file.filename}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </section>
-              </div>
-            </ScrollArea>
-          </motion.div>
-        </>
-      ) : null}
-    </AnimatePresence>
+      {reference.upstream_updated ? (
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-2.5 py-2 text-[11px] text-amber-800">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p>上游版本已变化，当前引用可能与最新内容不一致。</p>
+        </div>
+      ) : (
+        <p className="mt-3 text-[11px] text-[var(--project-text-muted)]">
+          点击其他库卡片可快速切换详情。
+        </p>
+      )}
+    </motion.div>
   );
 }
