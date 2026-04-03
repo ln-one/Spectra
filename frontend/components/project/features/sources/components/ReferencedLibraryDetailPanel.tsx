@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -14,8 +15,10 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
 import type { ProjectReference } from "../../library/types";
 import type { UploadedFile } from "../types";
@@ -76,6 +79,35 @@ function statusLabel(value?: ProjectReference["status"]): string {
   return "-";
 }
 
+function Section({
+  icon: Icon,
+  title,
+  count,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  count?: string | number;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-zinc-200/85 bg-white/90 p-4 shadow-[0_10px_24px_-24px_rgba(0,0,0,0.55)]">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-zinc-800">
+          <Icon className="h-3.5 w-3.5 text-zinc-500" />
+          {title}
+        </p>
+        {typeof count !== "undefined" ? (
+          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
+            {count}
+          </span>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export function ReferencedLibraryDetailPanel({
   open,
   loading,
@@ -99,13 +131,12 @@ export function ReferencedLibraryDetailPanel({
     (count, [, items]) => count + items.length,
     0
   );
-
-  const sectionClass =
-    "rounded-2xl border border-zinc-200/80 bg-white/88 p-4 shadow-[0_10px_24px_-22px_rgba(0,0,0,0.35)]";
-  const titleRowClass = "mb-2 flex items-center justify-between gap-2";
-  const titleClass = "flex items-center gap-1.5 text-xs font-semibold text-zinc-800";
-  const countBadgeClass =
-    "rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-500";
+  const summaryStats = [
+    { label: "会话", value: sessions.length },
+    { label: "记录", value: totalHistoryCount },
+    { label: "引用", value: references.length },
+    { label: "文件", value: sourceFiles.length },
+  ];
 
   return (
     <AnimatePresence>
@@ -116,37 +147,37 @@ export function ReferencedLibraryDetailPanel({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-white/10 backdrop-blur-[6px]"
+            className="fixed inset-0 z-[70] bg-transparent backdrop-blur-[5px]"
             onClick={onClose}
           />
           <motion.aside
             key="library-detail-panel"
-            initial={{ x: 28, opacity: 0 }}
+            initial={{ x: 24, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 20, opacity: 0 }}
+            exit={{ x: 16, opacity: 0 }}
             transition={{ type: "spring", stiffness: 320, damping: 30 }}
-            className="fixed right-3 top-[72px] z-[71] flex h-[min(860px,calc(100dvh-84px))] w-[min(620px,calc(100vw-24px))] flex-col overflow-hidden rounded-3xl border border-white/70 bg-[color:var(--project-surface-elevated)] shadow-[0_28px_90px_-24px_rgba(0,0,0,0.35)] backdrop-blur-2xl md:right-4 md:top-[84px] md:h-[min(900px,calc(100dvh-100px))]"
+            className="fixed inset-y-3 left-3 right-3 z-[71] flex flex-col overflow-hidden rounded-3xl border border-white/75 bg-[color:var(--project-surface-elevated)] shadow-[0_28px_90px_-24px_rgba(0,0,0,0.4)] backdrop-blur-2xl md:bottom-4 md:left-auto md:right-4 md:top-4 md:w-[min(680px,calc(100vw-32px))]"
           >
-            <div className="relative shrink-0 border-b border-zinc-200/70 px-6 py-5">
+            <div className="relative shrink-0 border-b border-zinc-200/70 bg-gradient-to-br from-amber-50/65 via-white/95 to-white px-6 py-5">
               <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-400/12 blur-3xl" />
               <div className="relative z-10 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700">
-                      <Library className="h-4 w-4" />
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-amber-200/75 bg-amber-100/70 text-amber-700">
+                      <Library className="h-4.5 w-4.5" />
                     </span>
-                    <h3 className="truncate text-base font-semibold text-[var(--project-text-primary)]">
+                    <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--project-text-primary)]">
                       引用库详情
                     </h3>
                   </div>
                   <p
-                    className="mt-1 truncate text-sm font-medium text-[var(--project-text-primary)]"
+                    className="mt-1.5 truncate text-sm font-semibold text-[var(--project-text-primary)]"
                     title={libraryDisplayName}
                   >
                     {libraryDisplayName}
                   </p>
                   <p
-                    className="mt-0.5 truncate font-mono text-[11px] text-[var(--project-text-muted)]"
+                    className="mt-0.5 truncate font-mono text-[11px] text-zinc-500"
                     title={reference?.target_project_id || "-"}
                   >
                     {reference?.target_project_id || "-"}
@@ -173,6 +204,19 @@ export function ReferencedLibraryDetailPanel({
                   </Button>
                 </div>
               </div>
+              <div className="relative z-10 mt-4 grid grid-cols-4 gap-2">
+                {summaryStats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-xl border border-zinc-200/80 bg-white/85 px-2.5 py-2 text-center"
+                  >
+                    <p className="text-[10px] text-zinc-500">{stat.label}</p>
+                    <p className="mt-0.5 text-sm font-semibold text-zinc-800">
+                      {stat.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <ScrollArea className="min-h-0 flex-1 px-6 py-5">
@@ -188,14 +232,7 @@ export function ReferencedLibraryDetailPanel({
                   </div>
                 ) : null}
 
-                <section className={sectionClass}>
-                  <div className={titleRowClass}>
-                    <p className={titleClass}>
-                      <BookOpen className="h-3.5 w-3.5 text-zinc-500" />
-                      引用状态概览
-                    </p>
-                    <span className={countBadgeClass}>基础信息</span>
-                  </div>
+                <Section icon={BookOpen} title="引用状态概览" count="基础信息">
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                     <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-blue-700">
                       <Link2 className="h-3 w-3" />
@@ -209,9 +246,11 @@ export function ReferencedLibraryDetailPanel({
                       {statusLabel(reference?.status)}
                     </span>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2.5">
                     <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2">
-                      <p className="text-[10px] text-zinc-500">生效版本</p>
+                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+                        生效版本
+                      </p>
                       <p
                         className="mt-0.5 truncate font-mono text-[11px] text-zinc-700"
                         title={effectiveVersion}
@@ -220,10 +259,28 @@ export function ReferencedLibraryDetailPanel({
                       </p>
                     </div>
                     <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2">
-                      <p className="text-[10px] text-zinc-500">优先级</p>
+                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+                        优先级
+                      </p>
                       <p className="mt-0.5 inline-flex items-center gap-1 text-[12px] font-semibold text-zinc-700">
                         <ArrowDownNarrowWide className="h-3.5 w-3.5 text-zinc-500" />
                         {reference?.priority ?? 0}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+                        创建时间
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-medium text-zinc-700">
+                        {formatTime(reference?.created_at)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+                        最近同步
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-medium text-zinc-700">
+                        {formatTime(reference?.updated_at)}
                       </p>
                     </div>
                   </div>
@@ -233,87 +290,73 @@ export function ReferencedLibraryDetailPanel({
                       <p>上游版本已变化，当前固定引用可能与最新内容不一致。</p>
                     </div>
                   ) : null}
-                </section>
+                </Section>
 
-                <section className={sectionClass}>
-                  <div className={titleRowClass}>
-                    <p className={titleClass}>
-                      <Clock3 className="h-3.5 w-3.5 text-zinc-500" />
-                      会话列表
-                    </p>
-                    <span className={countBadgeClass}>{sessions.length}</span>
-                  </div>
-                  <div className="mt-2 space-y-1.5">
+                <Section icon={Clock3} title="会话列表" count={sessions.length}>
+                  <div className="mt-1 space-y-1.5">
                     {sessions.length === 0 ? (
                       <p className="text-[11px] text-zinc-500">暂无会话记录</p>
                     ) : (
                       sessions.slice(0, 12).map((session) => (
                         <div
                           key={session.id}
-                          className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2.5 py-2 text-[11px] text-zinc-600"
+                          className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
                         >
-                          <p className="truncate font-medium text-zinc-800">
+                          <p className="truncate text-[11px] font-semibold text-zinc-800">
                             {session.title}
                           </p>
-                          <p className="mt-0.5">
+                          <p className="mt-0.5 text-[11px] text-zinc-600">
                             {session.state} · {formatTime(session.createdAt)}
                           </p>
                         </div>
                       ))
                     )}
                   </div>
-                </section>
+                </Section>
 
-                <section className={sectionClass}>
-                  <div className={titleRowClass}>
-                    <p className={titleClass}>
-                      <FolderTree className="h-3.5 w-3.5 text-zinc-500" />
-                      库工具生成记录
-                    </p>
-                    <span className={countBadgeClass}>{totalHistoryCount}</span>
-                  </div>
-                  <div className="mt-2 space-y-2">
+                <Section
+                  icon={FolderTree}
+                  title="库工具生成记录"
+                  count={totalHistoryCount}
+                >
+                  <div className="mt-1 space-y-2">
                     {historyByTool.length === 0 ? (
                       <p className="text-[11px] text-zinc-500">暂无生成记录</p>
                     ) : (
                       historyByTool.map(([toolKey, items]) => (
                         <div key={toolKey} className="space-y-1">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                             {toolLabelMap[toolKey] || toolKey}
                           </p>
                           {items.slice(0, 3).map((item) => (
                             <div
                               key={item.artifactId}
-                              className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2.5 py-2 text-[11px] text-zinc-600"
+                              className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
                             >
-                              <p className="truncate font-medium text-zinc-800">
+                              <p className="truncate text-[11px] font-semibold text-zinc-800">
                                 {item.title}
                               </p>
-                              <p className="mt-0.5">
+                              <p className="mt-0.5 text-[11px] text-zinc-600">
                                 {item.status} · {formatTime(item.createdAt)}
                               </p>
                             </div>
                           ))}
+                          <Separator className="mt-2 bg-zinc-200/70" />
                         </div>
                       ))
                     )}
                   </div>
-                </section>
+                </Section>
 
-                <section className={sectionClass}>
-                  <div className={titleRowClass}>
-                    <p className={titleClass}>
-                      <Files className="h-3.5 w-3.5 text-zinc-500" />
-                      来源面板内容
-                    </p>
-                    <span className={countBadgeClass}>
-                      {references.length + sourceFiles.length}
-                    </span>
-                  </div>
-                  <div className="mt-2 grid gap-2 text-[11px] text-zinc-600 md:grid-cols-2">
+                <Section
+                  icon={Files}
+                  title="来源面板内容"
+                  count={references.length + sourceFiles.length}
+                >
+                  <div className="mt-1 grid gap-2 text-[11px] text-zinc-600 md:grid-cols-2">
                     <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/70 p-2.5">
                       <p className="mb-1 flex items-center justify-between gap-2 text-zinc-800">
-                        <span>该库的引用</span>
+                        <span className="font-semibold">该库的引用</span>
                         <span className="text-[10px] text-zinc-500">
                           {references.length}
                         </span>
@@ -325,10 +368,12 @@ export function ReferencedLibraryDetailPanel({
                           {references.slice(0, 8).map((item) => (
                             <div
                               key={item.id}
-                              className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5"
+                              className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5 text-[11px]"
                             >
-                              {item.target_project_name?.trim() ||
-                                item.target_project_id}
+                              <span className="font-medium text-zinc-800">
+                                {item.target_project_name?.trim() ||
+                                  item.target_project_id}
+                              </span>
                               <span className="ml-1 text-zinc-500">
                                 · {item.relation_type} · {item.mode}
                               </span>
@@ -339,7 +384,7 @@ export function ReferencedLibraryDetailPanel({
                     </div>
                     <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/70 p-2.5">
                       <p className="mb-1 flex items-center justify-between gap-2 text-zinc-800">
-                        <span>该库文件</span>
+                        <span className="font-semibold">该库文件</span>
                         <span className="text-[10px] text-zinc-500">
                           {sourceFiles.length}
                         </span>
@@ -351,7 +396,7 @@ export function ReferencedLibraryDetailPanel({
                           {sourceFiles.slice(0, 8).map((file) => (
                             <div
                               key={file.id}
-                              className="truncate rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5"
+                              className="truncate rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5 text-[11px] font-medium text-zinc-700"
                               title={file.filename}
                             >
                               {file.filename}
@@ -361,7 +406,7 @@ export function ReferencedLibraryDetailPanel({
                       )}
                     </div>
                   </div>
-                </section>
+                </Section>
               </div>
             </ScrollArea>
           </motion.aside>
