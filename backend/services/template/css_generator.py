@@ -419,6 +419,24 @@ section.content .mermaid {
   border: 1px solid #e0e0e0;
 }
 
+/* Mermaid 渲染后的 SVG 样式 */
+.mermaid-rendered {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 30px 0;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.mermaid-rendered svg {
+  max-width: 90%;
+  max-height: 400px;
+  height: auto;
+}
+
 /* 版式变体 */
 .two-column {
   display: grid;

@@ -382,13 +382,6 @@ paginate: true
 footer: 'Spectra 智能课件'
 ---
 
-<!-- 启用 Mermaid 支持 -->
-<script type="module">
-  import mermaid from
-    'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-  mermaid.initialize({{ startOnLoad: true }});
-</script>
-
 2. <style> 块：
    - 选定的设计家族完整 CSS（参考 css_reference）
    - 页面类型样式（cover/toc/content）
