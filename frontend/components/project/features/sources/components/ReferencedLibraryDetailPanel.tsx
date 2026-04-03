@@ -149,12 +149,6 @@ export function ReferencedLibraryDetailPanel({
     (count, [, items]) => count + items.length,
     0
   );
-  const summaryStats = [
-    { label: "会话", value: sessions.length },
-    { label: "记录", value: totalHistoryCount },
-    { label: "引用", value: references.length },
-    { label: "文件", value: sourceFiles.length },
-  ];
   const portalTarget = typeof document !== "undefined" ? document.body : null;
   if (!portalTarget) return null;
 
@@ -178,65 +172,51 @@ export function ReferencedLibraryDetailPanel({
             transition={{ type: "spring", stiffness: 320, damping: 30 }}
             className="fixed inset-y-3 left-3 right-3 z-[71] flex flex-col overflow-hidden rounded-3xl border border-white/75 bg-[color:var(--project-surface-elevated)] shadow-[0_28px_90px_-24px_rgba(0,0,0,0.4)] backdrop-blur-2xl md:bottom-4 md:left-auto md:right-4 md:top-4 md:w-[min(760px,calc(100vw-32px))]"
           >
-            <div className="relative shrink-0 border-b border-zinc-200/70 bg-gradient-to-br from-amber-50/65 via-white/95 to-white px-6 py-5">
-              <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-400/12 blur-3xl" />
-              <div className="relative z-10 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                    <Library className="h-3 w-3" />
-                    引用库详情
-                  </p>
-                  <h2
-                    className="mt-2 truncate text-[30px] font-semibold tracking-tight leading-tight text-[var(--project-text-primary)]"
-                    title={libraryDisplayName}
-                  >
-                    {libraryDisplayName}
-                  </h2>
-                  <p
-                    className="mt-1 truncate font-mono text-xs text-zinc-400"
-                    title={reference?.target_project_id || "-"}
-                  >
-                    ID: {reference?.target_project_id || "-"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={onRefresh}
-                    className="h-9 w-9 rounded-xl border-zinc-200/70 bg-white/80"
-                    title="刷新"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5 text-zinc-500" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={onClose}
-                    className="h-9 w-9 rounded-xl text-zinc-500 hover:bg-zinc-100"
-                    title="关闭"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="relative z-10 mt-4 grid grid-cols-4 gap-2">
-                {summaryStats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-xl border border-zinc-200/80 bg-white/85 px-2.5 py-2.5 text-center"
-                  >
-                    <p className="text-xs text-zinc-500">{stat.label}</p>
-                    <p className="mt-0.5 text-base font-semibold text-zinc-800">
-                      {stat.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <ScrollArea className="min-h-0 flex-1 px-6 py-4">
+            <ScrollArea className="min-h-0 flex-1 px-6 py-5">
               <div className="space-y-3 pb-6">
+                <div className="relative overflow-hidden rounded-2xl border border-white/60 bg-white/45 px-4 py-4 shadow-[0_18px_48px_-28px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+                  <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-amber-400/15 blur-3xl" />
+                  <div className="relative z-10 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/90 bg-amber-50/85 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                        <Library className="h-3 w-3" />
+                        引用库详情
+                      </p>
+                      <h2
+                        className="mt-2 truncate text-[30px] font-semibold leading-tight tracking-tight text-[var(--project-text-primary)]"
+                        title={libraryDisplayName}
+                      >
+                        {libraryDisplayName}
+                      </h2>
+                      <p
+                        className="mt-1 truncate font-mono text-xs text-zinc-500"
+                        title={reference?.target_project_id || "-"}
+                      >
+                        ID: {reference?.target_project_id || "-"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={onRefresh}
+                        className="h-9 w-9 rounded-xl border-zinc-200/70 bg-white/80"
+                        title="刷新"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5 text-zinc-500" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={onClose}
+                        className="h-9 w-9 rounded-xl text-zinc-500 hover:bg-zinc-100/85"
+                        title="关闭"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
                 {error ? (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
                     {error}
@@ -485,3 +465,4 @@ export function ReferencedLibraryDetailPanel({
     portalTarget
   );
 }
+
