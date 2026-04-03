@@ -153,7 +153,9 @@ def build_export_payload(
         slides, lesson_plan = strip_sources(slides, lesson_plan)
 
     # 优先使用 render_markdown
-    source_content = content.get("render_markdown") or content.get("markdown_content", "")
+    source_content = content.get("render_markdown") or content.get(
+        "markdown_content", ""
+    )
 
     normalized_format = export_format.lower()
     if normalized_format == "json":

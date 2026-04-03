@@ -61,9 +61,9 @@ def _resolve_render_rewrite_model() -> str:
         _, suffix = model.split("/", 1)
         canonical = minimax_aliases.get(suffix.lower(), suffix)
         return f"dashscope/{canonical}"
-    if lowered.startswith(("minimax-", "minimax-m", "minimax_m", "minimax.")) or model.startswith(
-        "MiniMax-"
-    ):
+    if lowered.startswith(
+        ("minimax-", "minimax-m", "minimax_m", "minimax.")
+    ) or model.startswith("MiniMax-"):
         canonical = minimax_aliases.get(lowered, model)
         return f"dashscope/{canonical}"
     return model

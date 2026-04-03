@@ -195,9 +195,7 @@ async def preprocess_mermaid_blocks(
         if not svg:
             repaired_code = _repair_mermaid_code(mermaid_code)
             if repaired_code != mermaid_code:
-                logger.info(
-                    "Retrying Mermaid render with repaired edge-label syntax"
-                )
+                logger.info("Retrying Mermaid render with repaired edge-label syntax")
                 svg = await render_mermaid_to_svg(repaired_code)
         if svg:
             replacement = _svg_to_markdown(
