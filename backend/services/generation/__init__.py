@@ -103,8 +103,8 @@ class GenerationService:
                 title=content.title,
                 style_manifest=(
                     content.style_manifest.model_dump()
-                    if content.style_manifest
-                    else None
+                    if content.style_manifest and hasattr(content.style_manifest, 'model_dump')
+                    else content.style_manifest
                 ),
                 extra_css=content.extra_css,
                 page_class_plan=(
@@ -146,8 +146,8 @@ class GenerationService:
                 title=content.title,
                 style_manifest=(
                     content.style_manifest.model_dump()
-                    if content.style_manifest
-                    else None
+                    if content.style_manifest and hasattr(content.style_manifest, 'model_dump')
+                    else content.style_manifest
                 ),
                 extra_css=content.extra_css,
                 page_class_plan=(

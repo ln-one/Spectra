@@ -4,28 +4,20 @@ from typing import Optional
 
 
 def _get_css_reference() -> str:
-    """获取 3 套设计家族的完整 CSS 参考"""
+    """获取 Academic Modern 设计家族的完整 CSS 参考"""
     from services.template.css_generator import (
         _ACADEMIC_MODERN_CSS,
-        _EDITORIAL_BOLD_CSS,
         _MERMAID_STYLES,
-        _VISUAL_CARDS_CSS,
     )
 
     return f"""
 <css_reference>
-以下是 3 套设计家族的完整 CSS 框架供参考：
-
-## Editorial Bold（编辑粗体风格）
-{_EDITORIAL_BOLD_CSS}
+以下是 Academic Modern 设计家族的完整 CSS 框架供参考：
 
 ## Academic Modern（学术现代风格）
 {_ACADEMIC_MODERN_CSS}
 
-## Visual Cards（视觉卡片风格）
-{_VISUAL_CARDS_CSS}
-
-## Mermaid 图表样式（所有设计家族通用）
+## Mermaid 图表样式
 {_MERMAID_STYLES}
 </css_reference>
 """
