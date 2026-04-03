@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { useMemo } from "react";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
+import { AnimatePresence } from "framer-motion";
 import { File } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { ReferencedLibraryDetailPanel } from "./components/ReferencedLibraryDeta
 import { SourcesHeader } from "./components/SourcesHeader";
 import { WebSourceCard } from "./components/WebSourceCard";
 import type { UploadedFile } from "./types";
+import { useReferencedLibraryDetail } from "./useReferencedLibraryDetail";
 import { useSourcesPanelController } from "./useSourcesPanelController";
 
 interface ReferencedLibraryCardData {
@@ -114,20 +115,24 @@ export function SourcesPanel({
   const hasAnyMaterialSources =
     files.length > 0 || referencedLibraryCards.length > 0;
 
-  const [selectedLibraryCard, setSelectedLibraryCard] =
-    useState<ReferencedLibraryCardData | null>(null);
-  const closeLibraryDetailPanel = () => {
-    setSelectedLibraryCard(null);
-  };
-
-  const openLibraryDetailPanel = (card: ReferencedLibraryCardData) => {
-    setSelectedLibraryCard(card);
-  };
+  const {
+    isOpen: isLibraryDetailOpen,
+    loading: libraryDetailLoading,
+    error: libraryDetailError,
+    selectedLibrary: selectedLibraryCard,
+    sessions: libraryDetailSessions,
+    historyByTool: libraryDetailHistoryByTool,
+    references: libraryDetailReferences,
+    sourceFiles: libraryDetailFiles,
+    openDetail: openLibraryDetailPanel,
+    closeDetail: closeLibraryDetailPanel,
+    refreshDetail: refreshLibraryDetail,
+  } = useReferencedLibraryDetail();
 
   return (
     <div
       ref={containerRef}
-      className="project-panel-root relative h-full w-full bg-transparent"
+      className="project-panel-root h-full w-full bg-transparent"
       style={{ transform: "translateZ(0)" }}
       {...props}
     >
@@ -407,17 +412,19 @@ export function SourcesPanel({
           )}
         </CardContent>
       </Card>
-      <AnimatePresence>
-        {selectedLibraryCard ? (
-          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-30">
-            <ReferencedLibraryDetailPanel
-              reference={selectedLibraryCard.reference}
-              displayName={selectedLibraryCard.displayName}
-              onClose={closeLibraryDetailPanel}
-            />
-          </div>
-        ) : null}
-      </AnimatePresence>
+      <ReferencedLibraryDetailPanel
+        open={isLibraryDetailOpen}
+        loading={libraryDetailLoading}
+        error={libraryDetailError}
+        libraryDisplayName={selectedLibraryCard?.displayName ?? "未命名库"}
+        reference={selectedLibraryCard?.reference ?? null}
+        sessions={libraryDetailSessions}
+        historyByTool={libraryDetailHistoryByTool}
+        references={libraryDetailReferences}
+        sourceFiles={libraryDetailFiles}
+        onClose={closeLibraryDetailPanel}
+        onRefresh={refreshLibraryDetail}
+      />
     </div>
   );
 }
