@@ -114,7 +114,7 @@ class GenerationService:
         # 预处理 Mermaid 代码块
         from services.mermaid_renderer import preprocess_mermaid_blocks
 
-        full_markdown = preprocess_mermaid_blocks(full_markdown)
+        full_markdown = await preprocess_mermaid_blocks(full_markdown)
 
         # 调用生成器
         return await _generate_pptx(content, task_id, self.output_dir, full_markdown)
@@ -152,7 +152,7 @@ class GenerationService:
         # 预处理 Mermaid 代码块
         from services.mermaid_renderer import preprocess_mermaid_blocks
 
-        full_markdown = preprocess_mermaid_blocks(full_markdown)
+        full_markdown = await preprocess_mermaid_blocks(full_markdown)
 
         return await _generate_slide_images(task_id, self.output_dir, full_markdown)
 

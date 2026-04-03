@@ -1,15 +1,20 @@
-"""Mermaid 渲染器 - 将 Mermaid 代码块转换为 SVG"""
+"""Mermaid 渲染器 - 将 Mermaid 代码块转换为 SVG。"""
 
+from __future__ import annotations
+
+import html
 import logging
 import re
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+_MERMAID_BLOCK_PATTERN = re.compile(r"```mermaid\s*\n(.*?)\n```", re.DOTALL)
 
-def render_mermaid_to_svg(mermaid_code: str) -> Optional[str]:
+
+async def render_mermaid_to_svg(mermaid_code: str) -> Optional[str]:
     """
-    使用 Playwright 渲染 Mermaid 代码为 SVG
+    使用 Playwright Async API 渲染 Mermaid 代码为 SVG。
 
     Args:
         mermaid_code: Mermaid 图表代码
@@ -18,47 +23,77 @@ def render_mermaid_to_svg(mermaid_code: str) -> Optional[str]:
         SVG 字符串，失败返回 None
     """
     try:
-        from playwright.sync_api import sync_playwright
+        from playwright.async_api import async_playwright
 
+        escaped_code = html.escape(mermaid_code)
         html_template = f"""
 <!DOCTYPE html>
 <html>
 <head>
-    <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({{ startOnLoad: true, theme: 'default' }});
-    </script>
+    <meta charset="utf-8">
 </head>
 <body>
-    <div class="mermaid">
-{mermaid_code}
-    </div>
+    <pre id="mermaid-source" style="display:none;">{escaped_code}</pre>
+    <div id="mermaid-container"></div>
+    <script type="module">
+        import mermaid from
+          'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
+        const source = document.getElementById('mermaid-source').textContent;
+        const container = document.getElementById('mermaid-container');
+
+        try {{
+            mermaid.initialize({{ startOnLoad: false, theme: 'default' }});
+            const result = await mermaid.render('spectra-mermaid-svg', source);
+            container.innerHTML = result.svg;
+            window.__MERMAID_RENDER_STATUS__ = 'done';
+        }} catch (error) {{
+            window.__MERMAID_RENDER_STATUS__ = 'error';
+            window.__MERMAID_RENDER_ERROR__ = String(error);
+        }}
+    </script>
 </body>
 </html>
 """
 
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.set_content(html_template)
-            page.wait_for_timeout(2000)  # 等待渲染
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            try:
+                page = await browser.new_page()
+                await page.set_content(html_template, wait_until="domcontentloaded")
+                await page.wait_for_function(
+                    """() => (
+                        window.__MERMAID_RENDER_STATUS__ === 'done' ||
+                        window.__MERMAID_RENDER_STATUS__ === 'error'
+                    )""",
+                    timeout=120_000,
+                )
 
-            svg = page.evaluate("""() => {
-                const svg = document.querySelector('.mermaid svg');
-                return svg ? svg.outerHTML : null;
-            }""")
+                status = await page.evaluate("window.__MERMAID_RENDER_STATUS__")
+                if status != "done":
+                    error_message = await page.evaluate(
+                        "window.__MERMAID_RENDER_ERROR__ || 'unknown mermaid error'"
+                    )
+                    logger.warning(
+                        "Mermaid rendering failed in browser: %s", error_message
+                    )
+                    return None
 
-            browser.close()
-            return svg
+                return await page.evaluate("""() => {
+                    const svg = document.querySelector('#mermaid-container svg');
+                    return svg ? svg.outerHTML : null;
+                }""")
+            finally:
+                await browser.close()
 
-    except Exception as e:
-        logger.warning(f"Mermaid rendering failed: {e}")
+    except Exception as exc:
+        logger.warning("Mermaid rendering failed: %s", exc)
         return None
 
 
-def preprocess_mermaid_blocks(markdown: str) -> str:
+async def preprocess_mermaid_blocks(markdown: str) -> str:
     """
-    预处理 Markdown 中的 Mermaid 代码块，转换为 SVG
+    预处理 Markdown 中的 Mermaid 代码块，转换为 SVG。
 
     Args:
         markdown: 包含 Mermaid 代码块的 Markdown
@@ -66,18 +101,24 @@ def preprocess_mermaid_blocks(markdown: str) -> str:
     Returns:
         替换后的 Markdown
     """
-    pattern = r'```mermaid\n(.*?)\n```'
+    rendered_markdown = markdown
+    matches = list(_MERMAID_BLOCK_PATTERN.finditer(markdown))
 
-    def replace_block(match):
+    for match in reversed(matches):
         mermaid_code = match.group(1)
-        svg = render_mermaid_to_svg(mermaid_code)
-
+        svg = await render_mermaid_to_svg(mermaid_code)
         if svg:
-            # 包装 SVG 在 div 中以保持样式
-            return f'<div class="mermaid-rendered">\n{svg}\n</div>'
+            replacement = f'<div class="mermaid-rendered">\n{svg}\n</div>'
         else:
-            # 渲染失败，保留原始代码块
-            logger.warning("Mermaid rendering failed, keeping original code block")
-            return match.group(0)
+            logger.warning(
+                "Mermaid rendering failed, keeping original code block"
+            )
+            replacement = match.group(0)
 
-    return re.sub(pattern, replace_block, markdown, flags=re.DOTALL)
+        rendered_markdown = (
+            rendered_markdown[: match.start()]
+            + replacement
+            + rendered_markdown[match.end() :]
+        )
+
+    return rendered_markdown

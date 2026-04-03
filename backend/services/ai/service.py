@@ -40,7 +40,7 @@ class AIService(CoursewareAIMixin):
         self.large_model = os.getenv("LARGE_MODEL", self.default_model)
         self.small_model = os.getenv("SMALL_MODEL", self.default_model)
         self.request_timeout_seconds = float(
-            os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "60")
+            os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "240")
         )
         self.chat_request_timeout_seconds = float(
             os.getenv("CHAT_RESPONSE_TIMEOUT_SECONDS", "90")

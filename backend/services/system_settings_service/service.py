@@ -89,7 +89,7 @@ class SystemSettingsService:
         if base_timeout <= 0:
             return 0.0
 
-        default_ai_timeout = float(_env_int("AI_REQUEST_TIMEOUT_SECONDS", 60))
+        default_ai_timeout = float(_env_int("AI_REQUEST_TIMEOUT_SECONDS", 240))
         if default_ai_timeout <= 0:
             return base_timeout
         try:
@@ -126,7 +126,7 @@ class SystemSettingsService:
             "experience": {
                 "chat_timeout_seconds": chat_timeout_seconds,
                 "ai_request_timeout_seconds": _env_int(
-                    "AI_REQUEST_TIMEOUT_SECONDS", 60
+                    "AI_REQUEST_TIMEOUT_SECONDS", 240
                 ),
             },
         }
