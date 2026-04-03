@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { PaneState, RowCard, type TabState } from "../shared";
 import type { AvailableLibraryProject, ProjectReference } from "../types";
 
@@ -231,6 +232,18 @@ export function ReferencesTab({
               const disableForNotReferenceable = !project.isReferenceable;
               const disableForPinnedMode =
                 newReferenceMode === "pinned" && !project.currentVersionId;
+              const visibilityLabel =
+                project.visibility === "private"
+                  ? "私有"
+                  : project.visibility === "shared"
+                    ? "共享"
+                    : "未知";
+              const visibilityClass =
+                project.visibility === "private"
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : project.visibility === "shared"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-500";
               const disabled =
                 isReferenced ||
                 disableForNotReferenceable ||
@@ -302,8 +315,13 @@ export function ReferencesTab({
                   </div>
 
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-500">
-                    <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5">
-                      visibility: {project.visibility}
+                    <span
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-[10px] font-semibold",
+                        visibilityClass
+                      )}
+                    >
+                      {visibilityLabel}
                     </span>
                     <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5">
                       status: {project.status}

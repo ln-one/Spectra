@@ -96,6 +96,8 @@ describe("ReferencesTab library candidates", () => {
     const importButtons = screen.getAllByRole("button", { name: "引入" });
     const quickAddButton = importButtons[1];
     expect(quickAddButton).toBeDisabled();
+    expect(screen.getByText("私有")).toBeInTheDocument();
+    expect(screen.queryByText("visibility: private")).not.toBeInTheDocument();
 
     fireEvent.click(quickAddButton);
     expect(onQuickAddReference).not.toHaveBeenCalled();
