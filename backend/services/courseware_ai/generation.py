@@ -73,7 +73,6 @@ async def _generate_courseware_render_rewrite(
         slide_count=slide_count,
         outline_summary=outline_summary,
         image_references=image_references if image_references else None,
-        include_css_reference=False,  # 默认关闭 CSS 参考以减少 token
     )
 
     response = await ai_service.generate(
