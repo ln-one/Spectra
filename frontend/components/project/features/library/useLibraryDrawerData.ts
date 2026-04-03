@@ -7,6 +7,7 @@ import type {
   AvailableLibraryProject,
   Artifact,
   CandidateChange,
+  CurrentLibrarySettings,
   ProjectMember,
   ProjectReference,
   ProjectVersion,
@@ -76,6 +77,43 @@ function normalizeLibraryProject(raw: unknown): AvailableLibraryProject | null {
   };
 }
 
+function normalizeCurrentLibrarySettings(
+  raw: unknown
+): CurrentLibrarySettings | null {
+  const project = asRecord(raw);
+  if (!project) return null;
+
+  const id = typeof project.id === "string" ? project.id : "";
+  if (!id) return null;
+
+  const name =
+    typeof project.name === "string" && project.name.trim()
+      ? project.name
+      : id;
+  const description =
+    typeof project.description === "string" ? project.description : "";
+  const gradeLevelRaw = project.grade_level ?? project.gradeLevel;
+  const gradeLevel =
+    typeof gradeLevelRaw === "string" && gradeLevelRaw.trim()
+      ? gradeLevelRaw
+      : null;
+  const visibilityRaw = project.visibility;
+  const visibility: "private" | "shared" =
+    visibilityRaw === "shared" ? "shared" : "private";
+  const isReferenceableRaw =
+    project.is_referenceable ?? project.isReferenceable;
+  const isReferenceable = isReferenceableRaw === true;
+
+  return {
+    id,
+    name,
+    description,
+    gradeLevel,
+    visibility,
+    isReferenceable,
+  };
+}
+
 function parsePriority(value: string): number {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : 10;
@@ -114,6 +152,10 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     error: null,
   });
   const [librariesState, setLibrariesState] = useState<TabState>({
+    loading: false,
+    error: null,
+  });
+  const [currentLibraryState, setCurrentLibraryState] = useState<TabState>({
     loading: false,
     error: null,
   });
@@ -169,6 +211,13 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
   const [availableLibraries, setAvailableLibraries] = useState<
     AvailableLibraryProject[]
   >([]);
+  const [currentLibrarySettings, setCurrentLibrarySettings] =
+    useState<CurrentLibrarySettings | null>(null);
+  const [currentLibrarySaving, setCurrentLibrarySaving] = useState(false);
+  const [currentLibraryVisibilityDraft, setCurrentLibraryVisibilityDraft] =
+    useState<"private" | "shared">("private");
+  const [currentLibraryReferenceableDraft, setCurrentLibraryReferenceableDraft] =
+    useState(false);
 
   const loadReferences = useCallback(async () => {
     setReferencesState({ loading: true, error: null });
@@ -207,6 +256,32 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       setLibrariesState({
         loading: false,
         error: formatLibraryError(error, "加载库列表失败"),
+      });
+    }
+  }, [projectId]);
+
+  const loadCurrentLibrarySettings = useCallback(async () => {
+    setCurrentLibraryState({ loading: true, error: null });
+    try {
+      const response = await projectsApi.getProject(projectId);
+      const normalized = normalizeCurrentLibrarySettings(response.data.project);
+      if (!normalized) {
+        setCurrentLibrarySettings(null);
+        setCurrentLibraryState({
+          loading: false,
+          error: "当前库信息异常，无法读取设置",
+        });
+        return;
+      }
+      setCurrentLibrarySettings(normalized);
+      setCurrentLibraryVisibilityDraft(normalized.visibility);
+      setCurrentLibraryReferenceableDraft(normalized.isReferenceable);
+      setCurrentLibraryState({ loading: false, error: null });
+    } catch (error) {
+      setCurrentLibrarySettings(null);
+      setCurrentLibraryState({
+        loading: false,
+        error: formatLibraryError(error, "加载当前库设置失败"),
       });
     }
   }, [projectId]);
@@ -270,9 +345,63 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
   useEffect(() => {
     if (!open) return;
     queueMicrotask(() => {
-      void Promise.all([loadReferences(), loadAvailableLibraries()]);
+      void Promise.all([
+        loadReferences(),
+        loadAvailableLibraries(),
+        loadCurrentLibrarySettings(),
+      ]);
     });
-  }, [loadAvailableLibraries, loadReferences, open]);
+  }, [
+    loadAvailableLibraries,
+    loadCurrentLibrarySettings,
+    loadReferences,
+    open,
+  ]);
+
+  const handleSaveCurrentLibrarySettings = async () => {
+    if (!currentLibrarySettings) return;
+    if (
+      currentLibraryVisibilityDraft === "private" &&
+      currentLibraryReferenceableDraft
+    ) {
+      setCurrentLibraryState({
+        loading: false,
+        error: "私有库不能设置为可引用，请先改为共享。",
+      });
+      return;
+    }
+    setCurrentLibrarySaving(true);
+    setCurrentLibraryState({ loading: false, error: null });
+    try {
+      const response = await projectsApi.updateProject(projectId, {
+        name: currentLibrarySettings.name,
+        description:
+          currentLibrarySettings.description || currentLibrarySettings.name,
+        grade_level: currentLibrarySettings.gradeLevel ?? undefined,
+        visibility: currentLibraryVisibilityDraft,
+        is_referenceable: currentLibraryReferenceableDraft,
+      });
+      const normalized = normalizeCurrentLibrarySettings(response.data.project);
+      if (!normalized) {
+        setCurrentLibraryState({
+          loading: false,
+          error: "保存成功，但返回数据异常。",
+        });
+        return;
+      }
+      setCurrentLibrarySettings(normalized);
+      setCurrentLibraryVisibilityDraft(normalized.visibility);
+      setCurrentLibraryReferenceableDraft(normalized.isReferenceable);
+      setCurrentLibraryState({ loading: false, error: null });
+    } catch (error) {
+      setCurrentLibraryState({
+        loading: false,
+        error: formatLibraryError(error, "保存当前库设置失败"),
+      });
+    } finally {
+      setCurrentLibrarySaving(false);
+    }
+  };
 
   const createReferenceByTarget = useCallback(
     async (
@@ -547,6 +676,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     changes,
     referencesState,
     librariesState,
+    currentLibraryState,
     versionsState,
     artifactsState,
     membersState,
@@ -586,9 +716,16 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     reviewComment,
     setReviewComment,
     availableLibraries,
+    currentLibrarySettings,
+    currentLibrarySaving,
+    currentLibraryVisibilityDraft,
+    setCurrentLibraryVisibilityDraft,
+    currentLibraryReferenceableDraft,
+    setCurrentLibraryReferenceableDraft,
 
     loadReferences,
     loadAvailableLibraries,
+    loadCurrentLibrarySettings,
     loadVersions,
     loadArtifacts,
     loadMembers,
@@ -599,6 +736,7 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     handleToggleReferenceStatus,
     handleUpdateReferencePriority,
     handleQuickAddReference,
+    handleSaveCurrentLibrarySettings,
 
     handleCreateArtifact,
     handleDownloadArtifact,

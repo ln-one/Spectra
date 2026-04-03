@@ -23,7 +23,14 @@ export function LibraryDrawer({
     references,
     referencesState,
     librariesState,
+    currentLibraryState,
     availableLibraries,
+    currentLibrarySettings,
+    currentLibrarySaving,
+    currentLibraryVisibilityDraft,
+    setCurrentLibraryVisibilityDraft,
+    currentLibraryReferenceableDraft,
+    setCurrentLibraryReferenceableDraft,
     newReferenceTarget,
     setNewReferenceTarget,
     newReferenceRelationType,
@@ -36,11 +43,13 @@ export function LibraryDrawer({
     setNewReferencePriority,
     loadReferences,
     loadAvailableLibraries,
+    loadCurrentLibrarySettings,
     handleAddReference,
     handleDeleteReference,
     handleToggleReferenceStatus,
     handleUpdateReferencePriority,
     handleQuickAddReference,
+    handleSaveCurrentLibrarySettings,
   } = useLibraryDrawerData(projectId, open);
 
   const handleReferenceChanged = async (task: () => Promise<void>) => {
@@ -107,7 +116,20 @@ export function LibraryDrawer({
                   references={references}
                   state={referencesState}
                   librariesState={librariesState}
+                  currentLibraryState={currentLibraryState}
                   availableLibraries={availableLibraries}
+                  currentLibrarySettings={currentLibrarySettings}
+                  currentLibrarySaving={currentLibrarySaving}
+                  currentLibraryVisibilityDraft={currentLibraryVisibilityDraft}
+                  setCurrentLibraryVisibilityDraft={
+                    setCurrentLibraryVisibilityDraft
+                  }
+                  currentLibraryReferenceableDraft={
+                    currentLibraryReferenceableDraft
+                  }
+                  setCurrentLibraryReferenceableDraft={
+                    setCurrentLibraryReferenceableDraft
+                  }
                   newReferenceTarget={newReferenceTarget}
                   setNewReferenceTarget={setNewReferenceTarget}
                   newReferenceRelationType={newReferenceRelationType}
@@ -143,6 +165,8 @@ export function LibraryDrawer({
                   }
                   onReload={loadReferences}
                   onReloadLibraries={loadAvailableLibraries}
+                  onReloadCurrentLibrarySettings={loadCurrentLibrarySettings}
+                  onSaveCurrentLibrarySettings={handleSaveCurrentLibrarySettings}
                 />
               </div>
             </div>

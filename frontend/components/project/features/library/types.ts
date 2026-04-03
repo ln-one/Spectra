@@ -15,3 +15,12 @@ export interface AvailableLibraryProject {
   isReferenceable: boolean;
   currentVersionId: string | null;
 }
+
+export interface CurrentLibrarySettings {
+  id: string;
+  name: string;
+  description: string;
+  gradeLevel: string | null;
+  visibility: "private" | "shared";
+  isReferenceable: boolean;
+}

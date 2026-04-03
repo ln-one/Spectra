@@ -11,6 +11,7 @@ describe("ReferencesTab library candidates", () => {
         references={[]}
         state={{ loading: false, error: null }}
         librariesState={{ loading: false, error: null }}
+        currentLibraryState={{ loading: false, error: null }}
         availableLibraries={[
           {
             id: "proj_lib_math",
@@ -22,6 +23,19 @@ describe("ReferencesTab library candidates", () => {
             currentVersionId: "ver_1",
           },
         ]}
+        currentLibrarySettings={{
+          id: "proj_current",
+          name: "当前库",
+          description: "desc",
+          gradeLevel: null,
+          visibility: "shared",
+          isReferenceable: true,
+        }}
+        currentLibrarySaving={false}
+        currentLibraryVisibilityDraft="shared"
+        setCurrentLibraryVisibilityDraft={jest.fn()}
+        currentLibraryReferenceableDraft={true}
+        setCurrentLibraryReferenceableDraft={jest.fn()}
         newReferenceTarget=""
         setNewReferenceTarget={jest.fn()}
         newReferenceRelationType="auxiliary"
@@ -39,6 +53,8 @@ describe("ReferencesTab library candidates", () => {
         onQuickAddReference={onQuickAddReference}
         onReload={jest.fn()}
         onReloadLibraries={jest.fn()}
+        onReloadCurrentLibrarySettings={jest.fn()}
+        onSaveCurrentLibrarySettings={jest.fn()}
       />
     );
 
@@ -62,6 +78,7 @@ describe("ReferencesTab library candidates", () => {
         references={[]}
         state={{ loading: false, error: null }}
         librariesState={{ loading: false, error: null }}
+        currentLibraryState={{ loading: false, error: null }}
         availableLibraries={[
           {
             id: "proj_lib_private",
@@ -73,6 +90,19 @@ describe("ReferencesTab library candidates", () => {
             currentVersionId: null,
           },
         ]}
+        currentLibrarySettings={{
+          id: "proj_current",
+          name: "当前库",
+          description: "desc",
+          gradeLevel: null,
+          visibility: "shared",
+          isReferenceable: true,
+        }}
+        currentLibrarySaving={false}
+        currentLibraryVisibilityDraft="shared"
+        setCurrentLibraryVisibilityDraft={jest.fn()}
+        currentLibraryReferenceableDraft={true}
+        setCurrentLibraryReferenceableDraft={jest.fn()}
         newReferenceTarget=""
         setNewReferenceTarget={jest.fn()}
         newReferenceRelationType="auxiliary"
@@ -90,13 +120,15 @@ describe("ReferencesTab library candidates", () => {
         onQuickAddReference={onQuickAddReference}
         onReload={jest.fn()}
         onReloadLibraries={jest.fn()}
+        onReloadCurrentLibrarySettings={jest.fn()}
+        onSaveCurrentLibrarySettings={jest.fn()}
       />
     );
 
     const importButtons = screen.getAllByRole("button", { name: "引入" });
     const quickAddButton = importButtons[1];
     expect(quickAddButton).toBeDisabled();
-    expect(screen.getByText("私有")).toBeInTheDocument();
+    expect(screen.getAllByText("私有").length).toBeGreaterThan(0);
     expect(screen.queryByText("visibility: private")).not.toBeInTheDocument();
 
     fireEvent.click(quickAddButton);

@@ -9,6 +9,7 @@ import {
   Link as LinkIcon,
   Plus,
   RefreshCw,
+  Settings2,
   ToggleLeft,
   Trash2,
 } from "lucide-react";
@@ -16,14 +17,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { PaneState, RowCard, type TabState } from "../shared";
-import type { AvailableLibraryProject, ProjectReference } from "../types";
+import type {
+  AvailableLibraryProject,
+  CurrentLibrarySettings,
+  ProjectReference,
+} from "../types";
 
 interface ReferencesTabProps {
   projectId: string;
   references: ProjectReference[];
   state: TabState;
   librariesState: TabState;
+  currentLibraryState: TabState;
   availableLibraries: AvailableLibraryProject[];
+  currentLibrarySettings: CurrentLibrarySettings | null;
+  currentLibrarySaving: boolean;
+  currentLibraryVisibilityDraft: "private" | "shared";
+  setCurrentLibraryVisibilityDraft: (value: "private" | "shared") => void;
+  currentLibraryReferenceableDraft: boolean;
+  setCurrentLibraryReferenceableDraft: (value: boolean) => void;
   newReferenceTarget: string;
   setNewReferenceTarget: (value: string) => void;
   newReferenceRelationType: "base" | "auxiliary";
@@ -47,6 +59,8 @@ interface ReferencesTabProps {
   ) => void;
   onReload: () => void;
   onReloadLibraries: () => void;
+  onReloadCurrentLibrarySettings: () => void;
+  onSaveCurrentLibrarySettings: () => void;
 }
 
 export function ReferencesTab({
@@ -54,7 +68,14 @@ export function ReferencesTab({
   references,
   state,
   librariesState,
+  currentLibraryState,
   availableLibraries,
+  currentLibrarySettings,
+  currentLibrarySaving,
+  currentLibraryVisibilityDraft,
+  setCurrentLibraryVisibilityDraft,
+  currentLibraryReferenceableDraft,
+  setCurrentLibraryReferenceableDraft,
   newReferenceTarget,
   setNewReferenceTarget,
   newReferenceRelationType,
@@ -72,6 +93,8 @@ export function ReferencesTab({
   onQuickAddReference,
   onReload,
   onReloadLibraries,
+  onReloadCurrentLibrarySettings,
+  onSaveCurrentLibrarySettings,
 }: ReferencesTabProps) {
   const [libraryKeyword, setLibraryKeyword] = useState("");
   const normalizedKeyword = libraryKeyword.trim().toLowerCase();
@@ -107,9 +130,127 @@ export function ReferencesTab({
 
   const quickAddDisabledByBaseRule =
     newReferenceRelationType === "base" && hasActiveBaseReference;
+  const hasCurrentLibrarySettings = !!currentLibrarySettings;
+  const hasCurrentLibraryChanges =
+    hasCurrentLibrarySettings &&
+    (currentLibraryVisibilityDraft !== currentLibrarySettings.visibility ||
+      currentLibraryReferenceableDraft !==
+        currentLibrarySettings.isReferenceable);
+  const hasInvalidCurrentLibrarySettings =
+    currentLibraryVisibilityDraft === "private" &&
+    currentLibraryReferenceableDraft;
 
   return (
     <div className="space-y-4">
+      <div className="rounded-2xl border border-[var(--project-border-strong)] bg-[var(--project-surface-elevated)] p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-white">
+              <Settings2 className="h-3.5 w-3.5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-[var(--project-text-primary)]">
+                当前库设置
+              </p>
+              <p className="text-xs text-[var(--project-text-muted)]">
+                控制当前项目是否可被其他项目引用
+              </p>
+            </div>
+          </div>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={onReloadCurrentLibrarySettings}
+            className="h-8 w-8 rounded-xl border-zinc-200/60 bg-white/60"
+            title="刷新当前库设置"
+          >
+            <RefreshCw className="h-3.5 w-3.5 text-zinc-500" />
+          </Button>
+        </div>
+
+        <PaneState
+          state={currentLibraryState}
+          hasData={hasCurrentLibrarySettings}
+          emptyLabel="当前库设置暂不可用。"
+          onRetry={onReloadCurrentLibrarySettings}
+        />
+
+        {!currentLibraryState.loading &&
+        !currentLibraryState.error &&
+        currentLibrarySettings ? (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-zinc-200/70 bg-white/70 p-3">
+              <p
+                className="truncate text-sm font-semibold text-zinc-800"
+                title={currentLibrarySettings.name}
+              >
+                {currentLibrarySettings.name}
+              </p>
+              <p
+                className="mt-0.5 truncate text-[11px] text-zinc-500"
+                title={currentLibrarySettings.id}
+              >
+                {currentLibrarySettings.id}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-6 gap-2">
+              <div className="col-span-3">
+                <p className="mb-1 text-[11px] text-zinc-500">可见性</p>
+                <select
+                  value={currentLibraryVisibilityDraft}
+                  onChange={(event) =>
+                    setCurrentLibraryVisibilityDraft(
+                      event.target.value as "private" | "shared"
+                    )
+                  }
+                  className="h-9 w-full rounded-xl border border-zinc-200/60 bg-white/60 px-2 text-xs"
+                >
+                  <option value="private">私有</option>
+                  <option value="shared">共享</option>
+                </select>
+              </div>
+              <div className="col-span-3">
+                <p className="mb-1 text-[11px] text-zinc-500">是否可引用</p>
+                <select
+                  value={currentLibraryReferenceableDraft ? "yes" : "no"}
+                  onChange={(event) =>
+                    setCurrentLibraryReferenceableDraft(
+                      event.target.value === "yes"
+                    )
+                  }
+                  className="h-9 w-full rounded-xl border border-zinc-200/60 bg-white/60 px-2 text-xs"
+                >
+                  <option value="no">不可引用</option>
+                  <option value="yes">可引用</option>
+                </select>
+              </div>
+            </div>
+
+            {hasInvalidCurrentLibrarySettings ? (
+              <p className="text-[11px] text-rose-600">
+                私有库不能设置为可引用，请切换为共享后再保存。
+              </p>
+            ) : null}
+
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={onSaveCurrentLibrarySettings}
+                disabled={
+                  currentLibrarySaving ||
+                  !hasCurrentLibraryChanges ||
+                  hasInvalidCurrentLibrarySettings
+                }
+                className="h-8 rounded-lg bg-zinc-700 px-4 text-xs hover:bg-zinc-800 disabled:bg-zinc-300"
+              >
+                {currentLibrarySaving ? "保存中..." : "保存设置"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       <div className="rounded-2xl border border-[var(--project-border-strong)] bg-[var(--project-surface-elevated)] p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
           <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--project-accent)] text-[var(--project-accent-text)]">
