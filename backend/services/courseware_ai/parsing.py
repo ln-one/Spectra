@@ -200,11 +200,12 @@ def parse_courseware_response(
 
 
 def strip_outer_code_fence(content: str) -> str:
-    """去掉最外层 Markdown 代码块包装（支持多层嵌套）。"""
+    """去掉最外层 Markdown 代码块包装（支持多层嵌套和不完整 fence）。"""
     stripped = content.strip()
 
     # 循环去除外层 fence，直到没有匹配
     while True:
+        # 尝试匹配完整的 fence（有开头和结尾）
         fence_match = re.match(
             r"^\s*```(?:markdown|md|marp)?\s*\n(.*?)\n```\s*$",
             stripped,
@@ -212,8 +213,19 @@ def strip_outer_code_fence(content: str) -> str:
         )
         if fence_match:
             stripped = fence_match.group(1).strip()
-        else:
-            break
+            continue
+
+        # 尝试匹配只有开头的 fence（LLM 可能忘记结尾）
+        fence_start_match = re.match(
+            r"^\s*```(?:markdown|md|marp)?\s*\n(.*)$",
+            stripped,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if fence_start_match:
+            stripped = fence_start_match.group(1).strip()
+            continue
+
+        break
 
     return stripped
 
