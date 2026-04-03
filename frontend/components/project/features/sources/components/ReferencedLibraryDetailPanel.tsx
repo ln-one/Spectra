@@ -19,9 +19,13 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
+import { TOOL_COLORS, TOOL_ICONS, TOOL_LABELS } from "../../studio/constants";
+import { FILE_TYPE_CONFIG } from "../constants";
 import type { ProjectReference } from "../../library/types";
 import type { UploadedFile } from "../types";
+import { getFileTypeFromExtension } from "../utils";
 import type { ReferencedLibrarySession } from "../useReferencedLibraryDetail";
 
 interface ReferencedLibraryDetailPanelProps {
@@ -37,17 +41,6 @@ interface ReferencedLibraryDetailPanelProps {
   onClose: () => void;
   onRefresh: () => void;
 }
-
-const toolLabelMap: Record<string, string> = {
-  ppt: "PPT",
-  word: "Word",
-  mindmap: "脑图",
-  outline: "游戏",
-  quiz: "测验",
-  summary: "讲稿",
-  animation: "动画",
-  handout: "仿真",
-};
 
 function formatTime(value?: string): string {
   if (!value) return "-";
@@ -77,6 +70,17 @@ function statusLabel(value?: ProjectReference["status"]): string {
   if (value === "active") return "已启用";
   if (value === "disabled") return "已停用";
   return "-";
+}
+
+function sessionStateLabel(value?: string): string | null {
+  if (!value) return null;
+  const upper = value.toUpperCase();
+  if (upper === "RENDERING") return null;
+  if (upper === "COMPLETED" || upper === "SUCCEEDED") return "已完成";
+  if (upper === "FAILED") return "失败";
+  if (upper === "RUNNING") return "进行中";
+  if (upper === "PENDING") return "排队中";
+  return value;
 }
 
 function Section({
@@ -297,19 +301,23 @@ export function ReferencedLibraryDetailPanel({
                     {sessions.length === 0 ? (
                       <p className="text-[11px] text-zinc-500">暂无会话记录</p>
                     ) : (
-                      sessions.slice(0, 12).map((session) => (
-                        <div
-                          key={session.id}
-                          className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
-                        >
-                          <p className="truncate text-[11px] font-semibold text-zinc-800">
-                            {session.title}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-zinc-600">
-                            {session.state} · {formatTime(session.createdAt)}
-                          </p>
-                        </div>
-                      ))
+                      sessions.slice(0, 12).map((session) => {
+                        const state = sessionStateLabel(session.state);
+                        return (
+                          <div
+                            key={session.id}
+                            className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
+                          >
+                            <p className="truncate text-[11px] font-semibold text-zinc-800">
+                              {session.title}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-zinc-600">
+                              {state ? `${state} · ` : ""}
+                              {formatTime(session.createdAt)}
+                            </p>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </Section>
@@ -323,27 +331,43 @@ export function ReferencedLibraryDetailPanel({
                     {historyByTool.length === 0 ? (
                       <p className="text-[11px] text-zinc-500">暂无生成记录</p>
                     ) : (
-                      historyByTool.map(([toolKey, items]) => (
-                        <div key={toolKey} className="space-y-1">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            {toolLabelMap[toolKey] || toolKey}
-                          </p>
-                          {items.slice(0, 3).map((item) => (
-                            <div
-                              key={item.artifactId}
-                              className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
+                      historyByTool.map(([toolKey, items]) => {
+                        const toolLabel = TOOL_LABELS[toolKey] || toolKey;
+                        const toolColor = TOOL_COLORS[toolKey] || TOOL_COLORS.ppt;
+                        const ToolIcon = TOOL_ICONS[toolKey] || FolderTree;
+                        return (
+                          <div key={toolKey} className="space-y-1">
+                            <p
+                              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide"
+                              style={{
+                                color: toolColor.primary,
+                                borderColor: toolColor.glow,
+                                backgroundColor: toolColor.soft,
+                              }}
                             >
-                              <p className="truncate text-[11px] font-semibold text-zinc-800">
-                                {item.title}
-                              </p>
-                              <p className="mt-0.5 text-[11px] text-zinc-600">
-                                {item.status} · {formatTime(item.createdAt)}
-                              </p>
-                            </div>
-                          ))}
-                          <Separator className="mt-2 bg-zinc-200/70" />
-                        </div>
-                      ))
+                              <ToolIcon className="h-3 w-3" />
+                              {toolLabel}
+                            </p>
+                            {items.slice(0, 3).map((item) => (
+                              <div
+                                key={item.artifactId}
+                                className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2"
+                                style={{
+                                  boxShadow: `inset 2px 0 0 ${toolColor.primary}`,
+                                }}
+                              >
+                                <p className="truncate text-[11px] font-semibold text-zinc-800">
+                                  {item.title}
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-zinc-600">
+                                  {item.status} · {formatTime(item.createdAt)}
+                                </p>
+                              </div>
+                            ))}
+                            <Separator className="mt-2 bg-zinc-200/70" />
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </Section>
@@ -393,15 +417,33 @@ export function ReferencedLibraryDetailPanel({
                         <p className="text-zinc-500">暂无文件或无权限查看</p>
                       ) : (
                         <div className="space-y-1">
-                          {sourceFiles.slice(0, 8).map((file) => (
-                            <div
-                              key={file.id}
-                              className="truncate rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5 text-[11px] font-medium text-zinc-700"
-                              title={file.filename}
-                            >
-                              {file.filename}
-                            </div>
-                          ))}
+                          {sourceFiles.slice(0, 8).map((file) => {
+                            const fileType = getFileTypeFromExtension(file.filename);
+                            const fileConfig =
+                              FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
+                            const FileIcon = fileConfig.icon;
+                            return (
+                              <div
+                                key={file.id}
+                                className="flex items-center gap-2 rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5"
+                                title={file.filename}
+                              >
+                                <span
+                                  className={cn(
+                                    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
+                                    fileConfig.bgGradient
+                                  )}
+                                >
+                                  <FileIcon
+                                    className={cn("h-3.5 w-3.5", fileConfig.color)}
+                                  />
+                                </span>
+                                <span className="truncate text-[11px] font-medium text-zinc-700">
+                                  {file.filename}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
