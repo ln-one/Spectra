@@ -174,7 +174,7 @@ export function ReferencedLibraryDetailPanel({
           >
             <ScrollArea className="min-h-0 flex-1 px-6 py-5">
               <div className="space-y-3 pb-6">
-                <div className="relative overflow-hidden rounded-2xl border border-white/60 bg-white/45 px-4 py-4 shadow-[0_18px_48px_-28px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+                <div className="relative overflow-hidden rounded-2xl border border-white/60 bg-white/45 px-4 py-4 backdrop-blur-xl">
                   <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-amber-400/15 blur-3xl" />
                   <div className="relative z-10 flex items-start justify-between gap-3">
                     <div className="min-w-0">
