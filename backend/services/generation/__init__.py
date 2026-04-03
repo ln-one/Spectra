@@ -88,7 +88,10 @@ class GenerationService:
         # 优先使用 render_markdown，无则回退模板包装
         if content.render_markdown:
             logger.debug(f"[Task: {task_id}] Using render_markdown directly")
-            full_markdown = content.render_markdown
+            # 防御性清理：去除可能的外层 fence
+            from services.courseware_ai.parsing import strip_outer_code_fence
+
+            full_markdown = strip_outer_code_fence(content.render_markdown)
         else:
             logger.debug(
                 f"[Task: {task_id}] Fallback to template wrapping: "
@@ -130,7 +133,10 @@ class GenerationService:
 
         # 优先使用 render_markdown，无则回退模板包装
         if content.render_markdown:
-            full_markdown = content.render_markdown
+            # 防御性清理：去除可能的外层 fence
+            from services.courseware_ai.parsing import strip_outer_code_fence
+
+            full_markdown = strip_outer_code_fence(content.render_markdown)
         else:
             full_markdown = self.template_service.wrap_markdown_with_template(
                 markdown_content=content.markdown_content,

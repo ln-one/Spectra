@@ -200,15 +200,22 @@ def parse_courseware_response(
 
 
 def strip_outer_code_fence(content: str) -> str:
-    """去掉最外层 Markdown 代码块包装。"""
-    fence_match = re.match(
-        r"^\s*```(?:markdown|md)?\s*(.*?)\s*```\s*$",
-        content,
-        re.DOTALL | re.IGNORECASE,
-    )
-    if fence_match:
-        return fence_match.group(1).strip()
-    return content.strip()
+    """去掉最外层 Markdown 代码块包装（支持多层嵌套）。"""
+    stripped = content.strip()
+
+    # 循环去除外层 fence，直到没有匹配
+    while True:
+        fence_match = re.match(
+            r"^\s*```(?:markdown|md|marp)?\s*\n(.*?)\n```\s*$",
+            stripped,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if fence_match:
+            stripped = fence_match.group(1).strip()
+        else:
+            break
+
+    return stripped
 
 
 def extract_block(content: str, start_tag: str, end_tag: str) -> str:
