@@ -69,7 +69,7 @@ export function LibraryDrawer({
             animate="visible"
             exit="hidden"
             transition={{ duration: 0.2 }}
-            className="project-library-overlay fixed inset-0 z-50 bg-black/20 backdrop-blur-[6px]"
+            className="project-library-overlay fixed inset-0 z-50 bg-black/28 backdrop-blur-[8px]"
             onClick={() => onOpenChange(false)}
           />
 
@@ -79,22 +79,22 @@ export function LibraryDrawer({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="project-library-drawer fixed inset-x-3 bottom-3 top-[72px] z-50 flex flex-col overflow-hidden rounded-3xl border border-white/65 bg-[var(--project-surface-elevated)] shadow-[0_26px_80px_-20px_rgba(0,0,0,0.3)] backdrop-blur-2xl md:inset-x-auto md:bottom-4 md:right-4 md:top-[76px] md:w-[min(560px,calc(100vw-32px))]"
+            className="project-library-drawer fixed inset-x-3 bottom-3 top-[72px] z-50 flex flex-col overflow-hidden rounded-3xl border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.9),rgba(247,250,252,0.82))] shadow-[0_30px_90px_-24px_rgba(0,0,0,0.42)] backdrop-blur-2xl md:inset-x-auto md:bottom-4 md:right-4 md:top-[76px] md:w-[min(580px,calc(100vw-32px))]"
             style={{ willChange: "transform, opacity" }}
           >
-            <div className="project-library-header relative shrink-0 overflow-hidden border-b border-[var(--project-control-border)] bg-gradient-to-br from-amber-50/75 via-white/95 to-white px-6 py-5">
-              <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-amber-400/12 blur-3xl" />
+            <div className="project-library-header relative shrink-0 overflow-hidden border-b border-zinc-200/70 bg-gradient-to-br from-amber-50/80 via-white/95 to-sky-50/45 px-6 py-5">
+              <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-amber-400/18 blur-3xl" />
               <div className="relative z-10 flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-2.5">
-                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-white">
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-[0_8px_20px_-12px_rgba(0,0,0,0.7)]">
                     <Layers className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="truncate text-lg font-semibold tracking-tight text-[var(--project-text-primary)]">
+                    <h2 className="truncate text-[20px] font-semibold tracking-tight text-[var(--project-text-primary)]">
                       引用库面板
                     </h2>
                     <p className="mt-0.5 text-xs text-[var(--project-control-muted)]">
-                      管理当前库设置、可引入库与已建立引用关系
+                      {`管理当前库设置、可引入库与已建立引用关系 · 可引入库 ${availableLibraries.length} · 当前引用 ${references.length}`}
                     </p>
                   </div>
                 </div>
@@ -103,7 +103,7 @@ export function LibraryDrawer({
                   whileTap={{ scale: 0.96 }}
                   transition={{ type: "spring", stiffness: 360, damping: 24 }}
                   onClick={() => onOpenChange(false)}
-                  className="project-library-close-btn rounded-xl border border-zinc-200/80 bg-white/80 p-2 text-[var(--project-control-muted)] transition-colors hover:bg-white hover:text-[var(--project-control-text)]"
+                  className="project-library-close-btn rounded-xl border border-zinc-200/80 bg-white/85 p-2 text-[var(--project-control-muted)] transition-colors hover:bg-white hover:text-[var(--project-control-text)]"
                   aria-label="关闭库面板"
                 >
                   <X className="h-4 w-4" />
@@ -178,3 +178,4 @@ export function LibraryDrawer({
     </AnimatePresence>
   );
 }
+

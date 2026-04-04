@@ -64,7 +64,7 @@ interface ReferencesTabProps {
 }
 
 const SECTION_CLASS =
-  "rounded-2xl border border-zinc-200/75 bg-white/70 p-4 backdrop-blur-sm";
+  "relative overflow-hidden rounded-2xl border border-white/75 bg-[linear-gradient(150deg,rgba(255,255,255,0.84),rgba(248,250,252,0.68))] p-4 shadow-[0_16px_42px_-32px_rgba(0,0,0,0.5)] backdrop-blur-xl";
 
 function visibilityMeta(visibility?: string) {
   if (visibility === "private") {
@@ -179,7 +179,7 @@ export function ReferencesTab({
       <section className={SECTION_CLASS}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-white">
               <Settings2 className="h-4 w-4" />
             </span>
             <div>
@@ -195,7 +195,7 @@ export function ReferencesTab({
             size="icon"
             variant="outline"
             onClick={onReloadCurrentLibrarySettings}
-            className="h-8 w-8 rounded-xl border-zinc-200/80 bg-white/75"
+            className="h-8 w-8 rounded-xl border-zinc-200/80 bg-white/85"
             title="刷新当前库设置"
           >
             <RefreshCw className="h-3.5 w-3.5 text-zinc-500" />
@@ -213,7 +213,7 @@ export function ReferencesTab({
         !currentLibraryState.error &&
         currentLibrarySettings ? (
           <div className="space-y-3">
-            <div className="rounded-xl border border-zinc-200/75 bg-white/75 p-3">
+            <div className="rounded-xl border border-zinc-200/75 bg-white/82 p-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p
@@ -255,7 +255,7 @@ export function ReferencesTab({
                       event.target.value as "private" | "shared"
                     )
                   }
-                  className="h-9 w-full rounded-xl border border-zinc-200/70 bg-white/80 px-2 text-xs"
+                  className="h-9 w-full rounded-xl border border-zinc-200/75 bg-white/90 px-2 text-xs"
                 >
                   <option value="private">私有</option>
                   <option value="shared">共享</option>
@@ -270,7 +270,7 @@ export function ReferencesTab({
                       event.target.value === "yes"
                     )
                   }
-                  className="h-9 w-full rounded-xl border border-zinc-200/70 bg-white/80 px-2 text-xs"
+                  className="h-9 w-full rounded-xl border border-zinc-200/75 bg-white/90 px-2 text-xs"
                 >
                   <option value="no">不可引用</option>
                   <option value="yes">可引用</option>
@@ -294,7 +294,7 @@ export function ReferencesTab({
                   !hasCurrentLibraryChanges ||
                   hasInvalidCurrentLibrarySettings
                 }
-                className="h-8 rounded-lg bg-zinc-800 px-4 text-xs hover:bg-black disabled:bg-zinc-300"
+                className="h-8 rounded-lg bg-zinc-900 px-4 text-xs hover:bg-black disabled:bg-zinc-300"
               >
                 {currentLibrarySaving ? "保存中..." : "保存设置"}
               </Button>
@@ -323,7 +323,7 @@ export function ReferencesTab({
             value={newReferenceTarget}
             onChange={(event) => setNewReferenceTarget(event.target.value)}
             placeholder="输入要引入的 target_project_id"
-            className="md:col-span-3 h-9 rounded-xl border-zinc-200/70 bg-white/80"
+            className="md:col-span-3 h-9 rounded-xl border-zinc-200/75 bg-white/90"
           />
           <select
             value={newReferenceRelationType}
@@ -332,7 +332,7 @@ export function ReferencesTab({
                 event.target.value as "base" | "auxiliary"
               )
             }
-            className="md:col-span-1 h-9 rounded-xl border border-zinc-200/70 bg-white/80 px-2 text-xs"
+            className="md:col-span-1 h-9 rounded-xl border border-zinc-200/75 bg-white/90 px-2 text-xs"
           >
             <option value="base">主基底</option>
             <option value="auxiliary">辅助</option>
@@ -342,7 +342,7 @@ export function ReferencesTab({
             onChange={(event) =>
               setNewReferenceMode(event.target.value as "follow" | "pinned")
             }
-            className="md:col-span-1 h-9 rounded-xl border border-zinc-200/70 bg-white/80 px-2 text-xs"
+            className="md:col-span-1 h-9 rounded-xl border border-zinc-200/75 bg-white/90 px-2 text-xs"
           >
             <option value="follow">follow</option>
             <option value="pinned">pinned</option>
@@ -351,7 +351,7 @@ export function ReferencesTab({
             value={newReferencePriority}
             onChange={(event) => setNewReferencePriority(event.target.value)}
             placeholder="优先级"
-            className="md:col-span-1 h-9 rounded-xl border-zinc-200/70 bg-white/80 text-xs"
+            className="md:col-span-1 h-9 rounded-xl border-zinc-200/75 bg-white/90 text-xs"
           />
 
           {newReferenceMode === "pinned" ? (
@@ -361,14 +361,14 @@ export function ReferencesTab({
                 setNewReferencePinnedVersion(event.target.value)
               }
               placeholder="pinned_version_id"
-              className="md:col-span-4 h-9 rounded-xl border-zinc-200/70 bg-white/80 text-xs"
+              className="md:col-span-4 h-9 rounded-xl border-zinc-200/75 bg-white/90 text-xs"
             />
           ) : null}
 
           <Button
             size="sm"
             onClick={onAddReference}
-            className="h-9 rounded-xl bg-zinc-800 px-4 hover:bg-black"
+            className="h-9 rounded-xl bg-zinc-900 px-4 hover:bg-black"
           >
             <Plus className="mr-1 h-4 w-4" />
             引入
@@ -399,7 +399,7 @@ export function ReferencesTab({
             size="icon"
             variant="outline"
             onClick={onReloadLibraries}
-            className="h-8 w-8 rounded-xl border-zinc-200/80 bg-white/75"
+            className="h-8 w-8 rounded-xl border-zinc-200/80 bg-white/85"
             title="刷新库列表"
           >
             <RefreshCw className="h-3.5 w-3.5 text-zinc-500" />
@@ -410,7 +410,7 @@ export function ReferencesTab({
           value={libraryKeyword}
           onChange={(event) => setLibraryKeyword(event.target.value)}
           placeholder="按名称或 ID 过滤库"
-          className="mb-3 h-9 rounded-xl border-zinc-200/70 bg-white/80"
+          className="mb-3 h-9 rounded-xl border-zinc-200/75 bg-white/90"
         />
 
         <PaneState
@@ -423,7 +423,7 @@ export function ReferencesTab({
         {!librariesState.loading &&
         !librariesState.error &&
         visibleLibraries.length > 0 ? (
-          <div className="divide-y divide-zinc-200/70 rounded-xl border border-zinc-200/70 bg-white/75 px-3">
+          <div className="divide-y divide-zinc-200/70 rounded-xl border border-zinc-200/75 bg-white/82 px-3">
             {visibleLibraries.map((project) => {
               const isReferenced = referencedTargetIds.has(project.id);
               const disableForNotReferenceable = !project.isReferenceable;
@@ -499,7 +499,7 @@ export function ReferencesTab({
                         pinnedVersionId: project.currentVersionId,
                       })
                     }
-                    className="h-8 shrink-0 rounded-lg bg-zinc-800 px-3 text-xs hover:bg-black disabled:bg-zinc-300"
+                    className="h-8 shrink-0 rounded-lg bg-zinc-900 px-3 text-xs hover:bg-black disabled:bg-zinc-300"
                   >
                     {isReferenced ? (
                       <>
@@ -528,7 +528,7 @@ export function ReferencesTab({
 
       <section className={SECTION_CLASS}>
         <div className="mb-3 flex items-center gap-2">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-white">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-white">
             <LinkIcon className="h-4 w-4" />
           </span>
           <div>
@@ -549,7 +549,7 @@ export function ReferencesTab({
         />
 
         {!state.loading && !state.error && references.length > 0 ? (
-          <div className="divide-y divide-zinc-200/70 rounded-xl border border-zinc-200/70 bg-white/75 px-3">
+          <div className="divide-y divide-zinc-200/70 rounded-xl border border-zinc-200/75 bg-white/82 px-3">
             {references.map((item) => (
               <article
                 key={item.id}
@@ -630,3 +630,4 @@ export function ReferencesTab({
     </div>
   );
 }
+
