@@ -1,20 +1,20 @@
-"""
-课件生成服务 - 主服务类
+﻿"""
+璇句欢鐢熸垚鏈嶅姟 - 涓绘湇鍔＄被
 
-负责将 AI 生成的 Markdown 内容转换为 PPT 和 Word 文件
-技术栈：Marp CLI (Markdown → PPTX) + Pandoc (Markdown → DOCX)
+璐熻矗灏?AI 鐢熸垚鐨?Markdown 鍐呭杞崲涓?PPT 鍜?Word 鏂囦欢
+鎶€鏈爤锛歁arp CLI (Markdown 鈫?PPTX) + Pandoc (Markdown 鈫?DOCX)
 
-设计原则：
-- 高内聚：只负责文件生成，不涉及数据库/认证
-- 低耦合：输入是 Markdown 字符串，可用 Mock 数据独立测试
-- 接口契约：与成员 D 的 AI 服务约定 Markdown 格式
+璁捐鍘熷垯锛?
+- 楂樺唴鑱氾細鍙礋璐ｆ枃浠剁敓鎴愶紝涓嶆秹鍙婃暟鎹簱/璁よ瘉
+- 浣庤€﹀悎锛氳緭鍏ユ槸 Markdown 瀛楃涓诧紝鍙敤 Mock 鏁版嵁鐙珛娴嬭瘯
+- 鎺ュ彛濂戠害锛氫笌鎴愬憳 D 鐨?AI 鏈嶅姟绾﹀畾 Markdown 鏍煎紡
 """
 
 import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 try:
     from ..runtime_paths import get_generated_dir
@@ -176,9 +176,9 @@ def _serialize_page_class_plan(page_class_plan: Any) -> Optional[list[dict]]:
 
 class GenerationService:
     """
-    课件生成服务 - 高内聚、低耦合
+    璇句欢鐢熸垚鏈嶅姟 - 楂樺唴鑱氥€佷綆鑰﹀悎
 
-    使用 Marp CLI 和 Pandoc 将 Markdown 转换为文件
+    浣跨敤 Marp CLI 鍜?Pandoc 灏?Markdown 杞崲涓烘枃浠?
     """
 
     def __init__(
@@ -191,7 +191,7 @@ class GenerationService:
         self.template_service = template_service or TemplateService()
         logger.info(f"GenerationService initialized with output_dir: {self.output_dir}")
 
-        # 检测工具是否安装
+        # 妫€娴嬪伐鍏锋槸鍚﹀畨瑁?
         check_tools_installed()
 
     async def generate_pptx(
@@ -201,29 +201,29 @@ class GenerationService:
         template_config: Optional[TemplateConfig] = None,
     ) -> str:
         """
-        生成 PPTX 文件（使用 Marp CLI）
+        鐢熸垚 PPTX 鏂囦欢锛堜娇鐢?Marp CLI锛?
 
         Args:
-            content: 课件内容（包含 Markdown）
-            task_id: 任务ID（用于文件命名和日志）
-            template_config: 模板配置（可选）
+            content: 璇句欢鍐呭锛堝寘鍚?Markdown锛?
+            task_id: 浠诲姟ID锛堢敤浜庢枃浠跺懡鍚嶅拰鏃ュ織锛?
+            template_config: 妯℃澘閰嶇疆锛堝彲閫夛級
 
         Returns:
-            str: 生成的文件路径
+            str: 鐢熸垚鐨勬枃浠惰矾寰?
 
         Raises:
-            ToolNotFoundError: 工具未安装
-            ToolExecutionError: 工具执行失败
-            FileSystemError: 文件系统错误
-            GenerationTimeoutError: 执行超时
+            ToolNotFoundError: 宸ュ叿鏈畨瑁?
+            ToolExecutionError: 宸ュ叿鎵ц澶辫触
+            FileSystemError: 鏂囦欢绯荤粺閿欒
+            GenerationTimeoutError: 鎵ц瓒呮椂
         """
         if template_config is None:
             template_config = TemplateConfig()
 
-        # 优先使用 render_markdown，无则回退模板包装
+        # 浼樺厛浣跨敤 render_markdown锛屾棤鍒欏洖閫€妯℃澘鍖呰
         if content.render_markdown:
             logger.debug(f"[Task: {task_id}] Using render_markdown directly")
-            # 防御性清理：去除可能的外层 fence
+            # 闃插尽鎬ф竻鐞嗭細鍘婚櫎鍙兘鐨勫灞?fence
             from services.courseware_ai.parsing import strip_outer_code_fence
 
             full_markdown = strip_outer_code_fence(content.render_markdown)
@@ -241,7 +241,7 @@ class GenerationService:
                 page_class_plan=_serialize_page_class_plan(content.page_class_plan),
             )
 
-        # 预处理 Mermaid 代码块
+        # 棰勫鐞?Mermaid 浠ｇ爜鍧?
         from services.mermaid_renderer import preprocess_mermaid_blocks
 
         fail_on_unrendered = _should_fail_on_unrendered_mermaid()
@@ -259,7 +259,7 @@ class GenerationService:
         full_markdown = _inject_mermaid_fit_css(full_markdown)
         logger.info(f"[Task: {task_id}] Mermaid preprocessing completed")
 
-        # 调用生成器
+        # 璋冪敤鐢熸垚鍣?
         return await _generate_pptx(content, task_id, self.output_dir, full_markdown)
 
     async def generate_slide_images(
@@ -267,13 +267,14 @@ class GenerationService:
         content: CoursewareContent,
         task_id: str,
         template_config: Optional[TemplateConfig] = None,
+        on_image_generated: Optional[Callable[[int, str], Awaitable[None]]] = None,
     ) -> list[str]:
         if template_config is None:
             template_config = TemplateConfig()
 
-        # 优先使用 render_markdown，无则回退模板包装
+        # 浼樺厛浣跨敤 render_markdown锛屾棤鍒欏洖閫€妯℃澘鍖呰
         if content.render_markdown:
-            # 防御性清理：去除可能的外层 fence
+            # 闃插尽鎬ф竻鐞嗭細鍘婚櫎鍙兘鐨勫灞?fence
             from services.courseware_ai.parsing import strip_outer_code_fence
 
             full_markdown = strip_outer_code_fence(content.render_markdown)
@@ -287,7 +288,7 @@ class GenerationService:
                 page_class_plan=_serialize_page_class_plan(content.page_class_plan),
             )
 
-        # 预处理 Mermaid 代码块
+        # 棰勫鐞?Mermaid 浠ｇ爜鍧?
         from services.mermaid_renderer import preprocess_mermaid_blocks
 
         fail_on_unrendered = _should_fail_on_unrendered_mermaid()
@@ -296,6 +297,33 @@ class GenerationService:
             task_id,
             fail_on_unrendered,
         )
+
+        if on_image_generated is not None:
+            logger.info(
+                "[Task: %s] Streaming preview uses per-slide Mermaid preprocessing (strict=%s)",
+                task_id,
+                fail_on_unrendered,
+            )
+
+            async def _transform_slide_markdown(
+                page_index: int, slide_document: str
+            ) -> str:
+                transformed = await preprocess_mermaid_blocks(
+                    slide_document,
+                    fail_on_unrendered=fail_on_unrendered,
+                    asset_dir=self.output_dir,
+                    asset_prefix=f"{task_id}_mermaid_slide_{page_index + 1:03d}",
+                )
+                return _inject_mermaid_fit_css(transformed)
+
+            return await _generate_slide_images(
+                task_id,
+                self.output_dir,
+                full_markdown,
+                on_image_generated=on_image_generated,
+                transform_slide_markdown=_transform_slide_markdown,
+            )
+
         full_markdown = await preprocess_mermaid_blocks(
             full_markdown,
             fail_on_unrendered=fail_on_unrendered,
@@ -305,7 +333,12 @@ class GenerationService:
         full_markdown = _inject_mermaid_fit_css(full_markdown)
         logger.info(f"[Task: {task_id}] Mermaid preprocessing completed")
 
-        return await _generate_slide_images(task_id, self.output_dir, full_markdown)
+        return await _generate_slide_images(
+            task_id,
+            self.output_dir,
+            full_markdown,
+            on_image_generated=on_image_generated,
+        )
 
     async def generate_docx(
         self,
@@ -330,19 +363,18 @@ class GenerationService:
             FileSystemError: 文件系统错误
             GenerationTimeoutError: 执行超时
         """
-        # 获取 Pandoc 模板路径（如果有）
         if template_config is None:
             template_config = TemplateConfig()
 
         template_path = self.template_service.get_pandoc_template_path(template_config)
         reference_doc = Path(template_path) if template_path else None
 
-        # 调用生成器
         return await _generate_docx(content, task_id, self.output_dir, reference_doc)
 
 
-# 全局服务实例
+# 鍏ㄥ眬鏈嶅姟瀹炰緥
 generation_service = GenerationService()
 
-# 导出
+# 瀵煎嚭
 __all__ = ["GenerationService", "CoursewareContent", "generation_service"]
+
