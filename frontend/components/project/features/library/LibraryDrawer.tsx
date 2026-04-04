@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Layers, X } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { panelVariants, overlayVariants } from "./motion";
 import { useLibraryDrawerData } from "./useLibraryDrawerData";
 import { ReferencesTab } from "./tabs/ReferencesTab";
@@ -68,7 +69,7 @@ export function LibraryDrawer({
             animate="visible"
             exit="hidden"
             transition={{ duration: 0.2 }}
-            className="project-library-overlay fixed inset-0 z-50 bg-[var(--project-overlay)] backdrop-blur-[2px]"
+            className="project-library-overlay fixed inset-0 z-50 bg-black/20 backdrop-blur-[6px]"
             onClick={() => onOpenChange(false)}
           />
 
@@ -78,39 +79,40 @@ export function LibraryDrawer({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="project-library-drawer fixed z-50 bottom-5 right-5 top-[76px] flex w-[460px] flex-col overflow-hidden rounded-3xl border border-white/50 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.03)] backdrop-blur-2xl"
+            className="project-library-drawer fixed inset-x-3 bottom-3 top-[72px] z-50 flex flex-col overflow-hidden rounded-3xl border border-white/65 bg-[var(--project-surface-elevated)] shadow-[0_26px_80px_-20px_rgba(0,0,0,0.3)] backdrop-blur-2xl md:inset-x-auto md:bottom-4 md:right-4 md:top-[76px] md:w-[min(560px,calc(100vw-32px))]"
             style={{ willChange: "transform, opacity" }}
           >
-            <div className="project-library-header px-6 py-5 border-b border-[var(--project-control-border)] bg-[var(--project-control-bg)] relative overflow-hidden shrink-0">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-              <div className="flex items-center justify-between relative z-10">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 bg-[var(--project-logo-end)] text-[var(--project-logo-text)] rounded-[var(--project-chip-radius)] shadow-sm">
-                    <Layers className="w-4 h-4" />
+            <div className="project-library-header relative shrink-0 overflow-hidden border-b border-[var(--project-control-border)] bg-gradient-to-br from-amber-50/75 via-white/95 to-white px-6 py-5">
+              <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-amber-400/12 blur-3xl" />
+              <div className="relative z-10 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-white">
+                    <Layers className="h-4 w-4" />
                   </span>
-                  <div>
-                    <h2 className="text-[17px] font-bold text-[var(--project-text-primary)] leading-tight">
-                      Library
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-semibold tracking-tight text-[var(--project-text-primary)]">
+                      引用库面板
                     </h2>
-                    <p className="text-[12px] text-[var(--project-control-muted)] mt-0.5 leading-snug">
-                      引用库管理
+                    <p className="mt-0.5 text-xs text-[var(--project-control-muted)]">
+                      管理当前库设置、可引入库与已建立引用关系
                     </p>
                   </div>
                 </div>
                 <motion.button
-                  whileHover={{ scale: 1.1, rotate: 90 }}
-                  whileTap={{ scale: 0.9 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 360, damping: 24 }}
                   onClick={() => onOpenChange(false)}
-                  className="project-library-close-btn p-1.5 rounded-[var(--project-chip-radius)] text-[var(--project-control-muted)] hover:text-[var(--project-control-text)] hover:bg-[var(--project-surface-muted)] transition-colors"
+                  className="project-library-close-btn rounded-xl border border-zinc-200/80 bg-white/80 p-2 text-[var(--project-control-muted)] transition-colors hover:bg-white hover:text-[var(--project-control-text)]"
+                  aria-label="关闭库面板"
                 >
-                  <X className="w-4.5 h-4.5" />
+                  <X className="h-4 w-4" />
                 </motion.button>
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4">
-              <div className="mt-1 min-h-0 flex-1 overflow-auto pb-6 scrollbar-hide">
+            <ScrollArea className="min-h-0 flex-1 px-5 py-4">
+              <div className="pb-5">
                 <ReferencesTab
                   projectId={projectId}
                   references={references}
@@ -169,7 +171,7 @@ export function LibraryDrawer({
                   onSaveCurrentLibrarySettings={handleSaveCurrentLibrarySettings}
                 />
               </div>
-            </div>
+            </ScrollArea>
           </motion.div>
         </>
       ) : null}
