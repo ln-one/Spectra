@@ -161,11 +161,13 @@ export function SlideCard({
   isActive,
   onModify,
   isRegenerating = false,
+  onOpenPreview,
 }: {
   slide: Slide;
   isActive: boolean;
   onModify?: (slide: Slide) => void;
   isRegenerating?: boolean;
+  onOpenPreview?: (slide: Slide) => void;
 }) {
   const hasRenderedPreview = Boolean(slide.thumbnail_url);
   const table = useMemo(
@@ -222,7 +224,13 @@ export function SlideCard({
           )}
         >
           {hasRenderedPreview ? (
-            <div className="relative min-h-0 overflow-hidden rounded-xl border bg-zinc-100">
+            <div
+              className={cn(
+                "relative min-h-0 overflow-hidden rounded-xl border bg-zinc-100",
+                onOpenPreview ? "cursor-zoom-in" : ""
+              )}
+              onClick={() => onOpenPreview?.(slide)}
+            >
               <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
                 <div className="rounded-full bg-white/92 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600 shadow-sm">
                   Slide {slide.index + 1}
@@ -230,7 +238,10 @@ export function SlideCard({
                 {isActive && onModify ? (
                   <button
                     type="button"
-                    onClick={() => onModify(slide)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onModify(slide);
+                    }}
                     className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white/95 px-3 py-1 text-[11px] font-medium text-zinc-700 shadow-sm transition hover:bg-white hover:text-zinc-900"
                     disabled={isRegenerating}
                     title={`修改第 ${slide.index + 1} 页`}

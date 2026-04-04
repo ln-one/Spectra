@@ -108,6 +108,22 @@ function readBooleanField(
   return typeof value === "boolean" ? value : null;
 }
 
+function buildSlidesContentMarkdown(slides: Slide[]): string {
+  const sections = [...slides]
+    .sort((a, b) => a.index - b.index)
+    .map((slide) => {
+      const title = (slide.title || `Slide ${slide.index + 1}`).trim();
+      const body = (slide.content || "").trim();
+      if (!body) return `## ${title}`;
+      return `## ${title}\n\n${body}`;
+    });
+  return sections.join("\n\n---\n\n").trim();
+}
+
+function isGeneratingState(state: string | null | undefined): boolean {
+  return state === "GENERATING_CONTENT" || state === "RENDERING";
+}
+
 export function resolveActivePreviewRunId({
   activeSessionId,
   runIdFromQuery,
@@ -172,6 +188,13 @@ export function useGeneratePreviewState({
   >(null);
   const [isOutlineGenerating, setIsOutlineGenerating] = useState(false);
   const [outlineSections, setOutlineSections] = useState<string[]>([]);
+  const [slidesContentMarkdown, setSlidesContentMarkdown] = useState("");
+  const [sessionFailureMessage, setSessionFailureMessage] = useState<
+    string | null
+  >(null);
+  const [previewSessionState, setPreviewSessionState] = useState<string | null>(
+    null
+  );
 
   const processedEventKeysRef = useRef<Set<string>>(new Set());
   const eventsCursorRef = useRef<string | null>(null);
@@ -255,13 +278,19 @@ export function useGeneratePreviewState({
 
   const loadSlides = useCallback(async () => {
     if (!activeSessionId) {
+      setSlides([]);
+      setSlidesContentMarkdown("");
+      setSessionFailureMessage(null);
       setIsLoading(false);
       return;
     }
 
     const applyPreviewResponse = (
       response: Awaited<ReturnType<typeof previewApi.getSessionPreview>>
-    ) => {
+    ): {
+      renderedCount: number;
+      markdownReady: boolean;
+    } => {
       if (response.success && response.data?.slides) {
         const renderedPreview = response.data.rendered_preview as
           | RenderedPreview
@@ -303,11 +332,28 @@ export function useGeneratePreviewState({
             };
           })
           .sort((a, b) => a.index - b.index);
+        const payload = response.data as Record<string, unknown>;
+        const incomingSlidesContent = payload.slides_content_markdown;
+        const markdown =
+          typeof incomingSlidesContent === "string" &&
+          incomingSlidesContent.trim()
+            ? incomingSlidesContent
+            : buildSlidesContentMarkdown(nextSlides);
+        const incomingSessionState = payload.session_state;
+        if (typeof incomingSessionState === "string" && incomingSessionState) {
+          setPreviewSessionState(incomingSessionState);
+        }
         setSlides(nextSlides);
+        setSlidesContentMarkdown(markdown);
         setCurrentArtifactId(response.data.artifact_id ?? null);
         setCurrentRenderVersion(response.data.render_version ?? null);
         setPreviewMode(renderedPages.length > 0 ? "rendered" : "markdown");
+        return {
+          renderedCount: renderedPages.length,
+          markdownReady: Boolean(markdown.trim()),
+        };
       }
+      return { renderedCount: 0, markdownReady: false };
     };
 
     try {
@@ -316,7 +362,21 @@ export function useGeneratePreviewState({
         artifact_id: currentArtifactId ?? undefined,
         run_id: activeRunId ?? undefined,
       });
-      applyPreviewResponse(response);
+      const applied = applyPreviewResponse(response);
+
+      const shouldFallbackToSessionAnchor =
+        Boolean(activeRunId || currentArtifactId) &&
+        applied.renderedCount === 0 &&
+        !applied.markdownReady;
+
+      if (shouldFallbackToSessionAnchor) {
+        const fallbackResponse = await previewApi.getSessionPreview(
+          activeSessionId
+        );
+        setActiveRunId(null);
+        setCurrentArtifactId(fallbackResponse.data?.artifact_id ?? null);
+        applyPreviewResponse(fallbackResponse);
+      }
     } catch (error) {
       if (
         error instanceof ApiError &&
@@ -366,6 +426,14 @@ export function useGeneratePreviewState({
             { run_id: activeRunId ?? undefined }
           );
           const state = sessionResp?.data?.session?.state;
+          const sessionRecord = (sessionResp?.data?.session ?? {}) as Record<
+            string,
+            unknown
+          >;
+          const errorMessage = sessionRecord.error_message ?? sessionRecord.errorMessage;
+          if (typeof errorMessage === "string" && errorMessage.trim()) {
+            setSessionFailureMessage(errorMessage);
+          }
           if (state === "AWAITING_OUTLINE_CONFIRM") {
             setPreviewBlockedReason(
               "当前会话仍在大纲确认阶段，请先确认后再预览。"
@@ -418,9 +486,15 @@ export function useGeneratePreviewState({
   });
 
   const latestEvent = events.length > 0 ? events[events.length - 1] : null;
+  const snapshotSessionState =
+    (generationSession as { session?: { state?: string } } | null)?.session
+      ?.state ?? null;
+  const sessionState = previewSessionState || snapshotSessionState;
+  const hasSnapshotState = typeof sessionState === "string" && sessionState.length > 0;
   const isSessionGenerating =
-    latestEvent?.state === "GENERATING_CONTENT" ||
-    latestEvent?.state === "RENDERING";
+    hasSnapshotState
+      ? isGeneratingState(sessionState)
+      : isGeneratingState(latestEvent?.state);
 
   const handleResume = useCallback(async () => {
     if (!activeSessionId || isResuming) return;
@@ -454,12 +528,38 @@ export function useGeneratePreviewState({
   ]);
 
   useEffect(() => {
+    if (sessionState !== "FAILED") return;
+    const message =
+      (generationSession as { session?: { error_message?: string } } | null)
+        ?.session?.error_message ||
+      (generationSession as { session?: { errorMessage?: string } } | null)
+        ?.session?.errorMessage ||
+      null;
+    if (typeof message === "string" && message.trim()) {
+      setSessionFailureMessage(message);
+    }
+  }, [generationSession, sessionState]);
+
+  useEffect(() => {
+    if (!activeSessionId || !isSessionGenerating) return;
+    const timer = window.setInterval(() => {
+      void loadSlides();
+    }, 2500);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [activeSessionId, isSessionGenerating, loadSlides]);
+
+  useEffect(() => {
     processedEventKeysRef.current.clear();
     eventsCursorRef.current = null;
     pendingModifyRetryRef.current = null;
     eventsSnapshotReadyRef.current = false;
     setOutlineSections([]);
     setIsOutlineGenerating(false);
+    setSlidesContentMarkdown("");
+    setSessionFailureMessage(null);
+    setPreviewSessionState(null);
     void Promise.all([loadEventsSnapshot(), loadSessionRuns(), loadSlides()]);
   }, [loadEventsSnapshot, loadSessionRuns, loadSlides]);
 
@@ -502,6 +602,20 @@ export function useGeneratePreviewState({
       }
       if (eventType === "outline.completed") {
         setIsOutlineGenerating(false);
+        continue;
+      }
+      if (eventType === "ppt.started") {
+        setPreviewBlockedReason(null);
+        setPreviewSessionState("RENDERING");
+        void loadSlides();
+        continue;
+      }
+      if (eventType === "ppt.slide.generated") {
+        void loadSlides();
+        continue;
+      }
+      if (eventType === "ppt.completed") {
+        void loadSlides();
         continue;
       }
       if (
@@ -575,23 +689,26 @@ export function useGeneratePreviewState({
         const cardId = readStringField(payload, "card_id");
         const artifactId = readStringField(payload, "artifact_id");
         const runId = readRunIdFromTrace(payload);
+        const failedMessage =
+          readStringField(payload, "error_message") ||
+          readStringField(payload, "error") ||
+          readStringField(payload, "state_reason") ||
+          readStringField(payload, "message");
+        if (failedMessage) {
+          setSessionFailureMessage(failedMessage);
+        }
 
         if (stage === "studio_card_execute") {
           if (artifactId) setCurrentArtifactId(artifactId);
           if (runId) setActiveRunId(runId);
 
-          const failedMessage =
-            readStringField(payload, "error_message") ||
-            readStringField(payload, "error") ||
-            readStringField(payload, "state_reason") ||
-            readStringField(payload, "message") ||
-            "Studio execution task failed.";
+          const studioFailedMessage = failedMessage || "Studio execution task failed.";
 
           const runLabel = runId ? `run ${runId}` : "unknown run";
           const cardLabel = cardId ?? "unknown card";
           toast({
             title: "Studio task failed",
-            description: `${cardLabel}, ${runLabel}: ${failedMessage}`,
+            description: `${cardLabel}, ${runLabel}: ${studioFailedMessage}`,
             variant: "destructive",
           });
           void Promise.all([loadSlides(), loadSessionRuns()]);
@@ -791,8 +908,11 @@ export function useGeneratePreviewState({
     previewBlockedReason,
     previewMode,
     isSessionGenerating,
+    sessionState,
+    sessionFailureMessage,
     isOutlineGenerating,
     outlineSections,
+    slidesContentMarkdown,
     activeSessionId,
     activeRunId,
     currentArtifactId,
