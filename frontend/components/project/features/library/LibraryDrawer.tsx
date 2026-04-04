@@ -86,10 +86,10 @@ export function LibraryDrawer({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="project-library-drawer fixed inset-x-4 bottom-4 top-[54px] z-50 flex flex-col overflow-hidden rounded-3xl border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.9),rgba(247,250,252,0.82))] shadow-[0_30px_90px_-24px_rgba(0,0,0,0.42)] backdrop-blur-2xl md:inset-x-auto md:bottom-5 md:right-5 md:top-[56px] md:w-[min(760px,calc(100vw-40px))]"
+            className="project-library-drawer fixed inset-x-4 bottom-4 top-[54px] z-50 flex flex-col overflow-hidden rounded-3xl border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.9),rgba(247,250,252,0.82))] shadow-[0_24px_64px_-30px_rgba(15,23,42,0.48)] backdrop-blur-3xl md:inset-x-auto md:bottom-5 md:right-5 md:top-[56px] md:w-[min(760px,calc(100vw-40px))]"
             style={{ willChange: "transform, opacity" }}
           >
-            <div className="project-library-header relative shrink-0 overflow-hidden border-b border-zinc-200/70 bg-gradient-to-br from-amber-50/80 via-white/95 to-sky-50/45 px-6 py-5">
+            <div className="project-library-header relative shrink-0 overflow-hidden border-b border-white/60 bg-[linear-gradient(140deg,rgba(255,255,255,0.65),rgba(244,248,252,0.45))] backdrop-blur-xl px-6 py-5">
               <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-amber-400/18 blur-3xl" />
               <div className="relative z-10 flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-2.5">
