@@ -32,10 +32,17 @@ describe("ReferencesTab library candidates", () => {
           isReferenceable: true,
         }}
         currentLibrarySaving={false}
+        currentLibraryNameDraft="当前库"
+        setCurrentLibraryNameDraft={jest.fn()}
+        currentLibraryDescriptionDraft="desc"
+        setCurrentLibraryDescriptionDraft={jest.fn()}
+        currentLibraryGradeLevelDraft=""
+        setCurrentLibraryGradeLevelDraft={jest.fn()}
         currentLibraryVisibilityDraft="shared"
         setCurrentLibraryVisibilityDraft={jest.fn()}
         currentLibraryReferenceableDraft={true}
         setCurrentLibraryReferenceableDraft={jest.fn()}
+        onResetCurrentLibraryDrafts={jest.fn()}
         newReferenceTarget=""
         setNewReferenceTarget={jest.fn()}
         newReferenceRelationType="auxiliary"
@@ -99,10 +106,17 @@ describe("ReferencesTab library candidates", () => {
           isReferenceable: true,
         }}
         currentLibrarySaving={false}
+        currentLibraryNameDraft="当前库"
+        setCurrentLibraryNameDraft={jest.fn()}
+        currentLibraryDescriptionDraft="desc"
+        setCurrentLibraryDescriptionDraft={jest.fn()}
+        currentLibraryGradeLevelDraft=""
+        setCurrentLibraryGradeLevelDraft={jest.fn()}
         currentLibraryVisibilityDraft="shared"
         setCurrentLibraryVisibilityDraft={jest.fn()}
         currentLibraryReferenceableDraft={true}
         setCurrentLibraryReferenceableDraft={jest.fn()}
+        onResetCurrentLibraryDrafts={jest.fn()}
         newReferenceTarget=""
         setNewReferenceTarget={jest.fn()}
         newReferenceRelationType="auxiliary"

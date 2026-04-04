@@ -28,10 +28,17 @@ export function LibraryDrawer({
     availableLibraries,
     currentLibrarySettings,
     currentLibrarySaving,
+    currentLibraryNameDraft,
+    setCurrentLibraryNameDraft,
+    currentLibraryDescriptionDraft,
+    setCurrentLibraryDescriptionDraft,
+    currentLibraryGradeLevelDraft,
+    setCurrentLibraryGradeLevelDraft,
     currentLibraryVisibilityDraft,
     setCurrentLibraryVisibilityDraft,
     currentLibraryReferenceableDraft,
     setCurrentLibraryReferenceableDraft,
+    resetCurrentLibraryDrafts,
     newReferenceTarget,
     setNewReferenceTarget,
     newReferenceRelationType,
@@ -69,7 +76,7 @@ export function LibraryDrawer({
             animate="visible"
             exit="hidden"
             transition={{ duration: 0.2 }}
-            className="project-library-overlay fixed inset-0 z-50 bg-black/28 backdrop-blur-[8px]"
+            className="project-library-overlay fixed inset-0 z-50 bg-[rgba(236,242,248,0.22)] backdrop-blur-[10px]"
             onClick={() => onOpenChange(false)}
           />
 
@@ -79,7 +86,7 @@ export function LibraryDrawer({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="project-library-drawer fixed inset-x-3 bottom-3 top-[72px] z-50 flex flex-col overflow-hidden rounded-3xl border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.9),rgba(247,250,252,0.82))] shadow-[0_30px_90px_-24px_rgba(0,0,0,0.42)] backdrop-blur-2xl md:inset-x-auto md:bottom-4 md:right-4 md:top-[76px] md:w-[min(580px,calc(100vw-32px))]"
+            className="project-library-drawer fixed inset-x-4 bottom-4 top-[54px] z-50 flex flex-col overflow-hidden rounded-3xl border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.9),rgba(247,250,252,0.82))] shadow-[0_30px_90px_-24px_rgba(0,0,0,0.42)] backdrop-blur-2xl md:inset-x-auto md:bottom-5 md:right-5 md:top-[56px] md:w-[min(760px,calc(100vw-40px))]"
             style={{ willChange: "transform, opacity" }}
           >
             <div className="project-library-header relative shrink-0 overflow-hidden border-b border-zinc-200/70 bg-gradient-to-br from-amber-50/80 via-white/95 to-sky-50/45 px-6 py-5">
@@ -122,6 +129,16 @@ export function LibraryDrawer({
                   availableLibraries={availableLibraries}
                   currentLibrarySettings={currentLibrarySettings}
                   currentLibrarySaving={currentLibrarySaving}
+                  currentLibraryNameDraft={currentLibraryNameDraft}
+                  setCurrentLibraryNameDraft={setCurrentLibraryNameDraft}
+                  currentLibraryDescriptionDraft={currentLibraryDescriptionDraft}
+                  setCurrentLibraryDescriptionDraft={
+                    setCurrentLibraryDescriptionDraft
+                  }
+                  currentLibraryGradeLevelDraft={currentLibraryGradeLevelDraft}
+                  setCurrentLibraryGradeLevelDraft={
+                    setCurrentLibraryGradeLevelDraft
+                  }
                   currentLibraryVisibilityDraft={currentLibraryVisibilityDraft}
                   setCurrentLibraryVisibilityDraft={
                     setCurrentLibraryVisibilityDraft
@@ -132,6 +149,7 @@ export function LibraryDrawer({
                   setCurrentLibraryReferenceableDraft={
                     setCurrentLibraryReferenceableDraft
                   }
+                  onResetCurrentLibraryDrafts={resetCurrentLibraryDrafts}
                   newReferenceTarget={newReferenceTarget}
                   setNewReferenceTarget={setNewReferenceTarget}
                   newReferenceRelationType={newReferenceRelationType}

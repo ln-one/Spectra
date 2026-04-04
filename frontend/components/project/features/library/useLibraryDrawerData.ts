@@ -214,6 +214,11 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
   const [currentLibrarySettings, setCurrentLibrarySettings] =
     useState<CurrentLibrarySettings | null>(null);
   const [currentLibrarySaving, setCurrentLibrarySaving] = useState(false);
+  const [currentLibraryNameDraft, setCurrentLibraryNameDraft] = useState("");
+  const [currentLibraryDescriptionDraft, setCurrentLibraryDescriptionDraft] =
+    useState("");
+  const [currentLibraryGradeLevelDraft, setCurrentLibraryGradeLevelDraft] =
+    useState("");
   const [currentLibraryVisibilityDraft, setCurrentLibraryVisibilityDraft] =
     useState<"private" | "shared">("private");
   const [currentLibraryReferenceableDraft, setCurrentLibraryReferenceableDraft] =
@@ -274,6 +279,9 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
         return;
       }
       setCurrentLibrarySettings(normalized);
+      setCurrentLibraryNameDraft(normalized.name);
+      setCurrentLibraryDescriptionDraft(normalized.description);
+      setCurrentLibraryGradeLevelDraft(normalized.gradeLevel ?? "");
       setCurrentLibraryVisibilityDraft(normalized.visibility);
       setCurrentLibraryReferenceableDraft(normalized.isReferenceable);
       setCurrentLibraryState({ loading: false, error: null });
@@ -285,6 +293,19 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       });
     }
   }, [projectId]);
+
+  const resetCurrentLibraryDrafts = useCallback(() => {
+    if (!currentLibrarySettings) return;
+    setCurrentLibraryNameDraft(currentLibrarySettings.name);
+    setCurrentLibraryDescriptionDraft(currentLibrarySettings.description);
+    setCurrentLibraryGradeLevelDraft(currentLibrarySettings.gradeLevel ?? "");
+    setCurrentLibraryVisibilityDraft(currentLibrarySettings.visibility);
+    setCurrentLibraryReferenceableDraft(currentLibrarySettings.isReferenceable);
+    setCurrentLibraryState((previous) => ({
+      ...previous,
+      error: null,
+    }));
+  }, [currentLibrarySettings]);
 
   const loadVersions = useCallback(async () => {
     setVersionsState({ loading: true, error: null });
@@ -360,6 +381,16 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
 
   const handleSaveCurrentLibrarySettings = async () => {
     if (!currentLibrarySettings) return;
+    const nextName = currentLibraryNameDraft.trim();
+    if (!nextName) {
+      setCurrentLibraryState({
+        loading: false,
+        error: "库名称不能为空，请先填写名称再保存。",
+      });
+      return;
+    }
+    const nextDescription = currentLibraryDescriptionDraft.trim() || nextName;
+    const nextGradeLevel = currentLibraryGradeLevelDraft.trim() || undefined;
     if (
       currentLibraryVisibilityDraft === "private" &&
       currentLibraryReferenceableDraft
@@ -374,10 +405,9 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     setCurrentLibraryState({ loading: false, error: null });
     try {
       const response = await projectsApi.updateProject(projectId, {
-        name: currentLibrarySettings.name,
-        description:
-          currentLibrarySettings.description || currentLibrarySettings.name,
-        grade_level: currentLibrarySettings.gradeLevel ?? undefined,
+        name: nextName,
+        description: nextDescription,
+        grade_level: nextGradeLevel,
         visibility: currentLibraryVisibilityDraft,
         is_referenceable: currentLibraryReferenceableDraft,
       });
@@ -390,6 +420,9 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
         return;
       }
       setCurrentLibrarySettings(normalized);
+      setCurrentLibraryNameDraft(normalized.name);
+      setCurrentLibraryDescriptionDraft(normalized.description);
+      setCurrentLibraryGradeLevelDraft(normalized.gradeLevel ?? "");
       setCurrentLibraryVisibilityDraft(normalized.visibility);
       setCurrentLibraryReferenceableDraft(normalized.isReferenceable);
       setCurrentLibraryState({ loading: false, error: null });
@@ -718,10 +751,17 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     availableLibraries,
     currentLibrarySettings,
     currentLibrarySaving,
+    currentLibraryNameDraft,
+    setCurrentLibraryNameDraft,
+    currentLibraryDescriptionDraft,
+    setCurrentLibraryDescriptionDraft,
+    currentLibraryGradeLevelDraft,
+    setCurrentLibraryGradeLevelDraft,
     currentLibraryVisibilityDraft,
     setCurrentLibraryVisibilityDraft,
     currentLibraryReferenceableDraft,
     setCurrentLibraryReferenceableDraft,
+    resetCurrentLibraryDrafts,
 
     loadReferences,
     loadAvailableLibraries,

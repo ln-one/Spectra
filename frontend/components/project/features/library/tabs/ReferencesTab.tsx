@@ -3,25 +3,25 @@
 import { useMemo, useState } from "react";
 import {
   ArrowDownUp,
+  BookMarked,
   Check,
   CircleOff,
+  Globe2,
   Library,
   Link as LinkIcon,
+  LockKeyhole,
   Plus,
   RefreshCw,
+  RotateCcw,
   Settings2,
   ToggleLeft,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { PaneState, type TabState } from "../shared";
 import type {
@@ -39,10 +39,17 @@ interface ReferencesTabProps {
   availableLibraries: AvailableLibraryProject[];
   currentLibrarySettings: CurrentLibrarySettings | null;
   currentLibrarySaving: boolean;
+  currentLibraryNameDraft: string;
+  setCurrentLibraryNameDraft: (value: string) => void;
+  currentLibraryDescriptionDraft: string;
+  setCurrentLibraryDescriptionDraft: (value: string) => void;
+  currentLibraryGradeLevelDraft: string;
+  setCurrentLibraryGradeLevelDraft: (value: string) => void;
   currentLibraryVisibilityDraft: "private" | "shared";
   setCurrentLibraryVisibilityDraft: (value: "private" | "shared") => void;
   currentLibraryReferenceableDraft: boolean;
   setCurrentLibraryReferenceableDraft: (value: boolean) => void;
+  onResetCurrentLibraryDrafts: () => void;
   newReferenceTarget: string;
   setNewReferenceTarget: (value: string) => void;
   newReferenceRelationType: "base" | "auxiliary";
@@ -72,6 +79,9 @@ interface ReferencesTabProps {
 
 const SECTION_CLASS =
   "relative overflow-hidden rounded-2xl border border-white/75 bg-[linear-gradient(155deg,rgba(255,255,255,0.88),rgba(245,248,252,0.72))] p-4 shadow-[0_18px_48px_-34px_rgba(0,0,0,0.6)] backdrop-blur-xl";
+
+const SEGMENT_CLASS =
+  "h-8 rounded-lg border border-zinc-200/70 bg-white/80 px-3 text-xs font-medium text-zinc-600 data-[state=on]:border-zinc-900 data-[state=on]:bg-zinc-900 data-[state=on]:text-white";
 
 function visibilityMeta(visibility?: string) {
   if (visibility === "private") {
@@ -113,10 +123,17 @@ export function ReferencesTab({
   availableLibraries,
   currentLibrarySettings,
   currentLibrarySaving,
+  currentLibraryNameDraft,
+  setCurrentLibraryNameDraft,
+  currentLibraryDescriptionDraft,
+  setCurrentLibraryDescriptionDraft,
+  currentLibraryGradeLevelDraft,
+  setCurrentLibraryGradeLevelDraft,
   currentLibraryVisibilityDraft,
   setCurrentLibraryVisibilityDraft,
   currentLibraryReferenceableDraft,
   setCurrentLibraryReferenceableDraft,
+  onResetCurrentLibraryDrafts,
   newReferenceTarget,
   setNewReferenceTarget,
   newReferenceRelationType,
@@ -172,11 +189,27 @@ export function ReferencesTab({
   const quickAddDisabledByBaseRule =
     newReferenceRelationType === "base" && hasActiveBaseReference;
   const hasCurrentLibrarySettings = !!currentLibrarySettings;
-  const hasCurrentLibraryChanges =
+
+  const persistedName = currentLibrarySettings?.name.trim() ?? "";
+  const persistedDescription = currentLibrarySettings?.description.trim() ?? "";
+  const persistedGradeLevel = currentLibrarySettings?.gradeLevel?.trim() ?? "";
+  const draftName = currentLibraryNameDraft.trim();
+  const draftDescription = currentLibraryDescriptionDraft.trim();
+  const draftGradeLevel = currentLibraryGradeLevelDraft.trim();
+
+  const hasCurrentLibraryMetaChanges =
     hasCurrentLibrarySettings &&
-    (currentLibraryVisibilityDraft !== currentLibrarySettings.visibility ||
-      currentLibraryReferenceableDraft !==
-        currentLibrarySettings.isReferenceable);
+    (draftName !== persistedName ||
+      draftDescription !== persistedDescription ||
+      draftGradeLevel !== persistedGradeLevel);
+
+  const hasCurrentLibraryChanges =
+    hasCurrentLibraryMetaChanges ||
+    (hasCurrentLibrarySettings &&
+      (currentLibraryVisibilityDraft !== currentLibrarySettings.visibility ||
+        currentLibraryReferenceableDraft !==
+          currentLibrarySettings.isReferenceable));
+
   const hasInvalidCurrentLibrarySettings =
     currentLibraryVisibilityDraft === "private" &&
     currentLibraryReferenceableDraft;
@@ -196,19 +229,26 @@ export function ReferencesTab({
                   当前库设置
                 </p>
                 <p className="text-xs text-[var(--project-text-muted)]">
-                  控制当前项目可见性与可引用性
+                  管理库身份信息、共享策略与引用策略
                 </p>
               </div>
             </div>
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={onReloadCurrentLibrarySettings}
-              className="h-8 w-8 rounded-xl border-zinc-200/80 bg-white/90"
-              title="刷新当前库设置"
-            >
-              <RefreshCw className="h-3.5 w-3.5 text-zinc-500" />
-            </Button>
+            <div className="flex items-center gap-1.5">
+              {hasCurrentLibraryChanges ? (
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                  有未保存修改
+                </span>
+              ) : null}
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={onReloadCurrentLibrarySettings}
+                className="h-8 w-8 rounded-xl border-zinc-200/80 bg-white/90"
+                title="刷新当前库设置"
+              >
+                <RefreshCw className="h-3.5 w-3.5 text-zinc-500" />
+              </Button>
+            </div>
           </div>
 
           <PaneState
@@ -223,21 +263,106 @@ export function ReferencesTab({
           currentLibrarySettings ? (
             <div className="space-y-3">
               <div className="rounded-xl border border-zinc-200/75 bg-white/88 p-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="mb-3 flex items-start justify-between gap-3 rounded-xl border border-zinc-200/70 bg-gradient-to-r from-white to-zinc-50 p-3">
                   <div className="min-w-0">
-                    <p
-                      className="truncate text-sm font-semibold text-zinc-800"
-                      title={currentLibrarySettings.name}
-                    >
-                      {currentLibrarySettings.name}
+                    <p className="truncate text-base font-semibold text-zinc-900" title={currentLibraryNameDraft || currentLibrarySettings.name}>
+                      {currentLibraryNameDraft || currentLibrarySettings.name}
                     </p>
-                    <p
-                      className="mt-0.5 truncate text-[11px] text-zinc-500"
-                      title={currentLibrarySettings.id}
-                    >
+                    <p className="mt-0.5 truncate text-[11px] text-zinc-500" title={currentLibrarySettings.id}>
                       {currentLibrarySettings.id}
                     </p>
                   </div>
+                  <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[10px] font-medium text-zinc-600">当前库</span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                  <label className="md:col-span-3 block">
+                    <p className="mb-1 text-[11px] text-zinc-500">库名称</p>
+                    <Input
+                      value={currentLibraryNameDraft}
+                      onChange={(event) =>
+                        setCurrentLibraryNameDraft(event.target.value)
+                      }
+                      placeholder="请输入库名称"
+                      className="h-10 rounded-xl border-zinc-200/80 bg-white/90 text-sm"
+                    />
+                  </label>
+                  <label className="md:col-span-2 block">
+                    <p className="mb-1 text-[11px] text-zinc-500">学段/年级</p>
+                    <Input
+                      value={currentLibraryGradeLevelDraft}
+                      onChange={(event) =>
+                        setCurrentLibraryGradeLevelDraft(event.target.value)
+                      }
+                      placeholder="如：高一 / 大学"
+                      className="h-10 rounded-xl border-zinc-200/80 bg-white/90 text-sm"
+                    />
+                  </label>
+                </div>
+
+                <label className="mt-3 block">
+                  <p className="mb-1 text-[11px] text-zinc-500">
+                    描述
+                    <span className="ml-1 text-zinc-400">
+                      {currentLibraryDescriptionDraft.length}/2000
+                    </span>
+                  </p>
+                  <Textarea
+                    value={currentLibraryDescriptionDraft}
+                    onChange={(event) =>
+                      setCurrentLibraryDescriptionDraft(event.target.value)
+                    }
+                    placeholder="一句话说明该库内容与用途"
+                    className="min-h-[78px] rounded-xl border-zinc-200/80 bg-white/90 text-sm"
+                  />
+                </label>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-zinc-200/80 bg-white/90 p-3">
+                    <p className="mb-2 text-[11px] text-zinc-500">可见性</p>
+                    <ToggleGroup
+                      type="single"
+                      value={currentLibraryVisibilityDraft}
+                      onValueChange={(value) => {
+                        if (!value) return;
+                        const next = value as "private" | "shared";
+                        setCurrentLibraryVisibilityDraft(next);
+                        if (next === "private" && currentLibraryReferenceableDraft) {
+                          setCurrentLibraryReferenceableDraft(false);
+                        }
+                      }}
+                      className="justify-start"
+                    >
+                      <ToggleGroupItem value="private" className={SEGMENT_CLASS}>
+                        <LockKeyhole className="h-3.5 w-3.5" />
+                        私有
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="shared" className={SEGMENT_CLASS}>
+                        <Globe2 className="h-3.5 w-3.5" />
+                        共享
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+                  <div className="rounded-xl border border-zinc-200/80 bg-white/90 p-3">
+                    <p className="mb-2 text-[11px] text-zinc-500">是否可引用</p>
+                    <label className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-medium text-zinc-700">
+                        {currentLibraryReferenceableDraft ? "可引用" : "不可引用"}
+                      </span>
+                      <Switch
+                        checked={currentLibraryReferenceableDraft}
+                        disabled={currentLibraryVisibilityDraft === "private"}
+                        onCheckedChange={(checked) =>
+                          setCurrentLibraryReferenceableDraft(checked)
+                        }
+                      />
+                    </label>
+                    <p className="mt-1 text-[10px] text-zinc-500">
+                      私有库自动禁用引用，切换为共享后可开启。
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-1.5">
                     <span
                       className={cn(
@@ -251,66 +376,39 @@ export function ReferencesTab({
                       {currentLibraryReferenceableDraft ? "可引用" : "不可引用"}
                     </span>
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={onResetCurrentLibraryDrafts}
+                      disabled={!hasCurrentLibraryChanges || currentLibrarySaving}
+                      className="h-8 rounded-lg border-zinc-200 bg-white/90 px-3 text-xs"
+                    >
+                      <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                      重置修改
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={onSaveCurrentLibrarySettings}
+                      disabled={
+                        currentLibrarySaving ||
+                        !hasCurrentLibraryChanges ||
+                        hasInvalidCurrentLibrarySettings
+                      }
+                      className="h-8 rounded-lg bg-zinc-900 px-4 text-xs hover:bg-black disabled:bg-zinc-300"
+                    >
+                      {currentLibrarySaving ? "保存中..." : "保存设置"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <p className="mb-1 text-[11px] text-zinc-500">可见性</p>
-                  <Select
-                    value={currentLibraryVisibilityDraft}
-                    onValueChange={(value) =>
-                      setCurrentLibraryVisibilityDraft(value as "private" | "shared")
-                    }
-                  >
-                    <SelectTrigger className="h-9 rounded-xl border-zinc-200/80 bg-white/90 text-xs shadow-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-zinc-200 bg-white/95 backdrop-blur-xl">
-                      <SelectItem value="private">私有</SelectItem>
-                      <SelectItem value="shared">共享</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label className="block">
-                  <p className="mb-1 text-[11px] text-zinc-500">是否可引用</p>
-                  <Select
-                    value={currentLibraryReferenceableDraft ? "yes" : "no"}
-                    onValueChange={(value) =>
-                      setCurrentLibraryReferenceableDraft(value === "yes")
-                    }
-                  >
-                    <SelectTrigger className="h-9 rounded-xl border-zinc-200/80 bg-white/90 text-xs shadow-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-zinc-200 bg-white/95 backdrop-blur-xl">
-                      <SelectItem value="no">不可引用</SelectItem>
-                      <SelectItem value="yes">可引用</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-              </div>
-
-              {hasInvalidCurrentLibrarySettings ? (
-                <p className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
-                  <CircleOff className="h-3 w-3" />
-                  私有库不能设置为可引用，请先切换为共享。
-                </p>
-              ) : null}
-
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  onClick={onSaveCurrentLibrarySettings}
-                  disabled={
-                    currentLibrarySaving ||
-                    !hasCurrentLibraryChanges ||
-                    hasInvalidCurrentLibrarySettings
-                  }
-                  className="h-8 rounded-lg bg-zinc-900 px-4 text-xs hover:bg-black disabled:bg-zinc-300"
-                >
-                  {currentLibrarySaving ? "保存中..." : "保存设置"}
-                </Button>
+                {hasInvalidCurrentLibrarySettings ? (
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+                    <CircleOff className="h-3 w-3" />
+                    私有库不能设置为可引用，请先切换为共享。
+                  </p>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -341,34 +439,38 @@ export function ReferencesTab({
               placeholder="输入要引入的 target_project_id"
               className="md:col-span-3 h-9 rounded-xl border-zinc-200/80 bg-white/90"
             />
-            <Select
+            <ToggleGroup
+              type="single"
               value={newReferenceRelationType}
-              onValueChange={(value) =>
-                setNewReferenceRelationType(value as "base" | "auxiliary")
-              }
+              onValueChange={(value) => {
+                if (!value) return;
+                setNewReferenceRelationType(value as "base" | "auxiliary");
+              }}
+              className="md:col-span-1 justify-start"
             >
-              <SelectTrigger className="md:col-span-1 h-9 rounded-xl border-zinc-200/80 bg-white/90 px-2 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="border-zinc-200 bg-white/95 backdrop-blur-xl">
-                <SelectItem value="base">主基底</SelectItem>
-                <SelectItem value="auxiliary">辅助</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
+              <ToggleGroupItem value="base" className={SEGMENT_CLASS}>
+                主基底
+              </ToggleGroupItem>
+              <ToggleGroupItem value="auxiliary" className={SEGMENT_CLASS}>
+                辅助
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              type="single"
               value={newReferenceMode}
-              onValueChange={(value) =>
-                setNewReferenceMode(value as "follow" | "pinned")
-              }
+              onValueChange={(value) => {
+                if (!value) return;
+                setNewReferenceMode(value as "follow" | "pinned");
+              }}
+              className="md:col-span-1 justify-start"
             >
-              <SelectTrigger className="md:col-span-1 h-9 rounded-xl border-zinc-200/80 bg-white/90 px-2 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="border-zinc-200 bg-white/95 backdrop-blur-xl">
-                <SelectItem value="follow">follow</SelectItem>
-                <SelectItem value="pinned">pinned</SelectItem>
-              </SelectContent>
-            </Select>
+              <ToggleGroupItem value="follow" className={SEGMENT_CLASS}>
+                follow
+              </ToggleGroupItem>
+              <ToggleGroupItem value="pinned" className={SEGMENT_CLASS}>
+                pinned
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Input
               value={newReferencePriority}
               onChange={(event) => setNewReferencePriority(event.target.value)}
@@ -466,12 +568,15 @@ export function ReferencesTab({
                     className="flex items-start justify-between gap-3 py-3"
                   >
                     <div className="min-w-0 space-y-1">
-                      <p
-                        className="truncate text-sm font-semibold text-zinc-800"
-                        title={project.name}
-                      >
-                        {project.name}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <BookMarked className="h-3.5 w-3.5 text-zinc-500" />
+                        <p
+                          className="truncate text-sm font-semibold text-zinc-800"
+                          title={project.name}
+                        >
+                          {project.name}
+                        </p>
+                      </div>
                       <p
                         className="truncate text-[11px] text-zinc-500"
                         title={project.id}
