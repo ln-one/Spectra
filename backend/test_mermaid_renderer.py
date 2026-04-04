@@ -159,6 +159,40 @@ graph LR
 
 
 @pytest.mark.asyncio
+async def test_mermaid_preprocessing_retries_with_repaired_node_label(monkeypatch):
+    """首轮失败后应修复方括号节点标签中的括号并重试渲染。"""
+
+    markdown = """```mermaid
+graph TD
+    P1[生产数据] --> P2[P(empty) 申请空槽]
+```"""
+
+    calls: list[str] = []
+
+    async def _fake_render_mermaid_to_svg(mermaid_code: str):
+        calls.append(mermaid_code)
+        if "P2[P(empty) 申请空槽]" in mermaid_code:
+            return None
+        if "P2[P（empty） 申请空槽]" in mermaid_code:
+            return "<svg><text>rendered-after-node-repair</text></svg>"
+        return None
+
+    monkeypatch.setattr(
+        mermaid_renderer,
+        "render_mermaid_to_svg",
+        _fake_render_mermaid_to_svg,
+    )
+
+    result = await mermaid_renderer.preprocess_mermaid_blocks(markdown)
+
+    assert len(calls) == 2
+    assert "P2[P(empty) 申请空槽]" in calls[0]
+    assert "P2[P（empty） 申请空槽]" in calls[1]
+    assert "data:image/svg+xml;base64," in result
+    assert "```mermaid" not in result
+
+
+@pytest.mark.asyncio
 async def test_mermaid_preprocessing_normalizes_raw_svg_markup():
     """原始 SVG 标记应被标准化为 data URI 图片，避免源码直出。"""
 

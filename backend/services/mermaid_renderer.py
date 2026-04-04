@@ -20,6 +20,7 @@ _EDGE_LABEL_PATTERN = re.compile(r"\|([^|\n]+)\|")
 _DEFAULT_MERMAID_MODULE_URL = (
     "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs"
 )
+_NODE_LABEL_PATTERN = re.compile(r"\[([^\]\n]+)\]")
 
 
 class MermaidRenderError(RuntimeError):
@@ -122,6 +123,8 @@ def _repair_mermaid_code(mermaid_code: str) -> str:
     Current fix:
     - Edge labels like |P(empty)| can break parser in flowchart grammar.
       Replace ASCII parentheses with full-width variants inside edge labels.
+    - Node labels like P2[P(empty) 申请空槽] can also break parser in some
+      Mermaid grammar versions. Replace ASCII parentheses within [] labels.
     """
     repaired_any = False
 
@@ -134,6 +137,16 @@ def _repair_mermaid_code(mermaid_code: str) -> str:
         return f"|{repaired}|"
 
     repaired_code = _EDGE_LABEL_PATTERN.sub(_replace_edge_label, mermaid_code)
+
+    def _replace_node_label(match: re.Match[str]) -> str:
+        nonlocal repaired_any
+        label = match.group(1)
+        repaired = label.replace("(", "（").replace(")", "）")
+        if repaired != label:
+            repaired_any = True
+        return f"[{repaired}]"
+
+    repaired_code = _NODE_LABEL_PATTERN.sub(_replace_node_label, repaired_code)
     return repaired_code if repaired_any else mermaid_code
 
 
@@ -182,7 +195,22 @@ async def render_mermaid_to_svg(mermaid_code: str) -> Optional[str]:
 """
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            launch_kwargs = {"headless": True}
+            chrome_path = str(os.getenv("CHROME_PATH") or "").strip()
+            if chrome_path:
+                if Path(chrome_path).exists():
+                    launch_kwargs["executable_path"] = chrome_path
+                    launch_kwargs["args"] = [
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                    ]
+                else:
+                    logger.warning(
+                        "CHROME_PATH is set but not found: %s; "
+                        "fallback to Playwright managed browser",
+                        chrome_path,
+                    )
+            browser = await p.chromium.launch(**launch_kwargs)
             try:
                 page = await browser.new_page()
                 await page.set_content(html_template, wait_until="domcontentloaded")
