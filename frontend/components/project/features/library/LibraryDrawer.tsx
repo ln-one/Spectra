@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Layers, X } from "lucide-react";
+import { Layers, RefreshCw, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { panelVariants, overlayVariants } from "./motion";
 import { useLibraryDrawerData } from "./useLibraryDrawerData";
@@ -64,8 +65,31 @@ export function LibraryDrawer({
     onReferencesChanged?.();
   };
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onOpenChange(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onOpenChange]);
+
   const headerTitle = currentLibrarySettings?.name?.trim() || "引用库面板";
   const headerId = currentLibrarySettings?.id || projectId;
+  const isRefreshingAny =
+    referencesState.loading ||
+    librariesState.loading ||
+    currentLibraryState.loading ||
+    currentLibrarySaving;
+  const handleReloadAll = async () => {
+    await Promise.all([
+      loadReferences(),
+      loadAvailableLibraries(),
+      loadCurrentLibrarySettings(),
+    ]);
+  };
 
   return (
     <AnimatePresence>
@@ -78,7 +102,7 @@ export function LibraryDrawer({
             animate="visible"
             exit="hidden"
             transition={{ duration: 0.2 }}
-            className="project-library-overlay fixed inset-0 z-50 bg-[rgba(236,242,248,0.22)] backdrop-blur-[10px]"
+            className="project-library-overlay fixed inset-0 z-50 bg-[rgba(10,10,12,0.24)] backdrop-blur-[14px]"
             onClick={() => onOpenChange(false)}
           />
 
@@ -88,24 +112,28 @@ export function LibraryDrawer({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="project-library-drawer fixed inset-x-4 bottom-4 top-[54px] z-50 flex flex-col overflow-hidden rounded-3xl border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.9),rgba(247,250,252,0.82))] shadow-[0_24px_64px_-30px_rgba(15,23,42,0.48)] backdrop-blur-3xl md:inset-x-auto md:bottom-5 md:right-5 md:top-[56px] md:w-[min(760px,calc(100vw-40px))]"
+            className="project-library-drawer fixed inset-x-4 bottom-4 top-[54px] z-50 flex flex-col overflow-hidden rounded-3xl border border-zinc-200/80 bg-[linear-gradient(155deg,rgba(253,255,255,0.92),rgba(245,247,250,0.78))] shadow-[0_36px_90px_-54px_rgba(10,10,10,0.52)] backdrop-blur-[16px] md:inset-x-auto md:bottom-5 md:right-5 md:top-[56px] md:w-[min(760px,calc(100vw-40px))]"
             style={{ willChange: "transform, opacity" }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="项目库面板"
           >
-            <div className="project-library-header relative shrink-0 overflow-hidden border-b border-white/60 bg-[linear-gradient(140deg,rgba(255,255,255,0.65),rgba(244,248,252,0.45))] backdrop-blur-xl px-6 py-5">
-              <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-amber-400/18 blur-3xl" />
+            <div className="project-library-header relative shrink-0 overflow-hidden border-b border-zinc-200/70 bg-[linear-gradient(142deg,rgba(255,255,255,0.74),rgba(239,242,246,0.5))] backdrop-blur-[12px] px-6 py-5">
+              <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-zinc-300/18 blur-3xl" />
+              <div className="pointer-events-none absolute -left-14 -bottom-16 h-48 w-48 rounded-full bg-zinc-200/16 blur-3xl" />
               <div className="relative z-10 flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-2.5">
-                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-[0_8px_20px_-12px_rgba(0,0,0,0.7)]">
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-[0_12px_24px_-14px_rgba(0,0,0,0.65)]">
                     <Layers className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <h2
-                      className="truncate text-[26px] font-semibold tracking-tight text-[var(--project-text-primary)]"
-                      title={headerTitle}
-                    >
-                      {headerTitle}
-                    </h2>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2
+                        className="truncate text-[26px] font-semibold tracking-tight text-[var(--project-text-primary)]"
+                        title={headerTitle}
+                      >
+                        {headerTitle}
+                      </h2>
                       <span className="rounded-full border border-zinc-200/85 bg-white/70 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
                         库 ID
                       </span>
@@ -121,16 +149,39 @@ export function LibraryDrawer({
                     </p>
                   </div>
                 </div>
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  transition={{ type: "spring", stiffness: 360, damping: 24 }}
-                  onClick={() => onOpenChange(false)}
-                  className="project-library-close-btn rounded-xl border border-zinc-200/80 bg-white/85 p-2 text-[var(--project-control-muted)] transition-colors hover:bg-white hover:text-[var(--project-control-text)]"
-                  aria-label="关闭库面板"
-                >
-                  <X className="h-4 w-4" />
-                </motion.button>
+                <div className="flex items-start gap-2">
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    transition={{ type: "spring", stiffness: 360, damping: 24 }}
+                    onClick={() => void handleReloadAll()}
+                    className="rounded-xl border border-zinc-200/85 bg-white/82 p-2 text-[var(--project-control-muted)] transition-colors hover:bg-white hover:text-[var(--project-control-text)]"
+                    title="刷新全部数据"
+                    aria-label="刷新全部数据"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${isRefreshingAny ? "animate-spin" : ""}`}
+                    />
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    transition={{ type: "spring", stiffness: 360, damping: 24 }}
+                    onClick={() => onOpenChange(false)}
+                    className="project-library-close-btn rounded-xl border border-zinc-200/85 bg-white/82 p-2 text-[var(--project-control-muted)] transition-colors hover:bg-white hover:text-[var(--project-control-text)]"
+                    aria-label="关闭库面板"
+                  >
+                    <X className="h-4 w-4" />
+                  </motion.button>
+                </div>
+              </div>
+              <div className="relative z-10 mt-2 flex items-center justify-between gap-3">
+                <p className="text-[11px] text-[var(--project-control-muted)]">
+                  支持 `Esc` 快速关闭，或点右上角关闭按钮
+                </p>
+                <p className="text-[11px] text-[var(--project-control-muted)]">
+                  数据变更后建议执行一次全量刷新
+                </p>
               </div>
             </div>
 

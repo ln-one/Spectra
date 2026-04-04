@@ -5,14 +5,11 @@ import {
   ArrowDownUp,
   BookMarked,
   Check,
-  ChevronDown,
   CircleOff,
   Globe2,
   Library,
   Link as LinkIcon,
   LockKeyhole,
-  Minus,
-  Plus,
   RefreshCw,
   RotateCcw,
   Settings2,
@@ -30,9 +27,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { PaneState, type TabState } from "../shared";
@@ -90,13 +93,18 @@ interface ReferencesTabProps {
 }
 
 const SECTION_CLASS =
-  "relative overflow-hidden rounded-2xl border border-white/65 bg-[linear-gradient(150deg,rgba(255,255,255,0.7),rgba(243,248,252,0.52))] p-4 shadow-[0_18px_42px_-28px_rgba(15,23,42,0.44)] backdrop-blur-xl";
+  "relative overflow-hidden rounded-2xl border border-zinc-200/70 bg-[linear-gradient(155deg,rgba(252,253,255,0.84),rgba(242,244,248,0.66))] p-4 shadow-[0_28px_56px_-44px_rgba(10,10,10,0.42)] backdrop-blur-[14px]";
 
 const SURFACE_CLASS =
-  "rounded-xl border border-white/70 bg-white/72 backdrop-blur-lg shadow-[0_16px_34px_-24px_rgba(15,23,42,0.42)]";
+  "rounded-xl border border-zinc-200/75 bg-[linear-gradient(160deg,rgba(255,255,255,0.84),rgba(246,247,250,0.7))] backdrop-blur-md shadow-[0_20px_36px_-30px_rgba(10,10,10,0.36)]";
 
-const SEGMENT_CLASS =
-  "h-9 rounded-lg border border-zinc-200/75 bg-white/80 px-3 text-xs font-medium text-zinc-700 data-[state=on]:border-zinc-900 data-[state=on]:bg-zinc-900 data-[state=on]:text-white";
+const CHOICE_TABS_LIST_CLASS =
+  "grid h-10 w-full grid-cols-2 rounded-xl border border-zinc-200/80 bg-white/82 p-1";
+
+const CHOICE_TABS_TRIGGER_CLASS =
+  "flex h-full items-center justify-center gap-2 rounded-lg text-xs font-medium text-zinc-600 data-[state=active]:bg-zinc-900 data-[state=active]:text-white data-[state=active]:shadow-[0_8px_18px_-12px_rgba(0,0,0,0.65)]";
+
+const PRIORITY_OPTIONS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 
 function visibilityMeta(visibility?: string) {
   if (visibility === "private") {
@@ -129,8 +137,10 @@ function referenceStatusLabel(value: ProjectReference["status"]) {
   return value === "active" ? "已启用" : "已停用";
 }
 
-function clampPriority(value: number) {
-  return Math.min(100, Math.max(-20, value));
+function normalizePriorityDraft(value: number | string | null | undefined): string {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (Number.isNaN(parsed)) return "10";
+  return String(Math.min(10, Math.max(1, parsed)));
 }
 
 export function ReferencesTab({
@@ -174,14 +184,11 @@ export function ReferencesTab({
   onSaveCurrentLibrarySettings,
 }: ReferencesTabProps) {
   const [libraryKeyword, setLibraryKeyword] = useState("");
-  const [currentSettingsExpanded, setCurrentSettingsExpanded] = useState(false);
-  const [currentReferencesExpanded, setCurrentReferencesExpanded] = useState(false);
   const [priorityDialogOpen, setPriorityDialogOpen] = useState(false);
   const [editingReferenceId, setEditingReferenceId] = useState<string | null>(
     null
   );
-  const [priorityDraft, setPriorityDraft] = useState("");
-  const [priorityError, setPriorityError] = useState<string | null>(null);
+  const [priorityDraft, setPriorityDraft] = useState("10");
   const normalizedKeyword = libraryKeyword.trim().toLowerCase();
 
   const referencedTargetIds = useMemo(
@@ -245,35 +252,16 @@ export function ReferencesTab({
 
   const openPriorityDialog = (item: ProjectReference) => {
     setEditingReferenceId(item.id);
-    setPriorityDraft(String(item.priority ?? 0));
-    setPriorityError(null);
+    setPriorityDraft(normalizePriorityDraft(item.priority));
     setPriorityDialogOpen(true);
   };
 
-  const nudgePriorityDraft = (delta: number) => {
-    const parsed = Number.parseInt(priorityDraft.trim(), 10);
-    const next = Number.isNaN(parsed)
-      ? clampPriority(delta > 0 ? 1 : -1)
-      : clampPriority(parsed + delta);
-    setPriorityDraft(String(next));
-    if (priorityError) setPriorityError(null);
-  };
-
-  const parsedPriorityDraft = Number.parseInt(priorityDraft.trim(), 10);
-  const sliderPriority = Number.isNaN(parsedPriorityDraft)
-    ? 10
-    : clampPriority(parsedPriorityDraft);
-
   const handleConfirmPriority = () => {
     if (!editingReference) return;
-    const parsed = Number.parseInt(priorityDraft.trim(), 10);
-    if (Number.isNaN(parsed)) {
-      setPriorityError("请输入整数优先级");
-      return;
-    }
+    const parsed = Number.parseInt(priorityDraft, 10);
+    if (Number.isNaN(parsed)) return;
     void onUpdateReferencePriority(editingReference.id, parsed);
     setPriorityDialogOpen(false);
-    setPriorityError(null);
     setEditingReferenceId(null);
   };
 
@@ -282,9 +270,9 @@ export function ReferencesTab({
       <div className="grid gap-4 xl:grid-cols-2">
       <section className={cn(SECTION_CLASS, "order-1")}>
         <div className="relative">
-          <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-white shadow-[0_8px_18px_-12px_rgba(0,0,0,0.7)]">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-white shadow-[0_10px_22px_-14px_rgba(0,0,0,0.65)]">
                 <LinkIcon className="h-4 w-4" />
               </span>
               <div>
@@ -296,45 +284,22 @@ export function ReferencesTab({
                 </p>
               </div>
             </div>
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={() =>
-                setCurrentReferencesExpanded((previous) => !previous)
-              }
-              className="h-8 w-8 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
-              title={currentReferencesExpanded ? "收起当前引用" : "展开当前引用"}
-            >
-              <ChevronDown
-                className={cn(
-                  "h-3.5 w-3.5 text-zinc-500 transition-transform",
-                  currentReferencesExpanded ? "rotate-180" : "rotate-0"
-                )}
-              />
-            </Button>
           </div>
 
-          {currentReferencesExpanded ? (
-            <>
-              <PaneState
-                state={state}
-                hasData={references.length > 0}
-                emptyLabel={`项目 ${projectId} 当前没有引用，先引入一个库。`}
-                onRetry={onReload}
-              />
+          <PaneState
+            state={state}
+            hasData={references.length > 0}
+            emptyLabel={`项目 ${projectId} 当前没有引用，先引入一个库。`}
+            onRetry={onReload}
+          />
 
-              {!state.loading && !state.error && references.length > 0 ? (
-                <div
-                  className={cn(
-                    SURFACE_CLASS,
-                    "divide-y divide-zinc-200/70 px-3"
-                  )}
+          {!state.loading && !state.error && references.length > 0 ? (
+            <div className={cn(SURFACE_CLASS, "divide-y divide-zinc-200/70 px-3")}>
+              {references.map((item) => (
+                <article
+                  key={item.id}
+                  className="flex items-start justify-between gap-3 py-3"
                 >
-                  {references.map((item) => (
-                    <article
-                      key={item.id}
-                      className="flex items-start justify-between gap-3 py-3"
-                    >
                       <div className="min-w-0">
                         <p
                           className="truncate text-sm font-semibold text-zinc-800"
@@ -395,11 +360,9 @@ export function ReferencesTab({
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </article>
-                  ))}
-                </div>
-              ) : null}
-            </>
+                </article>
+              ))}
+            </div>
           ) : null}
         </div>
       </section>
@@ -409,7 +372,7 @@ export function ReferencesTab({
         <div className="relative">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-white shadow-[0_8px_18px_-12px_rgba(0,0,0,0.7)]">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-white shadow-[0_10px_22px_-14px_rgba(0,0,0,0.65)]">
                 <Settings2 className="h-4 w-4" />
               </span>
               <div>
@@ -430,20 +393,6 @@ export function ReferencesTab({
               <Button
                 size="icon"
                 variant="outline"
-                onClick={() => setCurrentSettingsExpanded((previous) => !previous)}
-                className="h-8 w-8 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
-                title={currentSettingsExpanded ? "收起当前库设置" : "展开当前库设置"}
-              >
-                <ChevronDown
-                  className={cn(
-                    "h-3.5 w-3.5 text-zinc-500 transition-transform",
-                    currentSettingsExpanded ? "rotate-180" : "rotate-0"
-                  )}
-                />
-              </Button>
-              <Button
-                size="icon"
-                variant="outline"
                 onClick={onReloadCurrentLibrarySettings}
                 className="h-8 w-8 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
                 title="刷新当前库设置"
@@ -453,20 +402,18 @@ export function ReferencesTab({
             </div>
           </div>
 
-          {currentSettingsExpanded ? (
-            <>
-              <PaneState
-                state={currentLibraryState}
-                hasData={hasCurrentLibrarySettings}
-                emptyLabel="当前库设置暂不可用。"
-                onRetry={onReloadCurrentLibrarySettings}
-              />
+          <PaneState
+            state={currentLibraryState}
+            hasData={hasCurrentLibrarySettings}
+            emptyLabel="当前库设置暂不可用。"
+            onRetry={onReloadCurrentLibrarySettings}
+          />
 
-              {!currentLibraryState.loading &&
-              !currentLibraryState.error &&
-              currentLibrarySettings ? (
-                <div className="space-y-3">
-                  <div className={cn(SURFACE_CLASS, "p-3")}>
+          {!currentLibraryState.loading &&
+          !currentLibraryState.error &&
+          currentLibrarySettings ? (
+            <div className="space-y-3">
+              <div className={cn(SURFACE_CLASS, "p-3")}>
                     <div className="grid grid-cols-1 gap-3">
                       <label className="block">
                         <p className="mb-1 text-xs text-zinc-500">学段/年级</p>
@@ -501,8 +448,7 @@ export function ReferencesTab({
                     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div className={cn(SURFACE_CLASS, "p-3")}> 
                         <p className="mb-2 text-xs text-zinc-500">可见性</p>
-                        <ToggleGroup
-                          type="single"
+                        <Tabs
                           value={currentLibraryVisibilityDraft}
                           onValueChange={(value) => {
                             if (!value) return;
@@ -515,17 +461,24 @@ export function ReferencesTab({
                               setCurrentLibraryReferenceableDraft(false);
                             }
                           }}
-                          className="justify-start"
                         >
-                          <ToggleGroupItem value="private" className={SEGMENT_CLASS}>
-                            <LockKeyhole className="h-3.5 w-3.5" />
-                            私有
-                          </ToggleGroupItem>
-                          <ToggleGroupItem value="shared" className={SEGMENT_CLASS}>
-                            <Globe2 className="h-3.5 w-3.5" />
-                            共享
-                          </ToggleGroupItem>
-                        </ToggleGroup>
+                          <TabsList className={CHOICE_TABS_LIST_CLASS}>
+                            <TabsTrigger
+                              value="private"
+                              className={CHOICE_TABS_TRIGGER_CLASS}
+                            >
+                              <LockKeyhole className="h-3.5 w-3.5" />
+                              私有
+                            </TabsTrigger>
+                            <TabsTrigger
+                              value="shared"
+                              className={CHOICE_TABS_TRIGGER_CLASS}
+                            >
+                              <Globe2 className="h-3.5 w-3.5" />
+                              共享
+                            </TabsTrigger>
+                          </TabsList>
+                        </Tabs>
                       </div>
                       <div className={cn(SURFACE_CLASS, "p-3")}>
                         <p className="mb-2 text-xs text-zinc-500">是否可引用</p>
@@ -594,10 +547,8 @@ export function ReferencesTab({
                         私有库不能设置为可引用，请先切换为共享。
                       </p>
                     ) : null}
-                  </div>
-                </div>
-              ) : null}
-            </>
+              </div>
+            </div>
           ) : null}
         </div>
       </section>
@@ -605,10 +556,10 @@ export function ReferencesTab({
 
       <div className="grid gap-4 xl:grid-cols-2">
       <section className={cn(SECTION_CLASS, "order-3")}>
-        <div className="pointer-events-none absolute -left-16 -top-14 h-40 w-40 rounded-full bg-sky-300/14 blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 -top-14 h-40 w-40 rounded-full bg-zinc-300/14 blur-3xl" />
         <div className="relative">
           <div className="mb-3 flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-white shadow-[0_8px_18px_-12px_rgba(0,0,0,0.7)]">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-900 to-zinc-700 text-white shadow-[0_10px_22px_-14px_rgba(0,0,0,0.65)]">
               <Library className="h-4 w-4" />
             </span>
             <div>
@@ -628,22 +579,28 @@ export function ReferencesTab({
                 <p className="mt-0.5 text-[11px] text-zinc-500">
                   主基底只能存在一个，辅助引用可并行存在。
                 </p>
-                <ToggleGroup
-                  type="single"
+                <Tabs
                   value={newReferenceRelationType}
                   onValueChange={(value) => {
                     if (!value) return;
                     setNewReferenceRelationType(value as "base" | "auxiliary");
                   }}
-                  className="mt-2 justify-start"
                 >
-                  <ToggleGroupItem value="base" className={SEGMENT_CLASS}>
-                    主基底
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="auxiliary" className={SEGMENT_CLASS}>
-                    辅助
-                  </ToggleGroupItem>
-                </ToggleGroup>
+                  <TabsList className={cn(CHOICE_TABS_LIST_CLASS, "mt-2")}>
+                    <TabsTrigger
+                      value="base"
+                      className={CHOICE_TABS_TRIGGER_CLASS}
+                    >
+                      主基底
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="auxiliary"
+                      className={CHOICE_TABS_TRIGGER_CLASS}
+                    >
+                      辅助
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
 
               <div className={cn(SURFACE_CLASS, "p-3")}>
@@ -651,53 +608,69 @@ export function ReferencesTab({
                 <p className="mt-0.5 text-[11px] text-zinc-500">
                   follow 跟随目标最新版本，pinned 固定到指定版本。
                 </p>
-                <ToggleGroup
-                  type="single"
+                <Tabs
                   value={newReferenceMode}
                   onValueChange={(value) => {
                     if (!value) return;
                     setNewReferenceMode(value as "follow" | "pinned");
                   }}
-                  className="mt-2 justify-start"
                 >
-                  <ToggleGroupItem value="follow" className={SEGMENT_CLASS}>
-                    follow
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="pinned" className={SEGMENT_CLASS}>
-                    pinned
-                  </ToggleGroupItem>
-                </ToggleGroup>
+                  <TabsList className={cn(CHOICE_TABS_LIST_CLASS, "mt-2")}>
+                    <TabsTrigger
+                      value="follow"
+                      className={CHOICE_TABS_TRIGGER_CLASS}
+                    >
+                      follow
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="pinned"
+                      className={CHOICE_TABS_TRIGGER_CLASS}
+                    >
+                      pinned
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
             </div>
 
             <div className={cn(SURFACE_CLASS, "p-3")}>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+              <div className="space-y-2">
                 <Input
                   value={newReferenceTarget}
                   onChange={(event) => setNewReferenceTarget(event.target.value)}
                   placeholder="输入要引入的 target_project_id"
-                  className="md:col-span-3 h-10 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
+                  className="h-10 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
                 />
-                <Input
-                  value={newReferencePriority}
-                  onChange={(event) => setNewReferencePriority(event.target.value)}
-                  placeholder="优先级"
-                  className="md:col-span-1 h-10 rounded-xl border-zinc-200/80 bg-white/70 text-xs backdrop-blur-md"
-                />
-                <Button
-                  size="sm"
-                  onClick={onAddReference}
-                  disabled={
-                    !newReferenceTarget.trim() ||
-                    quickAddDisabledByBaseRule ||
-                    (newReferenceMode === "pinned" &&
-                      !newReferencePinnedVersion.trim())
-                  }
-                  className="md:col-span-1 h-10 rounded-xl bg-zinc-900 px-4 text-sm hover:bg-black disabled:bg-zinc-300"
-                >
-                  <Plus className="mr-1 h-4 w-4" />
-                  引入
-                </Button>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_132px]">
+                  <Select
+                    value={normalizePriorityDraft(newReferencePriority)}
+                    onValueChange={setNewReferencePriority}
+                  >
+                    <SelectTrigger className="h-10 rounded-xl border-zinc-200/80 bg-white/70 text-xs backdrop-blur-md">
+                      <SelectValue placeholder="优先级 1-10" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRIORITY_OPTIONS.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          优先级 {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={onAddReference}
+                    disabled={
+                      !newReferenceTarget.trim() ||
+                      quickAddDisabledByBaseRule ||
+                      (newReferenceMode === "pinned" &&
+                        !newReferencePinnedVersion.trim())
+                    }
+                    className="h-10 w-full items-center justify-center whitespace-nowrap rounded-xl bg-zinc-900 px-4 text-sm hover:bg-black disabled:bg-zinc-300"
+                  >
+                    引入
+                  </Button>
+                </div>
               </div>
 
               {newReferenceMode === "pinned" ? (
@@ -864,7 +837,7 @@ export function ReferencesTab({
                           pinnedVersionId: project.currentVersionId,
                         })
                       }
-                      className="h-8 shrink-0 rounded-lg bg-zinc-900 px-3 text-xs hover:bg-black disabled:bg-zinc-300"
+                      className="h-8 min-w-[96px] shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-zinc-900 px-3 text-xs hover:bg-black disabled:bg-zinc-300"
                     >
                       {isReferenced ? (
                         <>
@@ -898,13 +871,12 @@ export function ReferencesTab({
         onOpenChange={(open) => {
           setPriorityDialogOpen(open);
           if (!open) {
-            setPriorityError(null);
             setEditingReferenceId(null);
           }
         }}
       >
         <DialogContent className="overflow-hidden border-white/65 bg-[linear-gradient(160deg,rgba(255,255,255,0.84),rgba(238,245,251,0.7))] p-0 shadow-[0_36px_90px_-44px_rgba(15,23,42,0.58)] backdrop-blur-3xl sm:max-w-[500px]">
-          <div className="pointer-events-none absolute -right-16 -top-12 h-36 w-36 rounded-full bg-sky-200/45 blur-3xl" />
+          <div className="pointer-events-none absolute -right-16 -top-12 h-36 w-36 rounded-full bg-zinc-300/35 blur-3xl" />
           <div className="pointer-events-none absolute -left-16 bottom-0 h-28 w-28 rounded-full bg-amber-200/40 blur-3xl" />
 
           <DialogHeader className="relative border-b border-white/70 bg-white/35 px-6 pb-4 pt-5">
@@ -915,7 +887,7 @@ export function ReferencesTab({
               调整优先级
             </DialogTitle>
             <DialogDescription className="text-sm text-zinc-600">
-              让关键引用优先参与上下文构建，数字越大优先级越高。
+              仅需选择 1 到 10 的优先级，数字越大优先级越高。
             </DialogDescription>
           </DialogHeader>
 
@@ -923,7 +895,7 @@ export function ReferencesTab({
             {editingReference ? (
               <div className={cn(SURFACE_CLASS, "space-y-1.5 px-3 py-2.5")}>
                 <p className="flex items-center gap-1.5 text-xs uppercase tracking-[0.12em] text-zinc-500">
-                  <Sparkles className="h-3.5 w-3.5 text-sky-500" />
+                  <Sparkles className="h-3.5 w-3.5 text-zinc-500" />
                   当前目标
                 </p>
                 <p
@@ -944,82 +916,23 @@ export function ReferencesTab({
 
             <div className={cn(SURFACE_CLASS, "space-y-3 px-3 py-3")}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-600">优先级数值</span>
+                <span className="text-xs font-medium text-zinc-600">优先级（1 - 10）</span>
                 <span className="rounded-full border border-zinc-200 bg-white/85 px-2.5 py-0.5 text-xs font-semibold text-zinc-700">
                   {priorityDraft.trim() || "未填写"}
                 </span>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
-                  onClick={() => nudgePriorityDraft(-1)}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <Input
-                  value={priorityDraft}
-                  onChange={(event) => {
-                    setPriorityDraft(event.target.value);
-                    if (priorityError) setPriorityError(null);
-                  }}
-                  placeholder="请输入整数优先级"
-                  className="h-10 rounded-xl border-zinc-200/80 bg-white/75 text-center text-sm font-semibold backdrop-blur-md"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
-                  onClick={() => nudgePriorityDraft(1)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <Slider
-                  min={-20}
-                  max={100}
-                  step={1}
-                  value={[sliderPriority]}
-                  onValueChange={(value) => {
-                    setPriorityDraft(String(clampPriority(value[0] ?? 10)));
-                    if (priorityError) setPriorityError(null);
-                  }}
-                  className="py-1"
-                />
-                <div className="flex items-center justify-between text-xs text-zinc-500">
-                  <span>-20</span>
-                  <span>10</span>
-                  <span>100</span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {[0, 1, 5, 10, 20, 50].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      setPriorityDraft(String(value));
-                      if (priorityError) setPriorityError(null);
-                    }}
-                    className="rounded-lg border border-zinc-200 bg-white/80 px-2.5 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100"
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-
-              {priorityError ? (
-                <p className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-600">
-                  {priorityError}
-                </p>
-              ) : null}
+              <Select value={priorityDraft} onValueChange={setPriorityDraft}>
+                <SelectTrigger className="h-10 rounded-xl border-zinc-200/80 bg-white/75 text-sm font-semibold backdrop-blur-md">
+                  <SelectValue placeholder="请选择优先级" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITY_OPTIONS.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -1029,7 +942,6 @@ export function ReferencesTab({
               className="rounded-xl border-zinc-200 bg-white/70 backdrop-blur-md"
               onClick={() => {
                 setPriorityDialogOpen(false);
-                setPriorityError(null);
                 setEditingReferenceId(null);
               }}
             >
