@@ -263,17 +263,6 @@ export function ReferencesTab({
           currentLibrarySettings ? (
             <div className="space-y-3">
               <div className="rounded-xl border border-zinc-200/75 bg-white/88 p-3">
-                <div className="mb-3 flex items-start justify-between gap-3 rounded-xl border border-zinc-200/70 bg-gradient-to-r from-white to-zinc-50 p-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-base font-semibold text-zinc-900" title={currentLibraryNameDraft || currentLibrarySettings.name}>
-                      {currentLibraryNameDraft || currentLibrarySettings.name}
-                    </p>
-                    <p className="mt-0.5 truncate text-[11px] text-zinc-500" title={currentLibrarySettings.id}>
-                      {currentLibrarySettings.id}
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[10px] font-medium text-zinc-600">当前库</span>
-                </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                   <label className="md:col-span-3 block">
                     <p className="mb-1 text-[11px] text-zinc-500">库名称</p>
@@ -414,7 +403,6 @@ export function ReferencesTab({
           ) : null}
         </div>
       </section>
-
       <section className={SECTION_CLASS}>
         <div className="pointer-events-none absolute -left-16 -top-14 h-40 w-40 rounded-full bg-sky-300/16 blur-3xl" />
         <div className="relative">
@@ -427,85 +415,139 @@ export function ReferencesTab({
                 引入库
               </p>
               <p className="text-xs text-[var(--project-text-muted)]">
-                输入目标库 ID，或从下方数据库列表直接引入
+                先选择关系与模式，再输入目标 ID 或从下方库列表一键引入
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
-            <Input
-              value={newReferenceTarget}
-              onChange={(event) => setNewReferenceTarget(event.target.value)}
-              placeholder="输入要引入的 target_project_id"
-              className="md:col-span-3 h-9 rounded-xl border-zinc-200/80 bg-white/90"
-            />
-            <ToggleGroup
-              type="single"
-              value={newReferenceRelationType}
-              onValueChange={(value) => {
-                if (!value) return;
-                setNewReferenceRelationType(value as "base" | "auxiliary");
-              }}
-              className="md:col-span-1 justify-start"
-            >
-              <ToggleGroupItem value="base" className={SEGMENT_CLASS}>
-                主基底
-              </ToggleGroupItem>
-              <ToggleGroupItem value="auxiliary" className={SEGMENT_CLASS}>
-                辅助
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <ToggleGroup
-              type="single"
-              value={newReferenceMode}
-              onValueChange={(value) => {
-                if (!value) return;
-                setNewReferenceMode(value as "follow" | "pinned");
-              }}
-              className="md:col-span-1 justify-start"
-            >
-              <ToggleGroupItem value="follow" className={SEGMENT_CLASS}>
-                follow
-              </ToggleGroupItem>
-              <ToggleGroupItem value="pinned" className={SEGMENT_CLASS}>
-                pinned
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <Input
-              value={newReferencePriority}
-              onChange={(event) => setNewReferencePriority(event.target.value)}
-              placeholder="优先级"
-              className="md:col-span-1 h-9 rounded-xl border-zinc-200/80 bg-white/90 text-xs"
-            />
+          <div className="space-y-3 rounded-xl border border-zinc-200/80 bg-white/88 p-3.5">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-zinc-200/80 bg-white/95 p-3">
+                <p className="text-[11px] font-medium text-zinc-500">引用关系</p>
+                <p className="mt-0.5 text-[10px] text-zinc-500">
+                  主基底只能存在一个，辅助引用可并行存在。
+                </p>
+                <ToggleGroup
+                  type="single"
+                  value={newReferenceRelationType}
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    setNewReferenceRelationType(value as "base" | "auxiliary");
+                  }}
+                  className="mt-2 justify-start"
+                >
+                  <ToggleGroupItem value="base" className={SEGMENT_CLASS}>
+                    主基底
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="auxiliary" className={SEGMENT_CLASS}>
+                    辅助
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
 
-            {newReferenceMode === "pinned" ? (
-              <Input
-                value={newReferencePinnedVersion}
-                onChange={(event) =>
-                  setNewReferencePinnedVersion(event.target.value)
-                }
-                placeholder="pinned_version_id"
-                className="md:col-span-4 h-9 rounded-xl border-zinc-200/80 bg-white/90 text-xs"
-              />
-            ) : null}
+              <div className="rounded-xl border border-zinc-200/80 bg-white/95 p-3">
+                <p className="text-[11px] font-medium text-zinc-500">跟随策略</p>
+                <p className="mt-0.5 text-[10px] text-zinc-500">
+                  follow 跟随目标最新版本，pinned 固定到指定版本。
+                </p>
+                <ToggleGroup
+                  type="single"
+                  value={newReferenceMode}
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    setNewReferenceMode(value as "follow" | "pinned");
+                  }}
+                  className="mt-2 justify-start"
+                >
+                  <ToggleGroupItem value="follow" className={SEGMENT_CLASS}>
+                    follow
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="pinned" className={SEGMENT_CLASS}>
+                    pinned
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+            </div>
 
-            <Button
-              size="sm"
-              onClick={onAddReference}
-              className="h-9 rounded-xl bg-zinc-900 px-4 hover:bg-black"
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              引入
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={onReload}
-              className="h-9 w-9 rounded-xl border-zinc-200/80 bg-white/90"
-              title="刷新引用列表"
-            >
-              <RefreshCw className="h-4 w-4 text-zinc-500" />
-            </Button>
+            <div className="rounded-xl border border-zinc-200/80 bg-white/95 p-3">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+                <Input
+                  value={newReferenceTarget}
+                  onChange={(event) => setNewReferenceTarget(event.target.value)}
+                  placeholder="输入要引入的 target_project_id"
+                  className="md:col-span-3 h-10 rounded-xl border-zinc-200/80 bg-white"
+                />
+                <Input
+                  value={newReferencePriority}
+                  onChange={(event) => setNewReferencePriority(event.target.value)}
+                  placeholder="优先级"
+                  className="md:col-span-1 h-10 rounded-xl border-zinc-200/80 bg-white text-xs"
+                />
+                <Button
+                  size="sm"
+                  onClick={onAddReference}
+                  disabled={
+                    !newReferenceTarget.trim() ||
+                    quickAddDisabledByBaseRule ||
+                    (newReferenceMode === "pinned" &&
+                      !newReferencePinnedVersion.trim())
+                  }
+                  className="md:col-span-1 h-10 rounded-xl bg-zinc-900 px-4 text-sm hover:bg-black disabled:bg-zinc-300"
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  引入
+                </Button>
+              </div>
+
+              {newReferenceMode === "pinned" ? (
+                <Input
+                  value={newReferencePinnedVersion}
+                  onChange={(event) =>
+                    setNewReferencePinnedVersion(event.target.value)
+                  }
+                  placeholder="请输入 pinned_version_id"
+                  className="mt-2 h-10 rounded-xl border-zinc-200/80 bg-white text-xs"
+                />
+              ) : null}
+
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                  关系：{newReferenceRelationType === "base" ? "主基底" : "辅助"}
+                </span>
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                  模式：{newReferenceMode}
+                </span>
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                  优先级：{newReferencePriority || "10"}
+                </span>
+              </div>
+
+              {quickAddDisabledByBaseRule ? (
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+                  <CircleOff className="h-3 w-3" />
+                  当前已存在主基底引用，不能再新增主基底。
+                </p>
+              ) : null}
+
+              {newReferenceMode === "pinned" && !newReferencePinnedVersion.trim() ? (
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+                  <CircleOff className="h-3 w-3" />
+                  pinned 模式需要填写固定版本 ID。
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex items-center justify-end">
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={onReload}
+                className="h-9 w-9 rounded-xl border-zinc-200/80 bg-white"
+                title="刷新引用列表"
+              >
+                <RefreshCw className="h-4 w-4 text-zinc-500" />
+              </Button>
+            </div>
           </div>
         </div>
       </section>

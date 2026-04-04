@@ -101,7 +101,7 @@ export function LibraryDrawer({
                       引用库面板
                     </h2>
                     <p className="mt-0.5 text-xs text-[var(--project-control-muted)]">
-                      {`管理当前库设置、可引入库与已建立引用关系 · 可引入库 ${availableLibraries.length} · 当前引用 ${references.length}`}
+                      管理当前库设置、可引入库与已建立引用关系
                     </p>
                   </div>
                 </div>
