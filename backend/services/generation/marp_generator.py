@@ -7,6 +7,7 @@ import glob
 import logging
 import os
 from pathlib import Path
+from typing import Awaitable, Callable, Optional
 
 try:
     from ...utils.file_utils import (
@@ -22,12 +23,22 @@ try:
         ToolExecutionError,
         ToolNotFoundError,
     )
+    from .marp_document import (
+        compose_single_slide_marp,
+        normalize_marp_markdown,
+        split_marp_document,
+    )
     from .tool_checker import check_marp_installed, resolve_marp_command
     from .types import CoursewareContent
 except ImportError:
     import sys
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from services.generation.marp_document import (
+        compose_single_slide_marp,
+        normalize_marp_markdown,
+        split_marp_document,
+    )
     from services.generation.tool_checker import (
         check_marp_installed,
         resolve_marp_command,
@@ -48,6 +59,61 @@ except ImportError:
     )
 
 logger = logging.getLogger(__name__)
+
+
+def _disable_frontmatter_paginate(frontmatter: str) -> str:
+    raw = str(frontmatter or "").strip()
+    if not raw:
+        return "---\nmarp: true\npaginate: false\n---"
+
+    lines = raw.splitlines()
+    if len(lines) >= 2 and lines[0].strip() == "---" and lines[-1].strip() == "---":
+        body_lines = lines[1:-1]
+        replaced = False
+        for index, line in enumerate(body_lines):
+            if line.strip().startswith("paginate:"):
+                body_lines[index] = "paginate: false"
+                replaced = True
+                break
+        if not replaced:
+            body_lines.append("paginate: false")
+        return "---\n" + "\n".join(body_lines).strip() + "\n---"
+
+    return raw
+
+
+def _with_stream_page_number(
+    *, frontmatter: str, style_blocks: str, slide_markdown: str, page_number: int
+) -> str:
+    pagination_override = (
+        "<style>\n"
+        "section::after {\n"
+        "  content: none !important;\n"
+        "  display: none !important;\n"
+        "}\n"
+        ".spectra-stream-page-number {\n"
+        "  position: absolute;\n"
+        "  right: 36px;\n"
+        "  bottom: 18px;\n"
+        "  font-size: 18px;\n"
+        "  line-height: 1;\n"
+        "  color: #9ca3af;\n"
+        "  font-weight: 500;\n"
+        "}\n"
+        "</style>"
+    )
+    merged_style = "\n\n".join(
+        part for part in (style_blocks.strip(), pagination_override) if part
+    )
+    numbered_slide_markdown = (
+        f"{str(slide_markdown or '').strip()}\n\n"
+        f'<div class="spectra-stream-page-number">{page_number}</div>'
+    )
+    return compose_single_slide_marp(
+        _disable_frontmatter_paginate(frontmatter),
+        merged_style,
+        numbered_slide_markdown,
+    )
 
 
 def _resolve_browser_path() -> str | None:
@@ -183,6 +249,7 @@ async def generate_pptx(
         GenerationTimeoutError: 执行超时
     """
     logger.info(f"[Task: {task_id}] Starting PPTX generation")
+    full_markdown = normalize_marp_markdown(full_markdown)
 
     # 确保输出目录存在
     ensure_directory_exists(output_dir)
@@ -260,6 +327,8 @@ async def generate_slide_images(
     output_dir: Path,
     full_markdown: str,
     image_format: str = "png",
+    on_image_generated: Optional[Callable[[int, str], Awaitable[None]]] = None,
+    transform_slide_markdown: Optional[Callable[[int, str], Awaitable[str]]] = None,
 ) -> list[str]:
     """
     使用 Marp CLI 生成整套幻灯片页图。
@@ -274,13 +343,120 @@ async def generate_slide_images(
     image_ext = "jpg" if image_format == "jpeg" else image_format
 
     try:
+        full_markdown = normalize_marp_markdown(full_markdown)
+        chrome_path = _resolve_browser_path()
+        marp_cmd = resolve_marp_command()
+        if on_image_generated is not None:
+            frontmatter, style_blocks, slide_contents = split_marp_document(
+                full_markdown
+            )
+            image_paths: list[str] = []
+            for page_index, slide_markdown in enumerate(slide_contents):
+                slide_number = page_index + 1
+                slide_markdown_file = output_dir / (
+                    f"{task_id}_temp.slide-{slide_number:03d}.md"
+                )
+                output_file = (
+                    output_dir / f"{task_id}_temp.{slide_number:03d}.{image_ext}"
+                )
+                cleanup_file(slide_markdown_file)
+                cleanup_file(output_file)
+
+                single_slide_markdown = _with_stream_page_number(
+                    frontmatter=frontmatter,
+                    style_blocks=style_blocks,
+                    slide_markdown=slide_markdown,
+                    page_number=slide_number,
+                )
+                if transform_slide_markdown is not None:
+                    single_slide_markdown = await transform_slide_markdown(
+                        page_index,
+                        single_slide_markdown,
+                    )
+                slide_markdown_file.write_text(single_slide_markdown, encoding="utf-8")
+
+                cmd = [
+                    marp_cmd,
+                    str(slide_markdown_file),
+                    "--image",
+                    image_format,
+                    "-o",
+                    str(output_file),
+                    "--allow-local-files",
+                ]
+                if chrome_path:
+                    cmd.extend(["--browser-path", chrome_path])
+
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    _stdout, stderr = await asyncio.wait_for(
+                        process.communicate(),
+                        timeout=300,
+                    )
+                except asyncio.TimeoutError:
+                    raise GenerationTimeoutError(
+                        f"Marp slide image generation (slide {slide_number})",
+                        300,
+                    )
+                finally:
+                    cleanup_file(slide_markdown_file)
+
+                if process.returncode != 0:
+                    error_msg = stderr.decode("utf-8", errors="replace")
+                    logger.error(
+                        (
+                            "Marp CLI streaming slide generation failed: "
+                            "task=%s slide=%s return_code=%s error=%s"
+                        ),
+                        task_id,
+                        slide_number,
+                        process.returncode,
+                        error_msg,
+                    )
+                    raise ToolExecutionError("Marp CLI", error_msg, process.returncode)
+
+                if not validate_file_exists(output_file, min_size=1):
+                    raise FileSystemError(
+                        "generate_slide_images",
+                        str(output_file),
+                        "Slide image output not created",
+                    )
+
+                output_file_str = str(output_file)
+                image_paths.append(output_file_str)
+                try:
+                    await on_image_generated(page_index, output_file_str)
+                except Exception as callback_err:  # pragma: no cover
+                    logger.warning(
+                        "Slide image callback failed: task=%s index=%s error=%s",
+                        task_id,
+                        page_index,
+                        callback_err,
+                    )
+
+            if not image_paths:
+                raise FileSystemError(
+                    "generate_slide_images",
+                    str(output_dir),
+                    "No image output created",
+                )
+            logger.info(
+                "[Task: %s] Slide images generated successfully: %s pages",
+                task_id,
+                len(image_paths),
+            )
+            cleanup_file(markdown_file)
+            return image_paths
+
         markdown_file.write_text(full_markdown, encoding="utf-8")
         output_stem = markdown_file.stem
         for stale_path in glob.glob(str(output_dir / f"{output_stem}.*.{image_ext}")):
             cleanup_file(Path(stale_path))
 
-        chrome_path = _resolve_browser_path()
-        marp_cmd = resolve_marp_command()
         cmd = [
             marp_cmd,
             str(markdown_file),
@@ -294,7 +470,8 @@ async def generate_slide_images(
         process = await asyncio.create_subprocess_exec(
             *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = await process.communicate()
+        _stdout, stderr = await process.communicate()
+
         if process.returncode != 0:
             error_msg = stderr.decode("utf-8", errors="replace")
             logger.error(
@@ -320,6 +497,7 @@ async def generate_slide_images(
             task_id,
             len(image_paths),
         )
+
         cleanup_file(markdown_file)
         return image_paths
     except (
