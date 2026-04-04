@@ -11,10 +11,12 @@ import {
   Library,
   Link as LinkIcon,
   LockKeyhole,
+  Minus,
   Plus,
   RefreshCw,
   RotateCcw,
   Settings2,
+  Sparkles,
   ToggleLeft,
   Trash2,
 } from "lucide-react";
@@ -28,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Textarea } from "@/components/ui/textarea";
@@ -87,13 +90,13 @@ interface ReferencesTabProps {
 }
 
 const SECTION_CLASS =
-  "relative overflow-hidden rounded-2xl border border-white/65 bg-[linear-gradient(155deg,rgba(255,255,255,0.62),rgba(241,247,252,0.42))] p-4 shadow-[0_16px_34px_-26px_rgba(15,23,42,0.45)] backdrop-blur-xl";
+  "relative overflow-hidden rounded-2xl border border-white/65 bg-[linear-gradient(150deg,rgba(255,255,255,0.7),rgba(243,248,252,0.52))] p-4 shadow-[0_18px_42px_-28px_rgba(15,23,42,0.44)] backdrop-blur-xl";
 
 const SURFACE_CLASS =
-  "rounded-xl border border-white/70 bg-white/62 backdrop-blur-md shadow-[0_14px_30px_-24px_rgba(15,23,42,0.45)]";
+  "rounded-xl border border-white/70 bg-white/72 backdrop-blur-lg shadow-[0_16px_34px_-24px_rgba(15,23,42,0.42)]";
 
 const SEGMENT_CLASS =
-  "h-8 rounded-lg border border-zinc-200/70 bg-white/75 px-3 text-xs font-medium text-zinc-600 data-[state=on]:border-zinc-900 data-[state=on]:bg-zinc-900 data-[state=on]:text-white";
+  "h-9 rounded-lg border border-zinc-200/75 bg-white/80 px-3 text-xs font-medium text-zinc-700 data-[state=on]:border-zinc-900 data-[state=on]:bg-zinc-900 data-[state=on]:text-white";
 
 function visibilityMeta(visibility?: string) {
   if (visibility === "private") {
@@ -124,6 +127,10 @@ function modeLabel(value: ProjectReference["mode"]) {
 
 function referenceStatusLabel(value: ProjectReference["status"]) {
   return value === "active" ? "已启用" : "已停用";
+}
+
+function clampPriority(value: number) {
+  return Math.min(100, Math.max(-20, value));
 }
 
 export function ReferencesTab({
@@ -243,6 +250,20 @@ export function ReferencesTab({
     setPriorityDialogOpen(true);
   };
 
+  const nudgePriorityDraft = (delta: number) => {
+    const parsed = Number.parseInt(priorityDraft.trim(), 10);
+    const next = Number.isNaN(parsed)
+      ? clampPriority(delta > 0 ? 1 : -1)
+      : clampPriority(parsed + delta);
+    setPriorityDraft(String(next));
+    if (priorityError) setPriorityError(null);
+  };
+
+  const parsedPriorityDraft = Number.parseInt(priorityDraft.trim(), 10);
+  const sliderPriority = Number.isNaN(parsedPriorityDraft)
+    ? 10
+    : clampPriority(parsedPriorityDraft);
+
   const handleConfirmPriority = () => {
     if (!editingReference) return;
     const parsed = Number.parseInt(priorityDraft.trim(), 10);
@@ -258,6 +279,7 @@ export function ReferencesTab({
 
   return (
     <div className="space-y-5">
+      <div className="grid gap-4 xl:grid-cols-2">
       <section className={cn(SECTION_CLASS, "order-1")}>
         <div className="relative">
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -321,22 +343,22 @@ export function ReferencesTab({
                           {item.target_project_name || item.target_project_id}
                         </p>
                         <p
-                          className="mt-0.5 truncate text-[11px] text-zinc-500"
+                          className="mt-0.5 truncate text-xs text-zinc-500"
                           title={item.target_project_id}
                         >
                           {item.target_project_id}
                         </p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                             {relationLabel(item.relation_type)}
                           </span>
-                          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                             {modeLabel(item.mode)}
                           </span>
-                          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                             {referenceStatusLabel(item.status)}
                           </span>
-                          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                             优先级 {item.priority ?? 0}
                           </span>
                         </div>
@@ -401,7 +423,7 @@ export function ReferencesTab({
             </div>
             <div className="flex items-center gap-1.5">
               {hasCurrentLibraryChanges ? (
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                   有未保存修改
                 </span>
               ) : null}
@@ -445,17 +467,9 @@ export function ReferencesTab({
               currentLibrarySettings ? (
                 <div className="space-y-3">
                   <div className={cn(SURFACE_CLASS, "p-3")}>
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-                      <div className="md:col-span-3">
-                        <p className="mb-1 text-[11px] text-zinc-500">
-                          库 ID（只读）
-                        </p>
-                        <div className="h-10 rounded-xl border border-zinc-200/80 bg-white/70 px-3 text-sm leading-10 text-zinc-700 backdrop-blur-md">
-                          {currentLibrarySettings.id}
-                        </div>
-                      </div>
-                      <label className="md:col-span-2 block">
-                        <p className="mb-1 text-[11px] text-zinc-500">学段/年级</p>
+                    <div className="grid grid-cols-1 gap-3">
+                      <label className="block">
+                        <p className="mb-1 text-xs text-zinc-500">学段/年级</p>
                         <Input
                           value={currentLibraryGradeLevelDraft}
                           onChange={(event) =>
@@ -468,7 +482,7 @@ export function ReferencesTab({
                     </div>
 
                     <label className="mt-3 block">
-                      <p className="mb-1 text-[11px] text-zinc-500">
+                      <p className="mb-1 text-xs text-zinc-500">
                         描述
                         <span className="ml-1 text-zinc-400">
                           {currentLibraryDescriptionDraft.length}/2000
@@ -486,7 +500,7 @@ export function ReferencesTab({
 
                     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div className={cn(SURFACE_CLASS, "p-3")}> 
-                        <p className="mb-2 text-[11px] text-zinc-500">可见性</p>
+                        <p className="mb-2 text-xs text-zinc-500">可见性</p>
                         <ToggleGroup
                           type="single"
                           value={currentLibraryVisibilityDraft}
@@ -514,7 +528,7 @@ export function ReferencesTab({
                         </ToggleGroup>
                       </div>
                       <div className={cn(SURFACE_CLASS, "p-3")}>
-                        <p className="mb-2 text-[11px] text-zinc-500">是否可引用</p>
+                        <p className="mb-2 text-xs text-zinc-500">是否可引用</p>
                         <label className="flex items-center justify-between gap-3">
                           <span className="text-xs font-medium text-zinc-700">
                             {currentLibraryReferenceableDraft ? "可引用" : "不可引用"}
@@ -527,7 +541,7 @@ export function ReferencesTab({
                             }
                           />
                         </label>
-                        <p className="mt-1 text-[10px] text-zinc-500">
+                        <p className="mt-1 text-[11px] text-zinc-500">
                           私有库自动禁用引用，切换为共享后可开启。
                         </p>
                       </div>
@@ -537,13 +551,13 @@ export function ReferencesTab({
                       <div className="flex flex-wrap gap-1.5">
                         <span
                           className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-[10px] font-semibold",
+                            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
                             visibilityMeta(currentLibraryVisibilityDraft).className
                           )}
                         >
                           {visibilityMeta(currentLibraryVisibilityDraft).label}
                         </span>
-                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[10px] font-semibold text-zinc-600">
+                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-600">
                           {currentLibraryReferenceableDraft ? "可引用" : "不可引用"}
                         </span>
                       </div>
@@ -575,7 +589,7 @@ export function ReferencesTab({
                     </div>
 
                     {hasInvalidCurrentLibrarySettings ? (
-                      <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+                      <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-700">
                         <CircleOff className="h-3 w-3" />
                         私有库不能设置为可引用，请先切换为共享。
                       </p>
@@ -587,7 +601,9 @@ export function ReferencesTab({
           ) : null}
         </div>
       </section>
+      </div>
 
+      <div className="grid gap-4 xl:grid-cols-2">
       <section className={cn(SECTION_CLASS, "order-3")}>
         <div className="pointer-events-none absolute -left-16 -top-14 h-40 w-40 rounded-full bg-sky-300/14 blur-3xl" />
         <div className="relative">
@@ -608,8 +624,8 @@ export function ReferencesTab({
           <div className={cn(SURFACE_CLASS, "space-y-3 p-3.5")}>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className={cn(SURFACE_CLASS, "p-3")}>
-                <p className="text-[11px] font-medium text-zinc-500">引用关系</p>
-                <p className="mt-0.5 text-[10px] text-zinc-500">
+                <p className="text-xs font-medium text-zinc-500">引用关系</p>
+                <p className="mt-0.5 text-[11px] text-zinc-500">
                   主基底只能存在一个，辅助引用可并行存在。
                 </p>
                 <ToggleGroup
@@ -631,8 +647,8 @@ export function ReferencesTab({
               </div>
 
               <div className={cn(SURFACE_CLASS, "p-3")}>
-                <p className="text-[11px] font-medium text-zinc-500">跟随策略</p>
-                <p className="mt-0.5 text-[10px] text-zinc-500">
+                <p className="text-xs font-medium text-zinc-500">跟随策略</p>
+                <p className="mt-0.5 text-[11px] text-zinc-500">
                   follow 跟随目标最新版本，pinned 固定到指定版本。
                 </p>
                 <ToggleGroup
@@ -696,19 +712,19 @@ export function ReferencesTab({
               ) : null}
 
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                   关系：{newReferenceRelationType === "base" ? "主基底" : "辅助"}
                 </span>
-                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                   模式：{newReferenceMode}
                 </span>
-                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                   优先级：{newReferencePriority || "10"}
                 </span>
               </div>
 
               {quickAddDisabledByBaseRule ? (
-                <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
                   <CircleOff className="h-3 w-3" />
                   当前已存在主基底引用，不能再新增主基底。
                 </p>
@@ -798,14 +814,14 @@ export function ReferencesTab({
                         </p>
                       </div>
                       <p
-                        className="truncate text-[11px] text-zinc-500"
+                        className="truncate text-xs text-zinc-500"
                         title={project.id}
                       >
                         {project.id}
                       </p>
                       {project.description ? (
                         <p
-                          className="line-clamp-2 text-[11px] text-zinc-500"
+                          className="line-clamp-2 text-xs text-zinc-500"
                           title={project.description}
                         >
                           {project.description}
@@ -814,21 +830,21 @@ export function ReferencesTab({
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                         <span
                           className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-[10px] font-semibold",
+                            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
                             visibility.className
                           )}
                         >
                           {visibility.label}
                         </span>
-                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                           {project.isReferenceable ? "可引用" : "不可引用"}
                         </span>
-                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600">
+                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                           状态 {project.status}
                         </span>
                         {project.currentVersionId ? (
                           <span
-                            className="max-w-[180px] truncate rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-600"
+                            className="max-w-[180px] truncate rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600"
                             title={project.currentVersionId}
                           >
                             可固定版本
@@ -875,42 +891,156 @@ export function ReferencesTab({
           ) : null}
         </div>
       </section>
+      </div>
 
-      <Dialog open={priorityDialogOpen} onOpenChange={setPriorityDialogOpen}>
-        <DialogContent className="border-white/70 bg-white/80 backdrop-blur-xl">
-          <DialogHeader>
-            <DialogTitle>调整优先级</DialogTitle>
-            <DialogDescription>
-              {editingReference
-                ? `为 ${editingReference.target_project_name || editingReference.target_project_id} 设置优先级。`
-                : "设置引用优先级。"}
+      <Dialog
+        open={priorityDialogOpen}
+        onOpenChange={(open) => {
+          setPriorityDialogOpen(open);
+          if (!open) {
+            setPriorityError(null);
+            setEditingReferenceId(null);
+          }
+        }}
+      >
+        <DialogContent className="overflow-hidden border-white/65 bg-[linear-gradient(160deg,rgba(255,255,255,0.84),rgba(238,245,251,0.7))] p-0 shadow-[0_36px_90px_-44px_rgba(15,23,42,0.58)] backdrop-blur-3xl sm:max-w-[500px]">
+          <div className="pointer-events-none absolute -right-16 -top-12 h-36 w-36 rounded-full bg-sky-200/45 blur-3xl" />
+          <div className="pointer-events-none absolute -left-16 bottom-0 h-28 w-28 rounded-full bg-amber-200/40 blur-3xl" />
+
+          <DialogHeader className="relative border-b border-white/70 bg-white/35 px-6 pb-4 pt-5">
+            <DialogTitle className="flex items-center gap-2 text-[20px] font-semibold tracking-tight text-zinc-900">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-[0_10px_22px_-12px_rgba(0,0,0,0.72)]">
+                <ArrowDownUp className="h-4 w-4" />
+              </span>
+              调整优先级
+            </DialogTitle>
+            <DialogDescription className="text-sm text-zinc-600">
+              让关键引用优先参与上下文构建，数字越大优先级越高。
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1">
-            <Input
-              value={priorityDraft}
-              onChange={(event) => {
-                setPriorityDraft(event.target.value);
-                if (priorityError) setPriorityError(null);
-              }}
-              placeholder="请输入整数优先级"
-              className="h-10 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
-            />
-            {priorityError ? (
-              <p className="text-xs text-rose-600">{priorityError}</p>
+
+          <div className="relative space-y-4 px-6 pb-5 pt-4">
+            {editingReference ? (
+              <div className={cn(SURFACE_CLASS, "space-y-1.5 px-3 py-2.5")}>
+                <p className="flex items-center gap-1.5 text-xs uppercase tracking-[0.12em] text-zinc-500">
+                  <Sparkles className="h-3.5 w-3.5 text-sky-500" />
+                  当前目标
+                </p>
+                <p
+                  className="truncate text-sm font-semibold text-zinc-800"
+                  title={editingReference.target_project_name || editingReference.target_project_id}
+                >
+                  {editingReference.target_project_name ||
+                    editingReference.target_project_id}
+                </p>
+                <p
+                  className="truncate text-xs text-zinc-500"
+                  title={editingReference.target_project_id}
+                >
+                  {editingReference.target_project_id}
+                </p>
+              </div>
             ) : null}
+
+            <div className={cn(SURFACE_CLASS, "space-y-3 px-3 py-3")}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-zinc-600">优先级数值</span>
+                <span className="rounded-full border border-zinc-200 bg-white/85 px-2.5 py-0.5 text-xs font-semibold text-zinc-700">
+                  {priorityDraft.trim() || "未填写"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
+                  onClick={() => nudgePriorityDraft(-1)}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Input
+                  value={priorityDraft}
+                  onChange={(event) => {
+                    setPriorityDraft(event.target.value);
+                    if (priorityError) setPriorityError(null);
+                  }}
+                  placeholder="请输入整数优先级"
+                  className="h-10 rounded-xl border-zinc-200/80 bg-white/75 text-center text-sm font-semibold backdrop-blur-md"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
+                  onClick={() => nudgePriorityDraft(1)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <Slider
+                  min={-20}
+                  max={100}
+                  step={1}
+                  value={[sliderPriority]}
+                  onValueChange={(value) => {
+                    setPriorityDraft(String(clampPriority(value[0] ?? 10)));
+                    if (priorityError) setPriorityError(null);
+                  }}
+                  className="py-1"
+                />
+                <div className="flex items-center justify-between text-xs text-zinc-500">
+                  <span>-20</span>
+                  <span>10</span>
+                  <span>100</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {[0, 1, 5, 10, 20, 50].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setPriorityDraft(String(value));
+                      if (priorityError) setPriorityError(null);
+                    }}
+                    className="rounded-lg border border-zinc-200 bg-white/80 px-2.5 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100"
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+
+              {priorityError ? (
+                <p className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-600">
+                  {priorityError}
+                </p>
+              ) : null}
+            </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="relative border-t border-white/70 bg-white/35 px-6 py-4">
             <Button
               variant="outline"
+              className="rounded-xl border-zinc-200 bg-white/70 backdrop-blur-md"
               onClick={() => {
                 setPriorityDialogOpen(false);
                 setPriorityError(null);
+                setEditingReferenceId(null);
               }}
             >
               取消
             </Button>
-            <Button onClick={handleConfirmPriority}>确认</Button>
+            <Button
+              className="rounded-xl bg-zinc-900 hover:bg-black"
+              onClick={handleConfirmPriority}
+            >
+              确认更新
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

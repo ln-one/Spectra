@@ -13,7 +13,6 @@ interface LibraryDrawerProps {
   projectId: string;
   onReferencesChanged?: () => void;
 }
-
 export function LibraryDrawer({
   open,
   onOpenChange,
@@ -65,6 +64,9 @@ export function LibraryDrawer({
     onReferencesChanged?.();
   };
 
+  const headerTitle = currentLibrarySettings?.name?.trim() || "引用库面板";
+  const headerId = currentLibrarySettings?.id || projectId;
+
   return (
     <AnimatePresence>
       {open ? (
@@ -97,10 +99,24 @@ export function LibraryDrawer({
                     <Layers className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="truncate text-[20px] font-semibold tracking-tight text-[var(--project-text-primary)]">
-                      引用库面板
+                    <h2
+                      className="truncate text-[26px] font-semibold tracking-tight text-[var(--project-text-primary)]"
+                      title={headerTitle}
+                    >
+                      {headerTitle}
                     </h2>
-                    <p className="mt-0.5 text-xs text-[var(--project-control-muted)]">
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-zinc-200/85 bg-white/70 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
+                        库 ID
+                      </span>
+                      <span
+                        className="max-w-[320px] truncate rounded-full border border-zinc-200/80 bg-white/78 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700"
+                        title={headerId}
+                      >
+                        {headerId}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--project-control-muted)]">
                       管理当前库设置、可引入库与已建立引用关系
                     </p>
                   </div>
@@ -196,4 +212,5 @@ export function LibraryDrawer({
     </AnimatePresence>
   );
 }
+
 
