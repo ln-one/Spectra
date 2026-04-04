@@ -11,6 +11,7 @@
 """
 
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any, Optional
@@ -70,6 +71,21 @@ section.toc img[alt="Mermaid Diagram"] {
 }
 </style>
 """
+
+
+def _is_truthy(value: str) -> bool:
+    normalized = str(value or "").strip().lower()
+    return normalized in {"1", "true", "yes", "y", "on"}
+
+
+def _should_fail_on_unrendered_mermaid() -> bool:
+    """
+    Control whether Mermaid rendering failure should fail whole generation.
+
+    Default is non-blocking to protect main generation path from transient
+    browser/network issues.
+    """
+    return _is_truthy(os.getenv("MERMAID_STRICT_MODE", "false"))
 
 
 def _inject_mermaid_fit_css(markdown: str) -> str:
@@ -228,10 +244,15 @@ class GenerationService:
         # 预处理 Mermaid 代码块
         from services.mermaid_renderer import preprocess_mermaid_blocks
 
-        logger.info(f"[Task: {task_id}] Preprocessing Mermaid blocks")
+        fail_on_unrendered = _should_fail_on_unrendered_mermaid()
+        logger.info(
+            "[Task: %s] Preprocessing Mermaid blocks (strict=%s)",
+            task_id,
+            fail_on_unrendered,
+        )
         full_markdown = await preprocess_mermaid_blocks(
             full_markdown,
-            fail_on_unrendered=True,
+            fail_on_unrendered=fail_on_unrendered,
             asset_dir=self.output_dir,
             asset_prefix=f"{task_id}_mermaid",
         )
@@ -269,10 +290,15 @@ class GenerationService:
         # 预处理 Mermaid 代码块
         from services.mermaid_renderer import preprocess_mermaid_blocks
 
-        logger.info(f"[Task: {task_id}] Preprocessing Mermaid blocks")
+        fail_on_unrendered = _should_fail_on_unrendered_mermaid()
+        logger.info(
+            "[Task: %s] Preprocessing Mermaid blocks (strict=%s)",
+            task_id,
+            fail_on_unrendered,
+        )
         full_markdown = await preprocess_mermaid_blocks(
             full_markdown,
-            fail_on_unrendered=True,
+            fail_on_unrendered=fail_on_unrendered,
             asset_dir=self.output_dir,
             asset_prefix=f"{task_id}_mermaid",
         )

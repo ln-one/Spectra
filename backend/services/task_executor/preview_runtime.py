@@ -9,15 +9,9 @@ import time
 from services.database.prisma_compat import find_unique_with_select_fallback
 from services.preview_helpers.rendered_preview import build_rendered_preview_payload
 from services.preview_helpers.rendering import build_slides
+from services.preview_helpers.slide_mapping import slide_identity
 
 logger = logging.getLogger(__name__)
-
-
-def _slide_identity(slide, fallback_index: int) -> str:
-    value = getattr(slide, "id", None)
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return f"{fallback_index}"
 
 
 def extract_courseware_value(courseware_content, key: str) -> str:
@@ -62,16 +56,23 @@ async def cache_preview_content(
     task_id: str, courseware_content, template_config: dict | None = None
 ) -> dict:
     markdown_content = extract_courseware_value(courseware_content, "markdown_content")
-    slide_models = build_slides(task_id, markdown_content)
+    render_markdown = extract_courseware_value(courseware_content, "render_markdown")
+    slide_models = build_slides(
+        task_id,
+        markdown_content,
+        extract_courseware_object(courseware_content, "_image_metadata"),
+        render_markdown,
+    )
     rendered_preview = await build_rendered_preview_payload(
         task_id=task_id,
         title=extract_courseware_value(courseware_content, "title"),
         markdown_content=markdown_content,
         template_config=template_config,
         slide_ids=[
-            _slide_identity(slide, index) for index, slide in enumerate(slide_models)
+            slide_identity(slide, index, task_id=task_id)
+            for index, slide in enumerate(slide_models)
         ],
-        render_markdown=extract_courseware_value(courseware_content, "render_markdown"),
+        render_markdown=render_markdown,
         style_manifest=_serialize_style_manifest(courseware_content),
         extra_css=extract_courseware_value(courseware_content, "extra_css"),
         page_class_plan=_serialize_page_class_plan(courseware_content),
@@ -85,7 +86,6 @@ async def cache_preview_content(
         ),
         "rendered_preview": rendered_preview,
     }
-    render_markdown = extract_courseware_value(courseware_content, "render_markdown")
     if render_markdown:
         preview_payload["render_markdown"] = render_markdown
     style_manifest = _serialize_style_manifest(courseware_content)

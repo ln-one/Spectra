@@ -9,15 +9,9 @@ from .content_generation import get_or_generate_content as _get_or_generate_cont
 from .material_lookup import resolve_preview_task
 from .rendered_preview import build_rendered_preview_payload
 from .rendering import build_lesson_plan, build_slides
+from .slide_mapping import slide_identity
 
 logger = logging.getLogger(__name__)
-
-
-def _slide_identity(slide, fallback_index: int) -> str:
-    value = getattr(slide, "id", None)
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return f"slide-{fallback_index}"
 
 
 def _build_slides_compatible(
@@ -110,7 +104,8 @@ async def load_preview_material(
             slide_models = _build_slides_compatible(
                 task_id=task.id,
                 markdown_content=content.get("markdown_content", ""),
-                image_metadata=content.get("image_metadata"),
+                image_metadata=content.get("_image_metadata")
+                or content.get("image_metadata"),
                 render_markdown=content.get("render_markdown"),
             )
             rendered_preview = content.get("rendered_preview")
@@ -120,7 +115,7 @@ async def load_preview_material(
                     title=content.get("title", ""),
                     markdown_content=content.get("markdown_content", ""),
                     slide_ids=[
-                        _slide_identity(slide, index)
+                        slide_identity(slide, index, task_id=task.id)
                         for index, slide in enumerate(slide_models)
                     ],
                     render_markdown=content.get("render_markdown"),
@@ -141,7 +136,7 @@ async def load_preview_material(
 
             for index, slide in enumerate(slide_models):
                 page = page_by_slide_id.get(
-                    getattr(slide, "id", None) or _slide_identity(slide, index)
+                    slide_identity(slide, index, task_id=task.id)
                 )
                 if page and page.get("image_url"):
                     slide.thumbnail_url = page.get("image_url")

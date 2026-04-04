@@ -5,7 +5,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import html
+import json
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -15,6 +17,9 @@ logger = logging.getLogger(__name__)
 _MERMAID_BLOCK_PATTERN = re.compile(r"```mermaid\s*\n(.*?)\n```", re.DOTALL)
 _SVG_BLOCK_PATTERN = re.compile(r"<svg\b.*?</svg>", re.DOTALL | re.IGNORECASE)
 _EDGE_LABEL_PATTERN = re.compile(r"\|([^|\n]+)\|")
+_DEFAULT_MERMAID_MODULE_URL = (
+    "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs"
+)
 
 
 class MermaidRenderError(RuntimeError):
@@ -63,6 +68,53 @@ def _svg_to_markdown(
     return _svg_to_data_uri_markdown(svg_markup)
 
 
+def _resolve_mermaid_module_url() -> str:
+    """
+    Resolve Mermaid ESM module URL.
+
+    Priority:
+    1. MERMAID_ESM_URL env override (supports local file path or URL)
+    2. Default CDN URL
+    """
+    configured = str(os.getenv("MERMAID_ESM_URL") or "").strip()
+    if not configured:
+        return _DEFAULT_MERMAID_MODULE_URL
+
+    local_candidate = Path(configured)
+    if local_candidate.exists():
+        return local_candidate.resolve().as_uri()
+    return configured
+
+
+def _fallback_mermaid_placeholder_svg() -> str:
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" '
+        'viewBox="0 0 1280 720" role="img" aria-label="Mermaid fallback">'
+        '<rect width="1280" height="720" fill="#f5f7fb"/>'
+        '<rect x="80" y="80" width="1120" height="560" rx="24" fill="#ffffff" '
+        'stroke="#cad2e2" stroke-width="4"/>'
+        '<text x="640" y="328" text-anchor="middle" fill="#3a4b6a" '
+        'font-family="Arial, sans-serif" font-size="44" font-weight="700">'
+        "Mermaid Diagram Unavailable</text>"
+        '<text x="640" y="390" text-anchor="middle" fill="#6d7f9c" '
+        'font-family="Arial, sans-serif" font-size="30">'
+        "Rendering fallback applied</text>"
+        "</svg>"
+    )
+
+
+def _fallback_mermaid_placeholder_markdown(
+    *,
+    asset_dir: Optional[Path],
+    asset_prefix: str,
+) -> str:
+    return _svg_to_markdown(
+        _fallback_mermaid_placeholder_svg(),
+        asset_dir=asset_dir,
+        asset_prefix=asset_prefix,
+    )
+
+
 def _repair_mermaid_code(mermaid_code: str) -> str:
     """
     Apply conservative Mermaid syntax repairs for common LLM mistakes.
@@ -99,6 +151,7 @@ async def render_mermaid_to_svg(mermaid_code: str) -> Optional[str]:
         from playwright.async_api import async_playwright
 
         escaped_code = html.escape(mermaid_code)
+        module_url_literal = json.dumps(_resolve_mermaid_module_url())
         html_template = f"""
 <!DOCTYPE html>
 <html>
@@ -109,8 +162,7 @@ async def render_mermaid_to_svg(mermaid_code: str) -> Optional[str]:
     <pre id="mermaid-source" style="display:none;">{escaped_code}</pre>
     <div id="mermaid-container"></div>
     <script type="module">
-        import mermaid from
-          'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        import mermaid from {module_url_literal};
 
         const source = document.getElementById('mermaid-source').textContent;
         const container = document.getElementById('mermaid-container');
@@ -209,7 +261,10 @@ async def preprocess_mermaid_blocks(
                 raise MermaidRenderError(
                     "Mermaid rendering failed: block could not be converted to image"
                 )
-            replacement = match.group(0)
+            replacement = _fallback_mermaid_placeholder_markdown(
+                asset_dir=normalized_asset_dir,
+                asset_prefix=asset_prefix,
+            )
 
         rendered_markdown = (
             rendered_markdown[: match.start()]

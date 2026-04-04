@@ -186,6 +186,45 @@ class TestGeneratePPTX:
             with pytest.raises(FileSystemError):
                 await generation_service.generate_pptx(mock_content, "test-task")
 
+    @pytest.mark.asyncio
+    async def test_generate_pptx_mermaid_default_non_blocking(
+        self, generation_service, mock_content
+    ):
+        with (
+            patch(
+                "services.mermaid_renderer.preprocess_mermaid_blocks",
+                new=AsyncMock(return_value=mock_content.markdown_content),
+            ) as mock_preprocess,
+            patch(
+                "services.generation._generate_pptx",
+                new_callable=AsyncMock,
+                return_value="test.pptx",
+            ),
+        ):
+            await generation_service.generate_pptx(mock_content, "test-task")
+
+        assert mock_preprocess.await_args.kwargs["fail_on_unrendered"] is False
+
+    @pytest.mark.asyncio
+    async def test_generate_pptx_mermaid_strict_mode_enabled_by_env(
+        self, generation_service, mock_content
+    ):
+        with (
+            patch.dict("os.environ", {"MERMAID_STRICT_MODE": "true"}),
+            patch(
+                "services.mermaid_renderer.preprocess_mermaid_blocks",
+                new=AsyncMock(return_value=mock_content.markdown_content),
+            ) as mock_preprocess,
+            patch(
+                "services.generation._generate_pptx",
+                new_callable=AsyncMock,
+                return_value="test.pptx",
+            ),
+        ):
+            await generation_service.generate_pptx(mock_content, "test-task")
+
+        assert mock_preprocess.await_args.kwargs["fail_on_unrendered"] is True
+
 
 class TestGenerateDOCX:
     """测试 DOCX 生成功能"""
