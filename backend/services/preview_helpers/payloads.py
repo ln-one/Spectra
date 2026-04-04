@@ -75,10 +75,17 @@ def build_preview_payload(
     slides: list[dict],
     lesson_plan: Optional[dict],
     anchor: dict,
+    content: Optional[dict] = None,
     rendered_preview: Optional[dict] = None,
 ) -> dict:
+    content = content or {}
+    slides_content_markdown = content.get("markdown_content")
+    if not isinstance(slides_content_markdown, str):
+        slides_content_markdown = ""
     return {
         "session_id": session_id,
+        "session_state": snapshot["session"].get("state"),
+        "session_state_reason": snapshot["session"].get("stateReason"),
         "task_id": task.id if task else None,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
@@ -88,6 +95,8 @@ def build_preview_payload(
         "render_version": snapshot["session"].get("render_version") or 1,
         "slides": slides,
         "lesson_plan": lesson_plan,
+        "slides_content_markdown": slides_content_markdown,
+        "slides_content_ready": bool(slides_content_markdown.strip()),
         "rendered_preview": rendered_preview,
     }
 

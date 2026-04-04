@@ -171,6 +171,7 @@ async def get_session_preview_response(
             slides=slides,
             lesson_plan=lesson_plan,
             anchor=anchor,
+            content=content if isinstance(content, dict) else None,
             rendered_preview=(
                 content.get("rendered_preview") if isinstance(content, dict) else None
             ),
