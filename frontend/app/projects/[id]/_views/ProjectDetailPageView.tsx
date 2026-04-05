@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ChatPanel,
@@ -34,6 +35,7 @@ import { useProjectDetailController } from "./useProjectDetailController";
 
 export default function ProjectDetailPage() {
   const PAGE_ZOOM = 1.25;
+  const [isPptStep2LayoutActive, setIsPptStep2LayoutActive] = useState(false);
   const {
     router,
     project,
@@ -78,6 +80,8 @@ export default function ProjectDetailPage() {
   }
 
   const sourcesWidth = sourcesWidthPercent;
+  const isPptStep2Fullscreen =
+    isExpanded && expandedTool === "ppt" && isPptStep2LayoutActive;
   const activeTheme = getProjectTheme(selectedThemePreset);
   const pageThemeStyle = getProjectThemeStyle(selectedThemePreset);
   const pageThemeAttributes = getProjectThemeAttributes(selectedThemePreset);
@@ -189,63 +193,78 @@ export default function ProjectDetailPage() {
             animate={{
               left: PAGE_GAP,
               top: PANEL_TOP_INSET,
-              width: isExpanded
-                ? `calc(${expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
-                : `calc(${studioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
+              width: isPptStep2Fullscreen
+                ? `calc(100% - ${PAGE_GAP * 2}px)`
+                : isExpanded
+                  ? `calc(${expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
+                  : `calc(${studioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
               height: `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
             }}
             transition={springConfig}
           >
             <StudioPanel
               onToolClick={handleToolClick}
+              onPptStep2LayoutChange={setIsPptStep2LayoutActive}
               data-tour="studio-panel"
             />
           </motion.div>
 
-          <motion.div
-            className="absolute cursor-col-resize z-10"
-            style={{
-              top: PANEL_TOP_INSET,
-              height: `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
-            }}
-            initial={false}
-            animate={{
-              left: isExpanded
-                ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2 - PANEL_GAP}px)`
-                : `calc(${studioWidth}% + ${PANEL_GAP / 2 - PANEL_GAP}px)`,
-              width: PANEL_GAP,
-            }}
-            transition={springConfig}
-            onMouseDown={(event) =>
-              handleMouseDown(
-                event,
-                isExpanded ? "expanded-studio-right" : "studio-chat"
-              )
-            }
-          />
+          {!isPptStep2Fullscreen ? (
+            <motion.div
+              className="absolute cursor-col-resize z-10"
+              style={{
+                top: PANEL_TOP_INSET,
+                height: `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
+              }}
+              initial={false}
+              animate={{
+                left: isExpanded
+                  ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2 - PANEL_GAP}px)`
+                  : `calc(${studioWidth}% + ${PANEL_GAP / 2 - PANEL_GAP}px)`,
+                width: PANEL_GAP,
+              }}
+              transition={springConfig}
+              onMouseDown={(event) =>
+                handleMouseDown(
+                  event,
+                  isExpanded ? "expanded-studio-right" : "studio-chat"
+                )
+              }
+            />
+          ) : null}
 
           <motion.div
             layout
-            className="absolute"
+            className="absolute overflow-hidden"
+            style={{
+              pointerEvents: isPptStep2Fullscreen ? "none" : "auto",
+            }}
             initial={false}
             animate={{
-              left: isExpanded
-                ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2}px)`
-                : `calc(${studioWidth}% + ${PANEL_GAP / 2}px)`,
+              left: isPptStep2Fullscreen
+                ? `calc(100% - ${PAGE_GAP}px)`
+                : isExpanded
+                  ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2}px)`
+                  : `calc(${studioWidth}% + ${PANEL_GAP / 2}px)`,
               top: PANEL_TOP_INSET,
-              width: isExpanded
-                ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
-                : `calc(${chatWidth}% - ${PANEL_GAP}px)`,
-              height: isExpanded
-                ? `calc(${expandedChatHeight}% - ${PANEL_TOP_INSET + PANEL_GAP / 2}px)`
-                : `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
+              width: isPptStep2Fullscreen
+                ? "0px"
+                : isExpanded
+                  ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
+                  : `calc(${chatWidth}% - ${PANEL_GAP}px)`,
+              height: isPptStep2Fullscreen
+                ? `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`
+                : isExpanded
+                  ? `calc(${expandedChatHeight}% - ${PANEL_TOP_INSET + PANEL_GAP / 2}px)`
+                  : `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
+              opacity: isPptStep2Fullscreen ? 0 : 1,
             }}
             transition={springConfig}
           >
             <ChatPanel projectId={projectId} data-tour="chat-panel" />
           </motion.div>
 
-          {!isExpanded ? (
+          {!isExpanded && !isPptStep2Fullscreen ? (
             <motion.div
               className="absolute cursor-col-resize z-10"
               style={{
@@ -262,7 +281,7 @@ export default function ProjectDetailPage() {
             />
           ) : null}
 
-          {isExpanded ? (
+          {isExpanded && !isPptStep2Fullscreen ? (
             <motion.div
               className="absolute cursor-row-resize z-10"
               style={{
@@ -283,21 +302,33 @@ export default function ProjectDetailPage() {
 
           <motion.div
             layout
-            className="absolute"
+            className="absolute overflow-hidden"
+            style={{
+              pointerEvents: isPptStep2Fullscreen ? "none" : "auto",
+            }}
             initial={false}
             animate={{
-              left: isExpanded
-                ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2}px)`
-                : `calc(${studioWidth + chatWidth}% + ${PANEL_GAP / 2}px)`,
-              top: isExpanded
-                ? `calc(${expandedChatHeight}% + ${PANEL_GAP / 2}px)`
-                : PANEL_TOP_INSET,
-              width: isExpanded
-                ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
-                : `calc(${sourcesWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
-              height: isExpanded
-                ? `calc(${100 - expandedChatHeight}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
-                : `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
+              left: isPptStep2Fullscreen
+                ? `calc(100% - ${PAGE_GAP}px)`
+                : isExpanded
+                  ? `calc(${expandedStudioWidth}% + ${PANEL_GAP / 2}px)`
+                  : `calc(${studioWidth + chatWidth}% + ${PANEL_GAP / 2}px)`,
+              top: isPptStep2Fullscreen
+                ? PANEL_TOP_INSET
+                : isExpanded
+                  ? `calc(${expandedChatHeight}% + ${PANEL_GAP / 2}px)`
+                  : PANEL_TOP_INSET,
+              width: isPptStep2Fullscreen
+                ? "0px"
+                : isExpanded
+                  ? `calc(${100 - expandedStudioWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
+                  : `calc(${sourcesWidth}% - ${PAGE_GAP + PANEL_GAP / 2}px)`,
+              height: isPptStep2Fullscreen
+                ? `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`
+                : isExpanded
+                  ? `calc(${100 - expandedChatHeight}% - ${PAGE_GAP + PANEL_GAP / 2}px)`
+                  : `calc(100% - ${PANEL_TOP_INSET + PAGE_GAP}px)`,
+              opacity: isPptStep2Fullscreen ? 0 : 1,
             }}
             transition={springConfig}
           >
