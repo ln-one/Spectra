@@ -323,13 +323,6 @@ export default function NewProjectPage() {
                   <Library className="w-5 h-5" />
                   添加库
                 </Button>
-                {formData.base_project_id.trim() ? (
-                  <div className="inline-flex h-12 max-w-[320px] items-center rounded-2xl border border-purple-100 bg-purple-50/80 px-4 text-xs font-bold text-purple-700">
-                    <span className="truncate">
-                      已选库：{selectedBaseLibrary?.name || formData.base_project_id}
-                    </span>
-                  </div>
-                ) : null}
               </div>
 
               <Button
@@ -357,13 +350,38 @@ export default function NewProjectPage() {
 
             {/* Pending Files List */}
             <AnimatePresence>
-              {pendingFiles.length > 0 && (
+              {(pendingFiles.length > 0 || formData.base_project_id.trim()) && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   className="flex flex-wrap gap-2 overflow-hidden"
                 >
+                  {formData.base_project_id.trim() ? (
+                    <motion.div
+                      key={`library-${formData.base_project_id}`}
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="flex items-center gap-2 px-3 py-2 bg-zinc-50 rounded-xl border border-zinc-100 group/file"
+                    >
+                      <FileText className="w-4 h-4 text-blue-500" />
+                      <span
+                        className="text-xs font-bold text-zinc-600 truncate max-w-[200px]"
+                        title={selectedBaseLibrary?.name || formData.base_project_id}
+                      >
+                        已选库：{selectedBaseLibrary?.name || formData.base_project_id}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, base_project_id: "" }))
+                        }
+                        className="p-1 rounded-full hover:bg-zinc-200 text-zinc-400 hover:text-red-500 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </motion.div>
+                  ) : null}
+
                   {pendingFiles.map((file, i) => (
                     <motion.div
                       key={`${file.name}-${i}`}
@@ -417,9 +435,7 @@ export default function NewProjectPage() {
                 className="w-full bg-white rounded-[2rem] border border-zinc-100 p-8 shadow-xl overflow-hidden"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  <div className="md:col-span-2 lg:col-span-3 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm font-semibold text-blue-700">
-                    引用模式与父项目 ID 已迁移到“添加库”弹窗中设置。
-                  </div>
+
 
                   {/* Name Input */}
                   <div className="space-y-3">
