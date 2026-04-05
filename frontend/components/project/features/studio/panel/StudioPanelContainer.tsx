@@ -507,6 +507,7 @@ export function StudioPanelContainer({
       title: item.title,
       status: item.status,
       createdAt: item.createdAt,
+      sourceArtifactId: item.sourceArtifactId ?? null,
       runId: item.runId ?? null,
       runNo: item.runNo ?? null,
     })),

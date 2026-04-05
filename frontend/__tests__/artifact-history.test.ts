@@ -80,7 +80,7 @@ describe("artifact history mapper", () => {
     expect(grouped.ppt).toHaveLength(0);
   });
 
-  it("prefers run_title over title and name for artifact history title", () => {
+  it("prefers metadata.title over run_title and name for artifact history title", () => {
     const artifacts: Artifact[] = [
       {
         ...baseArtifact,
@@ -96,7 +96,7 @@ describe("artifact history mapper", () => {
     ];
 
     const grouped = groupArtifactsByTool(artifacts);
-    expect(grouped.ppt[0]?.title).toBe("计算机网络");
+    expect(grouped.ppt[0]?.title).toBe("PPTX · 12345678");
   });
 
   it("uses generic fallback title without exposing artifact id", () => {

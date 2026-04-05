@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { projectSpaceApi, projectsApi } from "@/lib/sdk";
 import { ApiError } from "@/lib/sdk/client";
+import {
+  buildArtifactDownloadFilename,
+  inferArtifactDownloadExt,
+  resolveArtifactTitleFromMetadata,
+} from "@/lib/project-space/download-filename";
 import type {
   AvailableLibraryProject,
   Artifact,
@@ -117,27 +122,6 @@ function normalizeCurrentLibrarySettings(
 function parsePriority(value: string): number {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : 10;
-}
-
-function inferArtifactExt(artifactType: Artifact["type"]): string {
-  switch (artifactType) {
-    case "gif":
-      return "gif";
-    case "mp4":
-      return "mp4";
-    case "html":
-      return "html";
-    case "mindmap":
-    case "summary":
-    case "exercise":
-      return "json";
-    case "pptx":
-      return "pptx";
-    case "docx":
-      return "docx";
-    default:
-      return "bin";
-  }
 }
 
 export function useLibraryDrawerData(projectId: string, open: boolean) {
@@ -581,7 +565,12 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${target.type}-${target.id.slice(0, 8)}.${inferArtifactExt(target.type)}`;
+      link.download = buildArtifactDownloadFilename({
+        title: resolveArtifactTitleFromMetadata(target.metadata),
+        artifactId: target.id,
+        artifactType: target.type,
+        ext: inferArtifactDownloadExt(target.type),
+      });
       link.click();
       URL.revokeObjectURL(url);
       setArtifactsState({ loading: false, error: null });

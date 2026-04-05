@@ -155,7 +155,7 @@ export function useStudioHistoryHandlers({
             const isFinished = latestState === "SUCCESS";
             recordWorkflowEntry({
               toolType: "ppt",
-              title: isFinished ? "PPT Ready" : "PPT Generating",
+              title: item.title || (isFinished ? "PPT Preview" : "PPT Generating"),
               status: isFinished ? "previewing" : "processing",
               step: "preview",
               sessionId,
