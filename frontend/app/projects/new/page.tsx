@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { projectsApi } from "@/lib/sdk";
@@ -17,7 +17,6 @@ import {
   FileText,
   Shield,
   Users,
-  Layers,
   Settings,
   Library,
 } from "lucide-react";
@@ -26,6 +25,48 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/stores/projectStore";
+import {
+  AddLibraryDialog,
+  type NewProjectLibrary,
+} from "./_components/AddLibraryDialog";
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeNewProjectLibrary(raw: unknown): NewProjectLibrary | null {
+  const project = asRecord(raw);
+  if (!project) return null;
+
+  const id = typeof project.id === "string" ? project.id : "";
+  if (!id) return null;
+
+  const name =
+    typeof project.name === "string" && project.name.trim()
+      ? project.name
+      : id;
+  const description =
+    typeof project.description === "string" ? project.description : "";
+  const visibilityRaw = project.visibility;
+  const visibility =
+    visibilityRaw === "shared" || visibilityRaw === "private"
+      ? visibilityRaw
+      : "unknown";
+  const isReferenceableRaw =
+    project.is_referenceable ?? project.isReferenceable;
+  const isReferenceable = isReferenceableRaw === true;
+
+  return {
+    id,
+    name,
+    description,
+    visibility,
+    isReferenceable,
+  };
+}
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -34,6 +75,11 @@ export default function NewProjectPage() {
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showLibraryDialog, setShowLibraryDialog] = useState(false);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [libraryKeyword, setLibraryKeyword] = useState("");
+  const [libraries, setLibraries] = useState<NewProjectLibrary[]>([]);
   const [prompt, setPrompt] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +93,45 @@ export default function NewProjectPage() {
     is_referenceable: false,
   });
 
+  const fetchLibraries = useCallback(async () => {
+    setLibraryLoading(true);
+    setLibraryError(null);
+    try {
+      const response = await projectsApi.getProjects({ page: 1, limit: 100 });
+      const projects = Array.isArray(response?.data?.projects)
+        ? response.data.projects
+        : [];
+      const normalized = projects
+        .map((item) => normalizeNewProjectLibrary(item))
+        .filter((item): item is NewProjectLibrary => !!item);
+      setLibraries(normalized);
+    } catch (error) {
+      setLibraryError(getErrorMessage(error));
+    } finally {
+      setLibraryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showLibraryDialog || libraries.length > 0) return;
+    void fetchLibraries();
+  }, [fetchLibraries, libraries.length, showLibraryDialog]);
+
+  const visibleLibraries = useMemo(() => {
+    const keyword = libraryKeyword.trim().toLowerCase();
+    if (!keyword) return libraries;
+    return libraries.filter((library) => {
+      const text = `${library.name} ${library.id} ${library.description}`.toLowerCase();
+      return text.includes(keyword);
+    });
+  }, [libraries, libraryKeyword]);
+
+  const selectedBaseLibrary = useMemo(
+    () =>
+      libraries.find((item) => item.id === formData.base_project_id.trim()) ?? null,
+    [libraries, formData.base_project_id]
+  );
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
@@ -56,6 +141,15 @@ export default function NewProjectPage() {
 
   const removeFile = (index: number) => {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleOpenLibraryDialog = () => {
+    setShowLibraryDialog(true);
+  };
+
+  const handleSelectLibrary = (libraryId: string) => {
+    setFormData((prev) => ({ ...prev, base_project_id: libraryId }));
+    setShowLibraryDialog(false);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -211,7 +305,7 @@ export default function NewProjectPage() {
                   className="rounded-2xl h-12 px-6 gap-2 text-zinc-500 hover:text-blue-600 hover:bg-blue-50 transition-all font-bold"
                 >
                   <Paperclip className="w-5 h-5" />
-                  添加素材 ({pendingFiles.length})
+                  添加课程资源 ({pendingFiles.length})
                 </Button>
                 <input
                   type="file"
@@ -223,17 +317,19 @@ export default function NewProjectPage() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() =>
-                    toast({
-                      title: "库选择功能开发中",
-                      description: "此功能将在后续版本中上线。",
-                    })
-                  }
+                  onClick={handleOpenLibraryDialog}
                   className="rounded-2xl h-12 px-6 gap-2 text-zinc-500 hover:text-purple-600 hover:bg-purple-50 transition-all font-bold"
                 >
                   <Library className="w-5 h-5" />
                   添加库
                 </Button>
+                {formData.base_project_id.trim() ? (
+                  <div className="inline-flex h-12 max-w-[320px] items-center rounded-2xl border border-purple-100 bg-purple-50/80 px-4 text-xs font-bold text-purple-700">
+                    <span className="truncate">
+                      已选库：{selectedBaseLibrary?.name || formData.base_project_id}
+                    </span>
+                  </div>
+                ) : null}
               </div>
 
               <Button
@@ -321,6 +417,10 @@ export default function NewProjectPage() {
                 className="w-full bg-white rounded-[2rem] border border-zinc-100 p-8 shadow-xl overflow-hidden"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <div className="md:col-span-2 lg:col-span-3 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm font-semibold text-blue-700">
+                    引用模式与父项目 ID 已迁移到“添加库”弹窗中设置。
+                  </div>
+
                   {/* Name Input */}
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
@@ -401,62 +501,6 @@ export default function NewProjectPage() {
                     </div>
                   </div>
 
-                  {/* Reference Mode */}
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                      引用模式
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() =>
-                          setFormData({ ...formData, reference_mode: "follow" })
-                        }
-                        className={cn(
-                          "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
-                          formData.reference_mode === "follow"
-                            ? "bg-zinc-50 border-zinc-200 text-zinc-900"
-                            : "bg-white border-zinc-100 text-zinc-400"
-                        )}
-                      >
-                        跟随 (Follow)
-                      </button>
-                      <button
-                        onClick={() =>
-                          setFormData({ ...formData, reference_mode: "pinned" })
-                        }
-                        className={cn(
-                          "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
-                          formData.reference_mode === "pinned"
-                            ? "bg-zinc-50 border-zinc-200 text-zinc-900"
-                            : "bg-white border-zinc-100 text-zinc-400"
-                        )}
-                      >
-                        固定 (Pinned)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Father ID */}
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                      父项目 ID
-                    </label>
-                    <div className="relative">
-                      <Layers className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                      <Input
-                        placeholder="例如: proj_123"
-                        value={formData.base_project_id}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            base_project_id: e.target.value,
-                          })
-                        }
-                        className="h-12 pl-11 rounded-xl border-zinc-100 bg-zinc-50 focus:bg-white transition-all font-bold"
-                      />
-                    </div>
-                  </div>
-
                   {/* Allow Reference */}
                   {formData.visibility === "shared" && (
                     <motion.div
@@ -500,6 +544,28 @@ export default function NewProjectPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      <AddLibraryDialog
+        open={showLibraryDialog}
+        onOpenChange={setShowLibraryDialog}
+        loading={libraryLoading}
+        error={libraryError}
+        libraries={visibleLibraries}
+        keyword={libraryKeyword}
+        onKeywordChange={setLibraryKeyword}
+        baseProjectId={formData.base_project_id}
+        onBaseProjectIdChange={(value) =>
+          setFormData((prev) => ({ ...prev, base_project_id: value }))
+        }
+        referenceMode={formData.reference_mode}
+        onReferenceModeChange={(value) =>
+          setFormData((prev) => ({ ...prev, reference_mode: value }))
+        }
+        onSelectLibrary={handleSelectLibrary}
+        onReload={() => {
+          void fetchLibraries();
+        }}
+      />
 
       {/* Footer Branding */}
       <motion.div
