@@ -1,8 +1,16 @@
-const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|\u0000-\u001f]/g;
+const ILLEGAL_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 const MULTIPLE_SPACES = /\s+/g;
 
+function replaceControlChars(value: string): string {
+  let output = "";
+  for (const ch of value) {
+    output += ch.charCodeAt(0) < 32 ? " " : ch;
+  }
+  return output;
+}
+
 function sanitizeFilenameBase(value: string): string {
-  const normalized = String(value || "")
+  const normalized = replaceControlChars(String(value || ""))
     .replace(ILLEGAL_FILENAME_CHARS, " ")
     .replace(MULTIPLE_SPACES, " ")
     .trim()
