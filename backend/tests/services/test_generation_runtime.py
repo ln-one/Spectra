@@ -657,6 +657,40 @@ def test_normalize_marp_markdown_merges_style_into_first_slide():
     assert "<style>section { color: #222; }</style>\n\n# Slide 1" in normalized
 
 
+def test_split_marp_document_ignores_empty_first_slide_and_lifts_style():
+    frontmatter, style_blocks, slides = split_marp_document(
+        "---\nmarp: true\n---\n\n"
+        "---\n\n"
+        "<style>section { color: #3a3a3a; }</style>\n\n"
+        "<!-- _class: cover -->\n\n"
+        "# Slide 1\n\n---\n\n# Slide 2"
+    )
+
+    assert frontmatter == "---\nmarp: true\n---"
+    assert style_blocks == "<style>section { color: #3a3a3a; }</style>"
+    assert slides == ["<!-- _class: cover -->\n\n# Slide 1", "# Slide 2"]
+
+
+def test_normalize_marp_markdown_removes_blank_cover_from_leading_separator():
+    normalized = normalize_marp_markdown(
+        "---\nmarp: true\n---\n\n"
+        "---\n\n"
+        "<style>section { color: #3a3a3a; }</style>\n\n"
+        "<!-- _class: cover -->\n\n"
+        "# Slide 1\n\n---\n\n# Slide 2"
+    )
+
+    assert "\n\n---\n\n<style>section { color: #3a3a3a; }</style>" not in normalized
+    assert (
+        "<style>section { color: #3a3a3a; }</style>\n\n<!-- _class: cover -->"
+        in normalized
+    )
+    frontmatter, style_blocks, slides = split_marp_document(normalized)
+    assert frontmatter == "---\nmarp: true\n---"
+    assert style_blocks == "<style>section { color: #3a3a3a; }</style>"
+    assert slides == ["<!-- _class: cover -->\n\n# Slide 1", "# Slide 2"]
+
+
 def test_validate_required_output_urls_raises_for_missing_both_output():
     with pytest.raises(ValueError, match="pptx, docx"):
         _validate_required_output_urls(task_type="both", output_urls={})

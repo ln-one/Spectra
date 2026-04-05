@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import logging
+import os
+import re
+from pathlib import Path
 from typing import Any
 
 from services.courseware_ai.parsing import (
@@ -15,6 +18,9 @@ from services.database.prisma_compat import find_many_with_select_fallback
 logger = logging.getLogger(__name__)
 
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+_IMAGE_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_GENERATED_ROOT = _BACKEND_ROOT / "generated"
 
 _PRIORITY_IMAGE_PAGES = {
     "process",
@@ -36,6 +42,51 @@ def _is_image_filename(filename: str | None) -> bool:
         return False
     lower = filename.strip().lower()
     return any(lower.endswith(ext) for ext in _IMAGE_EXTENSIONS)
+
+
+def _to_generated_relative_path(path: Path) -> str:
+    try:
+        relative = os.path.relpath(str(path), str(_GENERATED_ROOT))
+        return Path(relative).as_posix()
+    except ValueError:
+        # Windows may raise when drives differ; keep absolute fallback.
+        return path.as_posix()
+
+
+def _normalize_markdown_image_path(filepath: str, filename: str | None = None) -> str:
+    raw = str(filepath or "").strip()
+    if not raw:
+        return ""
+
+    normalized = raw.replace("\\", "/")
+    lowered = normalized.lower()
+    if lowered.startswith("data:image/") or _IMAGE_SCHEME_RE.match(normalized):
+        return normalized
+
+    if normalized.startswith("/app/"):
+        absolute_candidate = Path(normalized)
+        if absolute_candidate.exists():
+            return _to_generated_relative_path(absolute_candidate)
+        candidate = _BACKEND_ROOT / normalized[len("/app/") :]
+        return _to_generated_relative_path(candidate)
+
+    if normalized.startswith("./uploads/"):
+        candidate = _BACKEND_ROOT / normalized[2:]
+        return _to_generated_relative_path(candidate)
+
+    if normalized.startswith("uploads/"):
+        candidate = _BACKEND_ROOT / normalized
+        return _to_generated_relative_path(candidate)
+
+    if "/" not in normalized and _is_image_filename(filename or normalized):
+        candidate = _BACKEND_ROOT / "uploads" / normalized
+        return _to_generated_relative_path(candidate)
+
+    path_obj = Path(normalized)
+    if path_obj.is_absolute():
+        return _to_generated_relative_path(path_obj)
+
+    return _to_generated_relative_path(_BACKEND_ROOT / path_obj)
 
 
 def _classify_page_semantic(title: str, content: str) -> tuple[str, dict]:
@@ -146,7 +197,10 @@ def _append_image_appendix_slides(
         slide_contents = [markdown_content.strip()]
 
     for image_upload in image_uploads:
-        filepath = str(image_upload.get("filepath") or "").strip().replace("\\", "/")
+        filepath = _normalize_markdown_image_path(
+            str(image_upload.get("filepath") or "").strip(),
+            str(image_upload.get("filename") or "").strip(),
+        )
         if not filepath:
             continue
         filename = str(image_upload.get("filename") or "图片素材").strip()
@@ -201,7 +255,20 @@ def _inject_image_blocks(
                 }
             )
             continue
-        filepath = filepath.replace("\\", "/")
+        filepath = _normalize_markdown_image_path(filepath, filename)
+        if not filepath:
+            metadata_list.append(
+                {
+                    "slide_index": -1,
+                    "image_insertion_decision": "skip",
+                    "skip_reason": "invalid_image_filepath",
+                    "image_upload_id": image_upload_id,
+                    "required_insertion": required_insertion,
+                    "image_origin": image_origin,
+                    "image_match_reason": f"{image_origin}: {filename}",
+                }
+            )
+            continue
         inserted = False
 
         while target_pointer < len(candidate_indices):
@@ -245,8 +312,7 @@ def _inject_image_blocks(
             scores["keyword_coverage"] = 0.6
             patched_contents[target_index] = (
                 f"{current_content}\n\n"
-                f"![w:520](<{filepath}>)\n\n"
-                f"> 配图来源：{filename}"
+                f"![w:520](<{filepath}>)"
             ).strip()
 
             metadata_list.append(
@@ -457,28 +523,31 @@ async def inject_rag_images_into_courseware_content(
         if str(item.get("id") or "").strip() not in inserted_required_ids
     ]
 
+    # 禁用独立参考页追加逻辑 - 图片应融入正文而非作为附录
+    # appended_required_count = 0
+    # if missing_required_uploads:
+    #     base_markdown = (
+    #         updated_markdown if updated_markdown.strip() else markdown_content
+    #     )
+    #     updated_markdown = _append_image_appendix_slides(
+    #         base_markdown,
+    #         missing_required_uploads,
+    #     )
+    #     appended_required_count = len(missing_required_uploads)
+    #     for item in missing_required_uploads:
+    #         metadata_list.append(
+    #             {
+    #                 "slide_index": -1,
+    #                 "image_insertion_decision": "append_slide",
+    #                 "required_insertion": True,
+    #                 "image_upload_id": item.get("id"),
+    #                 "image_origin": item.get("origin"),
+    #                 "image_match_reason": f"selected_source: {item.get('filename')}",
+    #                 "skip_reason": "forced_append_for_required_image",
+    #             }
+    #         )
+
     appended_required_count = 0
-    if missing_required_uploads:
-        base_markdown = (
-            updated_markdown if updated_markdown.strip() else markdown_content
-        )
-        updated_markdown = _append_image_appendix_slides(
-            base_markdown,
-            missing_required_uploads,
-        )
-        appended_required_count = len(missing_required_uploads)
-        for item in missing_required_uploads:
-            metadata_list.append(
-                {
-                    "slide_index": -1,
-                    "image_insertion_decision": "append_slide",
-                    "required_insertion": True,
-                    "image_upload_id": item.get("id"),
-                    "image_origin": item.get("origin"),
-                    "image_match_reason": f"selected_source: {item.get('filename')}",
-                    "skip_reason": "forced_append_for_required_image",
-                }
-            )
 
     if updated_markdown != markdown_content or appended_required_count > 0:
         setattr(courseware_content, "markdown_content", updated_markdown)

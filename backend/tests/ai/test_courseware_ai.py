@@ -372,7 +372,7 @@ class TestGenerateOutline:
             for point in (section.key_points or [])
         )
         assert "互动提问" in merged_points
-        assert "板书逻辑" in merged_points
+        assert "板书逻辑" not in merged_points
 
     def test_fallback_outline_structure(self):
         """fallback 大纲结构完整"""
@@ -435,7 +435,7 @@ class TestGenerateOutline:
         assert "知识地图构建" in result.markdown_content
         assert "关键例题精讲" in result.markdown_content
         assert "互动提问" in result.markdown_content
-        assert "板书逻辑" in result.lesson_plan_markdown
+        assert "讲解主线" in result.lesson_plan_markdown
 
     @pytest.mark.asyncio
     async def test_generate_courseware_content_prefers_rag_grounded_fallback_on_timeout(

@@ -25,6 +25,14 @@ def parse_render_rewrite_response(content: str) -> str:
     # 去除可能的代码块包装
     normalized = strip_outer_code_fence(content)
 
+    # 标准化文档结构（修复 frontmatter 后误插入空白 slide 等问题）
+    from services.generation.marp_document import (
+        normalize_marp_markdown,
+        split_marp_document,
+    )
+
+    normalized = normalize_marp_markdown(normalized)
+
     # 校验必需元素
     if "marp: true" not in normalized:
         raise ValueError("Missing 'marp: true' in frontmatter")
@@ -32,9 +40,9 @@ def parse_render_rewrite_response(content: str) -> str:
     if "<style>" not in normalized or "</style>" not in normalized:
         raise ValueError("Missing <style> block")
 
-    # 校验至少有一个 slide（除了 frontmatter 和 style）
-    slides = re.split(r"\n---\n", normalized)
-    if len(slides) < 2:  # frontmatter + 至少 1 个 slide
+    # 校验至少有一个有效 slide（frontmatter/style 不计入）
+    _frontmatter, _styles, slides = split_marp_document(normalized)
+    if not slides:
         raise ValueError("No slides found after frontmatter")
 
     # 安全检查：禁止危险 CSS 模式

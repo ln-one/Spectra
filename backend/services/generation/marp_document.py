@@ -8,6 +8,7 @@ _FRONTMATTER_RE = re.compile(r"^(---\s*\n[\s\S]*?\n---)\s*\n?")
 _LEADING_STYLE_RE = re.compile(r"^(<style\b[^>]*>[\s\S]*?</style>)\s*", re.IGNORECASE)
 _SLIDE_SEPARATOR_RE = re.compile(r"\n---\s*\n")
 _TRAILING_SEPARATOR_RE = re.compile(r"(?:\n---\s*)+$")
+_LEADING_SEPARATOR_RE = re.compile(r"^(?:---\s*\n)+")
 
 
 def _strip_leading_style_blocks(content: str) -> tuple[str, str]:
@@ -35,12 +36,31 @@ def split_marp_document(markdown: str) -> tuple[str, str, list[str]]:
 
     style_blocks, body = _strip_leading_style_blocks(body)
     body = _TRAILING_SEPARATOR_RE.sub("", body.strip()).strip()
+    # Defensive normalization: strip accidental empty first slides such as:
+    # frontmatter + --- + <style>... or frontmatter + --- + real slide.
+    body = _LEADING_SEPARATOR_RE.sub("", body).strip()
 
     slides = [
         segment.strip()
         for segment in _SLIDE_SEPARATOR_RE.split(body)
         if segment.strip()
     ]
+
+    # If model output places <style> in the first slide segment, lift it out
+    # as global style to avoid producing a blank/style-only cover slide.
+    while slides:
+        leading_style, remaining = _strip_leading_style_blocks(slides[0])
+        if not leading_style:
+            break
+        style_blocks = "\n\n".join(
+            part for part in (style_blocks, leading_style) if part
+        ).strip()
+        remaining = remaining.strip()
+        if remaining:
+            slides[0] = remaining
+            break
+        slides = slides[1:]
+
     if not slides and body:
         slides = [body]
     return frontmatter, style_blocks, slides

@@ -9,11 +9,11 @@ logger = logging.getLogger(__name__)
 
 SCAFFOLD_SECTIONS = [
     ("导入与目标", ["主题引入", "学习目标", "先验知识唤醒", "课堂提问起点"], 2),
-    ("核心概念", ["关键概念", "原理讲解", "知识结构梳理", "板书主线"], 3),
+    ("核心概念", ["关键概念", "原理讲解", "知识结构梳理", "主线梳理"], 3),
     ("案例与应用", ["典型案例", "应用场景", "易错点辨析", "变式题训练"], 3),
     ("练习与总结", ["课堂练习", "结果反馈", "总结迁移", "提问回扣"], 2),
 ]
-FOCUS_ANCHORS = ("知识地图", "关键例题", "易错点澄清", "互动提问", "板书逻辑")
+FOCUS_ANCHORS = ("知识地图", "关键例题", "易错点澄清", "互动提问")
 GENERIC_TITLE_PATTERNS = (
     "核心知识点",
     "知识点",
@@ -151,8 +151,6 @@ def inject_focus_anchors(outline: CoursewareOutline) -> CoursewareOutline:
         ]
         if not any("互动" in point or "提问" in point for point in key_points):
             key_points.append(f"{section.title}互动提问")
-        if not any("板书" in point for point in key_points):
-            key_points.append(f"{section.title}板书逻辑")
         anchor = FOCUS_ANCHORS[idx % len(FOCUS_ANCHORS)]
         if not any(contains_anchor(point, anchor) for point in key_points):
             key_points.append(anchor)

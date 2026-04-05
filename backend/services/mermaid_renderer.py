@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
 
@@ -32,6 +33,23 @@ def _svg_to_data_uri_markdown(svg_markup: str) -> str:
     svg_bytes = svg_markup.encode("utf-8")
     svg_b64 = base64.b64encode(svg_bytes).decode("ascii")
     return "![Mermaid Diagram]" f"(data:image/svg+xml;base64,{svg_b64})"
+
+
+def _normalize_svg_markup(svg_markup: str) -> Optional[str]:
+    normalized = str(svg_markup or "").strip()
+    if not normalized:
+        return None
+
+    # Mermaid may emit HTML-style <br> in foreignObject, which is invalid XML.
+    normalized = re.sub(r"<br\s*>", "<br/>", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"<br\s*/\s*>", "<br/>", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"</br\s*>", "", normalized, flags=re.IGNORECASE)
+
+    try:
+        ET.fromstring(normalized)
+    except ET.ParseError:
+        return None
+    return normalized
 
 
 def _svg_to_file_markdown(
@@ -181,7 +199,14 @@ async def render_mermaid_to_svg(mermaid_code: str) -> Optional[str]:
         const container = document.getElementById('mermaid-container');
 
         try {{
-            mermaid.initialize({{ startOnLoad: false, theme: 'default' }});
+            mermaid.initialize({{
+                startOnLoad: false,
+                theme: 'default',
+                securityLevel: 'strict',
+                flowchart: {{ htmlLabels: false, useMaxWidth: false }},
+                sequence: {{ useMaxWidth: false }},
+                pie: {{ useMaxWidth: false }}
+            }});
             const result = await mermaid.render('spectra-mermaid-svg', source);
             container.innerHTML = result.svg;
             window.__MERMAID_RENDER_STATUS__ = 'done';
@@ -272,11 +297,21 @@ async def preprocess_mermaid_blocks(
     for match in reversed(matches):
         mermaid_code = match.group(1)
         svg = await render_mermaid_to_svg(mermaid_code)
+        if svg:
+            svg = _normalize_svg_markup(svg)
+            if not svg:
+                logger.warning("Mermaid rendered invalid SVG markup; will retry")
         if not svg:
             repaired_code = _repair_mermaid_code(mermaid_code)
             if repaired_code != mermaid_code:
                 logger.info("Retrying Mermaid render with repaired edge-label syntax")
                 svg = await render_mermaid_to_svg(repaired_code)
+                if svg:
+                    svg = _normalize_svg_markup(svg)
+                    if not svg:
+                        logger.warning(
+                            "Mermaid retry still produced invalid SVG markup"
+                        )
         if svg:
             replacement = _svg_to_markdown(
                 svg,

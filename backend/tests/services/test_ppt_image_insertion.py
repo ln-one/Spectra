@@ -5,6 +5,7 @@ import pytest
 
 from services.task_executor.ppt_image_insertion import (
     _extract_rag_image_upload_ids,
+    _normalize_markdown_image_path,
     inject_rag_images_into_courseware_content,
 )
 
@@ -18,6 +19,16 @@ def test_extract_rag_image_upload_ids_filters_by_source_type_and_filename():
     ]
 
     assert _extract_rag_image_upload_ids(rag_context) == ["u-image-1", "u-image-2"]
+
+
+def test_normalize_markdown_image_path_supports_common_upload_formats():
+    assert (
+        _normalize_markdown_image_path("/app/uploads/demo.png") == "../uploads/demo.png"
+    )
+    assert _normalize_markdown_image_path("uploads/demo.png") == "../uploads/demo.png"
+    assert (
+        _normalize_markdown_image_path("demo.png", "demo.png") == "../uploads/demo.png"
+    )
 
 
 @pytest.mark.asyncio
@@ -67,9 +78,7 @@ async def test_inject_rag_images_into_courseware_content_appends_image_blocks():
             max_images=1,
         )
 
-    assert (
-        "![w:520](</app/uploads/network-topology.png>)" in courseware.markdown_content
-    )
+    assert "![w:520](<../uploads/network-topology.png>)" in courseware.markdown_content
     assert "配图来源：network-topology.png" in courseware.markdown_content
 
 
@@ -160,7 +169,7 @@ async def test_inject_rag_images_into_courseware_content_uses_project_ready_imag
             max_images=1,
         )
 
-    assert "![w:520](</app/uploads/project-ready.png>)" in courseware.markdown_content
+    assert "![w:520](<../uploads/project-ready.png>)" in courseware.markdown_content
     assert "配图来源：project-ready.png" in courseware.markdown_content
 
 
@@ -213,8 +222,8 @@ async def test_inject_rag_images_scans_next_slide_when_current_is_skipped():
 
     slides = [part.strip() for part in courseware.markdown_content.split("\n\n---\n\n")]
     assert len(slides) == 4
-    assert "![w:520](</app/uploads/flow.png>)" not in slides[1]
-    assert "![w:520](</app/uploads/flow.png>)" in slides[2]
+    assert "![w:520](<../uploads/flow.png>)" not in slides[1]
+    assert "![w:520](<../uploads/flow.png>)" in slides[2]
 
 
 @pytest.mark.asyncio
@@ -263,5 +272,5 @@ async def test_inject_rag_images_for_selected_sources_appends_image_slide_when_n
 
     slides = [part.strip() for part in courseware.markdown_content.split("\n\n---\n\n")]
     assert len(slides) == 4
-    assert "![w:900](</app/uploads/selected-only.png>)" in slides[-1]
+    assert "![w:900](<../uploads/selected-only.png>)" in slides[-1]
     assert "配图来源：selected-only.png" in slides[-1]

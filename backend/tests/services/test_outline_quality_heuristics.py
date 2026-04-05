@@ -69,7 +69,7 @@ def test_reduce_outline_repetition_removes_cross_section_duplicate_points():
     assert "受力分析" in reduced.sections[1].key_points
 
 
-def test_inject_focus_anchors_uses_section_specific_interaction_and_board_logic():
+def test_inject_focus_anchors_uses_section_specific_interaction_and_focus_anchor():
     outline = CoursewareOutline(
         title="测试课程",
         sections=[
@@ -83,6 +83,6 @@ def test_inject_focus_anchors_uses_section_specific_interaction_and_board_logic(
     second_points = enriched.sections[1].key_points
 
     assert "导入与目标互动提问" in first_points
-    assert "导入与目标板书逻辑" in first_points
+    assert "知识地图" in first_points
     assert "核心概念互动提问" in second_points
-    assert "核心概念板书逻辑" in second_points
+    assert "关键例题" in second_points

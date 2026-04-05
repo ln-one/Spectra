@@ -14,6 +14,7 @@ from typing import Any, Awaitable, Callable, Optional
 try:
     from ..runtime_paths import get_generated_dir
     from ..template import TemplateConfig, TemplateService
+    from .marp_document import normalize_marp_markdown, split_marp_document
     from .marp_generator import generate_pptx as _generate_pptx
     from .marp_generator import generate_slide_images as _generate_slide_images
     from .pandoc_generator import generate_docx as _generate_docx
@@ -27,6 +28,10 @@ except ImportError:
     from services.generation.marp_generator import (
         generate_slide_images as _generate_slide_images,
     )
+    from services.generation.marp_document import (
+        normalize_marp_markdown,
+        split_marp_document,
+    )
     from services.generation.pandoc_generator import generate_docx as _generate_docx
     from services.generation.tool_checker import check_tools_installed
     from services.generation.types import CoursewareContent
@@ -35,9 +40,83 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-_MERMAID_IMAGE_FIT_CSS = """
+_RUNTIME_LAYOUT_GUARD_MARKER = "spectra-runtime-layout-guard"
+_CLASS_COMMENT_RE = re.compile(r"<!--\s*_class:\s*([^>]+?)\s*-->", re.IGNORECASE)
+_BULLET_LINE_RE = re.compile(r"^\s*(?:[-*+]\s+|\d+\.\s+)")
+
+_RUNTIME_LAYOUT_GUARD_CSS = """
 <style>
-/* Enforced Mermaid image fit rules (runtime guard) */
+/* spectra-runtime-layout-guard */
+section {{
+  overflow: hidden;
+}}
+
+/* Tighten typography spacing to reduce overflow risk */
+section p,
+section li,
+section blockquote,
+section td,
+section th {{
+  line-height: 1.32 !important;
+}}
+
+section ul,
+section ol {{
+  margin: 0.4em 0 0.2em 1.1em !important;
+  padding-left: 0.2em !important;
+}}
+
+section li {{
+  margin: 0.16em 0 !important;
+}}
+
+section.density-dense {{
+  font-size: 0.88em !important;
+}}
+
+/* TOC overflow guard */
+section.toc {{
+  font-size: 0.92em !important;
+}}
+
+section.toc h1 {{
+  margin-bottom: 0.45em !important;
+}}
+
+section.toc.toc-columns ul,
+section.toc.toc-columns ol {{
+  columns: 2;
+  column-gap: 40px;
+}}
+
+section.toc.toc-columns li {{
+  break-inside: avoid;
+}}
+
+/* Generic image fit guard */
+section img {{
+  display: block;
+  margin: 10px auto !important;
+  max-width: 92% !important;
+  max-height: min(40vh, 300px) !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain;
+}}
+
+section.density-sparse img {{
+  max-height: min(44vh, 340px) !important;
+}}
+
+section.density-medium img {{
+  max-height: min(36vh, 280px) !important;
+}}
+
+section.density-dense img {{
+  max-height: min(28vh, 220px) !important;
+}}
+
+/* Enforced Mermaid image fit rules */
 section img[alt="Mermaid Diagram"] {
   display: block;
   margin: 12px auto;
@@ -83,13 +162,123 @@ def _should_fail_on_unrendered_mermaid() -> bool:
     return _is_truthy(os.getenv("MERMAID_STRICT_MODE", "false"))
 
 
-def _inject_mermaid_fit_css(markdown: str) -> str:
+def _slide_metrics(slide: str) -> dict[str, int]:
+    lines = [line.strip() for line in slide.splitlines() if line.strip()]
+    content_lines = [line for line in lines if not line.startswith("<!-- _class:")]
+    bullet_count = sum(1 for line in content_lines if _BULLET_LINE_RE.match(line))
+    image_count = slide.count("![")
+    return {
+        "line_count": len(content_lines),
+        "bullet_count": bullet_count,
+        "image_count": image_count,
+    }
+
+
+def _is_toc_slide(slide: str, class_tokens: list[str]) -> bool:
+    if "toc" in class_tokens:
+        return True
+    return bool(re.search(r"(?m)^\s*#\s*(目录|contents?)\s*$", slide, re.IGNORECASE))
+
+
+def _upsert_slide_class(
+    slide: str,
+    *,
+    force_density: Optional[str] = None,
+    add_tokens: Optional[list[str]] = None,
+) -> str:
+    add_tokens = [token for token in (add_tokens or []) if token]
+    class_match = _CLASS_COMMENT_RE.search(slide)
+    existing_tokens: list[str] = []
+    if class_match:
+        existing_tokens = [token.strip() for token in class_match.group(1).split()]
+
+    page_type = next(
+        (token for token in existing_tokens if token in {"cover", "toc", "content"}),
+        "content",
+    )
+    density = next(
+        (token for token in existing_tokens if token.startswith("density-")),
+        "density-medium",
+    )
+    if force_density:
+        density = force_density
+
+    merged_tokens: list[str] = [
+        token
+        for token in existing_tokens
+        if token not in {"cover", "toc", "content"} and not token.startswith("density-")
+    ]
+    for token in add_tokens:
+        if token not in merged_tokens:
+            merged_tokens.append(token)
+
+    class_line = (
+        "<!-- _class: " + " ".join([page_type, density, *merged_tokens]) + " -->"
+    )
+    if class_match:
+        return (
+            slide[: class_match.start()] + class_line + slide[class_match.end() :]
+        ).strip()
+    return f"{class_line}\n\n{slide.strip()}"
+
+
+def _apply_layout_overflow_guards(markdown: str) -> str:
+    frontmatter, style_blocks, slides = split_marp_document(markdown)
+    if not slides:
+        return markdown
+
+    adjusted_slides: list[str] = []
+    adjusted_any = False
+
+    for slide in slides:
+        class_match = _CLASS_COMMENT_RE.search(slide)
+        class_tokens = (
+            [token.strip() for token in class_match.group(1).split()]
+            if class_match
+            else []
+        )
+        metrics = _slide_metrics(slide)
+        is_toc = _is_toc_slide(slide, class_tokens)
+        needs_dense = (
+            metrics["bullet_count"] >= 8
+            or metrics["line_count"] >= 14
+            or (metrics["image_count"] > 0 and metrics["line_count"] >= 10)
+        )
+        add_tokens: list[str] = []
+        if is_toc and metrics["bullet_count"] >= 8:
+            add_tokens.append("toc-columns")
+
+        updated_slide = slide
+        if needs_dense or add_tokens:
+            updated_slide = _upsert_slide_class(
+                slide,
+                force_density="density-dense" if needs_dense else None,
+                add_tokens=add_tokens,
+            )
+            adjusted_any = adjusted_any or (updated_slide != slide)
+        adjusted_slides.append(updated_slide)
+
+    if not adjusted_any:
+        return markdown
+
+    parts: list[str] = []
+    if frontmatter.strip():
+        parts.append(frontmatter.strip())
+    first_slide = adjusted_slides[0].strip()
+    if style_blocks.strip():
+        first_slide = f"{style_blocks.strip()}\n\n{first_slide}"
+    parts.append(first_slide)
+    parts.extend(slide.strip() for slide in adjusted_slides[1:] if slide.strip())
+    return "\n\n---\n\n".join(parts).strip() + "\n"
+
+
+def _inject_runtime_layout_guard_css(markdown: str) -> str:
     """
-    Ensure Mermaid image fit CSS is always present in final Marp document.
+    Ensure runtime layout guard CSS is always present in final Marp document.
 
     This is a runtime guard independent from prompt/model output.
     """
-    if 'img[alt="Mermaid Diagram"]' in markdown:
+    if _RUNTIME_LAYOUT_GUARD_MARKER in markdown:
         return markdown
 
     style_close = "</style>"
@@ -99,7 +288,7 @@ def _inject_mermaid_fit_css(markdown: str) -> str:
         return (
             markdown[:insert_pos]
             + "\n\n"
-            + _MERMAID_IMAGE_FIT_CSS.strip()
+            + _RUNTIME_LAYOUT_GUARD_CSS.strip()
             + "\n"
             + markdown[insert_pos:]
         )
@@ -110,12 +299,12 @@ def _inject_mermaid_fit_css(markdown: str) -> str:
         return (
             markdown[:insert_pos]
             + "\n"
-            + _MERMAID_IMAGE_FIT_CSS.strip()
+            + _RUNTIME_LAYOUT_GUARD_CSS.strip()
             + "\n"
             + markdown[insert_pos:]
         )
 
-    return _MERMAID_IMAGE_FIT_CSS.strip() + "\n\n" + markdown
+    return _RUNTIME_LAYOUT_GUARD_CSS.strip() + "\n\n" + markdown
 
 
 def _serialize_model_like(value: Any) -> Optional[dict]:
@@ -251,7 +440,9 @@ class GenerationService:
             asset_dir=self.output_dir,
             asset_prefix=f"{task_id}_mermaid",
         )
-        full_markdown = _inject_mermaid_fit_css(full_markdown)
+        full_markdown = normalize_marp_markdown(full_markdown)
+        full_markdown = _apply_layout_overflow_guards(full_markdown)
+        full_markdown = _inject_runtime_layout_guard_css(full_markdown)
         logger.info(f"[Task: {task_id}] Mermaid preprocessing completed")
 
         # 调用生成器
@@ -309,7 +500,9 @@ class GenerationService:
                     asset_dir=self.output_dir,
                     asset_prefix=f"{task_id}_mermaid_slide_{page_index + 1:03d}",
                 )
-                return _inject_mermaid_fit_css(transformed)
+                transformed = normalize_marp_markdown(transformed)
+                transformed = _apply_layout_overflow_guards(transformed)
+                return _inject_runtime_layout_guard_css(transformed)
 
             return await _generate_slide_images(
                 task_id,
@@ -325,7 +518,9 @@ class GenerationService:
             asset_dir=self.output_dir,
             asset_prefix=f"{task_id}_mermaid",
         )
-        full_markdown = _inject_mermaid_fit_css(full_markdown)
+        full_markdown = normalize_marp_markdown(full_markdown)
+        full_markdown = _apply_layout_overflow_guards(full_markdown)
+        full_markdown = _inject_runtime_layout_guard_css(full_markdown)
         logger.info(f"[Task: {task_id}] Mermaid preprocessing completed")
 
         return await _generate_slide_images(

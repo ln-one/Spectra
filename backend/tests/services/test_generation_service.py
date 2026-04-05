@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+import services.generation as generation_module
 from services.generation import CoursewareContent, GenerationService
 from services.template import TemplateConfig, TemplateStyle
 from utils.generation_exceptions import (
@@ -380,3 +381,47 @@ class TestConcurrentGeneration:
             assert len(results) == 3
             assert all(r.endswith(".pptx") for r in results)
             assert mock_gen.call_count == 3
+
+
+class TestRuntimeLayoutGuards:
+    def test_apply_layout_overflow_guards_marks_toc_dense_and_columns(self):
+        markdown = """---
+marp: true
+theme: default
+---
+
+<style>
+section { color: #333; }
+</style>
+
+<!-- _class: toc density-medium -->
+
+# 目录
+
+1. 章节一
+2. 章节二
+3. 章节三
+4. 章节四
+5. 章节五
+6. 章节六
+7. 章节七
+8. 章节八
+9. 章节九
+"""
+        guarded = generation_module._apply_layout_overflow_guards(markdown)
+        assert "toc density-dense toc-columns" in guarded
+
+    def test_inject_runtime_layout_guard_css_uses_marker(self):
+        markdown = """---
+marp: true
+theme: default
+---
+
+<style>
+img[alt="Mermaid Diagram"] { max-height: 300px; }
+</style>
+
+# Slide
+"""
+        injected = generation_module._inject_runtime_layout_guard_css(markdown)
+        assert generation_module._RUNTIME_LAYOUT_GUARD_MARKER in injected
