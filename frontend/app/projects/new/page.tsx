@@ -500,11 +500,11 @@ export default function NewProjectPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() =>
-                          setFormData({
-                            ...formData,
+                          setFormData((prev) => ({
+                            ...prev,
                             visibility: "private",
                             is_referenceable: false,
-                          })
+                          }))
                         }
                         className={cn(
                           "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
@@ -518,7 +518,10 @@ export default function NewProjectPage() {
                       </button>
                       <button
                         onClick={() =>
-                          setFormData({ ...formData, visibility: "shared" })
+                          setFormData((prev) => ({
+                            ...prev,
+                            visibility: "shared",
+                          }))
                         }
                         className={cn(
                           "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
@@ -541,8 +544,7 @@ export default function NewProjectPage() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="space-y-0.5">
-                          <label
-                            htmlFor="is_referenceable_new"
+                          <p
                             className={cn(
                               "text-xs font-bold",
                               formData.visibility === "shared"
@@ -551,20 +553,21 @@ export default function NewProjectPage() {
                             )}
                           >
                             允许被其他项目引用
-                          </label>
+                          </p>
                           <p className="text-[11px] text-zinc-500">
                             开启后可作为其他项目的父项目/基底项目。
                           </p>
                         </div>
                         <Switch
                           id="is_referenceable_new"
+                          className="relative z-10 shrink-0 pointer-events-auto"
                           checked={formData.is_referenceable}
                           disabled={formData.visibility === "private"}
                           onCheckedChange={(checked) =>
-                            setFormData({
-                              ...formData,
+                            setFormData((prev) => ({
+                              ...prev,
                               is_referenceable: checked,
-                            })
+                            }))
                           }
                         />
                       </div>
