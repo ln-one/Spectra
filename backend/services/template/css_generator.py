@@ -178,7 +178,9 @@ section.density-dense img[alt="Mermaid Diagram"] {
 }
 
 section.cover .mermaid,
-section.cover img[alt="Mermaid Diagram"] {
+section.toc .mermaid,
+section.cover img[alt="Mermaid Diagram"],
+section.toc img[alt="Mermaid Diagram"] {
   display: none;
 }
 """
