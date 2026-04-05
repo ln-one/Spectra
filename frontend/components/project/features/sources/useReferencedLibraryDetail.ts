@@ -28,19 +28,23 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function normalizeLibrarySessions(rawSessions: unknown[]): ReferencedLibrarySession[] {
+function normalizeLibrarySessions(
+  rawSessions: unknown[]
+): ReferencedLibrarySession[] {
   return rawSessions
     .map((raw) => {
       const session = asRecord(raw);
       if (!session) return null;
-      const id = typeof session.session_id === "string" ? session.session_id : "";
+      const id =
+        typeof session.session_id === "string" ? session.session_id : "";
       if (!id) return null;
       const titleRaw = session.display_title;
       const title =
         typeof titleRaw === "string" && titleRaw.trim()
           ? titleRaw.trim()
           : `会话 ${id.slice(-6)}`;
-      const state = typeof session.state === "string" ? session.state : "UNKNOWN";
+      const state =
+        typeof session.state === "string" ? session.state : "UNKNOWN";
       const createdAt =
         typeof session.created_at === "string"
           ? session.created_at
@@ -87,18 +91,17 @@ export function useReferencedLibraryDetail() {
         artifactsResult,
         referencesResult,
         filesResult,
-      ] =
-        await Promise.allSettled([
-          projectsApi.getProject(targetProjectId),
-          generateApi.listSessions({
-            project_id: targetProjectId,
-            page: 1,
-            limit: 20,
-          }),
-          projectSpaceApi.getArtifacts(targetProjectId),
-          projectSpaceApi.getReferences(targetProjectId),
-          projectsApi.getProjectFiles(targetProjectId, { page: 1, limit: 20 }),
-        ]);
+      ] = await Promise.allSettled([
+        projectsApi.getProject(targetProjectId),
+        generateApi.listSessions({
+          project_id: targetProjectId,
+          page: 1,
+          limit: 20,
+        }),
+        projectSpaceApi.getArtifacts(targetProjectId),
+        projectSpaceApi.getReferences(targetProjectId),
+        projectsApi.getProjectFiles(targetProjectId, { page: 1, limit: 20 }),
+      ]);
 
       const errors: string[] = [];
 
@@ -189,4 +192,3 @@ export function useReferencedLibraryDetail() {
     refreshDetail,
   };
 }
-

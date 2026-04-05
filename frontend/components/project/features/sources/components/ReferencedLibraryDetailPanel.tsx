@@ -363,7 +363,8 @@ export function ReferencedLibraryDetailPanel({
                                       {item.title}
                                     </p>
                                     <p className="mt-0.5 text-sm text-zinc-600">
-                                      {item.status} · {formatTime(item.createdAt)}
+                                      {item.status} ·{" "}
+                                      {formatTime(item.createdAt)}
                                     </p>
                                   </div>
                                 ))}
@@ -424,7 +425,8 @@ export function ReferencedLibraryDetailPanel({
                               file.filename
                             );
                             const fileConfig =
-                              FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
+                              FILE_TYPE_CONFIG[fileType] ||
+                              FILE_TYPE_CONFIG.other;
                             const FileIcon = fileConfig.icon;
                             return (
                               <div
@@ -465,4 +467,3 @@ export function ReferencedLibraryDetailPanel({
     portalTarget
   );
 }
-

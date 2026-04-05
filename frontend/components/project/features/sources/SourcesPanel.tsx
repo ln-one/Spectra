@@ -87,8 +87,7 @@ export function SourcesPanel({
       activeReferencedLibraries.map((reference) => {
         const relationLabel =
           reference.relation_type === "base" ? "主基底" : "辅助";
-        const modeLabel =
-          reference.mode === "follow" ? "跟随更新" : "固定版本";
+        const modeLabel = reference.mode === "follow" ? "跟随更新" : "固定版本";
         const statusText = `引用库 · ${relationLabel} · ${modeLabel}`;
         const displayName =
           reference.target_project_name?.trim() || reference.target_project_id;

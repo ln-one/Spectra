@@ -33,7 +33,9 @@ export function inferArtifactDownloadExt(artifactType?: string | null): string {
   }
 }
 
-export function resolveArtifactTitleFromMetadata(metadata: unknown): string | null {
+export function resolveArtifactTitleFromMetadata(
+  metadata: unknown
+): string | null {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     return null;
   }
@@ -68,4 +70,3 @@ export function buildArtifactDownloadFilename({
   );
   return `${base}.${resolvedExt || "bin"}`;
 }
-

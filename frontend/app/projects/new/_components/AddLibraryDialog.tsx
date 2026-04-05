@@ -1,6 +1,11 @@
 "use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,7 +43,8 @@ function visibilityLabel(value: NewProjectLibrary["visibility"]) {
 }
 
 function visibilityClass(value: NewProjectLibrary["visibility"]) {
-  if (value === "shared") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (value === "shared")
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (value === "private") return "border-rose-200 bg-rose-50 text-rose-700";
   return "border-zinc-200 bg-zinc-50 text-zinc-500";
 }
@@ -118,7 +124,9 @@ export function AddLibraryDialog({
                 <Layers className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                 <Input
                   value={baseProjectId}
-                  onChange={(event) => onBaseProjectIdChange(event.target.value)}
+                  onChange={(event) =>
+                    onBaseProjectIdChange(event.target.value)
+                  }
                   placeholder="从列表选择或手动输入"
                   className="h-10 rounded-xl border-zinc-200/80 bg-white/80 pl-10 text-sm font-semibold"
                 />
@@ -165,16 +173,28 @@ export function AddLibraryDialog({
                 const selected = baseProjectId.trim() === library.id;
                 const disabled = !library.isReferenceable;
                 return (
-                  <article key={library.id} className="flex items-start justify-between gap-3 py-3">
+                  <article
+                    key={library.id}
+                    className="flex items-start justify-between gap-3 py-3"
+                  >
                     <div className="min-w-0 space-y-1">
-                      <p className="truncate text-sm font-bold text-zinc-900" title={library.name}>
+                      <p
+                        className="truncate text-sm font-bold text-zinc-900"
+                        title={library.name}
+                      >
                         {library.name}
                       </p>
-                      <p className="truncate text-xs text-zinc-500" title={library.id}>
+                      <p
+                        className="truncate text-xs text-zinc-500"
+                        title={library.id}
+                      >
                         {library.id}
                       </p>
                       {library.description ? (
-                        <p className="line-clamp-2 text-xs text-zinc-500" title={library.description}>
+                        <p
+                          className="line-clamp-2 text-xs text-zinc-500"
+                          title={library.description}
+                        >
                           {library.description}
                         </p>
                       ) : null}

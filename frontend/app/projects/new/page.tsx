@@ -47,9 +47,7 @@ function normalizeNewProjectLibrary(raw: unknown): NewProjectLibrary | null {
   if (!id) return null;
 
   const name =
-    typeof project.name === "string" && project.name.trim()
-      ? project.name
-      : id;
+    typeof project.name === "string" && project.name.trim() ? project.name : id;
   const description =
     typeof project.description === "string" ? project.description : "";
   const visibilityRaw = project.visibility;
@@ -123,14 +121,16 @@ export default function NewProjectPage() {
     const keyword = libraryKeyword.trim().toLowerCase();
     if (!keyword) return libraries;
     return libraries.filter((library) => {
-      const text = `${library.name} ${library.id} ${library.description}`.toLowerCase();
+      const text =
+        `${library.name} ${library.id} ${library.description}`.toLowerCase();
       return text.includes(keyword);
     });
   }, [libraries, libraryKeyword]);
 
   const selectedBaseLibrary = useMemo(
     () =>
-      libraries.find((item) => item.id === formData.base_project_id.trim()) ?? null,
+      libraries.find((item) => item.id === formData.base_project_id.trim()) ??
+      null,
     [libraries, formData.base_project_id]
   );
 
@@ -369,13 +369,19 @@ export default function NewProjectPage() {
                       <Library className="w-4 h-4 text-amber-600" />
                       <span
                         className="text-xs font-bold text-amber-700 truncate max-w-[200px]"
-                        title={selectedBaseLibrary?.name || formData.base_project_id}
+                        title={
+                          selectedBaseLibrary?.name || formData.base_project_id
+                        }
                       >
-                        已选库：{selectedBaseLibrary?.name || formData.base_project_id}
+                        已选库：
+                        {selectedBaseLibrary?.name || formData.base_project_id}
                       </span>
                       <button
                         onClick={() =>
-                          setFormData((prev) => ({ ...prev, base_project_id: "" }))
+                          setFormData((prev) => ({
+                            ...prev,
+                            base_project_id: "",
+                          }))
                         }
                         className="p-1 rounded-full hover:bg-zinc-200 text-zinc-400 hover:text-red-500 transition-colors"
                       >
@@ -384,7 +390,7 @@ export default function NewProjectPage() {
                     </motion.div>
                   ) : null}
 
-                  {pendingFiles.map((file, i) => (
+                  {pendingFiles.map((file, i) =>
                     (() => {
                       const fileType = getFileTypeFromExtension(file.name);
                       const typeConfig =
@@ -416,7 +422,7 @@ export default function NewProjectPage() {
                         </motion.div>
                       );
                     })()
-                  ))}
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -451,8 +457,6 @@ export default function NewProjectPage() {
                 className="w-full bg-white rounded-[2rem] border border-zinc-100 p-8 shadow-xl overflow-hidden"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
-
                   {/* Name Input */}
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">

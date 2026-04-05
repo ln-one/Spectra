@@ -198,7 +198,9 @@ export function LibraryDrawer({
                   currentLibrarySaving={currentLibrarySaving}
                   currentLibraryNameDraft={currentLibraryNameDraft}
                   setCurrentLibraryNameDraft={setCurrentLibraryNameDraft}
-                  currentLibraryDescriptionDraft={currentLibraryDescriptionDraft}
+                  currentLibraryDescriptionDraft={
+                    currentLibraryDescriptionDraft
+                  }
                   setCurrentLibraryDescriptionDraft={
                     setCurrentLibraryDescriptionDraft
                   }
@@ -253,7 +255,9 @@ export function LibraryDrawer({
                   onReload={loadReferences}
                   onReloadLibraries={loadAvailableLibraries}
                   onReloadCurrentLibrarySettings={loadCurrentLibrarySettings}
-                  onSaveCurrentLibrarySettings={handleSaveCurrentLibrarySettings}
+                  onSaveCurrentLibrarySettings={
+                    handleSaveCurrentLibrarySettings
+                  }
                 />
               </div>
             </ScrollArea>
@@ -263,5 +267,3 @@ export function LibraryDrawer({
     </AnimatePresence>
   );
 }
-
-

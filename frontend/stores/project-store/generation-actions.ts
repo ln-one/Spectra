@@ -330,7 +330,9 @@ export function createGenerationActions({
             title: artifact.title,
             artifactId: artifact.artifactId,
             artifactType: artifact.artifactType,
-            ext: inferArtifactDownloadExt(artifact.artifactType as Artifact["type"]),
+            ext: inferArtifactDownloadExt(
+              artifact.artifactType as Artifact["type"]
+            ),
           });
           link.click();
           URL.revokeObjectURL(url);

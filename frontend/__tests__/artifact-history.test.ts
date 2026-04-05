@@ -111,5 +111,4 @@ describe("artifact history mapper", () => {
     const grouped = groupArtifactsByTool(artifacts);
     expect(grouped.mindmap[0]?.title).toBe("Mindmap 生成记录");
   });
-
 });

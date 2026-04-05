@@ -50,9 +50,7 @@ function normalizeLibraryProject(raw: unknown): AvailableLibraryProject | null {
   if (!id) return null;
 
   const name =
-    typeof project.name === "string" && project.name.trim()
-      ? project.name
-      : id;
+    typeof project.name === "string" && project.name.trim() ? project.name : id;
   const description =
     typeof project.description === "string" ? project.description : "";
   const status = typeof project.status === "string" ? project.status : "draft";
@@ -92,9 +90,7 @@ function normalizeCurrentLibrarySettings(
   if (!id) return null;
 
   const name =
-    typeof project.name === "string" && project.name.trim()
-      ? project.name
-      : id;
+    typeof project.name === "string" && project.name.trim() ? project.name : id;
   const description =
     typeof project.description === "string" ? project.description : "";
   const gradeLevelRaw = project.grade_level ?? project.gradeLevel;
@@ -205,8 +201,10 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     useState("");
   const [currentLibraryVisibilityDraft, setCurrentLibraryVisibilityDraft] =
     useState<"private" | "shared">("private");
-  const [currentLibraryReferenceableDraft, setCurrentLibraryReferenceableDraft] =
-    useState(false);
+  const [
+    currentLibraryReferenceableDraft,
+    setCurrentLibraryReferenceableDraft,
+  ] = useState(false);
 
   const loadReferences = useCallback(async () => {
     setReferencesState({ loading: true, error: null });

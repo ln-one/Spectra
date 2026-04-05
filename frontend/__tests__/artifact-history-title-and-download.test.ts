@@ -74,4 +74,3 @@ describe("artifact history and download filename", () => {
     expect(resolveArtifactTitleFromMetadata({})).toBeNull();
   });
 });
-

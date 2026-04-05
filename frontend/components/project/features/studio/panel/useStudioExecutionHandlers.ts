@@ -628,7 +628,8 @@ export function useStudioExecutionHandlers({
               toolType: expandedTool,
               artifactType,
               artifactKind: undefined,
-              sourceArtifactId: selectedSourceId || draftSourceArtifactId || null,
+              sourceArtifactId:
+                selectedSourceId || draftSourceArtifactId || null,
               title:
                 (artifactPayload.title as string | undefined) ||
                 TOOL_LABELS[expandedTool] + " - Generating",
