@@ -14,7 +14,6 @@ import {
   X,
   ChevronDown,
   ArrowRight,
-  FileText,
   Shield,
   Users,
   Settings,
@@ -25,6 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/stores/projectStore";
+import { FILE_TYPE_CONFIG } from "@/components/project/features/sources/constants";
+import { getFileTypeFromExtension } from "@/components/project/features/sources/utils";
 import {
   AddLibraryDialog,
   type NewProjectLibrary,
@@ -362,11 +363,11 @@ export default function NewProjectPage() {
                       key={`library-${formData.base_project_id}`}
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="flex items-center gap-2 px-3 py-2 bg-zinc-50 rounded-xl border border-zinc-100 group/file"
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 group/file"
                     >
-                      <FileText className="w-4 h-4 text-blue-500" />
+                      <Library className="w-4 h-4 text-amber-600" />
                       <span
-                        className="text-xs font-bold text-zinc-600 truncate max-w-[200px]"
+                        className="text-xs font-bold text-amber-700 truncate max-w-[200px]"
                         title={selectedBaseLibrary?.name || formData.base_project_id}
                       >
                         已选库：{selectedBaseLibrary?.name || formData.base_project_id}
@@ -383,23 +384,37 @@ export default function NewProjectPage() {
                   ) : null}
 
                   {pendingFiles.map((file, i) => (
-                    <motion.div
-                      key={`${file.name}-${i}`}
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="flex items-center gap-2 px-3 py-2 bg-zinc-50 rounded-xl border border-zinc-100 group/file"
-                    >
-                      <FileText className="w-4 h-4 text-blue-500" />
-                      <span className="text-xs font-bold text-zinc-600 truncate max-w-[120px]">
-                        {file.name}
-                      </span>
-                      <button
-                        onClick={() => removeFile(i)}
-                        className="p-1 rounded-full hover:bg-zinc-200 text-zinc-400 hover:text-red-500 transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </motion.div>
+                    (() => {
+                      const fileType = getFileTypeFromExtension(file.name);
+                      const typeConfig =
+                        FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
+                      const Icon = typeConfig.icon;
+                      return (
+                        <motion.div
+                          key={`${file.name}-${i}`}
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-100 group/file",
+                            typeConfig.bgGradient
+                          )}
+                        >
+                          <Icon className={cn("w-4 h-4", typeConfig.color)} />
+                          <span
+                            className="text-xs font-bold text-zinc-700 truncate max-w-[120px]"
+                            title={file.name}
+                          >
+                            {file.name}
+                          </span>
+                          <button
+                            onClick={() => removeFile(i)}
+                            className="p-1 rounded-full hover:bg-zinc-200/70 text-zinc-400 hover:text-red-500 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </motion.div>
+                      );
+                    })()
                   ))}
                 </motion.div>
               )}
