@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/stores/projectStore";
@@ -530,40 +531,50 @@ export default function NewProjectPage() {
                         共享
                       </button>
                     </div>
-                  </div>
-
-                  {/* Allow Reference */}
-                  {formData.visibility === "shared" && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center gap-3 pt-6"
+                    <div
+                      className={cn(
+                        "rounded-xl border px-3 py-2.5 transition-all",
+                        formData.visibility === "shared"
+                          ? "border-zinc-200 bg-zinc-50/80"
+                          : "border-zinc-100 bg-zinc-50/50"
+                      )}
                     >
-                      <input
-                        type="checkbox"
-                        id="is_referenceable_new"
-                        checked={formData.is_referenceable}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            is_referenceable: e.target.checked,
-                          })
-                        }
-                        className="w-5 h-5 rounded-lg border-zinc-200 text-zinc-900 focus:ring-zinc-900"
-                      />
-                      <label
-                        htmlFor="is_referenceable_new"
-                        className="text-xs font-bold text-zinc-600"
-                      >
-                        允许被其他项目引用
-                      </label>
-                    </motion.div>
-                  )}
-                  {formData.visibility === "private" ? (
-                    <p className="text-xs font-bold text-zinc-500">
-                      私有项目默认不可被其他项目引用。如需作为基底项目使用，请改成共享项目。
-                    </p>
-                  ) : null}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <label
+                            htmlFor="is_referenceable_new"
+                            className={cn(
+                              "text-xs font-bold",
+                              formData.visibility === "shared"
+                                ? "text-zinc-700"
+                                : "text-zinc-400"
+                            )}
+                          >
+                            允许被其他项目引用
+                          </label>
+                          <p className="text-[11px] text-zinc-500">
+                            开启后可作为其他项目的父项目/基底项目。
+                          </p>
+                        </div>
+                        <Switch
+                          id="is_referenceable_new"
+                          checked={formData.is_referenceable}
+                          disabled={formData.visibility === "private"}
+                          onCheckedChange={(checked) =>
+                            setFormData({
+                              ...formData,
+                              is_referenceable: checked,
+                            })
+                          }
+                        />
+                      </div>
+                      {formData.visibility === "private" ? (
+                        <p className="mt-2 text-[11px] font-semibold text-zinc-500">
+                          私有项目下该选项自动关闭，切换到共享后可开启。
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
                   {submitError ? (
                     <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
                       {submitError}
