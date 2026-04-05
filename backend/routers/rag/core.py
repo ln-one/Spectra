@@ -1,11 +1,13 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
 from schemas.rag import RAGIndexRequest, RAGSearchRequest, RAGSimilarRequest
 from services.rag_api_service import (
     find_similar_response,
     get_source_detail_response,
+    get_source_image_response,
     index_file_response,
     search_knowledge_base_response,
 )
@@ -44,6 +46,35 @@ async def get_source_detail(
         raise
     except Exception as exc:
         raise handle_rag_error("获取来源详情失败", exc)
+
+
+@router.get("/sources/{chunk_id}/image")
+async def get_source_image(
+    chunk_id: str,
+    path: str,
+    project_id: Optional[str] = None,
+    user_id: str = Depends(get_current_user),
+):
+    """读取来源分块中的图片资源（按需缓存）。"""
+    try:
+        payload = await get_source_image_response(
+            chunk_id=chunk_id,
+            image_path=path,
+            project_id=project_id,
+            user_id=user_id,
+        )
+        return StreamingResponse(
+            iter([payload.content]),
+            media_type=payload.media_type,
+            headers={
+                "ETag": payload.etag,
+                "Cache-Control": payload.cache_control,
+            },
+        )
+    except APIException:
+        raise
+    except Exception as exc:
+        raise handle_rag_error("获取来源图片失败", exc)
 
 
 @router.post("/index")

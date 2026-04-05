@@ -33,9 +33,9 @@ def _to_session_ref(
     schema_version: int,
     task_id: Optional[str] = None,
 ) -> dict:
-    display_title = getattr(
-        session, "displayTitle", None
-    ) or build_default_session_title(session.id)
+    display_title = (
+        getattr(session, "displayTitle", None) or build_default_session_title()
+    )
     display_title_source = (
         getattr(session, "displayTitleSource", None) or SESSION_TITLE_SOURCE_DEFAULT
     )

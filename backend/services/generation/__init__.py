@@ -82,17 +82,34 @@ class GenerationService:
             FileSystemError: 文件系统错误
             GenerationTimeoutError: 执行超时
         """
-        # 使用模板服务包装 Markdown
         if template_config is None:
             template_config = TemplateConfig()
 
-        logger.debug(
-            f"[Task: {task_id}] Wrapping markdown with template: "
-            f"{template_config.style}"
-        )
-        full_markdown = self.template_service.wrap_markdown_with_template(
-            content.markdown_content, template_config, content.title
-        )
+        # 优先使用 render_markdown，无则回退模板包装
+        if content.render_markdown:
+            logger.debug(f"[Task: {task_id}] Using render_markdown directly")
+            full_markdown = content.render_markdown
+        else:
+            logger.debug(
+                f"[Task: {task_id}] Fallback to template wrapping: "
+                f"{template_config.style}"
+            )
+            full_markdown = self.template_service.wrap_markdown_with_template(
+                markdown_content=content.markdown_content,
+                config=template_config,
+                title=content.title,
+                style_manifest=(
+                    content.style_manifest.model_dump()
+                    if content.style_manifest
+                    else None
+                ),
+                extra_css=content.extra_css,
+                page_class_plan=(
+                    [item.model_dump() for item in content.page_class_plan]
+                    if content.page_class_plan
+                    else None
+                ),
+            )
 
         # 调用生成器
         return await _generate_pptx(content, task_id, self.output_dir, full_markdown)
@@ -106,9 +123,26 @@ class GenerationService:
         if template_config is None:
             template_config = TemplateConfig()
 
-        full_markdown = self.template_service.wrap_markdown_with_template(
-            content.markdown_content, template_config, content.title
-        )
+        # 优先使用 render_markdown，无则回退模板包装
+        if content.render_markdown:
+            full_markdown = content.render_markdown
+        else:
+            full_markdown = self.template_service.wrap_markdown_with_template(
+                markdown_content=content.markdown_content,
+                config=template_config,
+                title=content.title,
+                style_manifest=(
+                    content.style_manifest.model_dump()
+                    if content.style_manifest
+                    else None
+                ),
+                extra_css=content.extra_css,
+                page_class_plan=(
+                    [item.model_dump() for item in content.page_class_plan]
+                    if content.page_class_plan
+                    else None
+                ),
+            )
         return await _generate_slide_images(task_id, self.output_dir, full_markdown)
 
     async def generate_docx(

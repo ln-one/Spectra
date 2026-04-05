@@ -18,6 +18,7 @@ from redis import Redis
 from rq import Queue, SimpleWorker, Worker
 from rq.job import Job, JobStatus
 from rq.registry import StartedJobRegistry
+from rq.timeouts import TimerDeathPenalty
 
 from services.task_queue.status import _resolve_worker_heartbeat_freshness_seconds
 
@@ -249,6 +250,10 @@ def main():
     # 对 async/Prisma 任务，SimpleWorker（不 fork）更稳定
     worker_class_name = os.getenv("RQ_WORKER_CLASS", "simple").lower()
     worker_cls = SimpleWorker if worker_class_name == "simple" else Worker
+    if os.name == "nt":
+        # Windows 没有 SIGALRM，RQ 默认的 UnixSignalDeathPenalty 会在执行前崩溃。
+        worker_cls.death_penalty_class = TimerDeathPenalty
+        logger.info("Using TimerDeathPenalty for RQ worker on Windows")
 
     # 创建并启动 Worker
     worker_instance = worker_cls(

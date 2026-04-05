@@ -32,6 +32,38 @@ export const ragApi = {
     return unwrap<SourceDetailResponse>(result);
   },
 
+  async fetchSourceImageBlob(
+    chunkId: string,
+    imagePath: string,
+    projectId?: string
+  ): Promise<Blob> {
+    const query = new URLSearchParams();
+    query.set("path", imagePath);
+    if (projectId) {
+      query.set("project_id", projectId);
+    }
+    const response = await apiFetch(
+      `/api/v1/rag/sources/${encodeURIComponent(chunkId)}/image?${query.toString()}`
+    );
+    if (!response.ok) {
+      let message = "来源图片加载失败";
+      try {
+        const payload = (await response.json()) as {
+          error?: { message?: string };
+          message?: string;
+        };
+        message =
+          payload?.error?.message ||
+          payload?.message ||
+          `来源图片加载失败 (${response.status})`;
+      } catch {
+        message = `来源图片加载失败 (${response.status})`;
+      }
+      throw new Error(message);
+    }
+    return response.blob();
+  },
+
   async indexFile(data: {
     file_id: string;
     chunk_size?: number;

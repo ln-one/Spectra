@@ -4,16 +4,27 @@
 
 import logging
 import re
+from typing import List, Optional
 
 try:
-    from .css_generator import generate_custom_css
+    from .css_generator import (
+        compile_manifest_css,
+        generate_custom_css,
+        generate_design_family_css,
+    )
+    from .style_fallback import generate_fallback_page_class_plan
     from .types import TemplateConfig, TemplateStyle
 except ImportError:
     import sys
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from services.template.css_generator import generate_custom_css
+    from services.template.css_generator import (
+        compile_manifest_css,
+        generate_custom_css,
+        generate_design_family_css,
+    )
+    from services.template.style_fallback import generate_fallback_page_class_plan
     from services.template.types import TemplateConfig, TemplateStyle
 
 logger = logging.getLogger(__name__)
@@ -59,7 +70,12 @@ paginate: {str(config.enable_pagination).lower()}
 
 
 def wrap_markdown_with_template(
-    markdown_content: str, config: TemplateConfig, title: str
+    markdown_content: str,
+    config: TemplateConfig,
+    title: str,
+    style_manifest: Optional[dict] = None,
+    extra_css: Optional[str] = None,
+    page_class_plan: Optional[List[dict]] = None,
 ) -> str:
     """
     将 Markdown 内容包装为完整的 Marp 文档
@@ -68,24 +84,67 @@ def wrap_markdown_with_template(
         markdown_content: 原始 Markdown 内容
         config: 模板配置
         title: 课件标题
+        style_manifest: 样式清单
+        extra_css: 额外 CSS
+        page_class_plan: 页面 class 计划
 
     Returns:
         str: 包含 frontmatter 和样式的完整 Markdown
     """
     frontmatter = generate_marp_frontmatter(config, title)
-    custom_css = generate_custom_css(config)
     normalized_markdown = _strip_existing_marp_frontmatter(markdown_content)
 
-    full_markdown = f"""{frontmatter}
+    # 生成样式 CSS
+    if style_manifest and style_manifest.get("design_name"):
+        design_css = generate_design_family_css(style_manifest["design_name"])
+        manifest_css = compile_manifest_css(style_manifest)
+    else:
+        design_css = generate_custom_css(config)
+        manifest_css = ""
 
-<style>
-{custom_css}
-</style>
+    # 注入页面 class
+    if page_class_plan:
+        normalized_markdown = _inject_page_classes(normalized_markdown, page_class_plan)
+    else:
+        # 回退：生成默认 page_class_plan
+        slides = _split_slides(normalized_markdown)
+        fallback_plan = generate_fallback_page_class_plan(
+            normalized_markdown, len(slides)
+        )
+        normalized_markdown = _inject_page_classes(normalized_markdown, fallback_plan)
 
-{normalized_markdown}
-"""
+    # 拼接完整文档
+    css_block = f"<style>\n{design_css}\n"
+    if manifest_css:
+        css_block += f"\n{manifest_css}\n"
+    if extra_css:
+        css_block += f"\n{extra_css}\n"
+    css_block += "</style>"
+
+    full_markdown = f"{frontmatter}\n\n{css_block}\n\n{normalized_markdown}\n"
     logger.info(f"Wrapped markdown with template: {config.style}")
     return full_markdown
+
+
+def _inject_page_classes(markdown_content: str, page_class_plan: List[dict]) -> str:
+    """给每页注入 class 注释"""
+    slides = _split_slides(markdown_content)
+    class_map = {item["slide_index"]: item["class_name"] for item in page_class_plan}
+
+    injected_slides = []
+    for idx, slide_content in enumerate(slides, start=1):
+        class_name = class_map.get(idx, "content density-medium")
+        injected_slide = f"<!-- _class: {class_name} -->\n\n{slide_content}"
+        injected_slides.append(injected_slide)
+
+    return "\n\n---\n\n".join(injected_slides)
+
+
+def _split_slides(markdown_content: str) -> List[str]:
+    """按 Marp 分页符拆分 slides"""
+    content = (markdown_content or "").strip()
+    slides = re.split(r"\n---\n", content)
+    return [s.strip() for s in slides if s.strip()]
 
 
 def _strip_existing_marp_frontmatter(markdown_content: str) -> str:

@@ -73,6 +73,7 @@ async def validate_source_artifact(
     card_id: str,
     source_artifact_id: str | None,
 ) -> None:
+    allowed_types = get_card_source_artifact_types(card_id)
     if source_artifact_id:
         artifact = await project_space_service.get_artifact(source_artifact_id)
         if not artifact or artifact.projectId != project_id:
@@ -81,7 +82,6 @@ async def validate_source_artifact(
                 error_code=ErrorCode.NOT_FOUND,
                 message="源成果不存在",
             )
-        allowed_types = get_card_source_artifact_types(card_id)
         if allowed_types and artifact.type not in allowed_types:
             raise APIException(
                 status_code=400,
@@ -90,11 +90,11 @@ async def validate_source_artifact(
             )
         return
 
-    if card_id == "speaker_notes":
+    if allowed_types:
         raise APIException(
             status_code=400,
             error_code=ErrorCode.INVALID_INPUT,
-            message="speaker_notes 需要提供 source_artifact_id",
+            message=f"{card_id} 需要提供 source_artifact_id",
         )
 
 

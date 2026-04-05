@@ -3,6 +3,7 @@ from __future__ import annotations
 from schemas.project_space import ArtifactType, ProjectPermission
 
 CARD_SOURCE_ARTIFACT_TYPES: dict[str, tuple[str, ...]] = {
+    "word_document": (ArtifactType.PPTX.value,),
     "speaker_notes": (ArtifactType.PPTX.value,),
 }
 

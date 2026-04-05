@@ -8,10 +8,15 @@ from typing import Optional
 
 from .chat import build_chat_response_prompt, contains_mechanical_option_pattern
 from .constants import _RAG_CHUNK_MAX_CHARS, STYLE_REQUIREMENTS
-from .courseware import build_courseware_prompt, build_modify_prompt
+from .courseware import (
+    build_courseware_prompt,
+    build_courseware_style_prompt,
+    build_modify_prompt,
+)
 from .escaping import escape_prompt_text
 from .intent import build_intent_prompt
 from .rag import format_rag_context as _format_rag_context
+from .render_rewrite import build_courseware_render_rewrite_prompt
 from .semantics import (
     PROMPT_OUTPUT_MARKERS,
     PromptCitationStyle,
@@ -87,6 +92,36 @@ class PromptService:
             conversation_history=conversation_history,
         )
 
+    def build_courseware_render_rewrite_prompt(
+        self,
+        markdown_content: str,
+        title: str,
+        slide_count: int,
+        outline_summary: Optional[str] = None,
+        include_css_reference: bool = True,
+        image_references: Optional[list[dict]] = None,
+    ) -> str:
+        return build_courseware_render_rewrite_prompt(
+            markdown_content=markdown_content,
+            title=title,
+            slide_count=slide_count,
+            outline_summary=outline_summary,
+            include_css_reference=include_css_reference,
+            image_references=image_references,
+        )
+
+    def build_courseware_style_prompt(
+        self,
+        markdown_content: str,
+        slide_count: int,
+        outline_summary: Optional[str] = None,
+    ) -> str:
+        return build_courseware_style_prompt(
+            markdown_content=markdown_content,
+            slide_count=slide_count,
+            outline_summary=outline_summary,
+        )
+
 
 prompt_service = PromptService()
 
@@ -98,6 +133,7 @@ __all__ = [
     "_format_rag_context",
     "build_chat_response_prompt",
     "build_courseware_prompt",
+    "build_courseware_style_prompt",
     "build_intent_prompt",
     "build_modify_prompt",
     "contains_mechanical_option_pattern",

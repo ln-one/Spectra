@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from schemas.project_space import ProjectPermission
 from schemas.studio_cards import (
@@ -19,6 +20,7 @@ from services.project_space_service import project_space_service
 from utils.exceptions import APIException, ErrorCode
 
 from .card_execution_runtime_helpers import (
+    artifact_metadata_dict,
     artifact_result_payload,
     create_replacement_artifact,
     get_current_version_id,
@@ -32,6 +34,55 @@ from .tool_content_builder import (
     build_studio_tool_artifact_content,
 )
 from .tool_refine_builder import build_structured_refine_artifact_content
+
+
+def _normalize_word_base_title(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = re.sub(r"\.(pptx?|docx?)$", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(r"(课件|PPT)\s*$", "", text, flags=re.IGNORECASE).strip()
+    return text[:120]
+
+
+def _compose_word_title(base: str) -> str:
+    normalized = _normalize_word_base_title(base)
+    if not normalized:
+        return "教学教案"
+    if any(token in normalized for token in ("教案", "讲义", "文档", "逐字稿")):
+        return normalized
+    return f"{normalized}教案"
+
+
+async def _resolve_word_document_title(
+    *,
+    source_artifact_id: str,
+    config: dict | None,
+    existing_title: str,
+) -> str:
+    if existing_title:
+        return _compose_word_title(existing_title)
+
+    source_id = str(source_artifact_id or "").strip()
+    if source_id:
+        try:
+            source_artifact = await project_space_service.get_artifact(source_id)
+            if source_artifact:
+                source_metadata = artifact_metadata_dict(source_artifact)
+                source_title = str(source_metadata.get("title") or "").strip()
+                if source_title:
+                    return _compose_word_title(source_title)
+        except Exception as exc:
+            logger.warning(
+                "Resolve word title from source artifact failed: source=%s error=%s",
+                source_id,
+                exc,
+            )
+
+    topic = ""
+    if isinstance(config, dict):
+        topic = str(config.get("topic") or config.get("title") or "").strip()
+    return _compose_word_title(topic)
 
 
 async def execute_studio_card_artifact_request(
@@ -72,6 +123,19 @@ async def execute_studio_card_artifact_request(
     )
     if generated_content:
         artifact_content.update(generated_content)
+    source_artifact_id = str(
+        body.source_artifact_id
+        or artifact_content.get("source_artifact_id")
+        or payload.get("source_artifact_id")
+        or ""
+    ).strip()
+    if card_id == "word_document":
+        artifact_content["title"] = await _resolve_word_document_title(
+            source_artifact_id=source_artifact_id,
+            config=(body.config if isinstance(body.config, dict) else {}),
+            existing_title=str(artifact_content.get("title") or "").strip(),
+        )
+
     artifact = await project_space_service.create_artifact_with_file(
         project_id=body.project_id,
         artifact_type=payload["type"],
@@ -82,6 +146,25 @@ async def execute_studio_card_artifact_request(
         content=artifact_content,
         artifact_mode="replace",
     )
+    if (
+        card_id == "word_document"
+        and source_artifact_id
+        and hasattr(project_space_service.db, "update_artifact_metadata")
+    ):
+        try:
+            current_metadata = artifact_metadata_dict(artifact)
+            await project_space_service.db.update_artifact_metadata(
+                artifact.id,
+                {
+                    **current_metadata,
+                    "source_artifact_id": source_artifact_id,
+                    "source_artifact_type": "pptx",
+                },
+            )
+        except Exception as exc:
+            logger.warning(
+                "Skip word_document source metadata sync due to db error: %s", exc
+            )
     run = await _create_artifact_run(
         card_id=card_id,
         body=body,

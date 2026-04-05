@@ -188,7 +188,7 @@ def schedule_outline_draft_watchdog(
     execute_outline_draft_local: Callable[..., Awaitable[None]],
 ) -> None:
     async def _watch() -> None:
-        delay_seconds = int(os.getenv("OUTLINE_DRAFT_WATCHDOG_SECONDS", "30"))
+        delay_seconds = int(os.getenv("OUTLINE_DRAFT_WATCHDOG_SECONDS", "90"))
         await asyncio.sleep(max(5, delay_seconds))
 
         try:

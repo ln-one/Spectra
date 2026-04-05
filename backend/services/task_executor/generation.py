@@ -182,6 +182,7 @@ async def execute_generation_task(
             db_service=db_service,
             context=context,
             artifact_paths=artifact_paths,
+            courseware_content=courseware_content,
         )
         timings["persist_artifact_ms"] = round(
             (time.perf_counter() - persist_started_at) * 1000, 2

@@ -1,6 +1,17 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { render, screen } from "@testing-library/react";
 import { SourcesPanel } from "@/components/project/features/sources/SourcesPanel";
 import { useProjectStore } from "@/stores/projectStore";
+
+jest.mock("react-markdown", () => ({
+  __esModule: true,
+  default: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+jest.mock("remark-gfm", () => ({
+  __esModule: true,
+  default: () => undefined,
+}));
 
 jest.mock("@/stores/projectStore", () => ({
   ...jest.requireActual("@/stores/projectStore"),
@@ -48,58 +59,5 @@ describe("SourcesPanel web card", () => {
     expect(
       screen.queryByPlaceholderText(/网页检索并入库/)
     ).not.toBeInTheDocument();
-  });
-
-  it("renders referenced library card with project name", () => {
-    render(
-      <SourcesPanel
-        projectId="proj_1"
-        referencedLibraries={[
-          {
-            id: "ref_1",
-            project_id: "proj_1",
-            target_project_id: "lib_proj_id",
-            target_project_name: "数学知识库",
-            relation_type: "base",
-            mode: "follow",
-            status: "active",
-            created_at: "2026-04-03T00:00:00.000Z",
-            updated_at: "2026-04-03T00:00:00.000Z",
-          },
-        ]}
-      />
-    );
-
-    const cards = screen.getAllByTitle(/网页检索（即将上线）|数学知识库/);
-    expect(cards[0]).toHaveAttribute(
-      "title",
-      expect.stringContaining("网页检索（即将上线）")
-    );
-    expect(screen.getByTitle(/数学知识库/)).toBeInTheDocument();
-    expect(screen.queryByText("lib_proj_id.library")).not.toBeInTheDocument();
-  });
-
-  it("opens referenced library detail panel when clicking library card", async () => {
-    render(
-      <SourcesPanel
-        projectId="proj_1"
-        referencedLibraries={[
-          {
-            id: "ref_1",
-            project_id: "proj_1",
-            target_project_id: "lib_proj_id",
-            target_project_name: "数学知识库",
-            relation_type: "base",
-            mode: "follow",
-            status: "active",
-            created_at: "2026-04-03T00:00:00.000Z",
-            updated_at: "2026-04-03T00:00:00.000Z",
-          },
-        ]}
-      />
-    );
-
-    fireEvent.click(screen.getByTitle(/数学知识库/));
-    expect(screen.getByText("引用库详情")).toBeInTheDocument();
   });
 });

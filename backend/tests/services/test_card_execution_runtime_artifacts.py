@@ -9,6 +9,7 @@ import pytest
 
 from services.generation_session_service.card_execution_runtime_artifacts import (
     _create_artifact_run,
+    _resolve_word_document_title,
 )
 from services.project_space_service import project_space_service
 
@@ -118,3 +119,23 @@ async def test_create_artifact_run_appends_task_completed_event_for_bound_sessio
     assert payload["card_id"] == "interactive_quick_quiz"
     assert payload["artifact_id"] == "artifact-001"
     assert payload["run_trace"]["run_id"] == "run-001"
+
+
+@pytest.mark.anyio
+async def test_resolve_word_document_title_prefers_source_ppt_title(monkeypatch):
+    source_artifact = SimpleNamespace(
+        metadata={"title": "计算机图形学课件"},
+    )
+    monkeypatch.setattr(
+        project_space_service,
+        "get_artifact",
+        AsyncMock(return_value=source_artifact),
+    )
+
+    title = await _resolve_word_document_title(
+        source_artifact_id="ppt-art-001",
+        config={"topic": "不会被采用"},
+        existing_title="",
+    )
+
+    assert title == "计算机图形学教案"

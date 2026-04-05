@@ -1,11 +1,119 @@
 """课件内容解析、清洗与结构修正工具。"""
 
+import json
 import logging
 import re
 
 from schemas.generation import CoursewareContent
 
 logger = logging.getLogger(__name__)
+
+
+def parse_render_rewrite_response(content: str) -> str:
+    """
+    解析 render rewrite 响应，返回完整 Marp 文档
+
+    Args:
+        content: LLM 响应内容
+
+    Returns:
+        完整 Marp 文档字符串
+
+    Raises:
+        ValueError: 校验失败
+    """
+    # 去除可能的代码块包装
+    normalized = strip_outer_code_fence(content)
+
+    # 校验必需元素
+    if "marp: true" not in normalized:
+        raise ValueError("Missing 'marp: true' in frontmatter")
+
+    if "<style>" not in normalized or "</style>" not in normalized:
+        raise ValueError("Missing <style> block")
+
+    # 校验至少有一个 slide（除了 frontmatter 和 style）
+    slides = re.split(r"\n---\n", normalized)
+    if len(slides) < 2:  # frontmatter + 至少 1 个 slide
+        raise ValueError("No slides found after frontmatter")
+
+    # 安全检查：禁止危险 CSS 模式
+    dangerous_patterns = ["@import", "@font-face", "url(http"]
+    content_lower = normalized.lower()
+    for pattern in dangerous_patterns:
+        if pattern in content_lower:
+            logger.warning(f"Dangerous CSS pattern detected: {pattern}, sanitizing")
+            # 移除整个 style 块中的危险行
+            normalized = _sanitize_dangerous_css(normalized, dangerous_patterns)
+
+    return normalized
+
+
+def _sanitize_dangerous_css(content: str, patterns: list[str]) -> str:
+    """移除 style 块中的危险 CSS 模式"""
+    style_match = re.search(r"<style>(.*?)</style>", content, re.DOTALL)
+    if not style_match:
+        return content
+
+    style_content = style_match.group(1)
+    lines = style_content.split("\n")
+    safe_lines = []
+
+    for line in lines:
+        line_lower = line.lower()
+        if any(pattern in line_lower for pattern in patterns):
+            continue
+        safe_lines.append(line)
+
+    safe_style = "\n".join(safe_lines)
+    return content.replace(style_match.group(0), f"<style>{safe_style}</style>")
+
+
+def parse_style_generation_response(content: str) -> dict:
+    """解析样式生成阶段的 JSON 响应"""
+    try:
+        # 尝试提取 JSON
+        json_match = re.search(r"\{[\s\S]*\}", content)
+        if not json_match:
+            raise ValueError("No JSON found in response")
+
+        data = json.loads(json_match.group(0))
+
+        # 验证必需字段
+        if "style_manifest" not in data or "page_class_plan" not in data:
+            raise ValueError("Missing required fields in style response")
+
+        # 清洗 extra_css
+        extra_css = data.get("extra_css", "")
+        if extra_css:
+            extra_css = _sanitize_extra_css(extra_css)
+            data["extra_css"] = extra_css
+
+        return data
+
+    except Exception as e:
+        logger.warning(f"Failed to parse style response: {e}")
+        return {}
+
+
+def _sanitize_extra_css(css: str) -> str:
+    """清洗 extra_css，移除危险模式"""
+    if not css:
+        return ""
+
+    css_lower = css.lower()
+    forbidden = ["@import", "@font-face", "url(http"]
+    for pattern in forbidden:
+        if pattern in css_lower:
+            logger.warning(f"Forbidden CSS pattern detected: {pattern}, discarding")
+            return ""
+
+    # 长度限制
+    if len(css) > 5000:
+        logger.warning("extra_css too long, truncating")
+        css = css[:5000]
+
+    return css
 
 
 def parse_marp_slides(markdown_content: str) -> list[dict]:
