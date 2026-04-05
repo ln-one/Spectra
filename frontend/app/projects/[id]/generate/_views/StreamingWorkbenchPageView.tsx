@@ -29,9 +29,9 @@ export default function StreamingWorkbenchPageView() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [projectTitle, setProjectTitle] = useState("PPT Streaming Workbench");
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
-  const [fullscreenSlideIndex, setFullscreenSlideIndex] = useState<number | null>(
-    null
-  );
+  const [fullscreenSlideIndex, setFullscreenSlideIndex] = useState<
+    number | null
+  >(null);
 
   const leftScrollRef = useRef<HTMLDivElement>(null);
   const activeSlideIndexRef = useRef(0);
@@ -118,7 +118,8 @@ export default function StreamingWorkbenchPageView() {
     () => orderedSlides.find((slide) => !slide.thumbnail_url) ?? null,
     [orderedSlides]
   );
-  const hasRenderableContent = renderedSlides.length > 0 || Boolean(pendingSlide);
+  const hasRenderableContent =
+    renderedSlides.length > 0 || Boolean(pendingSlide);
 
   useEffect(() => {
     if (!leftScrollRef.current) return;
@@ -126,10 +127,12 @@ export default function StreamingWorkbenchPageView() {
 
     const updateActiveSlideByViewport = () => {
       if (!leftScrollRef.current) return;
-      const slideElements = leftScrollRef.current.querySelectorAll(".slide-card");
+      const slideElements =
+        leftScrollRef.current.querySelectorAll(".slide-card");
       let currentActiveIndex = activeSlideIndexRef.current;
       const containerTop = leftScrollRef.current.scrollTop;
-      const containerCenter = containerTop + leftScrollRef.current.clientHeight * 0.4;
+      const containerCenter =
+        containerTop + leftScrollRef.current.clientHeight * 0.4;
 
       slideElements.forEach((el) => {
         const htmlEl = el as HTMLElement;
@@ -179,9 +182,7 @@ export default function StreamingWorkbenchPageView() {
 
   const fullscreenSlide = useMemo(() => {
     if (fullscreenSlideIndex === null) return null;
-    return renderedSlides.find(
-      (slide) => slide.index === fullscreenSlideIndex
-    );
+    return renderedSlides.find((slide) => slide.index === fullscreenSlideIndex);
   }, [fullscreenSlideIndex, renderedSlides]);
 
   return (
@@ -210,7 +211,10 @@ export default function StreamingWorkbenchPageView() {
         <main className="flex-1 overflow-hidden bg-muted/20 p-3 md:p-5">
           <div className="mx-auto flex h-full w-full max-w-[1800px] gap-3 md:gap-5">
             <section className="min-w-0 flex-1 rounded-2xl border bg-white/80 p-3 md:p-4">
-              <div ref={leftScrollRef} className="h-full overflow-y-auto pr-1 md:pr-2">
+              <div
+                ref={leftScrollRef}
+                className="h-full overflow-y-auto pr-1 md:pr-2"
+              >
                 {isOutlineGenerating ? (
                   <div className="mb-4 rounded-xl border bg-white p-3 shadow-sm">
                     <p className="mb-2 text-xs font-semibold text-zinc-700">
@@ -239,7 +243,9 @@ export default function StreamingWorkbenchPageView() {
                 {isLoading ? (
                   <div className="flex min-h-[260px] flex-col items-center justify-center opacity-70">
                     <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Loading slides...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Loading slides...
+                    </p>
                   </div>
                 ) : previewBlockedReason ? (
                   <div className="flex min-h-[240px] flex-col items-center justify-center opacity-90">
@@ -295,7 +301,9 @@ export default function StreamingWorkbenchPageView() {
                         <p className="text-xs font-semibold uppercase tracking-wide">
                           Slide {pendingSlide.index + 1}
                         </p>
-                        <p className="mt-3 text-sm">正在生成该页最终渲染效果...</p>
+                        <p className="mt-3 text-sm">
+                          正在生成该页最终渲染效果...
+                        </p>
                       </motion.div>
                     ) : null}
                   </AnimatePresence>
@@ -368,7 +376,9 @@ export default function StreamingWorkbenchPageView() {
               </button>
               <img
                 src={fullscreenSlide.thumbnail_url || undefined}
-                alt={fullscreenSlide.title || `Slide ${fullscreenSlide.index + 1}`}
+                alt={
+                  fullscreenSlide.title || `Slide ${fullscreenSlide.index + 1}`
+                }
                 className="max-h-full max-w-full rounded-lg bg-white object-contain shadow-2xl"
               />
             </div>

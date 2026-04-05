@@ -370,9 +370,8 @@ export function useGeneratePreviewState({
         !applied.markdownReady;
 
       if (shouldFallbackToSessionAnchor) {
-        const fallbackResponse = await previewApi.getSessionPreview(
-          activeSessionId
-        );
+        const fallbackResponse =
+          await previewApi.getSessionPreview(activeSessionId);
         setActiveRunId(null);
         setCurrentArtifactId(fallbackResponse.data?.artifact_id ?? null);
         applyPreviewResponse(fallbackResponse);
@@ -430,7 +429,8 @@ export function useGeneratePreviewState({
             string,
             unknown
           >;
-          const errorMessage = sessionRecord.error_message ?? sessionRecord.errorMessage;
+          const errorMessage =
+            sessionRecord.error_message ?? sessionRecord.errorMessage;
           if (typeof errorMessage === "string" && errorMessage.trim()) {
             setSessionFailureMessage(errorMessage);
           }
@@ -490,11 +490,11 @@ export function useGeneratePreviewState({
     (generationSession as { session?: { state?: string } } | null)?.session
       ?.state ?? null;
   const sessionState = previewSessionState || snapshotSessionState;
-  const hasSnapshotState = typeof sessionState === "string" && sessionState.length > 0;
-  const isSessionGenerating =
-    hasSnapshotState
-      ? isGeneratingState(sessionState)
-      : isGeneratingState(latestEvent?.state);
+  const hasSnapshotState =
+    typeof sessionState === "string" && sessionState.length > 0;
+  const isSessionGenerating = hasSnapshotState
+    ? isGeneratingState(sessionState)
+    : isGeneratingState(latestEvent?.state);
 
   const handleResume = useCallback(async () => {
     if (!activeSessionId || isResuming) return;
@@ -702,7 +702,8 @@ export function useGeneratePreviewState({
           if (artifactId) setCurrentArtifactId(artifactId);
           if (runId) setActiveRunId(runId);
 
-          const studioFailedMessage = failedMessage || "Studio execution task failed.";
+          const studioFailedMessage =
+            failedMessage || "Studio execution task failed.";
 
           const runLabel = runId ? `run ${runId}` : "unknown run";
           const cardLabel = cardId ?? "unknown card";

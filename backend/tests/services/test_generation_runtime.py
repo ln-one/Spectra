@@ -747,3 +747,42 @@ async def test_build_generation_inputs_skips_image_injection_for_docx_only():
 
     assert result is courseware
     inject_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_build_generation_inputs_strips_source_markers_from_courseware():
+    db_service = SimpleNamespace()
+    courseware = SimpleNamespace(
+        title="课件",
+        markdown_content="# 标题\n\n- 要点一 [来源 1]\n- 要点二 [来源 chunk-a1]",
+        render_markdown="# 渲染页\n\n- 内容 [source 2]",
+        lesson_plan_markdown="# 教案",
+    )
+    context = GenerationExecutionContext(
+        task_id="task-src-1",
+        project_id="p-1",
+        task_type="docx",
+        template_config=None,
+        session_id="s-1",
+    )
+
+    with (
+        patch(
+            "services.task_executor.generation_runtime.build_user_requirements",
+            new=AsyncMock(return_value="教案需求"),
+        ),
+        patch(
+            "services.task_executor.generation_runtime.load_session_outline",
+            new=AsyncMock(return_value=(None, None)),
+        ),
+        patch(
+            "services.ai.ai_service.generate_courseware_content",
+            new=AsyncMock(return_value=courseware),
+        ),
+    ):
+        result = await build_generation_inputs(db_service, context)
+
+    assert result is courseware
+    assert "[来源 1]" not in result.markdown_content
+    assert "[来源 chunk-a1]" not in result.markdown_content
+    assert "[source 2]" not in result.render_markdown

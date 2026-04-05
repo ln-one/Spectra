@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -24,6 +25,11 @@ from .runtime_helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+_SOURCE_MARKER_PATTERN = re.compile(
+    r"\[\s*(?:来源|source)\s*(?:[:：]\s*)?[^\]\n]{1,64}\]",
+    re.IGNORECASE,
+)
 
 __all__ = [
     "GenerationExecutionContext",
@@ -53,6 +59,30 @@ class GenerationExecutionContext:
     retrieval_mode: Optional[str] = None
     policy_version: Optional[str] = None
     baseline_id: Optional[str] = None
+
+
+def _strip_source_markers(text: str) -> str:
+    if not text:
+        return text
+    cleaned = _SOURCE_MARKER_PATTERN.sub("", text)
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"[ \t]+\n", "\n", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def _sanitize_courseware_source_markers(courseware_content) -> None:
+    fields = ("markdown_content", "render_markdown")
+    if isinstance(courseware_content, dict):
+        for field in fields:
+            value = courseware_content.get(field)
+            if isinstance(value, str) and value.strip():
+                courseware_content[field] = _strip_source_markers(value)
+        return
+    for field in fields:
+        value = getattr(courseware_content, field, None)
+        if isinstance(value, str) and value.strip():
+            setattr(courseware_content, field, _strip_source_markers(value))
 
 
 async def build_generation_inputs(db_service, context: GenerationExecutionContext):
@@ -117,4 +147,5 @@ async def build_generation_inputs(db_service, context: GenerationExecutionContex
                 courseware_content["_image_metadata"] = dict(image_metadata)
             else:
                 setattr(courseware_content, "_image_metadata", dict(image_metadata))
+    _sanitize_courseware_source_markers(courseware_content)
     return courseware_content

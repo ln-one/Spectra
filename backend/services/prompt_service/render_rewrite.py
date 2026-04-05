@@ -70,7 +70,7 @@ def build_courseware_render_rewrite_prompt(
 </available_images>
 """
 
-    min_chart_count = max(1, slide_count // 4)
+    chart_upper_bound = max(1, min(4, max(1, slide_count // 3)))
 
     return f"""你是视觉设计专家。基于已定稿的课件正文，重写为最终可渲染的富样式 Marp 文档。
 
@@ -88,7 +88,7 @@ def build_courseware_render_rewrite_prompt(
 4. 保留已有图片占位和图题
 5. 不新增无依据的知识点
 6. 允许重写表达、布局、视觉组织
-7. **必须生成 Mermaid 图表**：至少 {min_chart_count} 个图表，分散在不同页面
+7. Mermaid 图表按页型触发：仅在流程/机制/时序/并列对比/占比页使用，全稿最多 {chart_upper_bound} 个
 8. 封面页必须明显区别于内容页（使用 cover 类）
 9. 目录页（如果生成）必须清晰列出章节结构
 </constraints>
@@ -142,10 +142,10 @@ graph LR
 </page_structure_examples>
 
 <mermaid_guidelines>
-## Mermaid 图表使用规则（必须生成）
+## Mermaid 图表使用规则（按页型触发）
 
 **重要**：
-你必须在课件中生成至少 {min_chart_count} 个 Mermaid 图表来辅助说明。
+仅在“流程/机制/时序/并列对比/占比统计”页放 Mermaid。全稿最多 {chart_upper_bound} 个，若无合适页型可为 0 个。
 
 1. **图表类型与使用场景**：
    - 流程/关系：`flowchart` / `graph`
