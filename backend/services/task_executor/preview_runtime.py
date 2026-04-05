@@ -99,7 +99,8 @@ async def cache_preview_content(
         render_markdown=render_markdown,
     )
     slide_ids = [
-        _slide_identity(slide, index) for index, slide in enumerate(slide_models)
+        slide_identity(slide, index, task_id=task_id)
+        for index, slide in enumerate(slide_models)
     ]
     style_manifest = _serialize_style_manifest(courseware_content)
     extra_css = extract_courseware_value(courseware_content, "extra_css")

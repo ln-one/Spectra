@@ -6,7 +6,7 @@ export const API_BASE_URL =
 export const API_VERSION = "/api/v1";
 export const DEFAULT_CONTRACT_VERSION = "2026-03";
 const REQUEST_TIMEOUT_MS = Number(
-  process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 30000
+  process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 180000
 );
 const CHAT_REQUEST_TIMEOUT_MS = Number(
   process.env.NEXT_PUBLIC_CHAT_TIMEOUT_MS ?? 90000
