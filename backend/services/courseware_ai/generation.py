@@ -156,7 +156,6 @@ async def _generate_courseware_style(
 
     response = await ai_service.generate(
         prompt=prompt,
-        model=RENDER_REWRITE_MODEL or None,
         route_task=ModelRouteTask.LESSON_PLAN_REASONING.value,
         has_rag_context=False,
         max_tokens=2000,
