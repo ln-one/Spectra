@@ -24,13 +24,13 @@ except ImportError:
     import sys
 
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from services.generation.marp_generator import generate_pptx as _generate_pptx
-    from services.generation.marp_generator import (
-        generate_slide_images as _generate_slide_images,
-    )
     from services.generation.marp_document import (
         normalize_marp_markdown,
         split_marp_document,
+    )
+    from services.generation.marp_generator import generate_pptx as _generate_pptx
+    from services.generation.marp_generator import (
+        generate_slide_images as _generate_slide_images,
     )
     from services.generation.pandoc_generator import generate_docx as _generate_docx
     from services.generation.tool_checker import check_tools_installed
