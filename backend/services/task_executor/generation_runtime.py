@@ -74,15 +74,15 @@ def _strip_source_markers(text: str) -> str:
 def _sanitize_courseware_source_markers(courseware_content) -> None:
     fields = ("markdown_content", "render_markdown")
     if isinstance(courseware_content, dict):
-        for field in fields:
-            value = courseware_content.get(field)
+        for fname in fields:
+            value = courseware_content.get(fname)
             if isinstance(value, str) and value.strip():
-                courseware_content[field] = _strip_source_markers(value)
+                courseware_content[fname] = _strip_source_markers(value)
         return
-    for field in fields:
-        value = getattr(courseware_content, field, None)
+    for fname in fields:
+        value = getattr(courseware_content, fname, None)
         if isinstance(value, str) and value.strip():
-            setattr(courseware_content, field, _strip_source_markers(value))
+            setattr(courseware_content, fname, _strip_source_markers(value))
 
 
 async def build_generation_inputs(db_service, context: GenerationExecutionContext):

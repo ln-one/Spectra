@@ -486,7 +486,8 @@ class GenerationService:
 
         if on_image_generated is not None:
             logger.info(
-                "[Task: %s] Streaming preview uses per-slide Mermaid preprocessing (strict=%s)",
+                "[Task: %s] Streaming preview uses per-slide Mermaid preprocessing"
+                " (strict=%s)",
                 task_id,
                 fail_on_unrendered,
             )
