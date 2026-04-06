@@ -311,8 +311,7 @@ def _inject_image_blocks(
 
             scores["keyword_coverage"] = 0.6
             patched_contents[target_index] = (
-                f"{current_content}\n\n"
-                f"![w:520](<{filepath}>)"
+                f"{current_content}\n\n" f"![w:520](<{filepath}>)"
             ).strip()
 
             metadata_list.append(
@@ -523,30 +522,7 @@ async def inject_rag_images_into_courseware_content(
         if str(item.get("id") or "").strip() not in inserted_required_ids
     ]
 
-    # 禁用独立参考页追加逻辑 - 图片应融入正文而非作为附录
-    # appended_required_count = 0
-    # if missing_required_uploads:
-    #     base_markdown = (
-    #         updated_markdown if updated_markdown.strip() else markdown_content
-    #     )
-    #     updated_markdown = _append_image_appendix_slides(
-    #         base_markdown,
-    #         missing_required_uploads,
-    #     )
-    #     appended_required_count = len(missing_required_uploads)
-    #     for item in missing_required_uploads:
-    #         metadata_list.append(
-    #             {
-    #                 "slide_index": -1,
-    #                 "image_insertion_decision": "append_slide",
-    #                 "required_insertion": True,
-    #                 "image_upload_id": item.get("id"),
-    #                 "image_origin": item.get("origin"),
-    #                 "image_match_reason": f"selected_source: {item.get('filename')}",
-    #                 "skip_reason": "forced_append_for_required_image",
-    #             }
-    #         )
-
+    # 必需图片未能插入正文时不追加附录页（图片应融入正文而非附录）
     appended_required_count = 0
 
     if updated_markdown != markdown_content or appended_required_count > 0:
