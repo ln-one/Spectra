@@ -5,7 +5,7 @@ import os
 import re
 from typing import Optional
 
-from schemas.generation import CoursewareContent
+from schemas.generation import CoursewareContent, PageClassItem, StyleManifest
 from schemas.outline import CoursewareOutline
 from services.ai.model_router import ModelRouteTask
 from services.courseware_ai.generation_support import (
@@ -32,6 +32,44 @@ ALLOW_RAG_GROUNDED_FALLBACK = (
     os.getenv("ALLOW_RAG_GROUNDED_FALLBACK", "true").lower() == "true"
 )
 _PLACEHOLDER_MARKER = "Courseware is being prepared..."
+
+
+def _resolve_render_rewrite_model() -> str:
+    """
+    Resolve render-rewrite model to DashScope(Bailian) MiniMax by default.
+
+    This stage is expected to run via DashScope provider, not direct MiniMax API.
+    """
+    model = os.getenv("COURSEWARE_RENDER_REWRITE_MODEL", "").strip()
+    if not model:
+        return "dashscope/MiniMax-M2.5"
+
+    lowered = model.lower()
+    minimax_aliases = {
+        "minimax-m2.5": "MiniMax-M2.5",
+        "minimax-m2.5-lightning": "MiniMax-M2.5-lightning",
+        "minimax-m2.1": "MiniMax-M2.1",
+        "minimax-m2.1-lightning": "MiniMax-M2.1-lightning",
+        "minimax-m2": "MiniMax-M2",
+    }
+    # Normalize MiniMax model names to DashScope canonical IDs.
+    if lowered.startswith("dashscope/"):
+        _, suffix = model.split("/", 1)
+        canonical = minimax_aliases.get(suffix.lower(), suffix)
+        return f"dashscope/{canonical}"
+    if lowered.startswith("minimax/"):
+        _, suffix = model.split("/", 1)
+        canonical = minimax_aliases.get(suffix.lower(), suffix)
+        return f"dashscope/{canonical}"
+    if lowered.startswith(
+        ("minimax-", "minimax-m", "minimax_m", "minimax.")
+    ) or model.startswith("MiniMax-"):
+        canonical = minimax_aliases.get(lowered, model)
+        return f"dashscope/{canonical}"
+    return model
+
+
+RENDER_REWRITE_MODEL = _resolve_render_rewrite_model()
 
 
 async def _generate_courseware_render_rewrite(
@@ -80,6 +118,7 @@ async def _generate_courseware_render_rewrite(
 
     response = await ai_service.generate(
         prompt=prompt,
+        model=RENDER_REWRITE_MODEL or None,
         route_task=ModelRouteTask.LESSON_PLAN_REASONING.value,
         has_rag_context=False,
         max_tokens=4000,
@@ -474,9 +513,44 @@ async def generate_courseware_content(
                     outline_document,
                 )
                 if style_data:
-                    courseware.style_manifest = style_data.get("style_manifest")
+                    style_manifest_data = style_data.get("style_manifest")
+                    if isinstance(style_manifest_data, dict):
+                        try:
+                            courseware.style_manifest = StyleManifest(
+                                **style_manifest_data
+                            )
+                        except Exception:
+                            logger.warning(
+                                "Style manifest parsing failed, keeping dict payload",
+                                extra={"project_id": project_id},
+                            )
+                            courseware.style_manifest = style_manifest_data
+                    else:
+                        courseware.style_manifest = style_manifest_data
+
                     courseware.extra_css = style_data.get("extra_css")
-                    courseware.page_class_plan = style_data.get("page_class_plan")
+
+                    page_class_plan_data = style_data.get("page_class_plan")
+                    if isinstance(page_class_plan_data, list):
+                        normalized_plan = []
+                        for item in page_class_plan_data:
+                            if isinstance(item, dict):
+                                try:
+                                    normalized_plan.append(PageClassItem(**item))
+                                except Exception:
+                                    logger.warning(
+                                        (
+                                            "Page class item parsing failed, "
+                                            "keeping dict payload"
+                                        ),
+                                        extra={"project_id": project_id},
+                                    )
+                                    normalized_plan.append(item)
+                            else:
+                                normalized_plan.append(item)
+                        courseware.page_class_plan = normalized_plan
+                    else:
+                        courseware.page_class_plan = page_class_plan_data
             except Exception as style_exc:
                 logger.warning(
                     f"Style generation also failed: {style_exc}",

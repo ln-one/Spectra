@@ -28,13 +28,11 @@ def normalize_key_points(raw_points: object) -> list[str]:
             deduped.append(point)
     if not any("互动" in point or "提问" in point for point in deduped):
         deduped.append("互动提问与即时反馈")
-    if not any("板书" in point for point in deduped):
-        deduped.append("板书逻辑主线归纳")
     while len(deduped) < 3:
         if len(deduped) == 0:
             deduped.append("核心概念梳理")
         elif len(deduped) == 1:
-            deduped.append("关键例题分步讲解")
+            deduped.append("关键例题讲解与迁移")
         else:
             deduped.append("易错点澄清与纠偏")
     return deduped[:6]
@@ -99,7 +97,7 @@ def build_outline_based_fallback_courseware(
                 f"## {index:02d}. {slide_title}",
                 f"- 教学目标：完成“{slide_title}”核心理解与表达。",
                 f"- 互动提问：围绕“{key_points[0]}”设计追问并收集反馈。",
-                f"- 板书逻辑：以“{key_points[1]}”组织板书主线。",
+                f"- 讲解主线：围绕“{key_points[1]}”组织讲解步骤。",
                 f"- 易错提醒：结合“{key_points[2]}”进行反例澄清。",
             ]
         )

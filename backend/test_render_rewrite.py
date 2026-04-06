@@ -139,9 +139,7 @@ def test_css_reference_inclusion():
         include_css_reference=True,
     )
 
-    assert "Editorial Bold" in prompt_with_css
     assert "Academic Modern" in prompt_with_css
-    assert "Visual Cards" in prompt_with_css
     print("[PASS] CSS 参考已包含")
 
     # 不包含 CSS 参考
@@ -152,7 +150,7 @@ def test_css_reference_inclusion():
         include_css_reference=False,
     )
 
-    assert "Editorial Bold" not in prompt_without_css
+    assert "Academic Modern" not in prompt_without_css
     assert len(prompt_without_css) < len(prompt_with_css)
     print("[PASS] CSS 参考可选关闭")
 
@@ -179,12 +177,11 @@ def test_mermaid_css_styles():
     """测试 Mermaid CSS 样式"""
     from services.template.css_generator import generate_design_family_css
 
-    for design in ["editorial_bold", "academic_modern", "visual_cards"]:
-        css = generate_design_family_css(design)
-        assert ".mermaid" in css
-        assert "max-width: 90%" in css
-        assert "max-height: 400px" in css
-        print(f"[PASS] {design} 包含 Mermaid 样式")
+    css = generate_design_family_css("academic_modern")
+    assert ".mermaid" in css
+    assert "max-width: 90%" in css
+    assert "max-height: 400px" in css
+    print("[PASS] academic_modern 包含 Mermaid 样式")
 
 
 if __name__ == "__main__":

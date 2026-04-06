@@ -25,6 +25,14 @@ def parse_render_rewrite_response(content: str) -> str:
     # 去除可能的代码块包装
     normalized = strip_outer_code_fence(content)
 
+    # 标准化文档结构（修复 frontmatter 后误插入空白 slide 等问题）
+    from services.generation.marp_document import (
+        normalize_marp_markdown,
+        split_marp_document,
+    )
+
+    normalized = normalize_marp_markdown(normalized)
+
     # 校验必需元素
     if "marp: true" not in normalized:
         raise ValueError("Missing 'marp: true' in frontmatter")
@@ -32,9 +40,9 @@ def parse_render_rewrite_response(content: str) -> str:
     if "<style>" not in normalized or "</style>" not in normalized:
         raise ValueError("Missing <style> block")
 
-    # 校验至少有一个 slide（除了 frontmatter 和 style）
-    slides = re.split(r"\n---\n", normalized)
-    if len(slides) < 2:  # frontmatter + 至少 1 个 slide
+    # 校验至少有一个有效 slide（frontmatter/style 不计入）
+    _frontmatter, _styles, slides = split_marp_document(normalized)
+    if not slides:
         raise ValueError("No slides found after frontmatter")
 
     # 安全检查：禁止危险 CSS 模式
@@ -200,15 +208,34 @@ def parse_courseware_response(
 
 
 def strip_outer_code_fence(content: str) -> str:
-    """去掉最外层 Markdown 代码块包装。"""
-    fence_match = re.match(
-        r"^\s*```(?:markdown|md)?\s*(.*?)\s*```\s*$",
-        content,
-        re.DOTALL | re.IGNORECASE,
-    )
-    if fence_match:
-        return fence_match.group(1).strip()
-    return content.strip()
+    """去掉最外层 Markdown 代码块包装（支持多层嵌套和不完整 fence）。"""
+    stripped = content.strip()
+
+    # 循环去除外层 fence，直到没有匹配
+    while True:
+        # 尝试匹配完整的 fence（有开头和结尾）
+        fence_match = re.match(
+            r"^\s*```(?:markdown|md|marp)?\s*\n(.*?)\n```\s*$",
+            stripped,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if fence_match:
+            stripped = fence_match.group(1).strip()
+            continue
+
+        # 尝试匹配只有开头的 fence（LLM 可能忘记结尾）
+        fence_start_match = re.match(
+            r"^\s*```(?:markdown|md|marp)?\s*\n(.*)$",
+            stripped,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if fence_start_match:
+            stripped = fence_start_match.group(1).strip()
+            continue
+
+        break
+
+    return stripped
 
 
 def extract_block(content: str, start_tag: str, end_tag: str) -> str:

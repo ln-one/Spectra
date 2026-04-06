@@ -75,10 +75,17 @@ def build_preview_payload(
     slides: list[dict],
     lesson_plan: Optional[dict],
     anchor: dict,
+    content: Optional[dict] = None,
     rendered_preview: Optional[dict] = None,
 ) -> dict:
+    content = content or {}
+    slides_content_markdown = content.get("markdown_content")
+    if not isinstance(slides_content_markdown, str):
+        slides_content_markdown = ""
     return {
         "session_id": session_id,
+        "session_state": snapshot["session"].get("state"),
+        "session_state_reason": snapshot["session"].get("stateReason"),
         "task_id": task.id if task else None,
         "artifact_id": anchor["artifact_id"],
         "based_on_version_id": anchor["based_on_version_id"],
@@ -88,6 +95,8 @@ def build_preview_payload(
         "render_version": snapshot["session"].get("render_version") or 1,
         "slides": slides,
         "lesson_plan": lesson_plan,
+        "slides_content_markdown": slides_content_markdown,
+        "slides_content_ready": bool(slides_content_markdown.strip()),
         "rendered_preview": rendered_preview,
     }
 
@@ -152,7 +161,11 @@ def build_export_payload(
     if not include_sources:
         slides, lesson_plan = strip_sources(slides, lesson_plan)
 
-    markdown_content = content.get("markdown_content", "")
+    # 优先使用 render_markdown
+    source_content = content.get("render_markdown") or content.get(
+        "markdown_content", ""
+    )
+
     normalized_format = export_format.lower()
     if normalized_format == "json":
         export_content = json.dumps(
@@ -160,19 +173,19 @@ def build_export_payload(
                 "session_id": session_id,
                 "slides": slides,
                 "lesson_plan": lesson_plan,
-                "markdown_content": markdown_content,
+                "markdown_content": source_content,
             },
             ensure_ascii=False,
         )
     elif normalized_format == "html":
         export_content = (
             "<!doctype html><html><body><pre>"
-            + html.escape(markdown_content)
+            + html.escape(source_content)
             + "</pre></body></html>"
         )
     else:
         normalized_format = "markdown"
-        export_content = markdown_content
+        export_content = source_content
 
     result = build_generation_result_payload(
         ppt_url=(snapshot.get("result") or {}).get("ppt_url"),

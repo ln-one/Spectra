@@ -12,6 +12,13 @@ def _resolve_model_name(model: str) -> str:
         "minimax-m2.1-lightning": "MiniMax-M2.1-lightning",
         "minimax-m2": "MiniMax-M2",
     }
+
+    if model.startswith("dashscope/"):
+        _, suffix = model.split("/", 1)
+        canonical = minimax_aliases.get(suffix.lower())
+        if canonical:
+            return f"dashscope/{canonical}"
+
     lowered = model.lower()
     if lowered in minimax_aliases:
         return f"minimax/{minimax_aliases[lowered]}"

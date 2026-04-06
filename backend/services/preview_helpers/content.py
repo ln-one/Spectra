@@ -1,4 +1,5 @@
-﻿import logging
+﻿import inspect
+import logging
 from typing import Optional
 
 from services.database import db_service
@@ -8,15 +9,66 @@ from .content_generation import get_or_generate_content as _get_or_generate_cont
 from .material_lookup import resolve_preview_task
 from .rendered_preview import build_rendered_preview_payload
 from .rendering import build_lesson_plan, build_slides
+from .slide_mapping import slide_identity
 
 logger = logging.getLogger(__name__)
 
 
-def _slide_identity(slide, fallback_index: int) -> str:
-    value = getattr(slide, "id", None)
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return f"slide-{fallback_index}"
+def _build_slides_compatible(
+    task_id: str,
+    markdown_content: str,
+    image_metadata,
+    render_markdown,
+):
+    """
+    Backward-compatible build_slides invocation.
+
+    Some tests / legacy monkeypatches still expose old 2/3-arg signatures.
+    This helper adapts call arity without relying on keyword names.
+    """
+    try:
+        signature = inspect.signature(build_slides)
+    except (TypeError, ValueError):
+        signature = None
+
+    if signature:
+        params = list(signature.parameters.values())
+        if any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params):
+            return build_slides(
+                task_id,
+                markdown_content,
+                image_metadata,
+                render_markdown,
+            )
+
+        positional_capacity = sum(
+            1
+            for p in params
+            if p.kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
+        )
+        if positional_capacity >= 4:
+            return build_slides(
+                task_id,
+                markdown_content,
+                image_metadata,
+                render_markdown,
+            )
+        if positional_capacity >= 3:
+            return build_slides(task_id, markdown_content, image_metadata)
+        return build_slides(task_id, markdown_content)
+
+    # Fallback if signature introspection is unavailable.
+    try:
+        return build_slides(task_id, markdown_content, image_metadata, render_markdown)
+    except TypeError:
+        try:
+            return build_slides(task_id, markdown_content, image_metadata)
+        except TypeError:
+            return build_slides(task_id, markdown_content)
 
 
 async def get_or_generate_content(task, project) -> dict:
@@ -49,7 +101,13 @@ async def load_preview_material(
             if not project:
                 raise ValueError("project not found for preview")
             content = await get_or_generate_content(task, project)
-            slide_models = build_slides(task.id, content.get("markdown_content", ""))
+            slide_models = _build_slides_compatible(
+                task_id=task.id,
+                markdown_content=content.get("markdown_content", ""),
+                image_metadata=content.get("_image_metadata")
+                or content.get("image_metadata"),
+                render_markdown=content.get("render_markdown"),
+            )
             rendered_preview = content.get("rendered_preview")
             if not isinstance(rendered_preview, dict):
                 rendered_preview = await build_rendered_preview_payload(
@@ -57,7 +115,7 @@ async def load_preview_material(
                     title=content.get("title", ""),
                     markdown_content=content.get("markdown_content", ""),
                     slide_ids=[
-                        _slide_identity(slide, index)
+                        slide_identity(slide, index, task_id=task.id)
                         for index, slide in enumerate(slide_models)
                     ],
                     render_markdown=content.get("render_markdown"),
@@ -78,7 +136,7 @@ async def load_preview_material(
 
             for index, slide in enumerate(slide_models):
                 page = page_by_slide_id.get(
-                    getattr(slide, "id", None) or _slide_identity(slide, index)
+                    slide_identity(slide, index, task_id=task.id)
                 )
                 if page and page.get("image_url"):
                     slide.thumbnail_url = page.get("image_url")

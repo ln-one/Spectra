@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def _rag_timeout_seconds() -> float:
     raw = os.getenv("OUTLINE_RAG_TIMEOUT_SECONDS")
     if raw is None or not str(raw).strip():
-        raw = os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "90")
+        raw = os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "240")
         try:
             return max(8.0, min(float(raw) / 3.0, 20.0))
         except ValueError:

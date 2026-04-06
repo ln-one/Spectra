@@ -63,13 +63,13 @@ def _iter_outline_sections(outline_doc: dict) -> list[dict]:
 def _outline_draft_timeout_seconds() -> float:
     raw = os.getenv("OUTLINE_DRAFT_TIMEOUT_SECONDS")
     if raw is None or not str(raw).strip():
-        raw = os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "90")
+        raw = os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "240")
     raw = str(raw).strip()
     try:
         parsed = float(raw)
-        return parsed if parsed > 0 else 90.0
+        return parsed if parsed > 0 else 240.0
     except ValueError:
-        return 90.0
+        return 240.0
 
 
 def _classify_outline_failure(exc: Exception) -> tuple[str, str, str]:

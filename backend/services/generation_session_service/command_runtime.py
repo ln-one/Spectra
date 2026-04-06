@@ -129,7 +129,14 @@ async def handle_regenerate_slide(
             raise conflict_error_cls("preview markdown is empty")
 
         command["_preview_markdown_content"] = markdown_content
-        target_slide_index = _resolve_target_slide_index(command)
+        command["_preview_render_markdown"] = str(
+            preview_content.get("render_markdown") or ""
+        )
+        target_slide_index = _resolve_target_slide_index(
+            command,
+            preview_payload=preview_content,
+            task_id=str(getattr(latest_task, "id", "") or "preview"),
+        )
         if target_slide_index is None:
             raise conflict_error_cls("failed to resolve target slide index")
 

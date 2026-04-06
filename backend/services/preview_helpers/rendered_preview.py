@@ -60,17 +60,9 @@ async def build_rendered_preview_payload(
                     "markdown_content": markdown_content,
                     "lesson_plan_markdown": "",
                     "render_markdown": render_markdown,
-                    "style_manifest": (
-                        type("StyleManifest", (), style_manifest)()
-                        if style_manifest
-                        else None
-                    ),
+                    "style_manifest": style_manifest,
                     "extra_css": extra_css,
-                    "page_class_plan": (
-                        [type("PageClassItem", (), item)() for item in page_class_plan]
-                        if page_class_plan
-                        else None
-                    ),
+                    "page_class_plan": page_class_plan,
                 },
             )(),
             task_id,

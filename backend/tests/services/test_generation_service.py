@@ -5,10 +5,12 @@ GenerationService 单元测试
 """
 
 import asyncio
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+import services.generation as generation_module
 from services.generation import CoursewareContent, GenerationService
 from services.template import TemplateConfig, TemplateStyle
 from utils.generation_exceptions import (
@@ -186,6 +188,45 @@ class TestGeneratePPTX:
             with pytest.raises(FileSystemError):
                 await generation_service.generate_pptx(mock_content, "test-task")
 
+    @pytest.mark.asyncio
+    async def test_generate_pptx_mermaid_default_non_blocking(
+        self, generation_service, mock_content
+    ):
+        with (
+            patch(
+                "services.mermaid_renderer.preprocess_mermaid_blocks",
+                new=AsyncMock(return_value=mock_content.markdown_content),
+            ) as mock_preprocess,
+            patch(
+                "services.generation._generate_pptx",
+                new_callable=AsyncMock,
+                return_value="test.pptx",
+            ),
+        ):
+            await generation_service.generate_pptx(mock_content, "test-task")
+
+        assert mock_preprocess.await_args.kwargs["fail_on_unrendered"] is False
+
+    @pytest.mark.asyncio
+    async def test_generate_pptx_mermaid_strict_mode_enabled_by_env(
+        self, generation_service, mock_content
+    ):
+        with (
+            patch.dict("os.environ", {"MERMAID_STRICT_MODE": "true"}),
+            patch(
+                "services.mermaid_renderer.preprocess_mermaid_blocks",
+                new=AsyncMock(return_value=mock_content.markdown_content),
+            ) as mock_preprocess,
+            patch(
+                "services.generation._generate_pptx",
+                new_callable=AsyncMock,
+                return_value="test.pptx",
+            ),
+        ):
+            await generation_service.generate_pptx(mock_content, "test-task")
+
+        assert mock_preprocess.await_args.kwargs["fail_on_unrendered"] is True
+
 
 class TestGenerateDOCX:
     """测试 DOCX 生成功能"""
@@ -266,6 +307,58 @@ class TestFilePathSafety:
             mock_gen.assert_called_once()
 
 
+class TestGenerateSlideImages:
+    """娴嬭瘯流式页图生成包装逻辑"""
+
+    @pytest.mark.asyncio
+    async def test_streaming_preview_uses_per_slide_mermaid_preprocess(
+        self, generation_service, mock_content
+    ):
+        preprocess_calls: list[str] = []
+        transformed_docs: list[str] = []
+
+        async def _fake_preprocess(markdown: str, **kwargs):
+            preprocess_calls.append(kwargs["asset_prefix"])
+            return markdown + "\n\n![Mermaid Diagram](slide.svg)"
+
+        async def _fake_generate(
+            task_id,
+            output_dir,
+            full_markdown,
+            on_image_generated=None,
+            transform_slide_markdown=None,
+        ):
+            assert task_id == "stream-task"
+            assert on_image_generated is not None
+            assert transform_slide_markdown is not None
+            transformed_docs.append(
+                await transform_slide_markdown(0, "# Slide 1\n\n```mermaid\nA-->B\n```")
+            )
+            return [str(output_dir / "stream-task_temp.001.png")]
+
+        with (
+            patch(
+                "services.generation._generate_slide_images",
+                new=AsyncMock(side_effect=_fake_generate),
+            ),
+            patch(
+                "services.mermaid_renderer.preprocess_mermaid_blocks",
+                new=AsyncMock(side_effect=_fake_preprocess),
+            ),
+        ):
+            images = await generation_service.generate_slide_images(
+                mock_content,
+                "stream-task",
+                on_image_generated=AsyncMock(),
+            )
+
+        assert images == [
+            str(Path(generation_service.output_dir) / "stream-task_temp.001.png")
+        ]
+        assert preprocess_calls == ["stream-task_mermaid_slide_001"]
+        assert 'img[alt="Mermaid Diagram"]' in transformed_docs[0]
+
+
 class TestConcurrentGeneration:
     """测试并发生成"""
 
@@ -288,3 +381,47 @@ class TestConcurrentGeneration:
             assert len(results) == 3
             assert all(r.endswith(".pptx") for r in results)
             assert mock_gen.call_count == 3
+
+
+class TestRuntimeLayoutGuards:
+    def test_apply_layout_overflow_guards_marks_toc_dense_and_columns(self):
+        markdown = """---
+marp: true
+theme: default
+---
+
+<style>
+section { color: #333; }
+</style>
+
+<!-- _class: toc density-medium -->
+
+# 目录
+
+1. 章节一
+2. 章节二
+3. 章节三
+4. 章节四
+5. 章节五
+6. 章节六
+7. 章节七
+8. 章节八
+9. 章节九
+"""
+        guarded = generation_module._apply_layout_overflow_guards(markdown)
+        assert "toc density-dense toc-columns" in guarded
+
+    def test_inject_runtime_layout_guard_css_uses_marker(self):
+        markdown = """---
+marp: true
+theme: default
+---
+
+<style>
+img[alt="Mermaid Diagram"] { max-height: 300px; }
+</style>
+
+# Slide
+"""
+        injected = generation_module._inject_runtime_layout_guard_css(markdown)
+        assert generation_module._RUNTIME_LAYOUT_GUARD_MARKER in injected

@@ -15,12 +15,12 @@ def build_deterministic_outline(
     sections = [
         OutlineSection(
             title="导入与目标",
-            key_points=["学习目标", "情境导入", "课堂互动提问", "板书逻辑预告"],
+            key_points=["学习目标", "情境导入", "课堂互动提问", "学习路径预告"],
             slide_count=2,
         ),
         OutlineSection(
             title="知识地图构建",
-            key_points=["知识地图", "概念关系梳理", "核心原理拆解", "板书主线搭建"],
+            key_points=["知识地图", "概念关系梳理", "核心原理拆解", "主线结构搭建"],
             slide_count=2,
         ),
         OutlineSection(
@@ -30,7 +30,7 @@ def build_deterministic_outline(
         ),
         OutlineSection(
             title="易错点澄清",
-            key_points=["易错点澄清", "反例辨析", "纠错策略", "板书归纳"],
+            key_points=["易错点澄清", "反例辨析", "纠错策略", "要点归纳"],
             slide_count=2,
         ),
         OutlineSection(

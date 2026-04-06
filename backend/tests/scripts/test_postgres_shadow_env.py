@@ -22,7 +22,7 @@ def test_build_shadow_env_overlay_uses_shadow_url_and_defaults() -> None:
     assert overlay["DEFAULT_MODEL"] == "qwen-plus"
     assert overlay["LARGE_MODEL"] == "qwen-max"
     assert overlay["SMALL_MODEL"] == "qwen-turbo"
-    assert overlay["AI_REQUEST_TIMEOUT_SECONDS"] == "120"
+    assert overlay["AI_REQUEST_TIMEOUT_SECONDS"] == "240"
     assert overlay["WORKER_NAME"] == "shadow-worker"
     assert overlay["WORKER_RECOVERY_SCAN"] == "true"
     assert overlay["SYNC_RAG_INDEXING"] == "false"

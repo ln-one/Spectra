@@ -8,18 +8,13 @@ from schemas.preview import (
     SourceReference,
     SourceType,
 )
+from services.generation.marp_document import split_marp_document
 
 
 def _parse_marp_slides(markdown_content: str) -> list[dict]:
-    content = str(markdown_content or "").strip()
-    frontmatter_match = re.match(r"^---\s*\n[\s\S]*?\n---\s*\n?", content)
-    if frontmatter_match:
-        content = content[frontmatter_match.end() :]
-
-    raw_slides = re.split(r"\n---\s*\n", content)
+    _, _, raw_slides = split_marp_document(markdown_content)
     slides: list[dict] = []
     for index, raw in enumerate(raw_slides):
-        raw = raw.strip()
         if not raw:
             continue
         title_match = re.match(r"^#\s+(.+)$", raw, re.MULTILINE)
@@ -29,9 +24,14 @@ def _parse_marp_slides(markdown_content: str) -> list[dict]:
 
 
 def build_slides(
-    task_id: str, markdown_content: str, image_metadata: dict | None = None
+    task_id: str,
+    markdown_content: str,
+    image_metadata: dict | None = None,
+    render_markdown: str | None = None,
 ) -> list[Slide]:
-    raw_slides = _parse_marp_slides(markdown_content)
+    # 优先使用 render_markdown
+    source = render_markdown if render_markdown else markdown_content
+    raw_slides = _parse_marp_slides(source)
     slides_meta = (
         (image_metadata or {}).get("slides_metadata", []) if image_metadata else []
     )

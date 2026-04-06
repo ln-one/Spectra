@@ -4,28 +4,20 @@ from typing import Optional
 
 
 def _get_css_reference() -> str:
-    """获取 3 套设计家族的完整 CSS 参考"""
+    """获取 Academic Modern 设计家族的完整 CSS 参考"""
     from services.template.css_generator import (
         _ACADEMIC_MODERN_CSS,
-        _EDITORIAL_BOLD_CSS,
         _MERMAID_STYLES,
-        _VISUAL_CARDS_CSS,
     )
 
     return f"""
 <css_reference>
-以下是 3 套设计家族的完整 CSS 框架供参考：
-
-## Editorial Bold（编辑粗体风格）
-{_EDITORIAL_BOLD_CSS}
+以下是 Academic Modern 设计家族的完整 CSS 框架供参考：
 
 ## Academic Modern（学术现代风格）
 {_ACADEMIC_MODERN_CSS}
 
-## Visual Cards（视觉卡片风格）
-{_VISUAL_CARDS_CSS}
-
-## Mermaid 图表样式（所有设计家族通用）
+## Mermaid 图表样式
 {_MERMAID_STYLES}
 </css_reference>
 """
@@ -78,7 +70,7 @@ def build_courseware_render_rewrite_prompt(
 </available_images>
 """
 
-    min_chart_count = max(1, slide_count // 4)
+    chart_upper_bound = max(1, min(4, max(1, slide_count // 3)))
 
     return f"""你是视觉设计专家。基于已定稿的课件正文，重写为最终可渲染的富样式 Marp 文档。
 
@@ -96,7 +88,7 @@ def build_courseware_render_rewrite_prompt(
 4. 保留已有图片占位和图题
 5. 不新增无依据的知识点
 6. 允许重写表达、布局、视觉组织
-7. **必须生成 Mermaid 图表**：至少 {min_chart_count} 个图表，分散在不同页面
+7. Mermaid 图表按页型触发：仅在流程/机制/时序/并列对比/占比页使用，全稿最多 {chart_upper_bound} 个
 8. 封面页必须明显区别于内容页（使用 cover 类）
 9. 目录页（如果生成）必须清晰列出章节结构
 </constraints>
@@ -150,99 +142,196 @@ graph LR
 </page_structure_examples>
 
 <mermaid_guidelines>
-## Mermaid 图表使用规则（必须生成）
+## Mermaid 图表使用规则（按页型触发）
 
 **重要**：
-你必须在课件中生成至少 {min_chart_count} 个 Mermaid 图表来辅助说明。
+仅在“流程/机制/时序/并列对比/占比统计”页放 Mermaid。全稿最多 {chart_upper_bound} 个，若无合适页型可为 0 个。
 
 1. **图表类型与使用场景**：
+   - 流程/关系：`flowchart` / `graph`
+   - 时序交互：`sequenceDiagram`
+   - 占比统计：`pie showData`
+   - 可选扩展（有必要时）：`classDiagram` / `gantt`
 
-   **流程图（flowchart/graph）** - 最常用
+2. **标准中文 Mermaid 语法模板（务必优先仿写，不要改语法骨架）**：
+
+   **模板 A：Flowchart（中文节点）**
    ```mermaid
    flowchart TD
-       A[开始] --> B{{判断条件}}
-       B -->|满足| C[执行操作]
-       B -->|不满足| D[跳过]
-       C --> E[结束]
+       %% ========= 方向 =========
+       %% TD / TB: 上到下
+       %% LR: 左到右
+       %% RL: 右到左
+       %% BT: 下到上
+
+       %% ========= 节点定义（常见形状） =========
+       A[开始：矩形]
+       B(圆角矩形)
+       C([体育场形])
+       D[[子程序]]
+       E[(数据库)]
+       F((圆形))
+       G>非对称]
+       H{{判断}}
+       I{{{{六边形}}}}
+       J[/平行四边形/]
+       K[\\反向平行四边形\\]
+       L[/梯形\\]
+       M[\\反向梯形/]
+
+       %% ========= 普通连线 / 箭头 / 文本 =========
+       A -->|"进入流程"| B
+       B --> C
+       C --> D
        D --> E
-   ```
-   适用：步骤说明、决策流程、算法逻辑
+       E --> F
+       F --> G
+       G --> H
 
-   **关系图（graph LR/TD）**
-   ```mermaid
-   graph LR
-       A[概念A] --> B[概念B]
-       B --> C[概念C]
-       A --> C
-   ```
-   适用：概念关系、因果链、依赖关系
+       %% ========= 判断分支 =========
+       H -->|"是"| I
+       H -->|"否"| J
 
-   **时序图（sequenceDiagram）**
+       %% ========= 虚线 / 粗线 / 无箭头 =========
+       I -.->|"虚线关系"| K
+       J ==>|"强调流程"| L
+       K --- M
+
+       %% ========= 双向连接 =========
+       L <--> M
+
+       %% ========= 链式写法 =========
+       M --> N[结束]
+
+       %% ========= 子图 =========
+       subgraph S1["子流程：数据处理"]
+           S1A[读取数据]
+           S1B[清洗数据]
+           S1C[输出结果]
+           S1A --> S1B --> S1C
+       end
+
+       %% ========= 跨子图连线 =========
+       B --> S1A
+       S1C --> N
+
+       %% ========= 注释 =========
+       %% 注意：不要把裸小写 end 当普通节点文本
+   ```
+
+   **模板 B：SequenceDiagram（中文交互）**
    ```mermaid
    sequenceDiagram
-       participant A as 用户
-       participant B as 系统
-       A->>B: 发送请求
-       B->>B: 处理
-       B-->>A: 返回结果
-   ```
-   适用：交互流程、通信过程、事件序列
+       %% ========= 参与者定义 =========
+       actor U as 用户
+       participant FE as 前端
+       participant API as 接口服务
+       participant DB as 数据库
+       participant MQ as 消息队列
 
-   **类图（classDiagram）**
+       %% ========= 标题/编号（按需使用，有的渲染环境支持） =========
+       %% autonumber
+
+       %% ========= 普通消息 =========
+       U->>FE: 打开页面
+       FE->>API: 请求课程列表
+       API->>DB: 查询课程
+       DB-->>API: 返回数据
+       API-->>FE: 返回课程列表
+       FE-->>U: 展示结果
+
+       %% ========= 自调用 =========
+       API->>API: 参数校验
+
+       %% ========= 激活 / 失活 =========
+       activate API
+       API->>DB: 写入访问日志
+       DB-->>API: 写入成功
+       deactivate API
+
+       %% ========= 注释 =========
+       Note right of FE: 前端负责渲染页面
+       Note over API,DB: 这里发生一次数据库查询
+
+       %% ========= loop 循环 =========
+       loop 轮询检查任务状态
+           FE->>API: 查询任务状态
+           API-->>FE: 返回处理中
+       end
+
+       %% ========= alt / else 条件分支 =========
+       alt 用户已登录
+           FE->>API: 拉取个人信息
+           API-->>FE: 返回个人信息
+       else 用户未登录
+           FE-->>U: 跳转登录页
+       end
+
+       %% ========= opt 可选分支 =========
+       opt 用户勾选“记住我”
+           FE->>API: 保存登录状态
+           API-->>FE: 保存成功
+       end
+
+       %% ========= par 并行 =========
+       par 并发加载课程
+           FE->>API: 请求课程列表
+           API-->>FE: 返回课程列表
+       and 并发加载公告
+           FE->>API: 请求公告列表
+           API-->>FE: 返回公告列表
+       end
+
+       %% ========= critical 关键区 =========
+       critical 支付关键流程
+           U->>FE: 点击支付
+           FE->>API: 创建订单
+           API->>DB: 扣减库存
+           DB-->>API: 扣减成功
+       option 库存不足
+           API-->>FE: 返回失败
+       end
+
+       %% ========= break 中断 =========
+       break 参数非法
+           API-->>FE: 返回错误信息
+       end
+
+       %% ========= 背景高亮区域 =========
+       rect rgb(235, 245, 255)
+           FE->>MQ: 发送异步消息
+           MQ-->>API: 回调处理结果
+       end
+   ```
+
+   **模板 C：Pie（中文占比）**
    ```mermaid
-   classDiagram
-       class 基类 {{
-           +属性1
-           +方法1()
-       }}
-       class 子类 {{
-           +属性2
-           +方法2()
-       }}
-       基类 <|-- 子类
+   pie showData
+       title 课程内容占比
+       "知识讲解" : 40
+       "案例分析" : 20
+       "课堂活动" : 15
+       "练习巩固" : 15
+       "总结反思" : 10
    ```
-   适用：结构说明、继承关系、组件架构
 
-   **甘特图（gantt）**
-   ```mermaid
-   gantt
-       title 项目计划
-       section 阶段1
-       任务A :a1, 2024-01-01, 30d
-       任务B :after a1, 20d
-   ```
-   适用：时间规划、项目进度、里程碑
+3. **稳定性硬约束（减少语法报错）**：
+   - 必须从上述模板复制后改词，不要从零拼语法。
+   - Flowchart 连线标签避免使用半角括号（如 `|P(empty)|`），建议改为 `|P_empty|` 或全角括号。
+   - 每个 Mermaid 代码块首行必须是合法图类型关键字（如 `flowchart TD`、`sequenceDiagram`、`pie showData`）。
+   - 图表前后保留空行；每页最多 1 个图表；封面页和目录页不放图表。
+   - 含大表格（>= 4 行）或长列表（>= 6 bullet）的页面，不要再放 Mermaid；拆到下一页。
 
-   **饼图（pie）**
-   ```mermaid
-   pie
-       title 占比分布
-       "部分A" : 45
-       "部分B" : 30
-       "部分C" : 25
-   ```
-   适用：比例展示、分布情况
-
-2. **大小控制**：
-   - 节点数量：3-8 个为宜
+4. **大小控制**：
+   - 节点数量：3-8 个为宜（复杂图最多 10 个）
    - 层级深度：不超过 3 层
-   - 文字长���：每个节点文字不超过 15 字
-
-3. **放置位置**：
-   - 放在相关文字说明之后
-   - 每页最多 1 个图表
-   - 图表前后保留空行
-
-4. **生成策略**：
-   - 识别课件中的流程、关系、结构等可视化内容
-   - 优先为复杂概念生成图表
-   - 分散在不同页面，避免集中
-   - 不要在封面页和目录页使用图表
+   - 单节点文字建议不超过 15 字
+   - 饼图默认独占半页以上空间，尽量放在图主导页面，避免与大表格同页。
 
 5. **禁止**：
-   - 不要生成过于复杂的图表（节点 >10）
-   - 不要连续多页都是图表
-   - 不要生成与内容无关的图表
+   - 不要返回残缺 Mermaid 代码块
+   - 不要使用与正文无关的图
+   - 不要连续多页都放图表
 </mermaid_guidelines>
 
 <layout_diversity_requirements>
@@ -381,13 +470,6 @@ theme: default
 paginate: true
 footer: 'Spectra 智能课件'
 ---
-
-<!-- 启用 Mermaid 支持 -->
-<script type="module">
-  import mermaid from
-    'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-  mermaid.initialize({{ startOnLoad: true }});
-</script>
 
 2. <style> 块：
    - 选定的设计家族完整 CSS（参考 css_reference）

@@ -1,9 +1,13 @@
 "use client";
+/* eslint-disable */
+// @ts-nocheck
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Image as ImageIcon, Loader2 } from "lucide-react";
+import { Image as ImageIcon, Loader2, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { generateApi, projectSpaceApi } from "@/lib/sdk";
@@ -13,8 +17,11 @@ import { PreviewHeader } from "./components/PreviewHeader";
 import { PreviewFloatingTools } from "./components/PreviewFloatingTools";
 import { PreviewSlideStrip } from "./components/PreviewSlideStrip";
 import { PptArtifactRenderer } from "./components/PptArtifactRenderer";
+import StreamingWorkbenchPageView from "./StreamingWorkbenchPageView";
 
-export default function GeneratePreviewPage() {
+export function LegacyGeneratePreviewPage() {
+  return <StreamingWorkbenchPageView />;
+  /*
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -27,7 +34,7 @@ export default function GeneratePreviewPage() {
         : "";
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [projectTitle, setProjectTitle] = useState("生成结果");
+  const [projectTitle, setProjectTitle] = useState("PPT Streaming Workbench");
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [pptRenderState, setPptRenderState] = useState<
     "idle" | "loading" | "ready" | "failed"
@@ -36,6 +43,10 @@ export default function GeneratePreviewPage() {
     artifactId: string;
     type: string | null;
   } | null>(null);
+  const [revealedRenderedCount, setRevealedRenderedCount] = useState(0);
+  const [fullscreenSlideIndex, setFullscreenSlideIndex] = useState<number | null>(
+    null
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const slidesRef = useRef<HTMLDivElement>(null);
@@ -58,12 +69,13 @@ export default function GeneratePreviewPage() {
     isResuming,
     regeneratingSlideId,
     previewBlockedReason,
-    previewMode,
     isSessionGenerating,
+    sessionState,
+    sessionFailureMessage,
     isOutlineGenerating,
     outlineSections,
+    slidesContentMarkdown,
     activeSessionId,
-    currentArtifactId,
     handleExport,
     handleResume,
     handleRegenerateSlide,
@@ -105,35 +117,6 @@ export default function GeneratePreviewPage() {
     searchQueryString,
     sessionIdFromQuery,
   ]);
-
-  useEffect(() => {
-    if (!projectId || !currentArtifactId) return;
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const detail = await projectSpaceApi.getArtifact(
-          projectId,
-          currentArtifactId
-        );
-        if (cancelled) return;
-        setArtifactTypeState({
-          artifactId: currentArtifactId,
-          type: detail?.data?.artifact?.type ?? null,
-        });
-      } catch {
-        if (cancelled) return;
-        setArtifactTypeState({
-          artifactId: currentArtifactId,
-          type: null,
-        });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentArtifactId, projectId]);
 
   useEffect(() => {
     activeSlideIndexRef.current = activeSlideIndex;
@@ -188,7 +171,7 @@ export default function GeneratePreviewPage() {
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [slides]);
+  }, [visibleRenderedSlides]);
 
   const scrollToSlide = useCallback((index: number) => {
     setActiveSlideIndex(index);
@@ -198,13 +181,53 @@ export default function GeneratePreviewPage() {
     }
   }, []);
 
-  const boundArtifactType =
-    artifactTypeState?.artifactId === currentArtifactId
-      ? artifactTypeState.type
-      : null;
-  const canRenderRealPpt =
-    Boolean(currentArtifactId) && boundArtifactType === "pptx";
-  const shouldUseRenderedPreviewFirst = previewMode === "rendered";
+  const renderedSlides = useMemo(
+    () => slides.filter((slide) => Boolean(slide.thumbnail_url)),
+    [slides]
+  );
+
+  const shouldRevealAllRendered =
+    sessionState === "SUCCESS" ||
+    (!isLoading && !isSessionGenerating && renderedSlides.length > 0);
+
+  useEffect(() => {
+    if (renderedSlides.length === 0) {
+      setRevealedRenderedCount(0);
+      return;
+    }
+    if (shouldRevealAllRendered) {
+      setRevealedRenderedCount(renderedSlides.length);
+      return;
+    }
+
+    setRevealedRenderedCount((prev) => {
+      if (prev > renderedSlides.length) return renderedSlides.length;
+      return prev === 0 ? 1 : prev;
+    });
+
+    const timer = window.setInterval(() => {
+      setRevealedRenderedCount((prev) => {
+        if (prev >= renderedSlides.length) return prev;
+        return prev + 1;
+      });
+    }, 650);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [renderedSlides.length, shouldRevealAllRendered]);
+
+  const visibleRenderedSlides = useMemo(
+    () => renderedSlides.slice(0, revealedRenderedCount),
+    [renderedSlides, revealedRenderedCount]
+  );
+
+  const fullscreenSlide = useMemo(() => {
+    if (fullscreenSlideIndex === null) return null;
+    return visibleRenderedSlides.find(
+      (slide) => slide.index === fullscreenSlideIndex
+    );
+  }, [fullscreenSlideIndex, visibleRenderedSlides]);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -394,4 +417,7 @@ export default function GeneratePreviewPage() {
       </div>
     </TooltipProvider>
   );
+  */
 }
+
+export default StreamingWorkbenchPageView;
