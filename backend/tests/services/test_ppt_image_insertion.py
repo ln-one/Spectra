@@ -79,7 +79,7 @@ async def test_inject_rag_images_into_courseware_content_appends_image_blocks():
         )
 
     assert "![w:520](<../uploads/network-topology.png>)" in courseware.markdown_content
-    assert "配图来源：network-topology.png" in courseware.markdown_content
+    assert "配图来源" not in courseware.markdown_content
 
 
 @pytest.mark.asyncio
@@ -170,7 +170,7 @@ async def test_inject_rag_images_into_courseware_content_uses_project_ready_imag
         )
 
     assert "![w:520](<../uploads/project-ready.png>)" in courseware.markdown_content
-    assert "配图来源：project-ready.png" in courseware.markdown_content
+    assert "配图来源" not in courseware.markdown_content
 
 
 @pytest.mark.asyncio
@@ -271,6 +271,6 @@ async def test_inject_rag_images_for_selected_sources_appends_image_slide_when_n
         )
 
     slides = [part.strip() for part in courseware.markdown_content.split("\n\n---\n\n")]
-    assert len(slides) == 4
-    assert "![w:900](<../uploads/selected-only.png>)" in slides[-1]
-    assert "配图来源：selected-only.png" in slides[-1]
+    # 无法插入正文时不再追加附录页，页数保持不变
+    assert len(slides) == 3
+    assert "selected-only.png" not in courseware.markdown_content
