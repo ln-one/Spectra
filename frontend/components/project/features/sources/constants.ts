@@ -8,6 +8,7 @@ import {
   FileType,
   FileVideo,
   Image,
+  Library,
   Music,
   Presentation,
 } from "lucide-react";
@@ -72,6 +73,11 @@ export const FILE_TYPE_CONFIG: Record<
     icon: Code,
     color: "text-cyan-500",
     bgGradient: "bg-gradient-to-br from-cyan-50 to-blue-50",
+  },
+  library: {
+    icon: Library,
+    color: "text-amber-600",
+    bgGradient: "bg-gradient-to-br from-amber-50 to-yellow-50",
   },
   other: {
     icon: File,

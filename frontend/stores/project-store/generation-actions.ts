@@ -4,6 +4,10 @@ import { toast } from "@/hooks/use-toast";
 import { parseActiveRunConflict } from "@/lib/project/generation-run-conflict";
 import { groupArtifactsByTool } from "@/lib/project-space/artifact-history";
 import {
+  buildArtifactDownloadFilename,
+  inferArtifactDownloadExt,
+} from "@/lib/project-space/download-filename";
+import {
   mapSessionsToHistory,
   normalizeGenerationOptions,
   resolveOutputType,
@@ -19,23 +23,6 @@ import type {
   ProjectState,
   SessionStatePayload,
 } from "./types";
-
-function inferArtifactDownloadExt(artifactType: Artifact["type"]): string {
-  switch (artifactType) {
-    case "pptx":
-      return "pptx";
-    case "docx":
-      return "docx";
-    case "gif":
-      return "gif";
-    case "mp4":
-      return "mp4";
-    case "html":
-      return "html";
-    default:
-      return "json";
-  }
-}
 
 function extractRunId(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
@@ -339,7 +326,14 @@ export function createGenerationActions({
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
-          link.download = `${artifact.toolType}-${artifact.artifactId.slice(0, 8)}.${inferArtifactDownloadExt(artifact.artifactType)}`;
+          link.download = buildArtifactDownloadFilename({
+            title: artifact.title,
+            artifactId: artifact.artifactId,
+            artifactType: artifact.artifactType,
+            ext: inferArtifactDownloadExt(
+              artifact.artifactType as Artifact["type"]
+            ),
+          });
           link.click();
           URL.revokeObjectURL(url);
           toast({
@@ -395,7 +389,12 @@ export function createGenerationActions({
         const ext = format === "markdown" ? "md" : "json";
         const link = document.createElement("a");
         link.href = url;
-        link.download = `${artifact.toolType}-${artifact.artifactId.slice(0, 8)}.${ext}`;
+        link.download = buildArtifactDownloadFilename({
+          title: artifact.title,
+          artifactId: artifact.artifactId,
+          artifactType: artifact.artifactType,
+          ext,
+        });
         link.click();
         URL.revokeObjectURL(url);
         toast({

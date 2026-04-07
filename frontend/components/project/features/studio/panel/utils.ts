@@ -40,6 +40,12 @@ export function normalizeHistoryStep(
   return "config";
 }
 
+export function isPptStep2Stage(
+  stage: "config" | "generating_outline" | "outline" | "preview"
+): boolean {
+  return stage === "generating_outline" || stage === "outline";
+}
+
 export function toStudioManagedTool(
   toolType: GenerationToolType
 ): StudioManagedTool | null {

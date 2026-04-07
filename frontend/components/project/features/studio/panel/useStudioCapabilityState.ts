@@ -109,7 +109,9 @@ export function useStudioCapabilityState({
   ]);
 
   const completedPptHistorySources = useMemo<StudioSourceOption[]>(() => {
-    if (expandedToolKey !== "summary") return [];
+    const requiresPptSources =
+      currentCardId === "word_document" || currentCardId === "speaker_notes";
+    if (!requiresPptSources) return [];
     const pptHistory = artifactHistoryByTool.ppt ?? [];
     const seen = new Set<string>();
     const normalized: StudioSourceOption[] = [];
@@ -125,7 +127,7 @@ export function useStudioCapabilityState({
       });
     }
     return normalized;
-  }, [artifactHistoryByTool.ppt, expandedToolKey]);
+  }, [artifactHistoryByTool.ppt, currentCardId]);
 
   const currentCapabilityState = currentCardId
     ? capabilityStateByCardId[currentCardId]

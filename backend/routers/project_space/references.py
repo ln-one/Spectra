@@ -21,7 +21,7 @@ from schemas.project_space import (
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
 
-from .reference_runtime import resolve_target_version_map
+from .reference_runtime import resolve_target_project_runtime_maps
 from .shared import (
     COMMON_ERROR_RESPONSES,
     to_candidate_change_model,
@@ -56,7 +56,7 @@ async def create_project_reference(
             pinned_version_id=body.pinned_version_id,
             priority=body.priority,
         )
-        version_map = await resolve_target_version_map(
+        version_map, target_name_map = await resolve_target_project_runtime_maps(
             db_service=project_space_service.db,
             references=[reference],
         )
@@ -68,6 +68,7 @@ async def create_project_reference(
                     upstream_current_version_id=version_map.get(
                         reference.targetProjectId
                     ),
+                    target_project_name=target_name_map.get(reference.targetProjectId),
                 )
             },
             message="创建引用成功",
@@ -89,7 +90,7 @@ async def get_project_references(
         references = await project_space_service.get_project_references(
             project_id=project_id, user_id=user_id
         )
-        version_map = await resolve_target_version_map(
+        version_map, target_name_map = await resolve_target_project_runtime_maps(
             db_service=project_space_service.db,
             references=references,
         )
@@ -102,6 +103,7 @@ async def get_project_references(
                         upstream_current_version_id=version_map.get(
                             ref.targetProjectId
                         ),
+                        target_project_name=target_name_map.get(ref.targetProjectId),
                     )
                     for ref in references
                 ]
@@ -134,7 +136,7 @@ async def update_project_reference(
             priority=body.priority,
             status=body.status,
         )
-        version_map = await resolve_target_version_map(
+        version_map, target_name_map = await resolve_target_project_runtime_maps(
             db_service=project_space_service.db,
             references=[updated_ref],
         )
@@ -144,6 +146,9 @@ async def update_project_reference(
                 "reference": to_project_reference_model(
                     updated_ref,
                     upstream_current_version_id=version_map.get(
+                        updated_ref.targetProjectId
+                    ),
+                    target_project_name=target_name_map.get(
                         updated_ref.targetProjectId
                     ),
                 )

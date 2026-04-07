@@ -1,6 +1,7 @@
 import type { ToolDraftState } from "@/components/project/features/studio/tools";
 import type { ArtifactHistoryItem } from "@/lib/project-space/artifact-history";
 import {
+  isPptStep2Stage,
   isDraftStateEqual,
   mergeToolArtifacts,
   normalizeHistoryStep,
@@ -29,6 +30,13 @@ describe("studio panel utils", () => {
     expect(normalizeHistoryStep("preview")).toBe("preview");
     expect(normalizeHistoryStep("unknown")).toBe("config");
     expect(normalizeHistoryStep(null)).toBe("config");
+  });
+
+  it("detects ppt step2 stages for fullscreen layout", () => {
+    expect(isPptStep2Stage("config")).toBe(false);
+    expect(isPptStep2Stage("generating_outline")).toBe(true);
+    expect(isPptStep2Stage("outline")).toBe(true);
+    expect(isPptStep2Stage("preview")).toBe(false);
   });
 
   it("checks draft state equality", () => {

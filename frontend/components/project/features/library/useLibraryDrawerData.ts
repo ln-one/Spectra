@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { projectSpaceApi } from "@/lib/sdk";
+import { projectSpaceApi, projectsApi } from "@/lib/sdk";
 import { ApiError } from "@/lib/sdk/client";
+import {
+  buildArtifactDownloadFilename,
+  inferArtifactDownloadExt,
+  resolveArtifactTitleFromMetadata,
+} from "@/lib/project-space/download-filename";
 import type {
+  AvailableLibraryProject,
   Artifact,
   CandidateChange,
+  CurrentLibrarySettings,
   ProjectMember,
   ProjectReference,
   ProjectVersion,
@@ -28,30 +35,89 @@ function formatLibraryError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeLibraryProject(raw: unknown): AvailableLibraryProject | null {
+  const project = asRecord(raw);
+  if (!project) return null;
+
+  const id = typeof project.id === "string" ? project.id : "";
+  if (!id) return null;
+
+  const name =
+    typeof project.name === "string" && project.name.trim() ? project.name : id;
+  const description =
+    typeof project.description === "string" ? project.description : "";
+  const status = typeof project.status === "string" ? project.status : "draft";
+  const visibilityRaw = project.visibility;
+  const visibility =
+    visibilityRaw === "shared" || visibilityRaw === "private"
+      ? visibilityRaw
+      : "unknown";
+  const isReferenceableRaw =
+    project.is_referenceable ?? project.isReferenceable;
+  const isReferenceable = isReferenceableRaw === true;
+  const currentVersionIdRaw =
+    project.current_version_id ?? project.currentVersionId;
+  const currentVersionId =
+    typeof currentVersionIdRaw === "string" && currentVersionIdRaw.trim()
+      ? currentVersionIdRaw
+      : null;
+
+  return {
+    id,
+    name,
+    description,
+    status,
+    visibility,
+    isReferenceable,
+    currentVersionId,
+  };
+}
+
+function normalizeCurrentLibrarySettings(
+  raw: unknown
+): CurrentLibrarySettings | null {
+  const project = asRecord(raw);
+  if (!project) return null;
+
+  const id = typeof project.id === "string" ? project.id : "";
+  if (!id) return null;
+
+  const name =
+    typeof project.name === "string" && project.name.trim() ? project.name : id;
+  const description =
+    typeof project.description === "string" ? project.description : "";
+  const gradeLevelRaw = project.grade_level ?? project.gradeLevel;
+  const gradeLevel =
+    typeof gradeLevelRaw === "string" && gradeLevelRaw.trim()
+      ? gradeLevelRaw
+      : null;
+  const visibilityRaw = project.visibility;
+  const visibility: "private" | "shared" =
+    visibilityRaw === "shared" ? "shared" : "private";
+  const isReferenceableRaw =
+    project.is_referenceable ?? project.isReferenceable;
+  const isReferenceable = isReferenceableRaw === true;
+
+  return {
+    id,
+    name,
+    description,
+    gradeLevel,
+    visibility,
+    isReferenceable,
+  };
+}
+
 function parsePriority(value: string): number {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : 10;
-}
-
-function inferArtifactExt(artifactType: Artifact["type"]): string {
-  switch (artifactType) {
-    case "gif":
-      return "gif";
-    case "mp4":
-      return "mp4";
-    case "html":
-      return "html";
-    case "mindmap":
-    case "summary":
-    case "exercise":
-      return "json";
-    case "pptx":
-      return "pptx";
-    case "docx":
-      return "docx";
-    default:
-      return "bin";
-  }
 }
 
 export function useLibraryDrawerData(projectId: string, open: boolean) {
@@ -62,6 +128,14 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [changes, setChanges] = useState<CandidateChange[]>([]);
   const [referencesState, setReferencesState] = useState<TabState>({
+    loading: false,
+    error: null,
+  });
+  const [librariesState, setLibrariesState] = useState<TabState>({
+    loading: false,
+    error: null,
+  });
+  const [currentLibraryState, setCurrentLibraryState] = useState<TabState>({
     loading: false,
     error: null,
   });
@@ -114,6 +188,23 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
   const [newChangeTitle, setNewChangeTitle] = useState("");
   const [newChangeSummary, setNewChangeSummary] = useState("");
   const [reviewComment, setReviewComment] = useState("");
+  const [availableLibraries, setAvailableLibraries] = useState<
+    AvailableLibraryProject[]
+  >([]);
+  const [currentLibrarySettings, setCurrentLibrarySettings] =
+    useState<CurrentLibrarySettings | null>(null);
+  const [currentLibrarySaving, setCurrentLibrarySaving] = useState(false);
+  const [currentLibraryNameDraft, setCurrentLibraryNameDraft] = useState("");
+  const [currentLibraryDescriptionDraft, setCurrentLibraryDescriptionDraft] =
+    useState("");
+  const [currentLibraryGradeLevelDraft, setCurrentLibraryGradeLevelDraft] =
+    useState("");
+  const [currentLibraryVisibilityDraft, setCurrentLibraryVisibilityDraft] =
+    useState<"private" | "shared">("private");
+  const [
+    currentLibraryReferenceableDraft,
+    setCurrentLibraryReferenceableDraft,
+  ] = useState(false);
 
   const loadReferences = useCallback(async () => {
     setReferencesState({ loading: true, error: null });
@@ -128,6 +219,75 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       });
     }
   }, [projectId]);
+
+  const loadAvailableLibraries = useCallback(async () => {
+    setLibrariesState({ loading: true, error: null });
+    try {
+      const response = await projectsApi.getProjects({ page: 1, limit: 100 });
+      const normalized = (response.data.projects ?? [])
+        .map((project) => normalizeLibraryProject(project))
+        .filter((project): project is AvailableLibraryProject => !!project)
+        .filter((project) => project.id !== projectId)
+        .sort((a, b) => {
+          if (a.isReferenceable !== b.isReferenceable) {
+            return a.isReferenceable ? -1 : 1;
+          }
+          if (a.visibility !== b.visibility) {
+            return a.visibility === "shared" ? -1 : 1;
+          }
+          return a.name.localeCompare(b.name, "zh-CN");
+        });
+      setAvailableLibraries(normalized);
+      setLibrariesState({ loading: false, error: null });
+    } catch (error) {
+      setLibrariesState({
+        loading: false,
+        error: formatLibraryError(error, "加载库列表失败"),
+      });
+    }
+  }, [projectId]);
+
+  const loadCurrentLibrarySettings = useCallback(async () => {
+    setCurrentLibraryState({ loading: true, error: null });
+    try {
+      const response = await projectsApi.getProject(projectId);
+      const normalized = normalizeCurrentLibrarySettings(response.data.project);
+      if (!normalized) {
+        setCurrentLibrarySettings(null);
+        setCurrentLibraryState({
+          loading: false,
+          error: "当前库信息异常，无法读取设置",
+        });
+        return;
+      }
+      setCurrentLibrarySettings(normalized);
+      setCurrentLibraryNameDraft(normalized.name);
+      setCurrentLibraryDescriptionDraft(normalized.description);
+      setCurrentLibraryGradeLevelDraft(normalized.gradeLevel ?? "");
+      setCurrentLibraryVisibilityDraft(normalized.visibility);
+      setCurrentLibraryReferenceableDraft(normalized.isReferenceable);
+      setCurrentLibraryState({ loading: false, error: null });
+    } catch (error) {
+      setCurrentLibrarySettings(null);
+      setCurrentLibraryState({
+        loading: false,
+        error: formatLibraryError(error, "加载当前库设置失败"),
+      });
+    }
+  }, [projectId]);
+
+  const resetCurrentLibraryDrafts = useCallback(() => {
+    if (!currentLibrarySettings) return;
+    setCurrentLibraryNameDraft(currentLibrarySettings.name);
+    setCurrentLibraryDescriptionDraft(currentLibrarySettings.description);
+    setCurrentLibraryGradeLevelDraft(currentLibrarySettings.gradeLevel ?? "");
+    setCurrentLibraryVisibilityDraft(currentLibrarySettings.visibility);
+    setCurrentLibraryReferenceableDraft(currentLibrarySettings.isReferenceable);
+    setCurrentLibraryState((previous) => ({
+      ...previous,
+      error: null,
+    }));
+  }, [currentLibrarySettings]);
 
   const loadVersions = useCallback(async () => {
     setVersionsState({ loading: true, error: null });
@@ -190,35 +350,107 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     queueMicrotask(() => {
       void Promise.all([
         loadReferences(),
-        loadVersions(),
-        loadArtifacts(),
-        loadMembers(),
-        loadChanges(),
+        loadAvailableLibraries(),
+        loadCurrentLibrarySettings(),
       ]);
     });
   }, [
-    loadArtifacts,
-    loadChanges,
-    loadMembers,
+    loadAvailableLibraries,
+    loadCurrentLibrarySettings,
     loadReferences,
-    loadVersions,
     open,
   ]);
+
+  const handleSaveCurrentLibrarySettings = async () => {
+    if (!currentLibrarySettings) return;
+    const nextName = currentLibraryNameDraft.trim();
+    if (!nextName) {
+      setCurrentLibraryState({
+        loading: false,
+        error: "库名称不能为空，请先填写名称再保存。",
+      });
+      return;
+    }
+    const nextDescription = currentLibraryDescriptionDraft.trim() || nextName;
+    const nextGradeLevel = currentLibraryGradeLevelDraft.trim() || undefined;
+    if (
+      currentLibraryVisibilityDraft === "private" &&
+      currentLibraryReferenceableDraft
+    ) {
+      setCurrentLibraryState({
+        loading: false,
+        error: "私有库不能设置为可引用，请先改为共享。",
+      });
+      return;
+    }
+    setCurrentLibrarySaving(true);
+    setCurrentLibraryState({ loading: false, error: null });
+    try {
+      const response = await projectsApi.updateProject(projectId, {
+        name: nextName,
+        description: nextDescription,
+        grade_level: nextGradeLevel,
+        visibility: currentLibraryVisibilityDraft,
+        is_referenceable: currentLibraryReferenceableDraft,
+      });
+      const normalized = normalizeCurrentLibrarySettings(response.data.project);
+      if (!normalized) {
+        setCurrentLibraryState({
+          loading: false,
+          error: "保存成功，但返回数据异常。",
+        });
+        return;
+      }
+      setCurrentLibrarySettings(normalized);
+      setCurrentLibraryNameDraft(normalized.name);
+      setCurrentLibraryDescriptionDraft(normalized.description);
+      setCurrentLibraryGradeLevelDraft(normalized.gradeLevel ?? "");
+      setCurrentLibraryVisibilityDraft(normalized.visibility);
+      setCurrentLibraryReferenceableDraft(normalized.isReferenceable);
+      setCurrentLibraryState({ loading: false, error: null });
+    } catch (error) {
+      setCurrentLibraryState({
+        loading: false,
+        error: formatLibraryError(error, "保存当前库设置失败"),
+      });
+    } finally {
+      setCurrentLibrarySaving(false);
+    }
+  };
+
+  const createReferenceByTarget = useCallback(
+    async (
+      targetProjectId: string,
+      options?: { pinnedVersionId?: string | null }
+    ) => {
+      const normalizedTargetId = targetProjectId.trim();
+      if (!normalizedTargetId) return;
+      const pinnedVersionId = options?.pinnedVersionId || null;
+      await projectSpaceApi.createReference(projectId, {
+        target_project_id: normalizedTargetId,
+        relation_type: newReferenceRelationType,
+        mode: newReferenceMode,
+        pinned_version_id:
+          newReferenceMode === "pinned"
+            ? pinnedVersionId || newReferencePinnedVersion.trim() || null
+            : null,
+        priority: parsePriority(newReferencePriority),
+      });
+    },
+    [
+      newReferenceMode,
+      newReferencePinnedVersion,
+      newReferencePriority,
+      newReferenceRelationType,
+      projectId,
+    ]
+  );
 
   const handleAddReference = async () => {
     const targetId = newReferenceTarget.trim();
     if (!targetId) return;
     try {
-      await projectSpaceApi.createReference(projectId, {
-        target_project_id: targetId,
-        relation_type: newReferenceRelationType,
-        mode: newReferenceMode,
-        pinned_version_id:
-          newReferenceMode === "pinned"
-            ? newReferencePinnedVersion.trim() || null
-            : null,
-        priority: parsePriority(newReferencePriority),
-      });
+      await createReferenceByTarget(targetId);
       setReferencesState({ loading: false, error: null });
       setNewReferenceTarget("");
       setNewReferencePinnedVersion("");
@@ -227,6 +459,24 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       setReferencesState({
         loading: false,
         error: formatLibraryError(error, "新增引用失败"),
+      });
+    }
+  };
+
+  const handleQuickAddReference = async (
+    targetProjectId: string,
+    options?: { pinnedVersionId?: string | null }
+  ) => {
+    try {
+      await createReferenceByTarget(targetProjectId, options);
+      setReferencesState({ loading: false, error: null });
+      setNewReferenceTarget("");
+      setNewReferencePinnedVersion("");
+      await loadReferences();
+    } catch (error) {
+      setReferencesState({
+        loading: false,
+        error: formatLibraryError(error, "引入库失败"),
       });
     }
   };
@@ -313,7 +563,12 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${target.type}-${target.id.slice(0, 8)}.${inferArtifactExt(target.type)}`;
+      link.download = buildArtifactDownloadFilename({
+        title: resolveArtifactTitleFromMetadata(target.metadata),
+        artifactId: target.id,
+        artifactType: target.type,
+        ext: inferArtifactDownloadExt(target.type),
+      });
       link.click();
       URL.revokeObjectURL(url);
       setArtifactsState({ loading: false, error: null });
@@ -440,6 +695,8 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     members,
     changes,
     referencesState,
+    librariesState,
+    currentLibraryState,
     versionsState,
     artifactsState,
     membersState,
@@ -478,8 +735,24 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     setNewChangeSummary,
     reviewComment,
     setReviewComment,
+    availableLibraries,
+    currentLibrarySettings,
+    currentLibrarySaving,
+    currentLibraryNameDraft,
+    setCurrentLibraryNameDraft,
+    currentLibraryDescriptionDraft,
+    setCurrentLibraryDescriptionDraft,
+    currentLibraryGradeLevelDraft,
+    setCurrentLibraryGradeLevelDraft,
+    currentLibraryVisibilityDraft,
+    setCurrentLibraryVisibilityDraft,
+    currentLibraryReferenceableDraft,
+    setCurrentLibraryReferenceableDraft,
+    resetCurrentLibraryDrafts,
 
     loadReferences,
+    loadAvailableLibraries,
+    loadCurrentLibrarySettings,
     loadVersions,
     loadArtifacts,
     loadMembers,
@@ -489,6 +762,8 @@ export function useLibraryDrawerData(projectId: string, open: boolean) {
     handleDeleteReference,
     handleToggleReferenceStatus,
     handleUpdateReferencePriority,
+    handleQuickAddReference,
+    handleSaveCurrentLibrarySettings,
 
     handleCreateArtifact,
     handleDownloadArtifact,

@@ -8,6 +8,11 @@ import { useProjectStore } from "@/stores/projectStore";
 import { toast } from "@/hooks/use-toast";
 import type { components } from "@/lib/sdk/types";
 import { useShallow } from "zustand/react/shallow";
+import {
+  buildArtifactDownloadFilename,
+  inferArtifactDownloadExt,
+  resolveArtifactTitleFromMetadata,
+} from "@/lib/project-space/download-filename";
 
 type Slide = components["schemas"]["Slide"];
 type RenderedPreview = components["schemas"]["RenderedPreview"];
@@ -39,30 +44,6 @@ type SessionIdentity = {
     run_id?: string;
   } | null;
 } | null;
-
-function inferDownloadExt(artifactType: ArtifactType | undefined): string {
-  if (!artifactType) return "bin";
-  switch (artifactType) {
-    case "pptx":
-      return "pptx";
-    case "docx":
-      return "docx";
-    case "html":
-      return "html";
-    case "mp4":
-      return "mp4";
-    case "gif":
-      return "gif";
-    case "mindmap":
-      return "json";
-    case "summary":
-      return "md";
-    case "exercise":
-      return "json";
-    default:
-      return "bin";
-  }
-}
 
 function resolveEventKey(event: {
   event_id?: string;
@@ -757,11 +738,18 @@ export function useGeneratePreviewState({
             projectSpaceApi.downloadArtifact(projectId, currentArtifactId),
           ]);
           const artifactType = artifactResponse.data.artifact?.type;
-          const downloadExt = inferDownloadExt(artifactType);
+          const artifactTitle = resolveArtifactTitleFromMetadata(
+            artifactResponse.data.artifact?.metadata
+          );
           const url = URL.createObjectURL(artifactBlob);
           const link = document.createElement("a");
           link.href = url;
-          link.download = `artifact-${currentArtifactId.slice(0, 8)}.${downloadExt}`;
+          link.download = buildArtifactDownloadFilename({
+            title: artifactTitle,
+            artifactId: currentArtifactId,
+            artifactType: artifactType as ArtifactType | undefined,
+            ext: inferArtifactDownloadExt(artifactType),
+          });
           link.click();
           URL.revokeObjectURL(url);
           toast({

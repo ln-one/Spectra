@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { projectsApi } from "@/lib/sdk";
@@ -14,18 +14,59 @@ import {
   X,
   ChevronDown,
   ArrowRight,
-  FileText,
   Shield,
   Users,
-  Layers,
   Settings,
   Library,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/stores/projectStore";
+import { FILE_TYPE_CONFIG } from "@/components/project/features/sources/constants";
+import { getFileTypeFromExtension } from "@/components/project/features/sources/utils";
+import {
+  AddLibraryDialog,
+  type NewProjectLibrary,
+} from "./_components/AddLibraryDialog";
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeNewProjectLibrary(raw: unknown): NewProjectLibrary | null {
+  const project = asRecord(raw);
+  if (!project) return null;
+
+  const id = typeof project.id === "string" ? project.id : "";
+  if (!id) return null;
+
+  const name =
+    typeof project.name === "string" && project.name.trim() ? project.name : id;
+  const description =
+    typeof project.description === "string" ? project.description : "";
+  const visibilityRaw = project.visibility;
+  const visibility =
+    visibilityRaw === "shared" || visibilityRaw === "private"
+      ? visibilityRaw
+      : "unknown";
+  const isReferenceableRaw =
+    project.is_referenceable ?? project.isReferenceable;
+  const isReferenceable = isReferenceableRaw === true;
+
+  return {
+    id,
+    name,
+    description,
+    visibility,
+    isReferenceable,
+  };
+}
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -34,6 +75,11 @@ export default function NewProjectPage() {
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showLibraryDialog, setShowLibraryDialog] = useState(false);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [libraryKeyword, setLibraryKeyword] = useState("");
+  const [libraries, setLibraries] = useState<NewProjectLibrary[]>([]);
   const [prompt, setPrompt] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +93,47 @@ export default function NewProjectPage() {
     is_referenceable: false,
   });
 
+  const fetchLibraries = useCallback(async () => {
+    setLibraryLoading(true);
+    setLibraryError(null);
+    try {
+      const response = await projectsApi.getProjects({ page: 1, limit: 100 });
+      const projects = Array.isArray(response?.data?.projects)
+        ? response.data.projects
+        : [];
+      const normalized = projects
+        .map((item) => normalizeNewProjectLibrary(item))
+        .filter((item): item is NewProjectLibrary => !!item);
+      setLibraries(normalized);
+    } catch (error) {
+      setLibraryError(getErrorMessage(error));
+    } finally {
+      setLibraryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showLibraryDialog || libraries.length > 0) return;
+    void fetchLibraries();
+  }, [fetchLibraries, libraries.length, showLibraryDialog]);
+
+  const visibleLibraries = useMemo(() => {
+    const keyword = libraryKeyword.trim().toLowerCase();
+    if (!keyword) return libraries;
+    return libraries.filter((library) => {
+      const text =
+        `${library.name} ${library.id} ${library.description}`.toLowerCase();
+      return text.includes(keyword);
+    });
+  }, [libraries, libraryKeyword]);
+
+  const selectedBaseLibrary = useMemo(
+    () =>
+      libraries.find((item) => item.id === formData.base_project_id.trim()) ??
+      null,
+    [libraries, formData.base_project_id]
+  );
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
@@ -56,6 +143,15 @@ export default function NewProjectPage() {
 
   const removeFile = (index: number) => {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleOpenLibraryDialog = () => {
+    setShowLibraryDialog(true);
+  };
+
+  const handleSelectLibrary = (libraryId: string) => {
+    setFormData((prev) => ({ ...prev, base_project_id: libraryId }));
+    setShowLibraryDialog(false);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -211,7 +307,7 @@ export default function NewProjectPage() {
                   className="rounded-2xl h-12 px-6 gap-2 text-zinc-500 hover:text-blue-600 hover:bg-blue-50 transition-all font-bold"
                 >
                   <Paperclip className="w-5 h-5" />
-                  添加素材 ({pendingFiles.length})
+                  添加课程资源 ({pendingFiles.length})
                 </Button>
                 <input
                   type="file"
@@ -223,12 +319,7 @@ export default function NewProjectPage() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() =>
-                    toast({
-                      title: "库选择功能开发中",
-                      description: "此功能将在后续版本中上线。",
-                    })
-                  }
+                  onClick={handleOpenLibraryDialog}
                   className="rounded-2xl h-12 px-6 gap-2 text-zinc-500 hover:text-purple-600 hover:bg-purple-50 transition-all font-bold"
                 >
                   <Library className="w-5 h-5" />
@@ -261,32 +352,77 @@ export default function NewProjectPage() {
 
             {/* Pending Files List */}
             <AnimatePresence>
-              {pendingFiles.length > 0 && (
+              {(pendingFiles.length > 0 || formData.base_project_id.trim()) && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   className="flex flex-wrap gap-2 overflow-hidden"
                 >
-                  {pendingFiles.map((file, i) => (
+                  {formData.base_project_id.trim() ? (
                     <motion.div
-                      key={`${file.name}-${i}`}
+                      key={`library-${formData.base_project_id}`}
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="flex items-center gap-2 px-3 py-2 bg-zinc-50 rounded-xl border border-zinc-100 group/file"
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 group/file"
                     >
-                      <FileText className="w-4 h-4 text-blue-500" />
-                      <span className="text-xs font-bold text-zinc-600 truncate max-w-[120px]">
-                        {file.name}
+                      <Library className="w-4 h-4 text-amber-600" />
+                      <span
+                        className="text-xs font-bold text-amber-700 truncate max-w-[200px]"
+                        title={
+                          selectedBaseLibrary?.name || formData.base_project_id
+                        }
+                      >
+                        已选库：
+                        {selectedBaseLibrary?.name || formData.base_project_id}
                       </span>
                       <button
-                        onClick={() => removeFile(i)}
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            base_project_id: "",
+                          }))
+                        }
                         className="p-1 rounded-full hover:bg-zinc-200 text-zinc-400 hover:text-red-500 transition-colors"
                       >
                         <X className="w-3 h-3" />
                       </button>
                     </motion.div>
-                  ))}
+                  ) : null}
+
+                  {pendingFiles.map((file, i) =>
+                    (() => {
+                      const fileType = getFileTypeFromExtension(file.name);
+                      const typeConfig =
+                        FILE_TYPE_CONFIG[fileType] || FILE_TYPE_CONFIG.other;
+                      const Icon = typeConfig.icon;
+                      return (
+                        <motion.div
+                          key={`${file.name}-${i}`}
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-100 group/file",
+                            typeConfig.bgGradient
+                          )}
+                        >
+                          <Icon className={cn("w-4 h-4", typeConfig.color)} />
+                          <span
+                            className="text-xs font-bold text-zinc-700 truncate max-w-[120px]"
+                            title={file.name}
+                          >
+                            {file.name}
+                          </span>
+                          <button
+                            onClick={() => removeFile(i)}
+                            className="p-1 rounded-full hover:bg-zinc-200/70 text-zinc-400 hover:text-red-500 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </motion.div>
+                      );
+                    })()
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -368,11 +504,11 @@ export default function NewProjectPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() =>
-                          setFormData({
-                            ...formData,
+                          setFormData((prev) => ({
+                            ...prev,
                             visibility: "private",
                             is_referenceable: false,
-                          })
+                          }))
                         }
                         className={cn(
                           "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
@@ -386,7 +522,10 @@ export default function NewProjectPage() {
                       </button>
                       <button
                         onClick={() =>
-                          setFormData({ ...formData, visibility: "shared" })
+                          setFormData((prev) => ({
+                            ...prev,
+                            visibility: "shared",
+                          }))
                         }
                         className={cn(
                           "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
@@ -399,96 +538,50 @@ export default function NewProjectPage() {
                         共享
                       </button>
                     </div>
-                  </div>
-
-                  {/* Reference Mode */}
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                      引用模式
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() =>
-                          setFormData({ ...formData, reference_mode: "follow" })
-                        }
-                        className={cn(
-                          "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
-                          formData.reference_mode === "follow"
-                            ? "bg-zinc-50 border-zinc-200 text-zinc-900"
-                            : "bg-white border-zinc-100 text-zinc-400"
-                        )}
-                      >
-                        跟随 (Follow)
-                      </button>
-                      <button
-                        onClick={() =>
-                          setFormData({ ...formData, reference_mode: "pinned" })
-                        }
-                        className={cn(
-                          "flex-1 h-12 rounded-xl border flex items-center justify-center gap-2 transition-all font-bold text-xs",
-                          formData.reference_mode === "pinned"
-                            ? "bg-zinc-50 border-zinc-200 text-zinc-900"
-                            : "bg-white border-zinc-100 text-zinc-400"
-                        )}
-                      >
-                        固定 (Pinned)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Father ID */}
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                      父项目 ID
-                    </label>
-                    <div className="relative">
-                      <Layers className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                      <Input
-                        placeholder="例如: proj_123"
-                        value={formData.base_project_id}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            base_project_id: e.target.value,
-                          })
-                        }
-                        className="h-12 pl-11 rounded-xl border-zinc-100 bg-zinc-50 focus:bg-white transition-all font-bold"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Allow Reference */}
-                  {formData.visibility === "shared" && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center gap-3 pt-6"
+                    <div
+                      className={cn(
+                        "rounded-xl border px-3 py-2.5 transition-all",
+                        formData.visibility === "shared"
+                          ? "border-zinc-200 bg-zinc-50/80"
+                          : "border-zinc-100 bg-zinc-50/50"
+                      )}
                     >
-                      <input
-                        type="checkbox"
-                        id="is_referenceable_new"
-                        checked={formData.is_referenceable}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            is_referenceable: e.target.checked,
-                          })
-                        }
-                        className="w-5 h-5 rounded-lg border-zinc-200 text-zinc-900 focus:ring-zinc-900"
-                      />
-                      <label
-                        htmlFor="is_referenceable_new"
-                        className="text-xs font-bold text-zinc-600"
-                      >
-                        允许被其他项目引用
-                      </label>
-                    </motion.div>
-                  )}
-                  {formData.visibility === "private" ? (
-                    <p className="text-xs font-bold text-zinc-500">
-                      私有项目默认不可被其他项目引用。如需作为基底项目使用，请改成共享项目。
-                    </p>
-                  ) : null}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <p
+                            className={cn(
+                              "text-xs font-bold",
+                              formData.visibility === "shared"
+                                ? "text-zinc-700"
+                                : "text-zinc-400"
+                            )}
+                          >
+                            允许被其他项目引用
+                          </p>
+                          <p className="text-[11px] text-zinc-500">
+                            开启后可作为其他项目的父项目/基底项目。
+                          </p>
+                        </div>
+                        <Switch
+                          id="is_referenceable_new"
+                          className="relative z-10 shrink-0 pointer-events-auto"
+                          checked={formData.is_referenceable}
+                          disabled={formData.visibility === "private"}
+                          onCheckedChange={(checked) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              is_referenceable: checked,
+                            }))
+                          }
+                        />
+                      </div>
+                      {formData.visibility === "private" ? (
+                        <p className="mt-2 text-[11px] font-semibold text-zinc-500">
+                          私有项目下该选项自动关闭，切换到共享后可开启。
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
                   {submitError ? (
                     <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
                       {submitError}
@@ -500,6 +593,28 @@ export default function NewProjectPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      <AddLibraryDialog
+        open={showLibraryDialog}
+        onOpenChange={setShowLibraryDialog}
+        loading={libraryLoading}
+        error={libraryError}
+        libraries={visibleLibraries}
+        keyword={libraryKeyword}
+        onKeywordChange={setLibraryKeyword}
+        baseProjectId={formData.base_project_id}
+        onBaseProjectIdChange={(value) =>
+          setFormData((prev) => ({ ...prev, base_project_id: value }))
+        }
+        referenceMode={formData.reference_mode}
+        onReferenceModeChange={(value) =>
+          setFormData((prev) => ({ ...prev, reference_mode: value }))
+        }
+        onSelectLibrary={handleSelectLibrary}
+        onReload={() => {
+          void fetchLibraries();
+        }}
+      />
 
       {/* Footer Branding */}
       <motion.div

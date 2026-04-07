@@ -52,6 +52,9 @@ export function GenerateStep({
   onGenerate,
 }: GenerateStepProps) {
   const sourceOptions = flowContext?.sourceOptions ?? [];
+  const requiresSourceArtifact = Boolean(flowContext?.requiresSourceArtifact);
+  const missingRequiredSource =
+    requiresSourceArtifact && !flowContext?.selectedSourceId;
 
   return (
     <div className="space-y-4">
@@ -85,7 +88,9 @@ export function GenerateStep({
           <div>
             <p className="text-xs font-semibold text-zinc-800">绑定参考成果</p>
             <p className="mt-1 text-[11px] text-zinc-500">
-              可选：绑定已有成果后，生成内容会更贴近当前项目上下文。
+              {requiresSourceArtifact
+                ? "必选：请绑定一个 PPT 成果作为教案来源。"
+                : "可选：绑定已有成果后，生成内容会更贴近当前项目上下文。"}
             </p>
           </div>
           <Button
@@ -132,6 +137,11 @@ export function GenerateStep({
             当前还没有可绑定成果，点击上方按钮即可刷新。
           </p>
         )}
+        {missingRequiredSource ? (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+            请先选择一个 PPT 来源成果，再生成教案文档。
+          </p>
+        ) : null}
       </section>
 
       <div className="flex items-center justify-between gap-2">
@@ -152,6 +162,7 @@ export function GenerateStep({
             isGenerating ||
             Boolean(flowContext?.isLoadingProtocol) ||
             flowContext?.canExecute === false ||
+            missingRequiredSource ||
             !topic.trim() ||
             !goal.trim()
           }

@@ -1,19 +1,33 @@
 "use client";
 
-import { AnimatePresence } from "framer-motion";
+import { useMemo } from "react";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
+import { AnimatePresence } from "framer-motion";
 import { File } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { ProjectReference } from "../library/types";
 import { WEB_SOURCE_CARD_ID } from "./constants";
 import { FileItem } from "./components/FileItem";
+import { ReferencedLibraryDetailPanel } from "./components/ReferencedLibraryDetailPanel";
 import { SourcesHeader } from "./components/SourcesHeader";
 import { WebSourceCard } from "./components/WebSourceCard";
+import type { UploadedFile } from "./types";
+import { useReferencedLibraryDetail } from "./useReferencedLibraryDetail";
 import { useSourcesPanelController } from "./useSourcesPanelController";
+
+interface ReferencedLibraryCardData {
+  id: string;
+  displayName: string;
+  reference: ProjectReference;
+  file: UploadedFile;
+  statusText: string;
+}
 
 interface SourcesPanelProps {
   projectId: string;
+  referencedLibraries?: ProjectReference[];
   isCollapsed?: boolean;
   onToggleCollapsed?: (action?: "collapse" | "expand" | "toggle") => void;
   isStudioExpanded?: boolean;
@@ -23,6 +37,7 @@ interface SourcesPanelProps {
 
 export function SourcesPanel({
   projectId,
+  referencedLibraries = [],
   isCollapsed = false,
   onToggleCollapsed,
   isStudioExpanded = false,
@@ -55,7 +70,63 @@ export function SourcesPanel({
     isStudioExpanded,
     isExpandedContentCollapsed,
   });
-  const shouldAnimateList = files.length <= 12;
+  const activeReferencedLibraries = useMemo(
+    () =>
+      [...referencedLibraries]
+        .filter((reference) => reference.status === "active")
+        .sort((a, b) => {
+          if (a.relation_type !== b.relation_type) {
+            return a.relation_type === "base" ? -1 : 1;
+          }
+          return (a.priority ?? 999) - (b.priority ?? 999);
+        }),
+    [referencedLibraries]
+  );
+  const referencedLibraryCards = useMemo<ReferencedLibraryCardData[]>(
+    () =>
+      activeReferencedLibraries.map((reference) => {
+        const relationLabel =
+          reference.relation_type === "base" ? "主基底" : "辅助";
+        const modeLabel = reference.mode === "follow" ? "跟随更新" : "固定版本";
+        const statusText = `引用库 · ${relationLabel} · ${modeLabel}`;
+        const displayName =
+          reference.target_project_name?.trim() || reference.target_project_id;
+        const syntheticFile: UploadedFile = {
+          id: `reference-${reference.id}`,
+          filename: `${reference.target_project_id}.library`,
+          file_type: "pdf",
+          file_size: 0,
+          status: "ready",
+          created_at: reference.created_at,
+          updated_at: reference.updated_at,
+        };
+        return {
+          id: reference.id,
+          file: syntheticFile,
+          displayName,
+          reference,
+          statusText,
+        };
+      }),
+    [activeReferencedLibraries]
+  );
+  const shouldAnimateList = files.length + referencedLibraryCards.length <= 12;
+  const hasAnyMaterialSources =
+    files.length > 0 || referencedLibraryCards.length > 0;
+
+  const {
+    isOpen: isLibraryDetailOpen,
+    loading: libraryDetailLoading,
+    error: libraryDetailError,
+    selectedLibrary: selectedLibraryCard,
+    sessions: libraryDetailSessions,
+    historyByTool: libraryDetailHistoryByTool,
+    references: libraryDetailReferences,
+    sourceFiles: libraryDetailFiles,
+    openDetail: openLibraryDetailPanel,
+    closeDetail: closeLibraryDetailPanel,
+    refreshDetail: refreshLibraryDetail,
+  } = useReferencedLibraryDetail();
 
   return (
     <div
@@ -72,6 +143,7 @@ export function SourcesPanel({
           isExpandedContentCollapsed={isExpandedContentCollapsed}
           uploadingTasksCount={uploadingTasksCount}
           fileCount={files.length}
+          libraryCount={referencedLibraryCards.length}
           selectedCount={selectedFileIds.length}
           fileInputRef={fileInputRef}
           headerActionsRef={headerActionsRef}
@@ -83,7 +155,7 @@ export function SourcesPanel({
         <CardContent className="h-[calc(100%-52px)] overflow-hidden p-0">
           {isHorizontalIconMode ? (
             <div className="h-full overflow-hidden px-3 py-1">
-              {files.length === 0 ? (
+              {!hasAnyMaterialSources ? (
                 <div className="flex h-full flex-col">
                   <div className="pb-2 pt-1">
                     <WebSourceCard isCompact={true} />
@@ -123,6 +195,35 @@ export function SourcesPanel({
                         >
                           <WebSourceCard isCompact={true} />
                         </div>
+                        {referencedLibraryCards.map((referenceCard) => (
+                          <div
+                            key={referenceCard.id}
+                            ref={(element) =>
+                              registerFileRef(
+                                `ref-${referenceCard.id}`,
+                                element
+                              )
+                            }
+                            className="shrink-0"
+                          >
+                            <FileItem
+                              file={referenceCard.file}
+                              isSelected={false}
+                              onToggle={() =>
+                                openLibraryDetailPanel(referenceCard)
+                              }
+                              isCompact={true}
+                              isFocused={false}
+                              focusDetail={null}
+                              isExpanded={false}
+                              onCollapse={() => undefined}
+                              displayName={referenceCard.displayName}
+                              iconTypeOverride="library"
+                              statusText={referenceCard.statusText}
+                              hideDeleteAction={true}
+                            />
+                          </div>
+                        ))}
                         {files.map((file) => (
                           <div
                             key={file.id}
@@ -160,7 +261,7 @@ export function SourcesPanel({
           ) : (
             <ScrollArea className="h-full w-full">
               <div className="min-h-full w-full max-w-full overflow-hidden px-3 py-3">
-                {files.length === 0 ? (
+                {!hasAnyMaterialSources ? (
                   <div className="flex h-full flex-col">
                     <div className="mb-2">
                       <WebSourceCard isCompact={isEffectiveCompact} />
@@ -194,6 +295,34 @@ export function SourcesPanel({
                         >
                           <WebSourceCard isCompact={isEffectiveCompact} />
                         </div>
+                        {referencedLibraryCards.map((referenceCard) => (
+                          <div
+                            key={referenceCard.id}
+                            ref={(element) =>
+                              registerFileRef(
+                                `ref-${referenceCard.id}`,
+                                element
+                              )
+                            }
+                          >
+                            <FileItem
+                              file={referenceCard.file}
+                              isSelected={false}
+                              onToggle={() =>
+                                openLibraryDetailPanel(referenceCard)
+                              }
+                              isCompact={isEffectiveCompact}
+                              isFocused={false}
+                              focusDetail={null}
+                              isExpanded={false}
+                              onCollapse={() => undefined}
+                              displayName={referenceCard.displayName}
+                              iconTypeOverride="library"
+                              statusText={referenceCard.statusText}
+                              hideDeleteAction={true}
+                            />
+                          </div>
+                        ))}
                         {files.map((file) => (
                           <div
                             key={file.id}
@@ -225,6 +354,34 @@ export function SourcesPanel({
                         >
                           <WebSourceCard isCompact={isEffectiveCompact} />
                         </div>
+                        {referencedLibraryCards.map((referenceCard) => (
+                          <div
+                            key={referenceCard.id}
+                            ref={(element) =>
+                              registerFileRef(
+                                `ref-${referenceCard.id}`,
+                                element
+                              )
+                            }
+                          >
+                            <FileItem
+                              file={referenceCard.file}
+                              isSelected={false}
+                              onToggle={() =>
+                                openLibraryDetailPanel(referenceCard)
+                              }
+                              isCompact={isEffectiveCompact}
+                              isFocused={false}
+                              focusDetail={null}
+                              isExpanded={false}
+                              onCollapse={() => undefined}
+                              displayName={referenceCard.displayName}
+                              iconTypeOverride="library"
+                              statusText={referenceCard.statusText}
+                              hideDeleteAction={true}
+                            />
+                          </div>
+                        ))}
                         {files.map((file) => (
                           <div
                             key={file.id}
@@ -254,6 +411,19 @@ export function SourcesPanel({
           )}
         </CardContent>
       </Card>
+      <ReferencedLibraryDetailPanel
+        open={isLibraryDetailOpen}
+        loading={libraryDetailLoading}
+        error={libraryDetailError}
+        libraryDisplayName={selectedLibraryCard?.displayName ?? "未命名库"}
+        reference={selectedLibraryCard?.reference ?? null}
+        sessions={libraryDetailSessions}
+        historyByTool={libraryDetailHistoryByTool}
+        references={libraryDetailReferences}
+        sourceFiles={libraryDetailFiles}
+        onClose={closeLibraryDetailPanel}
+        onRefresh={refreshLibraryDetail}
+      />
     </div>
   );
 }

@@ -29,6 +29,18 @@ export function PreviewStep({
     flowContext?.latestArtifacts?.[0] ?? flowContext?.resolvedArtifact ?? null;
   const exportArtifactId =
     (latestArtifact as { artifactId?: string | null } | null)?.artifactId ?? "";
+  const sourceArtifactId =
+    (latestArtifact as { sourceArtifactId?: string | null } | null)
+      ?.sourceArtifactId ??
+    flowContext?.selectedSourceId ??
+    null;
+  const sourceArtifactTitle = sourceArtifactId
+    ? ((flowContext?.sourceOptions ?? []).find(
+        (item) => item.id === sourceArtifactId
+      )?.title ?? null)
+    : null;
+  const currentWordArtifactTitle =
+    (latestArtifact as { title?: string | null } | null)?.title ?? null;
   const hasMarkdownContent = markdown.trim().length > 0;
   const hasBackendArtifact = Boolean(exportArtifactId);
   const hasContent =
@@ -61,6 +73,15 @@ export function PreviewStep({
             </button>
           ) : null}
         </div>
+
+        {sourceArtifactId || exportArtifactId ? (
+          <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600">
+            <p>source_artifact_id：{sourceArtifactId ?? "-"}</p>
+            <p>来源 PPT 标题：{sourceArtifactTitle ?? "未解析到来源标题"}</p>
+            <p>当前 Word artifact_id：{exportArtifactId || "-"}</p>
+            <p>当前 Word 标题：{currentWordArtifactTitle ?? "未命名文档"}</p>
+          </div>
+        ) : null}
 
         {isGenerating || isBackendPreviewLoading ? (
           <div className="mt-4 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] text-blue-700">

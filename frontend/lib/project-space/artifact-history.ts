@@ -19,6 +19,8 @@ export interface ArtifactHistoryItem {
   artifactType: Artifact["type"];
   artifactKind?: string;
   title: string;
+  metadataTitle?: string | null;
+  sourceArtifactId?: string | null;
   status: "completed" | "failed" | "processing" | "pending";
   createdAt: string;
   basedOnVersionId: string | null;
@@ -176,21 +178,17 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
   );
   const artifactKind = readArtifactKind(artifact) ?? undefined;
   const metadataTitle = readMetadataField(artifact.metadata, "title");
-  const runTitle = readMetadataField(artifact.metadata, "run_title");
-  const runTitleSource = readMetadataField(
+  const metadataName = readMetadataField(artifact.metadata, "name");
+  const metadataSourceArtifactId = readMetadataField(
     artifact.metadata,
-    "run_title_source"
+    "source_artifact_id"
   );
-  const canUseRunTitle =
-    typeof runTitle === "string" &&
-    runTitle.trim().length > 0 &&
-    (runTitleSource === "auto" || runTitleSource === "manual");
   const title =
     typeof metadataTitle === "string" && metadataTitle.trim()
       ? metadataTitle.trim()
-      : canUseRunTitle
-        ? runTitle.trim()
-        : `${titlePrefix} ${artifact.id.slice(0, 8)}`;
+      : typeof metadataName === "string" && metadataName.trim()
+        ? metadataName.trim()
+        : `${titlePrefix} 生成记录`;
 
   return {
     artifactId: artifact.id,
@@ -199,6 +197,15 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
     artifactType: artifact.type,
     artifactKind,
     title,
+    metadataTitle:
+      typeof metadataTitle === "string" && metadataTitle.trim()
+        ? metadataTitle.trim()
+        : null,
+    sourceArtifactId:
+      typeof metadataSourceArtifactId === "string" &&
+      metadataSourceArtifactId.trim()
+        ? metadataSourceArtifactId.trim()
+        : null,
     status,
     createdAt: artifact.created_at,
     basedOnVersionId: artifact.based_on_version_id ?? null,
