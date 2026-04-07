@@ -197,6 +197,26 @@ class StudioCardTurnResponse(BaseModel):
     message: str = "Studio 卡片轮次推进成功"
 
 
+class AnimationPlacementRecommendationRequest(BaseModel):
+    project_id: str
+    artifact_id: str
+    ppt_artifact_id: str
+
+
+class AnimationPlacementConfirmRequest(BaseModel):
+    project_id: str
+    artifact_id: str
+    ppt_artifact_id: str
+    page_numbers: List[int] = Field(default_factory=list)
+    slot: str
+
+
+class AnimationPlacementResponse(BaseModel):
+    success: bool = True
+    data: dict
+    message: str = "动画插入信息处理成功"
+
+
 class StudioCardSourceArtifact(BaseModel):
     id: str
     type: str

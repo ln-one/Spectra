@@ -5,11 +5,20 @@ from schemas.project_space import ArtifactType, ProjectPermission
 CARD_SOURCE_ARTIFACT_TYPES: dict[str, tuple[str, ...]] = {
     "word_document": (ArtifactType.PPTX.value,),
     "speaker_notes": (ArtifactType.PPTX.value,),
+    "demonstration_animations": (ArtifactType.PPTX.value,),
+}
+
+OPTIONAL_SOURCE_CARD_IDS = {
+    "demonstration_animations",
 }
 
 
 def get_card_source_artifact_types(card_id: str) -> tuple[str, ...]:
     return CARD_SOURCE_ARTIFACT_TYPES.get(card_id, ())
+
+
+def is_card_source_optional(card_id: str) -> bool:
+    return card_id in OPTIONAL_SOURCE_CARD_IDS
 
 
 def get_card_source_permission(card_id: str) -> ProjectPermission:

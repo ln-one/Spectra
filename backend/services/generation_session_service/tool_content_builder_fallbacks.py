@@ -292,45 +292,41 @@ def fallback_animation_content(
     config: dict[str, Any], rag_snippets: list[str]
 ) -> dict[str, Any]:
     topic = str(config.get("topic") or "演示主题")
-    scene = str(config.get("scene") or "generic")
-    speed = int(config.get("speed") or 50)
-    requested_format = str(config.get("animation_format") or "html5").strip().lower()
+    duration_seconds = int(config.get("duration_seconds") or 6)
+    rhythm = str(config.get("rhythm") or "balanced")
+    focus = str(config.get("focus") or topic)
     description = (
         rag_snippets[0][:140] if rag_snippets else f"围绕{topic}展示关键过程。"
     )
-    html = f"""<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>{topic}演示动画</title>
-<style>
-body {{ margin:0; font-family: Arial, sans-serif; background:#020617; color:#e2e8f0; }}
-main {{ min-height:100vh; display:grid; place-items:center; }}
-.stage {{ width:min(760px,90vw); padding:32px; border-radius:24px;
-  background:linear-gradient(135deg,#0f172a,#1e293b); }}
-.track {{ margin-top:24px; height:8px; background:#1e293b;
-  border-radius:999px; overflow:hidden; }}
-.bar {{ width:30%; height:100%; background:#22c55e;
-  animation: move {max(2, 12 - speed // 10)}s ease-in-out infinite alternate; }}
-@keyframes move {{
-  from {{ transform: translateX(0); }}
-  to {{ transform: translateX(220%); }}
-}}
-</style></head>
-<body><main><div class="stage"><h1>{topic}</h1><p>场景：{scene}</p>
-<p>{description}</p><div class="track"><div class="bar"></div></div></div>
-</main></body></html>"""
+    visual_type = "relationship_change" if "变化" in topic or "关系" in topic else "process_flow"
     return {
         "kind": "animation_storyboard",
         "title": f"{topic}演示动画",
         "summary": description,
-        "html": html,
-        "format": requested_format,
-        "scene": scene,
-        "speed": speed,
-        "show_trail": bool(config.get("show_trail", True)),
-        "split_view": bool(config.get("split_view", True)),
-        "line_color": str(config.get("line_color") or "#22c55e"),
-        "scenes": [{"title": topic, "description": description}],
+        "format": "gif",
+        "topic": topic,
+        "duration_seconds": duration_seconds,
+        "rhythm": rhythm,
+        "focus": focus,
+        "visual_type": visual_type,
+        "placements": [],
+        "scenes": [
+            {
+                "title": "引入主题",
+                "description": f"先说明 {topic} 要看什么。",
+                "emphasis": "建立观察对象",
+            },
+            {
+                "title": "关键变化",
+                "description": description,
+                "emphasis": focus,
+            },
+            {
+                "title": "收束结论",
+                "description": f"总结 {topic} 的课堂讲解落点。",
+                "emphasis": "形成可直接讲授的结论",
+            },
+        ],
     }
 
 

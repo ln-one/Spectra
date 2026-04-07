@@ -2530,7 +2530,9 @@ async def test_execute_studio_card_creates_gif_animation_artifact(app, _as_user)
             json={
                 "project_id": "p-001",
                 "config": {
-                    "animation_format": "gif",
+                    "motion_brief": "绐佸嚭浜ゆ崲鍓嶅悗鍙樺寲",
+                    "duration_seconds": 7,
+                    "rhythm": "balanced",
                     "topic": "冒泡排序每轮交换过程",
                 },
             },
@@ -2539,11 +2541,15 @@ async def test_execute_studio_card_creates_gif_animation_artifact(app, _as_user)
     assert response.status_code == 200
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "gif"
+    assert kwargs["content"]["kind"] == "animation_storyboard"
     assert kwargs["content"]["format"] == "gif"
-    html = kwargs["content"]["html"].lower()
-    assert "<html" in html or "<div" in html
+    assert kwargs["content"]["duration_seconds"] == 7
+    assert kwargs["content"]["rhythm"] == "balanced"
+    assert isinstance(kwargs["content"]["scenes"], list)
+    assert kwargs["content"]["scenes"]
 
 
+@pytest.mark.skip(reason="动画模块第一阶段已冻结为 GIF-only")
 @slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_html_animation_artifact(app, _as_user):
@@ -2595,6 +2601,7 @@ async def test_execute_studio_card_creates_html_animation_artifact(app, _as_user
     assert "<html" in kwargs["content"]["html"].lower()
 
 
+@pytest.mark.skip(reason="动画模块第一阶段已冻结为 GIF-only")
 @slow_studio_card
 @pytest.mark.anyio
 async def test_execute_studio_card_creates_mp4_animation_artifact(app, _as_user):
@@ -2642,6 +2649,303 @@ async def test_execute_studio_card_creates_mp4_animation_artifact(app, _as_user)
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "mp4"
     assert kwargs["content"]["format"] == "mp4"
+
+
+@slow_studio_card
+@pytest.mark.anyio
+async def test_refine_studio_card_replaces_animation_gif_artifact(app, _as_user):
+    client = TestClient(app)
+    current_artifact = SimpleNamespace(
+        id="a-animation-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="gif",
+        visibility="project-visible",
+        storagePath="/tmp/a-animation-001.gif",
+        metadata={"kind": "animation_storyboard"},
+    )
+    new_artifact = SimpleNamespace(
+        id="a-animation-002",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="gif",
+        visibility="project-visible",
+        storagePath="uploads/artifacts/a-animation-002.gif",
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    current_content = {
+        "kind": "animation_storyboard",
+        "title": "鍐掓场鎺掑簭鍔ㄧ敾",
+        "summary": "绀烘剰姣忚疆浜ゆ崲",
+        "format": "gif",
+        "duration_seconds": 6,
+        "rhythm": "balanced",
+        "focus": "绐佸嚭鍏抽敭浜ゆ崲",
+        "placements": [
+            {
+                "ppt_artifact_id": "a-ppt-001",
+                "page_number": 2,
+                "slot": "right-panel",
+            }
+        ],
+        "scenes": [{"id": "scene-1", "caption": "step"}],
+    }
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(return_value=current_artifact),
+        ),
+        patch(
+            "services.generation_session_service.card_execution_runtime._load_artifact_content",
+            AsyncMock(return_value=current_content),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact_with_file",
+            AsyncMock(return_value=new_artifact),
+        ) as create_artifact_mock,
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/refine",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-animation-001",
+                "message": "璇疯皟鏁村姩鐢荤粨濂忓拰鏃堕暱",
+                "config": {
+                    "duration_seconds": 10,
+                    "rhythm": "slow",
+                    "focus": "鏇村己璋冨叧閿楠ょ殑鍓嶅悗鍙樺寲",
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    kwargs = create_artifact_mock.await_args.kwargs
+    assert kwargs["artifact_mode"] == "replace"
+    assert kwargs["artifact_type"] == "gif"
+    assert kwargs["content"]["kind"] == "animation_storyboard"
+    assert kwargs["content"]["format"] == "gif"
+    assert kwargs["content"]["duration_seconds"] == 10
+    assert kwargs["content"]["rhythm"] == "slow"
+    assert kwargs["content"]["placements"][0]["page_number"] == 2
+
+
+@slow_studio_card
+@pytest.mark.anyio
+async def test_recommend_animation_placement_records_recommendation_metadata(
+    app, _as_user
+):
+    client = TestClient(app)
+    animation_artifact = SimpleNamespace(
+        id="a-animation-gif-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="gif",
+        visibility="project-visible",
+        storagePath="uploads/artifacts/a-animation-gif-001.gif",
+        metadata={
+            "kind": "animation_storyboard",
+            "summary": "鍒嗘婕旂ず",
+            "focus": "鍏抽敭姝ラ",
+        },
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    ppt_artifact = SimpleNamespace(
+        id="a-ppt-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="pptx",
+        visibility="project-visible",
+        storagePath="uploads/artifacts/a-ppt-001.pptx",
+        metadata={"slide_count": 5},
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    updated_animation_artifact = SimpleNamespace(
+        id="a-animation-gif-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="gif",
+        visibility="project-visible",
+        storagePath="uploads/artifacts/a-animation-gif-001.gif",
+        metadata={
+            "kind": "animation_storyboard",
+            "placement_recommendation": {
+                "ppt_artifact_id": "a-ppt-001",
+                "recommended_page": 2,
+                "recommended_slot": "right-panel",
+            },
+        },
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    update_metadata = AsyncMock()
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(
+                side_effect=[
+                    animation_artifact,
+                    ppt_artifact,
+                    updated_animation_artifact,
+                ]
+            ),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.update_artifact_metadata",
+            update_metadata,
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/recommend-placement",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-animation-gif-001",
+                "ppt_artifact_id": "a-ppt-001",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["recommendation"]["recommended_page"] == 2
+    assert body["recommendation"]["recommended_slot"] == "right-panel"
+    metadata = update_metadata.await_args.args[1]
+    assert metadata["placement_recommendation"]["ppt_artifact_id"] == "a-ppt-001"
+
+
+@slow_studio_card
+@pytest.mark.anyio
+async def test_confirm_animation_placement_records_confirmed_relations(
+    app, _as_user
+):
+    client = TestClient(app)
+    animation_artifact = SimpleNamespace(
+        id="a-animation-gif-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="gif",
+        visibility="project-visible",
+        storagePath="uploads/artifacts/a-animation-gif-001.gif",
+        metadata={"kind": "animation_storyboard", "placements": []},
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    ppt_artifact = SimpleNamespace(
+        id="a-ppt-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="pptx",
+        visibility="project-visible",
+        storagePath="uploads/artifacts/a-ppt-001.pptx",
+        metadata={"slide_count": 5},
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    updated_animation_artifact = SimpleNamespace(
+        id="a-animation-gif-001",
+        projectId="p-001",
+        sessionId=None,
+        basedOnVersionId=None,
+        ownerUserId="u-001",
+        type="gif",
+        visibility="project-visible",
+        storagePath="uploads/artifacts/a-animation-gif-001.gif",
+        metadata={
+            "kind": "animation_storyboard",
+            "placements": [
+                {
+                    "ppt_artifact_id": "a-ppt-001",
+                    "page_number": 2,
+                    "slot": "bottom-right",
+                    "status": "confirmed",
+                },
+                {
+                    "ppt_artifact_id": "a-ppt-001",
+                    "page_number": 5,
+                    "slot": "bottom-right",
+                    "status": "confirmed",
+                },
+            ],
+        },
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+    )
+    update_metadata = AsyncMock()
+
+    with (
+        patch(
+            "services.project_space_service.project_space_service.check_project_permission",
+            AsyncMock(),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.get_artifact",
+            AsyncMock(
+                side_effect=[
+                    animation_artifact,
+                    ppt_artifact,
+                    updated_animation_artifact,
+                ]
+            ),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.get_project",
+            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.db.update_artifact_metadata",
+            update_metadata,
+        ),
+    ):
+        response = client.post(
+            "/api/v1/generate/studio-cards/demonstration_animations/confirm-placement",
+            json={
+                "project_id": "p-001",
+                "artifact_id": "a-animation-gif-001",
+                "ppt_artifact_id": "a-ppt-001",
+                "page_numbers": [2, 5],
+                "slot": "bottom-right",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert len(body["placements"]) == 2
+    metadata = update_metadata.await_args.args[1]
+    assert len(metadata["placements"]) == 2
+    assert metadata["placements"][0]["slot"] == "bottom-right"
 
 
 @slow_studio_card

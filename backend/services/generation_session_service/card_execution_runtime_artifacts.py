@@ -123,6 +123,9 @@ async def execute_studio_card_artifact_request(
     )
     if generated_content:
         artifact_content.update(generated_content)
+    if card_id == "demonstration_animations":
+        artifact_content["kind"] = "animation_storyboard"
+        artifact_content["format"] = "gif"
     source_artifact_id = str(
         body.source_artifact_id
         or artifact_content.get("source_artifact_id")

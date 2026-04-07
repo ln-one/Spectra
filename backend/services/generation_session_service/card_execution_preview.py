@@ -219,16 +219,6 @@ def build_studio_card_execution_preview(
         )
 
     if card_id == "demonstration_animations":
-        animation_format = str(cfg.get("animation_format", "html5")).lower()
-        artifact_type = (
-            ArtifactType.GIF.value
-            if animation_format == "gif"
-            else (
-                ArtifactType.MP4.value
-                if animation_format == "mp4"
-                else ArtifactType.HTML.value
-            )
-        )
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
@@ -236,35 +226,40 @@ def build_studio_card_execution_preview(
                 method="POST",
                 endpoint=f"/api/v1/projects/{project_id}/artifacts",
                 payload={
-                    "type": artifact_type,
+                    "type": ArtifactType.GIF.value,
                     "visibility": artifact_visibility,
                     "rag_source_ids": rag_source_ids or [],
                     "content": {
                         "kind": "animation_storyboard",
-                        "format": animation_format,
+                        "format": "gif",
                         "topic": cfg.get("topic"),
                         "scene": cfg.get("scene"),
                         "speed": cfg.get("speed"),
-                        "show_trail": cfg.get("show_trail"),
-                        "split_view": cfg.get("split_view"),
-                        "line_color": cfg.get("line_color"),
+                        "duration_seconds": cfg.get("duration_seconds", 6),
+                        "rhythm": cfg.get("rhythm", "balanced"),
+                        "focus": cfg.get("focus") or cfg.get("topic"),
                         "summary": cfg.get("motion_brief") or cfg.get("topic"),
+                        "placements": [],
                     },
                 },
-                notes="动画卡片统一先生成 storyboard，再按 format 输出 HTML5/GIF/MP4 成果。",
+                notes="动画卡片第一阶段固定输出 GIF，并作为独立 artifact 入库。",
             ),
             refine_request=StudioCardResolvedRequest(
                 method="POST",
-                endpoint="/api/v1/chat/messages",
+                endpoint="/api/v1/generate/studio-cards/demonstration_animations/refine",
                 payload={
                     "project_id": project_id,
                     "message": "",
-                    "metadata": {
-                        "card_id": card_id,
-                        "animation_parameters": cfg.get("animation_parameters"),
+                    "artifact_id": cfg.get("artifact_id"),
+                    "rag_source_ids": rag_source_ids or [],
+                    "config": {
+                        "duration_seconds": cfg.get("duration_seconds", 6),
+                        "rhythm": cfg.get("rhythm", "balanced"),
+                        "focus": cfg.get("focus") or cfg.get("topic"),
                     },
+                    "metadata": {"card_id": card_id},
                 },
-                notes="参数热更新仍通过 chat 路径承托。",
+                notes="动画 refine 通过 replacement GIF artifact 收口，不反向覆盖已插入的 PPT。",
             ),
         )
 

@@ -209,6 +209,47 @@ async def refine_game_content(
     return updated
 
 
+async def refine_animation_content(
+    *,
+    current_content: dict[str, Any],
+    message: str,
+    config: dict[str, Any],
+    project_id: str,
+    rag_source_ids: list[str] | None,
+) -> dict[str, Any]:
+    updated = copy.deepcopy(current_content)
+    rag_snippets = await _load_rag_snippets(
+        project_id=project_id,
+        query=str(
+            config.get("topic")
+            or current_content.get("topic")
+            or current_content.get("title")
+            or message
+            or "教学动画 refine"
+        ),
+        rag_source_ids=rag_source_ids,
+    )
+    updated["kind"] = "animation_storyboard"
+    updated["format"] = "gif"
+    updated["duration_seconds"] = int(
+        config.get("duration_seconds")
+        or current_content.get("duration_seconds")
+        or 6
+    )
+    updated["rhythm"] = str(
+        config.get("rhythm") or current_content.get("rhythm") or "balanced"
+    ).strip()
+    updated["focus"] = str(
+        config.get("focus") or current_content.get("focus") or message or ""
+    ).strip()
+    if message.strip():
+        updated["summary"] = message.strip()
+    elif rag_snippets:
+        updated["summary"] = rag_snippets[0]
+    updated["placements"] = list(current_content.get("placements") or [])
+    return updated
+
+
 def _resolve_slide_page(config: dict[str, Any], slides: list[dict[str, Any]]) -> int:
     segment = str(config.get("selected_script_segment") or "").strip()
     match = re.search(r"slide-(\d+)", segment)
@@ -301,6 +342,14 @@ async def build_structured_refine_artifact_content(
         )
     if card_id == "interactive_games":
         return await refine_game_content(
+            current_content=current_content,
+            message=message,
+            config=cfg,
+            project_id=project_id,
+            rag_source_ids=rag_source_ids,
+        )
+    if card_id == "demonstration_animations":
+        return await refine_animation_content(
             current_content=current_content,
             message=message,
             config=cfg,

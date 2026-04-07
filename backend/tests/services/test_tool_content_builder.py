@@ -16,7 +16,7 @@ from utils.exceptions import APIException, ErrorCode
         ("knowledge_mindmap", '{"title":"Mindmap","nodes":[]}'),
         ("interactive_quick_quiz", '{"title":"Quiz","questions":[]}'),
         ("interactive_games", '{"title":"Game","html":""}'),
-        ("demonstration_animations", '{"title":"Animation","html":""}'),
+        ("demonstration_animations", '{"title":"Animation","scenes":[]}'),
         ("speaker_notes", '{"title":"Notes","slides":[]}'),
     ],
 )

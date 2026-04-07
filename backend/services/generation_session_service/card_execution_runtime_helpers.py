@@ -6,12 +6,16 @@ from schemas.project_space import ArtifactType
 from services.project_space_service import project_space_service
 from utils.exceptions import APIException, ErrorCode
 
-from .card_source_bindings import get_card_source_artifact_types
+from .card_source_bindings import (
+    get_card_source_artifact_types,
+    is_card_source_optional,
+)
 
 STRUCTURED_REFINE_ARTIFACT_TYPES = {
     "knowledge_mindmap": ArtifactType.MINDMAP.value,
     "interactive_quick_quiz": ArtifactType.EXERCISE.value,
     "interactive_games": ArtifactType.HTML.value,
+    "demonstration_animations": ArtifactType.GIF.value,
     "speaker_notes": ArtifactType.SUMMARY.value,
 }
 
@@ -19,6 +23,7 @@ STRUCTURED_REFINE_KINDS = {
     "knowledge_mindmap": "mindmap",
     "interactive_quick_quiz": "quiz",
     "interactive_games": "interactive_game",
+    "demonstration_animations": "animation_storyboard",
     "speaker_notes": "speaker_notes",
 }
 
@@ -90,7 +95,7 @@ async def validate_source_artifact(
             )
         return
 
-    if allowed_types:
+    if allowed_types and not is_card_source_optional(card_id):
         raise APIException(
             status_code=400,
             error_code=ErrorCode.INVALID_INPUT,
@@ -99,6 +104,11 @@ async def validate_source_artifact(
 
 
 async def load_artifact_content(artifact) -> dict:
+    if getattr(artifact, "type", None) == ArtifactType.GIF.value:
+        metadata = artifact_metadata_dict(artifact)
+        snapshot = metadata.get("content_snapshot")
+        if isinstance(snapshot, dict):
+            return snapshot
     storage_path = getattr(artifact, "storagePath", None)
     if not storage_path:
         return {}
