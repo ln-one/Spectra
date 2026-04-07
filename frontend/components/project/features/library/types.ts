@@ -2,6 +2,10 @@ import type { components } from "@/lib/sdk/types";
 
 export type ProjectReference = components["schemas"]["ProjectReference"] & {
   target_project_name?: string | null;
+  effective_target_version_id?: string | null;
+  pinned_version_id?: string | null;
+  upstream_current_version_id?: string | null;
+  upstream_updated?: boolean | null;
 };
 export type ProjectVersion = components["schemas"]["ProjectVersion"];
 export type Artifact = components["schemas"]["Artifact"];

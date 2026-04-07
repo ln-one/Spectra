@@ -5,7 +5,7 @@ export type Project = components["schemas"]["Project"];
 export type ProjectRequest = components["schemas"]["ProjectRequestTarget"];
 export type GetProjectsResponse = components["schemas"]["GetProjectsResponse"];
 export type ProjectResponse = components["schemas"]["ProjectResponseTarget"];
-export type GetFilesResponse = components["schemas"]["GetFilesResponse"];
+type ProjectFilesResponse = components["schemas"]["GetFilesResponse"];
 export type ProjectStatisticsResponse =
   components["schemas"]["ProjectStatisticsResponse"];
 
@@ -75,14 +75,14 @@ export const projectsApi = {
   async getProjectFiles(
     projectId: string,
     params?: { page?: number; limit?: number }
-  ): Promise<GetFilesResponse> {
+  ): Promise<ProjectFilesResponse> {
     const result = await sdkClient.GET("/api/v1/projects/{project_id}/files", {
       params: {
         path: { project_id: projectId },
         query: params,
       },
     });
-    return unwrap<GetFilesResponse>(result);
+    return unwrap<ProjectFilesResponse>(result);
   },
 
   async searchProjects(params: {
