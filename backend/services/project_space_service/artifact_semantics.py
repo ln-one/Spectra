@@ -118,8 +118,7 @@ CAPABILITY_ARTIFACT_MAPPING: dict[str, dict[str, str]] = {
     ProjectCapability.QUIZ.value: {"artifact_type": ArtifactType.EXERCISE.value},
     ProjectCapability.SUMMARY.value: {"artifact_type": ArtifactType.SUMMARY.value},
     ProjectCapability.ANIMATION.value: {
-        "artifact_type": ArtifactType.HTML.value,
-        "metadata_kind": ArtifactMetadataKind.ANIMATION_STORYBOARD.value,
+        "artifact_type": ArtifactType.GIF.value,
     },
     ProjectCapability.HANDOUT.value: {
         "artifact_type": ArtifactType.DOCX.value,

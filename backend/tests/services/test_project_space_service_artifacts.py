@@ -192,13 +192,38 @@ async def test_create_artifact_gif_uses_real_animation_generator(monkeypatch):
         artifact_type="gif",
         visibility="private",
         user_id="user-001",
-        content={"kind": "animation_storyboard", "title": "Storyboard", "scenes": []},
+        content={
+            "kind": "animation_storyboard",
+            "title": "Storyboard",
+            "summary": "Explain the process",
+            "topic": "Forces",
+            "duration_seconds": 8,
+            "rhythm": "balanced",
+            "focus": "Highlight transitions",
+            "placements": [{"ppt_artifact_id": "ppt-001", "page_number": 2}],
+            "scenes": [
+                {"title": "起点", "description": "先说明观察对象", "emphasis": "看清起点"},
+                {"title": "变化", "description": "突出过程变化", "emphasis": "看清转折"},
+            ],
+        },
     )
 
     generate_animation.assert_awaited_once()
     assert (
         create_artifact.await_args.kwargs["storage_path"] == "generated/storyboard.gif"
     )
+    metadata = create_artifact.await_args.kwargs["metadata"]
+    assert metadata["kind"] == ArtifactMetadataKind.ANIMATION_STORYBOARD.value
+    assert metadata["capability"] == ProjectCapability.ANIMATION.value
+    assert metadata["format"] == "gif"
+    assert metadata["duration_seconds"] == 8
+    assert metadata["rhythm"] == "balanced"
+    assert metadata["focus"] == "Highlight transitions"
+    assert metadata["visual_type"] == "process_flow"
+    assert metadata["content_snapshot"]["format"] == "gif"
+    assert metadata["content_snapshot"]["scenes"][0]["title"] == "起点"
+    assert metadata["content_snapshot"]["render_spec"]["scenes"][1]["title"] == "变化"
+    assert metadata["content_snapshot"]["placements"][0]["page_number"] == 2
 
 
 @pytest.mark.asyncio

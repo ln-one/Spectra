@@ -200,12 +200,20 @@ def check_animation_rendering_health() -> CapabilityStatus:
             return cached_status
 
     has_pillow = find_spec("PIL") is not None
+    has_playwright = find_spec("playwright") is not None
     has_cv2 = find_spec("cv2") is not None
 
-    if has_pillow and has_cv2:
+    if has_pillow and has_playwright and has_cv2:
         status = CapabilityStatus(
             capability=CapabilityType.ANIMATION_RENDERING,
-            provider="Pillow+OpenCV",
+            provider="Playwright+Pillow+OpenCV",
+            status=CapabilityStatusEnum.AVAILABLE,
+            fallback_used=False,
+        )
+    elif has_pillow and has_playwright:
+        status = CapabilityStatus(
+            capability=CapabilityType.ANIMATION_RENDERING,
+            provider="Playwright+Pillow",
             status=CapabilityStatusEnum.AVAILABLE,
             fallback_used=False,
         )
@@ -215,19 +223,21 @@ def check_animation_rendering_health() -> CapabilityStatus:
             provider="Pillow",
             status=CapabilityStatusEnum.DEGRADED,
             fallback_used=True,
-            fallback_target="gif",
+            fallback_target="server_side_gif",
             reason_code=ReasonCode.PROVIDER_UNAVAILABLE,
-            user_message="动画渲染仅支持 GIF，MP4 依赖 opencv-python。",
+            user_message=(
+                "浏览器模板渲染不可用，已降级为服务端 GIF 模板渲染。"
+            ),
             trace_id=f"trc_{uuid.uuid4().hex[:12]}",
         )
     else:
         status = CapabilityStatus(
             capability=CapabilityType.ANIMATION_RENDERING,
-            provider="Pillow",
+            provider="Playwright+Pillow",
             status=CapabilityStatusEnum.UNAVAILABLE,
             fallback_used=False,
             reason_code=ReasonCode.PROVIDER_UNAVAILABLE,
-            user_message="动画渲染功能暂不可用，请检查 Pillow 和 opencv-python 依赖。",
+            user_message="动画渲染功能暂不可用，请检查 Playwright 和 Pillow 依赖。",
             trace_id=f"trc_{uuid.uuid4().hex[:12]}",
         )
 

@@ -201,10 +201,40 @@ def test_animation_rendering_health_available() -> None:
 
     assert status.status.value == "available"
     assert status.capability.value == "animation_rendering"
-    assert status.provider == "Pillow+OpenCV"
+    assert status.provider == "Playwright+Pillow+OpenCV"
 
 
 def test_animation_rendering_health_degraded_without_cv2() -> None:
+    _clear_cache()
+
+    def _fake_find_spec(name: str):
+        if name in {"PIL", "playwright"}:
+            return object()
+        return None
+
+    with patch("services.capability_health.find_spec", side_effect=_fake_find_spec):
+        from services.capability_health import check_animation_rendering_health
+
+        status = check_animation_rendering_health()
+
+    assert status.status.value == "available"
+    assert status.capability.value == "animation_rendering"
+    assert status.provider == "Playwright+Pillow"
+
+
+def test_animation_rendering_health_unavailable_without_dependencies() -> None:
+    _clear_cache()
+
+    with patch("services.capability_health.find_spec", return_value=None):
+        from services.capability_health import check_animation_rendering_health
+
+        status = check_animation_rendering_health()
+
+    assert status.status.value == "unavailable"
+    assert status.reason_code is not None
+
+
+def test_animation_rendering_health_degraded_without_playwright() -> None:
     _clear_cache()
 
     def _fake_find_spec(name: str):
@@ -218,20 +248,7 @@ def test_animation_rendering_health_degraded_without_cv2() -> None:
         status = check_animation_rendering_health()
 
     assert status.status.value == "degraded"
-    assert status.capability.value == "animation_rendering"
-    assert status.fallback_target == "gif"
-
-
-def test_animation_rendering_health_unavailable_without_dependencies() -> None:
-    _clear_cache()
-
-    with patch("services.capability_health.find_spec", return_value=None):
-        from services.capability_health import check_animation_rendering_health
-
-        status = check_animation_rendering_health()
-
-    assert status.status.value == "unavailable"
-    assert status.reason_code is not None
+    assert status.fallback_target == "server_side_gif"
 
 
 # ---------------------------------------------------------------------------

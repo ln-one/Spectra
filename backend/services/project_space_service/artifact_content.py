@@ -4,6 +4,7 @@ import html
 from typing import Any, Dict, Optional
 
 from schemas.project_space import ArtifactType
+from services.artifact_generator.animation_spec import normalize_animation_spec
 
 from .artifact_semantics import (
     ARTIFACT_MODE_KIND_MAP,
@@ -173,6 +174,14 @@ def normalize_artifact_content(
         and mode == ArtifactMetadataKind.OUTLINE.value
     ):
         normalized["nodes"] = normalized.get("nodes") or []
+    elif artifact_type == ArtifactType.GIF.value:
+        normalized.setdefault("kind", "animation_storyboard")
+        normalized["format"] = "gif"
+        normalized.setdefault("duration_seconds", incoming.get("duration_seconds", 6))
+        normalized.setdefault("rhythm", incoming.get("rhythm") or "balanced")
+        normalized.setdefault("focus", incoming.get("focus") or "")
+        normalized["placements"] = list(incoming.get("placements") or [])
+        normalized["render_spec"] = normalize_animation_spec(normalized)
     elif (
         artifact_type == ArtifactType.HTML.value
         and mode == ArtifactMetadataKind.ANIMATION_STORYBOARD.value
@@ -199,6 +208,31 @@ def build_artifact_metadata(
     title = content.get("title")
     if isinstance(title, str) and title.strip():
         metadata["title"] = title.strip()
+    if artifact_type == ArtifactType.GIF.value and kind == "animation_storyboard":
+        render_spec = normalize_animation_spec(content)
+        metadata["summary"] = str(content.get("summary") or "").strip()
+        metadata["topic"] = str(content.get("topic") or "").strip()
+        metadata["scene"] = str(content.get("scene") or "").strip()
+        metadata["format"] = str(content.get("format") or "gif").strip().lower()
+        metadata["duration_seconds"] = content.get("duration_seconds")
+        metadata["rhythm"] = str(content.get("rhythm") or "").strip()
+        metadata["focus"] = str(content.get("focus") or "").strip()
+        metadata["visual_type"] = str(render_spec.get("visual_type") or "").strip()
+        metadata["content_snapshot"] = {
+            "kind": kind,
+            "title": metadata.get("title") or "教学动画",
+            "summary": metadata.get("summary") or "",
+            "topic": metadata.get("topic") or "",
+            "scene": metadata.get("scene") or "",
+            "format": metadata.get("format") or "gif",
+            "duration_seconds": content.get("duration_seconds"),
+            "rhythm": metadata.get("rhythm") or "",
+            "focus": metadata.get("focus") or "",
+            "visual_type": metadata.get("visual_type") or "",
+            "scenes": list(content.get("scenes") or []),
+            "render_spec": render_spec,
+            "placements": list(content.get("placements") or []),
+        }
     metadata["mode"] = artifact_mode
     metadata["is_current"] = True
     return metadata
