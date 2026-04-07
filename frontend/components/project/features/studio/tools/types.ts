@@ -26,6 +26,7 @@ export interface ResolvedArtifactPayload {
   contentKind: ResolvedArtifactContentKind;
   content: unknown;
   blob?: Blob;
+  artifactMetadata?: Record<string, unknown> | null;
 }
 
 export type ToolDraftValue =
@@ -78,6 +79,21 @@ export interface ToolFlowContext {
   onPrepareGenerate?: () => Promise<boolean> | boolean;
   onExecute?: () => Promise<boolean> | boolean;
   onRefine?: () => Promise<void> | void;
+  onStructuredRefine?: (payload: {
+    artifactId: string;
+    message?: string;
+    config?: Record<string, unknown>;
+  }) => Promise<boolean> | boolean;
+  onRecommendAnimationPlacement?: (payload: {
+    artifactId: string;
+    pptArtifactId: string;
+  }) => Promise<Record<string, unknown> | null> | Record<string, unknown> | null;
+  onConfirmAnimationPlacement?: (payload: {
+    artifactId: string;
+    pptArtifactId: string;
+    pageNumbers: number[];
+    slot: string;
+  }) => Promise<Record<string, unknown> | null> | Record<string, unknown> | null;
   onExportArtifact?: (artifactId: string) => Promise<void> | void;
 }
 

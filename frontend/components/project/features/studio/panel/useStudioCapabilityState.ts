@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { projectSpaceApi, studioCardsApi } from "@/lib/sdk";
 import { getErrorMessage } from "@/lib/sdk/errors";
 import type {
@@ -109,7 +109,9 @@ export function useStudioCapabilityState({
   ]);
 
   const completedPptHistorySources = useMemo<StudioSourceOption[]>(() => {
-    if (expandedToolKey !== "summary") return [];
+    if (expandedToolKey !== "summary" && expandedToolKey !== "animation") {
+      return [];
+    }
     const pptHistory = artifactHistoryByTool.ppt ?? [];
     const seen = new Set<string>();
     const normalized: StudioSourceOption[] = [];
@@ -279,14 +281,18 @@ export function useStudioCapabilityState({
 
     const loadCapability = async () => {
       try {
-        const blob = await projectSpaceApi.downloadArtifact(
-          projectId,
-          latestArtifact.artifactId
-        );
+        const [blob, artifactResponse] = await Promise.all([
+          projectSpaceApi.downloadArtifact(projectId, latestArtifact.artifactId),
+          projectSpaceApi.getArtifact(projectId, latestArtifact.artifactId),
+        ]);
         const resolved = await resolveCapabilityFromArtifact({
           toolId: expandedToolKey,
           artifact: latestArtifact,
           blob,
+          artifactMetadata:
+            (artifactResponse?.data?.artifact?.metadata as
+              | Record<string, unknown>
+              | undefined) ?? null,
         });
         applyResolution(resolved);
       } catch (error) {

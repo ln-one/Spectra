@@ -1,8 +1,9 @@
-﻿import { Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -10,38 +11,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ANIMATION_SCENE_OPTIONS } from "./constants";
-import type { AnimationScene } from "./types";
+import { ANIMATION_RHYTHM_OPTIONS } from "./constants";
+import type { AnimationRhythm } from "./types";
 
 interface ConfigStepProps {
   topic: string;
-  scene: AnimationScene;
-  speed: number;
-  showTrail: boolean;
-  splitView: boolean;
+  focus: string;
+  durationSeconds: number;
+  rhythm: AnimationRhythm;
   topicSuggestions: string[];
   isRecommendationsLoading: boolean;
   onTopicChange: (value: string) => void;
-  onSceneChange: (value: AnimationScene) => void;
-  onSpeedChange: (value: number) => void;
-  onShowTrailChange: (value: boolean) => void;
-  onSplitViewChange: (value: boolean) => void;
+  onFocusChange: (value: string) => void;
+  onDurationChange: (value: number) => void;
+  onRhythmChange: (value: AnimationRhythm) => void;
   onNext: () => void;
 }
 
 export function ConfigStep({
   topic,
-  scene,
-  speed,
-  showTrail,
-  splitView,
+  focus,
+  durationSeconds,
+  rhythm,
   topicSuggestions,
   isRecommendationsLoading,
   onTopicChange,
-  onSceneChange,
-  onSpeedChange,
-  onShowTrailChange,
-  onSplitViewChange,
+  onFocusChange,
+  onDurationChange,
+  onRhythmChange,
   onNext,
 }: ConfigStepProps) {
   return (
@@ -49,22 +46,24 @@ export function ConfigStep({
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <Label className="text-xs text-zinc-600">动画主题</Label>
+            <Label className="text-xs text-zinc-600">
+              你想让动画演示什么？
+            </Label>
             <p className="mt-1 text-[11px] text-zinc-500">
-              优先基于当前知识库推荐抽象过程、动态关系和演示重点。
+              先用教师视角描述这段动画要解释的知识点或教学过程。
             </p>
           </div>
           {isRecommendationsLoading ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              正在读取 RAG 推荐
+              正在读取推荐
             </span>
           ) : null}
         </div>
         <Input
           value={topic}
           onChange={(event) => onTopicChange(event.target.value)}
-          placeholder="例如：粒子受力变化、排序交换过程、电流方向演示"
+          placeholder="例如：演示电流形成过程，解释电子为什么会定向移动"
           className="mt-3 h-9 text-xs"
         />
         {topicSuggestions.length > 0 ? (
@@ -83,18 +82,43 @@ export function ConfigStep({
         ) : null}
       </section>
 
+      <section className="rounded-xl border border-zinc-200 bg-white p-4">
+        <Label className="text-xs text-zinc-600">你最想突出什么？</Label>
+        <Textarea
+          value={focus}
+          onChange={(event) => onFocusChange(event.target.value)}
+          placeholder="例如：突出电子受电场作用后的定向移动，不要平均展示所有部分。"
+          className="mt-3 min-h-[104px] resize-none text-xs"
+        />
+      </section>
+
       <section className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-2">
+        <div className="space-y-2 sm:col-span-2">
+          <Label className="text-xs text-zinc-600">
+            动画时长：{durationSeconds} 秒
+          </Label>
+          <Slider
+            value={[durationSeconds]}
+            min={3}
+            max={20}
+            step={1}
+            onValueChange={(value) => onDurationChange(value[0] ?? 6)}
+          />
+          <p className="text-[11px] text-zinc-500">
+            第一阶段统一输出 GIF，建议控制在 3 到 20 秒之间。
+          </p>
+        </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">动画场景</Label>
+          <Label className="text-xs text-zinc-600">节奏</Label>
           <Select
-            value={scene}
-            onValueChange={(value) => onSceneChange(value as AnimationScene)}
+            value={rhythm}
+            onValueChange={(value) => onRhythmChange(value as AnimationRhythm)}
           >
             <SelectTrigger className="h-9 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {ANIMATION_SCENE_OPTIONS.map((item) => (
+              {ANIMATION_RHYTHM_OPTIONS.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
                   {item.label}
                 </SelectItem>
@@ -103,43 +127,11 @@ export function ConfigStep({
           </Select>
           <p className="text-[11px] text-zinc-500">
             {
-              ANIMATION_SCENE_OPTIONS.find((item) => item.value === scene)
+              ANIMATION_RHYTHM_OPTIONS.find((item) => item.value === rhythm)
                 ?.description
             }
           </p>
         </div>
-        <div className="space-y-2 sm:col-span-2">
-          <Label className="text-xs text-zinc-600">动画速度：{speed}%</Label>
-          <Slider
-            value={[speed]}
-            min={10}
-            max={100}
-            step={5}
-            onValueChange={(value) => onSpeedChange(value[0] ?? 50)}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => onShowTrailChange(!showTrail)}
-          className={`rounded-lg border px-3 py-2 text-left text-xs ${
-            showTrail
-              ? "border-blue-500 bg-blue-50 text-blue-700"
-              : "border-zinc-200 bg-white text-zinc-600"
-          }`}
-        >
-          轨迹线：{showTrail ? "显示" : "隐藏"}
-        </button>
-        <button
-          type="button"
-          onClick={() => onSplitViewChange(!splitView)}
-          className={`rounded-lg border px-3 py-2 text-left text-xs ${
-            splitView
-              ? "border-blue-500 bg-blue-50 text-blue-700"
-              : "border-zinc-200 bg-white text-zinc-600"
-          }`}
-        >
-          代码视图：{splitView ? "显示" : "隐藏"}
-        </button>
       </section>
 
       <div className="flex justify-end">
@@ -149,7 +141,7 @@ export function ConfigStep({
           onClick={onNext}
           disabled={!topic.trim()}
         >
-          下一步：确认生成
+          下一步：确认动画规格
         </Button>
       </div>
     </div>

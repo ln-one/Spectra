@@ -106,6 +106,20 @@ export interface StudioCardTurnResult {
   next_focus?: string;
 }
 
+export interface AnimationPlacementRecommendationRequest {
+  project_id: string;
+  artifact_id: string;
+  ppt_artifact_id: string;
+}
+
+export interface AnimationPlacementConfirmRequest {
+  project_id: string;
+  artifact_id: string;
+  ppt_artifact_id: string;
+  page_numbers: number[];
+  slot: string;
+}
+
 type ApiEnvelope<T> = {
   success: boolean;
   data: T;
@@ -121,7 +135,7 @@ async function parseResponse<T>(
     try {
       payload = await response.json();
     } catch {
-      // no-op: keep fallback payload
+      // Keep fallback payload when no JSON body exists.
     }
     throw toApiError(payload, response.status);
   }
@@ -282,5 +296,53 @@ export const studioCardsApi = {
         turn_result: StudioCardTurnResult;
       }>
     >(response, "推进课堂问答模拟失败");
+  },
+
+  async recommendAnimationPlacement(
+    body: AnimationPlacementRecommendationRequest
+  ): Promise<
+    ApiEnvelope<{
+      recommendation: Record<string, unknown>;
+      artifact: Record<string, unknown>;
+    }>
+  > {
+    const response = await apiFetch(
+      "/api/v1/generate/studio-cards/demonstration_animations/recommend-placement",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    return parseResponse<
+      ApiEnvelope<{
+        recommendation: Record<string, unknown>;
+        artifact: Record<string, unknown>;
+      }>
+    >(response, "获取动画插入推荐失败");
+  },
+
+  async confirmAnimationPlacement(
+    body: AnimationPlacementConfirmRequest
+  ): Promise<
+    ApiEnvelope<{
+      placements: Record<string, unknown>[];
+      artifact: Record<string, unknown>;
+    }>
+  > {
+    const response = await apiFetch(
+      "/api/v1/generate/studio-cards/demonstration_animations/confirm-placement",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    return parseResponse<
+      ApiEnvelope<{
+        placements: Record<string, unknown>[];
+        artifact: Record<string, unknown>;
+      }>
+    >(response, "记录动画插入关系失败");
   },
 };

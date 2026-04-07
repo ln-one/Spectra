@@ -1,17 +1,23 @@
-import { buildAnimationCode } from "@/components/project/features/studio/tools/animation/templates";
+import {
+  ANIMATION_RHYTHM_OPTIONS,
+  ANIMATION_STEPS,
+} from "@/components/project/features/studio/tools/animation/constants";
 
-describe("animation templates", () => {
-  test("escapes user-controlled strings into valid JavaScript literals", () => {
-    const code = buildAnimationCode({
-      topic: '磁场 "变化"\n<script>',
-      scene: "magnetic_field",
-      speed: 75,
-      showTrail: true,
-      lineColor: '#00ff88";alert(1);//',
-    });
+describe("animation workflow config", () => {
+  test("keeps GIF-first workflow steps", () => {
+    expect(ANIMATION_STEPS.map((item) => item.id)).toEqual([
+      "config",
+      "generate",
+      "preview",
+    ]);
+    expect(ANIMATION_STEPS[1]?.description).toContain("GIF");
+  });
 
-    expect(code).toContain('topic: "磁场 \\"变化\\"\\n<script>",');
-    expect(code).toContain('scene: "magneticFieldScene",');
-    expect(code).toContain('lineColor: "#00ff88\\";alert(1);//",');
+  test("exposes slow balanced fast rhythm options", () => {
+    expect(ANIMATION_RHYTHM_OPTIONS.map((item) => item.value)).toEqual([
+      "slow",
+      "balanced",
+      "fast",
+    ]);
   });
 });

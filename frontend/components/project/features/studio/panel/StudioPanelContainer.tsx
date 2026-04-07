@@ -7,6 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 import { Card, CardContent } from "@/components/ui/card";
 import { studioCardsApi } from "@/lib/sdk/studio-cards";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 import { useProjectStore, GENERATION_TOOLS } from "@/stores/projectStore";
 import type { GenerationToolType } from "@/lib/project-space/artifact-history";
 import { STUDIO_TOOL_COMPONENTS } from "../tools";
@@ -615,6 +616,103 @@ export function StudioPanelContainer({
       return false;
     },
     onRefine: () => execution.handleOpenChatRefine(),
+    onStructuredRefine: async (payload) => {
+      if (!project || !capability.currentCardId) return false;
+      try {
+        const response = await studioCardsApi.refineArtifact(
+          capability.currentCardId,
+          {
+            project_id: project.id,
+            artifact_id: payload.artifactId,
+            message: payload.message ?? "",
+            config: payload.config ?? {},
+            source_artifact_id:
+              capability.selectedSourceId ??
+              capability.draftSourceArtifactId ??
+              undefined,
+            rag_source_ids:
+              selectedFileIds.length > 0 ? selectedFileIds : undefined,
+          }
+        );
+        const executionResult =
+          (response?.data?.execution_result as Record<string, unknown>) ?? {};
+        const sessionId =
+          extractSessionIdFromExecutionResult(executionResult) ?? activeSessionId;
+        const runId = extractRunIdFromExecutionResult(executionResult);
+
+        if (sessionId) {
+          setActiveSessionId(sessionId);
+          if (runId) {
+            setActiveRunId(runId);
+          }
+          await fetchArtifactHistory(project.id, sessionId);
+        }
+
+        toast({
+          title: "动画 refine 已提交",
+          description: "新的 GIF 结果正在刷新。",
+        });
+        return true;
+      } catch (error) {
+        toast({
+          title: "动画 refine 失败",
+          description:
+            error instanceof Error ? error.message : "请稍后重试。",
+          variant: "destructive",
+        });
+        return false;
+      }
+    },
+    onRecommendAnimationPlacement: async (payload) => {
+      if (!project) return null;
+      try {
+        const response = await studioCardsApi.recommendAnimationPlacement({
+          project_id: project.id,
+          artifact_id: payload.artifactId,
+          ppt_artifact_id: payload.pptArtifactId,
+        });
+        toast({
+          title: "已生成推荐页",
+          description: "你可以直接采用推荐，也可以改选其他页。",
+        });
+        return (response?.data?.recommendation as Record<string, unknown>) ?? null;
+      } catch (error) {
+        toast({
+          title: "获取推荐页失败",
+          description:
+            error instanceof Error ? error.message : "请稍后重试。",
+          variant: "destructive",
+        });
+        return null;
+      }
+    },
+    onConfirmAnimationPlacement: async (payload) => {
+      if (!project) return null;
+      try {
+        const response = await studioCardsApi.confirmAnimationPlacement({
+          project_id: project.id,
+          artifact_id: payload.artifactId,
+          ppt_artifact_id: payload.pptArtifactId,
+          page_numbers: payload.pageNumbers,
+          slot: payload.slot,
+        });
+        toast({
+          title: "已记录插入关系",
+          description: "动画仍保持独立 artifact，不会自动回写已插入页面。",
+        });
+        return (
+          (response?.data as Record<string, unknown> | undefined) ?? null
+        );
+      } catch (error) {
+        toast({
+          title: "记录插入关系失败",
+          description:
+            error instanceof Error ? error.message : "请稍后重试。",
+          variant: "destructive",
+        });
+        return null;
+      }
+    },
     onExportArtifact: (artifactId) => exportArtifact(artifactId),
   };
 
