@@ -44,18 +44,47 @@ async def resolve_target_project_name_map(db_service, references) -> dict[str, s
     if not target_ids:
         return {}
 
+    prisma = getattr(db_service, "db", None)
+    project_model = getattr(prisma, "project", None)
+    if project_model is not None and hasattr(project_model, "find_many"):
+        try:
+            rows = await project_model.find_many(
+                where={"id": {"in": target_ids}},
+                select={"id": True, "name": True},
+            )
+            name_map: dict[str, str] = {}
+            for row in rows:
+                row_id = (
+                    row.get("id") if isinstance(row, dict) else getattr(row, "id", None)
+                )
+                name_value = (
+                    row.get("name")
+                    if isinstance(row, dict)
+                    else getattr(row, "name", None)
+                )
+                name = str(name_value or "").strip()
+                if row_id and name:
+                    name_map[row_id] = name
+            return name_map
+        except Exception as exc:  # pragma: no cover - defensive fallback path
+            logger.warning(
+                "target name batch lookup failed; "
+                "fallback to per-project lookup: %s",
+                exc,
+            )
+
     projects = await asyncio.gather(
         *(db_service.get_project(target_id) for target_id in target_ids),
         return_exceptions=True,
     )
-    name_map: dict[str, str] = {}
+    fallback_name_map: dict[str, str] = {}
     for target_id, project in zip(target_ids, projects):
         if isinstance(project, Exception) or project is None:
             continue
         name = str(getattr(project, "name", "")).strip()
         if name:
-            name_map[target_id] = name
-    return name_map
+            fallback_name_map[target_id] = name
+    return fallback_name_map
 
 
 @router.post(
