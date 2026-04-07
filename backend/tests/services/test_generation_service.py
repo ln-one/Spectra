@@ -5,7 +5,6 @@ GenerationService 单元测试
 """
 
 import asyncio
-from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -305,58 +304,6 @@ class TestFilePathSafety:
 
             # 验证生成器被调用（路径清理在生成器内部处理）
             mock_gen.assert_called_once()
-
-
-class TestGenerateSlideImages:
-    """娴嬭瘯流式页图生成包装逻辑"""
-
-    @pytest.mark.asyncio
-    async def test_streaming_preview_uses_per_slide_mermaid_preprocess(
-        self, generation_service, mock_content
-    ):
-        preprocess_calls: list[str] = []
-        transformed_docs: list[str] = []
-
-        async def _fake_preprocess(markdown: str, **kwargs):
-            preprocess_calls.append(kwargs["asset_prefix"])
-            return markdown + "\n\n![Mermaid Diagram](slide.svg)"
-
-        async def _fake_generate(
-            task_id,
-            output_dir,
-            full_markdown,
-            on_image_generated=None,
-            transform_slide_markdown=None,
-        ):
-            assert task_id == "stream-task"
-            assert on_image_generated is not None
-            assert transform_slide_markdown is not None
-            transformed_docs.append(
-                await transform_slide_markdown(0, "# Slide 1\n\n```mermaid\nA-->B\n```")
-            )
-            return [str(output_dir / "stream-task_temp.001.png")]
-
-        with (
-            patch(
-                "services.generation._generate_slide_images",
-                new=AsyncMock(side_effect=_fake_generate),
-            ),
-            patch(
-                "services.mermaid_renderer.preprocess_mermaid_blocks",
-                new=AsyncMock(side_effect=_fake_preprocess),
-            ),
-        ):
-            images = await generation_service.generate_slide_images(
-                mock_content,
-                "stream-task",
-                on_image_generated=AsyncMock(),
-            )
-
-        assert images == [
-            str(Path(generation_service.output_dir) / "stream-task_temp.001.png")
-        ]
-        assert preprocess_calls == ["stream-task_mermaid_slide_001"]
-        assert 'img[alt="Mermaid Diagram"]' in transformed_docs[0]
 
 
 class TestConcurrentGeneration:

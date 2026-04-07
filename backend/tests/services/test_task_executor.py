@@ -47,12 +47,31 @@ def mock_ai_service():
 
 
 @pytest.fixture
-def mock_generation_service():
-    """Mock 生成服务"""
-    mock = AsyncMock()
-    mock.generate_pptx = AsyncMock(return_value="/tmp/test.pptx")
-    mock.generate_docx = AsyncMock(return_value="/tmp/test.docx")
-    return mock
+def mock_render_engine():
+    """Mock render engine adapter outputs."""
+    return {
+        "build_render_engine_input": MagicMock(return_value={"render_job_id": "job-1"}),
+        "invoke_render_engine": AsyncMock(
+            return_value={
+                "artifacts": {
+                    "pptx_path": "/tmp/test.pptx",
+                    "docx_path": "/tmp/test.docx",
+                }
+            }
+        ),
+        "normalize_render_engine_result": MagicMock(
+            return_value={
+                "artifact_paths": {
+                    "pptx": "/tmp/test.pptx",
+                    "docx": "/tmp/test.docx",
+                },
+                "preview_pages": [],
+                "warnings": [],
+                "events": [],
+                "metrics": {},
+            }
+        ),
+    }
 
 
 class TestTaskExecutor:
@@ -60,13 +79,24 @@ class TestTaskExecutor:
 
     @pytest.mark.asyncio
     async def test_execute_pptx_task_success(
-        self, mock_db_service, mock_ai_service, mock_generation_service
+        self, mock_db_service, mock_ai_service, mock_render_engine
     ):
         """测试成功执行 PPTX 生成任务"""
         with (
             patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
-            patch("services.generation.generation_service", mock_generation_service),
+            patch(
+                "services.render_engine_adapter.build_render_engine_input",
+                mock_render_engine["build_render_engine_input"],
+            ),
+            patch(
+                "services.render_engine_adapter.invoke_render_engine",
+                mock_render_engine["invoke_render_engine"],
+            ),
+            patch(
+                "services.render_engine_adapter.normalize_render_engine_result",
+                mock_render_engine["normalize_render_engine_result"],
+            ),
         ):
 
             await execute_generation_task(
@@ -93,18 +123,31 @@ class TestTaskExecutor:
             # 验证 AI 服务调用
             mock_ai_service.generate_courseware_content.assert_called_once()
 
-            # 验证生成服务调用
-            mock_generation_service.generate_pptx.assert_called_once()
+            # 验证 render-service 主链调用
+            mock_render_engine["build_render_engine_input"].assert_called_once()
+            mock_render_engine["invoke_render_engine"].assert_called_once()
+            mock_render_engine["normalize_render_engine_result"].assert_called_once()
 
     @pytest.mark.asyncio
     async def test_execute_both_task_success(
-        self, mock_db_service, mock_ai_service, mock_generation_service
+        self, mock_db_service, mock_ai_service, mock_render_engine
     ):
         """测试成功执行 PPTX + DOCX 生成任务"""
         with (
             patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
-            patch("services.generation.generation_service", mock_generation_service),
+            patch(
+                "services.render_engine_adapter.build_render_engine_input",
+                mock_render_engine["build_render_engine_input"],
+            ),
+            patch(
+                "services.render_engine_adapter.invoke_render_engine",
+                mock_render_engine["invoke_render_engine"],
+            ),
+            patch(
+                "services.render_engine_adapter.normalize_render_engine_result",
+                mock_render_engine["normalize_render_engine_result"],
+            ),
         ):
 
             await execute_generation_task(
@@ -113,9 +156,10 @@ class TestTaskExecutor:
                 task_type="both",
             )
 
-            # 验证两种格式都生成了
-            mock_generation_service.generate_pptx.assert_called_once()
-            mock_generation_service.generate_docx.assert_called_once()
+            # 验证通过 render-service 返回两种格式
+            mock_render_engine["build_render_engine_input"].assert_called_once()
+            mock_render_engine["invoke_render_engine"].assert_called_once()
+            mock_render_engine["normalize_render_engine_result"].assert_called_once()
 
             # 验证最终状态包含两个 URL
             final_call = mock_db_service.update_generation_task_status.call_args_list[
@@ -128,7 +172,7 @@ class TestTaskExecutor:
 
     @pytest.mark.asyncio
     async def test_retryable_error_handling(
-        self, mock_db_service, mock_ai_service, mock_generation_service
+        self, mock_db_service, mock_ai_service, mock_render_engine
     ):
         """测试可重试错误处理"""
         # 模拟网络超时错误
@@ -139,7 +183,18 @@ class TestTaskExecutor:
         with (
             patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
-            patch("services.generation.generation_service", mock_generation_service),
+            patch(
+                "services.render_engine_adapter.build_render_engine_input",
+                mock_render_engine["build_render_engine_input"],
+            ),
+            patch(
+                "services.render_engine_adapter.invoke_render_engine",
+                mock_render_engine["invoke_render_engine"],
+            ),
+            patch(
+                "services.render_engine_adapter.normalize_render_engine_result",
+                mock_render_engine["normalize_render_engine_result"],
+            ),
         ):
 
             # 应该抛出异常以触发重试
@@ -157,7 +212,7 @@ class TestTaskExecutor:
 
     @pytest.mark.asyncio
     async def test_permanent_error_handling(
-        self, mock_db_service, mock_ai_service, mock_generation_service
+        self, mock_db_service, mock_ai_service, mock_render_engine
     ):
         """测试不可重试错误处理"""
         # 模拟参数错误
@@ -168,7 +223,18 @@ class TestTaskExecutor:
         with (
             patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
-            patch("services.generation.generation_service", mock_generation_service),
+            patch(
+                "services.render_engine_adapter.build_render_engine_input",
+                mock_render_engine["build_render_engine_input"],
+            ),
+            patch(
+                "services.render_engine_adapter.invoke_render_engine",
+                mock_render_engine["invoke_render_engine"],
+            ),
+            patch(
+                "services.render_engine_adapter.normalize_render_engine_result",
+                mock_render_engine["normalize_render_engine_result"],
+            ),
         ):
 
             # 不应该抛出异常（不触发重试）
@@ -193,7 +259,7 @@ class TestTaskExecutor:
 
     @pytest.mark.asyncio
     async def test_unknown_error_handling_retries_exhausted(
-        self, mock_db_service, mock_ai_service, mock_generation_service
+        self, mock_db_service, mock_ai_service, mock_render_engine
     ):
         """测试未知错误处理（重试次数已耗尽）：应标记为 failed"""
         # 模拟未知错误
@@ -208,7 +274,18 @@ class TestTaskExecutor:
         with (
             patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
-            patch("services.generation.generation_service", mock_generation_service),
+            patch(
+                "services.render_engine_adapter.build_render_engine_input",
+                mock_render_engine["build_render_engine_input"],
+            ),
+            patch(
+                "services.render_engine_adapter.invoke_render_engine",
+                mock_render_engine["invoke_render_engine"],
+            ),
+            patch(
+                "services.render_engine_adapter.normalize_render_engine_result",
+                mock_render_engine["normalize_render_engine_result"],
+            ),
             patch("services.task_executor.get_current_job", return_value=mock_job),
         ):
 
@@ -234,7 +311,7 @@ class TestTaskExecutor:
 
     @pytest.mark.asyncio
     async def test_unknown_error_handling_retries_remaining(
-        self, mock_db_service, mock_ai_service, mock_generation_service
+        self, mock_db_service, mock_ai_service, mock_render_engine
     ):
         """测试未知错误处理（还有剩余重试次数）：不应标记为 failed，应增加重试计数"""
         # 模拟未知错误
@@ -249,7 +326,18 @@ class TestTaskExecutor:
         with (
             patch("services.database.DatabaseService", return_value=mock_db_service),
             patch("services.ai.ai_service", mock_ai_service),
-            patch("services.generation.generation_service", mock_generation_service),
+            patch(
+                "services.render_engine_adapter.build_render_engine_input",
+                mock_render_engine["build_render_engine_input"],
+            ),
+            patch(
+                "services.render_engine_adapter.invoke_render_engine",
+                mock_render_engine["invoke_render_engine"],
+            ),
+            patch(
+                "services.render_engine_adapter.normalize_render_engine_result",
+                mock_render_engine["normalize_render_engine_result"],
+            ),
             patch("services.task_executor.get_current_job", return_value=mock_job),
         ):
 

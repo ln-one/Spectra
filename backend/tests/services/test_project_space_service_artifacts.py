@@ -1,6 +1,6 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -89,10 +89,31 @@ async def test_create_artifact_handout_docx_sets_metadata(monkeypatch):
         ),
     )
 
-    generate_docx = AsyncMock(return_value="generated/handout.docx")
+    build_render_engine_input = Mock(return_value={"render_job_id": "artifact-003"})
+    invoke_render_engine = AsyncMock(
+        return_value={
+            "artifacts": {"docx_path": "generated/handout.docx"},
+            "warnings": [],
+            "events": [],
+            "metrics": {"render_ms": 12},
+        }
+    )
     monkeypatch.setattr(
-        "services.project_space_service.artifacts.artifact_generator.generate_docx",
-        generate_docx,
+        "services.project_space_service.artifacts.build_render_engine_input",
+        build_render_engine_input,
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.invoke_render_engine",
+        invoke_render_engine,
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.artifacts.normalize_render_engine_result",
+        lambda payload: {
+            "artifact_paths": {"docx": "generated/handout.docx"},
+            "warnings": [],
+            "events": [],
+            "metrics": {"render_ms": 12},
+        },
     )
 
     await service.create_artifact_with_file(
@@ -103,8 +124,9 @@ async def test_create_artifact_handout_docx_sets_metadata(monkeypatch):
         content={"mode": "handout", "title": "教学讲义"},
     )
 
-    payload = generate_docx.await_args.args[0]
-    assert payload["kind"] == ArtifactMetadataKind.HANDOUT.value
+    payload = build_render_engine_input.call_args.args[0]
+    assert payload["title"] == "教学讲义"
+    assert "教学讲义" in payload["lesson_plan_markdown"]
     assert (
         create_artifact.await_args.kwargs["metadata"]["kind"]
         == ArtifactMetadataKind.HANDOUT.value
@@ -113,6 +135,7 @@ async def test_create_artifact_handout_docx_sets_metadata(monkeypatch):
         create_artifact.await_args.kwargs["metadata"]["capability"]
         == ProjectCapability.WORD.value
     )
+    invoke_render_engine.assert_awaited_once()
 
 
 @pytest.mark.asyncio

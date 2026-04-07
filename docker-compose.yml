@@ -59,6 +59,28 @@ services:
     depends_on:
       - backend
 
+  pagevra:
+    image: ghcr.io/ln-one/pagevra:dev
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      - PORT=8090
+      - CHROME_PATH=/usr/bin/chromium
+      - PAGEVRA_DISTRIBUTION=image
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8090/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
   backend:
     build:
       context: ./backend
@@ -92,6 +114,12 @@ services:
       - UPLOAD_DIR=/var/lib/spectra/uploads
       - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
       - GENERATED_DIR=/var/lib/spectra/generated
+      - PAGEVRA_BASE_URL=http://pagevra:8090
+      - PAGEVRA_TIMEOUT_SECONDS=180
+      - STRUCTRA_BASE_URL=http://pagevra:8090
+      - STRUCTRA_TIMEOUT_SECONDS=180
+      - RENDER_ENGINE_BASE_URL=http://pagevra:8090
+      - RENDER_ENGINE_TIMEOUT_SECONDS=180
       - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
@@ -111,6 +139,8 @@ services:
         condition: service_healthy
       dualweave:
         condition: service_started
+      pagevra:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -154,6 +184,12 @@ services:
       - UPLOAD_DIR=/var/lib/spectra/uploads
       - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
       - GENERATED_DIR=/var/lib/spectra/generated
+      - PAGEVRA_BASE_URL=http://pagevra:8090
+      - PAGEVRA_TIMEOUT_SECONDS=180
+      - STRUCTRA_BASE_URL=http://pagevra:8090
+      - STRUCTRA_TIMEOUT_SECONDS=180
+      - RENDER_ENGINE_BASE_URL=http://pagevra:8090
+      - RENDER_ENGINE_TIMEOUT_SECONDS=180
       - POSTGRES_BACKUP_DIR=/var/lib/spectra/backups
       - POSTGRES_RESTORE_STAGING_DIR=/var/lib/spectra/restore-staging
       - POSTGRES_BACKUP_RETENTION_DAYS=14
@@ -173,6 +209,8 @@ services:
         condition: service_healthy
       dualweave:
         condition: service_started
+      pagevra:
+        condition: service_healthy
 
   chromadb:
     image: chromadb/chroma:0.5.2

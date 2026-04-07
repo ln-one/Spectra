@@ -289,7 +289,7 @@ async def test_load_preview_material_fallbacks_when_task_select_not_supported(
     )
     monkeypatch.setattr(
         "services.preview_helpers.content.build_slides",
-        lambda _task_id, _md, _image_metadata=None: [
+        lambda _task_id, _md, _image_metadata=None, _render_markdown=None: [
             SimpleNamespace(model_dump=lambda: {"id": "slide-1", "title": "S1"})
         ],
     )

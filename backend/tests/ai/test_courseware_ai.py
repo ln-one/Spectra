@@ -149,8 +149,8 @@ class TestGenerateOutline:
         assert "参考内容" not in prompt_arg
 
     @pytest.mark.asyncio
-    async def test_outline_empty_sections_triggers_fallback(self):
-        """LLM 返回空 sections 时应 fallback"""
+    async def test_outline_empty_sections_raises_failure(self):
+        """LLM 返回空 sections 时应显式失败，不再静默 fallback。"""
         ai = AIService()
         mock_json = json.dumps({"title": "空大纲", "sections": [], "summary": "无"})
 
@@ -165,12 +165,8 @@ class TestGenerateOutline:
                 ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
             ),
         ):
-            outline = await ai.generate_outline("proj3", "测试空大纲")
-
-        # empty sections raises ValueError → fallback
-        assert isinstance(outline, CoursewareOutline)
-        assert len(outline.sections) >= 1
-        assert outline.summary == "基础教学大纲"
+            with pytest.raises(ValueError, match="empty sections"):
+                await ai.generate_outline("proj3", "测试空大纲")
 
     @pytest.mark.asyncio
     async def test_outline_sparse_sections_are_enriched(self):
@@ -261,8 +257,8 @@ class TestGenerateOutline:
         assert "易错点澄清" in merged_points
 
     @pytest.mark.asyncio
-    async def test_outline_no_json_triggers_fallback(self):
-        """LLM 返回非 JSON 时应 fallback"""
+    async def test_outline_no_json_raises_failure(self):
+        """LLM 返回非 JSON 时应显式失败，不再静默 fallback。"""
         ai = AIService()
 
         with (
@@ -276,14 +272,12 @@ class TestGenerateOutline:
                 ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
             ),
         ):
-            outline = await ai.generate_outline("proj4", "测试非JSON")
-
-        assert isinstance(outline, CoursewareOutline)
-        assert outline.summary == "基础教学大纲"
+            with pytest.raises(ValueError, match="No JSON found"):
+                await ai.generate_outline("proj4", "测试非JSON")
 
     @pytest.mark.asyncio
-    async def test_outline_llm_exception_triggers_fallback(self):
-        """LLM 调用异常时应 fallback"""
+    async def test_outline_llm_exception_raises_failure(self):
+        """LLM 调用异常时应显式失败，不再静默 fallback。"""
         ai = AIService()
 
         with (
@@ -297,38 +291,12 @@ class TestGenerateOutline:
                 ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
             ),
         ):
-            outline = await ai.generate_outline("proj5", "测试异常")
-
-        assert isinstance(outline, CoursewareOutline)
-        assert outline.summary == "基础教学大纲"
+            with pytest.raises(RuntimeError, match="API down"):
+                await ai.generate_outline("proj5", "测试异常")
 
     @pytest.mark.asyncio
-    async def test_outline_fallback_aligns_with_plain_target_page_phrase(self):
-        """当需求写成“12 页”时，fallback 也应对齐目标页数。"""
-        ai = AIService()
-
-        with (
-            patch.object(
-                ai,
-                "generate",
-                new_callable=AsyncMock,
-                side_effect=RuntimeError("API down"),
-            ),
-            patch.object(
-                ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
-            ),
-        ):
-            outline = await ai.generate_outline(
-                "proj6",
-                "生成“知识地图 + 关键例题 + 易错点澄清”风格大纲，12 页，强调课堂互动提问与板书逻辑。",
-            )
-
-        assert isinstance(outline, CoursewareOutline)
-        assert sum(section.slide_count for section in outline.sections) == 12
-
-    @pytest.mark.asyncio
-    async def test_outline_generic_placeholder_sections_are_rebuilt(self):
-        """当 LLM 返回“核心知识点/要点1”占位结构时，应自动重建为可用大纲。"""
+    async def test_outline_generic_placeholder_sections_raise_failure(self):
+        """当 LLM 返回低质量占位结构时，应显式失败，不再自动重建。"""
         ai = AIService()
         generic_json = json.dumps(
             {
@@ -356,23 +324,11 @@ class TestGenerateOutline:
                 ai, "_retrieve_rag_context", new_callable=AsyncMock, return_value=None
             ),
         ):
-            outline = await ai.generate_outline(
-                "proj-generic",
-                "生成“知识地图 + 关键例题 + 易错点澄清”风格大纲，12 页，强调课堂互动提问与板书逻辑。",
-            )
-
-        section_titles = [section.title for section in outline.sections]
-        assert "知识地图构建" in section_titles
-        assert "关键例题精讲" in section_titles
-        assert "易错点澄清" in section_titles
-        assert sum(section.slide_count for section in outline.sections) == 12
-        merged_points = " ".join(
-            point
-            for section in outline.sections
-            for point in (section.key_points or [])
-        )
-        assert "互动提问" in merged_points
-        assert "板书逻辑" not in merged_points
+            with pytest.raises(ValueError, match="quality is too low"):
+                await ai.generate_outline(
+                    "proj-generic",
+                    "生成“知识地图 + 关键例题 + 易错点澄清”风格大纲，12 页，强调课堂互动提问与板书逻辑。",
+                )
 
     def test_fallback_outline_structure(self):
         """fallback 大纲结构完整"""
@@ -492,9 +448,13 @@ class TestGenerateOutline:
             )
 
         assert isinstance(result, CoursewareContent)
-        assert "selected.pdf" in result.markdown_content
         assert "F=ma" in result.markdown_content
-        assert "source-grounded" in result.lesson_plan_markdown
+        assert "selected.pdf" not in result.markdown_content
+        assert (
+            "Follow-up discussion based on selected sources"
+            not in result.markdown_content
+        )
+        assert "讲解要求" in result.lesson_plan_markdown
 
 
 class TestExtractStructuredContent:

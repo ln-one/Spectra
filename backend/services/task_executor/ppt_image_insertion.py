@@ -3,156 +3,41 @@
 from __future__ import annotations
 
 import logging
-import os
-import re
 from pathlib import Path
 from typing import Any
 
-from services.courseware_ai.parsing import (
-    extract_frontmatter,
-    parse_marp_slides,
-    reassemble_marp,
-)
 from services.database.prisma_compat import find_many_with_select_fallback
+from services.task_executor.ppt_image_insertion_helpers import (
+    append_image_appendix_slides,
+    extract_rag_image_upload_ids,
+    inject_image_blocks,
+    normalize_markdown_image_path,
+    to_image_upload_candidate,
+)
 
 logger = logging.getLogger(__name__)
 
-_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-_IMAGE_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
-_BACKEND_ROOT = Path(__file__).resolve().parents[2]
-_GENERATED_ROOT = _BACKEND_ROOT / "generated"
-
-_PRIORITY_IMAGE_PAGES = {
-    "process",
-    "structure",
-    "experiment",
-    "comparison",
-    "procedure",
-    "mechanism",
-    "workflow",
-    "diagram",
-    "illustration",
-}
-
-_SKIP_IMAGE_PAGES = {"definition", "conclusion", "summary", "abstract", "title"}
-
 
 def _is_image_filename(filename: str | None) -> bool:
-    if not filename:
-        return False
-    lower = filename.strip().lower()
-    return any(lower.endswith(ext) for ext in _IMAGE_EXTENSIONS)
+    from services.task_executor.ppt_image_insertion_helpers import is_image_filename
+
+    return is_image_filename(filename)
 
 
 def _to_generated_relative_path(path: Path) -> str:
-    try:
-        relative = os.path.relpath(str(path), str(_GENERATED_ROOT))
-        return Path(relative).as_posix()
-    except ValueError:
-        # Windows may raise when drives differ; keep absolute fallback.
-        return path.as_posix()
+    from services.task_executor.ppt_image_insertion_helpers import (
+        to_generated_relative_path,
+    )
+
+    return to_generated_relative_path(path)
 
 
 def _normalize_markdown_image_path(filepath: str, filename: str | None = None) -> str:
-    raw = str(filepath or "").strip()
-    if not raw:
-        return ""
-
-    normalized = raw.replace("\\", "/")
-    lowered = normalized.lower()
-    if lowered.startswith("data:image/") or _IMAGE_SCHEME_RE.match(normalized):
-        return normalized
-
-    if normalized.startswith("/app/"):
-        absolute_candidate = Path(normalized)
-        if absolute_candidate.exists():
-            return _to_generated_relative_path(absolute_candidate)
-        candidate = _BACKEND_ROOT / normalized[len("/app/") :]
-        return _to_generated_relative_path(candidate)
-
-    if normalized.startswith("./uploads/"):
-        candidate = _BACKEND_ROOT / normalized[2:]
-        return _to_generated_relative_path(candidate)
-
-    if normalized.startswith("uploads/"):
-        candidate = _BACKEND_ROOT / normalized
-        return _to_generated_relative_path(candidate)
-
-    if "/" not in normalized and _is_image_filename(filename or normalized):
-        candidate = _BACKEND_ROOT / "uploads" / normalized
-        return _to_generated_relative_path(candidate)
-
-    path_obj = Path(normalized)
-    if path_obj.is_absolute():
-        return _to_generated_relative_path(path_obj)
-
-    return _to_generated_relative_path(_BACKEND_ROOT / path_obj)
-
-
-def _classify_page_semantic(title: str, content: str) -> tuple[str, dict]:
-    """分类页面语义类型并返回评分"""
-    text = f"{title} {content}".lower()
-    scores = {
-        "page_semantic_fit": 0.0,
-        "keyword_coverage": 0.0,
-        "teaching_dependency": 0.0,
-        "layout_capacity": 0.0,
-    }
-
-    priority_match = sum(1 for kw in _PRIORITY_IMAGE_PAGES if kw in text)
-    skip_match = sum(1 for kw in _SKIP_IMAGE_PAGES if kw in text)
-
-    if priority_match > 0:
-        scores["page_semantic_fit"] = min(1.0, priority_match * 0.3)
-        scores["teaching_dependency"] = 0.7
-        semantic_type = "priority"
-    elif skip_match > 0:
-        scores["page_semantic_fit"] = 0.0
-        semantic_type = "skip"
-    else:
-        scores["page_semantic_fit"] = 0.3
-        semantic_type = "neutral"
-
-    return semantic_type, scores
-
-
-def _assess_layout_risk(content: str, scores: dict) -> str:
-    """评估版式风险"""
-    lines = [
-        line_text.strip()
-        for line_text in content.split("\n")
-        if line_text.strip() and not line_text.strip().startswith("#")
-    ]
-    text_density = len(lines)
-
-    if text_density > 8:
-        scores["layout_capacity"] = 0.0
-        return "high"
-    elif text_density > 5:
-        scores["layout_capacity"] = 0.5
-        return "medium"
-
-    scores["layout_capacity"] = 1.0
-    return "low"
+    return normalize_markdown_image_path(filepath, filename)
 
 
 def _extract_rag_image_upload_ids(rag_context: list[dict] | None) -> list[str]:
-    image_upload_ids: list[str] = []
-    for hit in rag_context or []:
-        if not isinstance(hit, dict):
-            continue
-        metadata = hit.get("metadata")
-        if not isinstance(metadata, dict):
-            continue
-        upload_id = str(metadata.get("upload_id") or "").strip()
-        if not upload_id:
-            continue
-        source_type = str(metadata.get("source_type") or "").strip().lower()
-        filename = str(metadata.get("filename") or "").strip()
-        if source_type == "image" or _is_image_filename(filename):
-            if upload_id not in image_upload_ids:
-                image_upload_ids.append(upload_id)
-    return image_upload_ids
+    return extract_rag_image_upload_ids(rag_context)
 
 
 def _to_image_upload_candidate(
@@ -161,191 +46,7 @@ def _to_image_upload_candidate(
     required: bool,
     origin: str,
 ) -> tuple[str, dict[str, Any]] | None:
-    row_id = str(
-        row.get("id") if isinstance(row, dict) else getattr(row, "id", "") or ""
-    ).strip()
-    if not row_id:
-        return None
-    filename = str(
-        row.get("filename") if isinstance(row, dict) else getattr(row, "filename", "")
-    ).strip()
-    filepath = str(
-        row.get("filepath") if isinstance(row, dict) else getattr(row, "filepath", "")
-    ).strip()
-    if not filepath:
-        return None
-    return row_id, {
-        "id": row_id,
-        "filename": filename or "图片素材",
-        "filepath": filepath,
-        "required": bool(required),
-        "origin": origin,
-    }
-
-
-def _append_image_appendix_slides(
-    markdown_content: str,
-    image_uploads: list[dict[str, Any]],
-) -> str:
-    if not image_uploads:
-        return markdown_content
-
-    frontmatter = extract_frontmatter(markdown_content or "")
-    slides = parse_marp_slides(markdown_content or "")
-    slide_contents: list[str] = [str(slide.get("content") or "") for slide in slides]
-    if not slide_contents and str(markdown_content or "").strip():
-        slide_contents = [markdown_content.strip()]
-
-    for image_upload in image_uploads:
-        filepath = _normalize_markdown_image_path(
-            str(image_upload.get("filepath") or "").strip(),
-            str(image_upload.get("filename") or "").strip(),
-        )
-        if not filepath:
-            continue
-        filename = str(image_upload.get("filename") or "图片素材").strip()
-        slide_contents.append(
-            (
-                "# 图片参考\n\n" f"![w:900](<{filepath}>)\n\n" f"> 配图来源：{filename}"
-            ).strip()
-        )
-
-    return reassemble_marp(frontmatter, slide_contents)
-
-
-def _inject_image_blocks(
-    markdown_content: str,
-    image_uploads: list[dict[str, Any]],
-) -> tuple[str, list[dict]]:
-    """注入图片块并返回元数据"""
-    if not markdown_content.strip() or not image_uploads:
-        return markdown_content, []
-
-    frontmatter = extract_frontmatter(markdown_content)
-    slides = parse_marp_slides(markdown_content)
-    if not slides:
-        return markdown_content, []
-
-    candidate_indices = list(range(len(slides)))
-    if len(slides) >= 3:
-        candidate_indices = list(range(1, len(slides) - 1))
-    if not candidate_indices:
-        candidate_indices = [0]
-
-    patched_contents: list[str] = [str(slide.get("content") or "") for slide in slides]
-    metadata_list: list[dict] = []
-    target_pointer = 0
-
-    for image_upload in image_uploads:
-        filepath = str(image_upload.get("filepath") or "").strip()
-        filename = str(image_upload.get("filename") or "图片素材").strip()
-        image_upload_id = str(image_upload.get("id") or "").strip()
-        required_insertion = bool(image_upload.get("required"))
-        image_origin = str(image_upload.get("origin") or "rag").strip()
-        if not filepath:
-            metadata_list.append(
-                {
-                    "slide_index": -1,
-                    "image_insertion_decision": "skip",
-                    "skip_reason": "invalid_image_filepath",
-                    "image_upload_id": image_upload_id,
-                    "required_insertion": required_insertion,
-                    "image_origin": image_origin,
-                    "image_match_reason": f"{image_origin}: {filename}",
-                }
-            )
-            continue
-        filepath = _normalize_markdown_image_path(filepath, filename)
-        if not filepath:
-            metadata_list.append(
-                {
-                    "slide_index": -1,
-                    "image_insertion_decision": "skip",
-                    "skip_reason": "invalid_image_filepath",
-                    "image_upload_id": image_upload_id,
-                    "required_insertion": required_insertion,
-                    "image_origin": image_origin,
-                    "image_match_reason": f"{image_origin}: {filename}",
-                }
-            )
-            continue
-        inserted = False
-
-        while target_pointer < len(candidate_indices):
-            target_index = candidate_indices[target_pointer]
-            target_pointer += 1
-            current_content = patched_contents[target_index].strip()
-
-            if "![" in current_content:
-                metadata_list.append(
-                    {
-                        "slide_index": target_index,
-                        "image_insertion_decision": "skip",
-                        "skip_reason": "slide_already_has_image",
-                        "image_upload_id": image_upload_id,
-                        "required_insertion": required_insertion,
-                        "image_origin": image_origin,
-                    }
-                )
-                continue
-
-            title = str(slides[target_index].get("title") or "")
-            semantic_type, scores = _classify_page_semantic(title, current_content)
-            layout_risk = _assess_layout_risk(current_content, scores)
-
-            if semantic_type == "skip" or layout_risk == "high":
-                metadata_list.append(
-                    {
-                        "slide_index": target_index,
-                        "image_insertion_decision": "skip",
-                        "page_semantic_type": semantic_type,
-                        "layout_risk_level": layout_risk,
-                        "skip_reason": f"semantic={semantic_type}, risk={layout_risk}",
-                        "scores": scores,
-                        "image_upload_id": image_upload_id,
-                        "required_insertion": required_insertion,
-                        "image_origin": image_origin,
-                    }
-                )
-                continue
-
-            scores["keyword_coverage"] = 0.6
-            patched_contents[target_index] = (
-                f"{current_content}\n\n" f"![w:520](<{filepath}>)"
-            ).strip()
-
-            metadata_list.append(
-                {
-                    "slide_index": target_index,
-                    "image_insertion_decision": "insert",
-                    "page_semantic_type": semantic_type,
-                    "layout_risk_level": layout_risk,
-                    "image_count": 1,
-                    "image_slot": "bottom_panel",
-                    "image_match_reason": f"{image_origin}: {filename}",
-                    "scores": scores,
-                    "image_upload_id": image_upload_id,
-                    "required_insertion": required_insertion,
-                    "image_origin": image_origin,
-                }
-            )
-            inserted = True
-            break
-
-        if not inserted:
-            metadata_list.append(
-                {
-                    "slide_index": -1,
-                    "image_insertion_decision": "skip",
-                    "skip_reason": "no_available_slide",
-                    "image_upload_id": image_upload_id,
-                    "required_insertion": required_insertion,
-                    "image_origin": image_origin,
-                    "image_match_reason": f"{image_origin}: {filename}",
-                }
-            )
-
-    return reassemble_marp(frontmatter, patched_contents), metadata_list
+    return to_image_upload_candidate(row, required=required, origin=origin)
 
 
 async def inject_rag_images_into_courseware_content(
@@ -507,7 +208,7 @@ async def inject_rag_images_into_courseware_content(
         }
 
     markdown_content = str(getattr(courseware_content, "markdown_content", "") or "")
-    updated_markdown, metadata_list = _inject_image_blocks(
+    updated_markdown, metadata_list = inject_image_blocks(
         markdown_content, ordered_uploads
     )
     inserted_required_ids = {
@@ -529,11 +230,11 @@ async def inject_rag_images_into_courseware_content(
         setattr(courseware_content, "markdown_content", updated_markdown)
         render_markdown = str(getattr(courseware_content, "render_markdown", "") or "")
         if render_markdown.strip():
-            updated_render_markdown, _ = _inject_image_blocks(
+            updated_render_markdown, _ = inject_image_blocks(
                 render_markdown, ordered_uploads
             )
             if missing_required_uploads:
-                updated_render_markdown = _append_image_appendix_slides(
+                updated_render_markdown = append_image_appendix_slides(
                     updated_render_markdown,
                     missing_required_uploads,
                 )

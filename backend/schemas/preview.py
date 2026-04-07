@@ -67,7 +67,9 @@ class Slide(BaseModel):
 class RenderedPreviewPage(BaseModel):
     index: int = Field(..., ge=0)
     slide_id: str
-    image_url: str
+    image_url: Optional[str] = None
+    html_preview: Optional[str] = None
+    status: Optional[str] = None
     width: Optional[int] = Field(None, ge=1)
     height: Optional[int] = Field(None, ge=1)
 

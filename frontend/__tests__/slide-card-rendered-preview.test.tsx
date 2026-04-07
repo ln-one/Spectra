@@ -57,4 +57,24 @@ describe("SlideCard rendered preview", () => {
 
     expect(handleModify).toHaveBeenCalledTimes(1);
   });
+
+  it("renders html preview when no image thumbnail is available", () => {
+    render(
+      <SlideCard
+        slide={{
+          id: "slide-2",
+          index: 1,
+          title: "结构预览",
+          content: "# markdown fallback",
+          sources: [],
+          rendered_html_preview:
+            "<section><h1>结构预览</h1><p>HTML preview body</p></section>",
+        }}
+        isActive
+      />
+    );
+
+    expect(screen.getByText("HTML preview body")).toBeInTheDocument();
+    expect(screen.queryByText("markdown fallback")).not.toBeInTheDocument();
+  });
 });

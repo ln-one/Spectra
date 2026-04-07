@@ -5,7 +5,9 @@ import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import type { components } from "@/lib/sdk/types";
 
-type Slide = components["schemas"]["Slide"];
+type Slide = components["schemas"]["Slide"] & {
+  rendered_html_preview?: string | null;
+};
 
 type MarkdownTable = {
   headers: string[];
@@ -169,7 +171,9 @@ export function SlideCard({
   isRegenerating?: boolean;
   onOpenPreview?: (slide: Slide) => void;
 }) {
-  const hasRenderedPreview = Boolean(slide.thumbnail_url);
+  const hasImagePreview = Boolean(slide.thumbnail_url);
+  const hasHtmlPreview = Boolean(slide.rendered_html_preview);
+  const hasRenderedPreview = hasImagePreview || hasHtmlPreview;
   const table = useMemo(
     () => extractFirstMarkdownTable(slide.content || ""),
     [slide.content]
@@ -255,12 +259,23 @@ export function SlideCard({
                   </button>
                 ) : null}
               </div>
-              <img
-                src={slide.thumbnail_url ?? undefined}
-                alt={slide.title || `Slide ${slide.index + 1}`}
-                className="h-full w-full object-contain bg-white"
-                loading="lazy"
-              />
+              {hasImagePreview ? (
+                <img
+                  src={slide.thumbnail_url ?? undefined}
+                  alt={slide.title || `Slide ${slide.index + 1}`}
+                  className="h-full w-full object-contain bg-white"
+                  loading="lazy"
+                />
+              ) : hasHtmlPreview ? (
+                <div className="h-full w-full overflow-auto bg-white p-6">
+                  <div
+                    className="max-w-none text-zinc-900"
+                    dangerouslySetInnerHTML={{
+                      __html: slide.rendered_html_preview ?? "",
+                    }}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : (
             <>

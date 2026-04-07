@@ -14,7 +14,9 @@ import {
   resolveArtifactTitleFromMetadata,
 } from "@/lib/project-space/download-filename";
 
-type Slide = components["schemas"]["Slide"];
+type Slide = components["schemas"]["Slide"] & {
+  rendered_html_preview?: string | null;
+};
 type RenderedPreview = components["schemas"]["RenderedPreview"];
 type SessionStatePayload = components["schemas"]["SessionStatePayloadTarget"];
 type ArtifactType = components["schemas"]["Artifact"]["type"];
@@ -304,12 +306,15 @@ export function useGeneratePreviewState({
             const matchedPage =
               (slide.id ? pageBySlideId.get(slide.id) : undefined) ??
               pageByIndex.get(slide.index);
-            if (!matchedPage?.image_url) {
-              return slide;
-            }
             return {
               ...slide,
-              thumbnail_url: matchedPage.image_url,
+              ...(matchedPage?.image_url
+                ? { thumbnail_url: matchedPage.image_url }
+                : {}),
+              ...(typeof matchedPage?.html_preview === "string" &&
+              matchedPage.html_preview.trim()
+                ? { rendered_html_preview: matchedPage.html_preview }
+                : {}),
             };
           })
           .sort((a, b) => a.index - b.index);
@@ -328,7 +333,16 @@ export function useGeneratePreviewState({
         setSlidesContentMarkdown(markdown);
         setCurrentArtifactId(response.data.artifact_id ?? null);
         setCurrentRenderVersion(response.data.render_version ?? null);
-        setPreviewMode(renderedPages.length > 0 ? "rendered" : "markdown");
+        setPreviewMode(
+          renderedPages.some(
+            (page) =>
+              Boolean(page?.image_url) ||
+              (typeof page?.html_preview === "string" &&
+                page.html_preview.trim().length > 0)
+          )
+            ? "rendered"
+            : "markdown"
+        );
         return {
           renderedCount: renderedPages.length,
           markdownReady: Boolean(markdown.trim()),

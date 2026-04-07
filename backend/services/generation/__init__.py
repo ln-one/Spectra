@@ -1,22 +1,23 @@
 """
-课件生成服务主模块。
+Legacy render backend helpers.
 
-负责将 AI 生成的 Markdown 内容转换为 PPTX / DOCX。
-技术栈：Marp CLI（Markdown -> PPTX）+ Pandoc（Markdown -> DOCX）。
+This module still owns shared Marp/Pandoc preparation utilities and backend
+execution wrappers, but it is no longer the canonical runtime entrypoint for
+Spectra render orchestration. Main workflow rendering should flow through the
+render engine adapter/service path.
 """
 
 import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Optional
 
 try:
     from ..runtime_paths import get_generated_dir
     from ..template import TemplateConfig, TemplateService
     from .marp_document import normalize_marp_markdown, split_marp_document
     from .marp_generator import generate_pptx as _generate_pptx
-    from .marp_generator import generate_slide_images as _generate_slide_images
     from .pandoc_generator import generate_docx as _generate_docx
     from .tool_checker import check_tools_installed
     from .types import CoursewareContent
@@ -29,9 +30,6 @@ except ImportError:
         split_marp_document,
     )
     from services.generation.marp_generator import generate_pptx as _generate_pptx
-    from services.generation.marp_generator import (
-        generate_slide_images as _generate_slide_images,
-    )
     from services.generation.pandoc_generator import generate_docx as _generate_docx
     from services.generation.tool_checker import check_tools_installed
     from services.generation.types import CoursewareContent
@@ -360,9 +358,10 @@ def _serialize_page_class_plan(page_class_plan: Any) -> Optional[list[dict]]:
 
 class GenerationService:
     """
-    课件生成服务（高内聚、低耦合）。
+    Legacy backend toolchain wrapper.
 
-    使用 Marp CLI 和 Pandoc 将 Markdown 转换为目标文件。
+    Kept for shared Marp/Pandoc execution and compatibility-oriented tests.
+    New runtime orchestration should prefer the render-service path.
     """
 
     def __init__(
@@ -447,89 +446,6 @@ class GenerationService:
 
         # 调用生成器
         return await _generate_pptx(content, task_id, self.output_dir, full_markdown)
-
-    async def generate_slide_images(
-        self,
-        content: CoursewareContent,
-        task_id: str,
-        template_config: Optional[TemplateConfig] = None,
-        on_image_generated: Optional[Callable[[int, str], Awaitable[None]]] = None,
-    ) -> list[str]:
-        if template_config is None:
-            template_config = TemplateConfig()
-
-        # 优先使用 render_markdown，无则回退模板包装
-        if content.render_markdown:
-            # 防御性清理：去除可能的外层 fence
-            from services.courseware_ai.parsing import strip_outer_code_fence
-
-            full_markdown = strip_outer_code_fence(content.render_markdown)
-        else:
-            full_markdown = self.template_service.wrap_markdown_with_template(
-                markdown_content=content.markdown_content,
-                config=template_config,
-                title=content.title,
-                style_manifest=_serialize_model_like(content.style_manifest),
-                extra_css=content.extra_css,
-                page_class_plan=_serialize_page_class_plan(content.page_class_plan),
-            )
-
-        # 预处理 Mermaid 代码块
-        from services.mermaid_renderer import preprocess_mermaid_blocks
-
-        fail_on_unrendered = _should_fail_on_unrendered_mermaid()
-        logger.info(
-            "[Task: %s] Preprocessing Mermaid blocks (strict=%s)",
-            task_id,
-            fail_on_unrendered,
-        )
-
-        if on_image_generated is not None:
-            logger.info(
-                "[Task: %s] Streaming preview uses per-slide Mermaid preprocessing"
-                " (strict=%s)",
-                task_id,
-                fail_on_unrendered,
-            )
-
-            async def _transform_slide_markdown(
-                page_index: int, slide_document: str
-            ) -> str:
-                transformed = await preprocess_mermaid_blocks(
-                    slide_document,
-                    fail_on_unrendered=fail_on_unrendered,
-                    asset_dir=self.output_dir,
-                    asset_prefix=f"{task_id}_mermaid_slide_{page_index + 1:03d}",
-                )
-                transformed = normalize_marp_markdown(transformed)
-                transformed = _apply_layout_overflow_guards(transformed)
-                return _inject_runtime_layout_guard_css(transformed)
-
-            return await _generate_slide_images(
-                task_id,
-                self.output_dir,
-                full_markdown,
-                on_image_generated=on_image_generated,
-                transform_slide_markdown=_transform_slide_markdown,
-            )
-
-        full_markdown = await preprocess_mermaid_blocks(
-            full_markdown,
-            fail_on_unrendered=fail_on_unrendered,
-            asset_dir=self.output_dir,
-            asset_prefix=f"{task_id}_mermaid",
-        )
-        full_markdown = normalize_marp_markdown(full_markdown)
-        full_markdown = _apply_layout_overflow_guards(full_markdown)
-        full_markdown = _inject_runtime_layout_guard_css(full_markdown)
-        logger.info(f"[Task: {task_id}] Mermaid preprocessing completed")
-
-        return await _generate_slide_images(
-            task_id,
-            self.output_dir,
-            full_markdown,
-            on_image_generated=on_image_generated,
-        )
 
     async def generate_docx(
         self,

@@ -18,6 +18,7 @@ from services.platform.generation_event_constants import GenerationEventType
 from services.platform.state_transition_guard import GenerationState
 from services.preview_helpers import save_preview_content
 from services.preview_helpers.content_generation import build_outline_preview_payload
+from services.render_engine_adapter import build_render_engine_input
 
 from .common import RETRYABLE_ERRORS, run_async_entrypoint
 from .generation_error_handling import (
@@ -246,9 +247,84 @@ async def execute_generation_task(
             (time.perf_counter() - ai_started_at) * 1000, 2
         )
 
+        try:
+            structured_payload = build_render_engine_input(
+                courseware_content,
+                (
+                    context.template_config
+                    if isinstance(context.template_config, dict)
+                    else {}
+                ),
+                ["preview"],
+                render_job_id=task_id,
+            )
+            document_payload = structured_payload.get("document") or {}
+            structured_pages = document_payload.get("pages") or []
+            await _append_stream_event(
+                event_type=GenerationEventType.SLIDES_STARTED.value,
+                state_reason="slides_stream_started",
+                payload=_run_trace_payload(
+                    stage="slides_stream_started",
+                    total_slides=len(structured_pages),
+                    partial=True,
+                    final=False,
+                ),
+            )
+            for index, page_payload in enumerate(structured_pages):
+                if not isinstance(page_payload, dict):
+                    continue
+                slide_id = f"{task_id}-slide-{index}"
+                await _append_stream_event(
+                    event_type=GenerationEventType.SLIDE_GENERATING.value,
+                    state_reason="slide_generating",
+                    payload=_run_trace_payload(
+                        stage="slide_generating",
+                        slide_id=slide_id,
+                        slide_index=index,
+                        partial=True,
+                        final=False,
+                    ),
+                )
+                await _append_stream_event(
+                    event_type=GenerationEventType.SLIDE_GENERATED.value,
+                    state_reason="slide_generated",
+                    payload=_run_trace_payload(
+                        stage="slide_generated",
+                        slide_id=slide_id,
+                        slide_index=index,
+                        slide_payload=page_payload,
+                        partial=True,
+                        final=False,
+                    ),
+                )
+            await _append_stream_event(
+                event_type=GenerationEventType.SLIDES_COMPLETED.value,
+                state_reason="slides_stream_completed",
+                payload=_run_trace_payload(
+                    stage="slides_stream_completed",
+                    total_slides=len(structured_pages),
+                    partial=False,
+                    final=True,
+                ),
+            )
+        except Exception as stream_err:
+            logger.warning(
+                "Failed to emit structured slide stream events for task %s: %s",
+                task_id,
+                stream_err,
+            )
+
         cache_started_at = time.perf_counter()
 
         async def _on_slide_rendered(payload: dict) -> None:
+            await _append_stream_event(
+                event_type="slide.preview_ready",
+                state_reason="page_preview_ready",
+                payload=_run_trace_payload(
+                    stage="page_preview_ready",
+                    **payload,
+                ),
+            )
             await _append_stream_event(
                 event_type=GenerationEventType.PPT_SLIDE_GENERATED.value,
                 state_reason="preview_slide_rendered",

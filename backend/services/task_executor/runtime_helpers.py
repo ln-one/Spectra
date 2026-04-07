@@ -222,100 +222,73 @@ async def render_generation_outputs(
     context,
     courseware_content,
 ) -> tuple[dict, dict, dict[str, float]]:
-    from services.generation import generation_service
-    from services.template import TemplateConfig
-
-    tpl_config = (
-        TemplateConfig(**context.template_config)
-        if context.template_config
-        else TemplateConfig()
+    from services.render_engine_adapter import (
+        build_render_engine_input,
+        invoke_render_engine,
+        normalize_render_engine_result,
     )
+
     output_urls = {}
     artifact_paths: dict[str, str] = {}
     render_timings_ms: dict[str, float] = {}
     should_emit_direct_output_urls = not bool(context.session_id)
 
     generation_type = normalize_generation_type(context.task_type)
+    requested_targets: list[str] = []
+    if requires_pptx_output(generation_type):
+        requested_targets.append("pptx")
+    if requires_docx_output(generation_type):
+        requested_targets.append("docx")
 
-    async def _generate_pptx_output() -> str:
-        started_at = time.perf_counter()
-        logger.info("Generating PPTX for task %s", context.task_id)
-        pptx_path_local = await generation_service.generate_pptx(
-            courseware_content, context.task_id, tpl_config
-        )
+    if not requested_targets:
+        return output_urls, artifact_paths, render_timings_ms
+
+    started_at = time.perf_counter()
+    render_input = build_render_engine_input(
+        courseware_content,
+        context.template_config if isinstance(context.template_config, dict) else {},
+        requested_targets,
+        render_job_id=context.task_id,
+    )
+    render_result = await invoke_render_engine(render_input)
+    normalized_result = normalize_render_engine_result(render_result)
+    artifact_paths.update(normalized_result["artifact_paths"])
+    metrics = normalized_result.get("metrics") or {}
+    if "pptx" in artifact_paths:
         render_timings_ms["render_ppt_ms"] = round(
-            (time.perf_counter() - started_at) * 1000,
+            float(metrics.get("render_ms") or 0.0),
             2,
         )
-        logger.info(
-            "PPTX generated for task %s in %.2fs: %s",
-            context.task_id,
-            time.perf_counter() - started_at,
-            pptx_path_local,
-        )
-        return pptx_path_local
-
-    async def _generate_docx_output() -> str:
-        started_at = time.perf_counter()
-        logger.info("Generating DOCX for task %s", context.task_id)
-        docx_path_local = await generation_service.generate_docx(
-            courseware_content, context.task_id, tpl_config
-        )
+    if "docx" in artifact_paths:
         render_timings_ms["render_word_ms"] = round(
-            (time.perf_counter() - started_at) * 1000,
+            float(metrics.get("render_ms") or 0.0),
             2,
         )
-        logger.info(
-            "DOCX generated for task %s in %.2fs: %s",
-            context.task_id,
-            time.perf_counter() - started_at,
-            docx_path_local,
-        )
-        return docx_path_local
-
-    need_pptx = requires_pptx_output(generation_type)
-    need_docx = requires_docx_output(generation_type)
-
-    if need_pptx and need_docx:
-        logger.info(
-            "Generating PPTX and DOCX in parallel for task %s",
-            context.task_id,
-        )
-        pptx_path, docx_path = await asyncio.gather(
-            _generate_pptx_output(),
-            _generate_docx_output(),
-        )
-        artifact_paths["pptx"] = pptx_path
-        artifact_paths["docx"] = docx_path
-        if should_emit_direct_output_urls:
-            output_urls.update(
-                build_task_output_urls(
-                    pptx_url=pptx_path,
-                    docx_url=docx_path,
-                )
+    render_timings_ms["render_engine_ms"] = round(
+        (time.perf_counter() - started_at) * 1000,
+        2,
+    )
+    if should_emit_direct_output_urls:
+        output_urls.update(
+            build_task_output_urls(
+                pptx_url=artifact_paths.get("pptx"),
+                docx_url=artifact_paths.get("docx"),
             )
-        await db_service.update_generation_task_status(
-            context.task_id, TaskStatus.PROCESSING, 90
         )
-
-    if need_pptx and not need_docx:
-        pptx_path = await _generate_pptx_output()
-        artifact_paths["pptx"] = pptx_path
-        if should_emit_direct_output_urls:
-            output_urls.update(build_task_output_urls(pptx_url=pptx_path))
+    logger.info(
+        "Render engine generated outputs for task %s: targets=%s warnings=%s",
+        context.task_id,
+        requested_targets,
+        len(normalized_result.get("warnings") or []),
+    )
+    if requested_targets == ["pptx"]:
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 60
         )
-
-    if need_docx and not need_pptx:
-        docx_path = await _generate_docx_output()
-        artifact_paths["docx"] = docx_path
-        if should_emit_direct_output_urls:
-            output_urls.update(build_task_output_urls(docx_url=docx_path))
+    else:
         await db_service.update_generation_task_status(
             context.task_id, TaskStatus.PROCESSING, 90
         )
-
     return output_urls, artifact_paths, render_timings_ms
 
 

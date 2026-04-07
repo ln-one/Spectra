@@ -1,4 +1,3 @@
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -226,13 +225,35 @@ async def test_render_generation_outputs_parallel_for_both():
 
     with (
         patch(
-            "services.generation.generation_service.generate_pptx",
-            new=AsyncMock(return_value="/tmp/task-1.pptx"),
-        ) as mock_pptx,
+            "services.render_engine_adapter.build_render_engine_input",
+            return_value={"render_job_id": "task-1"},
+        ),
         patch(
-            "services.generation.generation_service.generate_docx",
-            new=AsyncMock(return_value="/tmp/task-1.docx"),
-        ) as mock_docx,
+            "services.render_engine_adapter.invoke_render_engine",
+            new=AsyncMock(
+                return_value={
+                    "artifacts": {
+                        "pptx_path": "/tmp/task-1.pptx",
+                        "docx_path": "/tmp/task-1.docx",
+                    },
+                    "warnings": [],
+                    "events": [],
+                    "metrics": {"render_ms": 12.5},
+                }
+            ),
+        ),
+        patch(
+            "services.render_engine_adapter.normalize_render_engine_result",
+            return_value={
+                "artifact_paths": {
+                    "pptx": "/tmp/task-1.pptx",
+                    "docx": "/tmp/task-1.docx",
+                },
+                "warnings": [],
+                "events": [],
+                "metrics": {"render_ms": 12.5},
+            },
+        ),
     ):
         output_urls, artifact_paths, render_timings = await render_generation_outputs(
             db_service=db_service,
@@ -240,8 +261,6 @@ async def test_render_generation_outputs_parallel_for_both():
             courseware_content=SimpleNamespace(),
         )
 
-    assert mock_pptx.await_count == 1
-    assert mock_docx.await_count == 1
     assert output_urls == {}
     assert artifact_paths == {
         "pptx": "/tmp/task-1.pptx",
@@ -265,17 +284,38 @@ async def test_render_generation_outputs_pptx_only_keeps_progress_contract():
         session_id="s-2",
     )
 
-    with patch(
-        "services.generation.generation_service.generate_pptx",
-        new=AsyncMock(return_value="/tmp/task-2.pptx"),
-    ) as mock_pptx:
+    with (
+        patch(
+            "services.render_engine_adapter.build_render_engine_input",
+            return_value={"render_job_id": "task-2"},
+        ),
+        patch(
+            "services.render_engine_adapter.invoke_render_engine",
+            new=AsyncMock(
+                return_value={
+                    "artifacts": {"pptx_path": "/tmp/task-2.pptx"},
+                    "warnings": [],
+                    "events": [],
+                    "metrics": {"render_ms": 8.0},
+                }
+            ),
+        ),
+        patch(
+            "services.render_engine_adapter.normalize_render_engine_result",
+            return_value={
+                "artifact_paths": {"pptx": "/tmp/task-2.pptx"},
+                "warnings": [],
+                "events": [],
+                "metrics": {"render_ms": 8.0},
+            },
+        ),
+    ):
         output_urls, artifact_paths, render_timings = await render_generation_outputs(
             db_service=db_service,
             context=context,
             courseware_content=SimpleNamespace(),
         )
 
-    assert mock_pptx.await_count == 1
     assert output_urls == {}
     assert artifact_paths == {"pptx": "/tmp/task-2.pptx"}
     assert "render_ppt_ms" in render_timings
@@ -295,17 +335,38 @@ async def test_render_generation_outputs_non_session_still_emits_direct_urls():
         session_id=None,
     )
 
-    with patch(
-        "services.generation.generation_service.generate_docx",
-        new=AsyncMock(return_value="/tmp/task-3.docx"),
-    ) as mock_docx:
+    with (
+        patch(
+            "services.render_engine_adapter.build_render_engine_input",
+            return_value={"render_job_id": "task-3"},
+        ),
+        patch(
+            "services.render_engine_adapter.invoke_render_engine",
+            new=AsyncMock(
+                return_value={
+                    "artifacts": {"docx_path": "/tmp/task-3.docx"},
+                    "warnings": [],
+                    "events": [],
+                    "metrics": {"render_ms": 6.0},
+                }
+            ),
+        ),
+        patch(
+            "services.render_engine_adapter.normalize_render_engine_result",
+            return_value={
+                "artifact_paths": {"docx": "/tmp/task-3.docx"},
+                "warnings": [],
+                "events": [],
+                "metrics": {"render_ms": 6.0},
+            },
+        ),
+    ):
         output_urls, artifact_paths, render_timings = await render_generation_outputs(
             db_service=db_service,
             context=context,
             courseware_content=SimpleNamespace(),
         )
 
-    assert mock_docx.await_count == 1
     assert output_urls == {"docx": "/tmp/task-3.docx"}
     assert artifact_paths == {"docx": "/tmp/task-3.docx"}
     assert "render_word_ms" in render_timings
@@ -367,13 +428,13 @@ async def test_cache_preview_content_includes_rendered_preview():
             "services.task_executor.preview_runtime.build_rendered_preview_payload",
             new=AsyncMock(
                 return_value={
-                    "format": "png",
+                    "format": "html",
                     "page_count": 1,
                     "pages": [
                         {
                             "index": 0,
                             "slide_id": "task-200-slide-0",
-                            "image_url": "data:image/png;base64,abc",
+                            "html_preview": "<section>demo</section>",
                         }
                     ],
                 }
@@ -390,18 +451,12 @@ async def test_cache_preview_content_includes_rendered_preview():
 
 
 @pytest.mark.asyncio
-async def test_cache_preview_content_streams_slide_events(tmp_path):
+async def test_cache_preview_content_streams_slide_events():
     courseware = SimpleNamespace(
         title="T",
         markdown_content="# Slide 1\n\n---\n\n# Slide 2",
         lesson_plan_markdown="plan",
     )
-    png_stub = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
-    image_1 = tmp_path / "task-201_temp.001.png"
-    image_2 = tmp_path / "task-201_temp.002.png"
-    image_1.write_bytes(png_stub)
-    image_2.write_bytes(png_stub)
-
     streamed_payloads: list[dict] = []
     persisted_snapshots: list[dict] = []
 
@@ -411,13 +466,45 @@ async def test_cache_preview_content_streams_slide_events(tmp_path):
     async def _on_preview_updated(payload: dict):
         persisted_snapshots.append(payload)
 
-    async def _fake_generate_slide_images(
-        _content, _task_id, template_config=None, on_image_generated=None
-    ):
-        if on_image_generated:
-            await on_image_generated(0, str(image_1))
-            await on_image_generated(1, str(image_2))
-        return [str(image_1), str(image_2)]
+    async def _fake_build_rendered_preview_payload(*args, **kwargs):
+        on_page_rendered = kwargs.get("on_page_rendered")
+        if on_page_rendered:
+            await on_page_rendered(
+                {
+                    "slide_index": 0,
+                    "slide_id": "task-201-slide-0",
+                    "preview_ready": True,
+                    "page_count": 1,
+                    "total_slides": 2,
+                    "html_preview_ready": True,
+                }
+            )
+            await on_page_rendered(
+                {
+                    "slide_index": 1,
+                    "slide_id": "task-201-slide-1",
+                    "preview_ready": True,
+                    "page_count": 2,
+                    "total_slides": 2,
+                    "html_preview_ready": True,
+                }
+            )
+        return {
+            "format": "html",
+            "page_count": 2,
+            "pages": [
+                {
+                    "index": 0,
+                    "slide_id": "task-201-slide-0",
+                    "html_preview": "<section>Slide 1</section>",
+                },
+                {
+                    "index": 1,
+                    "slide_id": "task-201-slide-1",
+                    "html_preview": "<section>Slide 2</section>",
+                },
+            ],
+        }
 
     save_mock = AsyncMock()
     with (
@@ -426,8 +513,8 @@ async def test_cache_preview_content_streams_slide_events(tmp_path):
             new=save_mock,
         ),
         patch(
-            "services.task_executor.preview_runtime.generation_service.generate_slide_images",
-            new=_fake_generate_slide_images,
+            "services.task_executor.preview_runtime.build_rendered_preview_payload",
+            new=AsyncMock(side_effect=_fake_build_rendered_preview_payload),
         ),
     ):
         payload = await cache_preview_content(
@@ -448,7 +535,7 @@ async def test_cache_preview_content_streams_slide_events(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_cache_preview_content_uses_render_markdown_slide_structure(tmp_path):
+async def test_cache_preview_content_uses_render_markdown_slide_structure():
     courseware = SimpleNamespace(
         title="T",
         markdown_content="# Summary only",
@@ -459,24 +546,50 @@ async def test_cache_preview_content_uses_render_markdown_slide_structure(tmp_pa
         ),
         lesson_plan_markdown="plan",
     )
-    png_stub = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
-    image_1 = tmp_path / "task-202_temp.001.png"
-    image_2 = tmp_path / "task-202_temp.002.png"
-    image_1.write_bytes(png_stub)
-    image_2.write_bytes(png_stub)
-
     streamed_payloads: list[dict] = []
 
     async def _on_slide(payload: dict):
         streamed_payloads.append(payload)
 
-    async def _fake_generate_slide_images(
-        _content, _task_id, template_config=None, on_image_generated=None
-    ):
-        if on_image_generated:
-            await on_image_generated(0, str(image_1))
-            await on_image_generated(1, str(image_2))
-        return [str(image_1), str(image_2)]
+    async def _fake_build_rendered_preview_payload(*args, **kwargs):
+        on_page_rendered = kwargs.get("on_page_rendered")
+        if on_page_rendered:
+            await on_page_rendered(
+                {
+                    "slide_index": 0,
+                    "slide_id": "task-202-slide-0",
+                    "preview_ready": True,
+                    "page_count": 1,
+                    "total_slides": 2,
+                    "html_preview_ready": True,
+                }
+            )
+            await on_page_rendered(
+                {
+                    "slide_index": 1,
+                    "slide_id": "task-202-slide-1",
+                    "preview_ready": True,
+                    "page_count": 2,
+                    "total_slides": 2,
+                    "html_preview_ready": True,
+                }
+            )
+        return {
+            "format": "html",
+            "page_count": 2,
+            "pages": [
+                {
+                    "index": 0,
+                    "slide_id": "task-202-slide-0",
+                    "html_preview": "<section>Slide 1</section>",
+                },
+                {
+                    "index": 1,
+                    "slide_id": "task-202-slide-1",
+                    "html_preview": "<section>Slide 2</section>",
+                },
+            ],
+        }
 
     with (
         patch(
@@ -484,8 +597,8 @@ async def test_cache_preview_content_uses_render_markdown_slide_structure(tmp_pa
             new=AsyncMock(),
         ),
         patch(
-            "services.task_executor.preview_runtime.generation_service.generate_slide_images",
-            new=_fake_generate_slide_images,
+            "services.task_executor.preview_runtime.build_rendered_preview_payload",
+            new=AsyncMock(side_effect=_fake_build_rendered_preview_payload),
         ),
     ):
         payload = await cache_preview_content(
@@ -501,132 +614,6 @@ async def test_cache_preview_content_uses_render_markdown_slide_structure(tmp_pa
     assert [item["slide_id"] for item in streamed_payloads] == [
         "task-202-slide-0",
         "task-202-slide-1",
-    ]
-
-
-@pytest.mark.asyncio
-async def test_generate_slide_images_collects_temp_stem_outputs(tmp_path):
-    from services.generation.marp_generator import generate_slide_images
-
-    async def _fake_exec(*_args, **_kwargs):
-        (tmp_path / "task-300_temp.001.png").write_bytes(
-            b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
-        )
-        (tmp_path / "task-300_temp.002.png").write_bytes(
-            b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
-        )
-
-        class _Proc:
-            returncode = 0
-
-            async def communicate(self):
-                return b"", b""
-
-        return _Proc()
-
-    with (
-        patch(
-            "services.generation.marp_generator.check_marp_installed",
-            new=lambda: None,
-        ),
-        patch(
-            "services.generation.marp_generator.ensure_directory_exists",
-            new=lambda _path: None,
-        ),
-        patch(
-            "services.generation.marp_generator.get_temp_file_path",
-            new=lambda _output_dir, _task_id, _ext: Path(tmp_path / "task-300_temp.md"),
-        ),
-        patch(
-            "services.generation.marp_generator.validate_file_exists",
-            new=lambda path, min_size=1: Path(path).exists()
-            and Path(path).stat().st_size >= min_size,
-        ),
-        patch(
-            "services.generation.marp_generator.asyncio.create_subprocess_exec",
-            new=_fake_exec,
-        ),
-    ):
-        images = await generate_slide_images("task-300", tmp_path, "# Demo")
-
-    assert images == [
-        str(tmp_path / "task-300_temp.001.png"),
-        str(tmp_path / "task-300_temp.002.png"),
-    ]
-
-
-@pytest.mark.asyncio
-async def test_generate_slide_images_stream_mode_emits_page_by_page(tmp_path):
-    from services.generation.marp_generator import generate_slide_images
-
-    created_commands: list[tuple] = []
-    streamed_markdowns: list[str] = []
-
-    async def _fake_exec(*args, **_kwargs):
-        created_commands.append(args)
-
-        class _Proc:
-            returncode = 0
-
-            async def communicate(self):
-                streamed_markdown = Path(args[1]).read_text(encoding="utf-8")
-                streamed_markdowns.append(streamed_markdown)
-                output_path = Path(args[5])
-                output_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 24)
-                return b"", b""
-
-        return _Proc()
-
-    streamed_pages: list[tuple[int, str]] = []
-
-    async def _on_image_generated(index: int, path: str):
-        streamed_pages.append((index, path))
-
-    async def _transform_slide_markdown(index: int, slide_document: str) -> str:
-        return f"{slide_document}\n\n<!-- transformed:{index} -->"
-
-    with (
-        patch(
-            "services.generation.marp_generator.check_marp_installed",
-            new=lambda: None,
-        ),
-        patch(
-            "services.generation.marp_generator.ensure_directory_exists",
-            new=lambda _path: None,
-        ),
-        patch(
-            "services.generation.marp_generator.get_temp_file_path",
-            new=lambda _output_dir, task, _ext: Path(tmp_path / f"{task}_temp.md"),
-        ),
-        patch(
-            "services.generation.marp_generator.validate_file_exists",
-            new=lambda path, min_size=1: Path(path).exists()
-            and Path(path).stat().st_size >= min_size,
-        ),
-        patch(
-            "services.generation.marp_generator.asyncio.create_subprocess_exec",
-            new=_fake_exec,
-        ),
-    ):
-        images = await generate_slide_images(
-            "task-301",
-            tmp_path,
-            "---\nmarp: true\n---\n\n# Slide 1\n\n---\n\n# Slide 2",
-            on_image_generated=_on_image_generated,
-            transform_slide_markdown=_transform_slide_markdown,
-        )
-
-    assert len(created_commands) == 2
-    assert [Path(cmd[5]).name for cmd in created_commands] == [
-        "task-301_temp.001.png",
-        "task-301_temp.002.png",
-    ]
-    assert "<!-- transformed:0 -->" in streamed_markdowns[0]
-    assert "<!-- transformed:1 -->" in streamed_markdowns[1]
-    assert [item[0] for item in streamed_pages] == [0, 1]
-    assert images == [
-        str(tmp_path / "task-301_temp.001.png"),
-        str(tmp_path / "task-301_temp.002.png"),
     ]
 
 

@@ -1,6 +1,7 @@
 """Support helpers for courseware generation and fallback assembly."""
 
 import inspect
+import re
 from typing import Optional
 
 from schemas.generation import CoursewareContent
@@ -118,9 +119,35 @@ def build_outline_based_fallback_courseware(
 
 def _sanitize_rag_text(text: str, *, limit: int = 220) -> str:
     compact = " ".join(str(text or "").split())
+    compact = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", compact)
+    compact = re.sub(
+        r"[\w\u4e00-\u9fff().-]+\.(pdf|pptx|ppt|docx|doc|jpg|jpeg|png)[:：]?",
+        " ",
+        compact,
+        flags=re.IGNORECASE,
+    )
+    compact = re.sub(r"\b[a-f0-9]{16,}\.(jpg|jpeg|png|pdf)\b", " ", compact, flags=re.I)
+    compact = re.sub(r"\s+#\s*", " ", compact)
+    compact = re.sub(r"\s{2,}", " ", compact).strip(" -:：,，;；)")
+    if not compact:
+        return ""
     if len(compact) <= limit:
         return compact
     return compact[: limit - 1].rstrip() + "..."
+
+
+def _fallback_outline_bullets(
+    slide_title: str,
+    node: Optional[dict],
+    *,
+    max_items: int = 3,
+) -> list[str]:
+    node = node if isinstance(node, dict) else {}
+    key_points = normalize_key_points(node.get("key_points"))
+    bullets: list[str] = []
+    for point in key_points[:max_items]:
+        bullets.append(f"结合已检索资料，围绕“{point}”说明“{slide_title}”的核心内容。")
+    return bullets or [f"结合已检索资料梳理“{slide_title}”的关键概念与教学重点。"]
 
 
 def _collect_rag_bullets(
@@ -139,9 +166,7 @@ def _collect_rag_bullets(
         content = _sanitize_rag_text(str(item.get("content") or ""))
         if not content:
             continue
-        source = item.get("source") if isinstance(item.get("source"), dict) else {}
-        filename = str(source.get("filename") or "").strip()
-        bullet = f"{filename}: {content}" if filename else content
+        bullet = content
         if bullet in seen:
             continue
         seen.add(bullet)
@@ -168,32 +193,41 @@ def build_rag_grounded_fallback_courseware(
         else ""
     )
     if not title:
-        title = (user_requirements or "Courseware")[:50]
+        title = (user_requirements or "课程主题")[:50]
 
     slide_titles: list[str] = []
+    slide_nodes: list[dict] = []
     if nodes:
         slide_titles = [str(node.get("title") or "").strip() for node in nodes]
+        slide_nodes = [node for node in nodes if str(node.get("title") or "").strip()]
         slide_titles = [item for item in slide_titles if item]
     if not slide_titles:
-        slide_titles = ["Source Summary", "Key Evidence", "Teaching Prompts"]
+        slide_titles = ["课程任务与目标", "关键依据与知识点", "互动提问与课堂推进"]
+        slide_nodes = [{} for _ in slide_titles]
 
     chunk_size = max(1, (len(bullets) + len(slide_titles) - 1) // len(slide_titles))
     markdown_slides: list[str] = []
     lesson_plan_lines: list[str] = [
-        "# Teaching Goals",
-        "- Prioritize facts extracted from selected source files.",
-        "- Keep interpretations bounded by retrieved evidence.",
+        "# 教学目标",
+        "- 优先围绕已检索资料中的有效事实组织讲解。",
+        "- 讲解内容保持与大纲和检索依据一致，不额外扩写无根据结论。",
         "",
-        "# Teaching Process",
+        "# 教学过程",
     ]
 
     for index, slide_title in enumerate(slide_titles, start=1):
         start = (index - 1) * chunk_size
         end = min(start + chunk_size, len(bullets))
-        if start >= len(bullets):
-            segment = [f"Follow-up discussion based on selected sources ({index})."]
-        else:
-            segment = bullets[start:end]
+        segment = bullets[start:end]
+        node = slide_nodes[index - 1] if index - 1 < len(slide_nodes) else {}
+        if len(segment) < 2:
+            for fallback_point in _fallback_outline_bullets(slide_title, node):
+                if fallback_point not in segment:
+                    segment.append(fallback_point)
+                if len(segment) >= 3:
+                    break
+        if not segment:
+            segment = _fallback_outline_bullets(slide_title, node)
         markdown_slides.append(
             "\n".join(
                 [
@@ -206,9 +240,9 @@ def build_rag_grounded_fallback_courseware(
         lesson_plan_lines.extend(
             [
                 f"## {index:02d}. {slide_title}",
-                "- Explain using source-grounded statements only.",
-                "- Ask one comprehension question from this slide evidence.",
-                "- Record one likely misconception and correction strategy.",
+                "- 讲解要求：优先引用已检索资料中的明确依据。",
+                "- 互动提问：基于本页信息设计一个理解性问题。",
+                "- 易错提醒：记录一个可能误解点及其纠偏方式。",
             ]
         )
 

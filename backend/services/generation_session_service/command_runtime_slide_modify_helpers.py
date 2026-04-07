@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 
-from services.generation import generation_service
-from services.generation.types import CoursewareContent
 from services.generation_session_service.session_history import (
     RUN_STATUS_COMPLETED,
     RUN_STEP_COMPLETED,
@@ -17,8 +15,12 @@ from services.preview_helpers.slide_mapping import (
     resolve_slide_index,
     slide_identity,
 )
+from services.render_engine_adapter import (
+    build_render_engine_input,
+    invoke_render_engine,
+    normalize_render_engine_result,
+)
 from services.task_executor.runtime_helpers import build_project_space_download_url
-from services.template import TemplateConfig
 
 
 def resolve_target_slide_index(
@@ -149,20 +151,30 @@ async def persist_modified_pptx_artifact(
             )
         return None, {}
 
-    courseware = CoursewareContent(
-        title=str(preview_payload.get("title") or "璇句欢棰勮"),
-        markdown_content=markdown_content,
-        lesson_plan_markdown=str(preview_payload.get("lesson_plan_markdown") or ""),
-    )
-    normalized_template = (
-        TemplateConfig(**template_config) if template_config is not None else None
-    )
     render_task_id = f"{task.id}-rv{render_version}"
-    pptx_path = await generation_service.generate_pptx(
-        courseware,
-        render_task_id,
-        normalized_template,
+    render_input = build_render_engine_input(
+        {
+            "title": str(preview_payload.get("title") or "璇句欢棰勮"),
+            "markdown_content": markdown_content,
+            "lesson_plan_markdown": str(
+                preview_payload.get("lesson_plan_markdown") or ""
+            ),
+            "render_markdown": str(preview_payload.get("render_markdown") or ""),
+            "style_manifest": preview_payload.get("style_manifest"),
+            "extra_css": preview_payload.get("extra_css"),
+            "page_class_plan": preview_payload.get("page_class_plan"),
+        },
+        template_config,
+        ["pptx"],
+        render_job_id=render_task_id,
     )
+    render_result = await invoke_render_engine(render_input)
+    normalized_result = normalize_render_engine_result(render_result)
+    pptx_path = str(
+        (normalized_result.get("artifact_paths") or {}).get("pptx") or ""
+    ).strip()
+    if not pptx_path:
+        raise RuntimeError("render_engine_missing_pptx_artifact")
 
     artifact = await db.artifact.create(
         data={

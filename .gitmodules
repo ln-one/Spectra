@@ -1,0 +1,4 @@
+[submodule "pagevra"]
+	path = pagevra
+	url = git@github.com:ln-one/Pagevra.git
+	branch = main

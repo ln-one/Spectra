@@ -111,11 +111,18 @@ export default function StreamingWorkbenchPageView() {
   }, [activeSlideIndex]);
 
   const renderedSlides = useMemo(
-    () => orderedSlides.filter((slide) => Boolean(slide.thumbnail_url)),
+    () =>
+      orderedSlides.filter(
+        (slide) =>
+          Boolean(slide.thumbnail_url) || Boolean(slide.rendered_html_preview)
+      ),
     [orderedSlides]
   );
   const pendingSlide = useMemo(
-    () => orderedSlides.find((slide) => !slide.thumbnail_url) ?? null,
+    () =>
+      orderedSlides.find(
+        (slide) => !slide.thumbnail_url && !slide.rendered_html_preview
+      ) ?? null,
     [orderedSlides]
   );
   const hasRenderableContent =

@@ -149,4 +149,4 @@ async def generate_outline(
         return outline
     except Exception as exc:
         logger.exception("Outline generation failed: %s", exc)
-        return ai_service._get_fallback_outline(user_requirements)
+        raise

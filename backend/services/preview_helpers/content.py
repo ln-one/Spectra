@@ -1,5 +1,4 @@
-﻿import inspect
-import logging
+﻿import logging
 from typing import Optional
 
 from services.database import db_service
@@ -14,63 +13,6 @@ from .slide_mapping import slide_identity
 logger = logging.getLogger(__name__)
 
 
-def _build_slides_compatible(
-    task_id: str,
-    markdown_content: str,
-    image_metadata,
-    render_markdown,
-):
-    """
-    Backward-compatible build_slides invocation.
-
-    Some tests / legacy monkeypatches still expose old 2/3-arg signatures.
-    This helper adapts call arity without relying on keyword names.
-    """
-    try:
-        signature = inspect.signature(build_slides)
-    except (TypeError, ValueError):
-        signature = None
-
-    if signature:
-        params = list(signature.parameters.values())
-        if any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params):
-            return build_slides(
-                task_id,
-                markdown_content,
-                image_metadata,
-                render_markdown,
-            )
-
-        positional_capacity = sum(
-            1
-            for p in params
-            if p.kind
-            in (
-                inspect.Parameter.POSITIONAL_ONLY,
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            )
-        )
-        if positional_capacity >= 4:
-            return build_slides(
-                task_id,
-                markdown_content,
-                image_metadata,
-                render_markdown,
-            )
-        if positional_capacity >= 3:
-            return build_slides(task_id, markdown_content, image_metadata)
-        return build_slides(task_id, markdown_content)
-
-    # Fallback if signature introspection is unavailable.
-    try:
-        return build_slides(task_id, markdown_content, image_metadata, render_markdown)
-    except TypeError:
-        try:
-            return build_slides(task_id, markdown_content, image_metadata)
-        except TypeError:
-            return build_slides(task_id, markdown_content)
-
-
 async def get_or_generate_content(task, project) -> dict:
     return await _get_or_generate_content(
         task,
@@ -79,6 +21,32 @@ async def get_or_generate_content(task, project) -> dict:
         load_preview_content_fn=load_preview_content,
         save_preview_content_fn=save_preview_content,
     )
+
+
+def _attach_rendered_preview_to_slides(
+    *,
+    slide_models,
+    rendered_preview: dict | None,
+    task_id: str,
+) -> list[dict]:
+    page_by_slide_id: dict[str, dict] = {}
+    if isinstance(rendered_preview, dict):
+        for page in rendered_preview.get("pages", []) or []:
+            slide_id = str(page.get("slide_id") or "").strip()
+            if slide_id:
+                page_by_slide_id[slide_id] = page
+
+    slides: list[dict] = []
+    for index, slide in enumerate(slide_models):
+        page = page_by_slide_id.get(slide_identity(slide, index, task_id=task_id))
+        if page and page.get("image_url"):
+            slide.thumbnail_url = page.get("image_url")
+
+        dumped = slide.model_dump()
+        if page and page.get("html_preview"):
+            dumped["rendered_html_preview"] = page.get("html_preview")
+        slides.append(dumped)
+    return slides
 
 
 async def load_preview_material(
@@ -101,12 +69,11 @@ async def load_preview_material(
             if not project:
                 raise ValueError("project not found for preview")
             content = await get_or_generate_content(task, project)
-            slide_models = _build_slides_compatible(
-                task_id=task.id,
-                markdown_content=content.get("markdown_content", ""),
-                image_metadata=content.get("_image_metadata")
-                or content.get("image_metadata"),
-                render_markdown=content.get("render_markdown"),
+            slide_models = build_slides(
+                task.id,
+                content.get("markdown_content", ""),
+                content.get("_image_metadata") or content.get("image_metadata"),
+                content.get("render_markdown"),
             )
             rendered_preview = content.get("rendered_preview")
             if not isinstance(rendered_preview, dict):
@@ -127,20 +94,11 @@ async def load_preview_material(
                     content["rendered_preview"] = rendered_preview
                     await save_preview_content(task.id, content)
 
-            page_by_slide_id = {}
-            if isinstance(rendered_preview, dict):
-                for page in rendered_preview.get("pages", []) or []:
-                    slide_id = str(page.get("slide_id") or "").strip()
-                    if slide_id:
-                        page_by_slide_id[slide_id] = page
-
-            for index, slide in enumerate(slide_models):
-                page = page_by_slide_id.get(
-                    slide_identity(slide, index, task_id=task.id)
-                )
-                if page and page.get("image_url"):
-                    slide.thumbnail_url = page.get("image_url")
-            slides = [slide.model_dump() for slide in slide_models]
+            slides = _attach_rendered_preview_to_slides(
+                slide_models=slide_models,
+                rendered_preview=rendered_preview,
+                task_id=task.id,
+            )
             lesson_plan = build_lesson_plan(
                 slide_models,
                 content.get("lesson_plan_markdown", ""),

@@ -235,6 +235,22 @@ Therefore:
 When a fallback becomes the main reason the system “works”, the real task is usually to
 repair the primary path, not add yet another compensating layer.
 
+### 6.5 Courseware and render pipelines must not silently substitute low-quality fallback content
+
+For courseware generation, preview generation, and PPT/DOCX rendering:
+
+- do not add or keep fallback paths that silently replace the canonical output with obviously degraded placeholder content
+- do not inject raw retrieval snippets, filenames, OCR residue, or generic English filler into user-visible courseware just to keep the pipeline “green”
+- if AI generation fails, prefer explicit failure or tightly bounded outline-based recovery over source-dump style pseudo-courseware
+- if rendering fails, surface a structured render failure rather than swapping semantics to a different preview/export path
+- any temporary recovery path must be visibly marked, narrowly scoped, and must not redefine the normal product behavior
+
+In practical terms:
+
+- `render-service` is the canonical render path
+- low-quality content fallback is not an acceptable substitute for successful courseware generation
+- “the system still returned something” is not success if the returned artifact violates teaching quality or semantic clarity
+
 ## 7. State, Contract, and Output Rules
 
 ### 7.1 State is contract

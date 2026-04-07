@@ -137,6 +137,12 @@
 - Meaning: low-level `create_artifact()` must reject `session_id` that does not belong to the same project and must reject `based_on_version_id` that does not belong to the same project.
 - Why it matters: artifact lineage is formal system state; if the DB boundary accepts foreign session/version anchors, later preview, download, and review flows can look successful while the underlying project-space graph is already inconsistent.
 
+### 2.20 Low-quality courseware fallback is worse than explicit failure
+
+- Status: `confirmed`
+- Meaning: courseware generation and render flows must not silently substitute user-visible junk output such as raw filenames, OCR residue, source dumps, or generic filler sentences just to keep the pipeline returning “success”.
+- Why it matters: this creates semantic corruption that is harder to detect than an explicit failure, and it makes render/debug work look broken when the real problem is degraded upstream content.
+
 ## 3. Watch List
 
 ### 3.1 Large-file warnings are shrinking but not eliminated

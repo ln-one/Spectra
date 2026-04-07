@@ -2502,7 +2502,9 @@ export interface components {
     RenderedPreviewPage: {
       index: number;
       slide_id: string;
-      image_url: string;
+      image_url?: string;
+      html_preview?: string;
+      status?: string;
       width?: number;
       height?: number;
     };

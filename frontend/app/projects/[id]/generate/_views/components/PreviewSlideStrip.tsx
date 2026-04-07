@@ -6,6 +6,7 @@ type SlideItem = {
   index: number;
   title?: string;
   thumbnail_url?: string;
+  rendered_html_preview?: string | null;
 };
 
 interface PreviewSlideStripProps {
@@ -55,6 +56,8 @@ export function PreviewSlideStrip({
                   className="absolute inset-0 h-full w-full object-cover"
                   loading="lazy"
                 />
+              ) : slide.rendered_html_preview ? (
+                <div className="absolute inset-0 bg-gradient-to-br from-zinc-50 via-white to-zinc-100" />
               ) : null}
               <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent pointer-events-none" />
               <span
