@@ -2,3 +2,7 @@
 	path = pagevra
 	url = git@github.com:ln-one/Pagevra.git
 	branch = main
+[submodule "dualweave"]
+	path = dualweave
+	url = git@github.com:ln-one/Dualweave.git
+	branch = main

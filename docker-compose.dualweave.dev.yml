@@ -2,5 +2,5 @@ services:
   dualweave:
     image: dualweave-service:dev
     build:
-      context: ../Dualweave
+      context: ./dualweave
       dockerfile: Dockerfile

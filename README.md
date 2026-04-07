@@ -46,7 +46,7 @@ The repository has completed its first major structural convergence:
 ### Docker
 
 ```bash
-docker-compose up --build
+./scripts/compose-smart.sh up --build
 ```
 
 For more detail, see `/Users/ln1/Projects/Spectra/docs/guides/docker-setup.md`.
@@ -55,10 +55,11 @@ Runtime configuration should come from `/Users/ln1/Projects/Spectra/backend/.env
 Dualweave is consumed as a Docker service in two modes:
 
 - default/team mode: `/Users/ln1/Projects/Spectra/docker-compose.yml` pulls `ghcr.io/ln-one/dualweave-service:latest`
-- local Dualweave iteration: add `/Users/ln1/Projects/Spectra/docker-compose.dev.yml` so Spectra builds from your sibling checkout
+- authorized maintainer mode: initialize `/Users/ln1/Projects/Spectra/dualweave` and let the smart compose entrypoint add the local override automatically
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+git submodule update --init --recursive dualweave
+./scripts/compose-smart.sh up --build
 ```
 
 If Dualweave is used as an external upload orchestration service, configure the
@@ -75,6 +76,10 @@ Dualweave over HTTP rather than embedding the Go runtime directly. Dualweave
 returns a standard upload result plus `processing_artifact.result_url`; Spectra
 still owns downloading that artifact and extracting markdown for indexing, so
 the boundary stays at the artifact reference layer.
+
+Pagevra follows the same private-source pattern: normal users consume the image,
+while authorized maintainers can initialize the private submodule and keep using
+the same smart compose entrypoint for local builds.
 
 ### Backend
 

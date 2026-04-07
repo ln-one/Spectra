@@ -17,7 +17,7 @@ brew install --cask docker
 
 ### 1. 启动所有服务
 ```bash
-docker-compose up
+./scripts/compose-smart.sh up
 ```
 
 前端: http://localhost:3000
@@ -27,48 +27,60 @@ ReDoc: http://localhost:8000/redoc
 
 ### 2. 后台运行
 ```bash
-docker-compose up -d
+./scripts/compose-smart.sh up -d
 ```
 
 ### 3. 查看日志
 ```bash
-docker-compose logs -f
+./scripts/compose-smart.sh logs -f
 ```
 
 ### 4. 停止服务
 ```bash
-docker-compose down
+./scripts/compose-smart.sh down
 ```
+
+## 私有服务源码模式
+
+`Spectra` 默认使用镜像启动 `Dualweave` 和 `Pagevra`。如果你拥有对应私有仓库权限，
+可以初始化 submodule，`./scripts/compose-smart.sh` 会自动切换到本地源码构建。
+
+```bash
+git submodule update --init --recursive
+./scripts/compose-smart.sh up --build
+```
+
+如果没有这些私有仓库权限，也不需要额外处理；脚本会自动回退到镜像模式。
 
 ## 常用命令
 
 ### 重新构建镜像
 ```bash
-docker-compose build
+./scripts/compose-smart.sh build
 ```
 
 ### 只启动前端
 ```bash
-docker-compose up frontend
+./scripts/compose-smart.sh up frontend
 ```
 
 ### 只启动后端
 ```bash
-docker-compose up backend
+./scripts/compose-smart.sh up backend
 ```
 
 ### 进入容器
 ```bash
 # 进入后端容器
-docker-compose exec backend bash
+./scripts/compose-smart.sh exec backend bash
 
 # 进入前端容器
-docker-compose exec frontend sh
+./scripts/compose-smart.sh exec frontend sh
 ```
 
 ### 清理所有容器和镜像
 ```bash
-docker-compose down -v
+./scripts/compose-smart.sh down -v
 docker system prune -a
 ```
 
@@ -76,12 +88,12 @@ docker system prune -a
 
 ### 初始化数据库
 ```bash
-docker-compose exec backend prisma db push
+./scripts/compose-smart.sh exec backend prisma db push
 ```
 
 ### 查看数据库
 ```bash
-docker-compose exec backend prisma studio
+./scripts/compose-smart.sh exec backend prisma studio
 ```
 
 ## 故障排查
@@ -99,18 +111,18 @@ netstat -ano | findstr :8000
 
 ### 清理缓存重新构建
 ```bash
-docker-compose down -v
-docker-compose build --no-cache
-docker-compose up
+./scripts/compose-smart.sh down -v
+./scripts/compose-smart.sh build --no-cache
+./scripts/compose-smart.sh up
 ```
 
 ### 依赖更新后重新构建
 ```bash
 # 前端依赖更新
-docker-compose build frontend
+./scripts/compose-smart.sh build frontend
 
 # 后端依赖更新
-docker-compose build backend
+./scripts/compose-smart.sh build backend
 ```
 
 ## 优势
