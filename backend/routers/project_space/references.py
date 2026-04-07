@@ -1,6 +1,5 @@
 """Reference and candidate change routes for Project Space."""
 
-import asyncio
 import logging
 from typing import Optional
 
@@ -22,7 +21,7 @@ from schemas.project_space import (
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
 
-from .reference_runtime import resolve_target_version_map
+from .reference_runtime import resolve_target_project_runtime_maps
 from .shared import (
     COMMON_ERROR_RESPONSES,
     to_candidate_change_model,
@@ -31,60 +30,6 @@ from .shared import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-async def resolve_target_project_name_map(db_service, references) -> dict[str, str]:
-    target_ids = sorted(
-        {
-            str(getattr(reference, "targetProjectId", "")).strip()
-            for reference in references
-            if str(getattr(reference, "targetProjectId", "")).strip()
-        }
-    )
-    if not target_ids:
-        return {}
-
-    prisma = getattr(db_service, "db", None)
-    project_model = getattr(prisma, "project", None)
-    if project_model is not None and hasattr(project_model, "find_many"):
-        try:
-            rows = await project_model.find_many(
-                where={"id": {"in": target_ids}},
-                select={"id": True, "name": True},
-            )
-            name_map: dict[str, str] = {}
-            for row in rows:
-                row_id = (
-                    row.get("id") if isinstance(row, dict) else getattr(row, "id", None)
-                )
-                name_value = (
-                    row.get("name")
-                    if isinstance(row, dict)
-                    else getattr(row, "name", None)
-                )
-                name = str(name_value or "").strip()
-                if row_id and name:
-                    name_map[row_id] = name
-            return name_map
-        except Exception as exc:  # pragma: no cover - defensive fallback path
-            logger.warning(
-                "target name batch lookup failed; "
-                "fallback to per-project lookup: %s",
-                exc,
-            )
-
-    projects = await asyncio.gather(
-        *(db_service.get_project(target_id) for target_id in target_ids),
-        return_exceptions=True,
-    )
-    fallback_name_map: dict[str, str] = {}
-    for target_id, project in zip(target_ids, projects):
-        if isinstance(project, Exception) or project is None:
-            continue
-        name = str(getattr(project, "name", "")).strip()
-        if name:
-            fallback_name_map[target_id] = name
-    return fallback_name_map
 
 
 @router.post(
@@ -111,12 +56,9 @@ async def create_project_reference(
             pinned_version_id=body.pinned_version_id,
             priority=body.priority,
         )
-        version_map = await resolve_target_version_map(
+        version_map, target_name_map = await resolve_target_project_runtime_maps(
             db_service=project_space_service.db,
             references=[reference],
-        )
-        target_name_map = await resolve_target_project_name_map(
-            project_space_service.db, [reference]
         )
         return ProjectReferenceResponse(
             success=True,
@@ -148,12 +90,9 @@ async def get_project_references(
         references = await project_space_service.get_project_references(
             project_id=project_id, user_id=user_id
         )
-        version_map = await resolve_target_version_map(
+        version_map, target_name_map = await resolve_target_project_runtime_maps(
             db_service=project_space_service.db,
             references=references,
-        )
-        target_name_map = await resolve_target_project_name_map(
-            project_space_service.db, references
         )
         return ProjectReferencesResponse(
             success=True,
@@ -197,12 +136,9 @@ async def update_project_reference(
             priority=body.priority,
             status=body.status,
         )
-        version_map = await resolve_target_version_map(
+        version_map, target_name_map = await resolve_target_project_runtime_maps(
             db_service=project_space_service.db,
             references=[updated_ref],
-        )
-        target_name_map = await resolve_target_project_name_map(
-            project_space_service.db, [updated_ref]
         )
         return ProjectReferenceResponse(
             success=True,
