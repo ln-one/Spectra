@@ -1423,6 +1423,56 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/rag/sources/{chunk_id}/image:
+    get:
+      summary: 读取来源图片资源
+      operationId: getRagSourceImageByChunkId
+      description: 读取来源分块中的图片资源（按需缓存）。
+      tags:
+        - RAG
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: chunk_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 来源压缩包中的图片相对路径
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功返回图片二进制内容
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/rag/index:
     post:
       summary: 索引新文件到知识库
@@ -4348,6 +4398,49 @@ components:
         run_id:
           type: string
           nullable: true
+    ImageInsertionMetadata:
+      type: object
+      description: 插图决策元数据
+      properties:
+        retrieval_mode:
+          type: string
+          enum:
+            - default_library
+            - strict_sources
+          description: 检索模式
+        page_semantic_type:
+          type: string
+          description: 页面语义类型
+        image_insertion_decision:
+          type: string
+          enum:
+            - insert
+            - skip
+          description: 插图决策
+        image_count:
+          type: integer
+          minimum: 0
+          description: 插图数量
+        image_slot:
+          type: string
+          enum:
+            - left_split
+            - right_split
+            - bottom_panel
+          description: 图位
+        layout_risk_level:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          description: 版式风险等级
+        image_match_reason:
+          type: string
+          description: 插图匹配原因
+        skip_reason:
+          type: string
+          description: 跳过插图原因
     Slide:
       type: object
       required:
@@ -4372,6 +4465,8 @@ components:
             $ref: '#/components/schemas/preview_SourceReference'
         thumbnail_url:
           type: string
+        image_metadata:
+          $ref: '#/components/schemas/ImageInsertionMetadata'
     SlidePlan:
       type: object
       required:

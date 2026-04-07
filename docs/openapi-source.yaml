@@ -95,6 +95,8 @@ paths:
     $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1search'
   /api/v1/rag/sources/{chunk_id}:
     $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1sources~1{chunk_id}'
+  /api/v1/rag/sources/{chunk_id}/image:
+    $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1sources~1{chunk_id}~1image'
   /api/v1/rag/index:
     $ref: './openapi/paths/rag.yaml#/~1api~1v1~1rag~1index'
   /api/v1/rag/similar:
