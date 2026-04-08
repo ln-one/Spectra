@@ -17,7 +17,7 @@ brew install --cask docker
 
 ### 1. 启动所有服务
 ```bash
-./scripts/compose-smart.sh up
+python3 ./scripts/compose_smart.py up
 ```
 
 前端: http://localhost:3000
@@ -27,27 +27,28 @@ ReDoc: http://localhost:8000/redoc
 
 ### 2. 后台运行
 ```bash
-./scripts/compose-smart.sh up -d
+python3 ./scripts/compose_smart.py up -d
 ```
 
 ### 3. 查看日志
 ```bash
-./scripts/compose-smart.sh logs -f
+python3 ./scripts/compose_smart.py logs -f
 ```
 
 ### 4. 停止服务
 ```bash
-./scripts/compose-smart.sh down
+python3 ./scripts/compose_smart.py down
 ```
 
 ## 私有服务源码模式
 
 `Spectra` 默认使用镜像启动 `Dualweave` 和 `Pagevra`。如果你拥有对应私有仓库权限，
-可以初始化 submodule，`./scripts/compose-smart.sh` 会自动切换到本地源码构建。
+可以初始化 submodule，`python3 ./scripts/compose_smart.py` 会自动切换到本地源码构建。
+这时本地 submodule 是优先真源，远端镜像只作为未初始化场景的 fallback。
 
 ```bash
 git submodule update --init --recursive
-./scripts/compose-smart.sh up --build
+python3 ./scripts/compose_smart.py up --build
 ```
 
 如果没有这些私有仓库权限，也不需要额外处理；脚本会自动回退到镜像模式。
@@ -56,31 +57,31 @@ git submodule update --init --recursive
 
 ### 重新构建镜像
 ```bash
-./scripts/compose-smart.sh build
+python3 ./scripts/compose_smart.py build
 ```
 
 ### 只启动前端
 ```bash
-./scripts/compose-smart.sh up frontend
+python3 ./scripts/compose_smart.py up frontend
 ```
 
 ### 只启动后端
 ```bash
-./scripts/compose-smart.sh up backend
+python3 ./scripts/compose_smart.py up backend
 ```
 
 ### 进入容器
 ```bash
 # 进入后端容器
-./scripts/compose-smart.sh exec backend bash
+python3 ./scripts/compose_smart.py exec backend bash
 
 # 进入前端容器
-./scripts/compose-smart.sh exec frontend sh
+python3 ./scripts/compose_smart.py exec frontend sh
 ```
 
 ### 清理所有容器和镜像
 ```bash
-./scripts/compose-smart.sh down -v
+python3 ./scripts/compose_smart.py down -v
 docker system prune -a
 ```
 
@@ -88,12 +89,12 @@ docker system prune -a
 
 ### 初始化数据库
 ```bash
-./scripts/compose-smart.sh exec backend prisma db push
+python3 ./scripts/compose_smart.py exec backend prisma db push
 ```
 
 ### 查看数据库
 ```bash
-./scripts/compose-smart.sh exec backend prisma studio
+python3 ./scripts/compose_smart.py exec backend prisma studio
 ```
 
 ## 故障排查
@@ -111,19 +112,24 @@ netstat -ano | findstr :8000
 
 ### 清理缓存重新构建
 ```bash
-./scripts/compose-smart.sh down -v
-./scripts/compose-smart.sh build --no-cache
-./scripts/compose-smart.sh up
+python3 ./scripts/compose_smart.py down -v
+python3 ./scripts/compose_smart.py build --no-cache
+python3 ./scripts/compose_smart.py up
 ```
 
 ### 依赖更新后重新构建
 ```bash
 # 前端依赖更新
-./scripts/compose-smart.sh build frontend
+python3 ./scripts/compose_smart.py build frontend
 
 # 后端依赖更新
-./scripts/compose-smart.sh build backend
+python3 ./scripts/compose_smart.py build backend
 ```
+
+兼容说明：
+
+- `/Users/ln1/Projects/Spectra/scripts/compose-smart.sh` 仍然保留，但现在只是转发到 Python 入口
+- Windows 用户可以直接运行 `python scripts/compose_smart.py ...`
 
 ## 优势
 

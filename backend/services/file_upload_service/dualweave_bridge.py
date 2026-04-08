@@ -22,6 +22,15 @@ def build_dualweave_parse_result(
             "stage": result.get("stage"),
             "delivery_status": result.get("delivery_status"),
             "processing_status": result.get("processing_status"),
+            "result_source": result.get("result_source"),
+            "remote_retryable": result.get("remote_retryable"),
+            "remote_next_action": result.get("remote_next_action"),
+            "remote_pending_reason": result.get("remote_pending_reason"),
+            "sender_attempts": result.get("sender_attempts"),
+            "sender_attempts_remaining": result.get("sender_attempts_remaining"),
+            "replay_status": result.get("replay_status"),
+            "replay_eligible": result.get("replay_eligible"),
+            "replay_blocked_reason": result.get("replay_blocked_reason"),
         },
     }
 

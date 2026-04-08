@@ -222,6 +222,7 @@ class MineruCloudProvider(BaseParseProvider):
                 mime_type=_mime_type_for_file_type(file_type),
                 metadata={"source_provider": "mineru_cloud"},
             )
+            result = self.dualweave_client.wait_for_result_url_sync(result)
             processing_artifact = result.get("processing_artifact") or {}
             result_url = str(processing_artifact.get("result_url") or "").strip()
             logger.info(
@@ -246,6 +247,9 @@ class MineruCloudProvider(BaseParseProvider):
                     "dualweave_upload_id": result.get("upload_id"),
                     "dualweave_status": result.get("status"),
                     "dualweave_stage": result.get("stage"),
+                    "dualweave_result_source": result.get("result_source"),
+                    "dualweave_replay_status": result.get("replay_status"),
+                    "dualweave_remote_next_action": result.get("remote_next_action"),
                     "dualweave_result_url": result_url,
                     "text_length": len(text),
                 }

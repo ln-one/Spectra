@@ -32,6 +32,8 @@ def test_build_render_engine_input_maps_courseware_content_to_structured_payload
     assert payload["document"]["pages"][0]["kind"] == "cover"
     assert payload["document"]["pages"][1]["kind"] == "toc"
     assert payload["render"]["theme"]["theme_id"] == "gaia"
+    assert payload["render"]["theme"]["template_id"] == "document-teaching"
+    assert payload["render"]["template"]["template_id"] == "document-teaching"
     assert payload["job_marp_markdown"] is None
 
 
@@ -90,9 +92,23 @@ def test_build_render_engine_page_input_maps_page_payload():
     assert payload["page"]["kind"] == "cover"
     assert payload["page_marp_markdown"] is None
     assert payload["render"]["theme"]["theme_id"] == "gaia"
+    assert payload["render"]["theme"]["template_id"] == "document-teaching"
+    assert payload["render"]["template"]["template_id"] == "document-teaching"
     assert (
         payload["render"]["theme"]["overrides"]["custom_css"] == ".demo { color: red; }"
     )
+
+
+def test_build_render_engine_input_allows_explicit_template_override():
+    payload = build_render_engine_input(
+        {"title": "测试课件", "markdown_content": "# 封面"},
+        {"style": "default", "template_id": "document-default"},
+        ["preview"],
+        render_job_id="job-override",
+    )
+
+    assert payload["render"]["theme"]["template_id"] == "document-default"
+    assert payload["render"]["template"]["template_id"] == "document-default"
 
 
 def test_normalize_render_engine_page_result_extracts_html_preview():

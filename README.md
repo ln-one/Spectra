@@ -46,7 +46,7 @@ The repository has completed its first major structural convergence:
 ### Docker
 
 ```bash
-./scripts/compose-smart.sh up --build
+python3 ./scripts/compose_smart.py up --build
 ```
 
 For more detail, see `/Users/ln1/Projects/Spectra/docs/guides/docker-setup.md`.
@@ -55,12 +55,17 @@ Runtime configuration should come from `/Users/ln1/Projects/Spectra/backend/.env
 Dualweave is consumed as a Docker service in two modes:
 
 - default/team mode: `/Users/ln1/Projects/Spectra/docker-compose.yml` pulls `ghcr.io/ln-one/dualweave-service:latest`
-- authorized maintainer mode: initialize `/Users/ln1/Projects/Spectra/dualweave` and let the smart compose entrypoint add the local override automatically
+- authorized maintainer mode: initialize the `dualweave` submodule and let `python3 ./scripts/compose_smart.py` switch Dualweave to a local source build automatically
 
 ```bash
 git submodule update --init --recursive dualweave
-./scripts/compose-smart.sh up --build
+python3 ./scripts/compose_smart.py up --build
 ```
+
+When the `dualweave` submodule is initialized, the smart compose entrypoint
+prefers the local Dualweave source tree over the remote `latest` image. The
+remote image is only the fallback for environments that do not have submodule
+access.
 
 If Dualweave is used as an external upload orchestration service, configure the
 backend with:
@@ -80,6 +85,9 @@ the boundary stays at the artifact reference layer.
 Pagevra follows the same private-source pattern: normal users consume the image,
 while authorized maintainers can initialize the private submodule and keep using
 the same smart compose entrypoint for local builds.
+
+The legacy shell wrapper `/Users/ln1/Projects/Spectra/scripts/compose-smart.sh`
+now forwards to the Python entrypoint for compatibility.
 
 ### Backend
 

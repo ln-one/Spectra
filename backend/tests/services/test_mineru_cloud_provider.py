@@ -91,6 +91,7 @@ class _FakeDualweaveClient:
         self.result = result or {}
         self.error = error
         self.calls: list[dict[str, str | None]] = []
+        self.wait_calls = 0
 
     def upload_file_sync(
         self,
@@ -111,6 +112,10 @@ class _FakeDualweaveClient:
         if self.error is not None:
             raise self.error
         return self.result
+
+    def wait_for_result_url_sync(self, result: dict) -> dict:
+        self.wait_calls += 1
+        return result
 
 
 class _FakeZipDownloadClient:
@@ -195,8 +200,46 @@ def test_mineru_cloud_provider_uses_dualweave_when_enabled(monkeypatch, tmp_path
     assert details["dualweave_status"] == "completed"
     assert details["dualweave_stage"] == "workflow_completed"
     assert details["dualweave_result_url"] == "https://example.invalid/result.zip"
+    assert fake_dualweave.wait_calls == 1
     assert fake_dualweave.calls[0]["mime_type"] == "application/pdf"
     assert fake_dualweave.calls[0]["source_provider"] == "mineru_cloud"
+
+
+def test_mineru_cloud_provider_waits_for_latest_dualweave_result(monkeypatch, tmp_path):
+    monkeypatch.setenv("DUALWEAVE_ENABLED", "true")
+    fake_dualweave = _FakeDualweaveClient(
+        result={
+            "upload_id": "upl-123",
+            "status": "pending_remote",
+            "stage": "remote_sending",
+        }
+    )
+    fake_dualweave.wait_for_result_url_sync = lambda result: {
+        **result,
+        "status": "completed",
+        "stage": "workflow_completed",
+        "result_source": "service_replay",
+        "replay_status": "succeeded",
+        "processing_artifact": {"result_url": "https://example.invalid/result.zip"},
+    }
+    monkeypatch.setattr(
+        "services.parsers.mineru_cloud_provider.build_dualweave_client",
+        lambda: fake_dualweave,
+    )
+    monkeypatch.setattr(
+        "services.parsers.mineru_cloud_provider.httpx.Client",
+        _FakeZipDownloadClient,
+    )
+
+    file_path = tmp_path / "demo.pdf"
+    file_path.write_bytes(b"%PDF-1.4\n")
+
+    provider = MineruCloudProvider()
+    text, details = provider.extract_text(str(file_path), "demo.pdf", "pdf")
+
+    assert "dualweave result" in text
+    assert details["dualweave_result_source"] == "service_replay"
+    assert details["dualweave_replay_status"] == "succeeded"
 
 
 def test_mineru_cloud_provider_returns_empty_text_when_dualweave_lacks_result_url(

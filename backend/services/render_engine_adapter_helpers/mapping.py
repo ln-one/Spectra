@@ -42,14 +42,18 @@ def render_theme_config(
     extra_css: Optional[str] = None,
 ) -> dict[str, Any]:
     style = "default"
+    template_id = "document-teaching"
     if isinstance(template_config, dict):
         style = str(template_config.get("style") or "default").strip() or "default"
+        explicit_template_id = str(template_config.get("template_id") or "").strip()
+        if explicit_template_id:
+            template_id = explicit_template_id
     overrides: dict[str, Any] = {}
     if extra_css and str(extra_css).strip():
         overrides["custom_css"] = str(extra_css).strip()
     return {
         "theme_id": style,
-        "template_id": "spectra-courseware",
+        "template_id": template_id,
         "overrides": overrides or None,
     }
 
@@ -111,6 +115,9 @@ def build_render_engine_input(
         "job_marp_markdown": job_marp_markdown,
         "render": {
             "theme": render_theme,
+            "template": {
+                "template_id": render_theme["template_id"],
+            },
             "outputs": output_targets,
         },
         "document": {
@@ -169,6 +176,9 @@ def build_render_engine_page_input(
         "page_marp_markdown": None,
         "render": {
             "theme": render_theme,
+            "template": {
+                "template_id": render_theme["template_id"],
+            },
         },
         "page": {
             "page_id": page_id,

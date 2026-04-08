@@ -13,11 +13,7 @@ from schemas.studio_cards import (
     StudioCardTurnRequest,
     StudioCardTurnResult,
 )
-from services.generation_session_service.event_store import append_event
-from services.generation_session_service.session_history import build_run_trace_payload
-from services.platform.generation_event_constants import GenerationEventType
 from services.project_space_service import project_space_service
-from utils.exceptions import APIException, ErrorCode
 
 from .card_execution_runtime_helpers import (
     artifact_metadata_dict,
@@ -28,6 +24,11 @@ from .card_execution_runtime_helpers import (
     validate_simulator_turn_artifact,
     validate_source_artifact,
     validate_structured_refine_artifact,
+)
+from .card_execution_runtime_run_helpers import (
+    create_artifact_run,
+    promote_requested_run_to_generating,
+    resolve_execution_session_id,
 )
 from .tool_content_builder import (
     build_studio_simulator_turn_update,
@@ -93,7 +94,7 @@ async def execute_studio_card_artifact_request(
     preview,
 ) -> StudioCardExecutionResult:
     payload = dict(preview.initial_request.payload)
-    execution_session_id = await _resolve_execution_session_id(
+    execution_session_id = await resolve_execution_session_id(
         project_id=body.project_id,
         user_id=user_id,
         client_session_id=body.client_session_id,
@@ -108,7 +109,7 @@ async def execute_studio_card_artifact_request(
         card_id=card_id,
         source_artifact_id=body.source_artifact_id,
     )
-    await _promote_requested_run_to_generating(
+    await promote_requested_run_to_generating(
         card_id=card_id,
         body=body,
         session_id=execution_session_id,
@@ -165,7 +166,7 @@ async def execute_studio_card_artifact_request(
             logger.warning(
                 "Skip word_document source metadata sync due to db error: %s", exc
             )
-    run = await _create_artifact_run(
+    run = await create_artifact_run(
         card_id=card_id,
         body=body,
         artifact=artifact,
@@ -225,7 +226,7 @@ async def execute_studio_card_structured_refine(
         user_id=user_id,
         content=updated_content,
     )
-    run = await _create_artifact_run(
+    run = await create_artifact_run(
         card_id=card_id,
         body=body,
         artifact=new_artifact,
@@ -313,252 +314,4 @@ async def execute_classroom_simulator_turn_artifact(
     )
 
 
-async def _create_artifact_run(
-    *,
-    card_id: str,
-    body: StudioCardExecutionPreviewRequest,
-    artifact,
-    session_id: str | None = None,
-):
-    from services.generation_session_service.session_history import (
-        RUN_STATUS_COMPLETED,
-        RUN_STATUS_PENDING,
-        RUN_STATUS_PROCESSING,
-        RUN_STEP_COMPLETED,
-        RUN_STEP_GENERATE,
-        RUN_STEP_OUTLINE,
-        create_session_run,
-        generate_semantic_run_title,
-        serialize_session_run,
-        spawn_background_task,
-        update_session_run,
-    )
-
-    requested_run_id = str(getattr(body, "run_id", None) or "").strip()
-    if requested_run_id:
-        run = await _load_valid_studio_card_run(
-            card_id=card_id,
-            run_id=requested_run_id,
-            project_id=body.project_id,
-            expected_session_id=getattr(artifact, "sessionId", None) or session_id,
-        )
-    else:
-        run = await create_session_run(
-            db=project_space_service.db.db,
-            session_id=getattr(artifact, "sessionId", None) or session_id,
-            project_id=body.project_id,
-            tool_type=f"studio_card:{card_id}",
-            step=RUN_STEP_OUTLINE,
-            status=RUN_STATUS_PENDING,
-        )
-    run_for_response = run
-    if run:
-        generating_run = await update_session_run(
-            db=project_space_service.db.db,
-            run_id=run.id,
-            status=RUN_STATUS_PROCESSING,
-            step=RUN_STEP_GENERATE,
-        )
-        if generating_run:
-            run_for_response = generating_run
-        finalized_run = await update_session_run(
-            db=project_space_service.db.db,
-            run_id=run.id,
-            status=RUN_STATUS_COMPLETED,
-            step=RUN_STEP_COMPLETED,
-            artifact_id=artifact.id,
-        )
-        if finalized_run:
-            run_for_response = finalized_run
-        if hasattr(project_space_service.db, "update_artifact_metadata"):
-            current_metadata = (
-                getattr(artifact, "metadata", None)
-                if isinstance(getattr(artifact, "metadata", None), dict)
-                else {}
-            )
-            run_id = getattr(run_for_response, "id", None) or getattr(run, "id", None)
-            run_no = getattr(run_for_response, "runNo", None) or getattr(
-                run, "runNo", None
-            )
-            run_title = getattr(run_for_response, "title", None) or getattr(
-                run, "title", None
-            )
-            tool_type = getattr(run_for_response, "toolType", None) or getattr(
-                run, "toolType", None
-            )
-            await project_space_service.db.update_artifact_metadata(
-                artifact.id,
-                {
-                    **current_metadata,
-                    "run_id": run_id,
-                    "run_no": run_no,
-                    "run_title": run_title,
-                    "tool_type": tool_type,
-                },
-            )
-        spawn_background_task(
-            generate_semantic_run_title(
-                db=project_space_service.db.db,
-                run_id=run.id,
-                tool_type=run.toolType,
-                snapshot=body.config,
-            ),
-            label=f"studio-card-run:{run.id}",
-        )
-    await _append_card_execution_completed_event(
-        card_id=card_id,
-        session_id=getattr(artifact, "sessionId", None) or session_id,
-        artifact=artifact,
-        run=run_for_response,
-    )
-    return serialize_session_run(run_for_response)
-
-
-async def _load_valid_studio_card_run(
-    *,
-    card_id: str,
-    run_id: str,
-    project_id: str,
-    expected_session_id: str | None,
-):
-    run_model = getattr(project_space_service.db.db, "sessionrun", None)
-    existing_run = (
-        await run_model.find_unique(where={"id": run_id})
-        if run_model is not None and hasattr(run_model, "find_unique")
-        else None
-    )
-    if (
-        not existing_run
-        or getattr(existing_run, "projectId", None) != project_id
-        or getattr(existing_run, "toolType", None) != f"studio_card:{card_id}"
-        or (
-            expected_session_id
-            and getattr(existing_run, "sessionId", None) != expected_session_id
-        )
-    ):
-        raise APIException(
-            status_code=409,
-            error_code=ErrorCode.RESOURCE_CONFLICT,
-            message="run_id 无效或不属于当前会话，请重新创建草稿。",
-        )
-    return existing_run
-
-
-async def _promote_requested_run_to_generating(
-    *,
-    card_id: str,
-    body: StudioCardExecutionPreviewRequest,
-    session_id: str | None,
-) -> None:
-    from services.generation_session_service.session_history import (
-        RUN_STATUS_PROCESSING,
-        RUN_STEP_GENERATE,
-        update_session_run,
-    )
-
-    requested_run_id = str(getattr(body, "run_id", None) or "").strip()
-    if not requested_run_id:
-        return
-
-    run = await _load_valid_studio_card_run(
-        card_id=card_id,
-        run_id=requested_run_id,
-        project_id=body.project_id,
-        expected_session_id=session_id,
-    )
-    await update_session_run(
-        db=project_space_service.db.db,
-        run_id=run.id,
-        status=RUN_STATUS_PROCESSING,
-        step=RUN_STEP_GENERATE,
-    )
-
-
-async def _resolve_execution_session_id(
-    *,
-    project_id: str,
-    user_id: str,
-    client_session_id: str | None,
-) -> str | None:
-    normalized = str(client_session_id or "").strip()
-    if not normalized:
-        return None
-
-    db_handle = getattr(project_space_service.db, "db", None)
-    if db_handle is None:
-        return normalized
-    session_model = getattr(db_handle, "generationsession", None)
-    if session_model is None or not hasattr(session_model, "find_first"):
-        return normalized
-
-    session = await session_model.find_first(
-        where={
-            "projectId": project_id,
-            "userId": user_id,
-            "OR": [
-                {"id": normalized},
-                {"clientSessionId": normalized},
-            ],
-        }
-    )
-    if not session:
-        raise APIException(
-            status_code=400,
-            error_code=ErrorCode.INVALID_INPUT,
-            message="client_session_id 无效或不属于当前项目",
-        )
-    return getattr(session, "id", None) or normalized
-
-
-async def _append_card_execution_completed_event(
-    *,
-    card_id: str,
-    session_id: str | None,
-    artifact,
-    run,
-) -> None:
-    if not session_id:
-        return
-
-    db_handle = getattr(project_space_service.db, "db", None)
-    if db_handle is None:
-        return
-
-    session_model = getattr(db_handle, "generationsession", None)
-    event_model = getattr(db_handle, "sessionevent", None)
-    if session_model is None or event_model is None:
-        return
-    if not hasattr(session_model, "find_unique") or not hasattr(event_model, "create"):
-        return
-
-    try:
-        session = await session_model.find_unique(where={"id": session_id})
-    except Exception as exc:
-        logger.warning(
-            "Skip studio-card completion event due to session lookup error: %s", exc
-        )
-        return
-    if not session:
-        return
-
-    payload = {
-        "stage": "studio_card_execute",
-        "card_id": card_id,
-        "artifact_id": getattr(artifact, "id", None),
-        "artifact_type": getattr(artifact, "type", None),
-        "run_trace": build_run_trace_payload(run),
-    }
-
-    try:
-        await append_event(
-            db=db_handle,
-            schema_version=1,
-            session_id=session_id,
-            event_type=GenerationEventType.TASK_COMPLETED.value,
-            state=getattr(session, "state", None),
-            state_reason=getattr(session, "stateReason", None),
-            progress=getattr(session, "progress", None),
-            payload=payload,
-        )
-    except Exception as exc:
-        logger.warning("Skip studio-card completion event persistence failure: %s", exc)
+_create_artifact_run = create_artifact_run
