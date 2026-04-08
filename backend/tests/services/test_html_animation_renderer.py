@@ -33,7 +33,7 @@ def test_build_frame_plan_scene_index_never_rewinds():
 
 def test_html_template_includes_relevant_bullets_fallback():
     assert "function resolveBullets(scene, spec, limit = 3)" in _HTML_TEMPLATE
-    assert "resolveBullets(scene, spec, 2)" in _HTML_TEMPLATE
+    assert "resolveBullets(scene, spec, 1)" in _HTML_TEMPLATE
 
 
 def test_html_template_disables_process_flow_cross_scene_blend():
