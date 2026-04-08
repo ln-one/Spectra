@@ -25,6 +25,17 @@ _ARTIFACT_HISTORY_SELECT = {
     "updatedAt": True,
 }
 
+_CAPABILITY_TITLE_FALLBACK = {
+    "ppt": "课件",
+    "word": "文档",
+    "mindmap": "导图",
+    "outline": "互动游戏",
+    "quiz": "小测",
+    "summary": "讲稿",
+    "animation": "演示动画",
+    "handout": "学情预演",
+}
+
 
 def _resolve_session_artifact_title(
     *, artifact_id: str, capability: str, metadata: dict
@@ -42,7 +53,8 @@ def _resolve_session_artifact_title(
     if len(short_id) > 8:
         short_id = short_id[:8]
     normalized_capability = str(capability or "").strip() or "artifact"
-    return f"{normalized_capability}-{short_id or 'unknown'}"
+    label = _CAPABILITY_TITLE_FALLBACK.get(normalized_capability, normalized_capability)
+    return f"{label} {short_id or 'unknown'}"
 
 
 def _serialize_candidate_change(change) -> dict:

@@ -46,14 +46,14 @@ function emptyHistory(): ArtifactHistoryByTool {
 }
 
 const TOOL_TITLE_MAP: Record<GenerationToolType, string> = {
-  ppt: "PPT",
-  word: "Word",
-  mindmap: "Mindmap",
-  outline: "Game",
-  quiz: "Quiz",
-  summary: "Speaker Notes",
-  animation: "Animation",
-  handout: "Simulation",
+  ppt: "课件",
+  word: "文档",
+  mindmap: "导图",
+  outline: "互动游戏",
+  quiz: "小测",
+  summary: "讲稿",
+  animation: "演示动画",
+  handout: "学情预演",
 };
 
 function normalizeStatus(statusRaw: unknown): ArtifactHistoryItem["status"] {
