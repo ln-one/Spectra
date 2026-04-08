@@ -6,6 +6,7 @@ from schemas.studio_cards import (
     StudioCardReadiness,
     StudioCardResolvedRequest,
 )
+from services.artifact_generator.animation_spec import normalize_animation_spec
 from services.generation_session_service.constants import SessionOutputType
 
 
@@ -16,6 +17,104 @@ def _normalize_visibility(value: str | None) -> str:
         return ArtifactVisibility(value).value
     except ValueError:
         return ArtifactVisibility.PRIVATE.value
+
+
+def _animation_visual_label(visual_type: str) -> str:
+    mapping = {
+        "process_flow": "过程演示",
+        "relationship_change": "关系变化",
+        "structure_breakdown": "结构拆解",
+    }
+    return mapping.get(visual_type, "过程演示")
+
+
+def _build_animation_base_content(cfg: dict) -> dict:
+    return {
+        "kind": "animation_storyboard",
+        "format": "gif",
+        "topic": cfg.get("topic"),
+        "style_pack": cfg.get("style_pack") or "teaching_ppt_cartoon",
+        "visual_type": cfg.get("visual_type"),
+        "scene": cfg.get("scene"),
+        "speed": cfg.get("speed"),
+        "duration_seconds": cfg.get("duration_seconds", 6),
+        "rhythm": cfg.get("rhythm", "balanced"),
+        "focus": cfg.get("focus") or cfg.get("topic"),
+        "summary": cfg.get("motion_brief") or cfg.get("topic"),
+        "placements": [],
+    }
+
+
+def _build_animation_spec_preview(cfg: dict) -> tuple[dict, list[dict], float, bool]:
+    base_content = _build_animation_base_content(cfg)
+    topic = str(base_content.get("topic") or "").strip()
+    focus = str(base_content.get("focus") or "").strip()
+    summary = str(base_content.get("summary") or "").strip()
+    raw_text = " ".join([topic, focus, summary]).strip()
+    confidence = 0.86
+    reasons: list[str] = []
+    if len(topic) < 4:
+        confidence -= 0.2
+        reasons.append("主题描述偏短，语义锚点不足")
+    if len(raw_text) < 12:
+        confidence -= 0.2
+        reasons.append("输入信息量较少")
+    if not focus:
+        confidence -= 0.08
+        reasons.append("未明确表现重点")
+    confidence = max(0.25, min(confidence, 0.97))
+    spec = normalize_animation_spec(base_content)
+    preview = {
+        "style_pack": spec.get("style_pack"),
+        "visual_type": spec.get("visual_type"),
+        "visual_label": _animation_visual_label(str(spec.get("visual_type") or "")),
+        "teaching_goal": spec.get("teaching_goal"),
+        "objects": spec.get("objects") or [],
+        "object_details": spec.get("object_details") or [],
+        "scenes": [
+            {
+                "title": scene.get("title"),
+                "description": scene.get("description"),
+                "emphasis": scene.get("emphasis"),
+                "transition": scene.get("transition"),
+            }
+            for scene in (spec.get("scenes") or [])
+            if isinstance(scene, dict)
+        ],
+        "screen_text": {
+            "标题": spec.get("title"),
+            "副标题": spec.get("teaching_goal"),
+        },
+        "confidence_reasons": reasons,
+    }
+
+    needs_choice = confidence < 0.62
+    candidates: list[dict] = []
+    if needs_choice:
+        for visual_type in (
+            "structure_breakdown",
+            "process_flow",
+            "relationship_change",
+        ):
+            candidate_spec = normalize_animation_spec(
+                {**base_content, "visual_type": visual_type}
+            )
+            candidates.append(
+                {
+                    "style_pack": candidate_spec.get("style_pack"),
+                    "visual_type": candidate_spec.get("visual_type"),
+                    "visual_label": _animation_visual_label(
+                        str(candidate_spec.get("visual_type") or "")
+                    ),
+                    "teaching_goal": candidate_spec.get("teaching_goal"),
+                    "scene_titles": [
+                        scene.get("title")
+                        for scene in (candidate_spec.get("scenes") or [])
+                        if isinstance(scene, dict)
+                    ],
+                }
+            )
+    return preview, candidates, round(confidence, 3), needs_choice
 
 
 def build_studio_card_execution_preview(
@@ -219,6 +318,9 @@ def build_studio_card_execution_preview(
         )
 
     if card_id == "demonstration_animations":
+        spec_preview, spec_candidates, spec_confidence, needs_user_choice = (
+            _build_animation_spec_preview(cfg)
+        )
         return StudioCardExecutionPreview(
             card_id=card_id,
             readiness=StudioCardReadiness.FOUNDATION_READY,
@@ -233,6 +335,8 @@ def build_studio_card_execution_preview(
                         "kind": "animation_storyboard",
                         "format": "gif",
                         "topic": cfg.get("topic"),
+                        "style_pack": cfg.get("style_pack") or "teaching_ppt_cartoon",
+                        "visual_type": cfg.get("visual_type"),
                         "scene": cfg.get("scene"),
                         "speed": cfg.get("speed"),
                         "duration_seconds": cfg.get("duration_seconds", 6),
@@ -246,7 +350,7 @@ def build_studio_card_execution_preview(
             ),
             refine_request=StudioCardResolvedRequest(
                 method="POST",
-                endpoint="/api/v1/generate/studio-cards/demonstration_animations/refine",
+                endpoint="/api/v1/generate/studio-cards/demonstration_animations/refine",  # noqa: E501
                 payload={
                     "project_id": project_id,
                     "message": "",
@@ -256,11 +360,17 @@ def build_studio_card_execution_preview(
                         "duration_seconds": cfg.get("duration_seconds", 6),
                         "rhythm": cfg.get("rhythm", "balanced"),
                         "focus": cfg.get("focus") or cfg.get("topic"),
+                        "visual_type": cfg.get("visual_type"),
+                        "style_pack": cfg.get("style_pack") or "teaching_ppt_cartoon",
                     },
                     "metadata": {"card_id": card_id},
                 },
                 notes="动画 refine 通过 replacement GIF artifact 收口，不反向覆盖已插入的 PPT。",
             ),
+            spec_preview=spec_preview,
+            spec_candidates=spec_candidates,
+            spec_confidence=spec_confidence,
+            needs_user_choice=needs_user_choice,
         )
 
     if card_id == "speaker_notes":

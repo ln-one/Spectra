@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import re
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -167,7 +167,9 @@ def _render_relationship_frame(
         draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)
         draw.text((x - 4, 410), str(index + 1), fill=muted, font=font)
     draw.text((690, 216), "变化解读", fill=text, font=font)
-    draw.text((690, 248), str(scene.get("description") or "")[:32], fill=accent, font=font)
+    draw.text(
+        (690, 248), str(scene.get("description") or "")[:32], fill=accent, font=font
+    )
     top = 286
     for point in (scene.get("key_points") or [])[:3]:
         draw.text((690, top), f"* {point}"[:28], fill=muted, font=font)
@@ -215,7 +217,9 @@ def _render_structure_frame(
             fill=text,
             font=font,
         )
-    draw.text((96, 428), str(scene.get("description") or "")[:44], fill=accent, font=font)
+    draw.text(
+        (96, 428), str(scene.get("description") or "")[:44], fill=accent, font=font
+    )
 
 
 def render_storyboard_frames(
@@ -246,20 +250,56 @@ def render_storyboard_frames(
         draw.text((88, 118), spec["teaching_goal"][:56], fill=muted, font=font)
         draw.rounded_rectangle((88, 462, 872, 478), radius=8, fill=(216, 231, 220))
         progress_width = max(32, int(784 * float(item["global_progress"])))
-        draw.rounded_rectangle((88, 462, 88 + progress_width, 478), radius=8, fill=accent)
-        draw.rounded_rectangle((88, 56, 226, 92), radius=18, fill=(232, 246, 238), outline=(214, 234, 221))
+        draw.rounded_rectangle(
+            (88, 462, 88 + progress_width, 478), radius=8, fill=accent
+        )
+        draw.rounded_rectangle(
+            (88, 56, 226, 92), radius=18, fill=(232, 246, 238), outline=(214, 234, 221)
+        )
         draw.text((108, 68), scene["title"][:18], fill=accent, font=font)
 
         visual_type = spec["visual_type"]
         if visual_type == "relationship_change":
-            _render_relationship_frame(draw, spec, scene_index, scene, width=width, height=height)
+            _render_relationship_frame(
+                draw, spec, scene_index, scene, width=width, height=height
+            )
         elif visual_type == "structure_breakdown":
-            _render_structure_frame(draw, spec, scene_index, scene, width=width, height=height)
+            _render_structure_frame(
+                draw, spec, scene_index, scene, width=width, height=height
+            )
         else:
-            _render_process_frame(draw, spec, scene_index, scene, width=width, height=height)
+            _render_process_frame(
+                draw, spec, scene_index, scene, width=width, height=height
+            )
         frames.append(frame)
 
     return frames or [Image.new("RGB", (width, height), background)]
+
+
+def _prepare_gif_frames(
+    frames: list[Image.Image], *, rhythm: str
+) -> tuple[list[Image.Image], list[int]]:
+    if not frames:
+        raise RuntimeError("No frames available for GIF rendering.")
+
+    hold_count = {"slow": 5, "balanced": 4, "fast": 3}.get(rhythm, 4)
+    base_duration = {"slow": 180, "balanced": 130, "fast": 100}.get(rhythm, 130)
+    tail_duration = {"slow": 240, "balanced": 220, "fast": 180}.get(rhythm, 220)
+
+    extended_frames = [frame.convert("RGB") for frame in frames]
+    extended_frames.extend(frames[-1].convert("RGB").copy() for _ in range(hold_count))
+
+    adaptive_palette = getattr(getattr(Image, "Palette", Image), "ADAPTIVE", None)
+    if adaptive_palette is None:
+        adaptive_palette = getattr(Image, "ADAPTIVE", 1)
+    palette_seed = extended_frames[0].convert("P", palette=adaptive_palette, colors=255)
+    dither_none = getattr(getattr(Image, "Dither", Image), "NONE", 0)
+    quantized_frames = [
+        frame.quantize(palette=palette_seed, dither=dither_none)
+        for frame in extended_frames
+    ]
+    durations = [base_duration] * len(frames) + [tail_duration] * hold_count
+    return quantized_frames, durations
 
 
 def render_gif(content: dict[str, Any], output_path: str) -> str:
@@ -269,16 +309,17 @@ def render_gif(content: dict[str, Any], output_path: str) -> str:
     except AnimationBrowserRenderError:
         frames = render_storyboard_frames(spec)
 
-    duration_map = {"slow": 180, "balanced": 130, "fast": 100}
-    duration = duration_map.get(spec.get("rhythm"), 130)
+    frames_to_save, durations = _prepare_gif_frames(
+        frames, rhythm=str(spec.get("rhythm") or "balanced")
+    )
     path = Path(output_path)
-    frames[0].save(
+    frames_to_save[0].save(
         path,
         save_all=True,
-        append_images=frames[1:],
-        duration=duration,
-        loop=0,
+        append_images=frames_to_save[1:],
+        duration=durations,
         disposal=2,
+        optimize=False,
     )
     return str(path)
 

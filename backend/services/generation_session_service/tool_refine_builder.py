@@ -232,13 +232,21 @@ async def refine_animation_content(
     updated["kind"] = "animation_storyboard"
     updated["format"] = "gif"
     updated["duration_seconds"] = int(
-        config.get("duration_seconds")
-        or current_content.get("duration_seconds")
-        or 6
+        config.get("duration_seconds") or current_content.get("duration_seconds") or 6
     )
     updated["rhythm"] = str(
         config.get("rhythm") or current_content.get("rhythm") or "balanced"
     ).strip()
+    visual_type = str(
+        config.get("visual_type") or current_content.get("visual_type") or ""
+    ).strip()
+    if visual_type in {"process_flow", "relationship_change", "structure_breakdown"}:
+        updated["visual_type"] = visual_type
+    style_pack = str(
+        config.get("style_pack") or current_content.get("style_pack") or ""
+    ).strip()
+    if style_pack in {"teaching_ppt_cartoon", "teaching_ppt_fresh_green"}:
+        updated["style_pack"] = style_pack
     updated["focus"] = str(
         config.get("focus") or current_content.get("focus") or message or ""
     ).strip()

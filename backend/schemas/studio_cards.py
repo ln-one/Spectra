@@ -131,6 +131,10 @@ class StudioCardExecutionPreview(BaseModel):
     initial_request: StudioCardResolvedRequest
     refine_request: Optional[StudioCardResolvedRequest] = None
     source_request: Optional[StudioCardResolvedRequest] = None
+    spec_preview: Optional[dict] = None
+    spec_candidates: List[dict] = Field(default_factory=list)
+    spec_confidence: Optional[float] = None
+    needs_user_choice: bool = False
 
 
 class StudioCardExecutionPreviewResponse(BaseModel):
