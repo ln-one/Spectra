@@ -1,3 +1,6 @@
+去你妈的fallback
+Fuck your fallback
+
 # Spectra Agent Guide
 
 > This file is the repository entry contract for AI coding agents working in Spectra.

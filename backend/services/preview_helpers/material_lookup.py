@@ -19,6 +19,10 @@ TASK_PREVIEW_SELECT = {
     "templateConfig": True,
     "inputData": True,
 }
+TASK_RUN_LOOKUP_SELECT = {
+    "id": True,
+    "sessionId": True,
+}
 
 
 def extract_task_id_from_artifact(artifact) -> Optional[str]:
@@ -105,14 +109,24 @@ async def resolve_task_by_run(db_service, session_id: str, run_id: Optional[str]
         if task is not None:
             return task
 
-    recent_tasks = await find_many_with_select_fallback(
+    candidate_tasks = await find_many_with_select_fallback(
         model=db_service.db.generationtask,
         where={"sessionId": session_id},
         order={"createdAt": "desc"},
         take=50,
-        select=TASK_PREVIEW_SELECT,
+        select=TASK_RUN_LOOKUP_SELECT,
     )
-    for task in recent_tasks:
+    for candidate in candidate_tasks:
+        task_id = getattr(candidate, "id", None)
+        if not task_id:
+            continue
+        task = await find_unique_with_select_fallback(
+            model=db_service.db.generationtask,
+            where={"id": task_id},
+            select=TASK_PREVIEW_SELECT,
+        )
+        if task is None or getattr(task, "sessionId", None) != session_id:
+            continue
         input_data = _parse_task_input(getattr(task, "inputData", None))
         if str(input_data.get("run_id") or "").strip() == run_id:
             return task
