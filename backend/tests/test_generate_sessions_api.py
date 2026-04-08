@@ -2884,6 +2884,7 @@ async def test_recommend_animation_placement_records_recommendation_metadata(
                     animation_artifact,
                     ppt_artifact,
                     updated_animation_artifact,
+                    ppt_artifact,
                 ]
             ),
         ),
@@ -2986,6 +2987,7 @@ async def test_confirm_animation_placement_records_confirmed_relations(app, _as_
                     animation_artifact,
                     ppt_artifact,
                     updated_animation_artifact,
+                    ppt_artifact,
                 ]
             ),
         ),
@@ -3012,9 +3014,15 @@ async def test_confirm_animation_placement_records_confirmed_relations(app, _as_
     assert response.status_code == 200
     body = response.json()["data"]
     assert len(body["placements"]) == 2
-    metadata = update_metadata.await_args.args[1]
-    assert len(metadata["placements"]) == 2
-    assert metadata["placements"][0]["slot"] == "bottom-right"
+    assert update_metadata.await_count == 2
+    animation_metadata = update_metadata.await_args_list[0].args[1]
+    assert len(animation_metadata["placements"]) == 2
+    assert animation_metadata["placements"][0]["slot"] == "bottom-right"
+    ppt_metadata = update_metadata.await_args_list[1].args[1]
+    assert len(ppt_metadata["embedded_animations"]) == 2
+    assert ppt_metadata["embedded_animations"][0]["animation_artifact_id"] == (
+        "a-animation-gif-001"
+    )
 
 
 @slow_studio_card
