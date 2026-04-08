@@ -1295,6 +1295,77 @@ async def test_preview_studio_card_execution_returns_bound_speaker_notes_refine_
 
 
 @pytest.mark.anyio
+async def test_preview_studio_card_execution_returns_animation_spec_preview(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/demonstration_animations/execution-preview",
+        json={
+            "project_id": "p-001",
+            "config": {
+                "topic": "计算机网络分层结构演示",
+                "motion_brief": "突出各层职责差异与封装关系",
+                "focus": "强调应用层到物理层的顺序与作用",
+                "visual_type": "structure_breakdown",
+                "duration_seconds": 8,
+                "rhythm": "balanced",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    preview = response.json()["data"]["execution_preview"]
+    assert preview["initial_request"]["payload"]["type"] == "gif"
+    assert preview["initial_request"]["payload"]["content"]["visual_type"] == (
+        "structure_breakdown"
+    )
+    assert preview["initial_request"]["payload"]["content"]["style_pack"] == (
+        "teaching_ppt_cartoon"
+    )
+    assert preview["refine_request"]["payload"]["config"]["visual_type"] == (
+        "structure_breakdown"
+    )
+    assert preview["refine_request"]["payload"]["config"]["style_pack"] == (
+        "teaching_ppt_cartoon"
+    )
+    assert preview["spec_preview"]["style_pack"] == "teaching_ppt_cartoon"
+    assert preview["spec_preview"]["visual_type"] == "structure_breakdown"
+    assert preview["spec_preview"]["visual_label"] == "结构拆解"
+    assert isinstance(preview["spec_preview"]["scenes"], list)
+    assert len(preview["spec_preview"]["scenes"]) >= 1
+    assert isinstance(preview["spec_confidence"], float)
+    assert preview["needs_user_choice"] is False
+
+
+@pytest.mark.anyio
+async def test_preview_studio_card_execution_marks_low_confidence_animation_spec(
+    app, _as_user
+):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/generate/studio-cards/demonstration_animations/execution-preview",
+        json={
+            "project_id": "p-001",
+            "config": {
+                "topic": "变化",
+                "duration_seconds": 6,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    preview = response.json()["data"]["execution_preview"]
+    assert preview["needs_user_choice"] is True
+    assert isinstance(preview["spec_candidates"], list)
+    assert len(preview["spec_candidates"]) >= 1
+    assert "visual_type" in preview["spec_candidates"][0]
+    assert "visual_label" in preview["spec_candidates"][0]
+
+
+@pytest.mark.anyio
 async def test_preview_studio_card_execution_requires_project_id(app, _as_user):
     client = TestClient(app)
 
@@ -2844,9 +2915,7 @@ async def test_recommend_animation_placement_records_recommendation_metadata(
 
 @slow_studio_card
 @pytest.mark.anyio
-async def test_confirm_animation_placement_records_confirmed_relations(
-    app, _as_user
-):
+async def test_confirm_animation_placement_records_confirmed_relations(app, _as_user):
     client = TestClient(app)
     animation_artifact = SimpleNamespace(
         id="a-animation-gif-001",

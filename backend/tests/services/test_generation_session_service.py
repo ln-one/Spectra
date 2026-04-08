@@ -570,7 +570,7 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert payload["session_artifacts"][0]["current_version_id"] == "ver-003"
     assert payload["session_artifacts"][0]["upstream_updated"] is True
     assert payload["session_artifacts"][0]["is_current"] is True
-    assert payload["session_artifacts"][0]["title"] == "outline-art-outl"
+    assert payload["session_artifacts"][0]["title"] == "互动游戏 art-outl"
     ppt_item = next(
         item
         for item in payload["session_artifacts"]
