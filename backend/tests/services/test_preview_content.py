@@ -300,10 +300,6 @@ async def test_load_preview_material_fallbacks_when_task_select_not_supported(
         ),
     )
     monkeypatch.setattr(
-        "services.preview_helpers.content.build_rendered_preview_payload",
-        AsyncMock(return_value=None),
-    )
-    monkeypatch.setattr(
         "services.preview_helpers.content.save_preview_content",
         AsyncMock(),
     )
@@ -321,3 +317,72 @@ async def test_load_preview_material_fallbacks_when_task_select_not_supported(
     assert len(calls) == 2
     assert "select" in calls[0]
     assert "select" not in calls[1]
+
+
+@pytest.mark.asyncio
+async def test_load_preview_material_does_not_render_preview_on_read_path(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "services.preview_helpers.content.db_service",
+        SimpleNamespace(
+            db=SimpleNamespace(
+                generationtask=SimpleNamespace(
+                    find_unique=AsyncMock(
+                        return_value=SimpleNamespace(
+                            id="task-002",
+                            sessionId="session-002",
+                            status="completed",
+                            templateConfig=None,
+                            inputData=None,
+                        )
+                    ),
+                    find_first=AsyncMock(return_value=None),
+                ),
+                artifact=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+            ),
+            get_project=AsyncMock(
+                return_value=SimpleNamespace(id="project-002", name="超时测试课程")
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.get_or_generate_content",
+        AsyncMock(
+            return_value={
+                "title": "超时测试课程",
+                "markdown_content": "# Slide",
+                "lesson_plan_markdown": "plan",
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.build_slides",
+        lambda _task_id, _md, _image_metadata=None, _render_markdown=None: [
+            SimpleNamespace(model_dump=lambda: {"id": "slide-1", "title": "S1"})
+        ],
+    )
+    monkeypatch.setattr(
+        "services.preview_helpers.content.build_lesson_plan",
+        lambda _slides, _plan_md: SimpleNamespace(
+            model_dump=lambda: {"summary": "ok", "steps": []}
+        ),
+    )
+    save_mock = AsyncMock()
+    monkeypatch.setattr(
+        "services.preview_helpers.content.save_preview_content",
+        save_mock,
+    )
+
+    task, slides, lesson_plan, content = await load_preview_material(
+        session_id="session-002",
+        project_id="project-002",
+        task_id="task-002",
+    )
+
+    assert task is not None and task.id == "task-002"
+    assert slides == [{"id": "slide-1", "title": "S1"}]
+    assert lesson_plan == {"summary": "ok", "steps": []}
+    assert content["title"] == "超时测试课程"
+    assert "rendered_preview" not in content
+    save_mock.assert_not_awaited()

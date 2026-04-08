@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from typing import Optional
 
 from services.database import db_service
@@ -6,7 +6,6 @@ from services.database import db_service
 from .cache import load_preview_content, save_preview_content
 from .content_generation import get_or_generate_content as _get_or_generate_content
 from .material_lookup import resolve_preview_task
-from .rendered_preview import build_rendered_preview_payload
 from .rendering import build_lesson_plan, build_slides
 from .slide_mapping import slide_identity
 
@@ -75,24 +74,17 @@ async def load_preview_material(
                 content.get("_image_metadata") or content.get("image_metadata"),
                 content.get("render_markdown"),
             )
-            rendered_preview = content.get("rendered_preview")
-            if not isinstance(rendered_preview, dict):
-                rendered_preview = await build_rendered_preview_payload(
-                    task_id=task.id,
-                    title=content.get("title", ""),
-                    markdown_content=content.get("markdown_content", ""),
-                    slide_ids=[
-                        slide_identity(slide, index, task_id=task.id)
-                        for index, slide in enumerate(slide_models)
-                    ],
-                    render_markdown=content.get("render_markdown"),
-                    style_manifest=content.get("style_manifest"),
-                    extra_css=content.get("extra_css"),
-                    page_class_plan=content.get("page_class_plan"),
+            rendered_preview = (
+                content.get("rendered_preview")
+                if isinstance(content.get("rendered_preview"), dict)
+                else None
+            )
+            if rendered_preview is None:
+                logger.info(
+                    "Preview cache miss on read path: task=%s session=%s",
+                    task.id,
+                    session_id,
                 )
-                if rendered_preview:
-                    content["rendered_preview"] = rendered_preview
-                    await save_preview_content(task.id, content)
 
             slides = _attach_rendered_preview_to_slides(
                 slide_models=slide_models,
