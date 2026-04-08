@@ -44,7 +44,10 @@ interface StudioExpandedViewProps {
   canRefine: boolean;
   canExecute: boolean;
   onOpenChatRefine: () => void;
-  onPreviewExecution: () => Promise<void> | void;
+  onPreviewExecution: () =>
+    | Promise<Record<string, unknown> | null>
+    | Record<string, unknown>
+    | null;
   onLoadSources: () => Promise<void> | void;
   onExecute: () => Promise<void> | void;
   currentReadiness: string | null;

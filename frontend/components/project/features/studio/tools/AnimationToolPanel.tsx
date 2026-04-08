@@ -14,6 +14,7 @@ import type {
   AnimationPlacementSlot,
   AnimationRhythm,
   AnimationStep,
+  AnimationVisualType,
 } from "./animation/types";
 import { useStudioRagRecommendations } from "./useStudioRagRecommendations";
 import { useWorkflowStepSync } from "./useWorkflowStepSync";
@@ -30,7 +31,10 @@ export function AnimationToolPanel({
   const [focus, setFocus] = useState("");
   const [durationSeconds, setDurationSeconds] = useState(6);
   const [rhythm, setRhythm] = useState<AnimationRhythm>("balanced");
+  const [visualType, setVisualType] = useState<AnimationVisualType | null>(null);
+  const [hasBootstrappedTopic, setHasBootstrappedTopic] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPreparingSpec, setIsPreparingSpec] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [isRecommendingPlacement, setIsRecommendingPlacement] = useState(false);
   const [isConfirmingPlacement, setIsConfirmingPlacement] = useState(false);
@@ -42,6 +46,14 @@ export function AnimationToolPanel({
   const [placementRecords, setPlacementRecords] = useState<
     Record<string, unknown>[]
   >([]);
+  const [serverSpecPreview, setServerSpecPreview] = useState<
+    Record<string, unknown> | null
+  >(null);
+  const [serverSpecCandidates, setServerSpecCandidates] = useState<
+    Record<string, unknown>[]
+  >([]);
+  const [specConfidence, setSpecConfidence] = useState<number | null>(null);
+  const [needsUserChoice, setNeedsUserChoice] = useState(false);
 
   const latestArtifactId = flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
 
@@ -51,10 +63,11 @@ export function AnimationToolPanel({
   });
 
   useEffect(() => {
-    if (!topic.trim() && suggestions[0]) {
+    if (!hasBootstrappedTopic && !topic.trim() && suggestions[0]) {
       setTopic(suggestions[0]);
+      setHasBootstrappedTopic(true);
     }
-  }, [suggestions, topic]);
+  }, [hasBootstrappedTopic, suggestions, topic]);
 
   useEffect(() => {
     onDraftChange?.({
@@ -62,6 +75,7 @@ export function AnimationToolPanel({
       motion_brief: focus,
       duration_seconds: durationSeconds,
       rhythm,
+      visual_type: visualType,
       source_artifact_id: flowContext?.selectedSourceId ?? null,
     });
   }, [
@@ -71,12 +85,20 @@ export function AnimationToolPanel({
     onDraftChange,
     rhythm,
     topic,
+    visualType,
   ]);
 
   useEffect(() => {
     setPlacementRecommendation(null);
     setPlacementRecords([]);
   }, [latestArtifactId]);
+
+  useEffect(() => {
+    setServerSpecPreview(null);
+    setServerSpecCandidates([]);
+    setSpecConfidence(null);
+    setNeedsUserChoice(false);
+  }, [topic, focus, durationSeconds, rhythm]);
 
   const latestExportArtifactId =
     flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
@@ -108,6 +130,49 @@ export function AnimationToolPanel({
   };
 
   const handlePrepareGenerate = async () => {
+    if (!flowContext?.onPreviewExecution) {
+      return;
+    }
+    setIsPreparingSpec(true);
+    let executionPreview: Record<string, unknown> | null = null;
+    try {
+      executionPreview = await flowContext.onPreviewExecution();
+    } finally {
+      setIsPreparingSpec(false);
+    }
+    if (!executionPreview) return;
+    const previewSpec =
+      typeof executionPreview.spec_preview === "object" &&
+      executionPreview.spec_preview
+        ? (executionPreview.spec_preview as Record<string, unknown>)
+        : null;
+    const candidatesRaw = executionPreview.spec_candidates;
+    const candidates = Array.isArray(candidatesRaw)
+      ? candidatesRaw.filter(
+          (item): item is Record<string, unknown> =>
+            Boolean(item) && typeof item === "object"
+        )
+      : [];
+    setServerSpecPreview(previewSpec);
+    setServerSpecCandidates(candidates);
+    setSpecConfidence(
+      typeof executionPreview.spec_confidence === "number"
+        ? executionPreview.spec_confidence
+        : null
+    );
+    const previewNeedsUserChoice = Boolean(executionPreview.needs_user_choice);
+    setNeedsUserChoice(previewNeedsUserChoice);
+    if (!previewNeedsUserChoice && !visualType && previewSpec?.visual_type) {
+      const nextVisualType = String(previewSpec.visual_type);
+      if (
+        nextVisualType === "process_flow" ||
+        nextVisualType === "relationship_change" ||
+        nextVisualType === "structure_breakdown"
+      ) {
+        setVisualType(nextVisualType);
+      }
+    }
+
     if (!flowContext?.onPrepareGenerate) {
       setActiveStep("generate");
       return;
@@ -128,6 +193,7 @@ export function AnimationToolPanel({
           duration_seconds: durationSeconds,
           rhythm,
           focus,
+          visual_type: visualType,
         },
       });
       if (ok) {
@@ -247,7 +313,10 @@ export function AnimationToolPanel({
                   rhythm={rhythm}
                   topicSuggestions={suggestions}
                   isRecommendationsLoading={isLoading}
-                  onTopicChange={setTopic}
+                  onTopicChange={(value) => {
+                    setHasBootstrappedTopic(true);
+                    setTopic(value);
+                  }}
                   onFocusChange={setFocus}
                   onDurationChange={setDurationSeconds}
                   onRhythmChange={setRhythm}
@@ -263,8 +332,14 @@ export function AnimationToolPanel({
                   focus={focus}
                   durationSeconds={durationSeconds}
                   rhythm={rhythm}
+                  visualType={visualType}
+                  serverSpecPreview={serverSpecPreview}
+                  serverSpecCandidates={serverSpecCandidates}
+                  specConfidence={specConfidence}
+                  needsUserChoice={needsUserChoice}
                   flowContext={flowContext}
-                  isGenerating={isGenerating}
+                  isGenerating={isGenerating || isPreparingSpec}
+                  onVisualTypeChange={setVisualType}
                   onBack={() => setActiveStep("config")}
                   onGenerate={() => void handleGenerate()}
                 />
@@ -275,6 +350,7 @@ export function AnimationToolPanel({
                   lastGeneratedAt={lastGeneratedAt}
                   durationSeconds={durationSeconds}
                   rhythm={rhythm}
+                  visualType={visualType}
                   focus={focus}
                   flowContext={flowContext}
                   recommendation={placementRecommendation}
@@ -284,6 +360,7 @@ export function AnimationToolPanel({
                   isConfirmingPlacement={isConfirmingPlacement}
                   onDurationChange={setDurationSeconds}
                   onRhythmChange={setRhythm}
+                  onVisualTypeChange={setVisualType}
                   onFocusChange={setFocus}
                   onRefine={() => {
                     if (canOperateOnArtifact) {

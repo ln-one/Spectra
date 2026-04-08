@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { Clapperboard, Download, Loader2, Sparkles } from "lucide-react";
+import { Clapperboard, Download, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +18,15 @@ import type { ToolFlowContext } from "../types";
 import {
   ANIMATION_RHYTHM_OPTIONS,
   ANIMATION_SLOT_OPTIONS,
+  ANIMATION_VISUAL_TYPE_OPTIONS,
   getRhythmLabel,
+  getVisualTypeLabel,
 } from "./constants";
-import type { AnimationPlacementSlot, AnimationRhythm } from "./types";
+import type {
+  AnimationPlacementSlot,
+  AnimationRhythm,
+  AnimationVisualType,
+} from "./types";
 
 type PlacementRecommendation = {
   recommended_page?: number;
@@ -79,6 +85,7 @@ interface PreviewStepProps {
   lastGeneratedAt: string | null;
   durationSeconds: number;
   rhythm: AnimationRhythm;
+  visualType: AnimationVisualType | null;
   focus: string;
   flowContext?: ToolFlowContext;
   recommendation: Record<string, unknown> | null;
@@ -88,6 +95,7 @@ interface PreviewStepProps {
   isConfirmingPlacement: boolean;
   onDurationChange: (value: number) => void;
   onRhythmChange: (value: AnimationRhythm) => void;
+  onVisualTypeChange: (value: AnimationVisualType | null) => void;
   onFocusChange: (value: string) => void;
   onRefine: () => void;
   onRecommendPlacement: (pptArtifactId: string) => void;
@@ -102,6 +110,7 @@ export function PreviewStep({
   lastGeneratedAt,
   durationSeconds,
   rhythm,
+  visualType,
   focus,
   flowContext,
   recommendation,
@@ -111,6 +120,7 @@ export function PreviewStep({
   isConfirmingPlacement,
   onDurationChange,
   onRhythmChange,
+  onVisualTypeChange,
   onFocusChange,
   onRefine,
   onRecommendPlacement,
@@ -126,10 +136,11 @@ export function PreviewStep({
     flowContext.resolvedArtifact.blob
       ? flowContext.resolvedArtifact.blob
       : null;
-  const mediaUrl = useMemo(() => {
-    if (!mediaBlob) return null;
-    return URL.createObjectURL(mediaBlob);
-  }, [mediaBlob]);
+  const resolvedMediaArtifactId =
+    capabilityStatus === "backend_ready" &&
+    flowContext?.resolvedArtifact?.contentKind === "media"
+      ? flowContext?.resolvedArtifact?.artifactId ?? null
+      : null;
   const latestArtifactId = flowContext?.latestArtifacts?.[0]?.artifactId ?? null;
   const sourceOptions = flowContext?.sourceOptions ?? [];
   const metadata = readMetadataMap(flowContext);
@@ -144,22 +155,32 @@ export function PreviewStep({
   const placementState =
     placements.length > 0 ? normalizePlacements(placements) : metadataPlacements;
 
-  const [pageNumbersText, setPageNumbersText] = useState("");
-  const [slot, setSlot] = useState<AnimationPlacementSlot>("bottom-right");
-
-  useEffect(() => {
-    if (recommendationState?.recommended_page) {
-      setPageNumbersText(String(recommendationState.recommended_page));
+  const recommendedPageText = recommendationState?.recommended_page
+    ? String(recommendationState.recommended_page)
+    : "";
+  const recommendedSlot = (
+    recommendationState?.recommended_slot &&
+    ANIMATION_SLOT_OPTIONS.some(
+      (item) => item.value === recommendationState.recommended_slot
+    )
+      ? recommendationState.recommended_slot
+      : "bottom-right"
+  ) as AnimationPlacementSlot;
+  const [pageNumbersText, setPageNumbersText] = useState(recommendedPageText);
+  const [isPageNumbersEdited, setIsPageNumbersEdited] = useState(false);
+  const [slot, setSlot] = useState<AnimationPlacementSlot>(recommendedSlot);
+  const [isSlotEdited, setIsSlotEdited] = useState(false);
+  const [replayToken, setReplayToken] = useState(0);
+  const effectivePageNumbersText = isPageNumbersEdited
+    ? pageNumbersText
+    : recommendedPageText;
+  const effectiveSlot = isSlotEdited ? slot : recommendedSlot;
+  const mediaUrl = useMemo(() => {
+    if (!mediaBlob || !resolvedMediaArtifactId) {
+      return null;
     }
-    if (
-      recommendationState?.recommended_slot &&
-      ANIMATION_SLOT_OPTIONS.some(
-        (item) => item.value === recommendationState.recommended_slot
-      )
-    ) {
-      setSlot(recommendationState.recommended_slot as AnimationPlacementSlot);
-    }
-  }, [recommendationState?.recommended_page, recommendationState?.recommended_slot]);
+    return URL.createObjectURL(mediaBlob);
+  }, [mediaBlob, resolvedMediaArtifactId]);
 
   useEffect(() => {
     return () => {
@@ -173,14 +194,14 @@ export function PreviewStep({
     const pptArtifactId = flowContext?.selectedSourceId ?? "";
     const pageNumbers = Array.from(
       new Set(
-        pageNumbersText
+        effectivePageNumbersText
           .split(/[,，\s]+/)
           .map((item) => Number.parseInt(item, 10))
           .filter((item) => Number.isFinite(item) && item > 0)
       )
     );
     if (!pptArtifactId || pageNumbers.length === 0) return;
-    onConfirmPlacement(pptArtifactId, pageNumbers, slot);
+    onConfirmPlacement(pptArtifactId, pageNumbers, effectiveSlot);
   };
 
   return (
@@ -213,8 +234,9 @@ export function PreviewStep({
         {mediaUrl ? (
           <div className="relative mt-4 h-[420px] overflow-hidden rounded-2xl border border-zinc-200 bg-white">
             <Image
-              src={mediaUrl}
+              src={`${mediaUrl}#replay-${replayToken}`}
               alt="教学动画 GIF 预览"
+              key={`gif-${replayToken}`}
               fill
               unoptimized
               className="object-contain"
@@ -231,6 +253,20 @@ export function PreviewStep({
             </p>
           </div>
         )}
+        {mediaUrl ? (
+          <div className="mt-3 flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setReplayToken((value) => value + 1)}
+            >
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              再次播放
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
@@ -294,6 +330,32 @@ export function PreviewStep({
             </Select>
             <p className="text-[11px] text-zinc-500">{getRhythmLabel(rhythm)}</p>
           </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className="text-xs text-zinc-600">模板类型</Label>
+            <Select
+              value={visualType ?? "__auto__"}
+              onValueChange={(value) =>
+                onVisualTypeChange(
+                  value === "__auto__" ? null : (value as AnimationVisualType)
+                )
+              }
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__auto__">自动判断</SelectItem>
+                {ANIMATION_VISUAL_TYPE_OPTIONS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-zinc-500">
+              当前 refine 模板：{getVisualTypeLabel(visualType)}
+            </p>
+          </div>
         </div>
 
         <div className="mt-4">
@@ -354,8 +416,11 @@ export function PreviewStep({
           <div className="space-y-1.5">
             <Label className="text-xs text-zinc-600">预设版位</Label>
             <Select
-              value={slot}
-              onValueChange={(value) => setSlot(value as AnimationPlacementSlot)}
+              value={effectiveSlot}
+              onValueChange={(value) => {
+                setIsSlotEdited(true);
+                setSlot(value as AnimationPlacementSlot);
+              }}
             >
               <SelectTrigger className="h-9 text-xs">
                 <SelectValue />
@@ -375,8 +440,11 @@ export function PreviewStep({
           <div className="min-w-[220px] flex-1">
             <Label className="text-xs text-zinc-600">插入页码</Label>
             <Input
-              value={pageNumbersText}
-              onChange={(event) => setPageNumbersText(event.target.value)}
+              value={effectivePageNumbersText}
+              onChange={(event) => {
+                setIsPageNumbersEdited(true);
+                setPageNumbersText(event.target.value);
+              }}
               placeholder="例如：2 或 2,5,8"
               className="mt-2 h-9 text-xs"
             />

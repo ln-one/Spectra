@@ -251,9 +251,9 @@ export function useStudioExecutionHandlers({
 
   const handleStudioPreviewExecution = useCallback(async () => {
     const cardId = currentCardId;
-    if (!cardId || isStudioActionRunning) return;
+    if (!cardId || isStudioActionRunning) return null;
     const requestBody = buildStudioExecutionRequest();
-    if (!requestBody) return;
+    if (!requestBody) return null;
     if (
       isRestrictedRagModeEnabled(currentToolDraft) &&
       requestBody.rag_source_ids.length === 0
@@ -263,7 +263,7 @@ export function useStudioExecutionHandlers({
         description: "Restricted mode requires at least one selected source.",
         variant: "destructive",
       });
-      return;
+      return null;
     }
     try {
       startCardAction(cardId);
@@ -292,12 +292,14 @@ export function useStudioExecutionHandlers({
         title: "Execution preview generated",
         description: endpoint,
       });
+      return preview;
     } catch (error) {
       toast({
         title: "Execution preview failed",
         description: formatStudioExecutionError(error),
         variant: "destructive",
       });
+      return null;
     } finally {
       endCardAction(cardId);
     }
@@ -644,7 +646,9 @@ export function useStudioExecutionHandlers({
         }
 
         await fetchArtifactHistory(project.id, effectiveSessionId);
-        scheduleArtifactRefresh(project.id, effectiveSessionId);
+        if (resourceKind === "session") {
+          scheduleArtifactRefresh(project.id, effectiveSessionId);
+        }
 
         toast({
           title: "Studio execution succeeded",

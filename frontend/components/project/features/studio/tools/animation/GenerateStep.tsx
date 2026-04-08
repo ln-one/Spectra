@@ -7,8 +7,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getRhythmLabel } from "./constants";
-import type { AnimationRhythm } from "./types";
+import {
+  ANIMATION_VISUAL_TYPE_OPTIONS,
+  getRhythmLabel,
+  getVisualTypeLabel,
+} from "./constants";
+import type { AnimationRhythm, AnimationVisualType } from "./types";
 import type { ToolFlowContext } from "../types";
 import { buildAnimationSpecPreview } from "./spec-preview";
 
@@ -17,8 +21,14 @@ interface GenerateStepProps {
   focus: string;
   durationSeconds: number;
   rhythm: AnimationRhythm;
+  visualType: AnimationVisualType | null;
+  serverSpecPreview: Record<string, unknown> | null;
+  serverSpecCandidates: Record<string, unknown>[];
+  specConfidence: number | null;
+  needsUserChoice: boolean;
   flowContext?: ToolFlowContext;
   isGenerating: boolean;
+  onVisualTypeChange: (value: AnimationVisualType | null) => void;
   onBack: () => void;
   onGenerate: () => void;
 }
@@ -28,13 +38,56 @@ export function GenerateStep({
   focus,
   durationSeconds,
   rhythm,
+  visualType,
+  serverSpecPreview,
+  serverSpecCandidates,
+  specConfidence,
+  needsUserChoice,
   flowContext,
   isGenerating,
+  onVisualTypeChange,
   onBack,
   onGenerate,
 }: GenerateStepProps) {
   const sourceOptions = flowContext?.sourceOptions ?? [];
-  const specPreview = buildAnimationSpecPreview({ topic, focus, rhythm });
+  const fallbackSpecPreview = buildAnimationSpecPreview({ topic, focus, rhythm });
+  const specPreview = serverSpecPreview
+    ? {
+        visualLabel:
+          typeof serverSpecPreview.visual_label === "string"
+            ? serverSpecPreview.visual_label
+            : fallbackSpecPreview.visualLabel,
+        teachingGoal:
+          typeof serverSpecPreview.teaching_goal === "string"
+            ? serverSpecPreview.teaching_goal
+            : fallbackSpecPreview.teachingGoal,
+        objects: Array.isArray(serverSpecPreview.objects)
+          ? (serverSpecPreview.objects as string[])
+          : fallbackSpecPreview.objects,
+        objectDetails: Array.isArray(serverSpecPreview.object_details)
+          ? (serverSpecPreview.object_details as Array<{ label: string; role: string }>)
+          : fallbackSpecPreview.objectDetails,
+        scenes: Array.isArray(serverSpecPreview.scenes)
+          ? (serverSpecPreview.scenes as Array<{ title: string; description: string; transition?: string }>)
+          : fallbackSpecPreview.scenes,
+        confidenceReasons: Array.isArray(serverSpecPreview.confidence_reasons)
+          ? (serverSpecPreview.confidence_reasons as string[])
+          : [],
+        visualType:
+          typeof serverSpecPreview.visual_type === "string"
+            ? serverSpecPreview.visual_type
+            : null,
+      }
+    : {
+        visualLabel: fallbackSpecPreview.visualLabel,
+        teachingGoal: fallbackSpecPreview.teachingGoal,
+        objects: fallbackSpecPreview.objects,
+        objectDetails: fallbackSpecPreview.objectDetails,
+        scenes: fallbackSpecPreview.scenes,
+        confidenceReasons: [],
+        visualType: null,
+      };
+  const visualTypeValue = visualType ?? "__auto__";
 
   return (
     <div className="space-y-4">
@@ -46,12 +99,53 @@ export function GenerateStep({
           <p>节奏：{getRhythmLabel(rhythm)}</p>
           <p>渲染链路：HTML/SVG/Canvas 模板导出 GIF</p>
         </div>
+        <div className="mt-3">
+          <p className="text-[11px] font-medium text-zinc-800">模板类型</p>
+          <Select
+            value={visualTypeValue}
+            onValueChange={(value) =>
+              onVisualTypeChange(value === "__auto__" ? null : (value as AnimationVisualType))
+            }
+          >
+            <SelectTrigger className="mt-2 h-9 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__auto__">自动判断</SelectItem>
+              {ANIMATION_VISUAL_TYPE_OPTIONS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            当前：{getVisualTypeLabel(visualType)}。你可以在生成前手动指定模板。
+          </p>
+        </div>
         <div className="mt-3 rounded-lg bg-zinc-50 p-3 text-[11px] text-zinc-600">
           <p className="font-medium text-zinc-800">重点提示</p>
           <p className="mt-1 whitespace-pre-wrap">
             {focus.trim() || "未额外指定，系统将按主题自动聚焦关键变化。"}
           </p>
         </div>
+        {specConfidence !== null ? (
+          <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600">
+            规格置信度：{Math.round(specConfidence * 100)}%
+          </div>
+        ) : null}
+        {needsUserChoice && serverSpecCandidates.length > 0 ? (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+            <p className="font-medium">当前语义置信度偏低，建议先确认模板方向</p>
+            <div className="mt-1 space-y-1">
+              {serverSpecCandidates.map((item, index) => (
+                <p key={`${index}-${String(item.visual_type ?? "")}`}>
+                  候选 {index + 1}：{String(item.visual_label ?? item.visual_type ?? "-")}
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-[11px] text-zinc-700">
           <p className="font-medium text-zinc-900">动画规格卡</p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -84,10 +178,25 @@ export function GenerateStep({
                     镜头 {index + 1}：{scene.title}
                   </p>
                   <p className="mt-0.5 text-zinc-600">{scene.description}</p>
+                  {"transition" in scene && scene.transition ? (
+                    <p className="mt-0.5 text-zinc-500">
+                      转场：{String(scene.transition)}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>
           </div>
+          {specPreview.confidenceReasons.length > 0 ? (
+            <div className="mt-2 rounded-md border border-zinc-200 bg-white/80 px-2.5 py-2 text-zinc-600">
+              <p className="font-medium text-zinc-800">置信度提示</p>
+              {specPreview.confidenceReasons.map((reason) => (
+                <p key={reason} className="mt-0.5">
+                  - {reason}
+                </p>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -172,7 +281,8 @@ export function GenerateStep({
             isGenerating ||
             Boolean(flowContext?.isLoadingProtocol) ||
             flowContext?.canExecute === false ||
-            !topic.trim()
+            !topic.trim() ||
+            (needsUserChoice && !visualType)
           }
           onClick={onGenerate}
         >

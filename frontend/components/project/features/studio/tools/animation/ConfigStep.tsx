@@ -1,6 +1,5 @@
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,7 +49,7 @@ export function ConfigStep({
               你想让动画演示什么？
             </Label>
             <p className="mt-1 text-[11px] text-zinc-500">
-              先用教师视角描述这段动画要解释的知识点或教学过程。
+              先用教师视角完整描述这段动画要解释的知识点、教学过程和展示要求。
             </p>
           </div>
           {isRecommendationsLoading ? (
@@ -60,11 +59,11 @@ export function ConfigStep({
             </span>
           ) : null}
         </div>
-        <Input
+        <Textarea
           value={topic}
           onChange={(event) => onTopicChange(event.target.value)}
-          placeholder="例如：演示电流形成过程，解释电子为什么会定向移动"
-          className="mt-3 h-9 text-xs"
+          placeholder="例如：我想做一段给初中生看的动画，演示电流形成过程，重点解释电子为什么会定向移动，尽量突出电场作用和导体内部变化，控制在 8 秒左右。"
+          className="mt-3 min-h-[136px] resize-y text-xs leading-6"
         />
         {topicSuggestions.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-2">

@@ -1,5 +1,9 @@
 import type { WorkflowStepItem } from "@/components/project/shared";
-import type { AnimationPlacementSlot, AnimationRhythm } from "./types";
+import type {
+  AnimationPlacementSlot,
+  AnimationRhythm,
+  AnimationVisualType,
+} from "./types";
 
 export const ANIMATION_STEPS: WorkflowStepItem[] = [
   {
@@ -53,6 +57,28 @@ export const ANIMATION_SLOT_OPTIONS: Array<{
   { value: "bottom-panel", label: "底部栏" },
 ];
 
+export const ANIMATION_VISUAL_TYPE_OPTIONS: Array<{
+  value: AnimationVisualType;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "structure_breakdown",
+    label: "结构拆解",
+    description: "适合分层结构、模块组成、部件关系。",
+  },
+  {
+    value: "process_flow",
+    label: "过程演示",
+    description: "适合步骤推进、机制流程、形成过程。",
+  },
+  {
+    value: "relationship_change",
+    label: "关系变化",
+    description: "适合变量变化、趋势拐点、因果关系。",
+  },
+];
+
 export function getReadinessLabel(status?: string | null): string {
   if (status === "ready") return "可直接生成";
   if (status === "foundation_ready") return "基础能力可用";
@@ -63,5 +89,13 @@ export function getReadinessLabel(status?: string | null): string {
 export function getRhythmLabel(value: AnimationRhythm): string {
   return (
     ANIMATION_RHYTHM_OPTIONS.find((item) => item.value === value)?.label ?? value
+  );
+}
+
+export function getVisualTypeLabel(value?: string | null): string {
+  if (!value) return "自动判断";
+  return (
+    ANIMATION_VISUAL_TYPE_OPTIONS.find((item) => item.value === value)?.label ??
+    value
   );
 }
