@@ -200,7 +200,7 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
     artifactKind,
     title,
     status,
-    createdAt: artifact.created_at,
+    createdAt: artifact.updated_at ?? artifact.created_at,
     basedOnVersionId: artifact.based_on_version_id ?? null,
     storagePath: artifact.storage_path,
     runId:
@@ -220,7 +220,9 @@ export function groupArtifactsByTool(
     : artifacts;
 
   const sorted = [...filtered].sort((a, b) => {
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    const bTs = new Date(b.updated_at ?? b.created_at).getTime();
+    const aTs = new Date(a.updated_at ?? a.created_at).getTime();
+    return bTs - aTs;
   });
 
   for (const artifact of sorted) {
