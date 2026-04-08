@@ -220,12 +220,21 @@ export function useStudioExecutionHandlers({
     try {
       startCardAction(cardId);
       const response = await studioCardsApi.getSources(cardId, project.id);
-      const sources = (response?.data?.sources ?? []).map((item) => ({
+      const normalizedSources = (response?.data?.sources ?? []).map((item) => ({
         id: item.id,
+        projectId: item.project_id ?? project.id,
         title: item.title,
         type: item.type,
         sessionId: item.session_id ?? null,
       }));
+      const sources =
+        cardId === "demonstration_animations"
+          ? normalizedSources.filter(
+              (item) =>
+                item.projectId === project.id &&
+                String(item.type || "").toLowerCase() === "pptx"
+            )
+          : normalizedSources;
       upsertCurrentCardSources(sources);
       toast({
         title: "Sources refreshed",

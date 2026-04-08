@@ -41,6 +41,7 @@ export type ToolDraftState = Record<string, ToolDraftValue>;
 
 export interface ToolSourceOption {
   id: string;
+  projectId?: string;
   title?: string;
   type?: string;
   sessionId?: string | null;

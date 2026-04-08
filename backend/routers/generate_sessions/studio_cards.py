@@ -11,6 +11,7 @@ from schemas.studio_cards import (
 )
 from services.generation_session_service.animation_workflow import (
     apply_animation_placement_update,
+    apply_ppt_animation_binding_update,
     artifact_metadata_dict,
     build_animation_placement_recommendation,
     build_animation_placement_records,
@@ -373,7 +374,7 @@ async def confirm_animation_placement(
         body.project_id,
         body.artifact_id,
     )
-    await require_ppt_artifact(body.project_id, body.ppt_artifact_id)
+    ppt_artifact = await require_ppt_artifact(body.project_id, body.ppt_artifact_id)
 
     placement_records = build_animation_placement_records(
         ppt_artifact_id=body.ppt_artifact_id,
@@ -389,16 +390,32 @@ async def confirm_animation_placement(
             body.artifact_id,
             metadata,
         )
+        ppt_metadata = apply_ppt_animation_binding_update(
+            metadata=artifact_metadata_dict(ppt_artifact),
+            animation_artifact_id=body.artifact_id,
+            placement_records=placement_records,
+        )
+        await project_space_service.db.update_artifact_metadata(
+            body.ppt_artifact_id,
+            ppt_metadata,
+        )
 
     project = await project_space_service.db.get_project(body.project_id)
     current_version_id = getattr(project, "currentVersionId", None) if project else None
     updated_artifact = await project_space_service.get_artifact(body.artifact_id)
+    updated_ppt_artifact = await project_space_service.get_artifact(
+        body.ppt_artifact_id
+    )
 
     return success_response(
         data={
             "placements": placement_records,
             "artifact": to_artifact_model(
                 updated_artifact or animation_artifact,
+                current_version_id=current_version_id,
+            ).model_dump(mode="json"),
+            "ppt_artifact": to_artifact_model(
+                updated_ppt_artifact or ppt_artifact,
                 current_version_id=current_version_id,
             ).model_dump(mode="json"),
         },

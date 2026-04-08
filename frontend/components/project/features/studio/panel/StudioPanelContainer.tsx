@@ -696,6 +696,9 @@ export function StudioPanelContainer({
           page_numbers: payload.pageNumbers,
           slot: payload.slot,
         });
+        if (activeSessionId) {
+          await fetchArtifactHistory(project.id, activeSessionId);
+        }
         toast({
           title: "已记录插入关系",
           description: "动画仍保持独立 artifact，不会自动回写已插入页面。",

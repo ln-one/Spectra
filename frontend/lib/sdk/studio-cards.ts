@@ -79,6 +79,7 @@ export interface StudioCardRefineRequest {
 
 export interface StudioCardSourceArtifact {
   id: string;
+  project_id?: string;
   type: string;
   title?: string;
   visibility?: string;
@@ -328,6 +329,7 @@ export const studioCardsApi = {
     ApiEnvelope<{
       placements: Record<string, unknown>[];
       artifact: Record<string, unknown>;
+      ppt_artifact?: Record<string, unknown>;
     }>
   > {
     const response = await apiFetch(

@@ -181,7 +181,11 @@ def apply_animation_placement_update(
         next_metadata["placement_recommendation"] = recommendation
     if placement_records:
         existing = next_metadata.get("placements")
-        placements = [item for item in existing if isinstance(item, dict)] if isinstance(existing, list) else []
+        placements = (
+            [item for item in existing if isinstance(item, dict)]
+            if isinstance(existing, list)
+            else []
+        )
         dedupe = {
             (
                 str(item.get("ppt_artifact_id") or "").strip(),
@@ -199,4 +203,44 @@ def apply_animation_placement_update(
                 )
             ] = dict(item)
         next_metadata["placements"] = list(dedupe.values())
+    return next_metadata
+
+
+def apply_ppt_animation_binding_update(
+    *,
+    metadata: dict[str, Any],
+    animation_artifact_id: str,
+    placement_records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    next_metadata = dict(metadata)
+    existing = next_metadata.get("embedded_animations")
+    bindings = (
+        [item for item in existing if isinstance(item, dict)]
+        if isinstance(existing, list)
+        else []
+    )
+    dedupe = {
+        (
+            str(item.get("animation_artifact_id") or "").strip(),
+            _normalize_page_number(item.get("page_number")),
+            _normalize_slot(item.get("slot")),
+        ): dict(item)
+        for item in bindings
+    }
+    for record in placement_records:
+        binding_item = {
+            "animation_artifact_id": animation_artifact_id,
+            "page_number": _normalize_page_number(record.get("page_number")),
+            "slot": _normalize_slot(record.get("slot")),
+            "status": "confirmed",
+            "confirmed_at": record.get("confirmed_at") or _utc_now_iso(),
+        }
+        dedupe[
+            (
+                binding_item["animation_artifact_id"],
+                binding_item["page_number"],
+                binding_item["slot"],
+            )
+        ] = binding_item
+    next_metadata["embedded_animations"] = list(dedupe.values())
     return next_metadata

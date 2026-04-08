@@ -243,8 +243,7 @@ export function GenerateStep({
                 <SelectItem value="__none__">暂不选择</SelectItem>
                 {sourceOptions.map((item) => (
                   <SelectItem key={item.id} value={item.id}>
-                    {(item.title || item.id.slice(0, 8)) +
-                      (item.type ? ` (${item.type})` : "")}
+                    {item.title?.trim() || "未命名PPT"}
                   </SelectItem>
                 ))}
               </SelectContent>

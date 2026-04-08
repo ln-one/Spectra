@@ -223,6 +223,7 @@ class AnimationPlacementResponse(BaseModel):
 
 class StudioCardSourceArtifact(BaseModel):
     id: str
+    project_id: Optional[str] = None
     type: str
     title: Optional[str] = None
     visibility: Optional[str] = None

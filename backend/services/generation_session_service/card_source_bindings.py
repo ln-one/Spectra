@@ -49,6 +49,7 @@ def serialize_card_source_artifact(
     )
     return {
         "id": artifact.id,
+        "project_id": getattr(artifact, "projectId", None),
         "type": artifact.type,
         "title": title,
         "visibility": getattr(artifact, "visibility", None),
