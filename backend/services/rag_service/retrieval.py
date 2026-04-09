@@ -1,52 +1,17 @@
 import logging
 from typing import Optional
 
-try:
-    from prisma.errors import ClientNotConnectedError
-except Exception:  # pragma: no cover - prisma may be unavailable in some test envs
-
-    class ClientNotConnectedError(Exception):
-        pass
-
-
 from schemas.rag import RAGResult
-from services.database import db_service
 from services.rag_service.retrieval_helpers import (
     build_rag_results,
     build_where_clause,
     get_chunk_from_collection,
+    list_active_reference_targets,
     query_collection,
     sort_key,
 )
 
 logger = logging.getLogger(__name__)
-
-
-async def _list_active_reference_targets(project_id: str) -> list[dict]:
-    try:
-        references = await db_service.get_project_references(project_id)
-    except ClientNotConnectedError:
-        return []
-    except Exception as exc:
-        logger.warning(
-            "reference target lookup failed for project %s: %s", project_id, exc
-        )
-        return []
-    return [
-        {
-            "source_project_id": reference.targetProjectId,
-            "source_scope": (
-                "reference_base"
-                if reference.relationType == "base"
-                else "reference_auxiliary"
-            ),
-            "relation_type": reference.relationType,
-            "reference_mode": reference.mode,
-            "reference_priority": reference.priority,
-            "pinned_version_id": getattr(reference, "pinnedVersionId", None),
-        }
-        for reference in references
-    ]
 
 
 async def search(
@@ -108,7 +73,7 @@ async def search(
             )
 
     if not (filters and filters.get("file_ids")):
-        for target in await _list_active_reference_targets(project_id):
+        for target in await list_active_reference_targets(project_id):
             target_collection = service._vector.get_collection_if_exists(
                 target["source_project_id"]
             )
@@ -152,7 +117,7 @@ async def get_chunk_detail(service, chunk_id: str, project_id: Optional[str] = N
         detail = await get_chunk_from_collection(service, chunk_id, project_id)
         if detail is not None:
             return detail
-        for target in await _list_active_reference_targets(project_id):
+        for target in await list_active_reference_targets(project_id):
             detail = await get_chunk_from_collection(
                 service, chunk_id, target["source_project_id"]
             )

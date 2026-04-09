@@ -81,6 +81,61 @@ services:
       timeout: 5s
       retries: 6
 
+  ourograph_db_init:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: spectra
+    command:
+      [
+        "sh",
+        "-c",
+        "until pg_isready -h postgres -U spectra -d postgres; do sleep 1; done; psql -h postgres -U spectra -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'ourograph'\" | grep -q 1 || psql -h postgres -U spectra -d postgres -c \"CREATE DATABASE ourograph\"",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ourograph:
+    image: spectra-ourograph:dev
+    build:
+      context: .
+      dockerfile: ourograph/Dockerfile
+    ports:
+      - "127.0.0.1:8101:8101"
+    volumes:
+      - runtime_data:/var/lib/spectra
+    environment:
+      - DATABASE_URL=postgresql://spectra:spectra@postgres:5432/ourograph
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - CHROMA_PERSIST_DIR=/var/lib/spectra/chroma
+      - UPLOAD_DIR=/var/lib/spectra/uploads
+      - ARTIFACT_STORAGE_DIR=/var/lib/spectra/artifacts
+      - GENERATED_DIR=/var/lib/spectra/generated
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "-O-",
+          "http://127.0.0.1:8101/health/ready",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      ourograph_db_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+
   backend:
     build:
       context: ./backend
@@ -116,6 +171,8 @@ services:
       - GENERATED_DIR=/var/lib/spectra/generated
       - PAGEVRA_BASE_URL=http://pagevra:8090
       - PAGEVRA_TIMEOUT_SECONDS=180
+      - OUROGRAPH_BASE_URL=http://ourograph:8101
+      - OUROGRAPH_TIMEOUT_SECONDS=30
       - STRUCTRA_BASE_URL=http://pagevra:8090
       - STRUCTRA_TIMEOUT_SECONDS=180
       - RENDER_ENGINE_BASE_URL=http://pagevra:8090
@@ -140,6 +197,8 @@ services:
       dualweave:
         condition: service_started
       pagevra:
+        condition: service_healthy
+      ourograph:
         condition: service_healthy
     healthcheck:
       test:
@@ -186,6 +245,8 @@ services:
       - GENERATED_DIR=/var/lib/spectra/generated
       - PAGEVRA_BASE_URL=http://pagevra:8090
       - PAGEVRA_TIMEOUT_SECONDS=180
+      - OUROGRAPH_BASE_URL=http://ourograph:8101
+      - OUROGRAPH_TIMEOUT_SECONDS=30
       - STRUCTRA_BASE_URL=http://pagevra:8090
       - STRUCTRA_TIMEOUT_SECONDS=180
       - RENDER_ENGINE_BASE_URL=http://pagevra:8090
@@ -210,6 +271,8 @@ services:
       dualweave:
         condition: service_started
       pagevra:
+        condition: service_healthy
+      ourograph:
         condition: service_healthy
 
   chromadb:

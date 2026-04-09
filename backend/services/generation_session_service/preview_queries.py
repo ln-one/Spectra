@@ -37,20 +37,6 @@ async def _load_latest_task_id(db, session) -> Optional[str]:
     return getattr(latest, "id", None) if latest else None
 
 
-async def _load_project_current_version_id(db, project_id: str) -> Optional[str]:
-    project_model = getattr(db, "project", None)
-    if project_model is not None and hasattr(project_model, "find_unique"):
-        project = await project_model.find_unique(where={"id": project_id})
-        return getattr(project, "currentVersionId", None) if project else None
-
-    get_project = getattr(db, "get_project", None)
-    if callable(get_project):
-        project = await get_project(project_id)
-        return getattr(project, "currentVersionId", None) if project else None
-
-    return None
-
-
 async def _load_latest_session_artifact(db, project_id: str, session_id: str):
     artifact_model = getattr(db, "artifact", None)
     if artifact_model is None or not hasattr(artifact_model, "find_first"):
@@ -90,18 +76,12 @@ async def get_session_preview_snapshot(
         },
     )
 
-    latest_task_id, latest_artifact, current_version_id = await asyncio.gather(
+    latest_task_id, latest_artifact = await asyncio.gather(
         _load_latest_task_id(db, session),
         _load_latest_session_artifact(db, session.projectId, session.id),
-        _load_project_current_version_id(db, session.projectId),
     )
     based_on_version_id = (
         getattr(latest_artifact, "basedOnVersionId", None) if latest_artifact else None
-    )
-    upstream_updated = bool(
-        based_on_version_id
-        and current_version_id
-        and based_on_version_id != current_version_id
     )
 
     return {
@@ -116,8 +96,6 @@ async def get_session_preview_snapshot(
             getattr(latest_artifact, "id", None) if latest_artifact else None
         ),
         "based_on_version_id": based_on_version_id,
-        "current_version_id": current_version_id,
-        "upstream_updated": upstream_updated,
         "artifact_anchor": build_artifact_anchor(session_id, latest_artifact),
         "result": (
             build_generation_result_payload(

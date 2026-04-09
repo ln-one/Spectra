@@ -1,6 +1,4 @@
-﻿import type { components } from "@/lib/sdk/types";
-
-type Artifact = components["schemas"]["Artifact"];
+﻿import type { ArtifactRecord as Artifact } from "@/lib/sdk/project-space/types";
 
 export type GenerationToolType =
   | "ppt"
@@ -192,7 +190,7 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
 
   return {
     artifactId: artifact.id,
-    sessionId: artifact.session_id ?? null,
+    sessionId: artifact.sessionId ?? null,
     toolType,
     artifactType: artifact.type,
     artifactKind,
@@ -207,9 +205,9 @@ export function toArtifactHistoryItem(artifact: Artifact): ArtifactHistoryItem {
         ? metadataSourceArtifactId.trim()
         : null,
     status,
-    createdAt: artifact.created_at,
-    basedOnVersionId: artifact.based_on_version_id ?? null,
-    storagePath: artifact.storage_path,
+    createdAt: artifact.createdAt ?? new Date().toISOString(),
+    basedOnVersionId: artifact.basedOnVersionId ?? null,
+    storagePath: artifact.storagePath ?? undefined,
     runId:
       (readMetadataField(artifact.metadata, "run_id") as string | undefined) ||
       null,
@@ -223,11 +221,14 @@ export function groupArtifactsByTool(
 ): ArtifactHistoryByTool {
   const grouped = emptyHistory();
   const filtered = sessionId
-    ? artifacts.filter((item) => item.session_id === sessionId)
+    ? artifacts.filter((item) => (item.sessionId ?? null) === sessionId)
     : artifacts;
 
   const sorted = [...filtered].sort((a, b) => {
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    return (
+      new Date(b.createdAt ?? 0).getTime() -
+      new Date(a.createdAt ?? 0).getTime()
+    );
   });
 
   for (const artifact of sorted) {

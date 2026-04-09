@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 from typing import Optional
 
-from services.database.prisma_compat import (
-    find_many_with_select_fallback,
-    find_unique_with_select_fallback,
-)
+from services.database.prisma_compat import find_many_with_select_fallback
 from services.generation_session_service.capability_helpers import (
     _resolve_capability_from_artifact,
 )
@@ -51,10 +47,9 @@ def _serialize_candidate_change(change) -> dict:
 
 def _artifact_lineage_flags(
     metadata: dict | None,
-) -> tuple[bool, str | None, str | None]:
+) -> tuple[str | None, str | None]:
     payload = metadata or {}
     return (
-        bool(payload.get("is_current", True)),
         payload.get("replaces_artifact_id"),
         payload.get("superseded_by_artifact_id"),
     )
@@ -62,7 +57,7 @@ def _artifact_lineage_flags(
 
 def _history_sort_key(item: dict) -> tuple[bool, bool, str]:
     return (
-        bool(item.get("is_current", True)),
+        not bool(item.get("superseded_by_artifact_id")),
         item.get("capability") == "outline",
         item.get("updated_at") or "",
     )
@@ -97,8 +92,6 @@ async def get_session_artifact_history(
             "session_artifact_groups": [],
             "artifact_id": None,
             "based_on_version_id": None,
-            "current_version_id": None,
-            "upstream_updated": False,
             "artifact_anchor": build_artifact_anchor(session_id, None),
         }
 
@@ -108,24 +101,7 @@ async def get_session_artifact_history(
         order={"updatedAt": "desc"},
         select=_ARTIFACT_HISTORY_SELECT,
     )
-    if hasattr(db, "project") and hasattr(db.project, "find_unique"):
-        artifacts, project = await asyncio.gather(
-            artifact_query,
-            find_unique_with_select_fallback(
-                model=db.project,
-                where={"id": project_id},
-                select={"currentVersionId": True},
-            ),
-        )
-    elif hasattr(db, "get_project"):
-        artifacts, project = await asyncio.gather(
-            artifact_query,
-            db.get_project(project_id),
-        )
-    else:
-        artifacts = await artifact_query
-        project = None
-    current_version_id = getattr(project, "currentVersionId", None) if project else None
+    artifacts = await artifact_query
 
     history_items: list[dict] = []
     grouped: dict[str, list[dict]] = {}
@@ -136,8 +112,8 @@ async def get_session_artifact_history(
             artifact_type=getattr(artifact, "type", ""),
             metadata=metadata,
         )
-        is_current, replaces_artifact_id, superseded_by_artifact_id = (
-            _artifact_lineage_flags(metadata)
+        replaces_artifact_id, superseded_by_artifact_id = _artifact_lineage_flags(
+            metadata
         )
         item = {
             "artifact_id": artifact.id,
@@ -149,13 +125,6 @@ async def get_session_artifact_history(
                 metadata=metadata,
             ),
             "based_on_version_id": getattr(artifact, "basedOnVersionId", None),
-            "current_version_id": current_version_id,
-            "upstream_updated": bool(
-                getattr(artifact, "basedOnVersionId", None)
-                and current_version_id
-                and getattr(artifact, "basedOnVersionId", None) != current_version_id
-            ),
-            "is_current": is_current,
             "replaces_artifact_id": replaces_artifact_id,
             "superseded_by_artifact_id": superseded_by_artifact_id,
             "artifact_anchor": build_artifact_anchor(session_id, artifact),
@@ -178,7 +147,7 @@ async def get_session_artifact_history(
     for items in grouped.values():
         items.sort(
             key=lambda item: (
-                bool(item.get("is_current", True)),
+                not bool(item.get("superseded_by_artifact_id")),
                 item.get("updated_at") or "",
             ),
             reverse=True,
@@ -200,13 +169,6 @@ async def get_session_artifact_history(
         "artifact_id": latest_artifact.get("artifact_id") if latest_artifact else None,
         "based_on_version_id": (
             latest_artifact.get("based_on_version_id") if latest_artifact else None
-        ),
-        "current_version_id": current_version_id,
-        "upstream_updated": bool(
-            latest_artifact
-            and latest_artifact.get("based_on_version_id")
-            and current_version_id
-            and latest_artifact.get("based_on_version_id") != current_version_id
         ),
         "artifact_anchor": (
             latest_artifact.get("artifact_anchor")

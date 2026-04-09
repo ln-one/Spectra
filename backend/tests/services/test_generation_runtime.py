@@ -68,12 +68,6 @@ async def test_persist_generation_artifacts_returns_download_urls():
                 )
             )
         ),
-        create_artifact=AsyncMock(
-            side_effect=[
-                SimpleNamespace(id="artifact-ppt"),
-                SimpleNamespace(id="artifact-doc"),
-            ]
-        ),
     )
     context = SimpleNamespace(
         task_id="task-1",
@@ -84,14 +78,29 @@ async def test_persist_generation_artifacts_returns_download_urls():
         baseline_id="prompt-baseline-v1",
     )
 
-    output_urls = await persist_generation_artifacts(
-        db_service=db_service,
-        context=context,
-        artifact_paths={
-            "pptx": "/tmp/a.pptx",
-            "docx": "/tmp/a.docx",
-        },
-    )
+    with (
+        patch(
+            "services.project_space_service.project_space_service.get_project_artifacts",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact",
+            new=AsyncMock(
+                side_effect=[
+                    SimpleNamespace(id="artifact-ppt"),
+                    SimpleNamespace(id="artifact-doc"),
+                ]
+            ),
+        ) as mock_create_artifact,
+    ):
+        output_urls = await persist_generation_artifacts(
+            db_service=db_service,
+            context=context,
+            artifact_paths={
+                "pptx": "/tmp/a.pptx",
+                "docx": "/tmp/a.docx",
+            },
+        )
 
     assert output_urls == {
         "pptx": "/api/v1/projects/p-1/artifacts/artifact-ppt/download",
@@ -105,7 +114,7 @@ async def test_persist_generation_artifacts_returns_download_urls():
             "projectId": True,
         },
     )
-    create_calls = db_service.create_artifact.await_args_list
+    create_calls = mock_create_artifact.await_args_list
     assert create_calls[0].kwargs["metadata"]["retrieval_mode"] == "strict_sources"
     assert (
         create_calls[0].kwargs["metadata"]["policy_version"]
@@ -128,12 +137,6 @@ async def test_persist_generation_artifacts_partial_failure_keeps_success_output
                 )
             )
         ),
-        create_artifact=AsyncMock(
-            side_effect=[
-                RuntimeError("pptx persist failed"),
-                SimpleNamespace(id="artifact-doc"),
-            ]
-        ),
     )
     context = SimpleNamespace(
         task_id="task-1",
@@ -144,14 +147,29 @@ async def test_persist_generation_artifacts_partial_failure_keeps_success_output
         baseline_id="prompt-baseline-v1",
     )
 
-    output_urls = await persist_generation_artifacts(
-        db_service=db_service,
-        context=context,
-        artifact_paths={
-            "pptx": "/tmp/a.pptx",
-            "docx": "/tmp/a.docx",
-        },
-    )
+    with (
+        patch(
+            "services.project_space_service.project_space_service.get_project_artifacts",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact",
+            new=AsyncMock(
+                side_effect=[
+                    RuntimeError("pptx persist failed"),
+                    SimpleNamespace(id="artifact-doc"),
+                ]
+            ),
+        ),
+    ):
+        output_urls = await persist_generation_artifacts(
+            db_service=db_service,
+            context=context,
+            artifact_paths={
+                "pptx": "/tmp/a.pptx",
+                "docx": "/tmp/a.docx",
+            },
+        )
 
     assert output_urls == {
         "docx": "/api/v1/projects/p-1/artifacts/artifact-doc/download",
@@ -172,7 +190,6 @@ async def test_persist_generation_artifacts_word_updates_run_trace_contract():
                 )
             )
         ),
-        create_artifact=AsyncMock(return_value=SimpleNamespace(id="artifact-doc")),
     )
     context = SimpleNamespace(
         task_id="task-1",
@@ -184,10 +201,20 @@ async def test_persist_generation_artifacts_word_updates_run_trace_contract():
         tool_type="word_generate",
     )
 
-    with patch(
-        "services.task_executor.runtime_helpers.update_session_run",
-        new=AsyncMock(),
-    ) as mock_update_run:
+    with (
+        patch(
+            "services.task_executor.runtime_helpers.update_session_run",
+            new=AsyncMock(),
+        ) as mock_update_run,
+        patch(
+            "services.project_space_service.project_space_service.get_project_artifacts",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "services.project_space_service.project_space_service.create_artifact",
+            new=AsyncMock(return_value=SimpleNamespace(id="artifact-doc")),
+        ) as mock_create_artifact,
+    ):
         output_urls = await persist_generation_artifacts(
             db_service=db_service,
             context=context,
@@ -197,7 +224,7 @@ async def test_persist_generation_artifacts_word_updates_run_trace_contract():
     assert output_urls == {
         "docx": "/api/v1/projects/p-1/artifacts/artifact-doc/download",
     }
-    create_kwargs = db_service.create_artifact.await_args.kwargs
+    create_kwargs = mock_create_artifact.await_args.kwargs
     metadata = create_kwargs["metadata"]
     assert create_kwargs["artifact_type"] == "docx"
     assert metadata["output_type"] == "word"

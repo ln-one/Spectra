@@ -557,8 +557,6 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert len(payload["session_artifacts"]) == 3
     assert payload["artifact_id"] == "art-outline-001"
     assert payload["based_on_version_id"] == "ver-002"
-    assert payload["current_version_id"] == "ver-003"
-    assert payload["upstream_updated"] is True
     assert payload["artifact_anchor"] == {
         "session_id": "s-001",
         "artifact_id": "art-outline-001",
@@ -567,16 +565,12 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert payload["session_artifacts"][0]["artifact_id"] == "art-outline-001"
     assert payload["session_artifacts"][0]["capability"] == "outline"
     assert payload["session_artifacts"][0]["based_on_version_id"] == "ver-002"
-    assert payload["session_artifacts"][0]["current_version_id"] == "ver-003"
-    assert payload["session_artifacts"][0]["upstream_updated"] is True
-    assert payload["session_artifacts"][0]["is_current"] is True
     assert payload["session_artifacts"][0]["title"] == "outline-art-outl"
     ppt_item = next(
         item
         for item in payload["session_artifacts"]
         if item["artifact_id"] == "art-ppt-001"
     )
-    assert ppt_item["is_current"] is False
     assert ppt_item["superseded_by_artifact_id"] == "art-ppt-002"
 
     group_map = {
@@ -586,7 +580,6 @@ async def test_get_session_snapshot_includes_grouped_session_artifacts():
     assert set(group_map.keys()) == {"outline", "ppt", "summary"}
     assert group_map["outline"][0]["artifact_id"] == "art-outline-001"
     assert group_map["ppt"][0]["artifact_id"] == "art-ppt-001"
-    assert group_map["ppt"][0]["is_current"] is False
     assert group_map["summary"][0]["artifact_id"] == "art-summary-001"
 
     db.artifact.find_many.assert_awaited_once_with(
@@ -637,9 +630,6 @@ async def test_get_session_snapshot_prefers_latest_current_artifact_for_anchor()
         generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
         artifact=SimpleNamespace(find_many=AsyncMock(return_value=artifacts)),
         candidatechange=SimpleNamespace(find_first=AsyncMock(return_value=None)),
-        get_project=AsyncMock(
-            return_value=SimpleNamespace(id="p-001", currentVersionId="ver-003")
-        ),
     )
     service = GenerationSessionService(db=db)
     service._guard.get_allowed_actions = Mock(return_value=["export"])
@@ -653,7 +643,6 @@ async def test_get_session_snapshot_prefers_latest_current_artifact_for_anchor()
         "based_on_version_id": "ver-002",
     }
     assert payload["session_artifacts"][0]["artifact_id"] == "art-current-new"
-    assert payload["session_artifacts"][0]["is_current"] is True
 
 
 @pytest.mark.anyio
@@ -661,9 +650,6 @@ async def test_get_session_snapshot_handles_missing_artifact_model():
     session = _fake_session(state=GenerationState.SUCCESS.value)
     db = SimpleNamespace(
         generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
-        get_project=AsyncMock(
-            return_value=SimpleNamespace(id="p-001", currentVersionId="ver-003")
-        ),
     )
     service = GenerationSessionService(db=db)
     service._guard.get_allowed_actions = Mock(return_value=["export"])
@@ -672,8 +658,6 @@ async def test_get_session_snapshot_handles_missing_artifact_model():
 
     assert payload["artifact_id"] is None
     assert payload["based_on_version_id"] is None
-    assert payload["current_version_id"] is None
-    assert payload["upstream_updated"] is False
     assert payload["artifact_anchor"] == {
         "session_id": "s-001",
         "artifact_id": None,
@@ -785,8 +769,6 @@ async def test_get_session_snapshot_rejects_inconsistent_artifact_anchor():
                 "session_artifact_groups": [],
                 "artifact_id": "a-999",
                 "based_on_version_id": "ver-999",
-                "current_version_id": None,
-                "upstream_updated": False,
                 "artifact_anchor": {
                     "session_id": "s-001",
                     "artifact_id": "a-001",
@@ -807,7 +789,6 @@ async def test_get_session_snapshot_fallbacks_when_artifact_select_not_supported
     session = _fake_session(state=GenerationState.SUCCESS.value)
     now = datetime.now(timezone.utc)
     artifact_calls: list[dict] = []
-    project_calls: list[dict] = []
 
     async def _artifact_find_many(**kwargs):
         artifact_calls.append(kwargs)
@@ -826,20 +807,9 @@ async def test_get_session_snapshot_fallbacks_when_artifact_select_not_supported
             )
         ]
 
-    async def _project_find_unique(**kwargs):
-        project_calls.append(kwargs)
-        if "select" in kwargs:
-            raise TypeError(
-                "ProjectActions.find_unique() got an unexpected keyword argument 'select'"
-            )
-        return SimpleNamespace(id="p-001", currentVersionId="ver-009")
-
     db = SimpleNamespace(
         generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
         artifact=SimpleNamespace(find_many=AsyncMock(side_effect=_artifact_find_many)),
-        project=SimpleNamespace(
-            find_unique=AsyncMock(side_effect=_project_find_unique)
-        ),
         candidatechange=SimpleNamespace(find_first=AsyncMock(return_value=None)),
     )
     service = GenerationSessionService(db=db)
@@ -848,13 +818,9 @@ async def test_get_session_snapshot_fallbacks_when_artifact_select_not_supported
     payload = await service.get_session_snapshot(session_id="s-001", user_id="u-001")
 
     assert payload["artifact_id"] == "art-ppt-001"
-    assert payload["current_version_id"] == "ver-009"
     assert len(artifact_calls) == 2
     assert "select" in artifact_calls[0]
     assert "select" not in artifact_calls[1]
-    assert len(project_calls) == 2
-    assert "select" in project_calls[0]
-    assert "select" not in project_calls[1]
 
 
 @pytest.mark.anyio
@@ -1143,11 +1109,6 @@ async def test_get_session_preview_snapshot_uses_lightweight_queries():
                 return_value=SimpleNamespace(id="a-123", basedOnVersionId="ver-001")
             )
         ),
-        project=SimpleNamespace(
-            find_unique=AsyncMock(
-                return_value=SimpleNamespace(currentVersionId="ver-009")
-            )
-        ),
     )
     service = GenerationSessionService(db=db)
 
@@ -1159,8 +1120,6 @@ async def test_get_session_preview_snapshot_uses_lightweight_queries():
     assert payload["session"]["task_id"] == "task-123"
     assert payload["artifact_id"] == "a-123"
     assert payload["based_on_version_id"] == "ver-001"
-    assert payload["current_version_id"] == "ver-009"
-    assert payload["upstream_updated"] is True
     assert payload["result"]["ppt_url"] == session.pptUrl
     assert payload["result"]["word_url"] == session.wordUrl
     session_lookup = db.generationsession.find_unique.await_args.kwargs
@@ -1188,7 +1147,6 @@ async def test_get_session_preview_snapshot_gracefully_handles_missing_artifacts
     db = SimpleNamespace(
         generationsession=SimpleNamespace(find_unique=AsyncMock(return_value=session)),
         generationtask=SimpleNamespace(find_first=AsyncMock(return_value=None)),
-        get_project=AsyncMock(return_value=SimpleNamespace(currentVersionId="ver-002")),
     )
     service = GenerationSessionService(db=db)
 
@@ -1199,8 +1157,6 @@ async def test_get_session_preview_snapshot_gracefully_handles_missing_artifacts
 
     assert payload["artifact_id"] is None
     assert payload["based_on_version_id"] is None
-    assert payload["current_version_id"] == "ver-002"
-    assert payload["upstream_updated"] is False
     assert payload["result"] is None
 
 

@@ -19,16 +19,12 @@ export async function getMembers(
   projectId: string
 ): Promise<ProjectMembersResponse> {
   if (MOCK_MODE) {
-    return {
-      success: true,
-      data: { members: [createMockMember(projectId)] },
-      message: "mock members",
-    };
+    return { members: [createMockMember(projectId)] };
   }
   const result = await sdkClient.GET("/api/v1/projects/{project_id}/members", {
     params: { path: { project_id: projectId } },
   });
-  return unwrap<ProjectMembersResponse>(result);
+  return await unwrap<ProjectMembersResponse>(result);
 }
 
 export async function addMember(
@@ -37,28 +33,24 @@ export async function addMember(
 ): Promise<ProjectMemberResponse> {
   if (MOCK_MODE) {
     return {
-      success: true,
-      data: {
-        member: {
-          id: `member_mock_${Date.now()}`,
-          project_id: projectId,
-          user_id: data.user_id,
-          role: data.role ?? "viewer",
-          permissions: data.permissions ?? { can_view: true },
-          status: "active",
-          created_at: new Date().toISOString(),
-        },
+      member: {
+        id: `member_mock_${Date.now()}`,
+        projectId,
+        userId: data.user_id,
+        role: data.role ?? "viewer",
+        permissions: data.permissions ?? { can_view: true },
+        status: "active",
+        createdAt: new Date().toISOString(),
       },
-      message: "mock add member",
     };
   }
   const headers = withIdempotency({}, true);
   const result = await sdkClient.POST("/api/v1/projects/{project_id}/members", {
     params: { path: { project_id: projectId } },
-    body: data,
+    body: data as never,
     headers,
   });
-  return unwrap<ProjectMemberResponse>(result);
+  return await unwrap<ProjectMemberResponse>(result);
 }
 
 export async function updateMember(
@@ -68,16 +60,12 @@ export async function updateMember(
 ): Promise<ProjectMemberResponse> {
   if (MOCK_MODE) {
     return {
-      success: true,
-      data: {
-        member: {
-          ...createMockMember(projectId),
-          id: memberId,
-          role: data.role ?? "viewer",
-          permissions: data.permissions ?? { can_view: true },
-        },
+      member: {
+        ...createMockMember(projectId),
+        id: memberId,
+        role: data.role ?? "viewer",
+        permissions: data.permissions ?? { can_view: true },
       },
-      message: "mock update member",
     };
   }
   const headers = withIdempotency({}, true);
@@ -85,11 +73,11 @@ export async function updateMember(
     "/api/v1/projects/{project_id}/members/{member_id}",
     {
       params: { path: { project_id: projectId, member_id: memberId } },
-      body: data,
+      body: data as never,
       headers,
     }
   );
-  return unwrap<ProjectMemberResponse>(result);
+  return await unwrap<ProjectMemberResponse>(result);
 }
 
 export async function deleteMember(
@@ -97,11 +85,7 @@ export async function deleteMember(
   memberId: string
 ): Promise<SimpleSuccessResponse> {
   if (MOCK_MODE) {
-    return {
-      success: true,
-      data: {},
-      message: "mock delete member",
-    };
+    return { ok: true };
   }
   const response = await apiFetch(
     `/api/v1/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
@@ -112,7 +96,7 @@ export async function deleteMember(
     try {
       payload = await response.json();
     } catch {
-      // Keep fallback payload.
+      // Keep the default payload when the body is not JSON.
     }
     throw toApiError(payload, response.status);
   }

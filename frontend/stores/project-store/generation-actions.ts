@@ -271,8 +271,7 @@ export function createGenerationActions({
         const response = await projectSpaceApi.getArtifacts(projectId, {
           session_id: effectiveSessionId,
         });
-        const artifacts =
-          ((response?.data?.artifacts ?? []) as Artifact[]) || [];
+        const artifacts = ((response?.artifacts ?? []) as Artifact[]) || [];
         const sessionHistoryByTool = groupArtifactsByTool(artifacts);
         const sessionArtifacts = Object.values(sessionHistoryByTool)
           .flat()

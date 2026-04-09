@@ -1,16 +1,18 @@
-import type { components } from "@/lib/sdk/types";
+import type {
+  ArtifactRecord as Artifact,
+  CandidateChangeRecord as CandidateChange,
+  ProjectMember,
+  ProjectReference,
+  ProjectVersion,
+} from "@/lib/sdk/project-space/types";
 
-export type ProjectReference = components["schemas"]["ProjectReference"] & {
-  target_project_name?: string | null;
-  effective_target_version_id?: string | null;
-  pinned_version_id?: string | null;
-  upstream_current_version_id?: string | null;
-  upstream_updated?: boolean | null;
+export type {
+  Artifact,
+  CandidateChange,
+  ProjectMember,
+  ProjectReference,
+  ProjectVersion,
 };
-export type ProjectVersion = components["schemas"]["ProjectVersion"];
-export type Artifact = components["schemas"]["Artifact"];
-export type ProjectMember = components["schemas"]["ProjectMember"];
-export type CandidateChange = components["schemas"]["CandidateChange"];
 
 export interface AvailableLibraryProject {
   id: string;

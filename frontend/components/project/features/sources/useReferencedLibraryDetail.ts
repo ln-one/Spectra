@@ -81,7 +81,15 @@ export function useReferencedLibraryDetail() {
   }, []);
 
   const loadDetail = useCallback(async (target: LibraryDetailTarget) => {
-    const targetProjectId = target.reference.target_project_id;
+    const targetProjectId = target.reference.targetProjectId;
+    if (!targetProjectId) {
+      setSessions([]);
+      setHistoryByTool([]);
+      setReferences([]);
+      setSourceFiles([]);
+      setError("引用库缺少 target project identity。");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -110,7 +118,7 @@ export function useReferencedLibraryDetail() {
         if (projectName) {
           setSelectedLibrary((current) => {
             if (!current) return current;
-            if (current.reference.target_project_id !== targetProjectId) {
+            if (current.reference.targetProjectId !== targetProjectId) {
               return current;
             }
             if (current.displayName === projectName) return current;
@@ -130,7 +138,7 @@ export function useReferencedLibraryDetail() {
       }
 
       if (artifactsResult.status === "fulfilled") {
-        const artifacts = artifactsResult.value.data?.artifacts ?? [];
+        const artifacts = artifactsResult.value.artifacts ?? [];
         const grouped = groupArtifactsByTool(artifacts);
         setHistoryByTool(
           Object.entries(grouped).filter(([, items]) => items.length > 0)
@@ -141,14 +149,12 @@ export function useReferencedLibraryDetail() {
       }
 
       if (referencesResult.status === "fulfilled") {
-        const items = (referencesResult.value.data?.references ?? []).sort(
-          (a, b) => {
-            if (a.relation_type !== b.relation_type) {
-              return a.relation_type === "base" ? -1 : 1;
-            }
-            return (a.priority ?? 999) - (b.priority ?? 999);
+        const items = (referencesResult.value.references ?? []).sort((a, b) => {
+          if (a.relationType !== b.relationType) {
+            return a.relationType === "base" ? -1 : 1;
           }
-        );
+          return (a.priority ?? 999) - (b.priority ?? 999);
+        });
         setReferences(items);
       } else {
         setReferences([]);

@@ -55,7 +55,7 @@ function formatTime(value?: string): string {
   });
 }
 
-function relationLabel(value?: ProjectReference["relation_type"]): string {
+function relationLabel(value?: ProjectReference["relationType"]): string {
   if (value === "base") return "主基底";
   if (value === "auxiliary") return "辅助引用";
   return "-";
@@ -139,12 +139,8 @@ export function ReferencedLibraryDetailPanel({
   onClose,
   onRefresh,
 }: ReferencedLibraryDetailPanelProps) {
-  const effectiveVersion =
-    reference?.effective_target_version_id ||
-    reference?.pinned_version_id ||
-    reference?.upstream_current_version_id ||
-    "-";
-  const showUpstreamWarning = !!reference?.upstream_updated;
+  const effectiveVersion = reference?.pinnedVersionId || "-";
+  const showUpstreamWarning = false;
   const totalHistoryCount = historyByTool.reduce(
     (count, [, items]) => count + items.length,
     0
@@ -190,9 +186,9 @@ export function ReferencedLibraryDetailPanel({
                       </h2>
                       <p
                         className="mt-1 truncate font-mono text-xs text-zinc-500"
-                        title={reference?.target_project_id || "-"}
+                        title={reference?.targetProjectId || "-"}
                       >
-                        ID: {reference?.target_project_id || "-"}
+                        ID: {reference?.targetProjectId || "-"}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -232,7 +228,7 @@ export function ReferencedLibraryDetailPanel({
                   <div className="flex flex-wrap items-center gap-1.5 text-sm">
                     <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-blue-700">
                       <Link2 className="h-3 w-3" />
-                      {relationLabel(reference?.relation_type)}
+                      {relationLabel(reference?.relationType)}
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-700">
                       <Pin className="h-3 w-3" />
@@ -268,7 +264,7 @@ export function ReferencedLibraryDetailPanel({
                         创建时间
                       </p>
                       <p className="mt-0.5 text-sm font-medium text-zinc-700">
-                        {formatTime(reference?.created_at)}
+                        {formatTime(reference?.createdAt)}
                       </p>
                     </div>
                     <div className="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2">
@@ -276,7 +272,7 @@ export function ReferencedLibraryDetailPanel({
                         最近同步
                       </p>
                       <p className="mt-0.5 text-sm font-medium text-zinc-700">
-                        {formatTime(reference?.updated_at)}
+                        {formatTime(reference?.updatedAt)}
                       </p>
                     </div>
                   </div>
@@ -394,11 +390,11 @@ export function ReferencedLibraryDetailPanel({
                               className="rounded-lg border border-zinc-200/70 bg-zinc-50 px-2 py-1.5 text-sm"
                             >
                               <span className="font-medium text-zinc-800">
-                                {item.target_project_name?.trim() ||
-                                  item.target_project_id}
+                                {item.targetProjectName?.trim() ||
+                                  item.targetProjectId}
                               </span>
                               <span className="ml-1 text-zinc-500">
-                                · {item.relation_type} · {item.mode}
+                                · {item.relationType} · {item.mode}
                               </span>
                             </div>
                           ))

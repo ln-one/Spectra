@@ -19,7 +19,6 @@ from .card_execution_runtime_helpers import (
     artifact_metadata_dict,
     artifact_result_payload,
     create_replacement_artifact,
-    get_current_version_id,
     load_artifact_content,
     validate_simulator_turn_artifact,
     validate_source_artifact,
@@ -147,14 +146,10 @@ async def execute_studio_card_artifact_request(
         content=artifact_content,
         artifact_mode="replace",
     )
-    if (
-        card_id == "word_document"
-        and source_artifact_id
-        and hasattr(project_space_service.db, "update_artifact_metadata")
-    ):
+    if card_id == "word_document" and source_artifact_id:
         try:
             current_metadata = artifact_metadata_dict(artifact)
-            await project_space_service.db.update_artifact_metadata(
+            await project_space_service.update_artifact_metadata(
                 artifact.id,
                 {
                     **current_metadata,
@@ -172,7 +167,6 @@ async def execute_studio_card_artifact_request(
         artifact=artifact,
         session_id=execution_session_id,
     )
-    current_version_id = await get_current_version_id(body.project_id)
     return StudioCardExecutionResult(
         card_id=card_id,
         readiness=preview.readiness,
@@ -181,10 +175,7 @@ async def execute_studio_card_artifact_request(
         session=(
             {"session_id": execution_session_id} if execution_session_id else None
         ),
-        artifact=artifact_result_payload(
-            artifact,
-            current_version_id=current_version_id,
-        ),
+        artifact=artifact_result_payload(artifact),
         run=run,
         request_preview=preview.initial_request,
     )
@@ -232,7 +223,6 @@ async def execute_studio_card_structured_refine(
         artifact=new_artifact,
         session_id=getattr(new_artifact, "sessionId", None) or body.session_id,
     )
-    current_version_id = await get_current_version_id(body.project_id)
     return StudioCardExecutionResult(
         card_id=card_id,
         readiness=preview.readiness,
@@ -243,10 +233,7 @@ async def execute_studio_card_structured_refine(
             if (getattr(new_artifact, "sessionId", None) or body.session_id)
             else None
         ),
-        artifact=artifact_result_payload(
-            new_artifact,
-            current_version_id=current_version_id,
-        ),
+        artifact=artifact_result_payload(new_artifact),
         run=run,
         request_preview=preview.refine_request,
     )
@@ -282,7 +269,6 @@ async def execute_classroom_simulator_turn_artifact(
         user_id=user_id,
         content=updated_content,
     )
-    current_version_id = await get_current_version_id(body.project_id)
     normalized_turn_result = dict(turn_result or {})
     if not normalized_turn_result.get("student_profile"):
         normalized_turn_result["student_profile"] = str(
@@ -306,10 +292,7 @@ async def execute_classroom_simulator_turn_artifact(
             normalized_turn_result["score"] = 80
 
     return (
-        artifact_result_payload(
-            new_artifact,
-            current_version_id=current_version_id,
-        ),
+        artifact_result_payload(new_artifact),
         StudioCardTurnResult(**normalized_turn_result),
     )
 

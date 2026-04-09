@@ -125,7 +125,7 @@ function visibilityMeta(visibility?: string) {
   };
 }
 
-function relationLabel(value: ProjectReference["relation_type"]) {
+function relationLabel(value: ProjectReference["relationType"]) {
   return value === "base" ? "主基底" : "辅助引用";
 }
 
@@ -198,7 +198,7 @@ export function ReferencesTab({
       new Set(
         references
           .filter((reference) => reference.status === "active")
-          .map((reference) => reference.target_project_id)
+          .map((reference) => reference.targetProjectId)
       ),
     [references]
   );
@@ -207,7 +207,7 @@ export function ReferencesTab({
     () =>
       references.some(
         (reference) =>
-          reference.status === "active" && reference.relation_type === "base"
+          reference.status === "active" && reference.relationType === "base"
       ),
     [references]
   );
@@ -311,21 +311,19 @@ export function ReferencesTab({
                     <div className="min-w-0">
                       <p
                         className="truncate text-sm font-semibold text-zinc-800"
-                        title={
-                          item.target_project_name || item.target_project_id
-                        }
+                        title={item.targetProjectName || item.targetProjectId}
                       >
-                        {item.target_project_name || item.target_project_id}
+                        {item.targetProjectName || item.targetProjectId}
                       </p>
                       <p
                         className="mt-0.5 truncate text-xs text-zinc-500"
-                        title={item.target_project_id}
+                        title={item.targetProjectId}
                       >
-                        {item.target_project_id}
+                        {item.targetProjectId}
                       </p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
-                          {relationLabel(item.relation_type)}
+                          {relationLabel(item.relationType)}
                         </span>
                         <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                           {modeLabel(item.mode)}
@@ -659,7 +657,7 @@ export function ReferencesTab({
                     onChange={(event) =>
                       setNewReferenceTarget(event.target.value)
                     }
-                    placeholder="输入要引入的 target_project_id"
+                    placeholder="输入库 ID / handle"
                     className="h-10 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
                   />
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_132px]">
@@ -766,7 +764,7 @@ export function ReferencesTab({
             <Input
               value={libraryKeyword}
               onChange={(event) => setLibraryKeyword(event.target.value)}
-              placeholder="按名称或 ID 过滤库"
+              placeholder="按名称、handle 或 ID 过滤库"
               className="mb-3 h-9 rounded-xl border-zinc-200/80 bg-white/70 backdrop-blur-md"
             />
 
@@ -925,18 +923,18 @@ export function ReferencesTab({
                 <p
                   className="truncate text-sm font-semibold text-zinc-800"
                   title={
-                    editingReference.target_project_name ||
-                    editingReference.target_project_id
+                    editingReference.targetProjectName ||
+                    editingReference.targetProjectId
                   }
                 >
-                  {editingReference.target_project_name ||
-                    editingReference.target_project_id}
+                  {editingReference.targetProjectName ||
+                    editingReference.targetProjectId}
                 </p>
                 <p
                   className="truncate text-xs text-zinc-500"
-                  title={editingReference.target_project_id}
+                  title={editingReference.targetProjectId}
                 >
-                  {editingReference.target_project_id}
+                  {editingReference.targetProjectId}
                 </p>
               </div>
             ) : null}

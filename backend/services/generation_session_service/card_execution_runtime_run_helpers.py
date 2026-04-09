@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 
 from schemas.studio_cards import StudioCardExecutionPreviewRequest
+from services.database import db_service
 from services.generation_session_service.event_store import append_event
 from services.generation_session_service.session_history import build_run_trace_payload
 from services.platform.generation_event_constants import GenerationEventType
-from services.project_space_service import project_space_service
 from utils.exceptions import APIException, ErrorCode
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ async def create_artifact_run(
         )
     else:
         run = await create_session_run(
-            db=project_space_service.db.db,
+            db=db_service.db,
             session_id=getattr(artifact, "sessionId", None) or session_id,
             project_id=body.project_id,
             tool_type=f"studio_card:{card_id}",
@@ -53,7 +53,7 @@ async def create_artifact_run(
     run_for_response = run
     if run:
         generating_run = await update_session_run(
-            db=project_space_service.db.db,
+            db=db_service.db,
             run_id=run.id,
             status=RUN_STATUS_PROCESSING,
             step=RUN_STEP_GENERATE,
@@ -61,7 +61,7 @@ async def create_artifact_run(
         if generating_run:
             run_for_response = generating_run
         finalized_run = await update_session_run(
-            db=project_space_service.db.db,
+            db=db_service.db,
             run_id=run.id,
             status=RUN_STATUS_COMPLETED,
             step=RUN_STEP_COMPLETED,
@@ -69,35 +69,34 @@ async def create_artifact_run(
         )
         if finalized_run:
             run_for_response = finalized_run
-        if hasattr(project_space_service.db, "update_artifact_metadata"):
-            current_metadata = (
-                getattr(artifact, "metadata", None)
-                if isinstance(getattr(artifact, "metadata", None), dict)
-                else {}
-            )
-            run_id = getattr(run_for_response, "id", None) or getattr(run, "id", None)
-            run_no = getattr(run_for_response, "runNo", None) or getattr(
-                run, "runNo", None
-            )
-            run_title = getattr(run_for_response, "title", None) or getattr(
-                run, "title", None
-            )
-            tool_type = getattr(run_for_response, "toolType", None) or getattr(
-                run, "toolType", None
-            )
-            await project_space_service.db.update_artifact_metadata(
-                artifact.id,
-                {
-                    **current_metadata,
-                    "run_id": run_id,
-                    "run_no": run_no,
-                    "run_title": run_title,
-                    "tool_type": tool_type,
-                },
-            )
+        current_metadata = (
+            getattr(artifact, "metadata", None)
+            if isinstance(getattr(artifact, "metadata", None), dict)
+            else {}
+        )
+        run_id = getattr(run_for_response, "id", None) or getattr(run, "id", None)
+        run_no = getattr(run_for_response, "runNo", None) or getattr(run, "runNo", None)
+        run_title = getattr(run_for_response, "title", None) or getattr(
+            run, "title", None
+        )
+        tool_type = getattr(run_for_response, "toolType", None) or getattr(
+            run, "toolType", None
+        )
+        from services.project_space_service import project_space_service
+
+        await project_space_service.update_artifact_metadata(
+            artifact.id,
+            {
+                **current_metadata,
+                "run_id": run_id,
+                "run_no": run_no,
+                "run_title": run_title,
+                "tool_type": tool_type,
+            },
+        )
         spawn_background_task(
             generate_semantic_run_title(
-                db=project_space_service.db.db,
+                db=db_service.db,
                 run_id=run.id,
                 tool_type=run.toolType,
                 snapshot=body.config,
@@ -120,7 +119,7 @@ async def load_valid_studio_card_run(
     project_id: str,
     expected_session_id: str | None,
 ):
-    run_model = getattr(project_space_service.db.db, "sessionrun", None)
+    run_model = getattr(db_service.db, "sessionrun", None)
     existing_run = (
         await run_model.find_unique(where={"id": run_id})
         if run_model is not None and hasattr(run_model, "find_unique")
@@ -166,7 +165,7 @@ async def promote_requested_run_to_generating(
         expected_session_id=session_id,
     )
     await update_session_run(
-        db=project_space_service.db.db,
+        db=db_service.db,
         run_id=run.id,
         status=RUN_STATUS_PROCESSING,
         step=RUN_STEP_GENERATE,
@@ -183,7 +182,7 @@ async def resolve_execution_session_id(
     if not normalized:
         return None
 
-    db_handle = getattr(project_space_service.db, "db", None)
+    db_handle = getattr(db_service, "db", None)
     if db_handle is None:
         return normalized
     session_model = getattr(db_handle, "generationsession", None)
@@ -219,7 +218,7 @@ async def append_card_execution_completed_event(
     if not session_id:
         return
 
-    db_handle = getattr(project_space_service.db, "db", None)
+    db_handle = getattr(db_service, "db", None)
     if db_handle is None:
         return
 

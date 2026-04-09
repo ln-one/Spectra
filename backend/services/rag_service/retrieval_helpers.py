@@ -88,7 +88,16 @@ def build_rag_results(
 
 async def list_active_reference_targets(project_id: str) -> list[dict]:
     try:
-        references = await db_service.get_project_references(project_id)
+        from services.project_space_service import project_space_service
+
+        project = await db_service.get_project(project_id)
+        project_owner_id = getattr(project, "userId", None) if project else None
+        if not project_owner_id:
+            return []
+        references = await project_space_service.get_project_references(
+            project_id=project_id,
+            user_id=project_owner_id,
+        )
     except ClientNotConnectedError:
         return []
     except Exception as exc:

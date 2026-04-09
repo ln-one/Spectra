@@ -1,9 +1,7 @@
 """Artifact routes for Project Space."""
 
-import asyncio
 import logging
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -32,11 +30,6 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def _artifact_sort_key(artifact) -> tuple[bool, datetime]:
-    updated_at = artifact.updated_at or datetime.min
-    return (not artifact.is_current, updated_at)
-
-
 @router.get(
     "/{project_id}/artifacts",
     response_model=ArtifactsResponse,
@@ -59,29 +52,16 @@ async def get_project_artifacts(
         await project_space_service.check_project_permission(
             project_id, user_id, ProjectPermission.VIEW
         )
-        project, artifacts = await asyncio.gather(
-            project_space_service.db.get_project(project_id),
-            project_space_service.get_project_artifacts(
-                project_id,
-                type_filter=type.value if type else None,
-                visibility_filter=visibility.value if visibility else None,
-                owner_user_id_filter=owner_user_id,
-                based_on_version_id_filter=based_on_version_id,
-                session_id_filter=session_id,
-            ),
+        artifacts = await project_space_service.get_project_artifacts(
+            project_id,
+            type_filter=type.value if type else None,
+            visibility_filter=visibility.value if visibility else None,
+            owner_user_id_filter=owner_user_id,
+            based_on_version_id_filter=based_on_version_id,
+            session_id_filter=session_id,
         )
-        current_version_id = (
-            getattr(project, "currentVersionId", None) if project else None
-        )
-        serialized = [
-            to_artifact_model(artifact, current_version_id=current_version_id)
-            for artifact in artifacts
-        ]
-        serialized.sort(key=_artifact_sort_key)
         return ArtifactsResponse(
-            success=True,
-            data={"artifacts": serialized},
-            message="获取成果列表成功",
+            artifacts=[to_artifact_model(artifact) for artifact in artifacts]
         )
     except (NotFoundException, Exception) as exc:
         logger.error(f"get_project_artifacts error: {exc}")
@@ -107,19 +87,7 @@ async def get_artifact(
             raise NotFoundException(
                 f"Artifact {artifact_id} not found in project {project_id}"
             )
-        project = await project_space_service.db.get_project(project_id)
-        current_version_id = (
-            getattr(project, "currentVersionId", None) if project else None
-        )
-        return ArtifactResponse(
-            success=True,
-            data={
-                "artifact": to_artifact_model(
-                    artifact, current_version_id=current_version_id
-                )
-            },
-            message="获取成果详情成功",
-        )
+        return ArtifactResponse(artifact=to_artifact_model(artifact))
     except (NotFoundException, Exception) as exc:
         logger.error(f"get_artifact error: {exc}")
         raise
@@ -150,19 +118,7 @@ async def create_artifact(
             artifact_mode=body.mode,
         )
         logger.info(f"Created artifact {artifact.id} for project {project_id}")
-        project = await project_space_service.db.get_project(project_id)
-        current_version_id = (
-            getattr(project, "currentVersionId", None) if project else None
-        )
-        return ArtifactResponse(
-            success=True,
-            data={
-                "artifact": to_artifact_model(
-                    artifact, current_version_id=current_version_id
-                )
-            },
-            message="创建成果成功",
-        )
+        return ArtifactResponse(artifact=to_artifact_model(artifact))
     except (NotFoundException, Exception) as exc:
         logger.error(f"create_artifact error: {exc}")
         raise

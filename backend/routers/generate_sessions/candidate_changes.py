@@ -25,6 +25,13 @@ from utils.exceptions import (
 logger = logging.getLogger(__name__)
 
 
+def _artifact_timestamp_value(artifact) -> str:
+    return (
+        str(getattr(artifact, "updatedAt", None) or "").strip()
+        or str(getattr(artifact, "createdAt", None) or "").strip()
+    )
+
+
 async def resolve_session_artifact_binding(
     project_id: str,
     session_id: str,
@@ -55,7 +62,7 @@ async def resolve_session_artifact_binding(
         run_artifact_id = getattr(run, "artifactId", None)
         if not run_artifact_id:
             return None
-        artifact = await db_service.get_artifact(run_artifact_id)
+        artifact = await project_space_service.get_artifact(run_artifact_id)
         if not artifact or artifact.projectId != project_id:
             return None
         if artifact.sessionId and artifact.sessionId != session_id:
@@ -63,7 +70,7 @@ async def resolve_session_artifact_binding(
         return artifact
 
     if artifact_id:
-        artifact = await db_service.get_artifact(artifact_id)
+        artifact = await project_space_service.get_artifact(artifact_id)
         if not artifact or artifact.projectId != project_id:
             raise NotFoundException(
                 message=f"成果不存在: {artifact_id}",
@@ -76,10 +83,17 @@ async def resolve_session_artifact_binding(
             )
         return artifact
 
-    return await db_service.db.artifact.find_first(
-        where={"projectId": project_id, "sessionId": session_id},
-        order={"updatedAt": "desc"},
+    artifacts = await project_space_service.get_project_artifacts(
+        project_id=project_id,
+        session_id_filter=session_id,
     )
+    if not artifacts:
+        return None
+    return sorted(
+        artifacts,
+        key=_artifact_timestamp_value,
+        reverse=True,
+    )[0]
 
 
 def parse_candidate_change_payload(value, field_name: str) -> Optional[dict]:

@@ -1,5 +1,6 @@
 import time
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -101,7 +102,11 @@ async def test_search_keeps_project_shared_chunks_alongside_session_chunks(monke
 
     monkeypatch.setattr(
         retrieval.db_service,
-        "get_project_references",
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(userId="u-1")),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.project_space_service.get_project_references",
         _fake_get_project_references,
     )
 
@@ -129,7 +134,11 @@ async def test_search_combines_selected_file_filter_with_session_overlay(monkeyp
 
     monkeypatch.setattr(
         retrieval.db_service,
-        "get_project_references",
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(userId="u-1")),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.project_space_service.get_project_references",
         _fake_get_project_references,
     )
 
@@ -160,7 +169,9 @@ async def test_search_includes_base_reference_after_local_content(monkeypatch):
         _embedding=_FakeEmbedding(),
     )
 
-    async def _fake_get_project_references(_project_id):
+    async def _fake_get_project_references(*, project_id, user_id):
+        assert project_id == "p-001"
+        assert user_id == "u-1"
         return [
             SimpleNamespace(
                 targetProjectId="p-base",
@@ -173,7 +184,11 @@ async def test_search_includes_base_reference_after_local_content(monkeypatch):
 
     monkeypatch.setattr(
         retrieval.db_service,
-        "get_project_references",
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(userId="u-1")),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.project_space_service.get_project_references",
         _fake_get_project_references,
     )
 
@@ -203,7 +218,11 @@ async def test_search_reuses_collection_count_for_local_queries(monkeypatch):
 
     monkeypatch.setattr(
         retrieval.db_service,
-        "get_project_references",
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(userId="u-1")),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.project_space_service.get_project_references",
         _fake_get_project_references,
     )
 
@@ -237,12 +256,16 @@ async def test_search_skips_query_rewrite_by_default(monkeypatch):
 
     monkeypatch.delenv("RAG_ENABLE_QUERY_REWRITE", raising=False)
     monkeypatch.setattr(
+        retrieval.db_service,
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(userId="u-1")),
+    )
+    monkeypatch.setattr(
         "services.rag_service.query_rewriter.rewrite_query",
         _fake_rewrite,
     )
     monkeypatch.setattr(
-        retrieval.db_service,
-        "get_project_references",
+        "services.project_space_service.project_space_service.get_project_references",
         _fake_get_project_references,
     )
 
@@ -271,7 +294,9 @@ async def test_search_cross_rerank_timeout_falls_back_to_original_order(monkeypa
             time.sleep(0.05)
             return [(1, 1.0), (0, 0.8)]
 
-    async def _fake_get_project_references(_project_id):
+    async def _fake_get_project_references(*, project_id, user_id):
+        assert project_id == "p-001"
+        assert user_id == "u-1"
         return [
             SimpleNamespace(
                 targetProjectId="p-base",
@@ -286,7 +311,11 @@ async def test_search_cross_rerank_timeout_falls_back_to_original_order(monkeypa
     monkeypatch.setenv("RAG_CROSS_RERANK_TIMEOUT_SECONDS", "0.001")
     monkeypatch.setattr(
         retrieval.db_service,
-        "get_project_references",
+        "get_project",
+        AsyncMock(return_value=SimpleNamespace(userId="u-1")),
+    )
+    monkeypatch.setattr(
+        "services.project_space_service.project_space_service.get_project_references",
         _fake_get_project_references,
     )
     monkeypatch.setattr(

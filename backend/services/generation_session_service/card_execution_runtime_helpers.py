@@ -27,23 +27,13 @@ def supports_structured_refine(card_id: str) -> bool:
     return card_id in STRUCTURED_REFINE_ARTIFACT_TYPES
 
 
-def artifact_result_payload(
-    artifact,
-    *,
-    current_version_id: str | None = None,
-) -> dict:
+def artifact_result_payload(artifact) -> dict:
     based_on_version_id = artifact.basedOnVersionId
     return {
         "id": artifact.id,
         "project_id": artifact.projectId,
         "session_id": artifact.sessionId,
         "based_on_version_id": based_on_version_id,
-        "current_version_id": current_version_id,
-        "upstream_updated": bool(
-            based_on_version_id
-            and current_version_id
-            and based_on_version_id != current_version_id
-        ),
         "owner_user_id": artifact.ownerUserId,
         "type": artifact.type,
         "visibility": artifact.visibility,
@@ -105,11 +95,6 @@ async def load_artifact_content(artifact) -> dict:
     with open(storage_path, "r", encoding="utf-8") as handle:
         data = json.load(handle)
     return data if isinstance(data, dict) else {}
-
-
-async def get_current_version_id(project_id: str) -> str | None:
-    project = await project_space_service.db.get_project(project_id)
-    return getattr(project, "currentVersionId", None) if project else None
 
 
 async def create_replacement_artifact(

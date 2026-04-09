@@ -202,18 +202,19 @@ async def _resolve_ppt_artifact_title(
         max_chars=20,
     )
     existing_titles: set[str] = set()
-    if hasattr(db_service, "get_project_artifacts"):
-        try:
-            existing_artifacts = await db_service.get_project_artifacts(
-                project_id=project_id,
-                type_filter="pptx",
-            )
-        except Exception:
-            existing_artifacts = []
-        for item in existing_artifacts or []:
-            title = _extract_metadata_title(item)
-            if title:
-                existing_titles.add(title[:20])
+    try:
+        from services.project_space_service import project_space_service
+
+        existing_artifacts = await project_space_service.get_project_artifacts(
+            project_id=project_id,
+            type_filter="pptx",
+        )
+    except Exception:
+        existing_artifacts = []
+    for item in existing_artifacts or []:
+        title = _extract_metadata_title(item)
+        if title:
+            existing_titles.add(title[:20])
     return _next_title_with_suffix(base_title, existing_titles)
 
 
@@ -349,13 +350,15 @@ async def persist_generation_artifacts(
             )
         )
         try:
-            artifact = await db_service.create_artifact(
+            from services.project_space_service import project_space_service
+
+            artifact = await project_space_service.create_artifact(
                 project_id=project_id,
                 artifact_type=artifact_type,
                 visibility="private",
+                user_id=user_id,
                 session_id=context.session_id,
                 based_on_version_id=base_version_id,
-                owner_user_id=user_id,
                 storage_path=storage_path,
                 metadata={
                     "mode": "create",

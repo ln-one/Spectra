@@ -17,11 +17,7 @@ export async function getArtifacts(
   }
 ): Promise<ArtifactsResponse> {
   if (MOCK_MODE) {
-    return {
-      success: true,
-      data: { artifacts: createMockArtifacts(projectId) },
-      message: "mock artifacts",
-    };
+    return { artifacts: createMockArtifacts(projectId) };
   }
   const result = await sdkClient.GET(
     "/api/v1/projects/{project_id}/artifacts",
@@ -29,7 +25,7 @@ export async function getArtifacts(
       params: { path: { project_id: projectId }, query: params },
     }
   );
-  return unwrap<ArtifactsResponse>(result);
+  return await unwrap<ArtifactsResponse>(result);
 }
 
 export async function getArtifact(
@@ -40,11 +36,7 @@ export async function getArtifact(
     const hit =
       createMockArtifacts(projectId).find((a) => a.id === artifactId) ??
       createMockArtifacts(projectId)[0];
-    return {
-      success: true,
-      data: { artifact: hit },
-      message: "mock artifact detail",
-    };
+    return { artifact: hit };
   }
   const result = await sdkClient.GET(
     "/api/v1/projects/{project_id}/artifacts/{artifact_id}",
@@ -52,7 +44,7 @@ export async function getArtifact(
       params: { path: { project_id: projectId, artifact_id: artifactId } },
     }
   );
-  return unwrap<ArtifactResponse>(result);
+  return await unwrap<ArtifactResponse>(result);
 }
 
 export async function createArtifact(
@@ -61,37 +53,33 @@ export async function createArtifact(
 ): Promise<ArtifactResponse> {
   if (MOCK_MODE) {
     return {
-      success: true,
-      data: {
-        artifact: {
-          id: `art_mock_${Date.now()}`,
-          project_id: projectId,
-          session_id: data.session_id ?? null,
-          based_on_version_id: data.based_on_version_id ?? null,
-          owner_user_id: "mock-user",
-          type: data.type,
-          visibility: data.visibility ?? "private",
-          storage_path: undefined,
-          metadata: {
-            mode: data.mode ?? "create",
-            status: "completed",
-            output_type: data.type,
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+      artifact: {
+        id: `art_mock_${Date.now()}`,
+        projectId,
+        sessionId: data.session_id ?? null,
+        basedOnVersionId: data.based_on_version_id ?? null,
+        ownerUserId: "mock-user",
+        type: data.type,
+        visibility: data.visibility ?? "private",
+        storagePath: undefined,
+        metadata: {
+          mode: data.mode ?? "create",
+          status: "completed",
+          output_type: data.type,
         },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
-      message: "mock create artifact",
     };
   }
   const result = await sdkClient.POST(
     "/api/v1/projects/{project_id}/artifacts",
     {
       params: { path: { project_id: projectId } },
-      body: data,
+      body: data as never,
     }
   );
-  return unwrap<ArtifactResponse>(result);
+  return await unwrap<ArtifactResponse>(result);
 }
 
 export async function downloadArtifact(
@@ -112,7 +100,7 @@ export async function downloadArtifact(
     try {
       payload = await response.json();
     } catch {
-      // Keep the fallback payload when response body is not JSON.
+      // Keep the default payload when the body is not JSON.
     }
     throw toApiError(payload, response.status);
   }

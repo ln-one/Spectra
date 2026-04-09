@@ -1401,10 +1401,6 @@ async def test_execute_studio_card_creates_word_artifact(app, _as_user):
             "services.project_space_service.project_space_service.create_artifact_with_file",
             AsyncMock(return_value=artifact),
         ) as create_artifact_mock,
-        patch(
-            "services.project_space_service.project_space_service.db.get_project",
-            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
-        ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/word_document/execute",
@@ -1546,8 +1542,6 @@ async def test_execute_studio_card_creates_quiz_artifact(app, _as_user):
     assert result["resource_kind"] == "artifact"
     assert result["artifact"]["id"] == "a-card-001"
     assert result["artifact"]["type"] == "exercise"
-    assert result["artifact"]["current_version_id"] == "v-current"
-    assert result["artifact"]["upstream_updated"] is False
     create_artifact_mock.assert_awaited_once()
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "exercise"
@@ -1599,10 +1593,6 @@ async def test_execute_studio_card_creates_interactive_game_artifact(app, _as_us
             "services.project_space_service.project_space_service.create_artifact_with_file",
             AsyncMock(return_value=artifact),
         ) as create_artifact_mock,
-        patch(
-            "services.project_space_service.project_space_service.db.get_project",
-            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
-        ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/interactive_games/execute",
@@ -1621,8 +1611,6 @@ async def test_execute_studio_card_creates_interactive_game_artifact(app, _as_us
     assert result["resource_kind"] == "artifact"
     assert result["artifact"]["id"] == "a-game-001"
     assert result["artifact"]["type"] == "html"
-    assert result["artifact"]["current_version_id"] == "v-current"
-    assert result["artifact"]["upstream_updated"] is False
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "html"
     assert kwargs["visibility"] == "shared"
@@ -1658,10 +1646,6 @@ async def test_execute_studio_card_creates_classroom_simulator_artifact(app, _as
             "services.project_space_service.project_space_service.create_artifact_with_file",
             AsyncMock(return_value=artifact),
         ) as create_artifact_mock,
-        patch(
-            "services.project_space_service.project_space_service.db.get_project",
-            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
-        ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/classroom_qa_simulator/execute",
@@ -1681,8 +1665,6 @@ async def test_execute_studio_card_creates_classroom_simulator_artifact(app, _as
     assert result["resource_kind"] == "artifact"
     assert result["artifact"]["id"] == "a-sim-001"
     assert result["artifact"]["type"] == "summary"
-    assert result["artifact"]["current_version_id"] == "v-current"
-    assert result["artifact"]["upstream_updated"] is False
     kwargs = create_artifact_mock.await_args.kwargs
     assert kwargs["artifact_type"] == "summary"
     assert kwargs["content"]["kind"] == "classroom_qa_simulator"
@@ -1867,10 +1849,6 @@ async def test_get_studio_card_sources_returns_matching_artifacts(app, _as_user)
             "services.project_space_service.project_space_service.get_project_artifacts",
             AsyncMock(return_value=[artifact]),
         ) as get_project_artifacts_mock,
-        patch(
-            "services.project_space_service.project_space_service.db.get_project",
-            AsyncMock(return_value=None),
-        ),
     ):
         response = client.get(
             "/api/v1/generate/studio-cards/speaker_notes/sources?project_id=p-001"
@@ -1881,14 +1859,11 @@ async def test_get_studio_card_sources_returns_matching_artifacts(app, _as_user)
     assert sources[0]["id"] == "a-ppt-001"
     assert sources[0]["type"] == "pptx"
     assert sources[0]["title"] == "牛顿定律课件"
-    assert sources[0]["current_version_id"] is None
-    assert sources[0]["upstream_updated"] is False
-    assert sources[0]["is_current"] is True
     get_project_artifacts_mock.assert_awaited_once()
 
 
 @pytest.mark.anyio
-async def test_get_studio_card_sources_reports_upstream_updated(app, _as_user):
+async def test_get_studio_card_sources_returns_lineage_fields(app, _as_user):
     client = TestClient(app)
     artifact = SimpleNamespace(
         id="a-ppt-002",
@@ -1913,10 +1888,6 @@ async def test_get_studio_card_sources_reports_upstream_updated(app, _as_user):
             "services.project_space_service.project_space_service.get_project_artifacts",
             AsyncMock(return_value=[artifact]),
         ),
-        patch(
-            "services.project_space_service.project_space_service.db.get_project",
-            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-new")),
-        ),
     ):
         response = client.get(
             "/api/v1/generate/studio-cards/speaker_notes/sources?project_id=p-001"
@@ -1924,9 +1895,7 @@ async def test_get_studio_card_sources_reports_upstream_updated(app, _as_user):
 
     assert response.status_code == 200
     source = response.json()["data"]["sources"][0]
-    assert source["current_version_id"] == "v-new"
-    assert source["upstream_updated"] is True
-    assert source["is_current"] is False
+    assert source["based_on_version_id"] == "v-old"
     assert source["superseded_by_artifact_id"] == "a-ppt-003"
 
 
@@ -1965,10 +1934,6 @@ async def test_get_studio_card_sources_prioritizes_current_artifacts(app, _as_us
             "services.project_space_service.project_space_service.get_project_artifacts",
             AsyncMock(return_value=[superseded_artifact, current_artifact]),
         ),
-        patch(
-            "services.project_space_service.project_space_service.db.get_project",
-            AsyncMock(return_value=SimpleNamespace(currentVersionId="v-current")),
-        ),
     ):
         response = client.get(
             "/api/v1/generate/studio-cards/speaker_notes/sources?project_id=p-001"
@@ -1977,9 +1942,8 @@ async def test_get_studio_card_sources_prioritizes_current_artifacts(app, _as_us
     assert response.status_code == 200
     sources = response.json()["data"]["sources"]
     assert sources[0]["id"] == "a-ppt-010"
-    assert sources[0]["is_current"] is True
     assert sources[1]["id"] == "a-ppt-009"
-    assert sources[1]["is_current"] is False
+    assert sources[1]["superseded_by_artifact_id"] == "a-ppt-010"
 
 
 @pytest.mark.anyio

@@ -751,9 +751,9 @@ export function useGeneratePreviewState({
             projectSpaceApi.getArtifact(projectId, currentArtifactId),
             projectSpaceApi.downloadArtifact(projectId, currentArtifactId),
           ]);
-          const artifactType = artifactResponse.data.artifact?.type;
+          const artifactType = artifactResponse.artifact?.type;
           const artifactTitle = resolveArtifactTitleFromMetadata(
-            artifactResponse.data.artifact?.metadata
+            artifactResponse.artifact?.metadata
           );
           const url = URL.createObjectURL(artifactBlob);
           const link = document.createElement("a");

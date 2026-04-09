@@ -74,7 +74,7 @@ isort --check .
 
 ## Git Hooks（自动化检查）
 
-项目使用 Husky 自动在 commit 和 push 时运行检查，确保代码质量。
+项目使用 Husky 在 `push` 时自动运行检查；`commit` 阶段不再自动触发 hook。
 
 ### 安装
 
@@ -83,9 +83,9 @@ isort --check .
 npm install # 自动安装 Git hooks
 ```
 
-### Pre-commit Hook
+### Pre-commit Script
 
-每次 `git commit` 时自动运行：
+`pre-commit` 检查保留为手动脚本，不会在 `git commit` 时自动运行：
 
 **检查项**：
 - Frontend: Prettier 格式 + ESLint + 测试
@@ -120,7 +120,6 @@ npm run pre-push
 
 紧急情况下可以跳过：
 ```bash
-git commit --no-verify
 git push --no-verify
 ```
 
@@ -128,14 +127,14 @@ git push --no-verify
 
 ### 为什么使用 Hooks？
 
-**没有 hooks**：
+**没有 commit hook**：
 ```
-开发 → commit → push → CI 失败（5分钟） → 修复 → push → ...
+开发 → commit → push → pre-push/CI 失败 → 修复 → push → ...
 ```
 
-**有 hooks**：
+**当前策略**：
 ```
-开发 → commit → 本地检查失败（10秒） → 修复 → commit 成功 → push → CI 通过
+开发 → 手动跑 pre-commit 脚本（可选） → commit → push → pre-push 通过 → CI 通过
 ```
 
 节省时间 + 节省 CI 资源 = 更快的反馈循环

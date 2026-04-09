@@ -273,9 +273,6 @@ async def get_studio_card_sources(
     await project_space_service.check_project_permission(
         project_id, user_id, get_card_source_permission(card_id)
     )
-    project = await project_space_service.db.get_project(project_id)
-    current_version_id = getattr(project, "currentVersionId", None) if project else None
-
     sources = []
     for artifact_type in artifact_types:
         sources.extend(
@@ -287,21 +284,18 @@ async def get_studio_card_sources(
 
     def _source_sort_key(artifact):
         metadata = getattr(artifact, "metadata", None)
-        is_current = True
-        if isinstance(metadata, dict):
-            is_current = bool(metadata.get("is_current", True))
         updated_at = getattr(artifact, "updatedAt", None)
-        return (not is_current, updated_at)
+        superseded_by_artifact_id = None
+        if isinstance(metadata, dict):
+            superseded_by_artifact_id = metadata.get("superseded_by_artifact_id")
+        return (bool(superseded_by_artifact_id), updated_at)
 
     sources.sort(key=_source_sort_key)
 
     return success_response(
         data={
             "sources": [
-                serialize_card_source_artifact(
-                    artifact, current_version_id=current_version_id
-                )
-                for artifact in sources
+                serialize_card_source_artifact(artifact) for artifact in sources
             ]
         },
         message="Studio 卡片源成果获取成功",

@@ -47,6 +47,21 @@ services:
       timeout: 5s
       retries: 3
 
+  ourograph_db_init:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      PGPASSWORD: spectra
+    command:
+      [
+        "sh",
+        "-c",
+        "until pg_isready -h postgres -U spectra -d postgres; do sleep 1; done; psql -h postgres -U spectra -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'ourograph'\" | grep -q 1 || psql -h postgres -U spectra -d postgres -c \"CREATE DATABASE ourograph\"",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
     image: spectra-backend:deploy
     build:
@@ -68,6 +83,8 @@ services:
       GENERATED_DIR: /var/lib/spectra/generated
       PAGEVRA_BASE_URL: http://pagevra:8090
       PAGEVRA_TIMEOUT_SECONDS: "180"
+      OUROGRAPH_BASE_URL: http://ourograph:8101
+      OUROGRAPH_TIMEOUT_SECONDS: "30"
       STRUCTRA_BASE_URL: http://pagevra:8090
       STRUCTRA_TIMEOUT_SECONDS: "180"
       RENDER_ENGINE_BASE_URL: http://pagevra:8090
@@ -91,6 +108,8 @@ services:
       postgres:
         condition: service_healthy
       pagevra:
+        condition: service_healthy
+      ourograph:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)"]
@@ -116,6 +135,8 @@ services:
       GENERATED_DIR: /var/lib/spectra/generated
       PAGEVRA_BASE_URL: http://pagevra:8090
       PAGEVRA_TIMEOUT_SECONDS: "180"
+      OUROGRAPH_BASE_URL: http://ourograph:8101
+      OUROGRAPH_TIMEOUT_SECONDS: "30"
       STRUCTRA_BASE_URL: http://pagevra:8090
       STRUCTRA_TIMEOUT_SECONDS: "180"
       RENDER_ENGINE_BASE_URL: http://pagevra:8090
@@ -136,6 +157,43 @@ services:
       postgres:
         condition: service_healthy
       pagevra:
+        condition: service_healthy
+      ourograph:
+        condition: service_healthy
+
+  ourograph:
+    image: spectra-ourograph:deploy
+    build:
+      context: .
+      dockerfile: ourograph/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://spectra:spectra@postgres:5432/ourograph
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: "8000"
+      CHROMA_PERSIST_DIR: /var/lib/spectra/chroma
+      UPLOAD_DIR: /var/lib/spectra/uploads
+      ARTIFACT_STORAGE_DIR: /var/lib/spectra/artifacts
+      GENERATED_DIR: /var/lib/spectra/generated
+    volumes:
+      - /var/lib/spectra:/var/lib/spectra
+    ports:
+      - "127.0.0.1:8101:8101"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8101/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      ourograph_db_init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      postgres:
         condition: service_healthy
 
   pagevra:

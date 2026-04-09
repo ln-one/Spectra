@@ -46,7 +46,7 @@ export function MembersTab({
         <Input
           value={newMemberUserId}
           onChange={(event) => setNewMemberUserId(event.target.value)}
-          placeholder="输入 user_id"
+          placeholder="输入 userId"
           className="col-span-4 h-9 rounded-xl border-zinc-200/60 bg-white/50 backdrop-blur-sm focus-visible:ring-zinc-400/20 focus-visible:border-zinc-300 shadow-sm transition-all"
         />
         <select
@@ -93,7 +93,7 @@ export function MembersTab({
             <RowCard
               key={item.id}
               icon={Users}
-              title={item.user_id}
+              title={item.userId}
               subtitle={`${item.role} 路 ${item.status}`}
               action={
                 <div className="flex items-center gap-1">

@@ -6,3 +6,7 @@
 	path = dualweave
 	url = git@github.com:ln-one/Dualweave.git
 	branch = main
+[submodule "ourograph"]
+	path = ourograph
+	url = git@github.com:ln-one/Ourograph.git
+	branch = main

@@ -1,5 +1,4 @@
-from schemas.project_space import ProjectPermission
-from services.project_space_service.permission_semantics import (
+from schemas.project_member_semantics import (
     default_project_permissions_for_role,
     has_project_permission,
     normalize_project_member_role,
@@ -8,6 +7,7 @@ from services.project_space_service.permission_semantics import (
     normalize_project_permissions,
     resolve_project_member_permissions,
 )
+from schemas.project_space import ProjectPermission
 
 
 def test_normalize_project_permissions_filters_known_fields():

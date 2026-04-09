@@ -1,4 +1,4 @@
-﻿import { MOCK_MODE, sdkClient, unwrap } from "./base";
+import { MOCK_MODE, sdkClient, unwrap } from "./base";
 import { createMockCandidateChange } from "./mocks";
 import type {
   CandidateChangeRequest,
@@ -16,11 +16,7 @@ export async function getCandidateChanges(
   }
 ): Promise<CandidateChangesResponse> {
   if (MOCK_MODE) {
-    return {
-      success: true,
-      data: { changes: [createMockCandidateChange(projectId)] },
-      message: "mock candidate changes",
-    };
+    return { changes: [createMockCandidateChange(projectId)] };
   }
   const result = await sdkClient.GET(
     "/api/v1/projects/{project_id}/candidate-changes",
@@ -28,7 +24,7 @@ export async function getCandidateChanges(
       params: { path: { project_id: projectId }, query: params },
     }
   );
-  return unwrap<CandidateChangesResponse>(result);
+  return await unwrap<CandidateChangesResponse>(result);
 }
 
 export async function createCandidateChange(
@@ -37,27 +33,23 @@ export async function createCandidateChange(
 ): Promise<CandidateChangeResponse> {
   if (MOCK_MODE) {
     return {
-      success: true,
-      data: {
-        change: {
-          ...createMockCandidateChange(projectId),
-          id: `change_mock_${Date.now()}`,
-          title: data.title,
-          summary: data.summary ?? "",
-          payload: data.payload ?? {},
-        },
+      change: {
+        ...createMockCandidateChange(projectId),
+        id: `change_mock_${Date.now()}`,
+        title: data.title,
+        summary: data.summary ?? "",
+        payload: data.payload ?? {},
       },
-      message: "mock create candidate change",
     };
   }
   const result = await sdkClient.POST(
     "/api/v1/projects/{project_id}/candidate-changes",
     {
       params: { path: { project_id: projectId } },
-      body: data,
+      body: data as never,
     }
   );
-  return unwrap<CandidateChangeResponse>(result);
+  return await unwrap<CandidateChangeResponse>(result);
 }
 
 export async function reviewCandidateChange(
@@ -67,24 +59,20 @@ export async function reviewCandidateChange(
 ): Promise<CandidateChangeResponse> {
   if (MOCK_MODE) {
     return {
-      success: true,
-      data: {
-        change: {
-          ...createMockCandidateChange(projectId),
-          id: changeId,
-          status: data.action === "accept" ? "accepted" : "rejected",
-          updated_at: new Date().toISOString(),
-        },
+      change: {
+        ...createMockCandidateChange(projectId),
+        id: changeId,
+        status: data.action === "accept" ? "accepted" : "rejected",
+        updatedAt: new Date().toISOString(),
       },
-      message: "mock review candidate change",
     };
   }
   const result = await sdkClient.POST(
     "/api/v1/projects/{project_id}/candidate-changes/{change_id}/review",
     {
       params: { path: { project_id: projectId, change_id: changeId } },
-      body: data,
+      body: data as never,
     }
   );
-  return unwrap<CandidateChangeResponse>(result);
+  return await unwrap<CandidateChangeResponse>(result);
 }

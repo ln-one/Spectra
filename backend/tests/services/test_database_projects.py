@@ -3,43 +3,77 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.database.projects import ProjectMixin
-from services.library_semantics import SILENT_ACCRETION_USAGE_INTENT
-
-
-class _ProjectDb(ProjectMixin):
-    def __init__(self):
-        self.db = SimpleNamespace(
-            project=SimpleNamespace(
-                find_unique=AsyncMock(
-                    return_value=SimpleNamespace(
-                        createdAt="created",
-                        updatedAt="updated",
-                    )
-                )
-            ),
-            upload=SimpleNamespace(
-                count=AsyncMock(return_value=2),
-                aggregate=AsyncMock(return_value={"_sum": {"size": 256}}),
-            ),
-            conversation=SimpleNamespace(count=AsyncMock(return_value=3)),
-            generationtask=SimpleNamespace(count=AsyncMock(side_effect=[4, 2])),
-        )
+from schemas.projects import ProjectCreate
+from services.database import DatabaseService
+from utils.exceptions import ValidationException
 
 
 @pytest.mark.asyncio
-async def test_project_statistics_excludes_silent_accretion_uploads():
-    db = _ProjectDb()
+async def test_create_project_with_base_reference_follow_uses_project_space_service(
+    monkeypatch,
+):
+    service = DatabaseService()
+    project = SimpleNamespace(id="p-new")
+    base_project = SimpleNamespace(id="p-base", currentVersionId="v-current")
 
-    stats = await db.get_project_statistics("p-001")
+    service.db = SimpleNamespace(
+        project=SimpleNamespace(create=AsyncMock(return_value=project))
+    )
+    monkeypatch.setattr(service, "get_project", AsyncMock(return_value=base_project))
+    delete_project = AsyncMock(return_value=None)
+    monkeypatch.setattr(service, "delete_project", delete_project)
+    create_reference = AsyncMock(return_value=SimpleNamespace(id="r-1"))
+    monkeypatch.setattr(
+        "services.project_space_service.project_space_service.create_project_reference",
+        create_reference,
+    )
 
-    upload_count_where = db.db.upload.count.await_args.kwargs["where"]
-    upload_sum_where = db.db.upload.aggregate.await_args.kwargs["where"]
-    assert upload_count_where["projectId"] == "p-001"
-    assert {"usageIntent": None} in upload_count_where["OR"]
-    assert {
-        "usageIntent": {"not": SILENT_ACCRETION_USAGE_INTENT}
-    } in upload_count_where["OR"]
-    assert upload_sum_where == upload_count_where
-    assert stats["files_count"] == 2
-    assert stats["total_file_size"] == 256
+    body = ProjectCreate(
+        name="new project",
+        description="desc",
+        base_project_id="p-base",
+        reference_mode="follow",
+        visibility="private",
+        is_referenceable=False,
+    )
+    result = await service.create_project(body, user_id="u-1")
+
+    assert result.id == "p-new"
+    create_reference.assert_awaited_once_with(
+        project_id="p-new",
+        target_project_id="p-base",
+        relation_type="base",
+        mode="follow",
+        pinned_version_id=None,
+        priority=0,
+        user_id="u-1",
+    )
+    delete_project.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_project_with_pinned_base_reference_requires_current_version(
+    monkeypatch,
+):
+    service = DatabaseService()
+    project = SimpleNamespace(id="p-new")
+    base_project = SimpleNamespace(id="p-base", currentVersionId=None)
+
+    service.db = SimpleNamespace(
+        project=SimpleNamespace(create=AsyncMock(return_value=project))
+    )
+    monkeypatch.setattr(service, "get_project", AsyncMock(return_value=base_project))
+    delete_project = AsyncMock(return_value=None)
+    monkeypatch.setattr(service, "delete_project", delete_project)
+
+    body = ProjectCreate(
+        name="new project",
+        description="desc",
+        base_project_id="p-base",
+        reference_mode="pinned",
+    )
+
+    with pytest.raises(ValidationException):
+        await service.create_project(body, user_id="u-1")
+
+    delete_project.assert_awaited_once_with("p-new")

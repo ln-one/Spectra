@@ -21,7 +21,6 @@ from schemas.project_space import (
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
 
-from .reference_runtime import resolve_target_project_runtime_maps
 from .shared import (
     COMMON_ERROR_RESPONSES,
     to_candidate_change_model,
@@ -56,23 +55,7 @@ async def create_project_reference(
             pinned_version_id=body.pinned_version_id,
             priority=body.priority,
         )
-        version_map, target_name_map = await resolve_target_project_runtime_maps(
-            db_service=project_space_service.db,
-            references=[reference],
-        )
-        return ProjectReferenceResponse(
-            success=True,
-            data={
-                "reference": to_project_reference_model(
-                    reference,
-                    upstream_current_version_id=version_map.get(
-                        reference.targetProjectId
-                    ),
-                    target_project_name=target_name_map.get(reference.targetProjectId),
-                )
-            },
-            message="创建引用成功",
-        )
+        return ProjectReferenceResponse(reference=to_project_reference_model(reference))
     except Exception as exc:
         logger.error(f"create_project_reference error: {exc}")
         raise
@@ -90,25 +73,8 @@ async def get_project_references(
         references = await project_space_service.get_project_references(
             project_id=project_id, user_id=user_id
         )
-        version_map, target_name_map = await resolve_target_project_runtime_maps(
-            db_service=project_space_service.db,
-            references=references,
-        )
         return ProjectReferencesResponse(
-            success=True,
-            data={
-                "references": [
-                    to_project_reference_model(
-                        ref,
-                        upstream_current_version_id=version_map.get(
-                            ref.targetProjectId
-                        ),
-                        target_project_name=target_name_map.get(ref.targetProjectId),
-                    )
-                    for ref in references
-                ]
-            },
-            message="获取引用列表成功",
+            references=[to_project_reference_model(ref) for ref in references]
         )
     except Exception as exc:
         logger.error(f"get_project_references error: {exc}")
@@ -136,24 +102,8 @@ async def update_project_reference(
             priority=body.priority,
             status=body.status,
         )
-        version_map, target_name_map = await resolve_target_project_runtime_maps(
-            db_service=project_space_service.db,
-            references=[updated_ref],
-        )
         return ProjectReferenceResponse(
-            success=True,
-            data={
-                "reference": to_project_reference_model(
-                    updated_ref,
-                    upstream_current_version_id=version_map.get(
-                        updated_ref.targetProjectId
-                    ),
-                    target_project_name=target_name_map.get(
-                        updated_ref.targetProjectId
-                    ),
-                )
-            },
-            message="更新引用成功",
+            reference=to_project_reference_model(updated_ref)
         )
     except Exception as exc:
         logger.error(f"update_project_reference error: {exc}")
@@ -172,7 +122,7 @@ async def delete_project_reference(
         await project_space_service.delete_project_reference(
             project_id=project_id, reference_id=reference_id, user_id=user_id
         )
-        return SimpleSuccessResponse(success=True, data={}, message="删除引用成功")
+        return SimpleSuccessResponse(ok=True)
     except Exception as exc:
         logger.error(f"delete_project_reference error: {exc}")
         raise
@@ -202,11 +152,7 @@ async def create_candidate_change(
             session_id=body.session_id,
             base_version_id=body.base_version_id,
         )
-        return CandidateChangeResponse(
-            success=True,
-            data={"change": to_candidate_change_model(change)},
-            message="提交候选变更成功",
-        )
+        return CandidateChangeResponse(change=to_candidate_change_model(change))
     except Exception as exc:
         logger.error(f"create_candidate_change error: {exc}")
         raise
@@ -235,9 +181,7 @@ async def get_candidate_changes(
             session_id=session_id,
         )
         return CandidateChangesResponse(
-            success=True,
-            data={"changes": [to_candidate_change_model(change) for change in changes]},
-            message="获取候选变更列表成功",
+            changes=[to_candidate_change_model(change) for change in changes]
         )
     except Exception as exc:
         logger.error(f"get_candidate_changes error: {exc}")
@@ -270,11 +214,7 @@ async def review_candidate_change(
             review_comment=body.review_comment,
             reviewer_user_id=user_id,
         )
-        return CandidateChangeResponse(
-            success=True,
-            data={"change": to_candidate_change_model(updated_change)},
-            message=f"审核成功: {body.action}",
-        )
+        return CandidateChangeResponse(change=to_candidate_change_model(updated_change))
     except Exception as exc:
         logger.error(f"review_candidate_change error: {exc}")
         raise

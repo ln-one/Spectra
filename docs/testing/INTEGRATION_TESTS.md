@@ -2,12 +2,12 @@
 
 ## 概述
 
-集成测试用于验证前后端完整流程，但由于执行时间较长，已从 CI 和 pre-commit hook 中排除。
+集成测试用于验证前后端完整流程，但由于执行时间较长，已从 CI 和自动 Git hook 中排除。
 
 ## 跳过集成测试
 
-### Pre-commit Hook
-Pre-commit hook 自动跳过集成测试：
+### 手动 Pre-commit Script
+手动执行 `pre-commit` 脚本时会自动跳过集成测试：
 ```bash
 pytest -m "not integration"
 ```
@@ -55,6 +55,6 @@ def test_full_workflow():
 ## 相关文件
 
 - `pytest.ini` - pytest 配置，定义 integration 标记
-- `scripts/pre-commit.js` - pre-commit hook 脚本
+- `scripts/pre-commit.js` - 手动 pre-commit 检查脚本
 - `.github/workflows/ci.yml` - CI 配置
 - `test_integration.sh` - 前后端集成测试脚本

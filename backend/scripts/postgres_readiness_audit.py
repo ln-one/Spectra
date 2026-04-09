@@ -38,10 +38,10 @@ HOTSPOT_PATTERNS = {
     "idempotency": [
         ROOT / "backend/services/database/files.py",
         ROOT / "backend/services/database/projects.py",
-        ROOT / "backend/services/project_space_service/member_api.py",
+        ROOT / "backend/routers/project_space/members.py",
     ],
     "project_space_review": [
-        ROOT / "backend/services/project_space_service/review.py",
+        ROOT / "backend/services/project_space_service/service.py",
         ROOT / "backend/services/database/project_space_changes.py",
         ROOT / "backend/services/database/project_space_references.py",
     ],

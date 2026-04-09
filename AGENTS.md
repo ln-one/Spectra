@@ -40,6 +40,17 @@ Before editing code, read these in order:
 5. [docs/standards/AI_COLLABORATION.md](/Users/ln1/Projects/Spectra/docs/standards/AI_COLLABORATION.md)
 6. [docs/CONTRIBUTING.md](/Users/ln1/Projects/Spectra/docs/CONTRIBUTING.md)
 
+For `Project / Reference / Version / Artifact / CandidateChange / Member` semantics,
+also treat these as core references:
+
+1. [docs/archived/project-space/README.md](/Users/ln1/Projects/Spectra/docs/archived/project-space/README.md)
+2. [docs/archived/project-space/SPACE_MODEL_INDEX_2026-03-09.md](/Users/ln1/Projects/Spectra/docs/archived/project-space/SPACE_MODEL_INDEX_2026-03-09.md)
+3. [docs/archived/project-space/PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md](/Users/ln1/Projects/Spectra/docs/archived/project-space/PROJECT_SPACE_DATA_MODEL_DRAFT_2026-03-09.md)
+4. [docs/archived/project-space/PROJECT_SPACE_DATA_MODEL_ADDENDUM_2026-03-12.md](/Users/ln1/Projects/Spectra/docs/archived/project-space/PROJECT_SPACE_DATA_MODEL_ADDENDUM_2026-03-12.md)
+5. [docs/archived/project-space/PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md](/Users/ln1/Projects/Spectra/docs/archived/project-space/PROJECT_SPACE_EVOLUTION_DESIGN_2026-03-09.md)
+6. [docs/openapi/schemas/project-space.yaml](/Users/ln1/Projects/Spectra/docs/openapi/schemas/project-space.yaml)
+7. [docs/openapi/paths/project-space.yaml](/Users/ln1/Projects/Spectra/docs/openapi/paths/project-space.yaml)
+
 For product behavior and current surface semantics, also inspect:
 
 - [docs/project/卡片功能.md](/Users/ln1/Projects/Spectra/docs/project/卡片功能.md)
@@ -86,6 +97,11 @@ Example:
 ### 3.4 Historical docs
 
 Anything under archived folders or clearly marked as historical/reference-only is context, not command.
+
+Important exception:
+
+- `docs/archived/project-space/*` is archived in location, but it remains a core source for the original formal space ontology
+- when working on Ourograph extraction or project-space formal state, these files are not “optional old notes”; they are primary semantic references alongside the live philosophy and tested contracts
 
 If you use a historical doc:
 
@@ -253,6 +269,28 @@ In practical terms:
 - `render-service` is the canonical render path
 - low-quality content fallback is not an acceptable substitute for successful courseware generation
 - “the system still returned something” is not success if the returned artifact violates teaching quality or semantic clarity
+
+### 6.6 Do not default to Python full-suite test runs
+
+Python full-suite test runs in Spectra are expensive, slow, and may pull in external API
+or environment-sensitive paths that are unrelated to the current change.
+
+Default rule:
+
+- do **not** run the entire Python test suite by default
+- prefer the smallest meaningful validation set that covers the changed area
+- prefer `py_compile`, architecture guards, and focused `pytest` targets over broad regression runs
+- expand to broader suites only when the user explicitly asks for it or the change genuinely crosses those boundaries
+
+Recommended validation order for normal backend work:
+
+1. `python3 -m py_compile ...` for changed Python files
+2. `python3 backend/scripts/architecture_guard.py`
+3. focused `pytest` for directly affected modules/contracts
+4. service-specific validation such as `./gradlew test` for `ourograph`
+
+“Safer because it ran more tests” is not a good default if the extra tests are mostly
+unrelated, slow down iteration, or depend on external systems.
 
 ## 7. State, Contract, and Output Rules
 

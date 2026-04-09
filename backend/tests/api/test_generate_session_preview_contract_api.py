@@ -26,8 +26,6 @@ def _snapshot(render_version: int = 3, state: str = GenerationState.SUCCESS.valu
             "state": state,
             "render_version": render_version,
         },
-        "current_version_id": "v-current",
-        "upstream_updated": True,
         "result": {
             "ppt_url": "uploads/ppt/demo.pptx",
             "word_url": "uploads/doc/demo.docx",
@@ -79,8 +77,6 @@ def test_get_preview_includes_artifact_binding(client, monkeypatch, _as_user):
     assert body["success"] is True
     assert body["data"]["artifact_id"] == "a-001"
     assert body["data"]["based_on_version_id"] == "v-001"
-    assert body["data"]["current_version_id"] == "v-current"
-    assert body["data"]["upstream_updated"] is True
     assert body["data"]["rendered_preview"]["pages"][0]["slide_id"] == "slide-1"
 
 
@@ -243,8 +239,6 @@ def test_modify_preview_returns_contract_fields(client, monkeypatch, _as_user):
     assert data["modify_task_id"] == "gt-001"
     assert data["artifact_id"] == "a-002"
     assert data["based_on_version_id"] == "v-002"
-    assert data["current_version_id"] == "v-current"
-    assert data["upstream_updated"] is True
     assert data["render_version"] == 5
     assert data["slide_id"] == "slide-1"
     assert data["slide_index"] == 1
@@ -484,8 +478,6 @@ def test_get_slide_preview_returns_slide_shape(client, monkeypatch, _as_user):
     assert body["data"]["slide"]["id"] == "slide-2"
     assert body["data"]["teaching_plan"]["slide_id"] == "slide-2"
     assert body["data"]["artifact_id"] == "a-003"
-    assert body["data"]["current_version_id"] == "v-current"
-    assert body["data"]["upstream_updated"] is True
     assert body["data"]["artifact_anchor"]["run_id"] == "run-003"
     assert body["data"]["rendered_page"]["slide_id"] == "slide-2"
     assert load_preview_material.await_args.args[4] == "run-003"
@@ -571,8 +563,6 @@ def test_export_preview_returns_binding_and_content(client, monkeypatch, _as_use
     data = resp.json()["data"]
     assert data["artifact_id"] == "a-004"
     assert data["based_on_version_id"] == "v-007"
-    assert data["current_version_id"] == "v-current"
-    assert data["upstream_updated"] is True
     assert data["format"] == "markdown"
     assert data["render_version"] == 7
     assert data["content"] == "# Demo"

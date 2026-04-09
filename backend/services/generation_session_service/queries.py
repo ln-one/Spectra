@@ -283,8 +283,6 @@ async def get_session_snapshot(
         "fallbacks": fallbacks,
         "artifact_id": artifact_history["artifact_id"],
         "based_on_version_id": artifact_history["based_on_version_id"],
-        "current_version_id": artifact_history["current_version_id"],
-        "upstream_updated": artifact_history["upstream_updated"],
         "artifact_anchor": artifact_history["artifact_anchor"],
         "latest_candidate_change": latest_candidate_change,
         "session_artifacts": artifact_history["session_artifacts"],

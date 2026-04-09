@@ -47,6 +47,8 @@ class ProjectMixin:
         base_project_id = getattr(project_data, "base_project_id", None)
         if base_project_id:
             try:
+                from services.project_space_service import project_space_service
+
                 base_project = await self.get_project(base_project_id)
                 if not base_project:
                     raise NotFoundException(
@@ -69,14 +71,14 @@ class ProjectMixin:
                             )
                         )
 
-                await self.create_project_reference(
+                await project_space_service.create_project_reference(
                     project_id=project.id,
                     target_project_id=base_project_id,
                     relation_type=ReferenceRelationType.BASE.value,
                     mode=reference_mode_value,
                     pinned_version_id=pinned_version_id,
                     priority=0,
-                    created_by=user_id,
+                    user_id=user_id,
                 )
             except APIException:
                 await self.delete_project(project.id)

@@ -129,11 +129,11 @@ export function useProjectDetailController() {
   const loadActiveReferences = useCallback(async () => {
     try {
       const response = await projectSpaceApi.getReferences(projectId);
-      const references = (response.data.references ?? [])
+      const references = (response.references ?? [])
         .filter((reference) => reference.status === "active")
         .sort((a, b) => {
-          if (a.relation_type !== b.relation_type) {
-            return a.relation_type === "base" ? -1 : 1;
+          if (a.relationType !== b.relationType) {
+            return a.relationType === "base" ? -1 : 1;
           }
           return (a.priority ?? 999) - (b.priority ?? 999);
         });
