@@ -2,8 +2,9 @@ services:
   ourograph:
     image: spectra-ourograph:dev
     build:
-      context: .
-      dockerfile: ourograph/Dockerfile.dev
+      context: ./ourograph
+      dockerfile: Dockerfile.dev
+    command: ["gradle", "--no-daemon", "run"]
     volumes:
       - ./ourograph:/app
       - runtime_data:/var/lib/spectra

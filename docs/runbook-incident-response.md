@@ -46,7 +46,7 @@
 
 ### 4. 检索/引用异常
 可能位置：
-- ChromaDB
+- Stratumind / Qdrant
 - embedding / rag indexing
 - 上传解析链路
 
@@ -109,7 +109,7 @@ docker compose restart frontend
 
 1. backend 容器是否正常
 2. env 是否缺失
-3. DB / Redis / Chroma 是否可连
+3. DB / Redis / Stratumind / Qdrant 是否可连
 4. 最近发布是否引入 schema/env 漂移
 
 优先恢复动作：
@@ -126,7 +126,7 @@ docker compose restart backend
 
 1. worker 是否正常
 2. Redis 队列是否可用
-3. worker 日志里是否有 timeout / fallback / provider error
+3. worker 日志里是否有 timeout / provider error
 4. session 是否长期停在 `DRAFTING_OUTLINE` 或 `PROCESSING`
 5. `stateReason` 是否与当前状态一致（例如成功态应为 `task_completed`）
 
@@ -140,7 +140,7 @@ docker compose restart worker
 - AI completion timeout
 - outline timeout failure code
 - task timeout failure code
-- queue health unknown -> 单次重试 -> local fallback
+- queue health unknown -> 单次重试
 - fresh worker / stale worker 分离判断
 
 所以如果仍大量卡住，优先看：
@@ -175,7 +175,7 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/worker_queue_diagnose.py
 
 检查顺序：
 
-1. Chroma 是否正常
+1. Stratumind / Qdrant 是否正常
 2. 上传文件是否已成功解析和索引
 3. embedding provider 是否退化
 4. source detail / chunk 是否还存在
@@ -183,7 +183,8 @@ python3 /Users/ln1/Projects/Spectra/backend/scripts/worker_queue_diagnose.py
 优先恢复动作：
 
 ```bash
-docker compose restart chromadb
+docker compose restart qdrant
+docker compose restart stratumind
 ```
 
 如果索引链路异常，需同时看 backend / worker 日志。
@@ -207,8 +208,8 @@ docker compose restart chromadb
 ### 现象：文件上传成功，但检索不到内容
 优先怀疑：
 - rag indexing
-- chromadb
-- parser fallback
+- stratumind / qdrant
+- parser / embedding / indexing 异常
 
 ### 现象：刚发布后大量异常
 优先动作：
@@ -247,11 +248,12 @@ docker compose restart backend
 docker compose restart worker
 ```
 
-### 重启 redis / chroma
+### 重启 redis / 检索服务
 
 ```bash
 docker compose restart redis
-docker compose restart chromadb
+docker compose restart qdrant
+docker compose restart stratumind
 ```
 
 ### 全体重启

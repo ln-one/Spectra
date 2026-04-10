@@ -6,14 +6,13 @@ Flow:
 2) Create project
 3) Upload one real file
 4) Poll file status until ready/failed
-5) Verify ParsedChunk + Chroma collection existence locally
+5) Verify ParsedChunk state and remote retrieval readiness hints locally
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import time
 from datetime import datetime
 from pathlib import Path
@@ -80,7 +79,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--skip-local-verify",
         action="store_true",
-        help="Skip sqlite/chroma local verification.",
+        help="Skip local runtime verification after upload/index smoke completes.",
     )
     return parser
 
@@ -203,54 +202,16 @@ def _poll_file_status(
     raise TimeoutError("poll timeout: target file not found in project files list")
 
 
-def _resolve_chroma_sqlite(repo_root: Path) -> Optional[Path]:
-    backend_dir = repo_root / "backend"
-    chroma_dir = backend_dir / "chroma_data"
-    env_path = backend_dir / ".env"
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            raw = line.strip()
-            if raw.startswith("CHROMA_PERSIST_DIR="):
-                value = raw.split("=", 1)[1].strip().strip('"').strip("'")
-                if value:
-                    candidate = (backend_dir / value).resolve()
-                    if candidate.is_dir():
-                        sqlite_file = candidate / "chroma.sqlite3"
-                        if sqlite_file.exists():
-                            return sqlite_file
-    default_file = chroma_dir / "chroma.sqlite3"
-    if default_file.exists():
-        return default_file
-    root_file = repo_root / "chroma_data" / "chroma.sqlite3"
-    if root_file.exists():
-        return root_file
-    return None
-
-
 def _local_verify(repo_root: Path, project_id: str) -> dict[str, Any]:
+    del repo_root, project_id
     result: dict[str, Any] = {
         "db_path": "n/a-postgresql",
         "project_exists": "n/a-postgresql",
         "upload_ready": "n/a-postgresql",
         "parsed_chunk_count_for_file": "n/a-postgresql",
         "parsed_chunk_count_for_project": "n/a-postgresql",
-        "chroma_path": None,
-        "chroma_collection_exists": None,
+        "stratumind_project_index": "n/a-remote-service",
     }
-
-    chroma_path = _resolve_chroma_sqlite(repo_root)
-    if chroma_path:
-        result["chroma_path"] = str(chroma_path)
-        conn = sqlite3.connect(chroma_path)
-        cur = conn.cursor()
-        name = f"spectra_project_{project_id}"
-        exists = cur.execute(
-            "SELECT COUNT(*) FROM collections WHERE name = ?",
-            (name,),
-        ).fetchone()[0]
-        result["chroma_collection_exists"] = bool(exists)
-        conn.close()
-
     return result
 
 

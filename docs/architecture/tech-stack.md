@@ -17,8 +17,8 @@
 | 数据库访问     | Prisma Client Python（async）                                | prisma 0.15.0                     | `backend/prisma/schema.prisma`, `backend/services/database.py`                                     |
 | 关系型数据库    | PostgreSQL（当前默认）                                           | 本地/容器统一 PostgreSQL               | `backend/prisma/schema.prisma`, `backend/.env.example`                                             |
 | LLM 调用    | LiteLLM + DashScope(Qwen)                                  | litellm 1.81.13                   | `backend/services/ai.py`, `backend/requirements.txt`                                               |
-| Embedding | DashScope text-embedding-v2 + 本地回退                         | 1536 维默认                          | `backend/services/embedding_service.py`                                                            |
-| 向量库       | ChromaDB（本地持久化）                                            | embedded 模式                       | `backend/services/vector_service.py`                                                               |
+| Embedding | DashScope `text-embedding-v4`                                 | 1024 维默认                          | `backend/services/media/embedding.py`, `stratumind/internal/infrastructure/embedding.go`          |
+| 检索服务      | Stratumind + Qdrant                                           | 独立微服务 + 向量存储底盘                  | `stratumind/`, `backend/services/stratumind_client.py`                                             |
 | 文档解析      | pypdf / python-docx / python-pptx（轻量解析）                    | MVP 实装                            | `backend/services/file_parser.py`, `backend/requirements.txt`                                      |
 | 课件导出      | Marp CLI（PPTX）+ Pandoc（DOCX）                               | 外部 CLI 工具                         | `backend/services/generation/marp_generator.py`, `backend/services/generation/pandoc_generator.py` |
 | 测试与质量     | pytest / Jest / ESLint / Prettier / Black / isort / flake8 | 已集成                               | `backend/requirements-dev.txt`, `frontend/package.json`, `backend/pyproject.toml`                  |
@@ -54,7 +54,7 @@
 - 动作：
  - 评估接入 Qwen-VL/Faster-Whisper 的收益与成本。
  - 持续强化 PostgreSQL（迁移基线治理、备份恢复演练、压测）。
- - 结合实际并发情况评估是否从 ChromaDB 升级到 Milvus/Qdrant。
+- 在 `Stratumind` 之上继续补强 rerank / query rewrite / page retrieval。
 
 ## 4. 当前不建议立即做的改造
 

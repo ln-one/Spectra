@@ -25,7 +25,14 @@ from scripts import postgres_live_prisma_validate as live_prisma  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE_COMPOSE = ROOT / "docker-compose.yml"
-DEFAULT_SERVICES = ["postgres", "redis", "chromadb", "backend", "worker"]
+DEFAULT_SERVICES = [
+    "postgres",
+    "redis",
+    "qdrant",
+    "stratumind",
+    "backend",
+    "worker",
+]
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 DEFAULT_LIVE_DATABASE_URL = "postgresql://spectra:spectra@127.0.0.1:5432/spectra"
 

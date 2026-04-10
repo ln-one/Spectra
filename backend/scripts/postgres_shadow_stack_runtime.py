@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 BASE_COMPOSE = ROOT / "docker-compose.yml"
 SHADOW_COMPOSE = ROOT / "docker-compose.postgres-shadow.yml"
 DEFAULT_DATABASE_URL = "postgresql://spectra:spectra@127.0.0.1:5432/spectra_shadow"
-DEFAULT_BASE_SERVICES = ["postgres", "redis", "chromadb"]
+DEFAULT_BASE_SERVICES = ["postgres", "redis", "qdrant", "stratumind"]
 DEFAULT_APP_SERVICES = ["backend", "worker"]
 
 CommandRunner = Callable[[Sequence[str]], int]

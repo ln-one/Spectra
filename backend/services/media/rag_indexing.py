@@ -54,6 +54,7 @@ async def index_upload_file_for_rag(
     if preparsed_text is not None:
         text = str(preparsed_text)
         parse_details = dict(preparsed_details or {})
+        parse_details.pop("deferred_parse", None)
         if provider_override:
             parse_details["provider_used"] = provider_override
         parse_details["parse_mode"] = "remote_preparsed"

@@ -17,19 +17,19 @@ def test_build_shadow_compose_command_defaults_to_infra_services() -> None:
         "-f",
         command[5],
     ]
-    assert command[6:] == ["up", "-d", "postgres", "redis", "chromadb"]
+    assert command[6:] == ["up", "-d", "postgres", "redis", "qdrant", "stratumind"]
 
 
 def test_build_shadow_compose_command_can_include_app_services() -> None:
     command = build_shadow_compose_command(with_app=True)
 
-    assert command[-5:] == ["postgres", "redis", "chromadb", "backend", "worker"]
+    assert command[-6:] == ["postgres", "redis", "qdrant", "stratumind", "backend", "worker"]
 
 
 def test_build_shadow_compose_command_supports_down() -> None:
     command = build_shadow_compose_command(action="down")
     assert command[6:8] == ["rm", "-sf"]
-    assert command[-3:] == ["postgres", "redis", "chromadb"]
+    assert command[-4:] == ["postgres", "redis", "qdrant", "stratumind"]
 
 
 def test_wait_for_shadow_postgres_succeeds_when_port_opens() -> None:

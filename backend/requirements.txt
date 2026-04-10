@@ -25,7 +25,6 @@ dashscope>=1.14.0          # 阿里云通义千问 SDK（DashScope text-embeddin
 playwright>=1.54.0         # Mermaid 渲染依赖（services/mermaid_renderer.py）
 
 # Vector Database & RAG
-chromadb>=0.4.22           # 向量数据库（MVP 阶段嵌入式运行）
 sentence-transformers>=2.2.2  # Embedding 本地备选模型
 
 # Document Processing - 可插拔设计

@@ -10,3 +10,7 @@
 	path = ourograph
 	url = https://github.com/ln-one/Ourograph.git
 	branch = main
+[submodule "stratumind"]
+	path = stratumind
+	url = git@github.com:ln-one/Stratumind.git
+	branch = main

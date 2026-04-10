@@ -69,6 +69,13 @@ SERVICE_SOURCES: tuple[ServiceSource, ...] = (
         override_file="docker-compose.ourograph.dev.yml",
         env_var="OUROGRAPH_IMAGE",
     ),
+    ServiceSource(
+        name="stratumind",
+        display_name="Stratumind",
+        path="stratumind",
+        override_file="docker-compose.stratumind.dev.yml",
+        env_var="STRATUMIND_IMAGE",
+    ),
 )
 
 
@@ -99,7 +106,7 @@ def local_source_present(source: ServiceSource) -> bool:
         return False
     if submodule_initialized(source.name, source.path):
         return True
-    if source.name == "ourograph":
+    if source.name in {"ourograph", "stratumind"}:
         return (root / "Dockerfile").exists() and (root / "README.md").exists()
     return False
 

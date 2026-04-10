@@ -127,10 +127,10 @@ services:
 - 位置: `backend/uploads/`
 - 支持热重载
 
-**向量数据库**：
-- 本地直跑默认位置: `backend/chroma_data/`
-- Docker 运行推荐位置: `/var/lib/spectra/chroma`
-- ChromaDB 本地持久化
+**检索服务**：
+- 本地直跑: `Stratumind` 监听 `http://127.0.0.1:8110`
+- 向量存储: `Qdrant` 监听 `http://127.0.0.1:6333`
+- Docker 运行推荐通过 Compose 同时启动 `stratumind + qdrant`
 
 ## 热重载
 

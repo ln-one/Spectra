@@ -1,0 +1,54 @@
+{
+  "name": "stratumind_rerank_real_20260410",
+  "description": "Real Chinese retrieval queries sampled from the Spectra prompt engineering document set on 2026-04-10.",
+  "cases": [
+    {
+      "id": "core_adv",
+      "query": "提示词工程的核心优势是什么",
+      "expected_keywords": ["核心优势", "结构化合同", "系统级语义控制层", "规划导向", "可验证优化"],
+      "relevant_chunk_ids": ["004c1693-16b0-45e8-a65f-82227071b2ac"]
+    },
+    {
+      "id": "plan_first",
+      "query": "为什么要先规划再生成",
+      "expected_keywords": ["先规划", "后生成", "Outline", "页面目标", "结构推进"],
+      "relevant_chunk_ids": ["53ea8939-6ba4-434d-828a-ec35d8fd9555"]
+    },
+    {
+      "id": "shared_context",
+      "query": "共享 RAG / History / Session 上下文层有什么作用",
+      "expected_keywords": ["共享上下文层", "RAG", "历史消息", "会话状态", "语义漂移"],
+      "relevant_chunk_ids": ["c347d609-075b-48d9-bd3e-39233e4dc779", "bf0223e7-7479-460e-8efc-9a94eea9adfd"]
+    },
+    {
+      "id": "validation_result",
+      "query": "本轮提示词工程优化的验证方式与结果是什么",
+      "expected_keywords": ["验证方式与结果", "回归测试", "89 项", "静态检查"],
+      "relevant_chunk_ids": ["64bd653c-8115-4617-b61f-65a998e9be86"]
+    },
+    {
+      "id": "intent_fix",
+      "query": "意图分类这轮优化主要解决了什么问题",
+      "expected_keywords": ["意图分类", "边界模糊", "互斥关系", "修改意图解析"],
+      "relevant_chunk_ids": ["5a52bf81-c09d-4d3d-aea1-bdc072f03396"]
+    },
+    {
+      "id": "courseware_prompt",
+      "query": "课件生成与修改 Prompt 的主要问题是什么",
+      "expected_keywords": ["课件生成", "修改 Prompt", "任务", "规划规则", "输出格式", "显式 contract"],
+      "relevant_chunk_ids": ["01000d11-ccd7-424f-80bb-592d7aed56bd"]
+    },
+    {
+      "id": "validate_chain",
+      "query": "为什么提示词变更必须进入验证链路",
+      "expected_keywords": ["提示词变更", "验证链路", "工程验证", "回归测试", "静态检查"],
+      "relevant_chunk_ids": ["904a07d0-0b6e-4357-964f-546a584ddb3e", "64bd653c-8115-4617-b61f-65a998e9be86"]
+    },
+    {
+      "id": "semantic_control",
+      "query": "系统级语义控制层是什么意思",
+      "expected_keywords": ["系统级语义控制层", "结构化合同", "语义一致性", "多模块协作"],
+      "relevant_chunk_ids": ["4c935c84-df3a-439f-99f4-78a2802b56ef", "9778b5a9-6106-4278-b62e-9024b64e364d"]
+    }
+  ]
+}

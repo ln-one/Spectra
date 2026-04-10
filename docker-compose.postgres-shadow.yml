@@ -21,8 +21,9 @@ services:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: "8000"
+      STRATUMIND_BASE_URL: http://stratumind:8110
+      STRATUMIND_TIMEOUT_SECONDS: "15"
+      QDRANT_URL: http://qdrant:6333
       POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
       POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
       POSTGRES_BACKUP_RETENTION_DAYS: "14"
@@ -30,8 +31,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
       postgres:
         condition: service_healthy
 
@@ -41,8 +44,9 @@ services:
       DATABASE_URL: postgresql://spectra:spectra@postgres:5432/spectra_shadow
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: "8000"
+      STRATUMIND_BASE_URL: http://stratumind:8110
+      STRATUMIND_TIMEOUT_SECONDS: "15"
+      QDRANT_URL: http://qdrant:6333
       POSTGRES_BACKUP_DIR: /var/lib/spectra/backups
       POSTGRES_RESTORE_STAGING_DIR: /var/lib/spectra/restore-staging
       POSTGRES_BACKUP_RETENTION_DAYS: "14"
@@ -50,8 +54,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
       postgres:
         condition: service_healthy
 

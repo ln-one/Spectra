@@ -14,6 +14,7 @@ services:
     assert any("missing `frontend` service" in message for message in messages)
     assert any("missing `worker` service" in message for message in messages)
     assert any("stateful service `redis` missing" in message for message in messages)
+    assert any("missing `stratumind` service" in message for message in messages)
 
 
 def test_compose_topology_rejects_duplicate_environment_keys():
@@ -30,21 +31,24 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   worker:
     command: python worker.py
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   redis:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-  chromadb:
+  stratumind:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8110/health/ready"]
+  qdrant:
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:6333/healthz"]
 """
 
     messages, failures = evaluate_compose_topology(base_compose, None)
@@ -76,8 +80,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   worker:
     command: python worker.py
     volumes:
@@ -91,18 +95,23 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   redis:
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-  chromadb:
+  stratumind:
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:8110:8110"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8110/health/ready"]
+  qdrant:
+    ports:
+      - "127.0.0.1:6333:6333"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:6333/healthz"]
 """
     shadow_compose = """
 services:
@@ -133,6 +142,8 @@ services:
     )
     assert any("worker stays internal-only" in message for message in messages)
     assert any("shadow override declares postgres" in message for message in messages)
+    assert any("base compose declares `stratumind` service" in message for message in messages)
+    assert any("base compose declares `qdrant` service" in message for message in messages)
     assert any(
         "shadow `backend` DATABASE_URL points at postgres service" in message
         for message in messages

@@ -102,12 +102,13 @@ echo $JWT_SECRET_KEY
 - Nginx 增加 `proxy_read_timeout 300s;`
 - Uvicorn 启动参数增加 `--timeout-keep-alive 300`
 
-### 8. ChromaDB Dimension Mismatch
+### 8. Stratumind / Qdrant Dimension Mismatch
 
 **问题**: 检索时报错 `Vector dimension mismatch`。
-**原因**: 更改了 Embedding 模型（如从本地换成 DashScope）但未清理旧数据。
+**原因**: 更改了 Embedding 模型或维度，但未重建 `Stratumind` 写入到 `Qdrant` 的旧索引。
 **解决方案**: 
-- 删除 `backend/chroma_data` 目录并重启服务，触发数据重读与索引。
+- 清空对应 `Qdrant` collection 或删除项目索引后重新入库。
+- 确认 `STRATUMIND_EMBEDDING_DIMENSION` 与实际 provider 返回维度一致。
 
 
 ## 性能问题

@@ -23,7 +23,7 @@ flowchart TB
 
  subgraph Store["Storage"]
  DB[("PostgreSQL")]
- VDB[("ChromaDB")]
+ VDB["Stratumind + Qdrant"]
  FS["Uploaded and Generated Files"]
  end
 
@@ -57,7 +57,7 @@ flowchart TB
 - **语言**: Python 3.11
 - **ORM**: Prisma
 - **数据库**: PostgreSQL
-- **向量数据库**: ChromaDB
+- **检索层**: Stratumind + Qdrant
 
 ### 外部服务
 - **LLM（已实现）**: DashScope (Qwen 3.5, via LiteLLM)

@@ -2,7 +2,7 @@
 
 ## 更新日期
 
-- 2026-03-19
+- 2026-04-10
 
 ## 目标
 
@@ -57,7 +57,8 @@
 - `worker`
 - `redis`
 - `postgres`
-- `chromadb`
+- `stratumind`
+- `qdrant`
 
 原则：
 
@@ -68,32 +69,34 @@
 
 ## 二、推荐机器分工
 
-### 方案 A：5 台机器
+### 方案 A：6 台机器
 
 1. `frontend + reverse proxy`
 2. `backend api`
 3. `worker`
 4. `redis + postgres`
-5. `chromadb`
+5. `stratumind`
+6. `qdrant`
 
 适用：
 - 指导老师演示
 - 小规模线上试运行
 
-### 方案 B：6 台机器
+### 方案 B：7 台机器
 
 1. `frontend + reverse proxy`
 2. `backend api`
 3. `worker-1`
 4. `worker-2`
 5. `redis + postgres`
-6. `chromadb`
+6. `stratumind`
+7. `qdrant`
 
 适用：
 - 希望生成任务更稳
 - 降低单 worker 卡死对整体体验的影响
 
-### 方案 C：前端外部托管 + 5 台后端机器
+### 方案 C：前端外部托管 + 6 台后端机器
 
 如果前端交给专业平台托管，可释放一台机器给后端：
 
@@ -101,7 +104,8 @@
 2. `worker-1`
 3. `worker-2`
 4. `redis + postgres`
-5. `chromadb`
+5. `stratumind`
+6. `qdrant`
 
 适用：
 - 前端部署希望更省心
@@ -129,6 +133,7 @@
 - 项目与会话 API
 - 文件与 project-space API
 - 对 worker / queue / db / rag 的编排入口
+- 作为 `Stratumind` 的 consumer，而不是内嵌 retrieval host
 
 原则：
 - 不跑重型生成任务
@@ -168,14 +173,26 @@
 - distributed deploy audit 现在也会一起检查 backup / restore readiness
 - 统一共享 backup / restore staging 路径（建议 `/var/lib/spectra/backups` 与 `/var/lib/spectra/restore-staging`）
 
-### ChromaDB
+### Stratumind
 
 职责：
-- 向量检索
-- source retrieval
+- 文本分块索引
+- 文本检索
+- source detail / citation payload
 
 原则：
-- 与 API 分机
+- 是文本 RAG 的唯一正式 retrieval service
+- 不承载 `Project / Session / Artifact / Reference` 真相
+- 只通过 HTTP 被 backend 调用
+
+### Qdrant
+
+职责：
+- `Stratumind` 的向量存储底盘
+
+原则：
+- 与 `Stratumind` 同属检索层
+- 不直接暴露给 backend 业务语义
 - 数据量增长时重点关注内存与 IO
 
 ---
@@ -184,7 +201,7 @@
 
 1. 所有服务尽量放在同一 VPC / 私网
 2. 只给入口机配置公网访问
-3. `redis/postgres/chromadb` 只开放内网端口
+3. `redis/postgres/stratumind/qdrant` 只开放内网端口
 4. worker 也尽量不暴露公网
 5. 域名和 HTTPS 只在入口层处理
 
@@ -195,7 +212,8 @@
   - `8000` backend
   - `6379` redis
   - `5432` postgres
-  - `8001/8000` chroma（按实际）
+  - `8110` stratumind
+  - `6333` qdrant
 
 ---
 
@@ -238,13 +256,13 @@
 
 推荐命令：
 
-- `docker compose -f docker-compose.yml -f docker-compose.postgres-shadow.yml up -d postgres backend worker redis chromadb`
+- `docker compose -f docker-compose.yml -f docker-compose.postgres-shadow.yml up -d postgres backend worker redis qdrant stratumind`
 - `python backend/scripts/postgres_shadow_stack_audit.py`
 
 目标：
 
 - 在 Docker 拓扑下提前暴露 PostgreSQL 相关问题
-- 让 API / worker / Redis / Chroma 的关系先在影子栈中跑通
+- 让 API / worker / Redis / Stratumind / Qdrant 的关系先在影子栈中跑通
 - 为真正切库前的 smoke 与回归准备环境
 
 ## 八、当前最大的部署障碍
@@ -254,8 +272,9 @@
 1. PostgreSQL 尚未真正切换
 2. 部分兼容层还没完全瘦身
 3. 外部模型调用虽然已有 timeout，但还需要更多线上观测信息
-4. worker / queue / db 的运维 runbook 还没写
-5. 环境变量、域名、内网地址还没有形成正式部署说明
+4. `Stratumind` 与 `Qdrant` 的联机 smoke 还需要固定脚本
+5. worker / queue / db 的运维 runbook 还没写
+6. 环境变量、域名、内网地址还没有形成正式部署说明
 
 ---
 

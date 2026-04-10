@@ -24,12 +24,12 @@ _SHARED_RUNTIME_ENV_KEYS = (
     "DATABASE_URL",
     "REDIS_HOST",
     "REDIS_PORT",
-    "CHROMA_HOST",
-    "CHROMA_PORT",
+    "STRATUMIND_BASE_URL",
+    "STRATUMIND_TIMEOUT_SECONDS",
+    "QDRANT_URL",
     "UPLOAD_DIR",
     "ARTIFACT_STORAGE_DIR",
     "GENERATED_DIR",
-    "CHROMA_PERSIST_DIR",
     "AI_REQUEST_TIMEOUT_SECONDS",
     "OUTLINE_DRAFT_TIMEOUT_SECONDS",
     "PREVIEW_REBUILD_TIMEOUT_SECONDS",
@@ -247,10 +247,32 @@ def evaluate_docker_readiness(
     messages.extend(db_messages)
     failures += db_failures
 
-    for key in ("REDIS_HOST", "CHROMA_HOST"):
+    for key in ("REDIS_HOST",):
         host_messages, host_failures = _classify_host(
             label=key,
             host=env.get(key),
+            required_for_distributed=False,
+        )
+        messages.extend(host_messages)
+        failures += host_failures
+
+    stratumind_url = env.get("STRATUMIND_BASE_URL")
+    if stratumind_url:
+        parsed = urlparse(stratumind_url)
+        host_messages, host_failures = _classify_host(
+            label="STRATUMIND_BASE_URL host",
+            host=parsed.hostname,
+            required_for_distributed=False,
+        )
+        messages.extend(host_messages)
+        failures += host_failures
+
+    qdrant_url = env.get("QDRANT_URL")
+    if qdrant_url:
+        parsed = urlparse(qdrant_url)
+        host_messages, host_failures = _classify_host(
+            label="QDRANT_URL host",
+            host=parsed.hostname,
             required_for_distributed=False,
         )
         messages.extend(host_messages)
@@ -271,7 +293,7 @@ def evaluate_docker_readiness(
             _format("PASS", "NEXT_PUBLIC_API_URL is set for non-local deployment")
         )
 
-    for key in ("CHROMA_PERSIST_DIR", "CHROME_PATH"):
+    for key in ("CHROME_PATH",):
         path_messages, path_failures = _classify_path_env(key, env.get(key))
         messages.extend(path_messages)
         failures += path_failures

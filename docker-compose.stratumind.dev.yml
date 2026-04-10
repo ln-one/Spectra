@@ -1,0 +1,8 @@
+services:
+  stratumind:
+    image: spectra-stratumind:dev
+    build:
+      context: ./stratumind
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./stratumind:/app

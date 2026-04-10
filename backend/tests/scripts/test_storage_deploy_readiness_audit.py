@@ -24,7 +24,6 @@ def test_storage_readiness_accepts_explicit_shared_paths():
             "UPLOAD_DIR": "/var/lib/spectra/uploads",
             "ARTIFACT_STORAGE_DIR": "/var/lib/spectra/artifacts",
             "GENERATED_DIR": "/var/lib/spectra/generated",
-            "CHROMA_PERSIST_DIR": "/var/lib/chroma",
         }
     )
 
@@ -32,4 +31,3 @@ def test_storage_readiness_accepts_explicit_shared_paths():
     assert any("PASS UPLOAD_DIR points to" in message for message in messages)
     assert any("PASS ARTIFACT_STORAGE_DIR points to" in message for message in messages)
     assert any("PASS GENERATED_DIR points to" in message for message in messages)
-    assert any("PASS CHROMA_PERSIST_DIR points to" in message for message in messages)

@@ -32,6 +32,14 @@ cd backend
   --api-base-url http://127.0.0.1:8000/api/v1 \
   --api-email eval_runner@example.com \
   --api-password "StrongPass!2026"
+
+# 对比 baseline Stratumind vs rerank Stratumind，并可选记录 Dualweave 直连 rerank 延迟
+.venv-wsl/bin/python eval/stratumind_rerank_eval.py \
+  --project-id <project_id> \
+  --baseline-stratumind-base-url http://127.0.0.1:8111 \
+  --rerank-stratumind-base-url http://127.0.0.1:8110 \
+  --dualweave-base-url http://127.0.0.1:8080 \
+  --output eval/results/stratumind_rerank_eval.json
 ```
 
 Windows 环境可将解释器替换为 `venv/Scripts/python.exe`。
@@ -96,6 +104,13 @@ cd backend
 | `mrr@k` | Mean Reciprocal Rank（需标注 relevant_chunk_ids） |
 | `avg_latency_ms` | 平均检索延迟（毫秒） |
 | `failure_rate` | 检索失败（异常/空结果）比例 |
+
+`stratumind_rerank_eval.py` 还会额外输出：
+- `p50/p95/p99 latency`
+- `rerank_coverage_rate`
+- `top1_change_rate`
+- `baseline vs rerank` 的质量/延迟 delta
+- `Dualweave` 直连 rerank 的平均与 p95 延迟（可选）
 
 ## 扩展数据集
 

@@ -43,15 +43,14 @@ OPENAI_API_KEY="sk-your-openai-api-key"
 # local (default) | mineru | llamaparse
 DOCUMENT_PARSER="local"
 # =============================================================================
-# Vector Database Configuration
+# Retrieval Configuration
 # =============================================================================
-CHROMA_MODE="persistent"
-CHROMA_HOST="localhost"
-CHROMA_PORT="8001"
-CHROMA_PERSIST_DIR="chroma_data"
+STRATUMIND_BASE_URL="http://localhost:8110"
+STRATUMIND_TIMEOUT_SECONDS=15
+QDRANT_URL="http://localhost:6333"
 
 EMBEDDING_MODEL="text-embedding-v4"
-EMBEDDING_DIMENSION=1536
+EMBEDDING_DIMENSION=1024
 CHAT_RAG_TIMEOUT_SECONDS=5
 
 # =============================================================================
@@ -121,12 +120,11 @@ ALLOW_MEDIA_PLACEHOLDER_ARTIFACTS=false
 DOCUMENT_PARSER="local"
 
 # =============================================================================
-# Vector Database Configuration
+# Retrieval Configuration
 # =============================================================================
-CHROMA_MODE="persistent"
-CHROMA_HOST="chromadb"
-CHROMA_PORT="8000"
-CHROMA_PERSIST_DIR="/var/lib/spectra/chroma"
+STRATUMIND_BASE_URL="http://stratumind:8110"
+STRATUMIND_TIMEOUT_SECONDS=15
+QDRANT_URL="http://qdrant:6333"
 
 # =============================================================================
 # File Storage Configuration

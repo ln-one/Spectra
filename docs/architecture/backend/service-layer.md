@@ -15,9 +15,8 @@
 | `DatabaseService` | `database.py` | Prisma 数据读写 | 已实现 |
 | `AuthService` | `auth_service.py` | 注册、登录、Token 相关 | 已实现 |
 | `AIService` | `ai.py` | LLM 调用与意图分类 | 已实现 |
-| `EmbeddingService` | `embedding_service.py` | 向量化（DashScope + 本地回退） | 已实现 |
-| `VectorService` | `vector_service.py` | ChromaDB collection 管理 | 已实现 |
-| `RAGService` | `rag_service.py` | 召回、检索结果组装 | 已实现 |
+| `EmbeddingService` | `embedding_service.py` | 向量化 provider 适配 | 已实现 |
+| `RAGService` | `rag_service.py` | `Stratumind` consumer façade、reference merge、source detail | 已实现 |
 | `File Parser` | `file_parser.py` | PDF/Word/PPT 轻量解析 | 已实现 |
 | `Generation` | `generation/*` | Marp/Pandoc 导出 | 已实现 |
 

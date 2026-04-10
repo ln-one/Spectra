@@ -235,29 +235,30 @@
 
 ---
 
-## 五、Vector / Retrieval / Chroma
+## 五、Retrieval / Stratumind / Qdrant
 
-### `CHROMA_HOST`
-### `CHROMA_PORT`
-
-用途：
-
-- 远程 Chroma 连接
-
-要求：
-
-- 如果使用独立 Chroma 服务，则 `backend api` 与 `worker` 都应配置
-
-### `CHROMA_PERSIST_DIR`
+### `STRATUMIND_BASE_URL`
+### `STRATUMIND_TIMEOUT_SECONDS`
 
 用途：
 
-- 本地持久化目录
+- backend / worker 调用 `Stratumind` 文本检索服务
 
 要求：
 
-- 单机或本地开发使用
-- 多机远程 Chroma 部署时可不依赖
+- `backend api` 与 `worker` 都应配置
+- 必须指向独立 `Stratumind` 服务
+
+### `QDRANT_URL`
+
+用途：
+
+- `Stratumind` 使用的向量存储底盘地址
+
+要求：
+
+- 部署 `Stratumind` 的环境必须配置
+- backend 不直接依赖它的业务语义
 
 ## 六、文件与产物存储
 
@@ -494,8 +495,9 @@
 - `GENERATION_TOOLS_REQUIRED`
 - `REDIS_HOST`
 - `REDIS_PORT`
-- `CHROMA_HOST`
-- `CHROMA_PORT`
+- `STRATUMIND_BASE_URL`
+- `STRATUMIND_TIMEOUT_SECONDS`
+- `QDRANT_URL`
 
 ### Worker
 
@@ -510,12 +512,13 @@
 - `TOOL_CHECK_CACHE_TTL_SECONDS`
 - `REDIS_HOST`
 - `REDIS_PORT`
-- `CHROMA_HOST`
-- `CHROMA_PORT`
+- `STRATUMIND_BASE_URL`
+- `STRATUMIND_TIMEOUT_SECONDS`
+- `QDRANT_URL`
 - `WORKER_NAME`
 - `WORKER_RECOVERY_SCAN`
 
-### Chroma / Redis / Postgres
+### Stratumind / Qdrant / Redis / Postgres
 
 这些服务应优先使用：
 

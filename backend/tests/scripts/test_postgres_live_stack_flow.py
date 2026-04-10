@@ -9,17 +9,25 @@ from scripts.postgres_live_stack_flow import (
 def test_build_live_stack_compose_command_defaults_to_full_stack() -> None:
     command = build_live_stack_compose_command(action="up")
     assert command[:4] == ["docker", "compose", "-f", str(command[3])]
-    assert command[-5:] == ["postgres", "redis", "chromadb", "backend", "worker"]
+    assert command[-6:] == [
+        "postgres",
+        "redis",
+        "qdrant",
+        "stratumind",
+        "backend",
+        "worker",
+    ]
 
 
 def test_build_live_stack_compose_command_supports_down() -> None:
     command = build_live_stack_compose_command(action="down")
-    assert command[-7:] == [
+    assert command[-8:] == [
         "rm",
         "-sf",
         "postgres",
         "redis",
-        "chromadb",
+        "qdrant",
+        "stratumind",
         "backend",
         "worker",
     ]

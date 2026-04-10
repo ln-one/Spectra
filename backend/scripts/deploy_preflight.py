@@ -61,8 +61,9 @@ ENV_CHECKS: tuple[EnvCheck, ...] = (
     EnvCheck("DASHSCOPE_API_KEY", False, "provider key for video/LLM/embedding"),
     EnvCheck("REDIS_HOST", False, "queue/cache host"),
     EnvCheck("REDIS_PORT", False, "queue/cache port"),
-    EnvCheck("CHROMA_HOST", False, "remote Chroma host"),
-    EnvCheck("CHROMA_PORT", False, "remote Chroma port"),
+    EnvCheck("STRATUMIND_BASE_URL", False, "Stratumind retrieval service URL"),
+    EnvCheck("STRATUMIND_TIMEOUT_SECONDS", False, "Stratumind request timeout seconds"),
+    EnvCheck("QDRANT_URL", False, "Qdrant base URL"),
     EnvCheck("UPLOAD_DIR", False, "upload file root path"),
     EnvCheck("ARTIFACT_STORAGE_DIR", False, "artifact storage root path"),
     EnvCheck("GENERATED_DIR", False, "generated files root path"),
@@ -433,13 +434,23 @@ def evaluate_preflight(
         if not ok:
             failures += 1
 
-    chroma_host = env.get("CHROMA_HOST")
-    chroma_port = env.get("CHROMA_PORT")
-    if chroma_host and chroma_port:
-        ok, message = tcp_check(chroma_host, int(chroma_port), timeout_seconds)
-        messages.append(message)
-        if not ok:
-            failures += 1
+    stratumind_url = env.get("STRATUMIND_BASE_URL")
+    if stratumind_url:
+        parsed = urlparse(stratumind_url)
+        if parsed.hostname and parsed.port:
+            ok, message = tcp_check(parsed.hostname, int(parsed.port), timeout_seconds)
+            messages.append(message)
+            if not ok:
+                failures += 1
+
+    qdrant_url = env.get("QDRANT_URL")
+    if qdrant_url:
+        parsed = urlparse(qdrant_url)
+        if parsed.hostname and parsed.port:
+            ok, message = tcp_check(parsed.hostname, int(parsed.port), timeout_seconds)
+            messages.append(message)
+            if not ok:
+                failures += 1
 
     return messages, failures
 

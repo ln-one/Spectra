@@ -87,8 +87,9 @@ def test_cutover_audit_passes_with_shadow_stack_and_postgres_env(monkeypatch):
             "AI_REQUEST_TIMEOUT_SECONDS": "45",
             "REDIS_HOST": "redis.internal",
             "REDIS_PORT": "6379",
-            "CHROMA_HOST": "chroma.internal",
-            "CHROMA_PORT": "8000",
+            "STRATUMIND_BASE_URL": "http://stratumind.internal:8110",
+            "STRATUMIND_TIMEOUT_SECONDS": "15",
+            "QDRANT_URL": "http://qdrant.internal:6333",
             "WORKER_NAME": "worker-a",
             "WORKER_RECOVERY_SCAN": "true",
             "NEXT_PUBLIC_API_URL": "https://api.ln1.fun",
@@ -120,8 +121,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   worker:
     command: python worker.py
     volumes:
@@ -133,18 +134,23 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   redis:
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-  chromadb:
+  stratumind:
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:8110:8110"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8110/health/ready"]
+  qdrant:
+    ports:
+      - "127.0.0.1:6333:6333"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:6333/healthz"]
 """,
         shadow_compose_text=SHADOW_COMPOSE,
         migration_lock_provider="postgresql",
@@ -245,8 +251,9 @@ def test_cutover_audit_can_allow_local_postgres_host_for_shadow_rehearsal(
             "SMALL_MODEL": "qwen-turbo",
             "REDIS_HOST": "redis.internal",
             "REDIS_PORT": "6379",
-            "CHROMA_HOST": "chroma.internal",
-            "CHROMA_PORT": "8000",
+            "STRATUMIND_BASE_URL": "http://stratumind.internal:8110",
+            "STRATUMIND_TIMEOUT_SECONDS": "15",
+            "QDRANT_URL": "http://qdrant.internal:6333",
             "WORKER_NAME": "worker-a",
             "WORKER_RECOVERY_SCAN": "true",
             "NEXT_PUBLIC_API_URL": "https://api.ln1.fun",
@@ -278,8 +285,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   worker:
     command: python worker.py
     volumes:
@@ -291,18 +298,23 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_started
+      stratumind:
+        condition: service_healthy
   redis:
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-  chromadb:
+  stratumind:
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:8110:8110"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8110/health/ready"]
+  qdrant:
+    ports:
+      - "127.0.0.1:6333:6333"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:6333/healthz"]
 """,
         shadow_compose_text=SHADOW_COMPOSE,
         migration_lock_provider="postgresql",

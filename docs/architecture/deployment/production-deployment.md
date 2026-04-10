@@ -6,7 +6,7 @@
 Internet → Load Balancer → Frontend Pods
  → Backend Pods → PostgreSQL
  → Redis
- → ChromaDB
+ → Stratumind → Qdrant
  → OSS/S3
 ```
 

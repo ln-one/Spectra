@@ -19,8 +19,6 @@ _SERVICE_EXPORTS = {
     "prompt_service": (".prompt_service", "prompt_service"),
     "RAGService": (".rag_service", "RAGService"),
     "rag_service": (".rag_service", "rag_service"),
-    "VectorService": (".media.vector", "VectorService"),
-    "vector_service": (".media.vector", "vector_service"),
     "rag_indexing": (".media", "rag_indexing"),
     "rag_indexing_service": (".media", "rag_indexing"),
 }
@@ -32,8 +30,6 @@ __all__ = [
     "AIService",
     "file_service",
     "FileService",
-    "vector_service",
-    "VectorService",
     "embedding_service",
     "EmbeddingService",
     "rag_service",

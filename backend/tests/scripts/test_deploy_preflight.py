@@ -106,8 +106,8 @@ def test_preflight_checks_network_targets_when_configured():
             "JWT_SECRET_KEY": "real-secret",
             "REDIS_HOST": "redis.internal",
             "REDIS_PORT": "6379",
-            "CHROMA_HOST": "chroma.internal",
-            "CHROMA_PORT": "8000",
+            "STRATUMIND_BASE_URL": "http://stratumind.internal:8110",
+            "QDRANT_URL": "http://qdrant.internal:6333",
         },
         skip_network=False,
         timeout_seconds=0.5,
@@ -118,7 +118,8 @@ def test_preflight_checks_network_targets_when_configured():
     assert calls == [
         ("postgres.internal", 5432, 0.5),
         ("redis.internal", 6379, 0.5),
-        ("chroma.internal", 8000, 0.5),
+        ("stratumind.internal", 8110, 0.5),
+        ("qdrant.internal", 6333, 0.5),
     ]
     assert any(
         "PASS tcp postgres.internal:5432 reachable" in message for message in messages

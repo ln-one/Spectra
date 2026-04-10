@@ -26,6 +26,14 @@
       "source_branch": "main",
       "published": false,
       "notes": "The shared stable image is not published yet; run the Ourograph publish workflow or use local source."
+    },
+    "stratumind": {
+      "image": "ghcr.io/ln-one/stratumind",
+      "tag": "latest",
+      "digest": null,
+      "source_branch": "main",
+      "published": false,
+      "notes": "The shared stable image is not published yet; use local source until the first publish workflow lands."
     }
   }
 }

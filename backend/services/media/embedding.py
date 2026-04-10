@@ -38,7 +38,7 @@ def _resolve_embedding_model() -> str:
 
 
 def _resolve_embedding_dimension() -> int:
-    return int(os.getenv("EMBEDDING_DIMENSION", "1536"))
+    return int(os.getenv("EMBEDDING_DIMENSION", "1024"))
 
 
 def _resolve_dashscope_api_key() -> str:
