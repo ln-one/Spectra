@@ -190,7 +190,6 @@ def apply_animation_placement_update(
             (
                 str(item.get("ppt_artifact_id") or "").strip(),
                 _normalize_page_number(item.get("page_number")),
-                _normalize_slot(item.get("slot")),
             ): dict(item)
             for item in placements
         }
@@ -199,10 +198,14 @@ def apply_animation_placement_update(
                 (
                     str(item.get("ppt_artifact_id") or "").strip(),
                     _normalize_page_number(item.get("page_number")),
-                    _normalize_slot(item.get("slot")),
                 )
             ] = dict(item)
         next_metadata["placements"] = list(dedupe.values())
+        snapshot = next_metadata.get("content_snapshot")
+        if isinstance(snapshot, dict):
+            snapshot_copy = copy.deepcopy(snapshot)
+            snapshot_copy["placements"] = list(dedupe.values())
+            next_metadata["content_snapshot"] = snapshot_copy
     return next_metadata
 
 
@@ -223,7 +226,6 @@ def apply_ppt_animation_binding_update(
         (
             str(item.get("animation_artifact_id") or "").strip(),
             _normalize_page_number(item.get("page_number")),
-            _normalize_slot(item.get("slot")),
         ): dict(item)
         for item in bindings
     }
@@ -239,7 +241,6 @@ def apply_ppt_animation_binding_update(
             (
                 binding_item["animation_artifact_id"],
                 binding_item["page_number"],
-                binding_item["slot"],
             )
         ] = binding_item
     next_metadata["embedded_animations"] = list(dedupe.values())

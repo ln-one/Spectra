@@ -2974,6 +2974,7 @@ async def test_confirm_animation_placement_records_confirmed_relations(app, _as_
         updatedAt=datetime.now(timezone.utc),
     )
     update_metadata = AsyncMock()
+    apply_binding = Mock()
 
     with (
         patch(
@@ -2999,6 +3000,10 @@ async def test_confirm_animation_placement_records_confirmed_relations(app, _as_
             "services.project_space_service.project_space_service.db.update_artifact_metadata",
             update_metadata,
         ),
+        patch(
+            "routers.generate_sessions.studio_cards.apply_animation_placement_to_ppt_artifact",
+            apply_binding,
+        ),
     ):
         response = client.post(
             "/api/v1/generate/studio-cards/demonstration_animations/confirm-placement",
@@ -3023,6 +3028,7 @@ async def test_confirm_animation_placement_records_confirmed_relations(app, _as_
     assert ppt_metadata["embedded_animations"][0]["animation_artifact_id"] == (
         "a-animation-gif-001"
     )
+    apply_binding.assert_called_once()
 
 
 @slow_studio_card

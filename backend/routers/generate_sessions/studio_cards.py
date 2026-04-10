@@ -38,6 +38,9 @@ from services.generation_session_service.card_source_bindings import (
     get_card_source_permission,
     serialize_card_source_artifact,
 )
+from services.generation_session_service.ppt_animation_binding import (
+    apply_animation_placement_to_ppt_artifact,
+)
 from services.project_space_service import project_space_service
 from utils.dependencies import get_current_user
 from utils.exceptions import APIException, ErrorCode, NotFoundException
@@ -380,6 +383,11 @@ async def confirm_animation_placement(
         ppt_artifact_id=body.ppt_artifact_id,
         page_numbers=body.page_numbers,
         slot=body.slot,
+    )
+    apply_animation_placement_to_ppt_artifact(
+        animation_artifact=animation_artifact,
+        ppt_artifact=ppt_artifact,
+        placement_records=placement_records,
     )
     metadata = apply_animation_placement_update(
         metadata=artifact_metadata_dict(animation_artifact),
